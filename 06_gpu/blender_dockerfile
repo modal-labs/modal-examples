@@ -1,0 +1,62 @@
+FROM debian:bullseye-slim as builder
+
+WORKDIR /opt/blender
+
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    echo 'deb http://deb.debian.org/debian testing main contrib non-free' > /etc/apt/sources.list.d/testing.list && \
+    apt update && \
+    apt install -yq --no-install-recommends libcrypt1  && \
+    apt install -yq --no-install-recommends \
+    build-essential \
+    apt-transport-https \
+    ca-certificates \
+    git \
+    subversion \
+    cmake \
+    python3 \
+    libx11-dev \
+    libxxf86vm-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libglew-dev
+
+RUN update-ca-certificates && \
+    git clone https://git.blender.org/blender.git blender
+
+RUN mkdir lib && \
+    cd lib && \
+    svn checkout https://svn.blender.org/svnroot/bf-blender/trunk/lib/linux_centos7_x86_64
+
+RUN cd blender && \
+    git checkout tags/v2.93.6 && \
+    python3 ./build_files/utils/make_update.py  --no-submodules
+
+RUN cd blender && \
+    git submodule update --remote && \
+    git submodule update --init --recursive && \
+    git submodule foreach git checkout master && \
+    git submodule foreach git pull --rebase origin master
+
+RUN cd blender && \
+    make -j14 bpy
+
+RUN uname -m && cat /etc/*release && \
+    echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
+    apt-get install -yq software-properties-common gnupg2 && \
+    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/debian10/x86_64/ /" && \
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/debian10/x86_64/7fa2af80.pub && \
+    add-apt-repository contrib && \
+    apt-get update && \
+    apt install -yq --no-install-recommends cuda
+
+RUN cd build_linux_bpy && \
+    cmake ../blender \
+    -DWITH_CYCLES_CUDA_BINARIES=ON \
+    -DWITH_INSTALL_PORTABLE=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local/lib/python3.9/dist-packages && \
+    make install
+
+FROM debian:bullseye-slim as base
+COPY --from=builder /usr/local/lib/python3.9/dist-packages /usr/local/lib/python3.9/dist-packages

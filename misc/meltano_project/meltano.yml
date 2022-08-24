@@ -1,0 +1,17 @@
+version: 1
+plugins:
+  extractors:
+    - name: tap-github
+      config:
+        repository: modal-labs/synchronicity
+        start_date: 2021-01-01T00:00:00Z
+      select:
+        - commits.id
+        - commits.project_id
+        - commits.created_at
+        - commits.author_name
+        - commits.message
+  loaders:
+    - name: target-jsonl
+      variant: andyh1203
+      pip_url: target-jsonl
