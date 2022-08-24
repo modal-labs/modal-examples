@@ -1,0 +1,5 @@
+[flake8]
+ignore = E501,W503,E741,E266,E203,E402
+exclude =
+    .venv
+    __pycache__
