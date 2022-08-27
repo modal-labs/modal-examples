@@ -1,13 +1,16 @@
 import fastapi
-from starlette.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 import modal
 from modal.functions import FunctionCall
+from pathlib import Path
 
 stub = modal.Stub()
 
 web_app = fastapi.FastAPI()
 
+assets_path = Path(__file__).parent / "receipt_parser_spa"
 
 volume = modal.SharedVolume().persist("stable-diff-model-vol")
 CACHE_PATH = "/root/model_cache"
@@ -39,44 +42,43 @@ def parse_receipt(image: bytes):
     return output
 
 
-@web_app.get("/")
-async def index():
-    return HTMLResponse(
-        """
-    <form method="get" action="/factors">
-        Enter a number: <input name="number" />
-        <input type="submit" value="Factorize!"/>
-    </form>
-    """
-    )
+# @web_app.get("/factors")
+# async def web_submit(request: fastapi.Request, number: int):
+#     call = factor_number.submit(number)  # returns a FunctionCall without waiting for result
+#     polling_url = request.url.replace(path="/result", query=f"function_id={call.object_id}")
+#     return RedirectResponse(polling_url)
 
 
-@web_app.get("/factors")
-async def web_submit(request: fastapi.Request, number: int):
-    call = factor_number.submit(number)  # returns a FunctionCall without waiting for result
-    polling_url = request.url.replace(path="/result", query=f"function_id={call.object_id}")
-    return RedirectResponse(polling_url)
+# @web_app.get("/result")
+# async def web_poll(function_id: str):
+#     function_call = FunctionCall.from_id(function_id)
+#     try:
+#         result = function_call.get(timeout=0)
+#     except TimeoutError:
+#         result = "not ready"
+
+#     return result
 
 
-@web_app.get("/result")
-async def web_poll(function_id: str):
-    function_call = FunctionCall.from_id(function_id)
-    try:
-        result = function_call.get(timeout=0)
-    except TimeoutError:
-        result = "not ready"
+@stub.asgi(mounts=[modal.Mount("/assets", local_dir=assets_path)])
+def transformer():
+    app = fastapi.FastAPI()
 
-    return result
+    @app.post("/parse")
+    def parse(body: dict = fastapi.Body(...)):
+        # message = body["message"]
+        # chat_id = body.get("id")
+        # id, response = generate_response(message, chat_id)
+        # return JSONResponse({"id": id, "response": response})
+        return {}
 
-
-@stub.asgi
-def fastapi_app():
-    return web_app
+    app.mount("/", StaticFiles(directory="/assets", html=True))
+    return app
 
 
 if __name__ == "__main__":
-    # stub.run_forever()
-    with stub.run():
-        with open("./receipt.png", "rb") as f:
-            image = f.read()
-            parse_receipt(image)
+    stub.run_forever()
+    # with stub.run():
+    #     with open("./receipt.png", "rb") as f:
+    #         image = f.read()
+    #         parse_receipt(image)
