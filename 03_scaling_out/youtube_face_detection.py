@@ -1,5 +1,6 @@
 # ---
-# output-directory: "/tmp/"
+# integration-test: false
+# output-directory: "/tmp"
 # ---
 # # Face detection on Youtube videos
 #
