@@ -8,12 +8,12 @@ import asyncio
 
 import modal.aio
 
-aio_stub = modal.aio.AioStub()
+aio_stub = modal.aio.AioStub(q=modal.aio.AioQueue())
 
 
 async def run_async():
     async with aio_stub.run() as app:
-        q = await modal.aio.AioQueue().create(app)
+        q = app.q
         await q.put(42)
         r = await q.get()
         assert r == 42
@@ -27,7 +27,7 @@ async def run_async():
 
 async def many_consumers():
     async with aio_stub.run() as app:
-        q = await modal.aio.AioQueue().create(app)
+        q = app.q
         print("Creating getters")
         tasks = [asyncio.create_task(q.get()) for i in range(20)]
         print("Putting values")
