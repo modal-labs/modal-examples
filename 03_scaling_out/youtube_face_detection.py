@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/"
 # ---
-# # Running face detection on Youtube videos
+# # Face detection on Youtube videos
 #
 # This is an example that uses
 # [OpenCV](https://github.com/opencv/opencv-python)
@@ -11,15 +11,19 @@
 # [moviepy](https://zulko.github.io/moviepy/)
 # to work with video files.
 #
-# The face detection is a quite simple model built into Open CV
+# The face detection is a quite simple model built into OpenCV
 # and is not state of the art.
 #
-# # Result
+# # The result
 #
 # <center><video controls><source src="./youtube_face_detection.mp4" type="video/mp4"></video></center>
 #
+# If you watched this, we succeeded
+# [rickrolling](https://en.wikipedia.org/wiki/Rickrolling)
+# you! 🤣
 #
-# # Code
+#
+# # The Python code
 #
 # We start by setting up the container image we need.
 # This requires installing a few dependencies needed for OpenCV as well as downloading the face detection model
@@ -138,11 +142,13 @@ if __name__ == "__main__":
 
 # # Running the script
 #
-# Running this script should take approximately a minute or less
+# Running this script should take approximately a minute or less.
 # It might output a lot of warnings to standard error.
 # These are generally harmless.
 #
 # Note that we don't preserve the sound in the video.
+#
+# # Further directions
 #
 # As you can tell from the resulting video, this face detection model is not state of the art.
 # It has plenty of false positives (non-faces being labeled faces) and false negatives (real faces not being labeled).
