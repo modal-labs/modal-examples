@@ -14,6 +14,11 @@
 # The face detection is a quite simple model built into Open CV
 # and is not state of the art.
 #
+# # Result
+#
+# <center><video controls><source src="./youtube_face_detection.mp4" type="video/mp4"></video></center>
+#
+#
 # # Code
 #
 # We start by setting up the container image we need.
@@ -77,7 +82,7 @@ def detect_faces(fn, start, stop):
     return out_fn
 
 
-## Entrypoint function
+# ## Modal entrypoint function
 #
 # The "entrypoint" into Modal controls the main flow of the program:
 #
@@ -131,15 +136,11 @@ if __name__ == "__main__":
         with open(abs_fn, "wb") as f:
             f.write(movie_data)
 
-# # Results
+# # Running the script
 #
 # Running this script should take approximately a minute or less
 # It might output a lot of warnings to standard error.
 # These are generally harmless.
-#
-# If everything works well, it should create a video that looks like this:
-#
-# <video width="320" height="240" controls><source src="./youtube_face_detection.mp4" type="video/mp4"></video>
 #
 # Note that we don't preserve the sound in the video.
 #
