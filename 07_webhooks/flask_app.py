@@ -1,11 +1,10 @@
 import modal
 
-stub = modal.Stub("web-flask", image=modal.DebianSlim().pip_install(["flask", "asgiref"]))
+stub = modal.Stub("web-flask", image=modal.DebianSlim().pip_install(["flask"]))
 
 
-@stub.asgi
+@stub.wsgi
 def flask_app():
-    from asgiref.wsgi import WsgiToAsgi
     from flask import Flask, request
 
     web_app = Flask(__name__)
@@ -18,7 +17,7 @@ def flask_app():
     def foo():
         return request.json
 
-    return WsgiToAsgi(web_app)
+    return web_app
 
 
 if __name__ == "__main__":
