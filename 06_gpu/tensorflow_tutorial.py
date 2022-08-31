@@ -6,7 +6,9 @@
 # This is essentially a version of the
 # [image classification example in the Tensorflow documention](https://www.tensorflow.org/tutorials/images/classification)
 # running inside Modal on a GPU.
-# We also include an example of running the Tensorboard through a webhook
+# If you run this script, it will also create an Tensorboard URL you can go to:
+#
+# # ![tensorboard](./tensorboard.png)
 #
 # ## Setting up the dependencies
 #
@@ -50,9 +52,6 @@ def train():
     from tensorflow import keras
     from tensorflow.keras import layers
     from tensorflow.keras.models import Sequential
-    
-    import tensorboard.backend
-    import tensorboard.program
 
     dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
     data_dir = tf.keras.utils.get_file('flower_photos', origin=dataset_url, untar=True)
@@ -163,6 +162,9 @@ def tensorboard_app():
 # Everything runs in an ephemeral "app" that gets destroyed once it's done.
 # In order to keep the Tensorboard web server running, we sleep in an infinite loop
 # until the user hits ctrl-c.
+#
+# The script will take a few minutes to run, although each epoch is quite fast since it runs on a GPU.
+# The first time you run it, it might have to build the image, which can take an additional few minutes.
 
 
 if __name__ == "__main__":
@@ -174,11 +176,3 @@ if __name__ == "__main__":
                 time.sleep(1)
         except KeyboardInterrupt:
             print("Terminating app")
-
-# # Running everything
-#
-# If you run this example, it will download the dataset and train the model on a GPU.
-# This takes a few minutes.
-# It will also output the URL to the Tensorboard web server.
-# If you open this URL in your web browser, you should see something like this:
-# ![tensorboard](./tensorboard.png)
