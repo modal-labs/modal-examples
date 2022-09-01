@@ -3,6 +3,8 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from modal.functions import FunctionCall
+
 import modal
 from pathlib import Path
 
@@ -14,18 +16,6 @@ assets_path = Path(__file__).parent / "receipt_parser_frontend"
 
 parse_receipt = modal.lookup("receipt_parser_jobs", "parse_receipt")
 
-
-# @web_app.get("/result")
-# async def web_poll(function_id: str):
-#     function_call = FunctionCall.from_id(function_id)
-#     try:
-#         result = function_call.get(timeout=0)
-#     except TimeoutError:
-#         result = "not ready"
-
-#     return result
-
-
 @stub.asgi(mounts=[modal.Mount("/assets", local_dir=assets_path)])
 def transformer():
     app = fastapi.FastAPI()
@@ -35,7 +25,17 @@ def transformer():
         form = await request.form()
         receipt = await form['receipt'].read()
         call = parse_receipt.submit(receipt)
-        return { "function_id": call.object_id }
+        return { "call_id": call.object_id }
+
+    @app.get("/result/{call_id}")
+    async def poll_results(call_id: str):
+        function_call = FunctionCall.from_id(call_id)
+        try:
+            result = function_call.get(timeout=0)
+        except TimeoutError:
+            return JSONResponse(status_code=202)
+
+        return result
 
     app.mount("/", StaticFiles(directory="/assets", html=True))
     return app

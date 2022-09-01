@@ -1,9 +1,52 @@
-function Form() {
-  const [selectedFile, setSelectedFile] = React.useState();
+function Result({ callId }) {
+  const [result, setResult] = React.useState();
+  const [intervalId, setIntervalId] = React.useState();
 
-  const changeHandler = (event) => {
-    setSelectedFile(event.target.files[0]);
-  };
+  React.useEffect(() => {
+    if (result) {
+      clearInterval(intervalId);
+      return;
+    }
+
+    const _intervalID = setInterval(async () => {
+      const resp = await fetch(`/result/${callId}`);
+      if (resp.status === 200) {
+        setResult(await resp.json());
+      }
+    }, 100);
+
+    setIntervalId(_intervalID);
+
+    return () => clearInterval(intervalId);
+  }, [result]);
+
+  if (!result) {
+    return (<div> Loading... </div>);
+  }
+
+  return (
+    <div>
+      <div> Processed Result</div>
+      <div> {JSON.stringify(result, undefined, 2)} </div>
+    </div>
+  );
+}
+
+function Form({ onSubmit, onFileSelect }) {
+  return (
+    <form class="flex flex-col space-y-2">
+      <div> Upload your receipt: </div>
+      <input type="file" name="file" onChange={onFileSelect} />
+      <div>
+        <button type="button" onClick={onSubmit}>Submit</button>
+      </div>
+    </form>
+  );
+}
+
+function App() {
+  const [selectedFile, setSelectedFile] = React.useState();
+  const [callId, setCallId] = React.useState();
 
   const handleSubmission = async () => {
     const formData = new FormData();
@@ -17,26 +60,16 @@ function Form() {
     if (resp.status !== 200) {
       throw new Error("An error occurred: " + resp.status);
     }
-    console.log(await resp.json());
+    const body = await resp.json();
+    setCallId(body.call_id);
   };
 
-  return (
-    <form class="flex flex-col space-y-2">
-      <div> Upload your receipt: </div>
-      <input type="file" name="file" onChange={changeHandler} />
-      <div>
-        <button type="button" onClick={handleSubmission}>Submit</button>
-      </div>
-    </form>
-  );
-}
-
-function App() {
   return (
     <div class="absolute inset-0 bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
       <div class="mx-auto max-w-md py-8">
         <main class="rounded-xl bg-white p-6">
-          <Form />
+          {!callId && <Form onSubmit={handleSubmission} onFileSelect={(e) => setSelectedFile(e.target.files[0])} />}
+          {callId && <Result callId={callId} />}
         </main>
       </div>
     </div>
