@@ -24,23 +24,18 @@ function Result({ callId }) {
     return (<div> Loading... </div>);
   }
 
-  return (
-    <div>
-      <div> Processed Result</div>
-      <div> {JSON.stringify(result, undefined, 2)} </div>
-    </div>
-  );
+  return <div> {JSON.stringify(result, undefined, 2)} </div>;
 }
 
 function Form({ onSubmit, onFileSelect }) {
   return (
-    <form class="flex flex-col space-y-2">
-      <div> Upload your receipt: </div>
-      <input type="file" name="file" onChange={onFileSelect} />
+    <form class="flex flex-col space-y-4 items-center">
+      <div class="text-2xl font-semibold text-gray-700"> Receipt Parser </div>
+      <input type="file" name="file" onChange={onFileSelect} class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer" />
       <div>
-        <button type="button" onClick={onSubmit}>Submit</button>
-      </div>
-    </form>
+        <button type="button" onClick={onSubmit} class="bg-indigo-400 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm">Upload</button>
+      </div >
+    </form >
   );
 }
 
