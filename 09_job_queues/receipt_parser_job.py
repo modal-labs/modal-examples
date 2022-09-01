@@ -1,3 +1,6 @@
+# ---
+# integration-test: false
+# ---
 import modal
 
 stub = modal.Stub("receipt_parser_jobs")
@@ -27,7 +30,7 @@ def parse_receipt(image: bytes):
 
     input_img = Image.open(io.BytesIO(image))
     output = pretrained_model.inference(image=input_img, prompt=task_prompt)["predictions"][0]
-    print(output)
+    print("Result: ", output)
 
     return output
 
