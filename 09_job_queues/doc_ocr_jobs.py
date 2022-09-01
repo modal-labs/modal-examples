@@ -1,16 +1,16 @@
 # ---
 # integration-test: false
 # ---
-# # Receipt Parser Job Queue
+# # Document OCR Job Queue
 #
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
 # we've also built a [Modal serverless web app that submits tasks to the handler defined 
-# here](/docs/examples/09_job_queues/receipt_parser_frontend), but note that you don't necessarily
+# here](/docs/examples/09_job_queues/doc_ocr_frontend), but note that you don't necessarily
 # need to have your web app running on Modal as well - it can be any Python application, 
 # such as a regular Django app running on Kubernetes.
 # 
-# Our job queue will handle a single task: running OCR transcription for a given receipt image.
+# Our job queue will handle a single task: running OCR transcription for a given image of a receipt.
 # We'll make use of a pre-trained Document Understanding model using the 
 # [donut](https://github.com/clovaai/donut) package to accomplish this.
 
@@ -21,7 +21,7 @@
 
 import modal
 
-stub = modal.Stub("receipt_parser_jobs")
+stub = modal.Stub("doc_ocr_jobs")
 
 # ## Model cache
 #
@@ -30,7 +30,7 @@ stub = modal.Stub("receipt_parser_jobs")
 # To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a writable volume that can be attached
 # to Modal functions and persisted across function runs.
 
-volume = modal.SharedVolume().persist("receipt_parser_model_vol")
+volume = modal.SharedVolume().persist("doc_ocr_model_vol")
 CACHE_PATH = "/root/model_cache"
 
 # ## Handler function
@@ -73,20 +73,20 @@ def parse_receipt(image: bytes):
 # Now that we have a function, we can publish it by deploying the app:
 #
 # ```shell
-# modal app deploy receipt_parser_jobs.py
+# modal app deploy doc_ocr_jobs.py
 # ```
 #
 # Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another 
 # Python process and submit tasks to it:
 #
 # ```python
-# fn = modal.lookup("receipt_parser_jobs", "parse_receipt")
+# fn = modal.lookup("doc_ocr_jobs", "parse_receipt")
 # fn.submit(my_image)
 # ```
 #
 # Modal will auto-scale to handle all the tasks queued, and
 # then scale back down to 0 when there's no work left. To see how you could use this from a Python web 
-# app, take a look at the [receipt parser frontend](/docs/examples/09_job_queues/receipt_parser_frontend)
+# app, take a look at the [receipt parser frontend](/docs/examples/09_job_queues/doc_ocr_frontend)
 # tutorial.
 
 # ## Run manually
