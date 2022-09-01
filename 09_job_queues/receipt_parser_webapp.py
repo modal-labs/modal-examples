@@ -12,11 +12,7 @@ web_app = fastapi.FastAPI()
 
 assets_path = Path(__file__).parent / "receipt_parser_frontend"
 
-
-# @web_app.get("/factors")
-# async def web_submit(request: fastapi.Request, number: int): #     call = factor_number.submit(number)  # returns a FunctionCall without waiting for result
-#     polling_url = request.url.replace(path="/result", query=f"function_id={call.object_id}")
-#     return RedirectResponse(polling_url)
+parse_receipt = modal.lookup("receipt_parser_jobs", "parse_receipt")
 
 
 # @web_app.get("/result")
@@ -36,11 +32,10 @@ def transformer():
 
     @app.post("/parse")
     async def parse(request: Request):
-        body = await request.form()
-        print(body)
-        # id, response = generate_response(message, chat_id)
-        # return JSONResponse({"id": id, "response": response})
-        return {}
+        form = await request.form()
+        receipt = await form['receipt'].read()
+        call = parse_receipt.submit(receipt)
+        return { "function_id": call.object_id }
 
     app.mount("/", StaticFiles(directory="/assets", html=True))
     return app

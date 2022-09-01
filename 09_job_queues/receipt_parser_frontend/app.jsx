@@ -7,7 +7,7 @@ function Form() {
 
   const handleSubmission = async () => {
     const formData = new FormData();
-    formData.append("file", selectedFile);
+    formData.append("receipt", selectedFile);
 
     const resp = await fetch("/parse", {
       method: "POST",
@@ -25,7 +25,7 @@ function Form() {
       <div> Upload your receipt: </div>
       <input type="file" name="file" onChange={changeHandler} />
       <div>
-        <button onClick={handleSubmission}>Submit</button>
+        <button type="button" onClick={handleSubmission}>Submit</button>
       </div>
     </form>
   );
