@@ -9,6 +9,8 @@
 # tasks to a separate Modal app defined in the [Job Queue 
 # tutorial](/docs/guide/ex/doc_ocr_jobs), polls until the task is completed, and displays
 # the results.
+#
+# ![receipt parser frontend](./receipt_parser_frontend.png)
 
 # ## Basic setup
 #
@@ -89,7 +91,7 @@ def wrapper():
 # If successful, this will print a URL for your app, that you can navigate to from
 # your browser 🎉 .
 #
-# ![receipt parser frontend](./receipt_parser_frontend.png)
+# ![receipt parser processed](./receipt_parser_frontend_2.png)
 # 
 # ## Developing
 #

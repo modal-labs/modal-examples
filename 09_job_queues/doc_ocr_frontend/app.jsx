@@ -1,13 +1,13 @@
-function Spinner({ }) {
+function Spinner({ config }) {
   const ref = React.useRef(null);
 
   React.useEffect(() => {
-    const spinner = new Spin.Spinner({ lines: 13, color: '#ffffff' });
+    const spinner = new Spin.Spinner({ lines: 13, color: '#ffffff', ...config });
     spinner.spin(ref.current);
     return () => spinner.stop();
   }, [ref]);
 
-  return <span ref={ref} id="foo" />;
+  return <span ref={ref} />;
 }
 
 function Result({ callId, selectedFile }) {
@@ -33,9 +33,10 @@ function Result({ callId, selectedFile }) {
   }, [result]);
 
   return (
-    <div>
-      <img src={URL.createObjectURL(selectedFile)} class="w-full" />
-      <div> {result ? JSON.stringify(result, undefined, 2) : <Spinner />} </div>
+    <div class="flex items-center content-center justify-center space-x-4 ">
+      <img src={URL.createObjectURL(selectedFile)} class="h-[300px]" />
+      {!result && <Spinner config={{}} />}
+      {result && <p class="w-[200px] p-4 bg-zinc-200 rounded-lg whitespace-pre-wrap text-xs font-mono"> {JSON.stringify(result, undefined, 1)} </p>}
     </div>)
     ;
 }
@@ -45,7 +46,7 @@ function Form({ onSubmit, onFileSelect, selectedFile }) {
     <form class="flex flex-col space-y-4 items-center">
       <div class="text-2xl font-semibold text-gray-700"> Receipt Parser </div>
       <input accept="image/*" type="file" name="file" onChange={onFileSelect} class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer" />
-      <img src={selectedFile ? URL.createObjectURL(selectedFile) : ""} class="w-full" />
+      {selectedFile ? <img src={URL.createObjectURL(selectedFile)} class="h-[300px]" /> : null}
       <div>
         <button
           type="button"

@@ -13,6 +13,8 @@
 # Our job queue will handle a single task: running OCR transcription for images.
 # We'll make use of a pre-trained Document Understanding model using the 
 # [donut](https://github.com/clovaai/donut) package to accomplish this.
+#
+# ![receipt parser frontend](./receipt_parser_frontend_2.png)
 
 # ## Define a Stub
 #
