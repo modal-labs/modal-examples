@@ -8,7 +8,8 @@
 # We're going to build a simple "Receipt Parser" web app that submits OCR transcription
 # tasks to a separate Modal app defined in the [Job Queue 
 # tutorial](/docs/guide/ex/doc_ocr_jobs), polls until the task is completed, and displays
-# the results.
+# the results. Try it out for yourself 
+# [here](https://aksh-at-doc-ocr-webapp-wrapper.modal.run).
 #
 # ![receipt parser frontend](./receipt_parser_frontend.png)
 
@@ -20,6 +21,7 @@ import fastapi
 import fastapi.staticfiles
 
 import modal
+import modal.aio
 from pathlib import Path
 
 stub = modal.Stub("doc_ocr_webapp")
@@ -29,21 +31,22 @@ stub = modal.Stub("doc_ocr_webapp")
 
 web_app = fastapi.FastAPI()
 
-# We're going to submit tasks to the function defined in the [Job Queue 
-# tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using 
-# [`modal.lookup`](/docs/guide/sharing-functions#calling-code-from-outside-modal).
-
-parse_receipt = modal.lookup("doc_ocr_jobs", "parse_receipt")
-
 # We need two endpoints: one to accept an image and submit it to the Modal job queue,
 # and another to poll for the results of the job. 
 #
-# `/parse` calls [`.submit()`](/docs/reference/modal.Function#submit) on the function handle
+# In `parse`, we're going to submit tasks to the function defined in the [Job 
+# Queue tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using 
+# [`modal.aio_lookup`](/docs/guide/sharing-functions#calling-code-from-outside-modal). 
+#
+# We call [`.submit()`](/docs/reference/modal.Function#submit) on the function handle
 # we imported above, to kick off our function without blocking on the results. `submit` returns
 # a unique ID for the function call, that we can use later to poll for its result.
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
+    # Use aio_lookup since we're in an async context.
+    parse_receipt = modal.lookup("doc_ocr_jobs", "parse_receipt")
+
     form = await request.form()
     receipt = await form['receipt'].read()
     call = parse_receipt.submit(receipt)
