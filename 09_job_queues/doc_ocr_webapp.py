@@ -1,3 +1,6 @@
+# ---
+# integration-test: false
+# ---
 # # Document OCR web app
 #
 # This tutorial shows you how to use Modal to deploy a fully serverless
