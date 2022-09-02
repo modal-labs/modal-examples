@@ -1,16 +1,16 @@
 # ---
 # integration-test: false
 # ---
-# # Document OCR Job Queue
+# # Document OCR job queue
 #
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
-# we've also built a [Modal serverless web app that submits tasks to the handler defined 
-# here](/docs/examples/09_job_queues/doc_ocr_frontend), but note that you don't necessarily
-# need to have your web app running on Modal as well - it can be any Python application, 
-# such as a regular Django app running on Kubernetes.
+# we've also built a [React + FastAPI web app on Modal](/docs/guide/ex/doc_ocr_webapp)
+# that works together with it, but note that you don't need a web app running on Modal
+# to use this pattern. You can submit async tasks to Modal from any Python 
+# application (for example, a regular Django app running on Kubernetes).
 # 
-# Our job queue will handle a single task: running OCR transcription for a given image of a receipt.
+# Our job queue will handle a single task: running OCR transcription for images.
 # We'll make use of a pre-trained Document Understanding model using the 
 # [donut](https://github.com/clovaai/donut) package to accomplish this.
 
@@ -86,7 +86,7 @@ def parse_receipt(image: bytes):
 #
 # Modal will auto-scale to handle all the tasks queued, and
 # then scale back down to 0 when there's no work left. To see how you could use this from a Python web 
-# app, take a look at the [receipt parser frontend](/docs/examples/09_job_queues/doc_ocr_frontend)
+# app, take a look at the [receipt parser frontend](/docs/guide/ex/doc_ocr_webapp)
 # tutorial.
 
 # ## Run manually
