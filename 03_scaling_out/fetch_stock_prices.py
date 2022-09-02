@@ -8,6 +8,18 @@
 # We do this in parallel, which demonstrates the ability to map over a set of items
 # In this case, we fetch 100 stocks in parallel
 #
+# You can run this script on the terminal like this:
+# ```
+# python 03_scaling_out/fetch_stock_prices.py
+# ```
+#
+# If everything goes well, it should plot something like this:
+#
+# ![stock prices](./stock_prices.png)
+#
+#
+# # The code
+#
 # For this image, we need
 # - requests & beautifulsoup to fetch a list of ETFs from a HTML page
 # - yfinance to fetch stock prices from the Yahoo! Finance API
@@ -38,8 +50,9 @@ def get_stocks():
     soup = bs4.BeautifulSoup(res.text, "html.parser")
     for td in soup.find_all("td", {"aria-label": "Symbol"}):
         for link in td.find_all("a", {"data-test": "quoteLink"}):
-            ticker = str(link.next)
-            yield ticker
+            symbol = str(link.next)
+            print(f"Found symbol {symbol}")
+            yield symbol
 
 
 # ## Fetch stock prices
@@ -51,9 +64,10 @@ def get_stocks():
 @stub.function
 def get_prices(symbol):
     import yfinance
-
+    print(f"Fetching symbol {symbol}...")
     ticker = yfinance.Ticker(symbol)
     data = ticker.history(period="1Y")["Close"]
+    print(f"Done fetching symbol {symbol}!")
     return symbol, data.to_dict()
 
 
@@ -117,9 +131,3 @@ if __name__ == "__main__":
         print(f"saving data to {filename}")
         with open(filename, "wb") as f:
             f.write(data)
-
-# ## Result
-#
-# If everything goes well, it should plot something like this:
-#
-# ![stock prices](./stock_prices.png)
