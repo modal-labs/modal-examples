@@ -6,11 +6,25 @@
 
 # In this example, we use Modal functions and the `playwright` package to screenshot websites from a list of urls in parallel.
 # Please also see our [introductory guide](/docs/guide/web-scraper) for another example of a web-scraper, with more in-depth examples.
+#
+# You can run this example on the command line, like this:
+#
+# ```
+# python 02_building_containers/screenshot.py 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+# ```
+#
+# This should take a few seconds then write a `/tmp/screenshots/screenshot.png` file.
+# This is what the file should look like:
+#
+# ![screenshot](./screenshot.png)
+#
+# # The code
+#
 # Basic setup first:
 
 import asyncio
 import os
-import random
+import sys
 import traceback
 
 import modal
@@ -39,16 +53,16 @@ image = modal.DebianSlim().run_commands(
 # ## Defining the screenshot function
 #
 # Next, the scraping function which runs headless Chromium, goes to a website, and takes a screenshot.
-# Note that this is not a Modal function, but it is invoked by a Modal function!
+# This is a Modal function which runs inside the remote container.
 
-
-async def screenshot_get(url):
+@stub.function(image=image)
+async def screenshot(url):
     from playwright.async_api import async_playwright
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
-        await page.goto(url)
+        await page.goto(url, wait_until="networkidle")
         await page.screenshot(path="screenshot.png")
         await browser.close()
         data = open("screenshot.png", "rb").read()
@@ -56,39 +70,16 @@ async def screenshot_get(url):
         return data
 
 
-# ## Defining a Modal function
-#
-# The actual modal.function. We want to handle failures ourselves, so the scraping code is in a try/except.
-# `modal.RateLimit` applies a global rate limiter on all function calls, so we're guaranteed that this function
-# won't execute more than two times a second.
-
-
-@stub.function(image=image, rate_limit=modal.RateLimit(per_second=2))
-async def screenshot(url):
-    print("Fetching url", url)
-    try:
-        return await asyncio.wait_for(screenshot_get(url), 20.0)
-    except Exception:
-        traceback.print_exc()
-        return None
-
-
 # ## Entrypoint code
 #
 # Let's kick it off by reading a bunch of URLs from a txt file and scrape some of those.
 
-OUTPUT_DIR = "/tmp/screenshots"
-
 if __name__ == "__main__":
-    urls_fn = os.path.join(os.path.dirname(__file__), "urls.txt")
-    urls = ["http://" + line.strip() for line in open(urls_fn)]
-
-    sampled_urls = [random.choice(urls) for i in range(3)]
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
+    url = sys.argv[1] if len(sys.argv) >= 2 else "https://modal.com"
+    filename = "/tmp/screenshots/screenshot.png"
     with stub.run():
-        for i, data in enumerate(screenshot.map(sampled_urls)):
-            if data is not None:
-                with open(os.path.join(OUTPUT_DIR, "%06d.png" % i), "wb") as f:
-                    f.write(data)
+        data = screenshot(url)
+        os.makedirs(os.path.dirname(filename))
+        with open(os.path.join(filename), "wb") as f:
+            f.write(data)
+        print(f"wrote {len(data)} to {filename}")
