@@ -2,7 +2,7 @@
 # integration-test: false
 # ---
 #
-# # Summarize News With Deep Learning
+# # News article summarizer
 #
 # In this example we scrape news articles from the [New York Times'
 # Science section](https://www.nytimes.com/section/science) and summarize them
@@ -30,11 +30,15 @@ CACHE_DIR = "/cache"
 # The first image contains dependencies for running our model. We also download the
 # pre-trained model into the image using the `huggingface` API. This caches the model so that
 # we don't have to download it on every function call.
-stub["deep_learning_image"] = modal.DebianSlim().pip_install(["transformers==4.16.2", "torch==1.10.2", "sentencepiece"])
+stub["deep_learning_image"] = modal.DebianSlim().pip_install(
+    ["transformers==4.16.2", "torch==1.10.2", "sentencepiece"]
+)
 
 # Defining the scraping image is very similar. This image only contains the packages required
 # to scrape the New York Times website, though; so it's much smaller.
-stub["scraping_image"] = modal.DebianSlim().pip_install(["requests", "beautifulsoup4", "lxml"])
+stub["scraping_image"] = modal.DebianSlim().pip_install(
+    ["requests", "beautifulsoup4", "lxml"]
+)
 
 volume = modal.SharedVolume().persist("pegasus-modal-vol")
 
@@ -43,7 +47,9 @@ if stub.is_inside(stub["deep_learning_image"]):
     from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 
     TOKENIZER = PegasusTokenizer.from_pretrained(MODEL_NAME, cache_dir=CACHE_DIR)
-    MODEL = PegasusForConditionalGeneration.from_pretrained(MODEL_NAME, cache_dir=CACHE_DIR)
+    MODEL = PegasusForConditionalGeneration.from_pretrained(
+        MODEL_NAME, cache_dir=CACHE_DIR
+    )
 
 
 if stub.is_inside(stub["scraping_image"]):
@@ -87,7 +93,9 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
     reject_urls = {"null", "", None}
     articles = [
         NYArticle(
-            title=u["title"], image_url=u.get("multimedia")[0]["url"] if u.get("multimedia") else "", url=u.get("url")
+            title=u["title"],
+            image_url=u.get("multimedia")[0]["url"] if u.get("multimedia") else "",
+            url=u.get("url"),
         )
         for u in results["results"]
         if u.get("url") not in reject_urls
@@ -118,7 +126,9 @@ def scrape_nyc_article(url: str) -> str:
 
     # get all text paragraphs & construct single string with article text
     article_text = ""
-    article_section = soup.find_all("div", {"class": re.compile(r"\bStoryBodyCompanionColumn\b")})
+    article_section = soup.find_all(
+        "div", {"class": re.compile(r"\bStoryBodyCompanionColumn\b")}
+    )
     if article_section:
         paragraph_tags = article_section[0].find_all("p")
         article_text = " ".join([p.get_text() for p in paragraph_tags])
@@ -132,13 +142,20 @@ def scrape_nyc_article(url: str) -> str:
 # documentation](https://huggingface.co/docs/transformers/model_doc/pegasus). Use `gpu=True` to speed-up inference.
 
 
-@stub.function(image=stub["deep_learning_image"], gpu=False, shared_volumes={CACHE_DIR: volume}, memory=4096)
+@stub.function(
+    image=stub["deep_learning_image"],
+    gpu=False,
+    shared_volumes={CACHE_DIR: volume},
+    memory=4096,
+)
 def summarize_article(text: str) -> str:
 
     print(f"Summarizing text with {len(text)} characters.")
 
     # summarize text
-    batch = TOKENIZER([text], truncation=True, padding="longest", return_tensors="pt").to("cpu")
+    batch = TOKENIZER(
+        [text], truncation=True, padding="longest", return_tensors="pt"
+    ).to("cpu")
     translated = MODEL.generate(**batch)
     summary = TOKENIZER.batch_decode(translated, skip_special_tokens=True)[0]
 
@@ -160,7 +177,9 @@ def trigger():
         articles[i].text = text
 
     # parallelize summarization
-    for i, summary in enumerate(summarize_article.map([a.text for a in articles if len(a.text) > 0])):
+    for i, summary in enumerate(
+        summarize_article.map([a.text for a in articles if len(a.text) > 0])
+    ):
         articles[i].summary = summary
 
     # show all summaries in the terminal

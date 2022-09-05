@@ -18,14 +18,12 @@
 #
 # ![screenshot](./screenshot.png)
 #
-# # The code
+# ## Setup
 #
-# Basic setup first:
+# First we import the `modal` client library:
 
-import asyncio
 import os
 import sys
-import traceback
 
 import modal
 
@@ -54,6 +52,7 @@ image = modal.DebianSlim().run_commands(
 #
 # Next, the scraping function which runs headless Chromium, goes to a website, and takes a screenshot.
 # This is a Modal function which runs inside the remote container.
+
 
 @stub.function(image=image)
 async def screenshot(url):

@@ -7,7 +7,9 @@
 # It's based on the [official example]( https://docs.pymc.io/en/stable/pymc-examples/examples/case_studies/probabilistic_matrix_factorization.html)
 # but uses a Modal-specific sampler class that aids with the parallelization.
 
-# Starting with imports. `modal.extensions.pymc` provides helpers for working with PyMC.
+# ## Setup
+#
+# Let's start with imports. `modal.extensions.pymc` provides helpers for working with PyMC.
 
 import copy
 
@@ -22,9 +24,10 @@ if pymc_stub.is_inside():
     import pymc3 as pm
     import pymc3.parallel_sampling as ps
 
-
+# ## Statistical model
+#
 # The rest of the code to set up the model and the training data is the same as in the
-# [official example]( https://docs.pymc.io/en/stable/pymc-examples/examples/case_studies/probabilistic_matrix_factorization.html)
+# [official example]( https://docs.pymc.io/en/stable/pymc-examples/examples/case_studies/probabilistic_matrix_factorization.html).
 
 
 def split_train_test(data, percent_test=0.1):
@@ -100,7 +103,12 @@ class PMF:
                 shape=(m, dim),
                 testval=np.random.randn(m, dim) * std,
             )
-            pm.Normal("R", mu=(U @ V.T)[~nan_mask], tau=self.alpha, observed=self.data[~nan_mask])
+            pm.Normal(
+                "R",
+                mu=(U @ V.T)[~nan_mask],
+                tau=self.alpha,
+                observed=self.data[~nan_mask],
+            )
 
         print("done building the PMF model")
         self.model = pmf
@@ -142,13 +150,19 @@ def random_predictions(data):
     return result
 
 
-# The pmf function runs inside Modal but it's not parallelized in itself.
+# ## Modal function
+#
+# The pmf function runs inside Modal, but it's not parallelized in itself.
 # Note that we patch in `ModalSampler` to replace pymc's `ParallelSampler`.
 
 
 @pymc_stub.function
 def pmf():
-    data = pd.read_csv(pm.get_data("ml_100k_u.data"), sep="\t", names=["userid", "itemid", "rating", "timestamp"])
+    data = pd.read_csv(
+        pm.get_data("ml_100k_u.data"),
+        sep="\t",
+        names=["userid", "itemid", "rating", "timestamp"],
+    )
 
     num_users = data.userid.unique().shape[0]
     num_items = data.itemid.unique().shape[0]
@@ -179,8 +193,7 @@ def pmf():
     print(f"Test RMSE: {pmf.rmse(test)}")
 
 
-# The entrypoint for running locally.
-
+# Now we can run the probabilistic program.
 
 if __name__ == "__main__":
     with pymc_stub.run():

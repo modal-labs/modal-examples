@@ -18,19 +18,24 @@
 # ![stock prices](./stock_prices.png)
 #
 #
-# # The code
+# ## Setup
 #
 # For this image, we need
-# - requests & beautifulsoup to fetch a list of ETFs from a HTML page
-# - yfinance to fetch stock prices from the Yahoo! Finance API
-# - matplotlib to plot the result
+#
+# - `requests` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
+# - `yfinance` to fetch stock prices from the Yahoo Finance API
+# - `matplotlib` to plot the result
 
 import io
 import os
 
 import modal
 
-stub = modal.Stub(image=modal.DebianSlim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"]))
+stub = modal.Stub(
+    image=modal.DebianSlim().pip_install(
+        ["requests", "yfinance", "beautifulsoup4", "matplotlib"]
+    )
+)
 
 # ## Fetch a list of tickers
 #
@@ -64,6 +69,7 @@ def get_stocks():
 @stub.function
 def get_prices(symbol):
     import yfinance
+
     print(f"Fetching symbol {symbol}...")
     ticker = yfinance.Ticker(symbol)
     data = ticker.history(period="1Y")["Close"]
@@ -97,11 +103,20 @@ def run():
     for symbol, prices in data:
         dates = list(sorted(prices.keys()))
         prices = list(prices[date] for date in dates)
-        changes = [100.0 * (price / prices[0] - 1) for price in prices]  # Normalize to initial price
+        changes = [
+            100.0 * (price / prices[0] - 1) for price in prices
+        ]  # Normalize to initial price
         if changes[-1] > 20:
             # Highlight this line
             p = ax.plot(dates, changes, alpha=0.7)
-            ax.annotate(symbol, (last_date, changes[-1]), ha="left", va="center", color=p[0].get_color(), alpha=0.7)
+            ax.annotate(
+                symbol,
+                (last_date, changes[-1]),
+                ha="left",
+                va="center",
+                color=p[0].get_color(),
+                alpha=0.7,
+            )
         else:
             ax.plot(dates, changes, color="gray", alpha=0.2)
 

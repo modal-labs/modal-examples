@@ -15,7 +15,7 @@
 # The face detection is a quite simple model built into OpenCV
 # and is not state of the art.
 #
-# # The result
+# ## The result
 #
 # <center><video controls><source src="./youtube_face_detection.mp4" type="video/mp4"></video></center>
 #
@@ -24,7 +24,7 @@
 # you! 🤣
 #
 #
-# # The Python code
+# ## The Python code
 #
 # We start by setting up the container image we need.
 # This requires installing a few dependencies needed for OpenCV as well as downloading the face detection model
@@ -39,7 +39,11 @@ FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 image = (
     modal.DebianSlim()
     .run_commands(["apt-get install -y libgl1-mesa-glx libglib2.0-0 wget"])
-    .run_commands([f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"])
+    .run_commands(
+        [
+            f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
+        ]
+    )
     .pip_install(["pytube", "opencv-python", "moviepy"])
 )
 stub = modal.Stub(image=image)
@@ -52,16 +56,17 @@ if stub.is_inside():
 
 stub.sv = modal.SharedVolume()
 
-# ## Face detection function
+# ### Face detection function
 #
 # The face detection function takes three arguments:
-# 
+#
 # * A filename to the source clip
 # * A time slice denoted by start and a stop in seconds
 #
 # The function extracts the subclip from the movie file (which is stored on the shared volume),
 # runs face detection on every frame in its slice,
 # and stores the resulting video back to the shared storage.
+
 
 @stub.function(shared_volumes={"/clips": stub.sv})
 def detect_faces(fn, start, stop):
@@ -77,7 +82,7 @@ def detect_faces(fn, start, stop):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, 1.1, 4)
         for (x, y, w, h) in faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
         imgs.append(img)
 
     # Create mp4 of result
@@ -87,7 +92,7 @@ def detect_faces(fn, start, stop):
     return out_fn
 
 
-# ## Modal entrypoint function
+# ### Modal entrypoint function
 #
 # The "entrypoint" into Modal controls the main flow of the program:
 #
@@ -100,14 +105,14 @@ def detect_faces(fn, start, stop):
 def run(url):
     # Download video
     yt = pytube.YouTube(url)
-    stream = yt.streams.filter(file_extension='mp4').first()
+    stream = yt.streams.filter(file_extension="mp4").first()
     fn = stream.download(output_path="/clips/")
 
     # Get duration
     duration = moviepy.editor.VideoFileClip(fn).duration
 
     # Create (start, stop) intervals
-    args = [(fn, offset, offset+1) for offset in range(int(duration))]
+    args = [(fn, offset, offset + 1) for offset in range(int(duration))]
 
     # Process each range of 1s intervals using a Modal map
     out_fns = list(detect_faces.starmap(args))
@@ -124,7 +129,8 @@ def run(url):
     with open(final_fn, "rb") as f:
         return os.path.basename(fn), f.read()
 
-# ## Local entrypoint
+
+# ### Local entrypoint
 #
 # The code we run locally to fire up the Modal job is quite simple
 #
@@ -134,14 +140,18 @@ def run(url):
 
 if __name__ == "__main__":
     with stub.run():
-        youtube_url = sys.argv[1] if len(sys.argv) > 1 else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        youtube_url = (
+            sys.argv[1]
+            if len(sys.argv) > 1
+            else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        )
         fn, movie_data = run(youtube_url)
         abs_fn = os.path.join(OUTPUT_DIR, fn)
         print(f"writing results to {abs_fn}")
         with open(abs_fn, "wb") as f:
             f.write(movie_data)
 
-# # Running the script
+# ## Running the script
 #
 # Running this script should take approximately a minute or less.
 # It might output a lot of warnings to standard error.
@@ -149,7 +159,7 @@ if __name__ == "__main__":
 #
 # Note that we don't preserve the sound in the video.
 #
-# # Further directions
+# ## Further directions
 #
 # As you can tell from the resulting video, this face detection model is not state of the art.
 # It has plenty of false positives (non-faces being labeled faces) and false negatives (real faces not being labeled).
