@@ -2,7 +2,11 @@ function Spinner({ config }) {
   const ref = React.useRef(null);
 
   React.useEffect(() => {
-    const spinner = new Spin.Spinner({ lines: 13, color: '#ffffff', ...config });
+    const spinner = new Spin.Spinner({
+      lines: 13,
+      color: "#ffffff",
+      ...config,
+    });
     spinner.spin(ref.current);
     return () => spinner.stop();
   }, [ref]);
@@ -36,17 +40,29 @@ function Result({ callId, selectedFile }) {
     <div class="flex items-center content-center justify-center space-x-4 ">
       <img src={URL.createObjectURL(selectedFile)} class="h-[300px]" />
       {!result && <Spinner config={{}} />}
-      {result && <p class="w-[200px] p-4 bg-zinc-200 rounded-lg whitespace-pre-wrap text-xs font-mono"> {JSON.stringify(result, undefined, 1)} </p>}
-    </div>)
-    ;
+      {result && (
+        <p class="w-[200px] p-4 bg-zinc-200 rounded-lg whitespace-pre-wrap text-xs font-mono">
+          {JSON.stringify(result, undefined, 1)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function Form({ onSubmit, onFileSelect, selectedFile }) {
   return (
     <form class="flex flex-col space-y-4 items-center">
       <div class="text-2xl font-semibold text-gray-700"> Receipt Parser </div>
-      <input accept="image/*" type="file" name="file" onChange={onFileSelect} class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer" />
-      {selectedFile ? <img src={URL.createObjectURL(selectedFile)} class="h-[300px]" /> : null}
+      <input
+        accept="image/*"
+        type="file"
+        name="file"
+        onChange={onFileSelect}
+        class="block w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer"
+      />
+      {selectedFile ? (
+        <img src={URL.createObjectURL(selectedFile)} class="h-[300px]" />
+      ) : null}
       <div>
         <button
           type="button"
@@ -56,8 +72,8 @@ function Form({ onSubmit, onFileSelect, selectedFile }) {
         >
           Upload
         </button>
-      </div >
-    </form >
+      </div>
+    </form>
   );
 }
 
@@ -85,7 +101,13 @@ function App() {
     <div class="absolute inset-0 bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
       <div class="mx-auto max-w-md py-8">
         <main class="rounded-xl bg-white p-6">
-          {!callId && <Form onSubmit={handleSubmission} onFileSelect={(e) => setSelectedFile(e.target.files[0])} selectedFile={selectedFile} />}
+          {!callId && (
+            <Form
+              onSubmit={handleSubmission}
+              onFileSelect={(e) => setSelectedFile(e.target.files[0])}
+              selectedFile={selectedFile}
+            />
+          )}
           {callId && <Result callId={callId} selectedFile={selectedFile} />}
         </main>
       </div>
@@ -93,6 +115,5 @@ function App() {
   );
 }
 
-
-const container = document.getElementById('react');
+const container = document.getElementById("react");
 ReactDOM.createRoot(container).render(<App />);
