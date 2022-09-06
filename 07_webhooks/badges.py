@@ -7,7 +7,10 @@
 
 import modal
 
-stub = modal.Stub("web-badges", image=modal.DebianSlim().pip_install(["pybadges", "pypistats"]))
+stub = modal.Stub(
+    "web-badges",
+    image=modal.DebianSlim().pip_install(["pybadges", "pypistats"]),
+)
 
 # ## Defining the webhook
 #
@@ -45,7 +48,7 @@ async def package_downloads(package_name: str):
 # We can now run this function as follows:
 
 if __name__ == "__main__":
-    stub.run_forever()
+    stub.serve()
 
 # You can run this script and it will create a short-lived web url that exists
 # until you terminate the script.

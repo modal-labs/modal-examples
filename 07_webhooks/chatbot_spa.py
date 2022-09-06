@@ -40,8 +40,12 @@ if stub.is_inside(stub.gpu_image):
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-large", cache_dir="/cache")
-    model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-large", cache_dir="/cache")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "microsoft/DialoGPT-large", cache_dir="/cache"
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        "microsoft/DialoGPT-large", cache_dir="/cache"
+    )
 
 
 @stub.asgi(mounts=[modal.Mount("/assets", local_dir=assets_path)])
@@ -71,12 +75,16 @@ def generate_response(message: str, id: Optional[str] = None) -> Tuple[str, str]
         id = str(uuid.uuid4())
         bot_input_ids = new_input_ids
 
-    chat_history = model.generate(bot_input_ids, max_length=1250, pad_token_id=tokenizer.eos_token_id)
-    response = tokenizer.decode(chat_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True)
+    chat_history = model.generate(
+        bot_input_ids, max_length=1250, pad_token_id=tokenizer.eos_token_id
+    )
+    response = tokenizer.decode(
+        chat_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True
+    )
 
     chat_histories[id] = chat_history
     return id, response
 
 
 if __name__ == "__main__":
-    stub.run_forever()
+    stub.serve()

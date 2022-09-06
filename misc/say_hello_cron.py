@@ -20,4 +20,4 @@ def say_hello():
 
 
 if __name__ == "__main__":
-    stub.run_forever()
+    stub.serve()
