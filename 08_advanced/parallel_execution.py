@@ -14,15 +14,18 @@ def step1(word):
 @stub.function
 def step2(number):
     time.sleep(3)
+    if number == 0:
+        raise Exception("aborting")
+    return number
     print("step2 done")
-    return 10 // number
+
 
 
 if __name__ == "__main__":
     with stub.run() as app:
         # .submit() starts running a function and returns a FunctionCall handle immediately
         word_call = step1.submit("foo")
-        number_call = step2.submit(5)
+        number_call = step2.submit(2)
         # prints "foofoo" after 7 seconds
         print(word_call.get() * number_call.get())
 
@@ -31,7 +34,7 @@ if __name__ == "__main__":
         # failing function call fails
 
 
-        # raises ZeroDivisionError after 3 seconds:
+        # raises exception after 3 seconds:
         word, number = modal.functions.gather(
             step1.submit("bar"),
             step2.submit(0)
