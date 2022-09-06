@@ -12,10 +12,10 @@ CONFIG = {
   "start_urls": ["https://modal.com/docs"],
   "selectors": {
     "lvl0": "article h1",
-    "lvl1": "article h2",
-    "lvl2": "article h3",
-    "lvl3": "article h4",
-    "text": "article section p,article ol,article ul"
+    "lvl1": "article h1",
+    "lvl2": "article h2",
+    "lvl3": "article h3",
+    "text": "article p,article ol,article ul"
   }
 }
 
@@ -27,14 +27,14 @@ algolia_image = modal.DockerhubImage(
     setup_commands=["ln -sfn /usr/bin/python3.7 /usr/bin/python"],
 )
 
-stub = modal.Stub( "algolia-indexer", image=algolia_image)
+stub = modal.Stub("algolia-indexer", image=algolia_image)
 
 
-@stub.function(secrets=[modal.ref("algolia-secret")])
-def crawl(config: str):
+@stub.webhook(secrets=[modal.ref("algolia-secret")])
+def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
-    subprocess.run(["pipenv", "run", "python", "-m", "src.index"], env={**os.environ, "CONFIG": config})
+    subprocess.run(["pipenv", "run", "python", "-m", "src.index"], env={**os.environ, "CONFIG": json.dumps(CONFIG)})
 
 if __name__ == "__main__":
     with stub.run():
-        crawl(json.dumps(CONFIG))
+        crawl()
