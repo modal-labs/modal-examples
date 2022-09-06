@@ -10,7 +10,9 @@ from tempfile import TemporaryDirectory
 
 import modal
 
-stub = modal.Stub(image=modal.DebianSlim().pip_install(["numpy", "matplotlib", "pyarrow"]))
+stub = modal.Stub(
+    image=modal.DebianSlim().pip_install(["numpy", "matplotlib", "pyarrow"])
+)
 
 
 if stub.is_inside():
@@ -29,7 +31,10 @@ def get_matrix(url):
         urllib.request.urlretrieve(url, temp_path)
 
         t = pq.read_table(temp_path, columns=["PULocationID", "DOLocationID"])
-        c = Counter((pul.as_py(), dol.as_py()) for pul, dol in zip(t["PULocationID"], t["DOLocationID"]))
+        c = Counter(
+            (pul.as_py(), dol.as_py())
+            for pul, dol in zip(t["PULocationID"], t["DOLocationID"])
+        )
 
     return url, c
 
@@ -50,7 +55,9 @@ def main():
         print(url, "done!")
 
     max_id = max(max(k) for k in M.keys())
-    matrix = numpy.matrix([[M.get((i, j), 0) for j in range(max_id + 1)] for i in range(max_id + 1)])
+    matrix = numpy.matrix(
+        [[M.get((i, j), 0) for j in range(max_id + 1)] for i in range(max_id + 1)]
+    )
 
     pyplot.matshow(matrix)
     pyplot.title("Matrix of %d taxi trips" % (matrix.sum()))

@@ -17,7 +17,9 @@ import modal
 # The S3 locations of the assets we want to render, and the frame ranges.
 
 SCENE_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_cam.blend"
-MATERIALS_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
+MATERIALS_FILENAME = (
+    "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
+)
 
 START_FRAME = 32
 END_FRAME = 34
@@ -80,7 +82,10 @@ if stub.is_inside():
     for d in bpy.context.preferences.addons["cycles"].preferences.devices:
         d["use"] = 1  # Using all devices, include GPU and CPU
 
-    print("Has active device:", bpy.context.preferences.addons["cycles"].preferences.has_active_device())
+    print(
+        "Has active device:",
+        bpy.context.preferences.addons["cycles"].preferences.has_active_device(),
+    )
 
     bpy.data.scenes[0].render.tile_x = 64
     bpy.data.scenes[0].render.tile_y = 64
@@ -137,7 +142,14 @@ if __name__ == "__main__":
 
     from PIL import Image
 
-    img, *imgs = [Image.open(f) for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))]
+    img, *imgs = [
+        Image.open(f) for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))
+    ]
     img.save(
-        fp=os.path.join(OUTPUT_DIR, "scene.gif"), format="GIF", append_images=imgs, save_all=True, duration=200, loop=0
+        fp=os.path.join(OUTPUT_DIR, "scene.gif"),
+        format="GIF",
+        append_images=imgs,
+        save_all=True,
+        duration=200,
+        loop=0,
     )

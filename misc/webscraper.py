@@ -30,7 +30,9 @@ async def get_links(url: str):
         browser = await p.chromium.launch()
         page = await browser.new_page()
         await page.goto(url)
-        links = await page.eval_on_selector_all("a[href]", "elements => elements.map(element => element.href)")
+        links = await page.eval_on_selector_all(
+            "a[href]", "elements => elements.map(element => element.href)"
+        )
         await browser.close()
 
     return links

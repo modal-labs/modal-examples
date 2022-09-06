@@ -57,7 +57,7 @@ def parse_receipt(image: bytes):
     import io
 
     # Use donut fine-tuned on an OCR dataset.
-    task_prompt = f"<s_cord-v2>"
+    task_prompt = "<s_cord-v2>"
     pretrained_model = DonutModel.from_pretrained(
         "naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH
     )

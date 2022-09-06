@@ -12,7 +12,10 @@ volume = modal.SharedVolume().persist("dalle-model-vol")
 CACHE_PATH = "/root/model_cache"
 
 
-@stub.function(image=modal.DebianSlim().pip_install(["slack-sdk"]), secret=modal.ref("dalle-bot-slack-secret"))
+@stub.function(
+    image=modal.DebianSlim().pip_install(["slack-sdk"]),
+    secret=modal.ref("dalle-bot-slack-secret"),
+)
 def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     import slack_sdk
 
@@ -25,7 +28,13 @@ async def run_minidalle(prompt: str, channel_name: str):
     import torch
     from min_dalle import MinDalle
 
-    model = MinDalle(models_root=CACHE_PATH, dtype=torch.float32, device="cuda", is_mega=True, is_reusable=True)
+    model = MinDalle(
+        models_root=CACHE_PATH,
+        dtype=torch.float32,
+        device="cuda",
+        is_mega=True,
+        is_reusable=True,
+    )
 
     image = model.generate_image(
         text=prompt,

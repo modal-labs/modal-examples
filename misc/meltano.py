@@ -20,7 +20,12 @@ stub = modal.Stub(
         """
     ),
     # Create a mount that contains `meltano.yml`, so that the local copy is synced inside the container.
-    mounts=[modal.Mount(local_file="examples/misc/meltano_project/meltano.yml", remote_dir="/meltano_project")],
+    mounts=[
+        modal.Mount(
+            local_file="examples/misc/meltano_project/meltano.yml",
+            remote_dir="/meltano_project",
+        )
+    ],
 )
 
 
@@ -34,7 +39,8 @@ def run():
 
     try:
         subprocess.run(
-            ["/venv/bin/meltano", "elt", "tap-github", "target-jsonl", "--job_id=test"], cwd="/meltano_project"
+            ["/venv/bin/meltano", "elt", "tap-github", "target-jsonl", "--job_id=test"],
+            cwd="/meltano_project",
         )
     finally:
         upload_meltano_db()

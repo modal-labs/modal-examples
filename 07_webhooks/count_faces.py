@@ -10,7 +10,11 @@ import modal
 stub = modal.Stub()
 
 
-open_cv_image = modal.DebianSlim().apt_install(["python3-opencv"]).pip_install(["opencv-python", "numpy"])
+open_cv_image = (
+    modal.DebianSlim()
+    .apt_install(["python3-opencv"])
+    .pip_install(["opencv-python", "numpy"])
+)
 
 
 @stub.function(image=open_cv_image)
@@ -20,7 +24,9 @@ def count_faces(image_bytes):
 
     # Example borrowed from https://towardsdatascience.com/face-detection-in-2-minutes-using-opencv-python-90f89d7c0f81
     # Load the cascade
-    face_cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml"))
+    face_cascade = cv2.CascadeClassifier(
+        os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+    )
     # Read the input image
     np_bytes = np.frombuffer(image_bytes, dtype=np.uint8)
     img = cv2.imdecode(np_bytes, cv2.IMREAD_COLOR)
