@@ -39,7 +39,9 @@ async def get_links(cur_url: str):
         browser = await p.chromium.launch()
         page = await browser.new_page()
         await page.goto(cur_url)
-        links = await page.eval_on_selector_all("a[href]", "elements => elements.map(element => element.href)")
+        links = await page.eval_on_selector_all(
+            "a[href]", "elements => elements.map(element => element.href)"
+        )
         await browser.close()
 
     print("Links", links)
@@ -60,7 +62,10 @@ async def try_crawl_url(crawler: Crawler, cur_url: str, cur_depth: int = 0):
     if not cur_url.startswith(crawler.root):
         return
 
-    if await crawler.visited.contains(cur_url) and await crawler.visited.get(cur_url) <= cur_depth:
+    if (
+        await crawler.visited.contains(cur_url)
+        and await crawler.visited.get(cur_url) <= cur_depth
+    ):
         return
 
     await crawler.visited.put(cur_url, cur_depth)

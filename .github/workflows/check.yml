@@ -1,0 +1,29 @@
+name: Check
+on: push
+
+jobs:
+  black:
+    name: Black
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install black
+        run: pip install black
+
+      - name: Black
+        run: black --check .
+
+  flake8:
+    name: Flake8
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install black
+        run: pip install flake8
+
+      - name: Check flake8
+        run: flake8 .

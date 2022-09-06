@@ -20,11 +20,13 @@
 import modal
 import time
 
-stub = modal.Stub(image=(
-    modal.Conda()
-    .conda_install(["cudatoolkit=11.2", "cudnn=8.1.0"])
-    .pip_install(["tensorflow", "pathlib"])
-))
+stub = modal.Stub(
+    image=(
+        modal.Conda()
+        .conda_install(["cudatoolkit=11.2", "cudnn=8.1.0"])
+        .pip_install(["tensorflow", "pathlib"])
+    )
+)
 
 # ## Logging data for Tensorboard
 #
@@ -44,17 +46,17 @@ logdir = "/tensorboard"
 # * We put all the Tensorflow imports inside the function body.
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
 
+
 @stub.function(shared_volumes={logdir: stub.volume}, gpu=True)
 def train():
     import pathlib
     import tensorflow as tf
 
-    from tensorflow import keras
     from tensorflow.keras import layers
     from tensorflow.keras.models import Sequential
 
     dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
-    data_dir = tf.keras.utils.get_file('flower_photos', origin=dataset_url, untar=True)
+    data_dir = tf.keras.utils.get_file("flower_photos", origin=dataset_url, untar=True)
     data_dir = pathlib.Path(data_dir)
 
     batch_size = 32
@@ -80,31 +82,29 @@ def train():
     )
 
     class_names = train_ds.class_names
-
     train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
-
-    normalization_layer = layers.Rescaling(1./255)
-    normalized_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
     num_classes = len(class_names)
 
-    model = Sequential([
-        layers.Rescaling(1./255, input_shape=(img_height, img_width, 3)),
-        layers.Conv2D(16, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Conv2D(32, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Conv2D(64, 3, padding='same', activation='relu'),
-        layers.MaxPooling2D(),
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(num_classes)
-    ])
+    model = Sequential(
+        [
+            layers.Rescaling(1.0 / 255, input_shape=(img_height, img_width, 3)),
+            layers.Conv2D(16, 3, padding="same", activation="relu"),
+            layers.MaxPooling2D(),
+            layers.Conv2D(32, 3, padding="same", activation="relu"),
+            layers.MaxPooling2D(),
+            layers.Conv2D(64, 3, padding="same", activation="relu"),
+            layers.MaxPooling2D(),
+            layers.Flatten(),
+            layers.Dense(128, activation="relu"),
+            layers.Dense(num_classes),
+        ]
+    )
 
     model.compile(
-        optimizer='adam',
+        optimizer="adam",
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        metrics=['accuracy']
+        metrics=["accuracy"],
     )
 
     model.summary()
@@ -114,18 +114,13 @@ def train():
         histogram_freq=1,
     )
 
-    history = model.fit(
+    model.fit(
         train_ds,
         validation_data=val_ds,
         epochs=20,
         callbacks=[tensorboard_callback],
     )
 
-    acc = history.history['accuracy']
-    val_acc = history.history['val_accuracy']
-
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
 
 # ## Running Tensorboard
 #
@@ -138,6 +133,7 @@ def train():
 # This container shares the same log directory containing the logs from the training.
 # The server does not need GPU support.
 # Note that this server will be exposed to the public internet!
+
 
 @stub.wsgi(shared_volumes={logdir: stub.volume})
 def tensorboard_app():
