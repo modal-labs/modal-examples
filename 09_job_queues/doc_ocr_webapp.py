@@ -31,6 +31,8 @@ stub = modal.Stub("doc_ocr_webapp")
 
 web_app = fastapi.FastAPI()
 
+# ## Define endpoints
+#
 # We need two endpoints: one to accept an image and submit it to the Modal job queue,
 # and another to poll for the results of the job. 
 #
