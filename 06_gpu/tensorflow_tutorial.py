@@ -8,7 +8,7 @@
 # running inside Modal on a GPU.
 # If you run this script, it will also create an Tensorboard URL you can go to:
 #
-# ![tensorboard](./tensorboard.png)
+# ![tensorboard](./tensorboard.jpg)
 #
 # ## Setting up the dependencies
 #

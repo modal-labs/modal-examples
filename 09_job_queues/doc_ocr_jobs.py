@@ -7,15 +7,15 @@
 # that can service async tasks from a web app. For the purpose of this tutorial,
 # we've also built a [React + FastAPI web app on Modal](/docs/guide/ex/doc_ocr_webapp)
 # that works together with it, but note that you don't need a web app running on Modal
-# to use this pattern. You can submit async tasks to Modal from any Python 
+# to use this pattern. You can submit async tasks to Modal from any Python
 # application (for example, a regular Django app running on Kubernetes).
-# 
+#
 # Our job queue will handle a single task: running OCR transcription for images.
-# We'll make use of a pre-trained Document Understanding model using the 
-# [donut](https://github.com/clovaai/donut) package to accomplish this. Try 
+# We'll make use of a pre-trained Document Understanding model using the
+# [donut](https://github.com/clovaai/donut) package to accomplish this. Try
 # it out for yourself [here](https://aksh-at-doc-ocr-webapp-wrapper.modal.run).
 #
-# ![receipt parser frontend](./receipt_parser_frontend_2.png)
+# ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
 # ## Define a Stub
 #
@@ -39,9 +39,10 @@ CACHE_PATH = "/root/model_cache"
 # ## Handler function
 #
 # Now let's define our handler function. Using the [@stub.function](https://modal.com/docs/reference/modal.Stub#function)
-# decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs, 
+# decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
 # has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
+
 
 @stub.function(
     gpu=True,
@@ -57,7 +58,9 @@ def parse_receipt(image: bytes):
 
     # Use donut fine-tuned on an OCR dataset.
     task_prompt = f"<s_cord-v2>"
-    pretrained_model = DonutModel.from_pretrained("naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH)
+    pretrained_model = DonutModel.from_pretrained(
+        "naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH
+    )
 
     # Initialize model.
     pretrained_model.half()
@@ -66,10 +69,13 @@ def parse_receipt(image: bytes):
 
     # Run inference.
     input_img = Image.open(io.BytesIO(image))
-    output = pretrained_model.inference(image=input_img, prompt=task_prompt)["predictions"][0]
+    output = pretrained_model.inference(image=input_img, prompt=task_prompt)[
+        "predictions"
+    ][0]
     print("Result: ", output)
 
     return output
+
 
 # ## Deploy
 #
@@ -79,7 +85,7 @@ def parse_receipt(image: bytes):
 # modal app deploy doc_ocr_jobs.py
 # ```
 #
-# Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another 
+# Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another
 # Python process and submit tasks to it:
 #
 # ```python
@@ -88,13 +94,13 @@ def parse_receipt(image: bytes):
 # ```
 #
 # Modal will auto-scale to handle all the tasks queued, and
-# then scale back down to 0 when there's no work left. To see how you could use this from a Python web 
+# then scale back down to 0 when there's no work left. To see how you could use this from a Python web
 # app, take a look at the [receipt parser frontend](/docs/guide/ex/doc_ocr_webapp)
 # tutorial.
 
 # ## Run manually
-# 
-# We can also trigger `parse_receipt` manually for easier debugging. To try it out, you can find some 
+#
+# We can also trigger `parse_receipt` manually for easier debugging. To try it out, you can find some
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 if __name__ == "__main__":

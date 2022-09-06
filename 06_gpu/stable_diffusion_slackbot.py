@@ -8,7 +8,7 @@
 # [stable diffusion](https://stability.ai/blog/stable-diffusion-public-release)
 # to produce realistic images from text prompts on demand.
 #
-# ![stable diffusion slackbot](./stable_diff_screenshot.png)
+# ![stable diffusion slackbot](./stable_diff_screenshot.jpg)
 
 # ## Basic setup
 
@@ -70,7 +70,9 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu=True,
-    image=modal.DebianSlim().pip_install(["diffusers", "transformers", "scipy", "ftfy"]),
+    image=modal.DebianSlim().pip_install(
+        ["diffusers", "transformers", "scipy", "ftfy"]
+    ),
     shared_volumes={CACHE_PATH: volume},
     secret=modal.ref("huggingface-secret"),
 )
@@ -144,7 +146,10 @@ async def entrypoint(request: Request):
 # Below, we use the secret and `slack-sdk` to post to a Slack channel.
 
 
-@stub.function(image=modal.DebianSlim().pip_install(["slack-sdk"]), secret=modal.ref("stable-diff-slackbot-secret"))
+@stub.function(
+    image=modal.DebianSlim().pip_install(["slack-sdk"]),
+    secret=modal.ref("stable-diff-slackbot-secret"),
+)
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
     import slack_sdk
 
