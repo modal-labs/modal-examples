@@ -20,7 +20,7 @@ import modal
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
-# we update the symlink to point to `python3.7` instead (which convenentiently also happens to be installed).
+# update the symlink to point to `python3.7` instead (which convenentiently also happens to be installed).
 
 algolia_image = modal.DockerhubImage(
     tag="algolia/docsearch-scraper",
