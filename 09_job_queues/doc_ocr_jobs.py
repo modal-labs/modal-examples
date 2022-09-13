@@ -42,7 +42,7 @@ CACHE_PATH = "/root/model_cache"
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
 # has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
-# In order for the model to be loaded only once per container, we put the model in a class and use a custom `__enter__`
+# In order for the model to be loaded only once per container, we put the model in a class and use a custom `__enter__`.
 
 
 class Model:
