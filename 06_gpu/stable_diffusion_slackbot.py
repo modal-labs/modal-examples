@@ -70,6 +70,7 @@ volume = modal.SharedVolume().persist("stable-diff-model-vol")
 
 CACHE_PATH = "/root/model_cache"
 
+
 class StableDiffusion:
     def __enter__(self):
         from diffusers import StableDiffusionPipeline
