@@ -62,43 +62,48 @@ volume = modal.SharedVolume().persist("stable-diff-model-vol")
 # need to run the model, mount the `SharedVolume` to a path of our choice, and
 # also provide it the secret that contains the token we created above.
 #
-# By setting the `cache_dir` argument for the model to the mount path of our
-# `SharedVolume`, we ensure that the model weights are downloaded only once.
+# We also use two tricks to speed up the initialization of the model:
+# 1. We set the `cache_dir` to a SharedVolume, which makes sure the model
+#    weights are only downloaded once.
+# 2. We put the initialization code in an `__enter__` handler, which
+#    runs only once per container start.
 
 CACHE_PATH = "/root/model_cache"
 
+class StableDiffusion:
+    def __enter__(self):
+        from diffusers import StableDiffusionPipeline
 
-@stub.function(
-    gpu=True,
-    image=modal.DebianSlim().pip_install(
-        ["diffusers", "transformers", "scipy", "ftfy"]
-    ),
-    shared_volumes={CACHE_PATH: volume},
-    secret=modal.ref("huggingface-secret"),
-)
-async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
-    from diffusers import StableDiffusionPipeline
-    from torch import autocast
+        self.pipe = StableDiffusionPipeline.from_pretrained(
+            "CompVis/stable-diffusion-v1-4",
+            use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+            cache_dir=CACHE_PATH,
+        ).to("cuda")
 
-    pipe = StableDiffusionPipeline.from_pretrained(
-        "CompVis/stable-diffusion-v1-4",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
-        cache_dir=CACHE_PATH,
-    ).to("cuda")
+    @stub.function(
+        gpu=True,
+        image=modal.DebianSlim().pip_install(
+            ["diffusers", "transformers", "scipy", "ftfy"]
+        ),
+        shared_volumes={CACHE_PATH: volume},
+        secret=modal.ref("huggingface-secret"),
+    )
+    async def run(self, prompt: str, channel_name: Optional[str] = None):
+        from torch import autocast
 
-    with autocast("cuda"):
-        image = pipe(prompt, num_inference_steps=100)["sample"][0]
+        with autocast("cuda"):
+            image = self.pipe(prompt, num_inference_steps=100)["sample"][0]
 
-    # Convert PIL Image to PNG byte array.
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
-    img_bytes = buf.getvalue()
+        # Convert PIL Image to PNG byte array.
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        img_bytes = buf.getvalue()
 
-    if channel_name:
-        # `post_to_slack` is implemented further below.
-        post_image_to_slack(prompt, channel_name, img_bytes)
+        if channel_name:
+            # `post_to_slack` is implemented further below.
+            post_image_to_slack(prompt, channel_name, img_bytes)
 
-    return img_bytes
+        return img_bytes
 
 
 # ## Slack webhook
@@ -127,7 +132,7 @@ from fastapi import Request
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]
-    run_stable_diffusion.submit(prompt, body["channel_name"])
+    StableDiffusion().run.submit(prompt, body["channel_name"])
     return f"Running stable diffusion for {prompt}."
 
 
@@ -196,7 +201,7 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with stub.run():
-        img_bytes = run_stable_diffusion(prompt)
+        img_bytes = StableDiffusion().run(prompt)
         with open(os.path.join(OUTPUT_DIR, "output.png"), "wb") as f:
             f.write(img_bytes)
 

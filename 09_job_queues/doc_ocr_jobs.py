@@ -42,39 +42,43 @@ CACHE_PATH = "/root/model_cache"
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
 # has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
+# In order for the model to be loaded only once per container, we put the model in a class and use a custom `__enter__`
 
 
-@stub.function(
-    gpu=True,
-    image=modal.DebianSlim().pip_install(["donut-python"]),
-    shared_volumes={CACHE_PATH: volume},
-    retries=3,
-)
-def parse_receipt(image: bytes):
-    from PIL import Image
-    from donut import DonutModel
-    import torch
-    import io
+class Model:
+    def __enter__(self):
+        from donut import DonutModel
+        import torch
 
-    # Use donut fine-tuned on an OCR dataset.
-    task_prompt = "<s_cord-v2>"
-    pretrained_model = DonutModel.from_pretrained(
-        "naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH
+        # Use donut fine-tuned on an OCR dataset.
+        self.pretrained_model = DonutModel.from_pretrained(
+            "naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH
+        )
+
+        # Initialize model.
+        self.pretrained_model.half()
+        device = torch.device("cuda")
+        self.pretrained_model.to(device)
+
+    @stub.function(
+        gpu=True,
+        image=modal.DebianSlim().pip_install(["donut-python"]),
+        shared_volumes={CACHE_PATH: volume},
+        retries=3,
     )
+    def parse_receipt(self, image: bytes):
+        from PIL import Image
+        import io
 
-    # Initialize model.
-    pretrained_model.half()
-    device = torch.device("cuda")
-    pretrained_model.to(device)
+        # Run inference.
+        input_img = Image.open(io.BytesIO(image))
+        task_prompt = "<s_cord-v2>"
+        output = self.pretrained_model.inference(image=input_img, prompt=task_prompt)[
+            "predictions"
+        ][0]
+        print("Result: ", output)
 
-    # Run inference.
-    input_img = Image.open(io.BytesIO(image))
-    output = pretrained_model.inference(image=input_img, prompt=task_prompt)[
-        "predictions"
-    ][0]
-    print("Result: ", output)
-
-    return output
+        return output
 
 
 # ## Deploy
@@ -107,4 +111,4 @@ if __name__ == "__main__":
     with stub.run():
         with open("./receipt.png", "rb") as f:
             image = f.read()
-            print(parse_receipt(image))
+            print(Model().parse_receipt(image))
