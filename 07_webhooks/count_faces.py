@@ -11,7 +11,7 @@ stub = modal.Stub()
 
 
 open_cv_image = (
-    modal.DebianSlim()
+    modal.Image.debian_slim()
     .apt_install(["python3-opencv"])
     .pip_install(["opencv-python", "numpy"])
 )

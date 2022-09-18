@@ -22,7 +22,7 @@ import modal
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # update the symlink to point to `python3.7` instead (which convenentiently also happens to be installed).
 
-algolia_image = modal.DockerhubImage(
+algolia_image = modal.Image.from_dockerhub(
     tag="algolia/docsearch-scraper",
     setup_commands=["ln -sfn /usr/bin/python3.7 /usr/bin/python"],
 )

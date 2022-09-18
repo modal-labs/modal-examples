@@ -52,7 +52,9 @@ dockerfile_commands = [
     f"RUN curl -L -o scene.blend -C - '{SCENE_FILENAME}'",
     f"RUN curl -L -o scene.mtl -C - '{MATERIALS_FILENAME}'",
 ]
-stub = modal.Stub(image=modal.DebianSlim().dockerfile_commands(dockerfile_commands))
+stub = modal.Stub(
+    image=modal.Image.debian_slim().dockerfile_commands(dockerfile_commands)
+)
 
 
 # ## Setting things up in the containers

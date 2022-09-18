@@ -7,7 +7,7 @@ import modal
 
 web_app = FastAPI()
 stub = modal.Stub()
-image = modal.DebianSlim()
+image = modal.Image.debian_slim()
 
 
 class Item(BaseModel):

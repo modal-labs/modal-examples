@@ -37,7 +37,7 @@ OUTPUT_DIR = "/tmp/"
 FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 
 image = (
-    modal.DebianSlim()
+    modal.Image.debian_slim()
     .run_commands(["apt-get install -y libgl1-mesa-glx libglib2.0-0 wget"])
     .run_commands(
         [

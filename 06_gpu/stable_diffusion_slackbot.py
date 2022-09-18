@@ -70,7 +70,7 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu=True,
-    image=modal.DebianSlim().pip_install(
+    image=modal.Image.debian_slim().pip_install(
         ["diffusers", "transformers", "scipy", "ftfy"]
     ),
     shared_volumes={CACHE_PATH: volume},
@@ -147,7 +147,7 @@ async def entrypoint(request: Request):
 
 
 @stub.function(
-    image=modal.DebianSlim().pip_install(["slack-sdk"]),
+    image=modal.Image.debian_slim().pip_install(["slack-sdk"]),
     secret=modal.ref("stable-diff-slackbot-secret"),
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):

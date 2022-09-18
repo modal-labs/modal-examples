@@ -2,7 +2,7 @@ import modal
 
 stub = modal.Stub()
 stub.image = (
-    modal.DebianSlim()
+    modal.Image.debian_slim()
     # Install Julia 1.7
     .apt_install(["wget", "ca-certificates"])
     .run_commands(

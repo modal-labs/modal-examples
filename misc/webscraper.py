@@ -9,7 +9,7 @@ import modal
 stub = modal.Stub("linkscraper")
 
 
-playwright_image = modal.DebianSlim().run_commands(
+playwright_image = modal.Image.debian_slim().run_commands(
     [
         "apt-get install -y software-properties-common",
         "apt-add-repository non-free",
@@ -38,7 +38,7 @@ async def get_links(url: str):
     return links
 
 
-slack_sdk_image = modal.DebianSlim().pip_install(["slack-sdk"])
+slack_sdk_image = modal.Image.debian_slim().pip_install(["slack-sdk"])
 
 
 @stub.function(image=slack_sdk_image, secret=modal.ref("scraper-slack-secret"))

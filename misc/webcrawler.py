@@ -6,11 +6,11 @@ import asyncio
 import sys
 from dataclasses import dataclass
 
-from modal.aio import AioDebianSlim, AioDict, AioQueue, AioStub
+from modal.aio import AioImage, AioDict, AioQueue, AioStub
 
 stub = AioStub()
 
-image = AioDebianSlim().run_commands(
+image = AioImage.debian_slim().run_commands(
     [
         "apt-get install -y software-properties-common",
         "apt-add-repository non-free",

@@ -26,7 +26,7 @@ import modal
 
 # dependencies
 dependencies = ["torch==1.10.2", "transformers==4.16.2", "tensorboard"]
-stub = modal.Stub(image=modal.DebianSlim().pip_install(dependencies))
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(dependencies))
 
 if stub.is_inside():
     from transformers import AutoModel, AutoTokenizer
