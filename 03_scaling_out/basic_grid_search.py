@@ -9,7 +9,7 @@ import modal
 #
 # First, let's build a custom image and install scikit-learn in it.
 
-stub = modal.Stub(image=modal.DebianSlim().pip_install(["sklearn"]))
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["sklearn"]))
 
 # ## Conditionally importing in the global scope
 #

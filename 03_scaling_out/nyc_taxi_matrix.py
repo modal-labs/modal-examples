@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 import modal
 
 stub = modal.Stub(
-    image=modal.DebianSlim().pip_install(["numpy", "matplotlib", "pyarrow"])
+    image=modal.Image.debian_slim().pip_install(["numpy", "matplotlib", "pyarrow"])
 )
 
 

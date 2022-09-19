@@ -5,7 +5,9 @@ from fastapi import Request
 
 import modal
 
-stub = modal.Stub("dalle-bot", image=modal.DebianSlim().pip_install(["min-dalle"]))
+stub = modal.Stub(
+    "dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"])
+)
 
 volume = modal.SharedVolume().persist("dalle-model-vol")
 
@@ -13,7 +15,7 @@ CACHE_PATH = "/root/model_cache"
 
 
 @stub.function(
-    image=modal.DebianSlim().pip_install(["slack-sdk"]),
+    image=modal.Image.debian_slim().pip_install(["slack-sdk"]),
     secret=modal.ref("dalle-bot-slack-secret"),
 )
 def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
@@ -54,7 +56,9 @@ async def run_minidalle(prompt: str, channel_name: str):
 
 
 # python-multipart is needed for fastapi form parsing.
-@stub.webhook(method="POST", image=modal.DebianSlim().pip_install(["python-multipart"]))
+@stub.webhook(
+    method="POST", image=modal.Image.debian_slim().pip_install(["python-multipart"])
+)
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]

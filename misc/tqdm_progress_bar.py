@@ -2,7 +2,7 @@ import time
 
 import modal
 
-stub = modal.Stub(image=modal.DebianSlim().pip_install(["tqdm"]))
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["tqdm"]))
 
 
 @stub.function

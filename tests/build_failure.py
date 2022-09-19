@@ -1,6 +1,6 @@
 import modal
 
-stub = modal.Stub(image=modal.DebianSlim().pip_install(["123abc"]))
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["123abc"]))
 
 
 @stub.function

@@ -36,7 +36,7 @@ stub = modal.Stub()
 # Modal lets you run arbitrary commands, just like in Docker:
 
 
-image = modal.DebianSlim().run_commands(
+image = modal.Image.debian_slim().run_commands(
     [
         "apt-get install -y software-properties-common",
         "apt-add-repository non-free",

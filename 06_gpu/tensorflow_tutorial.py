@@ -22,7 +22,7 @@ import time
 
 stub = modal.Stub(
     image=(
-        modal.Conda()
+        modal.Image.conda()
         .conda_install(["cudatoolkit=11.2", "cudnn=8.1.0"])
         .pip_install(["tensorflow", "pathlib"])
     )
