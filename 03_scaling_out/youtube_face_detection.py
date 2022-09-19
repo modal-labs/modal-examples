@@ -17,7 +17,12 @@
 #
 # ## The result
 #
-# <center><video controls><source src="./youtube_face_detection.mp4" type="video/mp4"></video></center>
+# <center>
+# <video controls>
+# <source src="./youtube_face_detection.mp4" type="video/mp4">
+# <track kind="captions" />
+# </video>
+# </center>
 #
 # If you watched this, we succeeded
 # [rickrolling](https://en.wikipedia.org/wiki/Rickrolling)
