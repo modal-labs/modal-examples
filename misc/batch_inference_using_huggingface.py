@@ -116,3 +116,9 @@ if __name__ == "__main__":
         with open(fn, "wb") as f:
             f.write(png_data)
         print(f"Wrote ROC curve to {fn}")
+
+# ## Inspecting the output
+#
+# This generates a plot that looks like this:
+# 
+# ![roc](batch_inference_using_huggingface.png)
