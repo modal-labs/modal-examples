@@ -1,3 +1,7 @@
+# ---
+# integration-test: false
+# ---
+
 import io
 import random
 import tarfile
@@ -81,13 +85,16 @@ if __name__ == "__main__":
 
         # In order to force the model to be downloaded only once, run a dummy predictor
         # Otherwise, the model will be downloaded by multiple workers starting simultaneously
+        print("Downloading model...")
         predictor = SentimentAnalysis()
         predictor.predict("test")
 
         # Now, let's run batch inference over it
+        print("Running batch prediction...")
         predictions = list(predictor.predict.map(reviews))
 
         # Generate a ROC plot
+        print("Creating ROC plot...")
         png_data = roc_plot(labels, predictions)
         fn = "/tmp/roc.png"
         with open(fn, "wb") as f:
