@@ -30,12 +30,13 @@ stub = modal.Stub(
 # ## Defining the prediction function
 #
 # The prediction function uses a few features with Modal:
-# 
+#
 # Instead of a global function, we put the method on a class,
 # and define an `__enter__` method on that class.
 # This method will be executed only once for each container.
 # The point of this is to load the model into memory only once, since
 # this is a slow operaton (a few seconds).
+
 
 class SentimentAnalysis:
     def __enter__(self):
@@ -52,18 +53,22 @@ class SentimentAnalysis:
         probs = {p["label"]: p["score"] for p in pred}
         return probs["POSITIVE"]
 
+
 # ## Getting data
 #
 # We need some data to run the batch inference on.
 # We use this [online dataset of movie reviews](https://ai.stanford.edu/~amaas/data/sentiment/) for this purpose.
 # As it turns out, Huggingface also [hosts this data](https://huggingface.co/datasets/imdb)
 
+
 @stub.function
 def get_data():
     from datasets import load_dataset
+
     imdb = load_dataset("imdb")
     data = [(row["text"], row["label"]) for row in imdb["test"]]
     return data
+
 
 # ## Plotting the ROC curve
 #
@@ -103,7 +108,9 @@ if __name__ == "__main__":
         predictor = SentimentAnalysis()
         for review, label in data[:5]:
             prediction = predictor.predict(review)
-            print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
+            print(
+                f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
+            )
 
         # Now, let's run batch inference over it
         print("Running batch prediction...")
@@ -120,5 +127,5 @@ if __name__ == "__main__":
 # ## Inspecting the output
 #
 # This generates a plot that looks like this:
-# 
+#
 # ![roc](batch_inference_using_huggingface.png)
