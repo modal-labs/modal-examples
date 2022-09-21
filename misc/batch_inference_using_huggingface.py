@@ -172,7 +172,7 @@ if __name__ == "__main__":
 # Every container downloads the model when it starts, which is a bit inefficient.
 # In order to improve this, what you could do is to set up a shared volume that gets
 # mounted to each container.
-# See [shared volumes](docs/guide/shared-volumes).
+# See [shared volumes](/docs/guide/shared-volumes).
 #
 # In order for Huggingface to use the shared volume, you need to set the value of
 # the `TRANSFORMERS_CACHE` environment variable to the path of the shared volume.
