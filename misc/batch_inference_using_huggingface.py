@@ -3,6 +3,8 @@
 # ---
 # # Batch inference using a model from Huggingface
 #
+# ![huggingface](./batch_inference_huggingface.png)
+#
 # This example shows how to use a sentiment analysis model from Huggingface to classify 25,000 movie ratings.
 #
 # Some Modal features it uses:
@@ -75,6 +77,10 @@ def get_data():
 # In order to evaluate the classifier, let's plot an
 # [ROC curve](https://en.wikipedia.org/wiki/Receiver_operating_characteristic).
 # This is a common way to evaluate classifiers on binary data.
+#
+# Spoiling the end, the output of this script will look like this:
+#
+# ![roc](batch_inference_roc.png)
 
 
 @stub.function
@@ -124,8 +130,21 @@ if __name__ == "__main__":
             f.write(png_data)
         print(f"Wrote ROC curve to {fn}")
 
-# ## Inspecting the output
+# ## Running this
 #
-# This generates a plot that looks like this:
+# When you run this, you should see something like this:
 #
-# ![roc](batch_inference_using_huggingface.png)
+# <center>
+# <video controls>
+# <source src="./batch_inference_screen.mp4" type="video/mp4">
+# <track kind="captions" />
+# </video>
+# </center>
+#
+# ## Further optimization notes
+#
+# Every container downloads the model when it starts, which is a bit inefficient.
+# In order to improve this, what you could do is to set up a shared volume that gets
+# mounted to each container.
+# You have to use that in conjunction with the `TRANSFORMERS_CACHE` environment variable
+# to tell Huggingface where to store the model.
