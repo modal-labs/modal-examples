@@ -4,7 +4,7 @@
 # # Batch inference using a model from Huggingface
 #
 # <center>
-#   <img src="./batch_inference_huggingface.png"/>
+#   <img src="./batch_inference_huggingface.png" alt="Huggingface company logo" />
 # </center>
 #
 # This example shows how to use a sentiment analysis model from Huggingface to classify
