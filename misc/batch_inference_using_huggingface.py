@@ -3,7 +3,9 @@
 # ---
 # # Batch inference using a model from Huggingface
 #
-# ![huggingface](./batch_inference_huggingface.png)
+# <center>
+#   <img src="./batch_inference_huggingface.png"/>
+# </center>
 #
 # This example shows how to use a sentiment analysis model from Huggingface to classify 25,000 movie ratings.
 #
@@ -14,14 +16,15 @@
 #
 # ## Basic setup
 #
-# Global imports:
+# Let's get started writing code.
+# We need some global packages first.
+# Then, let's set up the Modal environment.
+# We need a few Python packages, including `transformers`, which is the main
+# Huggingface package.
 
 import io
 
 import modal
-
-# Next, let's set up the Modal environment.
-# All the Python packages, as well as the shared volume and the environment variables
 
 stub = modal.Stub(
     image=modal.Image.debian_slim().pip_install(
@@ -31,13 +34,15 @@ stub = modal.Stub(
 
 # ## Defining the prediction function
 #
-# The prediction function uses a few features with Modal:
-#
 # Instead of a global function, we put the method on a class,
 # and define an `__enter__` method on that class.
 # This method will be executed only once for each container.
 # The point of this is to load the model into memory only once, since
 # this is a slow operaton (a few seconds).
+#
+# Since the transformer model is very CPU-hungry, we allocate 8 CPUs
+# to the model.
+# Every container that runs will have 8 CPUs set aside for it.
 
 
 class SentimentAnalysis:
@@ -59,8 +64,9 @@ class SentimentAnalysis:
 # ## Getting data
 #
 # We need some data to run the batch inference on.
-# We use this [online dataset of movie reviews](https://ai.stanford.edu/~amaas/data/sentiment/) for this purpose.
-# As it turns out, Huggingface also [hosts this data](https://huggingface.co/datasets/imdb)
+# We use this [dataset of IMDB reviews](https://ai.stanford.edu/~amaas/data/sentiment/) for this purpose.
+# As it turns out, Huggingface also [offers this data](https://huggingface.co/datasets/imdb), which we
+# can download using the `datasets` package:
 
 
 @stub.function
@@ -77,10 +83,6 @@ def get_data():
 # In order to evaluate the classifier, let's plot an
 # [ROC curve](https://en.wikipedia.org/wiki/Receiver_operating_characteristic).
 # This is a common way to evaluate classifiers on binary data.
-#
-# Spoiling the end, the output of this script will look like this:
-#
-# ![roc](batch_inference_roc.png)
 
 
 @stub.function
@@ -94,6 +96,10 @@ def roc_plot(labels, predictions):
     pyplot.savefig(buf, format="png")
     return buf.getvalue()
 
+
+# Spoiling the end, the output of this script will look like this:
+#
+# ![roc](./batch_inference_roc.png)
 
 # ## Putting it together
 #
@@ -134,12 +140,9 @@ if __name__ == "__main__":
 #
 # When you run this, you should see something like this:
 #
-# <center>
-# <video controls>
-# <source src="./batch_inference_screen.mp4" type="video/mp4">
-# <track kind="captions" />
-# </video>
-# </center>
+# ![progress](./batch_inference_progress.png)
+#
+# The whole thing should take 1-2 minutes to run!
 #
 # ## Further optimization notes
 #
