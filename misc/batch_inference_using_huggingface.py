@@ -7,20 +7,19 @@
 #   <img src="./batch_inference_huggingface.png"/>
 # </center>
 #
-# This example shows how to use a sentiment analysis model from Huggingface to classify 25,000 movie ratings.
+# This example shows how to use a sentiment analysis model from Huggingface to classify
+# 25,000 movie reviews in a couple of minutes.
 #
 # Some Modal features it uses:
-# * Container lifecycle hook: this lets us load the model once in each container
+# * Container lifecycle hook: this lets us load the model only once in each container
 # * CPU requests: the prediction function is very CPU-hungry, so we reserve 8 cores
-# * Mapping: we map over 25,000 sentences in about a minute or less
+# * Mapping: we map over 25,000 sentences and Modal manages the pool of containers for us
 #
 # ## Basic setup
 #
 # Let's get started writing code.
-# We need some global packages first.
-# Then, let's set up the Modal environment.
-# We need a few Python packages, including `transformers`, which is the main
-# Huggingface package.
+# For the Modal container image, we need a few Python packages,
+# including `transformers`, which is the main Huggingface package.
 
 import io
 
@@ -34,11 +33,11 @@ stub = modal.Stub(
 
 # ## Defining the prediction function
 #
-# Instead of a global function, we put the method on a class,
-# and define an `__enter__` method on that class.
-# This method will be executed only once for each container.
-# The point of this is to load the model into memory only once, since
-# this is a slow operaton (a few seconds).
+# Instead of a using `@stub.function` in the global scope,
+# we put the method on a class, and define an `__enter__` method on that class.
+# Modal reuses containers for successive calls to the same function, so
+# we want to take advantage of this and avoid setting up the same model
+# for every function call.
 #
 # Since the transformer model is very CPU-hungry, we allocate 8 CPUs
 # to the model.
@@ -65,8 +64,8 @@ class SentimentAnalysis:
 #
 # We need some data to run the batch inference on.
 # We use this [dataset of IMDB reviews](https://ai.stanford.edu/~amaas/data/sentiment/) for this purpose.
-# As it turns out, Huggingface also [offers this data](https://huggingface.co/datasets/imdb), which we
-# can download using the `datasets` package:
+# Huggingface actually offers this data [as a preprocessed dataaset](https://huggingface.co/datasets/imdb),
+# which we can download using the `datasets` package:
 
 
 @stub.function
@@ -97,9 +96,11 @@ def roc_plot(labels, predictions):
     return buf.getvalue()
 
 
-# Spoiling the end, the output of this script will look like this:
+# A bit of a spoiler warning, but if you run this script, the ROC curve will look like this:
 #
 # ![roc](./batch_inference_roc.png)
+#
+# The AUC of this classifier is 0.96, which means it's very good!
 
 # ## Putting it together
 #
@@ -107,6 +108,7 @@ def roc_plot(labels, predictions):
 # then plots the results.
 # Each prediction takes roughly 0.1-1s, so if we ran everything sequentially it would take 2,500-25,000 seconds.
 # That's a lot! Luckily because of Modal's `.map` method, we can process everything in a couple of minutes at most.
+# Modal will automatically spin up more and more workers until all inputs are processed.
 
 if __name__ == "__main__":
     with stub.run():
@@ -138,16 +140,23 @@ if __name__ == "__main__":
 
 # ## Running this
 #
-# When you run this, you should see something like this:
+# When you run this, it will download the dataset and load the model, then output some
+# sample predictions:
+#
+# After that, it kicks off the actual batch inference.
+# It should look something like the screenshot below (we are very proud of the progress bar):
 #
 # ![progress](./batch_inference_progress.png)
 #
-# The whole thing should take 1-2 minutes to run!
+# The whole thing should take a few minutes to run.
 #
 # ## Further optimization notes
 #
 # Every container downloads the model when it starts, which is a bit inefficient.
 # In order to improve this, what you could do is to set up a shared volume that gets
 # mounted to each container.
-# You have to use that in conjunction with the `TRANSFORMERS_CACHE` environment variable
-# to tell Huggingface where to store the model.
+# See [shared volumes](docs/guide/shared-volumes).
+#
+# In order for Huggingface to use the shared volume, you need to set the value of
+# the `TRANSFORMERS_CACHE` environment variable to the path of the shared volume.
+# See [secrets](/docs/guide/secrets).
