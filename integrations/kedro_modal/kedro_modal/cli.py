@@ -1,9 +1,7 @@
-from pathlib import Path
-
 import click
 from modal import lookup
 
-from .modal_functions import main_stub, sync_stub, package_mounts
+from .modal_functions import main_stub, sync_stub
 
 
 @click.group(name="Kedro-Modal")
