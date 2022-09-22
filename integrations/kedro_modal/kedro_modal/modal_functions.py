@@ -4,7 +4,9 @@ import subprocess
 import warnings
 from pathlib import Path
 
-from modal import Image, Mount, SharedVolume, Stub
+from modal import Image, Mount, SharedVolume, Stub, create_package_mounts
+
+package_mounts = create_package_mounts(["kedro_modal"])
 
 
 def run_kedro(project_path: Path, data_path: Path):
@@ -27,7 +29,7 @@ def sync_data(source: Path, destination: Path, reset: bool=False):
 def non_hidden_files(project_path: Path):
     def condition(path):
         rel = Path(path).relative_to(project_path)
-        return not any(part.startswith(".") for part in rel.parts)
+        return not any(part != ".gitkeep" and part.startswith(".") for part in rel.parts)
 
     return condition
 
@@ -41,15 +43,16 @@ def main_stub(project_path, project_name, package_name) -> Stub:
         warnings.warn("No requirements.txt in kedro src dir - attaching no dependencies")
         image = image.pip_install("kedro")
 
-    stub = Stub(f"kedro-run.{project_name}", image=image)
+    remote_project_mount_point = Path(f"/kedro-project/{package_name}")
+    kedro_proj_mount = Mount(remote_dir=remote_project_mount_point, local_dir=project_path, condition=non_hidden_files(project_path))
+    stub = Stub(f"kedro-run.{project_name}", image=image, mounts=[kedro_proj_mount] + package_mounts)
     volume_name = f"kedro.{project_name}.storage"
     data_volume = SharedVolume().persist(volume_name)
 
-    remote_project_mount_point = Path(f"/kedro-project/{package_name}")
-    kedro_proj_mount = Mount(remote_dir=remote_project_mount_point, local_dir=project_path, condition=non_hidden_files(project_path))
-    stub.function(mounts=[kedro_proj_mount], shared_volumes={"/kedro-storage": data_volume})(run_kedro)
     stub.function(
-        mounts=[kedro_proj_mount],
+        shared_volumes={"/kedro-storage": data_volume}
+    )(run_kedro)
+    stub.function(
         shared_volumes={"/kedro-storage": data_volume}
     )(sync_data)
     remote_data_path = Path("/kedro-storage/data")
@@ -65,7 +68,7 @@ def sync_stub(project_path, project_name):
     remote_source_path = Path(f"/source-data")
     source_mount = Mount(remote_dir=remote_source_path, local_dir=project_path / "data", condition=non_hidden_files(project_path))
     stub.function(
-        mounts=[source_mount],
+        mounts=[source_mount] + package_mounts,
         shared_volumes={"/kedro-storage": data_volume}
     )(sync_data)
     remote_destination_path = Path("/kedro-storage/data")

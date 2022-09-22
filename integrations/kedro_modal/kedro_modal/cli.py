@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 from modal import lookup
 
-from .modal_functions import main_stub, sync_stub
+from .modal_functions import main_stub, sync_stub, package_mounts
 
 
 @click.group(name="Kedro-Modal")
@@ -27,6 +27,11 @@ def run(metadata):
         app.sync_data(remote_project_mount_path / "data", remote_data_path, reset=False)
         app.run_kedro(remote_project_mount_path, remote_data_path)
 
+@modal_group.command(help="Run kedro project on Modal")
+@click.pass_obj
+def debug(metadata):
+    stub, remote_project_mount_path, remote_data_path = main_stub(metadata.project_path, metadata.project_name, metadata.package_name)
+    stub.interactive_shell()
 
 @modal_group.command(help="Deploy kedro project to Modal, scheduling it to run daily")
 @click.pass_obj

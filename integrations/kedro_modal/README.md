@@ -7,6 +7,7 @@ The plugin lets you run Kedro Python pipelines on Modal in an effortless way.
 Data in your `<project-name>/data` directory will be synced to a persisted Modal [Shared Volume](https://modal.com/docs/guide/shared-volumes) and any datasets defined as local in your Kedro data catalog will be written to the same volume.
 
 ## Installation instructions
+First make sure that you have Modal installed (See https://modal.com/home)
 
 ```bash
 cd modal-examples/integrations/kedro-modal
