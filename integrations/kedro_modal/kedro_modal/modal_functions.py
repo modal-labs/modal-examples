@@ -74,7 +74,7 @@ def sync_stub(project_path, project_name):
     volume_name = f"kedro.{project_name}.storage"
     data_volume = SharedVolume().persist(volume_name)
 
-    remote_source_path = Path(f"/source-data")
+    remote_source_path = Path("/source-data")
     source_mount = Mount(
         remote_dir=remote_source_path,
         local_dir=project_path / "data",
