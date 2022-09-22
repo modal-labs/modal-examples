@@ -43,3 +43,18 @@ kedro.Spaceflights.storage
 ```bash
 modal volume get kedro.Spaceflights.storage data/02_intermediate/preprocessed_shuttles.pq .
 ```
+
+
+## Features
+At this point it only supports the basic use case of running a Kedro project (equivlalent of a basic `kedro run`) on Modal instead of running it locally.
+
+
+* It pushes the project source code to Modal
+* Installs requirements.txt of the project in a Modal image
+* Sets up a modal Shared Volume for syncing local input data from project/data and writing any output from the Modal runs.
+
+### Notably missing features at this point (but should not be too tricky to handle):
+* External data processors (e.g. spark)
+* Parallel runs using a custom Kedro Runner subclass
+* Default dataset support using Modal distributed in-memory storage (i.e. modal.Dict) - mostly needed if running parallelism
+* Using Modal functions as explicit Kedro nodes/steps (should technically be doable by just using Modal as is, but would probably need some kind of integration with this plugin)
