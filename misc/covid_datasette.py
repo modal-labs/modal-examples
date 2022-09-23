@@ -204,7 +204,7 @@ def app():
 # ## Publishing to the web
 #
 # You can run this script with the 'serve' command and it will create a short-lived
-# web url that exists until you terminate the script.
+# web URL that exists until you terminate the script.
 #
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
 # This is acheived by deploying the script with `modal app deploy covid_datasette.py`.
