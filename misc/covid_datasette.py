@@ -39,10 +39,9 @@ datasette_image = (
 
 # ## Persistent dataset storage
 #
-# To publish and incrementally grow the dataset over time, we'll need the underlying
+# To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To acheive this we use a [`SharedVolume`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
-# We `.persist` the volume so that the dataset's lifecycle is not tied to a running application.
 
 volume = modal.SharedVolume().persist("covid-dataset-cache-vol")
 
