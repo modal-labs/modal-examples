@@ -55,8 +55,9 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 # Johns Hopkins has been publishing up-to-date COVID-19 pandemic data on Github since early February 2020, and
 # as of late September 2022 daily reporting is still rolling in. Their dataset is what this example will use to
 # show off Modal and Datasette's capabilities.
-# 
+#
 # The full git repository size for the dataset is over 6GB, but we only need to shallow clone around 300MB.
+
 
 @stub.function(
     image=datasette_image,
@@ -134,6 +135,7 @@ def load_report(filepath):
 
 def chunks(it, size, *, max_chunks=None):
     import itertools
+
     for i, chunk in enumerate(iter(lambda: tuple(itertools.islice(it, size)), ())):
         if max_chunks and i == max_chunks:
             return
@@ -157,9 +159,11 @@ def prep_db(max_records=None):
         table = db["johns_hopkins_csse_daily_reports"]
 
         batch_size = 100_000
-        for i, batch in enumerate(chunks(
-            records, size=batch_size, max_chunks=min(max_records // batch_size, 1)
-        )):
+        for i, batch in enumerate(
+            chunks(
+                records, size=batch_size, max_chunks=min(max_records // batch_size, 1)
+            )
+        ):
             truncate = True if i == 0 else False
             table.insert_all(batch, batch_size=batch_size, truncate=truncate)
             print(f"Inserted {len(batch)} rows into DB.")
@@ -194,12 +198,14 @@ def refresh_db():
 # The `@stub.asgi` decorator wraps two lines of code. One `import`` and a single
 # line to instantiate the `Datasette` instance and return a reference to its ASGI app object.
 
+
 @stub.asgi(
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
 )
 def app():
     from datasette.app import Datasette
+
     return Datasette(files=[DB_PATH]).app()
 
 
