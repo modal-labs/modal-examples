@@ -220,4 +220,4 @@ if __name__ == "__main__":
             print("Prepping SQLite DB...")
             prep_db()
     else:
-        exit("Unknown command. Support commands [serve, prep]")
+        exit("Unknown command. Supported commands: [serve, prep]")
