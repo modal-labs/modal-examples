@@ -79,7 +79,7 @@ def download_dataset(cache=True):
 # ## Data munging
 #
 # This dataset is no swamp, but a bit of data cleaning is still in order. The following two
-# funtions are used to read a handful of .csv files from the git repository and cleaning the
+# functions are used to read a handful of `.csv` files from the git repository and cleaning the
 # rows data before inserting into SQLite. You can see that the daily reports are somewhat inconsistent
 # in their column names.
 
@@ -125,27 +125,24 @@ def load_report(filepath):
 #
 # With the CSV processing out of the way, we're ready to create an SQLite DB and feed data into it.
 # Importantly, the `prep_db` function mounts the same shared volume used by `download_dataset()`, and
-# row inserts are batched to view progress in logs, as the full COVID-19 has millions of rows and does
-# take some time to be fully inserted.
+# rows are batch inserted with progress logged after each batch, as the full COVID-19 has millions
+# of rows and does take some time to be fully inserted.
 #
 # A more sophisticated implementation would only load new data instead of performing a full refresh,
 # but for this example things are kept simple.
 
 
-def chunks(it, size, *, max_chunks=None):
+def chunks(it, size):
     import itertools
 
-    for i, chunk in enumerate(iter(lambda: tuple(itertools.islice(it, size)), ())):
-        if max_chunks and i == max_chunks:
-            return
-        yield chunk
+    return iter(lambda: tuple(itertools.islice(it, size)), ())
 
 
 @stub.function(
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
 )
-def prep_db(max_records=None):
+def prep_db():
     import shutil
     import tempfile
     import sqlite_utils
@@ -158,11 +155,7 @@ def prep_db(max_records=None):
         table = db["johns_hopkins_csse_daily_reports"]
 
         batch_size = 100_000
-        for i, batch in enumerate(
-            chunks(
-                records, size=batch_size, max_chunks=min(max_records // batch_size, 1)
-            )
-        ):
+        for i, batch in enumerate(chunks(records, size=batch_size)):
             truncate = True if i == 0 else False
             table.insert_all(batch, batch_size=batch_size, truncate=truncate)
             print(f"Inserted {len(batch)} rows into DB.")
@@ -179,7 +172,7 @@ def prep_db(max_records=None):
 # ## Keeping fresh
 #
 # Johns Hopkins commits new data to the dataset repository every day, so we
-# setup a scheduled Modal function running once every 24 hours.
+# setup a [scheduled](/docs/guide/cron) Modal function to run automatically once every 24 hours.
 
 
 @stub.function(schedule=modal.Period(hours=24))
@@ -194,7 +187,7 @@ def refresh_db():
 # ## Webhook
 #
 # Hooking up the SQLite database to a Modal webhook is as simple as it gets.
-# The `@stub.asgi` decorator wraps two lines of code. One `import`` and a single
+# The Modal `@stub.asgi` decorator wraps two lines of code. One `import` and a single
 # line to instantiate the `Datasette` instance and return a reference to its ASGI app object.
 
 
@@ -225,7 +218,6 @@ if __name__ == "__main__":
             print("Downloading COVID-19 dataset...")
             download_dataset()
             print("Prepping SQLite DB...")
-            max_records = 10_000  # Use small dataset when developing app.
-            prep_db(max_records)
+            prep_db()
     else:
         exit("Unknown command. Support commands [serve, prep]")
