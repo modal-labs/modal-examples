@@ -16,7 +16,7 @@
 # ## Basic setup
 #
 # Let's get started writing code.
-# For the Modal container image, we need a few Python packages,
+# For the Modal container image we need a few Python packages,
 # including `GitPython`, which we'll use to download the dataset.
 
 import pathlib
