@@ -164,7 +164,7 @@ def summarize_article(text: str) -> str:
 
 # ## Create a Scheduled Function
 #
-# Put everyting together and schedule it to run every day. You can also use `modal.Cron` for a
+# Put everything together and schedule it to run every day. You can also use `modal.Cron` for a
 # more advanced scheduling interface.
 
 
