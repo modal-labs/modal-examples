@@ -27,7 +27,7 @@ import modal
 
 stub = modal.Stub("covid-datasette")
 datasette_image = (
-    modal.DebianSlim()
+    modal.Image.debian_slim()
     .pip_install(
         [
             "datasette",
