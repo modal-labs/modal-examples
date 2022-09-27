@@ -138,7 +138,7 @@ def create_report(cities):
 
 
 # Let's try to run this! The code below should print something like this:
-# dict_items([('Clouds', 3)])
+# `dict_items([('Clouds', 3)])`.
 
 if __name__ == "__main__":
     with stub.run():
