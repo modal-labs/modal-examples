@@ -1,7 +1,3 @@
-# ---
-# integration-test: true
-# ---
-#
 # # Daily update from database to Google Sheets
 #
 # In this tutorial, we'll show how to use Modal to schedule delivery of a dataset from an analytics

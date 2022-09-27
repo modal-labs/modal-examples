@@ -1,7 +1,3 @@
-# ---
-# integration-test: false
-# ---
-#
 # # News article summarizer
 #
 # In this example we scrape news articles from the [New York Times'

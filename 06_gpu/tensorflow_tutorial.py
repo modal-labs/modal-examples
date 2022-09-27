@@ -1,6 +1,3 @@
-# ---
-# integration-test: false
-# ---
 # # Tensorflow tutorial
 #
 # This is essentially a version of the

@@ -1,6 +1,3 @@
-# ---
-# integration-test: false
-# ---
 # # Probabilistic programming (PyMC)
 #
 # This example shows how you can use Modal to scale up PyMC code to run with massive parallelism.

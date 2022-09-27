@@ -1,5 +1,4 @@
 # ---
-# integration-test: false
 # args: ["http://example.com"]
 # ---
 import asyncio

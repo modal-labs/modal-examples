@@ -1,5 +1,4 @@
 # ---
-# integration-test: false
 # output-directory: "/tmp/render"
 # ---
 # # Stable diffusion slackbot
