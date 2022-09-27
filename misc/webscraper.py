@@ -1,7 +1,3 @@
-# ---
-# integration-test: false
-# ---
-
 import os
 
 import modal

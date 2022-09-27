@@ -1,7 +1,3 @@
-# ---
-# integration-test: false
-# ---
-
 """Single-page application that lets you talk to a transformer chatbot.
 
 This is a complex example demonstrating an end-to-end web application backed by

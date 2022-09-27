@@ -1,6 +1,3 @@
-# ---
-# integration-test: false
-# ---
 import subprocess
 
 import modal

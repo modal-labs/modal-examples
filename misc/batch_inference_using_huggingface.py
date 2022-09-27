@@ -1,6 +1,3 @@
-# ---
-# integration-test: false
-# ---
 # # Batch inference using a model from Huggingface
 #
 # <center>

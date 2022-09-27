@@ -1,6 +1,3 @@
-# ---
-# integration-test: false
-# ---
 # # Algolia docsearch crawler
 #
 # This tutorial shows you how to use Modal to run the [Algolia docsearch
