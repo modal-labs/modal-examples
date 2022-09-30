@@ -1,8 +1,7 @@
 import subprocess
 
 import modal
-from examples.misc.meltano_project.utils import (download_meltano_db,
-                                                 upload_meltano_db)
+from examples.misc.meltano_project.utils import download_meltano_db, upload_meltano_db
 
 stub = modal.Stub(
     image=modal.Image.from_dockerhub(tag="meltano/meltano")

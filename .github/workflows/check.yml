@@ -39,4 +39,4 @@ jobs:
         run: pip install isort
 
       - name: Check isort
-        run: isort . -c -v
+        run: isort . -c -v --profile black
