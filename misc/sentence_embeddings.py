@@ -1,5 +1,4 @@
 # ---
-# integration-test: false
 # lambda-test: false
 # ---
 """
@@ -17,12 +16,11 @@ import tarfile
 from pathlib import Path
 from typing import List
 
+import modal
 import numpy as np
 import requests
 import torch
 from torch.utils.tensorboard import SummaryWriter
-
-import modal
 
 # dependencies
 dependencies = ["torch==1.10.2", "transformers==4.16.2", "tensorboard"]

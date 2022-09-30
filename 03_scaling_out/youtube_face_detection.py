@@ -1,5 +1,4 @@
 # ---
-# integration-test: false
 # output-directory: "/tmp"
 # ---
 # # Face detection on Youtube videos
@@ -34,9 +33,10 @@
 # We start by setting up the container image we need.
 # This requires installing a few dependencies needed for OpenCV as well as downloading the face detection model
 
-import modal
 import os
 import sys
+
+import modal
 
 OUTPUT_DIR = "/tmp/"
 FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"

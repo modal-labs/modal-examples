@@ -1,7 +1,3 @@
-# ---
-# integration-test: false
-# ---
-
 """Single-page application that lets you talk to a transformer chatbot.
 
 This is a complex example demonstrating an end-to-end web application backed by
@@ -20,10 +16,9 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import fastapi
+import modal
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-
-import modal
 
 assets_path = Path(__file__).parent / "chatbot_spa"
 stub = modal.Stub("web-spa")
