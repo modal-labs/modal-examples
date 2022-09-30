@@ -1,3 +1,6 @@
+# ---
+# args: ["just-run"]
+# ---
 # # Tensorflow tutorial
 #
 # This is essentially a version of the
@@ -15,6 +18,7 @@
 # Other than that, installing the `tensorflow` Python package is essentially enough.
 
 import modal
+import sys
 import time
 
 stub = modal.Stub(
@@ -161,11 +165,13 @@ def tensorboard_app():
 
 
 if __name__ == "__main__":
+    arg = None if len(sys.argv) < 2 else sys.argv[1]
     with stub.run():
         train()
-        print("Training is done, but app is still running until you hit ctrl-c")
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("Terminating app")
+        if arg != "run-only":
+            print("Training is done, but app is still running until you hit ctrl-c")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("Terminating app")
