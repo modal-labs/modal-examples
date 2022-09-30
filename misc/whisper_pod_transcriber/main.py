@@ -9,14 +9,13 @@ import pathlib
 import sys
 from typing import Optional
 
-import modal
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-
 import config
+import modal
 import podcast
 import search
 import web
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 volume = modal.SharedVolume().persist("dataset-cache-vol")
 app_image = (
