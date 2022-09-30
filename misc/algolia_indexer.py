@@ -5,13 +5,14 @@
 # website and make it searchable. This is not just example code - we run the same
 # code in production to power search on this page (`Ctrl+K` to try it out!).
 
+import json
+import os
+
 # ## Basic setup
 #
 # Let's get the imports out of the way.
 import subprocess
-import json
 
-import os
 import modal
 
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),

@@ -1,9 +1,8 @@
 from typing import Optional
 
+import modal
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
-
-import modal
 
 web_app = FastAPI()
 stub = modal.Stub()

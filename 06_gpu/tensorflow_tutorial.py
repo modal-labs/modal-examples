@@ -17,9 +17,10 @@
 # We also need to install `cudatoolkit` and `cudnn` for it to work.
 # Other than that, installing the `tensorflow` Python package is essentially enough.
 
-import modal
 import sys
 import time
+
+import modal
 
 stub = modal.Stub(
     image=(
@@ -51,8 +52,8 @@ logdir = "/tensorboard"
 @stub.function(shared_volumes={logdir: stub.volume}, gpu=True)
 def train():
     import pathlib
-    import tensorflow as tf
 
+    import tensorflow as tf
     from tensorflow.keras import layers
     from tensorflow.keras.models import Sequential
 
