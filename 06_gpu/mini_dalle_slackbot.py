@@ -1,9 +1,8 @@
 import io
 import os
 
-from fastapi import Request
-
 import modal
+from fastapi import Request
 
 stub = modal.Stub(
     "dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"])

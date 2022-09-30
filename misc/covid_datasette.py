@@ -64,8 +64,9 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
     shared_volumes={CACHE_DIR: volume},
 )
 def download_dataset(cache=True):
-    import git
     import shutil
+
+    import git
 
     if REPO_DIR.exists():
         if cache:
@@ -146,6 +147,7 @@ def chunks(it, size):
 def prep_db():
     import shutil
     import tempfile
+
     import sqlite_utils
 
     print("Loading daily reports...")

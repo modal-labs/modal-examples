@@ -14,12 +14,12 @@
 #
 # Let's get the imports out of the way and define a [`Stub`](/docs/reference/modal.Stub).
 
+from pathlib import Path
+
 import fastapi
 import fastapi.staticfiles
-
 import modal
 import modal.aio
-from pathlib import Path
 
 stub = modal.Stub("doc_ocr_webapp")
 

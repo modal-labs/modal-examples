@@ -50,10 +50,11 @@ CACHE_PATH = "/root/model_cache"
     retries=3,
 )
 def parse_receipt(image: bytes):
-    from PIL import Image
-    from donut import DonutModel
-    import torch
     import io
+
+    import torch
+    from donut import DonutModel
+    from PIL import Image
 
     # Use donut fine-tuned on an OCR dataset.
     task_prompt = "<s_cord-v2>"
