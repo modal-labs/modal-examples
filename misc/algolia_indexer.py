@@ -7,13 +7,14 @@
 
 import json
 import os
+import subprocess
+
+import modal
 
 # ## Basic setup
 #
 # Let's get the imports out of the way.
-import subprocess
 
-import modal
 
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
