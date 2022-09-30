@@ -1,3 +1,6 @@
+# ---
+# args: ["prep"]
+# ---
 # # Publish interactive datasets with Datasette
 #
 # ![Datasette user interface](./covid_datasette_ui.png)
