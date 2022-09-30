@@ -12,7 +12,7 @@ generally run the files in any folder as ordinary Python programs, with a
 command like:
 
 ```bash
-python -m modal-examples.01_getting_started.hello_world
+python -m 01_getting_started.hello_world
 ```
 
 Although these scripts are run on your local machine, they'll communicate with
