@@ -5,16 +5,15 @@
 # website and make it searchable. This is not just example code - we run the same
 # code in production to power search on this page (`Ctrl+K` to try it out!).
 
+# ## Basic setup
+#
+# Let's get the imports out of the way.
+
 import json
 import os
 import subprocess
 
 import modal
-
-# ## Basic setup
-#
-# Let's get the imports out of the way.
-
 
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
