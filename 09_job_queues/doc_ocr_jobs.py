@@ -43,7 +43,9 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu=True,
-    image=modal.Image.debian_slim().pip_install(["donut-python"]),
+    image=modal.Image.debian_slim().pip_install(
+        ["donut-python==1.0.7", "transformers==4.21.3"]
+    ),
     shared_volumes={CACHE_PATH: volume},
     retries=3,
 )
@@ -101,7 +103,10 @@ def parse_receipt(image: bytes):
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 if __name__ == "__main__":
+    from pathlib import Path
+
+    receipt_filename = str(Path(__file__).parent / "receipt.png")
     with stub.run():
-        with open("./receipt.png", "rb") as f:
+        with open(receipt_filename, "rb") as f:
             image = f.read()
             print(parse_receipt(image))
