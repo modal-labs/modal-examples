@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install black
+      - name: Install flake8
         run: pip install flake8
 
       - name: Check flake8
@@ -30,13 +30,23 @@ jobs:
 
   isort:
     name: Isort
-    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v3
-
       - name: Install isort
         run: pip install isort
 
       - name: Check isort
         run: isort . -c -v --profile black
+
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name Install modal client and pytest
+        run: pip install modal-client pytest
+
+      - name: Run
+        run: pytest -v .
