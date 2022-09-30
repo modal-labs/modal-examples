@@ -49,8 +49,12 @@ def render_example_md(content: str, filename: str) -> str:
         markdown.extend(["```python", *code, "```", ""])
 
     # hacky accounting for variable filename depth
-    relative_path = filename[filename.index("modal/examples/") + len("modal/examples/") :]
-    github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{relative_path}"
+    relative_path = filename[
+        filename.index("modal/examples/") + len("modal/examples/") :
+    ]
+    github_url = (
+        f"https://github.com/modal-labs/modal-examples/blob/main/{relative_path}"
+    )
     markdown.append(
         f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
     )
@@ -65,10 +69,14 @@ def render_example_md(content: str, filename: str) -> str:
 
 def get_examples(directory: Path = DEFAULT_DIRECTORY):
     if not directory.exists():
-        raise Exception(f"Can't find directory {directory}. You might need to clone the modal-examples repo there")
+        raise Exception(
+            f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
+        )
 
     print(directory)
-    config = jupytext.config.JupytextConfiguration(root_level_metadata_as_raw_cell=False)
+    config = jupytext.config.JupytextConfiguration(
+        root_level_metadata_as_raw_cell=False
+    )
     ignored = []
     for subdir in sorted(list(directory.iterdir())):
         if not subdir.is_dir():
