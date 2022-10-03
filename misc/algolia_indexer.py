@@ -63,14 +63,27 @@ CONFIG = {
 # so we're invoking it using a subprocess.
 
 
-@stub.webhook(secrets=[modal.Secret.from_name("algolia-secret")])
-def crawl():
+def _crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
         ["pipenv", "run", "python", "-m", "src.index"],
         env={**os.environ, "CONFIG": json.dumps(CONFIG)},
     )
     return "Crawl completed"
+
+
+# We want to run this both through a webhook and through a Modal function, but each of those are just
+# simple wrappers around the underlying crawl functionality
+
+
+@stub.webhook(secrets=[modal.Secret.from_name("algolia-secret")])
+def crawl_webhook():
+    _crawl()
+
+
+@stub.function(secrets=[modal.Secret.from_name("algolia-secret")])
+def crawl_function():
+    _crawl()
 
 
 # ## Deploy the Slackbot
@@ -88,3 +101,12 @@ def crawl():
 # The indexed contents can be found at https://www.algolia.com/apps/APP_ID/explorer/browse/, for your
 # APP_ID. Once you're happy with the results, you can [set up the `docsearch` package with your
 # website](https://docsearch.algolia.com/docs/docsearch-v3/), and create a search component that uses this index.
+
+# ## Entrypoint for development
+#
+# To make it easier to test this, we also have an entrypoint for when you run
+# `python algolia_indexer.py`
+
+if __name__ == "__main__":
+    with stub.run():
+        crawl_function()
