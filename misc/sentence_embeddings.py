@@ -17,16 +17,17 @@ from pathlib import Path
 from typing import List
 
 import modal
-import numpy as np
-import requests
-import torch
-from torch.utils.tensorboard import SummaryWriter
 
 # dependencies
 dependencies = ["torch==1.10.2", "transformers==4.16.2", "tensorboard"]
 stub = modal.Stub(image=modal.Image.debian_slim().pip_install(dependencies))
 
 if stub.is_inside():
+    import numpy as np
+    import requests
+    import torch
+    from torch.utils.tensorboard import SummaryWriter
+
     from transformers import AutoModel, AutoTokenizer
 
     TOKENIZER = AutoTokenizer.from_pretrained(
@@ -62,7 +63,7 @@ def vectorize(x: str):
     return (sentence, y.detach().numpy())
 
 
-def write_tensorboard_logs(embedding: List[np.ndarray], metadata: List[str]):
+def write_tensorboard_logs(embedding, metadata: List[str]):
     """Write tensorboard logs."""
     print(" → writing tensorboard logs")
     writer = SummaryWriter(log_dir="./tensorboard")

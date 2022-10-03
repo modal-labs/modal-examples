@@ -15,7 +15,7 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     image=modal.Image.debian_slim().pip_install(["slack-sdk"]),
-    secret=modal.ref("dalle-bot-slack-secret"),
+    secret=modal.Secret.from_name("dalle-bot-slack-secret"),
 )
 def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     import slack_sdk
