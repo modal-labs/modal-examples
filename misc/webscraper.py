@@ -37,7 +37,7 @@ async def get_links(url: str):
 slack_sdk_image = modal.Image.debian_slim().pip_install(["slack-sdk"])
 
 
-@stub.function(image=slack_sdk_image, secret=modal.ref("scraper-slack-secret"))
+@stub.function(image=slack_sdk_image, secret=modal.Secret.from_name("scraper-slack-secret"))
 def bot_token_msg(channel, message):
     import slack_sdk
 

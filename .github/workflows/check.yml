@@ -30,6 +30,7 @@ jobs:
 
   isort:
     name: Isort
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Install isort
@@ -45,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name Install modal client and pytest
+      - name: Install modal client and pytest
         run: pip install modal-client pytest
 
       - name: Run
