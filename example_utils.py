@@ -21,14 +21,18 @@ class Example:
     filename: str
     module: Optional[str]
     metadata: Optional[dict]
+    relative_filename: str
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
 _RE_FRONTMATTER = re.compile(r"^---$", re.MULTILINE)
 
 
-def render_example_md(content: str, filename: str) -> str:
+def render_example_md(example: Example) -> str:
     """Render a Python code example to Markdown documentation format."""
+
+    with open(example.filename) as f:
+        content = f.read()
 
     lines = _RE_NEWLINE.split(content)
     markdown: list[str] = []
@@ -47,13 +51,7 @@ def render_example_md(content: str, filename: str) -> str:
     if code:
         markdown.extend(["```python", *code, "```", ""])
 
-    # hacky accounting for variable filename depth
-    relative_path = filename[
-        filename.index("modal/examples/") + len("modal/examples/") :
-    ]
-    github_url = (
-        f"https://github.com/modal-labs/modal-examples/blob/main/{relative_path}"
-    )
+    github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.relative_filename}"
     markdown.append(
         f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
     )
@@ -72,7 +70,6 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY):
             f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
         )
 
-    print(directory)
     config = jupytext.config.JupytextConfiguration(
         root_level_metadata_as_raw_cell=False
     )
@@ -83,13 +80,22 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY):
         for filename in sorted(list(subdir.iterdir())):
             filename_abs: str = str(filename.resolve())
             ext: str = filename.suffix
+            relative_filename: str = str(subdir / filename)
             if ext == ".py":
                 module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
                 metadata = data["metadata"]["jupytext"].get("root_level_metadata", {})
-                yield Example(ExampleType.MODULE, filename_abs, module, metadata)
+                yield Example(
+                    ExampleType.MODULE,
+                    filename_abs,
+                    module,
+                    metadata,
+                    relative_filename,
+                )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
-                yield Example(ExampleType.ASSET, filename_abs, None, None)
+                yield Example(
+                    ExampleType.ASSET, filename_abs, None, None, relative_filename
+                )
             else:
                 ignored.append(str(filename))
     print(f"Ignoring examples files: {ignored}")
