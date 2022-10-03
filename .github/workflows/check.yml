@@ -46,8 +46,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install modal client and pytest
-        run: pip install modal-client pytest
+      - name: Install dev dependencies
+        run: pip install pytest jupytext
+
+      - name: Install the Modal client
+        run: pip install modal-client
 
       - name: Run
         run: pytest -v .
