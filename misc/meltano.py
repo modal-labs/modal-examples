@@ -29,7 +29,10 @@ stub = modal.Stub(
 # For this example to work, the secret provides a valid Github personal access token
 # under the key `TAP_GITHUB_ACCESS_TOKEN`. You may provide any other plugin configs that you wish via modal's Secrets.
 @stub.function(
-    secrets=[modal.Secret.from_name("meltano-secrets"), modal.Secret.from_name("meltano-s3-credentials")],
+    secrets=[
+        modal.Secret.from_name("meltano-secrets"),
+        modal.Secret.from_name("meltano-s3-credentials"),
+    ],
 )
 def run():
     download_meltano_db()
