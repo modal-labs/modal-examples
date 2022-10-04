@@ -203,6 +203,6 @@ if __name__ == "__main__":
         db_to_sheet()
 
 # Note that each of these function calls above run remotely in isolated containers that are specified per
-# function, but they are called as seemlessly as using regular Python functions. This is a simple
+# function, but they are called as seamlessly as using regular Python functions. This is a simple
 # showcase of how you can mix and match functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.
