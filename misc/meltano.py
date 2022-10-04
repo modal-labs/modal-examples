@@ -19,7 +19,7 @@ stub = modal.Stub(
     # Create a mount that contains `meltano.yml`, so that the local copy is synced inside the container.
     mounts=[
         modal.Mount(
-            local_file="examples/misc/meltano_project/meltano.yml",
+            local_file="misc/meltano_project/meltano.yml",
             remote_dir="/meltano_project",
         )
     ],
