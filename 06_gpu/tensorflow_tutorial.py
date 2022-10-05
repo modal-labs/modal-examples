@@ -169,7 +169,7 @@ if __name__ == "__main__":
     arg = None if len(sys.argv) < 2 else sys.argv[1]
     with stub.run():
         train()
-        if arg != "run-only":
+        if arg != "just-run":
             print("Training is done, but app is still running until you hit ctrl-c")
             try:
                 while True:

@@ -76,7 +76,7 @@ async def poll_results(call_id: str):
 # that hits the two endpoints defined above. To package these files with our app, first
 # we get the local assets path, and then create a modal [`Mount`](/docs/guide/local-data#mounting-directories)
 # that mounts this directory at `/assets` inside our container. Then, we instruct FastAPI to [serve
-# this static file directory](https://fastapi.tiangolo.com/tutorial/static-files/) at our rooth path.
+# this static file directory](https://fastapi.tiangolo.com/tutorial/static-files/) at our root path.
 
 assets_path = Path(__file__).parent / "doc_ocr_frontend"
 

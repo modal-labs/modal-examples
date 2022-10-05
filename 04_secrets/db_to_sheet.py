@@ -50,7 +50,7 @@ import modal
 stub = modal.Stub()
 
 
-@stub.function(secret=modal.ref("postgres-secret"))
+@stub.function(secret=modal.Secret.from_name("postgres-secret"))
 def my_func():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
@@ -74,7 +74,7 @@ pg_image = (
 
 @stub.function(
     image=pg_image,
-    secret=modal.ref("postgres-secret"),
+    secret=modal.Secret.from_name("postgres-secret"),
 )
 def get_db_rows():
     import psycopg2
@@ -105,7 +105,7 @@ requests_image = modal.Image.debian_slim().pip_install(["requests"])
 
 @stub.function(
     image=requests_image,
-    secret=modal.ref("weather-secret"),
+    secret=modal.Secret.from_name("weather-secret"),
 )
 def city_weather(city):
     import requests
@@ -166,7 +166,7 @@ pygsheets_image = modal.Image.debian_slim().pip_install(["pygsheets"])
 
 @stub.function(
     image=pygsheets_image,
-    secret=modal.ref("gsheets-secret"),
+    secret=modal.Secret.from_name("gsheets-secret"),
 )
 def update_sheet_report(rows):
     import pygsheets
@@ -203,6 +203,6 @@ if __name__ == "__main__":
         db_to_sheet()
 
 # Note that each of these function calls above run remotely in isolated containers that are specified per
-# function, but they are called as seemlessly as using regular Python functions. This is a simple
+# function, but they are called as seamlessly as using regular Python functions. This is a simple
 # showcase of how you can mix and match functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.

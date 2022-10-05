@@ -73,7 +73,7 @@ CACHE_PATH = "/root/model_cache"
         ["diffusers", "transformers", "scipy", "ftfy"]
     ),
     shared_volumes={CACHE_PATH: volume},
-    secret=modal.ref("huggingface-secret"),
+    secret=modal.Secret.from_name("huggingface-secret"),
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from diffusers import StableDiffusionPipeline
@@ -147,7 +147,7 @@ async def entrypoint(request: Request):
 
 @stub.function(
     image=modal.Image.debian_slim().pip_install(["slack-sdk"]),
-    secret=modal.ref("stable-diff-slackbot-secret"),
+    secret=modal.Secret.from_name("stable-diff-slackbot-secret"),
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
     import slack_sdk

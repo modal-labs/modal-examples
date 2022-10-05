@@ -1,7 +1,7 @@
 import subprocess
 
 import modal
-from examples.misc.meltano_project.utils import download_meltano_db, upload_meltano_db
+from .meltano_project.utils import download_meltano_db, upload_meltano_db
 
 stub = modal.Stub(
     image=modal.Image.from_dockerhub(tag="meltano/meltano")
@@ -19,7 +19,7 @@ stub = modal.Stub(
     # Create a mount that contains `meltano.yml`, so that the local copy is synced inside the container.
     mounts=[
         modal.Mount(
-            local_file="examples/misc/meltano_project/meltano.yml",
+            local_file="misc/meltano_project/meltano.yml",
             remote_dir="/meltano_project",
         )
     ],
@@ -29,7 +29,10 @@ stub = modal.Stub(
 # For this example to work, the secret provides a valid Github personal access token
 # under the key `TAP_GITHUB_ACCESS_TOKEN`. You may provide any other plugin configs that you wish via modal's Secrets.
 @stub.function(
-    secrets=[modal.ref("meltano-secrets"), modal.ref("meltano-s3-credentials")],
+    secrets=[
+        modal.Secret.from_name("meltano-secrets"),
+        modal.Secret.from_name("meltano-s3-credentials"),
+    ],
 )
 def run():
     download_meltano_db()
@@ -52,7 +55,7 @@ if __name__ == "__main__":
     # $ meltano select tap-github --list --all
     # and then add your selected entities to `meltano.yml`.
 
-    # stub.interactive_shell(secrets=[modal.ref("meltano-secrets")])
+    # stub.interactive_shell(secrets=[modal.Secret.from_name("meltano-secrets")])
 
     with stub.run():
         run()
