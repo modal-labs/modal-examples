@@ -9,9 +9,8 @@ from typing import NamedTuple, Optional, Union
 class EpisodeMetadata:
     # Unique ID of podcast this episode is associated with.
     podcast_id: Union[str, int]
-    podcast_title: Optional[str]
     # Title of podcast this episode is associated with.
-    show: str  # TODO: Rename to `podcast_title`
+    podcast_title: Optional[str]
     title: str
     # The publish date of the episode as specified by the publisher
     publish_date: str

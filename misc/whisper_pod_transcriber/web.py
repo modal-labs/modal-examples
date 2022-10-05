@@ -56,7 +56,7 @@ def html_episode_header(episode: podcast.EpisodeMetadata) -> str:
     return f"""
 <div class="mx-auto max-w-4xl py-8 rounded overflow-hidden shadow-lg">
     <div class="px-6 py-4">
-        <div class="font-bold text-l text-green-500 mb-2">{episode.show}</div>
+        <div class="font-bold text-l text-green-500 mb-2">{episode.podcast_title}</div>
         <div class="font-bold text-xl mb-2">{episode.title}</div>
         <div class="text-gray-700 text-sm py-4">
             {episode_description_html}
