@@ -49,7 +49,7 @@ class SentimentAnalysis:
             model="distilbert-base-uncased-finetuned-sst-2-english"
         )
 
-    @stub.function(cpu=8)
+    @stub.function(cpu=8, retries=3)
     def predict(self, phrase: str):
         pred = self.sentiment_pipeline(phrase, truncation=True, max_length=512, top_k=2)
         # pred will look like: [{'label': 'NEGATIVE', 'score': 0.99}, {'label': 'POSITIVE', 'score': 0.01}]
