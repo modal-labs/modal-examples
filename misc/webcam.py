@@ -69,16 +69,15 @@ class ObjectDetection:
         from transformers import DetrFeatureExtractor, DetrForObjectDetection
 
         self.feature_extractor = DetrFeatureExtractor.from_pretrained(
-            "facebook/detr-resnet-50", cache_dir="/huggingface/"
+            "facebook/detr-resnet-50"
         )
-        self.model = DetrForObjectDetection.from_pretrained(
-            "facebook/detr-resnet-50", cache_dir="/huggingface/"
-        )
+        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
     @stub.function(
         cpu=4,
-        shared_volumes={"/huggingface": modal.SharedVolume()},
+        shared_volumes={"/cache": modal.SharedVolume()},
         image=image,
+        secret=modal.Secret({"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}),
     )
     def detect(self, img_data_in):
         # Based on https://huggingface.co/spaces/nateraw/detr-object-detection/blob/main/app.py
