@@ -26,13 +26,6 @@ TRANSCRIPTIONS_DIR = pathlib.Path(CACHE_DIR, "transcriptions")
 SEARCH_DIR = pathlib.Path(CACHE_DIR, "search")
 # Location of web frontend assets.
 ASSETS_PATH = pathlib.Path(__file__).parent / "web"
-# TODO: Remove
-podchaser_podcast_ids = {
-    "ezra_klein_nyt": 1582975,
-    "ezra_klein_vox": 82327,
-    "lex_fridman": 721928,
-    "The Joe Rogan Experience": 10829,
-}
 
 # Remove when CPU processing works, or when GPUs plummet in cost.
 transcripts_per_podcast_limit = 5

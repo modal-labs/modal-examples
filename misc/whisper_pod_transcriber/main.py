@@ -71,7 +71,7 @@ async def all_transcripts():
             with open(file, "r") as f:
                 data = json.load(f)
                 ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                episodes_by_show[ep.show].append(ep)
+                episodes_by_show[ep.podcast_title].append(ep)
 
     body = web.html_all_transcripts_header()
     for show, episodes_by_show in episodes_by_show.items():
@@ -179,7 +179,7 @@ def refresh_index():
 
 @stub.function(
     image=app_image,
-    secret=modal.ref("podchaser"),
+    secret=modal.Secret.from_name("podchaser"),
 )
 def search_podcast(name):
     from gql import gql
@@ -220,7 +220,7 @@ def index():
             with open(file, "r") as f:
                 data = json.load(f)
                 ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                episodes[ep.show].append(ep)
+                episodes[ep.podcast_title].append(ep)
                 guid_hash_to_episodes[ep.guid_hash] = ep
 
     print(f"Loaded {len(guid_hash_to_episodes)} podcast episodes.")
@@ -297,7 +297,7 @@ async def poll_results(call_id: str):
 @stub.function(
     image=app_image,
     shared_volumes={config.CACHE_DIR: volume},
-    secret=modal.ref("podchaser"),
+    secret=modal.Secret.from_name("podchaser"),
     concurrency_limit=2,
 )
 def transcribe_podcast(podcast_id: str):
@@ -388,7 +388,7 @@ def process_episode(episode: podcast.EpisodeMetadata):
 
 @stub.function(
     image=app_image,
-    secret=modal.ref("podchaser"),
+    secret=modal.Secret.from_name("podchaser"),
     shared_volumes={config.CACHE_DIR: volume},
 )
 def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
@@ -405,7 +405,6 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
         podcast.EpisodeMetadata(
             podcast_id=podcast_id,
             podcast_title=show_name,
-            show=show_name,
             title=ep["title"],
             publish_date=ep["airDate"],
             description=ep["description"],
@@ -426,8 +425,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == "transcribe":
-        show_name = sys.argv[2]
-        podcast_id = config.podchaser_podcast_ids[show_name]
+        podcast_id = sys.argv[2]
         with stub.run() as app:
             print(f"Modal app ID -> {app.app_id}")
             transcribe_podcast(podcast_id=podcast_id)
