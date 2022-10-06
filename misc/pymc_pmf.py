@@ -24,7 +24,7 @@ if pymc_stub.is_inside():
 # ## Statistical model
 #
 # The rest of the code to set up the model and the training data is the same as in the
-# [official example]( https://docs.pymc.io/en/stable/pymc-examples/examples/case_studies/probabilistic_matrix_factorization.html).
+# [official example](https://docs.pymc.io/en/stable/pymc-examples/examples/case_studies/probabilistic_matrix_factorization.html).
 
 
 def split_train_test(data, percent_test=0.1):
@@ -153,7 +153,7 @@ def random_predictions(data):
 # Note that we patch in `ModalSampler` to replace pymc's `ParallelSampler`.
 
 
-@pymc_stub.function
+@pymc_stub.function()
 def pmf():
     data = pd.read_csv(
         pm.get_data("ml_100k_u.data"),
@@ -185,6 +185,7 @@ def pmf():
         tune=100,
         cores=4,
         chains=4,
+        return_inferencedata=False,
     )
     print(f"Train RMSE: {pmf.rmse(train)}")
     print(f"Test RMSE: {pmf.rmse(test)}")
