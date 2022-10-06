@@ -21,7 +21,10 @@
 # including `GitPython`, which we'll use to download the dataset.
 
 import pathlib
+import shutil
 import sys
+import tempfile
+from datetime import datetime, timedelta
 
 import modal
 
@@ -31,8 +34,9 @@ datasette_image = (
     .pip_install(
         [
             "datasette",
-            "sqlite-utils",
+            "flufl.lock",
             "GitPython",
+            "sqlite-utils",
         ]
     )
     .apt_install(["git"])
@@ -47,6 +51,7 @@ datasette_image = (
 volume = modal.SharedVolume().persist("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
+LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))
 REPO_DIR = pathlib.Path(CACHE_DIR, "COVID-19")
 DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 
@@ -64,15 +69,17 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
     shared_volumes={CACHE_DIR: volume},
 )
 def download_dataset(cache=True):
-    import shutil
-
     import git
+    from flufl.lock import Lock
 
-    if REPO_DIR.exists():
-        if cache:
-            print("Dataset already present. Skipping download.")
-            return
-        shutil.rmtree(REPO_DIR)
+    if REPO_DIR.exists() and cache:
+        print(f"Dataset already present and {cache=}. Skipping download.")
+        return
+    elif REPO_DIR.exists():
+        print("Acquiring lock before deleting dataset, which can be in use by other runs.")
+        with Lock(LOCK_FILE, default_timeout=timedelta(hours=1)):
+            shutil.rmtree(REPO_DIR)
+        print("Cleaned dataset before re-downloading.")
 
     git_url = "https://github.com/CSSEGISandData/COVID-19"
     git.Repo.clone_from(git_url, REPO_DIR, depth=1)
@@ -145,15 +152,15 @@ def chunks(it, size):
     shared_volumes={CACHE_DIR: volume},
 )
 def prep_db():
-    import shutil
-    import tempfile
-
     import sqlite_utils
+    from flufl.lock import Lock
 
     print("Loading daily reports...")
     records = load_daily_reports()
 
-    with tempfile.NamedTemporaryFile() as tmp:
+    with Lock(
+        LOCK_FILE, lifetime=timedelta(minutes=2), default_timeout=timedelta(hours=1)
+    ) as lck, tempfile.NamedTemporaryFile() as tmp:
         db = sqlite_utils.Database(tmp.name)
         table = db["johns_hopkins_csse_daily_reports"]
 
@@ -161,6 +168,7 @@ def prep_db():
         for i, batch in enumerate(chunks(records, size=batch_size)):
             truncate = True if i == 0 else False
             table.insert_all(batch, batch_size=batch_size, truncate=truncate)
+            lck.refresh()
             print(f"Inserted {len(batch)} rows into DB.")
 
         table.create_index(["day"], if_not_exists=True)
@@ -180,8 +188,6 @@ def prep_db():
 
 @stub.function(schedule=modal.Period(hours=24))
 def refresh_db():
-    from datetime import datetime
-
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset(cache=False)
     prep_db()
