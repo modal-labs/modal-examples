@@ -95,8 +95,8 @@ def run():
     # Get data
     tickers = list(get_stocks())
     data = list(get_prices.map(tickers))
-    first_date = min(min(prices.keys() for symbol, prices in data))
-    last_date = max(max(prices.keys() for symbol, prices in data))
+    first_date = min((min(prices.keys()) for symbol, prices in data if prices))
+    last_date = max((max(prices.keys()) for symbol, prices in data if prices))
 
     # Plot every symbol
     for symbol, prices in data:
