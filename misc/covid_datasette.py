@@ -67,6 +67,7 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 @stub.function(
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
+    retries=2,
 )
 def download_dataset(cache=True):
     import git
@@ -76,7 +77,9 @@ def download_dataset(cache=True):
         print(f"Dataset already present and {cache=}. Skipping download.")
         return
     elif REPO_DIR.exists():
-        print("Acquiring lock before deleting dataset, which can be in use by other runs.")
+        print(
+            "Acquiring lock before deleting dataset, which may be in use by other runs."
+        )
         with Lock(LOCK_FILE, default_timeout=timedelta(hours=1)):
             shutil.rmtree(REPO_DIR)
         print("Cleaned dataset before re-downloading.")
