@@ -100,6 +100,8 @@ def run():
 
     # Plot every symbol
     for symbol, prices in data:
+        if len(prices) == 0:
+            continue
         dates = list(sorted(prices.keys()))
         prices = list(prices[date] for date in dates)
         changes = [
