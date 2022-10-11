@@ -98,9 +98,10 @@ def main():
         pyplot.plot(dates, counts, linewidth=3, alpha=0.8, label=weekday)
 
     # Plot annotations
-    pyplot.title("Number of NYC taxi trips by weekday, 2018-2022")
+    pyplot.title("Number of NYC yellow taxi trips by weekday, 2018-2022")
     pyplot.ylabel("Number of daily trips")
     pyplot.legend()
+    pyplot.tight_layout()
 
     # Dump PNG and return
     buf = io.BytesIO()
