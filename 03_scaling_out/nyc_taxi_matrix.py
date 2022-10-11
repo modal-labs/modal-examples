@@ -4,43 +4,36 @@
 # ---
 import io
 import os
-import urllib.request
 from collections import Counter
-from tempfile import TemporaryDirectory
 
 import modal
 
 stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(["numpy", "matplotlib", "pyarrow"])
+    image=modal.Image.debian_slim().pip_install(["numpy", "matplotlib", "duckdb"])
 )
-
-
-if stub.is_inside():
-    import numpy
-    import pyarrow.parquet as pq
-    from matplotlib import pyplot
 
 
 @stub.function
 def get_matrix(url):
-    print("downloading", url, "...")
+    import duckdb
 
-    with TemporaryDirectory() as temp_dir:
-        temp_path = os.path.join(temp_dir, "temp.parquet")
+    print("processing", url, "...")
 
-        urllib.request.urlretrieve(url, temp_path)
-
-        t = pq.read_table(temp_path, columns=["PULocationID", "DOLocationID"])
-        c = Counter(
-            (pul.as_py(), dol.as_py())
-            for pul, dol in zip(t["PULocationID"], t["DOLocationID"])
-        )
-
-    return url, c
+    con = duckdb.connect(database=":memory:")
+    con.execute("install httpfs")  # TODO: bake into the image
+    con.execute("load httpfs")
+    con.execute(
+        "select PULocationID, DOLocationID, count(1) from read_parquet(?) group by 1, 2",
+        (url,),
+    )
+    return {(i, j): t for i, j, t in con.fetchall()}
 
 
 @stub.function
 def main():
+    import numpy
+    from matplotlib import pyplot
+
     urls = []
 
     for year in range(2018, 2021):
@@ -50,9 +43,8 @@ def main():
             )
 
     M = Counter()
-    for url, m in get_matrix.map(urls):
+    for m in get_matrix.map(urls):
         M += m
-        print(url, "done!")
 
     max_id = max(max(k) for k in M.keys())
     matrix = numpy.matrix(
