@@ -4,7 +4,6 @@
 # ---
 import io
 import os
-from collections import Counter
 
 import modal
 
@@ -13,48 +12,65 @@ stub = modal.Stub(
 )
 
 
-@stub.function
-def get_matrix(url):
+@stub.function(rate_limit=modal.RateLimit(per_second=1))
+def get_matrix(year, month):
     import duckdb
 
+    url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet"
     print("processing", url, "...")
 
     con = duckdb.connect(database=":memory:")
     con.execute("install httpfs")  # TODO: bake into the image
     con.execute("load httpfs")
-    con.execute(
-        "select PULocationID, DOLocationID, count(1) from read_parquet(?) group by 1, 2",
-        (url,),
+    q = """
+    with sub as (
+        select tpep_pickup_datetime::date d, count(1) c
+        from read_parquet(?)
+        group by 1
     )
-    return {(i, j): t for i, j, t in con.fetchall()}
+    select d, c from sub
+    where date_part('year', d) = ?  -- filter out garbage
+    and date_part('month', d) = ?   -- same
+    """
+    con.execute(q, (url, year, month))
+    return list(con.fetchall())
 
 
 @stub.function
 def main():
-    import numpy
     from matplotlib import pyplot
 
-    urls = []
+    # Map over all inputs and combine the data
+    inputs = [
+        (year, month)
+        for year in range(2018, 2023)
+        for month in range(1, 13)
+        if (year, month) <= (2022, 6)
+    ]
+    data = [[] for i in range(7)]  # Initialize a list for every weekday
+    for r in get_matrix.starmap(inputs):
+        for d, c in r:
+            data[d.weekday()].append((d, c))
 
-    for year in range(2018, 2021):
-        for month in range(1, 13):
-            urls.append(
-                f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet"
-            )
+    # Initialize plotting
+    pyplot.style.use("ggplot")
+    pyplot.figure(figsize=(16, 9))
 
-    M = Counter()
-    for m in get_matrix.map(urls):
-        M += m
+    # For each weekday, plot
+    for i, weekday in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
+        data[i].sort()
+        dates = [d for d, _ in data[i]]
+        counts = [c for _, c in data[i]]
+        pyplot.plot(dates, counts, linewidth=3, alpha=0.8, label=weekday)
 
-    max_id = max(max(k) for k in M.keys())
-    matrix = numpy.matrix(
-        [[M.get((i, j), 0) for j in range(max_id + 1)] for i in range(max_id + 1)]
-    )
+    # Plot annotations
+    pyplot.title("Number of NYC taxi trips by weekday, 2018-2022")
+    pyplot.ylabel("Number of daily trips")
+    pyplot.legend()
 
-    pyplot.matshow(matrix)
-    pyplot.title("Matrix of %d taxi trips" % (matrix.sum()))
+    # Dump PNG and return
     buf = io.BytesIO()
-    pyplot.savefig(buf, format="png")
+    pyplot.savefig(buf, format="png", dpi=300)
     return buf.getvalue()
 
 
