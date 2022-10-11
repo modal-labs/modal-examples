@@ -2,7 +2,6 @@
 # integration-test: false
 # output-directory: "/tmp/nyc"
 # ---
-from datetime import timedelta
 import io
 import os
 
