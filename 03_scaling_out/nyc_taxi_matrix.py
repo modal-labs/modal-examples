@@ -2,7 +2,6 @@
 # integration-test: false
 # output-directory: "/tmp/nyc"
 # ---
-from datetime import timedelta
 import io
 import os
 
@@ -39,7 +38,6 @@ def get_matrix(year, month):
 
 @stub.function
 def main():
-    import numpy
     from matplotlib import pyplot
 
     # Map over all inputs and combine the data
