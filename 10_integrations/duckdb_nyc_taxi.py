@@ -28,9 +28,7 @@ import os
 
 import modal
 
-stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(["matplotlib", "duckdb"])
-)
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["matplotlib", "duckdb"]))
 
 
 # ## DuckDB Modal function
@@ -40,6 +38,7 @@ stub = modal.Stub(
 # Our query is pretty simple: it just aggregates total count numbers by date,
 # but we also have some filters that remove garbage data (days that are outside
 # the range).
+
 
 @stub.function
 def get_data(year, month):
@@ -64,11 +63,13 @@ def get_data(year, month):
     con.execute(q, (url, year, month))
     return list(con.fetchall())
 
+
 # ## Plot results
 #
 # Let's define a separate function which:
 # 1. Parallelizes over all files and dispatches calls to the previous function
 # 2. Aggregate the data and plot the result
+
 
 @stub.function
 def main():
@@ -107,6 +108,7 @@ def main():
     buf = io.BytesIO()
     pyplot.savefig(buf, format="png", dpi=300)
     return buf.getvalue()
+
 
 # ## Entrypoint
 #
