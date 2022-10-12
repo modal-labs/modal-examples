@@ -45,7 +45,7 @@ datasette_image = (
 # ## Persistent dataset storage
 #
 # To separate database creation and maintenance from serving, we'll need the underlying
-# database file to be stored persistently. To acheive this we use a [`SharedVolume`](/docs/guide/shared-volumes),
+# database file to be stored persistently. To achieve this we use a [`SharedVolume`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
 
 volume = modal.SharedVolume().persist("covid-dataset-cache-vol")
@@ -219,7 +219,7 @@ def app():
 # web URL that exists until you terminate the script.
 #
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
-# This is acheived by deploying the script with `modal app deploy covid_datasette.py`.
+# This is achieved by deploying the script with `modal app deploy covid_datasette.py`.
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
