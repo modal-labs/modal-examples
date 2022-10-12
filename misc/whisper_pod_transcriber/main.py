@@ -96,7 +96,9 @@ async def episode_transcript_page(podcast_id: str, episode_guid_hash):
         metadata = json.load(f)
         episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=metadata)
 
-    segments_ul_html = web.html_transcript_list(data["segments"])
+    segments_ul_html = web.html_transcript_list(
+        data["segments"], episode_mp3_link=episode.original_download_link
+    )
     episode_header_html = web.html_episode_header(episode)
     body = episode_header_html + segments_ul_html
     content = web.html_page(
