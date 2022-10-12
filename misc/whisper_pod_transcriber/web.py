@@ -100,11 +100,39 @@ def html_episode_list(episodes) -> str:
     """
 
 
-def html_transcript_list(segments) -> str:
+def html_transcript_list(segments, episode_mp3_link: str) -> str:
     segments_ul_html = """<ul class="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">"""
     for segment in segments:
-        segment_li = f"""<li class="px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
-            {segment["text"]}
+        segment_li = f"""
+        <li class="pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
+            <div class="flex items-center space-x-4">
+                <div class="flex-1 min-w-0">
+                    <div>{segment["text"]}</div>
+                </div>
+                <div class="inline-flex items-center text-base bg-gray-100  text-gray-900 text-xs dark:text-white">
+                    <div class="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l">
+                        <a
+                            title="listen"
+                            href="{episode_mp3_link}#t={int(segment["start"])}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            🎙 {format_timestamp(segment["start"])}
+                        </a>
+                    </div>
+                    <span class="text-gray-800 py-1 px-1">-</span>
+                    <div class="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r">
+                        <a
+                            title="listen"
+                            href="{episode_mp3_link}#t={int(segment["end"])}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {format_timestamp(segment["end"])}
+                        </a>
+                    </div>
+                </div>
+            </div>
         </li>
         """
         segments_ul_html += segment_li
@@ -117,3 +145,22 @@ def html_transcript_list(segments) -> str:
     </div>
 </div>
     """
+
+
+def format_timestamp(seconds: float, decimal_marker: str = "."):
+    assert seconds >= 0, "non-negative timestamp expected"
+    milliseconds = round(seconds * 1000.0)
+
+    hours = milliseconds // 3_600_000
+    milliseconds -= hours * 3_600_000
+
+    minutes = milliseconds // 60_000
+    milliseconds -= minutes * 60_000
+
+    seconds = milliseconds // 1_000
+    milliseconds -= seconds * 1_000
+
+    hours_marker = f"{hours:02d}:"
+    return (
+        f"{hours_marker}{minutes:02d}:{seconds:02d}{decimal_marker}{milliseconds:03d}"
+    )
