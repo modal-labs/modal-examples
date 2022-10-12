@@ -2,18 +2,46 @@
 # integration-test: false
 # output-directory: "/tmp/nyc"
 # ---
+# # Use DuckDB to analyze lots of datasets in parallel
+#
+# The Taxi and Limousine Commission of NYC posts
+# [datasets](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
+# with all trips in New York City.
+# They are all Parquet files, which are very well suited for
+# [DuckDB](https://duckdb.org/) which has excellent
+# [Parquet support](https://duckdb.org/docs/data/parquet).
+# In fact, DuckDB lets us query remote Parquet data
+# [over HTTP](https://duckdb.org/docs/guides/import/http_import)
+# which is excellent for what we want to do here.
+#
+# Running this script should generate a plot like this in just 10-20 seconds,
+# processing a few gigabytes of data:
+#
+# ![nyc taxi chart](./nyc_taxi_chart.png)
+#
+# ## Basic setup
+#
+# We need various imports and to define an image with has DuckDB installed:
+
 import io
 import os
 
 import modal
 
-stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(["numpy", "matplotlib", "duckdb"])
-)
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["matplotlib", "duckdb"]))
 
 
-@stub.function(rate_limit=modal.RateLimit(per_second=1))
-def get_matrix(year, month):
+# ## DuckDB Modal function
+#
+# Defining the function that queries the data.
+# This lets us run a SQL query against a remote Parquet file over HTTP
+# Our query is pretty simple: it just aggregates total count numbers by date,
+# but we also have some filters that remove garbage data (days that are outside
+# the range).
+
+
+@stub.function
+def get_data(year, month):
     import duckdb
 
     url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet"
@@ -36,6 +64,13 @@ def get_matrix(year, month):
     return list(con.fetchall())
 
 
+# ## Plot results
+#
+# Let's define a separate function which:
+# 1. Parallelizes over all files and dispatches calls to the previous function
+# 2. Aggregate the data and plot the result
+
+
 @stub.function
 def main():
     from matplotlib import pyplot
@@ -48,7 +83,7 @@ def main():
         if (year, month) <= (2022, 6)
     ]
     data = [[] for i in range(7)]  # Initialize a list for every weekday
-    for r in get_matrix.starmap(inputs):
+    for r in get_data.starmap(inputs):
         for d, c in r:
             data[d.weekday()].append((d, c))
 
@@ -64,9 +99,10 @@ def main():
         pyplot.plot(dates, counts, linewidth=3, alpha=0.8, label=weekday)
 
     # Plot annotations
-    pyplot.title("Number of NYC taxi trips by weekday, 2018-2022")
+    pyplot.title("Number of NYC yellow taxi trips by weekday, 2018-2022")
     pyplot.ylabel("Number of daily trips")
     pyplot.legend()
+    pyplot.tight_layout()
 
     # Dump PNG and return
     buf = io.BytesIO()
@@ -74,12 +110,18 @@ def main():
     return buf.getvalue()
 
 
+# ## Entrypoint
+#
+# Finally, we have some simple entrypoint code that kicks everything off.
+# Note that the plotting function returns raw PNG data that we store locally.
+
+
 OUTPUT_DIR = "/tmp/nyc"
 
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    fn = os.path.join(OUTPUT_DIR, "nyc_taxi_matrix.png")
+    fn = os.path.join(OUTPUT_DIR, "nyc_taxi_chart.png")
 
     with stub.run():
         png_data = main()
