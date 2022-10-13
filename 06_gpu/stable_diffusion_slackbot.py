@@ -69,9 +69,7 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu=True,
-    image=modal.Image.debian_slim().pip_install(
-        ["diffusers", "transformers", "scipy", "ftfy"]
-    ),
+    image=modal.Image.debian_slim().pip_install(["diffusers", "transformers", "scipy", "ftfy"]),
     shared_volumes={CACHE_PATH: volume},
     secret=modal.Secret.from_name("huggingface-secret"),
 )

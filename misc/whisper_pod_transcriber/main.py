@@ -50,9 +50,7 @@ def utc_now() -> datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def create_transcript_path(
-    guid_hash: str, model: Optional[config.ModelSpec] = None
-) -> pathlib.Path:
+def create_transcript_path(guid_hash: str, model: Optional[config.ModelSpec] = None) -> pathlib.Path:
     if model is None:
         model = config.supported_whisper_models["base.en"]  # Assumption
     model_slug = f"whisper-{model.name.replace('.', '-')}"
@@ -78,9 +76,7 @@ async def all_transcripts():
         episode_part = f"""<div class="font-bold text-center text-green-500 text-xl mt-6">{show}</div>"""
         episode_part += web.html_episode_list(episodes_by_show)
         body += episode_part
-    content = web.html_page(
-        title="Modal Podcast Transcriber | All Transcripts", body=body
-    )
+    content = web.html_page(title="Modal Podcast Transcriber | All Transcripts", body=body)
     return HTMLResponse(content=content, status_code=200)
 
 
@@ -96,14 +92,10 @@ async def episode_transcript_page(podcast_id: str, episode_guid_hash):
         metadata = json.load(f)
         episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=metadata)
 
-    segments_ul_html = web.html_transcript_list(
-        data["segments"], episode_mp3_link=episode.original_download_link
-    )
+    segments_ul_html = web.html_transcript_list(data["segments"], episode_mp3_link=episode.original_download_link)
     episode_header_html = web.html_episode_header(episode)
     body = episode_header_html + segments_ul_html
-    content = web.html_page(
-        title="Modal Podcast Transcriber | Episode Transcript", body=body
-    )
+    content = web.html_page(title="Modal Podcast Transcriber | Episode Transcript", body=body)
     return HTMLResponse(content=content, status_code=200)
 
 
@@ -117,9 +109,7 @@ async def podcast_transcripts_page(podcast_id: str):
     else:
         with open(pod_metadata_path, "r") as f:
             data = json.load(f)
-            pod_metadata = dacite.from_dict(
-                data_class=podcast.PodcastMetadata, data=data
-            )
+            pod_metadata = dacite.from_dict(data_class=podcast.PodcastMetadata, data=data)
 
     podcast_header_html = web.html_podcast_header(pod_metadata)
     podcast_episodes = []
@@ -375,9 +365,7 @@ def process_episode(episode: podcast.EpisodeMetadata):
 
     transcription_path = create_transcript_path(episode.guid_hash, model)
     if transcription_path.exists():
-        print(
-            f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}."
-        )
+        print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
         print("Skipping GPU transcription.")
     else:
         transcribe_episode(
@@ -399,9 +387,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     from gql import gql
 
     client = podcast.create_podchaser_client()
-    episodes_raw = podcast.fetch_episodes_data(
-        gql, client, podcast_id, max_episodes=max_episodes
-    )
+    episodes_raw = podcast.fetch_episodes_data(gql, client, podcast_id, max_episodes=max_episodes)
     print(f"Retreived {len(episodes_raw)} raw episodes")
     episodes = [
         podcast.EpisodeMetadata(
@@ -441,6 +427,4 @@ if __name__ == "__main__":
             for pod in search_podcast(sys.argv[2]):
                 print(pod)
     else:
-        exit(
-            f"Unknown command {cmd}. Supported commands: [transcribe, run, serve, index, search-podcast]"
-        )
+        exit(f"Unknown command {cmd}. Supported commands: [transcribe, run, serve, index, search-podcast]")

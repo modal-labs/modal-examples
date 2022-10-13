@@ -29,9 +29,7 @@ def sync_data(source: Path, destination: Path, reset: bool = False):
 def non_hidden_files(project_path: Path):
     def condition(path):
         rel = Path(path).relative_to(project_path)
-        return not any(
-            part != ".gitkeep" and part.startswith(".") for part in rel.parts
-        )
+        return not any(part != ".gitkeep" and part.startswith(".") for part in rel.parts)
 
     return condition
 
@@ -43,9 +41,7 @@ def main_stub(project_path, project_name, package_name) -> Stub:
     if requirements_txt.exists():
         image = image.pip_install_from_requirements(requirements_txt)
     else:
-        warnings.warn(
-            "No requirements.txt in kedro src dir - attaching no dependencies"
-        )
+        warnings.warn("No requirements.txt in kedro src dir - attaching no dependencies")
         image = image.pip_install("kedro")
 
     remote_project_mount_point = Path(f"/kedro-project/{package_name}")

@@ -50,9 +50,7 @@ def html_podcast_404_page() -> str:
 
 def html_episode_header(episode: podcast.EpisodeMetadata) -> str:
     # Add a bit of padding between lines in HTML description.
-    episode_description_html = episode.html_description.replace(
-        "<p>", "<p class='py-1'>"
-    )
+    episode_description_html = episode.html_description.replace("<p>", "<p class='py-1'>")
     return f"""
 <div class="mx-auto max-w-4xl py-8 rounded overflow-hidden shadow-lg">
     <div class="px-6 py-4">
@@ -161,6 +159,4 @@ def format_timestamp(seconds: float, decimal_marker: str = "."):
     milliseconds -= seconds * 1_000
 
     hours_marker = f"{hours:02d}:"
-    return (
-        f"{hours_marker}{minutes:02d}:{seconds:02d}{decimal_marker}{milliseconds:03d}"
-    )
+    return f"{hours_marker}{minutes:02d}:{seconds:02d}{decimal_marker}{milliseconds:03d}"

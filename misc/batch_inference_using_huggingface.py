@@ -23,9 +23,7 @@ import io
 import modal
 
 stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(
-        ["datasets", "matplotlib", "sklearn", "torch", "transformers"]
-    )
+    image=modal.Image.debian_slim().pip_install(["datasets", "matplotlib", "sklearn", "torch", "transformers"])
 )
 
 # ## Defining the prediction function
@@ -45,9 +43,7 @@ class SentimentAnalysis:
     def __enter__(self):
         from transformers import pipeline
 
-        self.sentiment_pipeline = pipeline(
-            model="distilbert-base-uncased-finetuned-sst-2-english"
-        )
+        self.sentiment_pipeline = pipeline(model="distilbert-base-uncased-finetuned-sst-2-english")
 
     @stub.function(cpu=8, retries=3)
     def predict(self, phrase: str):
@@ -119,9 +115,7 @@ if __name__ == "__main__":
         predictor = SentimentAnalysis()
         for review, label in data[:5]:
             prediction = predictor.predict(review)
-            print(
-                f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
-            )
+            print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
 
         # Now, let's run batch inference over it
         print("Running batch prediction...")

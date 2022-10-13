@@ -77,9 +77,7 @@ def download_dataset(cache=True):
         print(f"Dataset already present and {cache=}. Skipping download.")
         return
     elif REPO_DIR.exists():
-        print(
-            "Acquiring lock before deleting dataset, which may be in use by other runs."
-        )
+        print("Acquiring lock before deleting dataset, which may be in use by other runs.")
         with Lock(LOCK_FILE, default_timeout=timedelta(hours=1)):
             shutil.rmtree(REPO_DIR)
         print("Cleaned dataset before re-downloading.")
@@ -111,20 +109,13 @@ def load_report(filepath):
     with filepath.open() as fp:
         for row in csv.DictReader(fp):
             province_or_state = (
-                row.get("\ufeffProvince/State")
-                or row.get("Province/State")
-                or row.get("Province_State")
-                or None
+                row.get("\ufeffProvince/State") or row.get("Province/State") or row.get("Province_State") or None
             )
             country_or_region = row.get("Country_Region") or row.get("Country/Region")
             yield {
                 "day": f"{yyyy}-{mm}-{dd}",
-                "country_or_region": country_or_region.strip()
-                if country_or_region
-                else None,
-                "province_or_state": province_or_state.strip()
-                if province_or_state
-                else None,
+                "country_or_region": country_or_region.strip() if country_or_region else None,
+                "province_or_state": province_or_state.strip() if province_or_state else None,
                 "confirmed": int(float(row["Confirmed"] or 0)),
                 "deaths": int(float(row["Deaths"] or 0)),
                 "recovered": int(float(row["Recovered"] or 0)),

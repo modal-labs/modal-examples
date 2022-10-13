@@ -39,11 +39,7 @@ from fastapi.staticfiles import StaticFiles
 # and a system font for drawing.
 
 stub = modal.Stub("webcam-object-detection")
-image = (
-    modal.Image.debian_slim()
-    .pip_install(["Pillow", "timm", "transformers"])
-    .apt_install(["fonts-freefont-ttf"])
-)
+image = modal.Image.debian_slim().pip_install(["Pillow", "timm", "transformers"]).apt_install(["fonts-freefont-ttf"])
 
 
 # ## Prediction function
@@ -68,9 +64,7 @@ class ObjectDetection:
     def __enter__(self):
         from transformers import DetrFeatureExtractor, DetrForObjectDetection
 
-        self.feature_extractor = DetrFeatureExtractor.from_pretrained(
-            "facebook/detr-resnet-50"
-        )
+        self.feature_extractor = DetrFeatureExtractor.from_pretrained("facebook/detr-resnet-50")
         self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
     @stub.function(

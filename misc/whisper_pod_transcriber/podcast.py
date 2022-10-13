@@ -69,9 +69,7 @@ def create_podchaser_client():
     podchaser_client_secret = os.environ.get("PODCHASER_CLIENT_SECRET")
 
     if not podchaser_client_id or not podchaser_client_secret:
-        exit(
-            "Must provide both PODCHASER_CLIENT_ID and PODCHASER_CLIENT_SECRET as environment vars."
-        )
+        exit("Must provide both PODCHASER_CLIENT_ID and PODCHASER_CLIENT_SECRET as environment vars.")
 
     query = gql(
         """
@@ -112,9 +110,7 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
     useful in this application.
     """
     if max_results > 100:
-        raise ValueError(
-            f"A maximum of 100 results is supported, but {max_results} results were requested."
-        )
+        raise ValueError(f"A maximum of 100 results is supported, but {max_results} results were requested.")
     current_page = 0
     max_episodes_per_request = max_results
     search_podcast_name_query = gql(
@@ -243,14 +239,10 @@ def sizeof_fmt(num, suffix="B") -> str:
     return "%.1f%s%s" % (num, "Yi", suffix)
 
 
-def store_original_audio(
-    url: str, destination: pathlib.Path, overwrite: bool = False
-) -> None:
+def store_original_audio(url: str, destination: pathlib.Path, overwrite: bool = False) -> None:
     if destination.exists():
         if overwrite:
-            print(
-                f"Audio file exists at {destination} but overwrite option is specified."
-            )
+            print(f"Audio file exists at {destination} but overwrite option is specified.")
         else:
             print(f"Audio file exists at {destination}, skipping download.")
             return

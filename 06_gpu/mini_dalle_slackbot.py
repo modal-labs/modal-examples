@@ -5,9 +5,7 @@ from typing import Optional
 import modal
 from fastapi import Request
 
-stub = modal.Stub(
-    "dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"])
-)
+stub = modal.Stub("dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"]))
 
 volume = modal.SharedVolume().persist("dalle-model-vol")
 
@@ -58,9 +56,7 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
 
 
 # python-multipart is needed for fastapi form parsing.
-@stub.webhook(
-    method="POST", image=modal.Image.debian_slim().pip_install(["python-multipart"])
-)
+@stub.webhook(method="POST", image=modal.Image.debian_slim().pip_install(["python-multipart"]))
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]

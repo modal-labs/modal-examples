@@ -1,6 +1,7 @@
 import subprocess
 
 import modal
+
 from .meltano_project.utils import download_meltano_db, upload_meltano_db
 
 stub = modal.Stub(
