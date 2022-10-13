@@ -7,7 +7,7 @@ import datetime
 import json
 import pathlib
 import sys
-from typing import Optional
+from typing import Iterator, Tuple
 
 import config
 import modal
@@ -37,6 +37,7 @@ app_image = (
             "ffmpeg",
         ]
     )
+    .pip_install(["ffmpeg-python"])
 )
 search_image = modal.Image.debian_slim().pip_install(
     ["scikit-learn~=0.24.2", "tqdm~=4.46.0", "numpy~=1.23.3", "dacite"]
@@ -50,9 +51,10 @@ def utc_now() -> datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def create_transcript_path(guid_hash: str, model: Optional[config.ModelSpec] = None) -> pathlib.Path:
-    if model is None:
-        model = config.supported_whisper_models["base.en"]  # Assumption
+def create_transcript_path(
+    guid_hash: str,
+    model: config.ModelSpec = config.DEFAULT_MODEL,
+) -> pathlib.Path:
     model_slug = f"whisper-{model.name.replace('.', '-')}"
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}-{model_slug}.json"
 
@@ -292,10 +294,17 @@ async def poll_results(call_id: str):
     secret=modal.Secret.from_name("podchaser"),
     concurrency_limit=2,
 )
-def transcribe_podcast(podcast_id: str):
+def transcribe_podcast(podcast_id: str, model: config.ModelSpec = config.DEFAULT_MODEL):
+    # pre-download the model to the cache path, because the _download fn is not
+    # thread-safe.
+    import whisper
     from gql import gql
 
+    whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
+
     pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
+
+    config.PODCAST_METADATA_DIR.mkdir(parents=True, exist_ok=True)
     metadata_path = config.PODCAST_METADATA_DIR / f"{podcast_id}.json"
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
@@ -319,23 +328,116 @@ def transcribe_podcast(podcast_id: str):
     return completed  # Need to return something for function call polling to work.
 
 
+def split_silences(
+    path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
+) -> Iterator[Tuple[float, float]]:
+    """Split audio file into contiguous chunks using the ffmpeg `silencedetect`
+    filter.  Yields tuples (start, end) of each chunk in seconds."""
+
+    import re
+
+    import ffmpeg
+
+    silence_end_re = re.compile(
+        r" silence_end: (?P<end>[0-9]+(\.?[0-9]*)) \| silence_duration: (?P<dur>[0-9]+(\.?[0-9]*))"
+    )
+
+    metadata = ffmpeg.probe(path)
+    duration = float(metadata["format"]["duration"])
+
+    reader = (
+        ffmpeg.input(str(path))
+        .filter("silencedetect", n="-10dB", d=min_silence_length)
+        .output("pipe:", format="null")
+        .run_async(pipe_stderr=True)
+    )
+
+    cur_start = 0
+    num_segments = 0
+
+    while True:
+        line = reader.stderr.readline().decode("utf-8")
+        if not line:
+            break
+        match = silence_end_re.search(line)
+        if match:
+            silence_end, silence_dur = match.group("end"), match.group("dur")
+            split_at = float(silence_end) - (float(silence_dur) / 2)
+
+            if (split_at - cur_start) < min_segment_length:
+                continue
+
+            yield cur_start, split_at
+            cur_start = split_at
+            num_segments += 1
+
+    yield cur_start, duration
+    num_segments += 1
+    print(f"Split {path} into {num_segments} segments")
+
+
 @stub.function(
     image=app_image,
     shared_volumes={config.CACHE_DIR: volume},
-    gpu=True,
-    concurrency_limit=10,
+    cpu=2,
+)
+def transcribe_segment(
+    start: float,
+    end: float,
+    audio_filepath: pathlib.Path,
+    model: config.ModelSpec,
+):
+    import tempfile
+    import time
+
+    import ffmpeg
+    import torch
+    import whisper
+
+    t0 = time.time()
+    with tempfile.NamedTemporaryFile(suffix=".mp3") as f:
+        (
+            ffmpeg.input(str(audio_filepath))
+            .filter("atrim", start=start, end=end)
+            .output(f.name)
+            .overwrite_output()
+            .run(quiet=True)
+        )
+
+        use_gpu = torch.cuda.is_available()
+        device = "cuda" if use_gpu else "cpu"
+        model = whisper.load_model(model.name, device=device, download_root=config.MODEL_DIR)
+        result = model.transcribe(f.name, language="en", fp16=use_gpu)  # , verbose=True)
+
+    print(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
+
+    # Add back offsets.
+    for segment in result["segments"]:
+        segment["start"] += start
+        segment["end"] += start
+
+    return result
+
+
+@stub.function(
+    image=app_image,
+    shared_volumes={config.CACHE_DIR: volume},
 )
 def transcribe_episode(
     audio_filepath: pathlib.Path,
     result_path: pathlib.Path,
     model: config.ModelSpec,
 ):
-    import torch
-    import whisper
+    segment_gen = split_silences(str(audio_filepath))
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = whisper.load_model(model.name, device=device)
-    result = model.transcribe(str(audio_filepath), language="en")
+    output_text = ""
+    output_segments = []
+    for result in transcribe_segment.starmap(segment_gen, kwargs=dict(audio_filepath=audio_filepath, model=model)):
+        output_text += result["text"]
+        output_segments += result["segments"]
+
+    result = {"text": output_text, "segments": output_segments, "language": "en"}
+
     print(f"Writing openai/whisper transcription to {result_path}")
     with open(result_path, "w") as f:
         json.dump(result, f, indent=4)
