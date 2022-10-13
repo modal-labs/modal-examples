@@ -53,8 +53,6 @@ def deploy(metadata):
 )
 @click.pass_obj
 def reset(metadata):
-    stub, source_path, destination_path = sync_stub(
-        metadata.project_path, metadata.project_name
-    )
+    stub, source_path, destination_path = sync_stub(metadata.project_path, metadata.project_name)
     with stub.run() as app:
         app.sync_data(source_path, destination_path, reset=True)

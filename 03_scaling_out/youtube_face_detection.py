@@ -45,9 +45,7 @@ image = (
     modal.Image.debian_slim()
     .run_commands(["apt-get install -y libgl1-mesa-glx libglib2.0-0 wget"])
     .run_commands(
-        [
-            f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
-        ]
+        [f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"]
     )
     .pip_install(["pytube", "opencv-python", "moviepy"])
 )
@@ -145,11 +143,7 @@ def run(url):
 
 if __name__ == "__main__":
     with stub.run():
-        youtube_url = (
-            sys.argv[1]
-            if len(sys.argv) > 1
-            else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        )
+        youtube_url = sys.argv[1] if len(sys.argv) > 1 else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         fn, movie_data = run(youtube_url)
         abs_fn = os.path.join(OUTPUT_DIR, fn)
         print(f"writing results to {abs_fn}")

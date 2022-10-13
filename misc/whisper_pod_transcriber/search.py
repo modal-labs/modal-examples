@@ -12,9 +12,7 @@ class SearchRecord:
     text: str
 
 
-def search_transcripts(
-    search_dict_path: pathlib.Path, query: str, items: list[podcast.EpisodeMetadata]
-):
+def search_transcripts(search_dict_path: pathlib.Path, query: str, items: list[podcast.EpisodeMetadata]):
     query_parts = query.lower().strip().split()
     print(f"loading search dictionary from {search_dict_path}")
     with open(search_dict_path, "r") as f:
@@ -26,9 +24,7 @@ def search_transcripts(
         score = sum(sd.get(q, 0) for q in query_parts)
         if score == 0:
             continue  # no match whatsoever, don't include
-        score += (
-            1.0 * (n - i) / n
-        )  # give a small boost to more recent episodes (low index)
+        score += 1.0 * (n - i) / n  # give a small boost to more recent episodes (low index)
         scores.append((score, items[i]))
     # Sort descending, best scores first.
     scores.sort(reverse=True, key=lambda x: x[0])
@@ -100,9 +96,7 @@ def calculate_similarity_with_svm(X, ntake=40):
         y = np.zeros(X.shape[0], dtype=np.float32)
         y[i] = 1
         # train an SVM
-        clf = sklearn.svm.LinearSVC(
-            class_weight="balanced", verbose=False, max_iter=10000, tol=1e-4, C=0.1
-        )
+        clf = sklearn.svm.LinearSVC(class_weight="balanced", verbose=False, max_iter=10000, tol=1e-4, C=0.1)
         clf.fit(X, y)
         s = clf.decision_function(X)
         ix = np.argsort(s)[: -ntake - 1 : -1]  # take last ntake sorted backwards
@@ -116,9 +110,7 @@ def build_search_index(records: list[SearchRecord], v):
     # construct a reverse index for supporting search
     vocab = v.vocabulary_
     idf = v.idf_
-    punc = (
-        "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
-    )
+    punc = "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
     trans_table = {ord(c): None for c in punc}
 
     def makedict(s, forceidf=None):

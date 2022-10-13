@@ -30,11 +30,7 @@ import os
 
 import modal
 
-stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(
-        ["requests", "yfinance", "beautifulsoup4", "matplotlib"]
-    )
-)
+stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"]))
 
 # ## Fetch a list of tickers
 #
@@ -104,9 +100,7 @@ def run():
             continue
         dates = list(sorted(prices.keys()))
         prices = list(prices[date] for date in dates)
-        changes = [
-            100.0 * (price / prices[0] - 1) for price in prices
-        ]  # Normalize to initial price
+        changes = [100.0 * (price / prices[0] - 1) for price in prices]  # Normalize to initial price
         if changes[-1] > 20:
             # Highlight this line
             p = ax.plot(dates, changes, alpha=0.7)

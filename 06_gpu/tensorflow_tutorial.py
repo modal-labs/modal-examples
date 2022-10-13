@@ -24,9 +24,7 @@ import modal
 
 stub = modal.Stub(
     image=(
-        modal.Image.conda()
-        .conda_install(["cudatoolkit=11.2", "cudnn=8.1.0"])
-        .pip_install(["tensorflow", "pathlib"])
+        modal.Image.conda().conda_install(["cudatoolkit=11.2", "cudnn=8.1.0"]).pip_install(["tensorflow", "pathlib"])
     )
 )
 

@@ -16,9 +16,7 @@ import modal
 # The S3 locations of the assets we want to render, and the frame ranges.
 
 SCENE_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_cam.blend"
-MATERIALS_FILENAME = (
-    "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
-)
+MATERIALS_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
 
 START_FRAME = 32
 END_FRAME = 34
@@ -51,9 +49,7 @@ dockerfile_commands = [
     f"RUN curl -L -o scene.blend -C - '{SCENE_FILENAME}'",
     f"RUN curl -L -o scene.mtl -C - '{MATERIALS_FILENAME}'",
 ]
-stub = modal.Stub(
-    image=modal.Image.debian_slim().dockerfile_commands(dockerfile_commands)
-)
+stub = modal.Stub(image=modal.Image.debian_slim().dockerfile_commands(dockerfile_commands))
 
 
 # ## Setting things up in the containers
@@ -143,9 +139,7 @@ if __name__ == "__main__":
 
     from PIL import Image
 
-    img, *imgs = [
-        Image.open(f) for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))
-    ]
+    img, *imgs = [Image.open(f) for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))]
     img.save(
         fp=os.path.join(OUTPUT_DIR, "scene.gif"),
         format="GIF",

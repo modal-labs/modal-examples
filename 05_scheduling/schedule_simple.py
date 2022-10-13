@@ -8,16 +8,12 @@ stub = modal.Stub()
 
 @stub.function(schedule=modal.Period(seconds=5))
 def print_time_1():
-    print(
-        f'Printing with period 5 seconds: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
-    )
+    print(f'Printing with period 5 seconds: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}')
 
 
 @stub.function(schedule=modal.Cron("* * * * *"))
 def print_time_2():
-    print(
-        f'Printing with cron every minute: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
-    )
+    print(f'Printing with cron every minute: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}')
 
 
 if __name__ == "__main__":
