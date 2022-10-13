@@ -27,7 +27,6 @@ if stub.is_inside():
     import requests
     import torch
     from torch.utils.tensorboard import SummaryWriter
-
     from transformers import AutoModel, AutoTokenizer
 
     TOKENIZER = AutoTokenizer.from_pretrained(
