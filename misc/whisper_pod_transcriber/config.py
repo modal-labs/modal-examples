@@ -24,11 +24,12 @@ COMPLETED_DIR = pathlib.Path(CACHE_DIR, "completed")
 TRANSCRIPTIONS_DIR = pathlib.Path(CACHE_DIR, "transcriptions")
 # Searching indexing files, refreshed by scheduled functions.
 SEARCH_DIR = pathlib.Path(CACHE_DIR, "search")
+# Location of modal checkpoint.
+MODEL_DIR = pathlib.Path(CACHE_DIR, "model")
 # Location of web frontend assets.
 ASSETS_PATH = pathlib.Path(__file__).parent / "web"
 
-# Remove when CPU processing works, or when GPUs plummet in cost.
-transcripts_per_podcast_limit = 5
+transcripts_per_podcast_limit = 2
 
 supported_whisper_models = {
     "tiny.en": ModelSpec(name="tiny.en", params="39M", relative_speed=32),
@@ -39,3 +40,5 @@ supported_whisper_models = {
     # Very slow. Will take around 45 mins to 1.5 hours to transcribe.
     "large": ModelSpec(name="large", params="1550M", relative_speed=1),
 }
+
+DEFAULT_MODEL = supported_whisper_models["base.en"]
