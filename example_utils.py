@@ -21,7 +21,7 @@ class Example:
     filename: str
     module: Optional[str]
     metadata: Optional[dict]
-    relative_filename: str
+    repo_filename: str
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -51,7 +51,7 @@ def render_example_md(example: Example) -> str:
     if code:
         markdown.extend(["```python", *code, "```", ""])
 
-    github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.relative_filename}"
+    github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
     markdown.append(
         f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
     )
@@ -76,7 +76,7 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY):
         for filename in sorted(list(subdir.iterdir())):
             filename_abs: str = str(filename.resolve())
             ext: str = filename.suffix
-            relative_filename: str = str(subdir / filename)
+            repo_filename: str = f"{subdir.name}/{filename.name}"
             if ext == ".py":
                 module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
@@ -86,10 +86,10 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY):
                     filename_abs,
                     module,
                     metadata,
-                    relative_filename,
+                    repo_filename,
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
-                yield Example(ExampleType.ASSET, filename_abs, None, None, relative_filename)
+                yield Example(ExampleType.ASSET, filename_abs, None, None, repo_filename)
             else:
                 ignored.append(str(filename))
     print(f"Ignoring examples files: {ignored}")
