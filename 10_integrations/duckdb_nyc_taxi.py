@@ -21,7 +21,7 @@
 #
 # ## Basic setup
 #
-# We need various imports and to define an image with has DuckDB installed:
+# We need various imports and to define an image with DuckDB installed:
 
 import io
 import os
