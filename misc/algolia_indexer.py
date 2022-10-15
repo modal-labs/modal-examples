@@ -25,7 +25,7 @@ algolia_image = modal.Image.from_dockerhub(
     setup_commands=["ln -sfn /usr/bin/python3.7 /usr/bin/python"],
 )
 
-stub = modal.Stub("algolia-indexer", image=algolia_image)
+stub = modal.Stub("algolia-indexer")
 
 # ## Configure the crawler
 #
@@ -63,27 +63,22 @@ CONFIG = {
 # so we're invoking it using a subprocess.
 
 
-def _crawl():
+@stub.function(image=algolia_image, secrets=[modal.Secret.from_name("algolia-secret")])
+def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
         ["pipenv", "run", "python", "-m", "src.index"],
         env={**os.environ, "CONFIG": json.dumps(CONFIG)},
     )
-    return "Crawl completed"
 
 
-# We want to run this both through a webhook and through a Modal function, but each of those are just
-# simple wrappers around the underlying crawl functionality
+# We want to be able to trigger this function through a webhook.
 
 
-@stub.webhook(secrets=[modal.Secret.from_name("algolia-secret")])
+@stub.webhook
 def crawl_webhook():
-    _crawl()
-
-
-@stub.function(secrets=[modal.Secret.from_name("algolia-secret")])
-def crawl_function():
-    _crawl()
+    crawl()
+    return "Finished indexing docs"
 
 
 # ## Deploy the Slackbot
@@ -109,4 +104,4 @@ def crawl_function():
 
 if __name__ == "__main__":
     with stub.run():
-        crawl_function()
+        crawl()
