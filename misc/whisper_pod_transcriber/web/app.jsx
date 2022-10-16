@@ -1,3 +1,5 @@
+import { BrowserRouter } from "react-router-dom";
+
 function Spinner({ config }) {
   const ref = React.useRef(null);
 
@@ -225,7 +227,7 @@ function Form({ onSubmit }) {
   );
 }
 
-function App() {
+function Search() {
   const [searching, setSearching] = React.useState(false);
   const [podcasts, setPodcasts] = React.useState();
 
@@ -256,6 +258,14 @@ function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Search />
+    </BrowserRouter>
   );
 }
 
