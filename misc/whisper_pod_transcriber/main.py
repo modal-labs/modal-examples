@@ -9,13 +9,11 @@ import pathlib
 import sys
 from typing import Iterator, Tuple
 
-import config
 import modal
-import podcast
-import search
-import web
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+
+from . import config, podcast, search, web
 
 volume = modal.SharedVolume().persist("dataset-cache-vol")
 app_image = (
@@ -466,15 +464,15 @@ def process_episode(episode: podcast.EpisodeMetadata):
     print(f"Wrote episode metadata to {metadata_path}")
 
     transcription_path = create_transcript_path(episode.guid_hash, model)
-    if transcription_path.exists():
-        print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
-        print("Skipping GPU transcription.")
-    else:
-        transcribe_episode(
-            audio_filepath=destination_path,
-            result_path=transcription_path,
-            model=model,
-        )
+    # if transcription_path.exists():
+    #     print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
+    #     print("Skipping GPU transcription.")
+    # else:
+    transcribe_episode(
+        audio_filepath=destination_path,
+        result_path=transcription_path,
+        model=model,
+    )
     return episode
 
 

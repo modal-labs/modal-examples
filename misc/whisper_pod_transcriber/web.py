@@ -1,4 +1,4 @@
-import podcast
+from . import podcast
 
 _HTML_SHELL = """
 <!DOCTYPE html>
