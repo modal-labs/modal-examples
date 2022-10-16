@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { BrowserRouter, Link, Routes, Route } from "react-router-dom";
+import Transcripts from "./routes/transcripts";
 import "./App.css";
 
 // function Spinner({ config }) {
@@ -96,14 +98,14 @@ function Podcast({ podcast }) {
         Completed
       </button>
     );
-    let transcriptsHref = `/transcripts/${podcast.id}`;
+    let transcriptsHref = `/transcripts?id=${podcast.id}`;
     transcriptsLink = (
-      <a
-        href={transcriptsHref}
+      <Link
+        to={transcriptsHref}
         className="text-blue-700 no-underline hover:underline"
       >
         <strong>View Transcripts 📃</strong>
-      </a>
+      </Link>
     );
   } else {
     buttonContent = (
@@ -229,7 +231,7 @@ function Form({ onSubmit }) {
   );
 }
 
-function App() {
+function Search() {
   const [searching, setSearching] = useState(false);
   const [podcasts, setPodcasts] = useState();
 
@@ -260,6 +262,17 @@ function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Search />} />
+        <Route path="transcripts" element={<Transcripts />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
