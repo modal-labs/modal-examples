@@ -49,12 +49,8 @@ def utc_now() -> datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def create_transcript_path(
-    guid_hash: str,
-    model: config.ModelSpec = config.DEFAULT_MODEL,
-) -> pathlib.Path:
-    model_slug = f"whisper-{model.name.replace('.', '-')}"
-    return config.TRANSCRIPTIONS_DIR / f"{guid_hash}-{model_slug}.json"
+def transcript_path(guid_hash: str) -> pathlib.Path:
+    return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
 @web_app.get("/api/all")
@@ -85,9 +81,10 @@ async def episode_transcript_page(podcast_id: str, episode_guid_hash):
     import dacite
 
     episode_metadata_path = config.METADATA_DIR / f"{episode_guid_hash}.json"
-    transcription_path = create_transcript_path(episode_guid_hash)
+    transcription_path = transcript_path(episode_guid_hash)
     with open(transcription_path, "r") as f:
         data = json.load(f)
+
     with open(episode_metadata_path, "r") as f:
         metadata = json.load(f)
         episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=metadata)
@@ -124,10 +121,6 @@ def populate_podcast_metadata(podcast_id: str):
 
 @web_app.get("/api/podcast/{podcast_id}")
 async def get_podcast(podcast_id: str):
-    import time
-
-    t0 = time.time()
-    print("started")
     pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
 
     if not pod_metadata_path.exists():
@@ -141,10 +134,16 @@ async def get_podcast(podcast_id: str):
 
     episodes = []
     for file in (config.PODCAST_METADATA_DIR / podcast_id).iterdir():
-        with open(file, "r") as f:
-            episodes.append(json.load(f))
+        if file == pod_metadata_path:
+            continue
 
-    print("finished", time.time() - t0)
+        with open(file, "r") as f:
+            ep = json.load(f)
+            ep["transcribed"] = transcript_path(ep["guid_hash"]).exists()
+            episodes.append(ep)
+
+    episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
+
     return JSONResponse(content={"pod_metadata": pod_metadata, "episodes": episodes})
 
 
@@ -484,7 +483,7 @@ def process_episode(episode: podcast.EpisodeMetadata):
         json.dump(dataclasses.asdict(episode), f)
     print(f"Wrote episode metadata to {metadata_path}")
 
-    transcription_path = create_transcript_path(episode.guid_hash, model)
+    transcription_path = transcript_path(episode.guid_hash, model)
     # if transcription_path.exists():
     #     print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
     #     print("Skipping GPU transcription.")

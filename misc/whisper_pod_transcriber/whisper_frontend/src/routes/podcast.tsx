@@ -1,26 +1,32 @@
 import useSWR from "swr";
 import { useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 function Epsiode({
-  key,
+  guidHash,
   title,
+  transcribed,
   publishDate,
+  podcastId,
 }: {
-  key: string;
+  guidHash: string;
   title: string;
+  transcribed: boolean;
   publishDate: string;
+  podcastId: string;
 }) {
   return (
     <li
-      key={key}
+      key={guidHash}
       className="px-6 py-2 border-b border-gray-200 w-full rounded-t-lg"
     >
-      <a
-        href="/transcripts/{ep.podcast_id}/{ep.guid_hash}"
+      {transcribed ? "📃 " : "🔴 "}
+      <Link
+        to={`/episode/${podcastId}/${guidHash}`}
         className="text-blue-700 no-underline hover:underline"
       >
         {title}
-      </a>{" "}
+      </Link>{" "}
       | {publishDate}
     </li>
   );
@@ -62,8 +68,11 @@ export default function Podcast() {
           {podcastInfo.episodes.map((ep) => (
             <Epsiode
               key={ep.guid_hash}
+              transcribed={ep.transcribed}
+              guidHash={ep.guid_hash}
               title={ep.title}
               publishDate={ep.publish_date}
+              podcastId={params.podcastId!}
             />
           ))}
         </ul>

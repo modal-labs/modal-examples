@@ -1,22 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
-
-// function Spinner({ config }) {
-//   const ref = useRef(null);
-
-//   useEffect(() => {
-//     const spinner = new Spinner({
-//       lines: 13,
-//       color: "#fff",
-//       ...config,
-//     });
-//     spinner.spin(ref.current);
-//     return () => spinner.stop();
-//   }, [ref]);
-
-//   return <span ref={ref} />;
-// }
 
 function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
