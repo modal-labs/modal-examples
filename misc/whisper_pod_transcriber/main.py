@@ -11,9 +11,8 @@ from typing import Iterator, List, Tuple
 
 import modal
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
 
-from . import config, podcast, search, web
+from . import config, podcast, search
 
 volume = modal.SharedVolume().persist("dataset-cache-vol")
 app_image = (
@@ -60,30 +59,6 @@ def get_episode_metadata_path(podcast_id: str, guid_hash: str) -> pathlib.Path:
 
 def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
-
-
-# FIXME
-@web_app.get("/api/all")
-async def all_transcripts():
-    from collections import defaultdict
-
-    import dacite
-
-    episodes_by_show = defaultdict(list)
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
-            with open(file, "r") as f:
-                data = json.load(f)
-                ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                episodes_by_show[ep.podcast_title].append(ep)
-
-    body = web.html_all_transcripts_header()
-    for show, episodes_by_show in episodes_by_show.items():
-        episode_part = f"""<div class="font-bold text-center text-green-500 text-xl mt-6">{show}</div>"""
-        episode_part += web.html_episode_list(episodes_by_show)
-        body += episode_part
-    content = web.html_page(title="Modal Podcast Transcriber | All Transcripts", body=body)
-    return HTMLResponse(content=content, status_code=200)
 
 
 @web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
@@ -530,12 +505,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
-    if cmd == "transcribe":
-        podcast_id = sys.argv[2]
-        with stub.run() as app:
-            print(f"Modal app ID -> {app.app_id}")
-            transcribe_podcast(podcast_id=podcast_id)
-    elif cmd == "serve":
+    if cmd == "serve":
         stub.serve()
     elif cmd == "index":
         with stub.run():
