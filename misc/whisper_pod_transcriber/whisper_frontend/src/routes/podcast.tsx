@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { useParams } from "react-router-dom";
 
 function Epsiode({
@@ -28,16 +28,17 @@ function Epsiode({
 
 export default function Podcast() {
   let params = useParams();
-  let [podcastInfo, setPodcastInfo] = useState(null);
-  useEffect(() => {
-    const fetchData = async () => {
-      const resp = await fetch(`/api/podcast/${params.podcastId}`);
-      const body = await resp.json();
-      setPodcastInfo(body);
-    };
 
-    fetchData().catch(console.error);
-  }, []);
+  async function fetchData() {
+    const response = await fetch(`/api/podcast/${params.podcastId}`);
+    const data = await response.json();
+    return data;
+  }
+
+  const { data: podcastInfo } = useSWR(
+    `/api/podcast/${params.podcastId}`,
+    fetchData
+  );
 
   if (!podcastInfo) {
     return <div>Loading...</div>;
@@ -50,7 +51,7 @@ export default function Podcast() {
           <div className="font-bold text-xl">
             {podcastInfo.pod_metadata.title}
           </div>
-          <div className="text-gray-700 text-md">
+          <div className="text-gray-700 text-md py-1">
             {podcastInfo.pod_metadata.description}
           </div>
         </div>

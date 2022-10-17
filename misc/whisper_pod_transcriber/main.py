@@ -124,6 +124,10 @@ def populate_podcast_metadata(podcast_id: str):
 
 @web_app.get("/api/podcast/{podcast_id}")
 async def get_podcast(podcast_id: str):
+    import time
+
+    t0 = time.time()
+    print("started")
     pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
 
     if not pod_metadata_path.exists():
@@ -140,6 +144,7 @@ async def get_podcast(podcast_id: str):
         with open(file, "r") as f:
             episodes.append(json.load(f))
 
+    print("finished", time.time() - t0)
     return JSONResponse(content={"pod_metadata": pod_metadata, "episodes": episodes})
 
 
