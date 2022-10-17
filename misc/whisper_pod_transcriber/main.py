@@ -76,19 +76,21 @@ async def all_transcripts():
     return HTMLResponse(content=content, status_code=200)
 
 
-@web_app.get("/api/transcripts/{podcast_id}/{episode_guid_hash}")
-async def episode_transcript_page(podcast_id: str, episode_guid_hash):
-    import dacite
-
-    episode_metadata_path = config.METADATA_DIR / f"{episode_guid_hash}.json"
+@web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
+async def get_episode(podcast_id: str, episode_guid_hash):
+    episode_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / f"{episode_guid_hash}.json"
     transcription_path = transcript_path(episode_guid_hash)
-    with open(transcription_path, "r") as f:
-        data = json.load(f)
 
     with open(episode_metadata_path, "r") as f:
         metadata = json.load(f)
-        episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=metadata)
 
+    if not transcription_path.exists():
+        return JSONResponse(content=dict(metadata=metadata))
+
+    with open(transcription_path, "r") as f:
+        data = json.load(f)
+
+    return JSONResponse(content=dict(metadata=metadata, segments=data["segments"]))
     segments_ul_html = web.html_transcript_list(data["segments"], episode_mp3_link=episode.original_download_link)
     episode_header_html = web.html_episode_header(episode)
     body = episode_header_html + segments_ul_html
@@ -144,7 +146,7 @@ async def get_podcast(podcast_id: str):
 
     episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
 
-    return JSONResponse(content={"pod_metadata": pod_metadata, "episodes": episodes})
+    return JSONResponse(content=dict(pod_metadata=pod_metadata, episodes=episodes))
 
 
 def is_podcast_recently_transcribed(podcast_id: str):
@@ -198,7 +200,7 @@ def search_podcast(name):
 
     print(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
-    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=3)
+    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
     print(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(

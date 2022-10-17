@@ -48,22 +48,6 @@ def html_podcast_404_page() -> str:
     return _HTML_SHELL.format(title="Modal Podcast Transcriber | 404", body=body)
 
 
-def html_episode_header(episode: podcast.EpisodeMetadata) -> str:
-    # Add a bit of padding between lines in HTML description.
-    episode_description_html = episode.html_description.replace("<p>", "<p class='py-1'>")
-    return f"""
-<div class="mx-auto max-w-4xl py-8 rounded overflow-hidden shadow-lg">
-    <div class="px-6 py-4">
-        <div class="font-bold text-l text-green-500 mb-2">{episode.podcast_title}</div>
-        <div class="font-bold text-xl mb-2">{episode.title}</div>
-        <div class="text-gray-700 text-sm py-4">
-            {episode_description_html}
-        </div>
-    </div>
-</div>
-    """
-
-
 def html_all_transcripts_header() -> str:
     return """
 <div class="mx-auto max-w-4xl pt-4 pb-2 rounded overflow-hidden shadow-lg">

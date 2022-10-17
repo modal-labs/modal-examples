@@ -12,3 +12,7 @@
 
   padding: 0 !important;
 }
+
+.podcast-list li:last-child {
+  @apply border-b;
+}

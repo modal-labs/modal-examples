@@ -1,174 +1,36 @@
 import { useState, useEffect, useCallback } from "react";
 import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
+import Episode from "./routes/episode";
 
 function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
 function PodcastCard({ podcast }) {
-  const [isSending, setIsSending] = useState(false);
-  const [callId, setCallId] = useState(false);
-  const [recentlyTranscribed, setRecentlyTranscribed] = useState(
-    podcast.recently_transcribed === "true"
-  );
-
-  const sendRequest = useCallback(async () => {
-    // don't send again while we are sending
-    if (isSending) return;
-
-    setIsSending(true);
-    console.log(`Transcribing ${podcast.title} ${podcast.id}`);
-    const formData = new FormData();
-    formData.append("podcast_name", podcast.title);
-    formData.append("podcast_id", podcast.id);
-
-    const resp = await fetch("/api/transcribe", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (resp.status !== 200) {
-      throw new Error("An error occurred: " + resp.status);
-    }
-    const body = await resp.json();
-    // once the request is sent, update state again
-    setIsSending(false);
-    setCallId(body.call_id);
-  }, [isSending]); // update the callback if the state changes
-
-  let buttonContent;
-  let transcriptsLink = null;
-  if (callId) {
-    buttonContent = (
-      <button
-        className="relative text-white bg-green-500 hover:bg-green-700 font-bold py-2 px-4 rounded"
-        disabled={true}
-      >
-        <div className="flex flex-row space-y-4">
-          {recentlyTranscribed ? (
-            <div className="mr-4">Waiting...</div>
-          ) : (
-            <div>
-              <Result
-                callId={callId}
-                onFinished={() => {
-                  setRecentlyTranscribed(true);
-                  setCallId(null);
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </button>
-    );
-  } else if (isSending) {
-    buttonContent = (
-      <button
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        disabled={true}
-      >
-        hi
-        {/* <Spinner config={{}} /> */}
-      </button>
-    );
-  } else if (recentlyTranscribed) {
-    buttonContent = (
-      <button
-        className="bg-green-700 text-white font-bold py-2 px-4 rounded"
-        disabled={true}
-      >
-        Completed
-      </button>
-    );
-    let transcriptsHref = `/podcast/${podcast.id}`;
-    transcriptsLink = (
-      <Link
-        to={transcriptsHref}
-        className="text-blue-700 no-underline hover:underline"
-      >
-        <strong>View Transcripts 📃</strong>
-      </Link>
-    );
-  } else {
-    buttonContent = (
-      <button
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        disabled={isSending || recentlyTranscribed}
-        onClick={sendRequest}
-      >
-        Transcribe
-      </button>
-    );
-  }
-
   return (
-    <div className="max-w-2xl rounded overflow-hidden shadow-lg">
-      <div className="px-6 py-4">
-        <div className="font-bold text-xl mb-2">{podcast.title}</div>
-        <p className="text-gray-700 text-base py-4">
-          {truncate(podcast.description, 200)}
-        </p>
-        <div className="flow-root">
-          <div className="float-left">{buttonContent}</div>
-          <div className="float-right">{transcriptsLink}</div>
-        </div>
+    <Link to={`/podcast/${podcast.id}`} className="px-6 py-1 group">
+      <div className="font-bold text-xl mb-2 group-hover:underline">
+        {podcast.title}
       </div>
-    </div>
+      <p className="text-gray-700 text-base py-4">
+        {truncate(podcast.description, 200)}
+      </p>
+    </Link>
   );
 }
 
 function PodcastList({ podcasts }) {
   const listItems = podcasts.map((pod) => (
-    <li key={pod.id}>
+    <li
+      key={pod.id}
+      className="max-w-2xl overflow-hidden border-indigo-400 border-t-2"
+    >
       <PodcastCard podcast={pod} />
     </li>
   ));
-  return <ul>{listItems}</ul>;
-}
 
-function Result({ callId, onFinished }) {
-  const [result, setResult] = useState();
-  const [intervalId, setIntervalId] = useState();
-  const spinnerConfig = {
-    position: "relative",
-    left: "100%",
-    top: "50%",
-    scale: 0.5,
-  };
-
-  useEffect(() => {
-    if (result) {
-      clearInterval(intervalId);
-      return;
-    }
-
-    const delay = 5000; // ms. Podcasts will take a while to transcribe.
-    const _intervalID = setInterval(async () => {
-      const resp = await fetch(`/result/${callId}`);
-      if (resp.status === 200) {
-        setResult(await resp.json());
-        onFinished(true);
-      }
-    }, delay);
-
-    setIntervalId(_intervalID);
-
-    return () => clearInterval(intervalId);
-  }, [result]);
-
-  return (
-    <div>
-      {result ? (
-        <span>Complete!</span>
-      ) : (
-        <div>
-          <span>Waiting...</span>
-          {/* <Spinner config={spinnerConfig} /> */}
-        </div>
-      )}
-    </div>
-  );
+  return <ul className="py-4 podcast-list">{listItems}</ul>;
 }
 
 function Form({ onSubmit }) {
@@ -236,8 +98,8 @@ function Search() {
   };
 
   return (
-    <div className="min-w-full min-h-screen screen bg-gradient-to-r from-green-300 via-green-500 to-green-300">
-      <div className="mx-auto max-w-2xl py-8">
+    <div className="min-w-full min-h-screen screen">
+      <div className="mx-auto max-w-2xl py-8 shadow-lg">
         <main className="rounded-xl bg-white p-6">
           <Form onSubmit={handleSubmission} />
           {/* {searching && <Spinner />} */}
@@ -254,6 +116,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Search />} />
         <Route path="podcast/:podcastId" element={<Podcast />} />
+        <Route path="episode/:podcastId/:episodeId" element={<Episode />} />
       </Routes>
     </HashRouter>
   );
