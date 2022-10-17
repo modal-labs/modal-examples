@@ -44,7 +44,7 @@ search_image = modal.Image.debian_slim().pip_install(
 stub = modal.Stub(
     "whisper-pod-transcriber",
     image=app_image,
-    secret=modal.Secret.from_name("podchaser"),
+    secrets=[modal.Secret.from_name("podchaser")],
 )
 web_app = FastAPI()
 

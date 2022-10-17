@@ -20,7 +20,7 @@ function Epsiode({
       key={guidHash}
       className="px-6 py-2 border-b border-gray-200 w-full rounded-t-lg"
     >
-      {transcribed ? "📃 " : "🔴 "}
+      {transcribed ? "📃 " : "  "}
       <Link
         to={`/episode/${podcastId}/${guidHash}`}
         className="text-blue-700 no-underline hover:underline"
