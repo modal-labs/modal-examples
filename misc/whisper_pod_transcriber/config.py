@@ -14,7 +14,6 @@ CACHE_DIR = "/cache"
 # Mostly .mp3 files 50-100MiB.
 RAW_AUDIO_DIR = pathlib.Path(CACHE_DIR, "raw_audio")
 # Stores metadata of individual podcast episodes as JSON.
-EPISODE_METADATA_DIR = pathlib.Path(CACHE_DIR, "episode_metadata")
 PODCAST_METADATA_DIR = pathlib.Path(CACHE_DIR, "podcast_metadata")
 # Crude boolean marker of a previously processed podcast.
 COMPLETED_DIR = pathlib.Path(CACHE_DIR, "completed")

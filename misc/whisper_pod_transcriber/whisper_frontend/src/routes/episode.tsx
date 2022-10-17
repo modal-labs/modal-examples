@@ -40,10 +40,7 @@ function TranscribeNow({
 
     const resp = await fetch(
       "/api/transcribe?" +
-        new URLSearchParams({
-          podcastId,
-          episodeId,
-        }),
+        new URLSearchParams({ podcast_id: podcastId, episode_id: episodeId }),
       { method: "POST" }
     );
 
@@ -98,7 +95,12 @@ export default function Podcast() {
           <div className="text-gray-700 text-sm py-4">
             {data.metadata.description}
           </div>
-          {!data.segments && <TranscribeNow />}
+          {!data.segments && (
+            <TranscribeNow
+              podcastId={params.podcastId!}
+              episodeId={params.episodeId!}
+            />
+          )}
         </div>
       </div>
 
@@ -106,14 +108,14 @@ export default function Podcast() {
         {
           data.segments && <div>foo</div>
           /* <ul className="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">
-                    {.episodes.map((ep) => (
-                        <Epsiode
-                            key={ep.guid_hash}
-                            title={ep.title}
-                            publishDate={ep.publish_date}
-                        />
-                    ))}
-                </ul> */
+                              {.episodes.map((ep) => (
+                                  <Epsiode
+                                      key={ep.guid_hash}
+                                      title={ep.title}
+                                      publishDate={ep.publish_date}
+                                  />
+                              ))}
+                          </ul> */
         }
       </div>
     </div>
