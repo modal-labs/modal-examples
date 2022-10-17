@@ -11,7 +11,7 @@ from typing import Iterator, List, Tuple
 
 import modal
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 
 from . import config, podcast, search, web
 
@@ -46,6 +46,7 @@ stub = modal.Stub(
     image=app_image,
     secrets=[modal.Secret.from_name("podchaser")],
 )
+stub.in_progress = modal.Dict()
 web_app = FastAPI()
 
 
@@ -94,12 +95,12 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
         metadata = json.load(f)
 
     if not transcription_path.exists():
-        return JSONResponse(content=dict(metadata=metadata))
+        return dict(metadata=metadata)
 
     with open(transcription_path, "r") as f:
         data = json.load(f)
 
-    return JSONResponse(content=dict(metadata=metadata, segments=data["segments"]))
+    return dict(metadata=metadata, segments=data["segments"])
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
@@ -150,7 +151,7 @@ async def get_podcast(podcast_id: str):
 
     episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
 
-    return JSONResponse(content=dict(pod_metadata=pod_metadata, episodes=episodes))
+    return dict(pod_metadata=pod_metadata, episodes=episodes)
 
 
 def is_podcast_recently_transcribed(podcast_id: str):
@@ -174,7 +175,7 @@ async def podcasts_endpoint(request: Request):
         else:
             data["recently_transcribed"] = "false"
         podcasts_response.append(data)
-    return JSONResponse(content=podcasts_response)
+    return podcasts_response
 
 
 @stub.asgi(
@@ -293,7 +294,18 @@ def refresh_index():
 
 @web_app.post("/api/transcribe")
 async def transcribe_job(podcast_id: str, episode_id: str):
+    from modal import container_app
+
+    try:
+        existing_call_id = container_app.in_progress[episode_id]
+        print(f"Found existing call ID {existing_call_id} for episode {episode_id}")
+        return {"call_id": existing_call_id}
+    except KeyError:
+        pass
+
     call = process_episode.submit(podcast_id, episode_id)
+    container_app.in_progress[episode_id] = call.object_id
+
     return {"call_id": call.object_id}
 
 
@@ -308,7 +320,7 @@ async def poll_status(call_id: str):
     try:
         map_root = graph[0].children[0].children[0]
     except IndexError:
-        return JSONResponse(dict(finished=False))
+        return dict(finished=False)
 
     assert map_root.function_name == "transcribe_episode"
 
@@ -318,9 +330,7 @@ async def poll_status(call_id: str):
     total_segments = len(leaves)
     finished = map_root.status == InputStatus.SUCCESS
 
-    return JSONResponse(
-        dict(finished=finished, total_segments=total_segments, tasks=tasks, done_segments=done_segments)
-    )
+    return dict(finished=finished, total_segments=total_segments, tasks=tasks, done_segments=done_segments)
 
 
 def split_silences(
@@ -445,6 +455,7 @@ def transcribe_episode(
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
     import whisper
+    from modal import container_app
 
     # pre-download the model to the cache path, because the _download fn is not
     # thread-safe.
@@ -478,6 +489,9 @@ def process_episode(podcast_id: str, episode_id: str):
             result_path=transcription_path,
             model=model,
         )
+
+    del container_app.in_progress[episode_id]
+
     return episode
 
 
