@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { BrowserRouter, Link, Routes, Route } from "react-router-dom";
-import Transcripts from "./routes/transcripts";
-import "./App.css";
+import { HashRouter, Link, Routes, Route } from "react-router-dom";
+import Podcast from "./routes/podcast";
 
 // function Spinner({ config }) {
 //   const ref = useRef(null);
@@ -23,7 +22,7 @@ function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
-function Podcast({ podcast }) {
+function PodcastCard({ podcast }) {
   const [isSending, setIsSending] = useState(false);
   const [callId, setCallId] = useState(false);
   const [recentlyTranscribed, setRecentlyTranscribed] = useState(
@@ -40,7 +39,7 @@ function Podcast({ podcast }) {
     formData.append("podcast_name", podcast.title);
     formData.append("podcast_id", podcast.id);
 
-    const resp = await fetch("/transcribe", {
+    const resp = await fetch("/api/transcribe", {
       method: "POST",
       body: formData,
     });
@@ -98,7 +97,7 @@ function Podcast({ podcast }) {
         Completed
       </button>
     );
-    let transcriptsHref = `/transcripts?id=${podcast.id}`;
+    let transcriptsHref = `/podcast/${podcast.id}`;
     transcriptsLink = (
       <Link
         to={transcriptsHref}
@@ -138,7 +137,7 @@ function Podcast({ podcast }) {
 function PodcastList({ podcasts }) {
   const listItems = podcasts.map((pod) => (
     <li key={pod.id}>
-      <Podcast podcast={pod} />
+      <PodcastCard podcast={pod} />
     </li>
   ));
   return <ul>{listItems}</ul>;
@@ -239,7 +238,7 @@ function Search() {
     const formData = new FormData();
     formData.append("podcast", podcastName);
     setSearching(true);
-    const resp = await fetch("/podcasts", {
+    const resp = await fetch("/api/podcasts", {
       method: "POST",
       body: formData,
     });
@@ -253,7 +252,7 @@ function Search() {
   };
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-r from-green-300 via-green-500 to-green-300">
+    <div className="min-w-full min-h-screen screen bg-gradient-to-r from-green-300 via-green-500 to-green-300">
       <div className="mx-auto max-w-2xl py-8">
         <main className="rounded-xl bg-white p-6">
           <Form onSubmit={handleSubmission} />
@@ -267,12 +266,12 @@ function Search() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Search />} />
-        <Route path="transcripts" element={<Transcripts />} />
+        <Route path="podcast/:podcastId" element={<Podcast />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

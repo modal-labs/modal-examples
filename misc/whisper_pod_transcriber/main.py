@@ -57,7 +57,7 @@ def create_transcript_path(
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}-{model_slug}.json"
 
 
-@web_app.get("/all")
+@web_app.get("/api/all")
 async def all_transcripts():
     from collections import defaultdict
 
@@ -80,7 +80,7 @@ async def all_transcripts():
     return HTMLResponse(content=content, status_code=200)
 
 
-@web_app.get("/transcripts/{podcast_id}/{episode_guid_hash}")
+@web_app.get("/api/transcripts/{podcast_id}/{episode_guid_hash}")
 async def episode_transcript_page(podcast_id: str, episode_guid_hash):
     import dacite
 
@@ -99,32 +99,48 @@ async def episode_transcript_page(podcast_id: str, episode_guid_hash):
     return HTMLResponse(content=content, status_code=200)
 
 
-@web_app.get("/transcripts/{podcast_id}")
-async def podcast_transcripts_page(podcast_id: str):
-    import dacite
+@stub.function(secret=modal.Secret.from_name("podchaser"), shared_volumes={config.CACHE_DIR: volume})
+def populate_podcast_metadata(podcast_id: str):
+    from gql import gql
 
-    pod_metadata_path = config.PODCAST_METADATA_DIR / f"{podcast_id}.json"
+    metadata_dir = config.PODCAST_METADATA_DIR / podcast_id
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
+    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
+
+    with open(metadata_path, "w") as f:
+        json.dump(dataclasses.asdict(pod_metadata), f)
+
+    episodes = fetch_episodes(show_name=pod_metadata.title, podcast_id=podcast_id)
+
+    for ep in episodes:
+        metadata_path = metadata_dir / f"{ep.guid_hash}.json"
+        with open(metadata_path, "w") as f:
+            json.dump(dataclasses.asdict(ep), f)
+
+    print(f"Populated metadata for {pod_metadata.title}")
+
+
+@web_app.get("/api/podcast/{podcast_id}")
+async def get_podcast(podcast_id: str):
+    pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
+
     if not pod_metadata_path.exists():
-        return HTMLResponse(content=web.html_podcast_404_page(), status_code=404)
+        populate_podcast_metadata(podcast_id)
     else:
-        with open(pod_metadata_path, "r") as f:
-            data = json.load(f)
-            pod_metadata = dacite.from_dict(data_class=podcast.PodcastMetadata, data=data)
+        # Refresh async.
+        populate_podcast_metadata.submit(podcast_id)
 
-    podcast_header_html = web.html_podcast_header(pod_metadata)
-    podcast_episodes = []
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
-            with open(file, "r") as f:
-                data = json.load(f)
-                ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                if str(ep.podcast_id) == podcast_id:
-                    podcast_episodes.append(ep)
+    with open(pod_metadata_path, "r") as f:
+        pod_metadata = json.load(f)
 
-    transcript_list_html = web.html_episode_list(podcast_episodes)
-    body = podcast_header_html + transcript_list_html
-    content = web.html_page(title="Modal Podcast Transcriber | Transcripts", body=body)
-    return HTMLResponse(content=content, status_code=200)
+    episodes = []
+    for file in (config.PODCAST_METADATA_DIR / podcast_id).iterdir():
+        with open(file, "r") as f:
+            episodes.append(json.load(f))
+
+    return JSONResponse(content={"pod_metadata": pod_metadata, "episodes": episodes})
 
 
 def is_podcast_recently_transcribed(podcast_id: str):
@@ -134,7 +150,7 @@ def is_podcast_recently_transcribed(podcast_id: str):
     return completion_marker_path.exists()
 
 
-@web_app.post("/podcasts")
+@web_app.post("/api/podcasts")
 async def podcasts_endpoint(request: Request):
     import dataclasses
 
@@ -265,7 +281,7 @@ def index():
         json.dump(search_dict, f)
 
 
-@web_app.post("/transcribe")
+@web_app.post("/api/transcribe")
 async def transcribe_job(request: Request):
     form = await request.form()
     pod_id = form["podcast_id"]
@@ -273,7 +289,7 @@ async def transcribe_job(request: Request):
     return {"call_id": call.object_id}
 
 
-@web_app.get("/result/{call_id}")
+@web_app.get("/api/result/{call_id}")
 async def poll_results(call_id: str):
     from modal.functions import FunctionCall
 
