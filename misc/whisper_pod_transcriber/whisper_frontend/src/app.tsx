@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
+import Spinner from "./components/Spinner";
 
 function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
@@ -33,7 +34,7 @@ function PodcastList({ podcasts }) {
   return <ul className="py-4 podcast-list">{listItems}</ul>;
 }
 
-function Form({ onSubmit }) {
+function Form({ onSubmit, searching }) {
   const [podcastName, setPodcastName] = useState("");
   const onChange = (event) => {
     setPodcastName(event.target.value);
@@ -63,14 +64,17 @@ function Form({ onSubmit }) {
         />
       </div>
       <div>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!podcastName}
-          className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm"
-        >
-          Search
-        </button>
+        {!searching && (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!podcastName}
+            className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm"
+          >
+            Search
+          </button>
+        )}
+        {searching && <Spinner size={10} />}
       </div>
     </form>
   );
@@ -99,12 +103,9 @@ function Search() {
 
   return (
     <div className="min-w-full min-h-screen screen">
-      <div className="mx-auto max-w-2xl py-8 shadow-lg">
-        <main className="rounded-xl bg-white p-6">
-          <Form onSubmit={handleSubmission} />
-          {/* {searching && <Spinner />} */}
-          {podcasts && !searching && <PodcastList podcasts={podcasts} />}
-        </main>
+      <div className="mx-auto max-w-2xl my-8 shadow-lg rounded-xl bg-white p-6">
+        <Form onSubmit={handleSubmission} searching={searching} />
+        {podcasts && !searching && <PodcastList podcasts={podcasts} />}
       </div>
     </div>
   );

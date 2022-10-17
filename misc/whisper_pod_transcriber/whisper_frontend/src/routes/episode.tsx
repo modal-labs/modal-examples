@@ -1,4 +1,5 @@
 import useSWR, { useSWRConfig } from "swr";
+import Spinner from "../components/Spinner";
 import { Link } from "react-router-dom";
 import { useCallback, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
@@ -106,8 +107,7 @@ function TranscribeProgress({
       return;
     }
 
-    const delay = 2000; // ms. Podcasts will take a while to transcribe.
-    const _intervalID = setInterval(async () => {
+    async function updateStatus() {
       const resp = await fetch(`/api/status/${callId}`);
       const body = await resp.json();
       setStatus(body);
@@ -115,9 +115,11 @@ function TranscribeProgress({
         setFinished(true);
         onFinished();
       }
-    }, delay);
+    }
 
-    setIntervalId(_intervalID);
+    updateStatus();
+    // 2s. Podcasts will take a while to transcribe.
+    setIntervalId(setInterval(updateStatus, 2000));
 
     return () => clearInterval(intervalId);
   }, [finished]);
@@ -197,7 +199,11 @@ export default function Podcast() {
   );
 
   if (!data) {
-    return <div>Loading...</div>;
+    return (
+      <div className="absolute m-auto left-0 right-0 w-fit top-0 bottom-0 h-fit">
+        <Spinner size={20} />
+      </div>
+    );
   }
 
   return (

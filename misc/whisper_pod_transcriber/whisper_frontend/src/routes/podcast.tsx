@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import { useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
+import Spinner from "../components/Spinner";
 
 function Epsiode({
   guidHash,
@@ -44,7 +45,11 @@ export default function Podcast() {
   const { data } = useSWR(`/api/podcast/${params.podcastId}`, fetchData);
 
   if (!data) {
-    return <div>Loading...</div>;
+    return (
+      <div className="absolute m-auto left-0 right-0 w-fit top-0 bottom-0 h-fit">
+        <Spinner size={20} />
+      </div>
+    );
   }
 
   return (
