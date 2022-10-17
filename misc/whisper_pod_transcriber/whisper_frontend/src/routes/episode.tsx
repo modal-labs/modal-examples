@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { Link } from "react-router-dom";
 import { useCallback, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
@@ -21,6 +21,29 @@ function formatTimestamp(total_seconds: number) {
     milliseconds,
     3
   )}`;
+}
+
+function ProgressBar({
+  completed,
+  total,
+}: {
+  completed: number;
+  total: number;
+}) {
+  let percentage = Math.floor((completed / (total || 1)) * 100);
+  return (
+    <div className="w-full bg-gray-200 rounded-full dark:bg-gray-700 h-5">
+      {percentage > 0 && (
+        <div
+          className="bg-indigo-600 text-md font-medium text-blue-100 text-center p-0.5 leading-none rounded-full align-middle"
+          style={{ width: `${percentage}%` }}
+        >
+          {" "}
+          {percentage}%{" "}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Segment({ segment }: { segment: any }) {
@@ -60,6 +83,12 @@ function Segment({ segment }: { segment: any }) {
   );
 }
 
+interface Status {
+  done_segments: number;
+  total_segments: number;
+  tasks: number;
+}
+
 function TranscribeProgress({
   callId,
   onFinished,
@@ -67,20 +96,23 @@ function TranscribeProgress({
   callId: string;
   onFinished: () => void;
 }) {
-  const [result, setResult] = useState();
+  const [finished, setFinished] = useState<boolean>(false);
+  const [status, setStatus] = useState<Status>();
   const [intervalId, setIntervalId] = useState<number>();
 
   useEffect(() => {
-    if (result) {
+    if (finished) {
       clearInterval(intervalId);
       return;
     }
 
     const delay = 2000; // ms. Podcasts will take a while to transcribe.
     const _intervalID = setInterval(async () => {
-      const resp = await fetch(`/api/transcription_status/${callId}`);
-      if (resp.status === 200) {
-        setResult(await resp.json());
+      const resp = await fetch(`/api/status/${callId}`);
+      const body = await resp.json();
+      setStatus(body);
+      if (body.finished) {
+        setFinished(true);
         onFinished();
       }
     }, delay);
@@ -88,17 +120,15 @@ function TranscribeProgress({
     setIntervalId(_intervalID);
 
     return () => clearInterval(intervalId);
-  }, [result]);
+  }, [finished]);
 
   return (
-    <div>
-      {result ? (
-        <span>Complete!</span>
-      ) : (
-        <div>
-          <span>Waiting...</span>
-        </div>
-      )}
+    <div className="flex flex-col content-center">
+      <span> {status?.tasks ?? 0} containers running ... </span>
+      <ProgressBar
+        completed={status?.done_segments ?? 0}
+        total={status?.total_segments ?? 1}
+      />
     </div>
   );
 }
@@ -106,18 +136,16 @@ function TranscribeProgress({
 function TranscribeNow({
   podcastId,
   episodeId,
+  onFinished,
 }: {
   podcastId: string;
   episodeId: string;
+  onFinished: () => void;
 }) {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [callId, setCallId] = useState<string | null>(null);
 
   const transcribe = useCallback(async () => {
-    if (isTranscribing) {
-      return;
-    }
-
     setIsTranscribing(true);
 
     const resp = await fetch(
@@ -134,11 +162,16 @@ function TranscribeNow({
     setCallId(body.call_id);
   }, [isTranscribing]);
 
+  if (isTranscribing && callId) {
+    return <TranscribeProgress callId={callId} onFinished={onFinished} />;
+  }
+
   return (
     <div className="flex flex-col content-center">
       <button
         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded m-auto"
         onClick={transcribe}
+        disabled={isTranscribing}
       >
         Transcribe Now
       </button>
@@ -157,6 +190,7 @@ export default function Podcast() {
     return data;
   }
 
+  const { mutate } = useSWRConfig();
   const { data } = useSWR(
     `/api/episode/${params.podcastId}/${params.episodeId}`,
     fetchData
@@ -184,6 +218,9 @@ export default function Podcast() {
             <TranscribeNow
               podcastId={params.podcastId!}
               episodeId={params.episodeId!}
+              onFinished={() =>
+                mutate(`/api/episode/${params.podcastId}/${params.episodeId}`)
+              }
             />
           )}
         </div>

@@ -7,7 +7,7 @@ import datetime
 import json
 import pathlib
 import sys
-from typing import Iterator, Tuple
+from typing import Iterator, List, Tuple
 
 import modal
 from fastapi import FastAPI, Request
@@ -297,17 +297,30 @@ async def transcribe_job(podcast_id: str, episode_id: str):
     return {"call_id": call.object_id}
 
 
-@web_app.get("/api/result/{call_id}")
-async def poll_results(call_id: str):
+@web_app.get("/api/status/{call_id}")
+async def poll_status(call_id: str):
+    from modal._call_graph import InputInfo, InputStatus
     from modal.functions import FunctionCall
 
     function_call = FunctionCall.from_id(call_id)
-    try:
-        result = function_call.get(timeout=0)
-    except TimeoutError:
-        return JSONResponse(status_code=202)
+    graph: List[InputInfo] = function_call.get_call_graph()
 
-    return result
+    try:
+        map_root = graph[0].children[0].children[0]
+    except IndexError:
+        return JSONResponse(dict(finished=False))
+
+    assert map_root.function_name == "transcribe_episode"
+
+    leaves = map_root.children
+    tasks = len(set([leaf.task_id for leaf in leaves]))
+    done_segments = len([leaf for leaf in leaves if leaf.status == InputStatus.SUCCESS])
+    total_segments = len(leaves)
+    finished = map_root.status == InputStatus.SUCCESS
+
+    return JSONResponse(
+        dict(finished=finished, total_segments=total_segments, tasks=tasks, done_segments=done_segments)
+    )
 
 
 def split_silences(
