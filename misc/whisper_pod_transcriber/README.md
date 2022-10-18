@@ -1,12 +1,16 @@
-# Modal Whisper Podcast Transcription
+# Modal Podcast Transcriber
 
-This is an example of a full-stack Modal application consisting of 3 components:
+This is a complete application that uses [OpenAI Whisper](https://github.com/openai/whisper) to transcribe podcasts. Modal spins up 100-300 containers for a single transcription run, so hours of audio can be transcribed on-demand in a few minutes.
 
-1. React + Vite SPA
-2. FastAPI server
-3. Modal async job queue
+You can find the app here: https://modal-labs-whisper-pod-transcriber-fastapi-app.modal.run/
 
-The entire application is hosted serverlessly on Modal.
+## Architecture
+
+The entire application is hosted serverlessly on Modal and consists of 3 components:
+
+1. React + Vite SPA (`whisper_frontend/`)
+2. FastAPI server (`./api.py`)
+3. Modal async job queue (`./main.py`)
 
 ## Developing locally
 
