@@ -187,7 +187,6 @@ def search_podcast(name):
     ]
 
 
-# FIXME
 @stub.function(
     image=search_image,
     shared_volumes={config.CACHE_DIR: volume},
@@ -203,8 +202,15 @@ def index():
 
     episodes = defaultdict(list)
     guid_hash_to_episodes = {}
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
+
+    for pod_dir in config.PODCAST_METADATA_DIR.iterdir():
+        if not pod_dir.is_dir():
+            continue
+
+        for file in pod_dir.iterdir():
+            if file.name == "metadata.json":
+                continue
+
             with open(file, "r") as f:
                 data = json.load(f)
                 ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
@@ -240,7 +246,7 @@ def index():
 
     print(f"Matched {len(search_records)} transcripts to episode records.")
 
-    filepath = pathlib.Path(config.SEARCH_DIR, "jall.json")
+    filepath = config.SEARCH_DIR / "all.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(indexed_episodes, f)
@@ -248,14 +254,14 @@ def index():
     print("calc feature vectors for all transcripts, keeping track of similar podcasts")
     X, v = search.calculate_tfidf_features(search_records)
     sim_svm = search.calculate_similarity_with_svm(X)
-    filepath = pathlib.Path(config.SEARCH_DIR, "sim_tfidf_svm.json")
+    filepath = config.SEARCH_DIR / "sim_tfidf_svm.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(sim_svm, f)
 
     print("calculate the search index to support search")
     search_dict = search.build_search_index(search_records, v)
-    filepath = pathlib.Path(config.SEARCH_DIR, "search.json")
+    filepath = config.SEARCH_DIR / "search.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(search_dict, f)
