@@ -129,13 +129,6 @@ async def get_podcast(podcast_id: str):
     return dict(pod_metadata=pod_metadata, episodes=episodes)
 
 
-def is_podcast_recently_transcribed(podcast_id: str):
-    if not config.COMPLETED_DIR.exists():
-        return False
-    completion_marker_path = config.COMPLETED_DIR / f"{podcast_id}.txt"
-    return completion_marker_path.exists()
-
-
 @web_app.post("/api/podcasts")
 async def podcasts_endpoint(request: Request):
     import dataclasses
@@ -144,12 +137,7 @@ async def podcasts_endpoint(request: Request):
     name = form["podcast"]
     podcasts_response = []
     for pod in search_podcast(name):
-        data = dataclasses.asdict(pod)
-        if is_podcast_recently_transcribed(pod.id):
-            data["recently_transcribed"] = "true"
-        else:
-            data["recently_transcribed"] = "false"
-        podcasts_response.append(data)
+        podcasts_response.append(dataclasses.asdict(pod))
     return podcasts_response
 
 

@@ -15,8 +15,6 @@ CACHE_DIR = "/cache"
 RAW_AUDIO_DIR = pathlib.Path(CACHE_DIR, "raw_audio")
 # Stores metadata of individual podcast episodes as JSON.
 PODCAST_METADATA_DIR = pathlib.Path(CACHE_DIR, "podcast_metadata")
-# Crude boolean marker of a previously processed podcast.
-COMPLETED_DIR = pathlib.Path(CACHE_DIR, "completed")
 # Completed episode transcriptions. Stored as flat files with
 # files structured as '{guid_hash}-{model_slug}.json'.
 TRANSCRIPTIONS_DIR = pathlib.Path(CACHE_DIR, "transcriptions")
