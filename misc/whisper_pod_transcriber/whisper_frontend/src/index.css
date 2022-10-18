@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 401;
+
+  background-color: rgb(249 250 251);
+
+  padding: 0 !important;
+}
+
+.podcast-list li:last-child {
+  @apply border-b;
+}

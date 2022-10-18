@@ -14,11 +14,7 @@ CACHE_DIR = "/cache"
 # Mostly .mp3 files 50-100MiB.
 RAW_AUDIO_DIR = pathlib.Path(CACHE_DIR, "raw_audio")
 # Stores metadata of individual podcast episodes as JSON.
-# nb: Should probably be called EPISODES_METADATA_DIR.
-METADATA_DIR = pathlib.Path(CACHE_DIR, "metadata")
 PODCAST_METADATA_DIR = pathlib.Path(CACHE_DIR, "podcast_metadata")
-# Crude boolean marker of a previously processed podcast.
-COMPLETED_DIR = pathlib.Path(CACHE_DIR, "completed")
 # Completed episode transcriptions. Stored as flat files with
 # files structured as '{guid_hash}-{model_slug}.json'.
 TRANSCRIPTIONS_DIR = pathlib.Path(CACHE_DIR, "transcriptions")
@@ -27,7 +23,7 @@ SEARCH_DIR = pathlib.Path(CACHE_DIR, "search")
 # Location of modal checkpoint.
 MODEL_DIR = pathlib.Path(CACHE_DIR, "model")
 # Location of web frontend assets.
-ASSETS_PATH = pathlib.Path(__file__).parent / "web"
+ASSETS_PATH = pathlib.Path(__file__).parent / "whisper_frontend" / "dist"
 
 transcripts_per_podcast_limit = 2
 

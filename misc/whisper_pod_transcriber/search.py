@@ -3,7 +3,7 @@ import json
 import pathlib
 from typing import Any
 
-import podcast
+from . import podcast
 
 
 @dataclasses.dataclass

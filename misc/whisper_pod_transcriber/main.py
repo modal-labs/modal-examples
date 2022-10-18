@@ -7,15 +7,12 @@ import datetime
 import json
 import pathlib
 import sys
-from typing import Iterator, Tuple
+from typing import Iterator, List, Tuple
 
-import config
 import modal
-import podcast
-import search
-import web
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+
+from . import config, podcast, search
 
 volume = modal.SharedVolume().persist("dataset-cache-vol")
 app_image = (
@@ -43,7 +40,12 @@ search_image = modal.Image.debian_slim().pip_install(
     ["scikit-learn~=0.24.2", "tqdm~=4.46.0", "numpy~=1.23.3", "dacite"]
 )
 
-stub = modal.Stub("whisper-pod-transcriber", image=app_image)
+stub = modal.Stub(
+    "whisper-pod-transcriber",
+    image=app_image,
+    secrets=[modal.Secret.from_name("podchaser")],
+)
+stub.in_progress = modal.Dict()
 web_app = FastAPI()
 
 
@@ -51,92 +53,83 @@ def utc_now() -> datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def create_transcript_path(
-    guid_hash: str,
-    model: config.ModelSpec = config.DEFAULT_MODEL,
-) -> pathlib.Path:
-    model_slug = f"whisper-{model.name.replace('.', '-')}"
-    return config.TRANSCRIPTIONS_DIR / f"{guid_hash}-{model_slug}.json"
+def get_episode_metadata_path(podcast_id: str, guid_hash: str) -> pathlib.Path:
+    return config.PODCAST_METADATA_DIR / podcast_id / f"{guid_hash}.json"
 
 
-@web_app.get("/all")
-async def all_transcripts():
-    from collections import defaultdict
-
-    import dacite
-
-    episodes_by_show = defaultdict(list)
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
-            with open(file, "r") as f:
-                data = json.load(f)
-                ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                episodes_by_show[ep.podcast_title].append(ep)
-
-    body = web.html_all_transcripts_header()
-    for show, episodes_by_show in episodes_by_show.items():
-        episode_part = f"""<div class="font-bold text-center text-green-500 text-xl mt-6">{show}</div>"""
-        episode_part += web.html_episode_list(episodes_by_show)
-        body += episode_part
-    content = web.html_page(title="Modal Podcast Transcriber | All Transcripts", body=body)
-    return HTMLResponse(content=content, status_code=200)
+def get_transcript_path(guid_hash: str) -> pathlib.Path:
+    return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
-@web_app.get("/transcripts/{podcast_id}/{episode_guid_hash}")
-async def episode_transcript_page(podcast_id: str, episode_guid_hash):
-    import dacite
+@web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
+async def get_episode(podcast_id: str, episode_guid_hash: str):
+    episode_metadata_path = get_episode_metadata_path(podcast_id, episode_guid_hash)
+    transcription_path = get_transcript_path(episode_guid_hash)
 
-    episode_metadata_path = config.METADATA_DIR / f"{episode_guid_hash}.json"
-    transcription_path = create_transcript_path(episode_guid_hash)
-    with open(transcription_path, "r") as f:
-        data = json.load(f)
     with open(episode_metadata_path, "r") as f:
         metadata = json.load(f)
-        episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=metadata)
 
-    segments_ul_html = web.html_transcript_list(data["segments"], episode_mp3_link=episode.original_download_link)
-    episode_header_html = web.html_episode_header(episode)
-    body = episode_header_html + segments_ul_html
-    content = web.html_page(title="Modal Podcast Transcriber | Episode Transcript", body=body)
-    return HTMLResponse(content=content, status_code=200)
+    if not transcription_path.exists():
+        return dict(metadata=metadata)
+
+    with open(transcription_path, "r") as f:
+        data = json.load(f)
+
+    return dict(metadata=metadata, segments=data["segments"])
 
 
-@web_app.get("/transcripts/{podcast_id}")
-async def podcast_transcripts_page(podcast_id: str):
-    import dacite
+@stub.function(shared_volumes={config.CACHE_DIR: volume})
+def populate_podcast_metadata(podcast_id: str):
+    from gql import gql
 
-    pod_metadata_path = config.PODCAST_METADATA_DIR / f"{podcast_id}.json"
+    metadata_dir = config.PODCAST_METADATA_DIR / podcast_id
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
+    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
+
+    with open(metadata_path, "w") as f:
+        json.dump(dataclasses.asdict(pod_metadata), f)
+
+    episodes = fetch_episodes(show_name=pod_metadata.title, podcast_id=podcast_id)
+
+    for ep in episodes:
+        metadata_path = get_episode_metadata_path(podcast_id, ep.guid_hash)
+        with open(metadata_path, "w") as f:
+            json.dump(dataclasses.asdict(ep), f)
+
+    print(f"Populated metadata for {pod_metadata.title}")
+
+
+@web_app.get("/api/podcast/{podcast_id}")
+async def get_podcast(podcast_id: str):
+    pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
+
     if not pod_metadata_path.exists():
-        return HTMLResponse(content=web.html_podcast_404_page(), status_code=404)
+        populate_podcast_metadata(podcast_id)
     else:
-        with open(pod_metadata_path, "r") as f:
-            data = json.load(f)
-            pod_metadata = dacite.from_dict(data_class=podcast.PodcastMetadata, data=data)
+        # Refresh async.
+        populate_podcast_metadata.submit(podcast_id)
 
-    podcast_header_html = web.html_podcast_header(pod_metadata)
-    podcast_episodes = []
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
-            with open(file, "r") as f:
-                data = json.load(f)
-                ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
-                if str(ep.podcast_id) == podcast_id:
-                    podcast_episodes.append(ep)
+    with open(pod_metadata_path, "r") as f:
+        pod_metadata = json.load(f)
 
-    transcript_list_html = web.html_episode_list(podcast_episodes)
-    body = podcast_header_html + transcript_list_html
-    content = web.html_page(title="Modal Podcast Transcriber | Transcripts", body=body)
-    return HTMLResponse(content=content, status_code=200)
+    episodes = []
+    for file in (config.PODCAST_METADATA_DIR / podcast_id).iterdir():
+        if file == pod_metadata_path:
+            continue
 
+        with open(file, "r") as f:
+            ep = json.load(f)
+            ep["transcribed"] = get_transcript_path(ep["guid_hash"]).exists()
+            episodes.append(ep)
 
-def is_podcast_recently_transcribed(podcast_id: str):
-    if not config.COMPLETED_DIR.exists():
-        return False
-    completion_marker_path = config.COMPLETED_DIR / f"{podcast_id}.txt"
-    return completion_marker_path.exists()
+    episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
+
+    return dict(pod_metadata=pod_metadata, episodes=episodes)
 
 
-@web_app.post("/podcasts")
+@web_app.post("/api/podcasts")
 async def podcasts_endpoint(request: Request):
     import dataclasses
 
@@ -144,18 +137,14 @@ async def podcasts_endpoint(request: Request):
     name = form["podcast"]
     podcasts_response = []
     for pod in search_podcast(name):
-        data = dataclasses.asdict(pod)
-        if is_podcast_recently_transcribed(pod.id):
-            data["recently_transcribed"] = "true"
-        else:
-            data["recently_transcribed"] = "false"
-        podcasts_response.append(data)
-    return JSONResponse(content=podcasts_response)
+        podcasts_response.append(dataclasses.asdict(pod))
+    return podcasts_response
 
 
 @stub.asgi(
     mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
     shared_volumes={config.CACHE_DIR: volume},
+    keep_warm=True,
 )
 def fastapi_app():
     import fastapi.staticfiles
@@ -165,22 +154,15 @@ def fastapi_app():
     return web_app
 
 
-@stub.function(schedule=modal.Period(hours=4))
-def refresh_index():
-    print(f"Running scheduled index refresh at {utc_now()}")
-    index()
-
-
 @stub.function(
     image=app_image,
-    secret=modal.Secret.from_name("podchaser"),
 )
 def search_podcast(name):
     from gql import gql
 
     print(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
-    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=3)
+    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
     print(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(
@@ -209,8 +191,15 @@ def index():
 
     episodes = defaultdict(list)
     guid_hash_to_episodes = {}
-    if config.METADATA_DIR.exists():
-        for file in config.METADATA_DIR.iterdir():
+
+    for pod_dir in config.PODCAST_METADATA_DIR.iterdir():
+        if not pod_dir.is_dir():
+            continue
+
+        for file in pod_dir.iterdir():
+            if file.name == "metadata.json":
+                continue
+
             with open(file, "r") as f:
                 data = json.load(f)
                 ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
@@ -246,7 +235,7 @@ def index():
 
     print(f"Matched {len(search_records)} transcripts to episode records.")
 
-    filepath = pathlib.Path(config.SEARCH_DIR, "jall.json")
+    filepath = config.SEARCH_DIR / "all.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(indexed_episodes, f)
@@ -254,78 +243,64 @@ def index():
     print("calc feature vectors for all transcripts, keeping track of similar podcasts")
     X, v = search.calculate_tfidf_features(search_records)
     sim_svm = search.calculate_similarity_with_svm(X)
-    filepath = pathlib.Path(config.SEARCH_DIR, "sim_tfidf_svm.json")
+    filepath = config.SEARCH_DIR / "sim_tfidf_svm.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(sim_svm, f)
 
     print("calculate the search index to support search")
     search_dict = search.build_search_index(search_records, v)
-    filepath = pathlib.Path(config.SEARCH_DIR, "search.json")
+    filepath = config.SEARCH_DIR / "search.json"
     print(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(search_dict, f)
 
 
-@web_app.post("/transcribe")
-async def transcribe_job(request: Request):
-    form = await request.form()
-    pod_id = form["podcast_id"]
-    call = transcribe_podcast.submit(podcast_id=pod_id)
+@stub.function(schedule=modal.Period(hours=4))
+def refresh_index():
+    print(f"Running scheduled index refresh at {utc_now()}")
+    index()
+
+
+@web_app.post("/api/transcribe")
+async def transcribe_job(podcast_id: str, episode_id: str):
+    from modal import container_app
+
+    try:
+        existing_call_id = container_app.in_progress[episode_id]
+        print(f"Found existing call ID {existing_call_id} for episode {episode_id}")
+        return {"call_id": existing_call_id}
+    except KeyError:
+        pass
+
+    call = process_episode.submit(podcast_id, episode_id)
+    container_app.in_progress[episode_id] = call.object_id
+
     return {"call_id": call.object_id}
 
 
-@web_app.get("/result/{call_id}")
-async def poll_results(call_id: str):
+@web_app.get("/api/status/{call_id}")
+async def poll_status(call_id: str):
+    from modal._call_graph import InputInfo, InputStatus
     from modal.functions import FunctionCall
 
     function_call = FunctionCall.from_id(call_id)
+    graph: List[InputInfo] = function_call.get_call_graph()
+
     try:
-        result = function_call.get(timeout=0)
-    except TimeoutError:
-        return JSONResponse(status_code=202)
+        map_root = graph[0].children[0].children[0]
+    except IndexError:
+        return dict(finished=False)
 
-    return result
+    assert map_root.function_name == "transcribe_episode"
 
+    leaves = map_root.children
+    tasks = len(set([leaf.task_id for leaf in leaves]))
+    done_segments = len([leaf for leaf in leaves if leaf.status == InputStatus.SUCCESS])
+    total_segments = len(leaves)
+    finished = map_root.status == InputStatus.SUCCESS
 
-@stub.function(
-    image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
-    secret=modal.Secret.from_name("podchaser"),
-    concurrency_limit=2,
-)
-def transcribe_podcast(podcast_id: str, model: config.ModelSpec = config.DEFAULT_MODEL):
-    # pre-download the model to the cache path, because the _download fn is not
-    # thread-safe.
-    import whisper
-    from gql import gql
-
-    whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
-
-    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
-
-    config.PODCAST_METADATA_DIR.mkdir(parents=True, exist_ok=True)
-    metadata_path = config.PODCAST_METADATA_DIR / f"{podcast_id}.json"
-    with open(metadata_path, "w") as f:
-        json.dump(dataclasses.asdict(pod_metadata), f)
-    print(f"Wrote podcast metadata to {metadata_path}")
-
-    temp_limit = config.transcripts_per_podcast_limit
-    print(f"Fetching {temp_limit} podcast episodes to transcribe.")
-    episodes = fetch_episodes(show_name=pod_metadata.title, podcast_id=podcast_id)
-    # Most recent episodes
-    episodes.sort(key=lambda ep: ep.publish_date, reverse=True)
-    completed = []
-    for result in process_episode.map(episodes[:temp_limit], order_outputs=False):
-        print(f"Processed episode '{result.title}'")
-        completed.append(result.title)
-
-    config.COMPLETED_DIR.mkdir(parents=True, exist_ok=True)
-    completion_marker_path = config.COMPLETED_DIR / f"{podcast_id}.txt"
-    with open(completion_marker_path, "w") as f:
-        f.write(str(utc_now()))
-    print(f"Marked podcast {podcast_id} as recently transcribed.")
-    return completed  # Need to return something for function call polling to work.
+    return dict(finished=finished, total_segments=total_segments, tasks=tasks, done_segments=done_segments)
 
 
 def split_silences(
@@ -447,40 +422,51 @@ def transcribe_episode(
     image=app_image,
     shared_volumes={config.CACHE_DIR: volume},
 )
-def process_episode(episode: podcast.EpisodeMetadata):
+def process_episode(podcast_id: str, episode_id: str):
+    import dacite
+    import whisper
+    from modal import container_app
+
+    # pre-download the model to the cache path, because the _download fn is not
+    # thread-safe.
+    model = config.DEFAULT_MODEL
+    whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
+
     config.RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     config.TRANSCRIPTIONS_DIR.mkdir(parents=True, exist_ok=True)
-    config.METADATA_DIR.mkdir(parents=True, exist_ok=True)
-    destination_path = config.RAW_AUDIO_DIR / episode.guid_hash
+
+    metadata_path = get_episode_metadata_path(podcast_id, episode_id)
+    with open(metadata_path, "r") as f:
+        data = json.load(f)
+        episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
+
+    destination_path = config.RAW_AUDIO_DIR / episode_id
     podcast.store_original_audio(
         url=episode.original_download_link,
         destination=destination_path,
     )
 
-    model = config.supported_whisper_models["base.en"]
     print(f"Using the {model.name} model which has {model.params} parameters.")
-
-    metadata_path = config.METADATA_DIR / f"{episode.guid_hash}.json"
-    with open(metadata_path, "w") as f:
-        json.dump(dataclasses.asdict(episode), f)
     print(f"Wrote episode metadata to {metadata_path}")
 
-    transcription_path = create_transcript_path(episode.guid_hash, model)
+    transcription_path = get_transcript_path(episode.guid_hash)
     if transcription_path.exists():
         print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
-        print("Skipping GPU transcription.")
+        print("Skipping transcription.")
     else:
         transcribe_episode(
             audio_filepath=destination_path,
             result_path=transcription_path,
             model=model,
         )
+
+    del container_app.in_progress[episode_id]
+
     return episode
 
 
 @stub.function(
     image=app_image,
-    secret=modal.Secret.from_name("podchaser"),
     shared_volumes={config.CACHE_DIR: volume},
 )
 def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
@@ -514,12 +500,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
-    if cmd == "transcribe":
-        podcast_id = sys.argv[2]
-        with stub.run() as app:
-            print(f"Modal app ID -> {app.app_id}")
-            transcribe_podcast(podcast_id=podcast_id)
-    elif cmd == "serve":
+    if cmd == "serve":
         stub.serve()
     elif cmd == "index":
         with stub.run():
