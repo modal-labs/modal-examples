@@ -156,6 +156,7 @@ async def podcasts_endpoint(request: Request):
 @stub.asgi(
     mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
     shared_volumes={config.CACHE_DIR: volume},
+    keep_warm=True,
 )
 def fastapi_app():
     import fastapi.staticfiles

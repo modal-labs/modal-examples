@@ -62,16 +62,14 @@ function Form({ onSubmit, searching }) {
             className="h-10 w-full rounded-md pl-10 text-sm text-gray-900 bg-gray-50 border-2 border-zinc-900"
           />
         </div>
-        {!searching && (
-          <button
-            type="submit"
-            onClick={handleSubmit}
-            disabled={!podcastName}
-            className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm w-fit"
-          >
-            Search
-          </button>
-        )}
+        <button
+          type="submit"
+          onClick={handleSubmit}
+          disabled={searching || !podcastName}
+          className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm w-fit"
+        >
+          Search
+        </button>
       </div>
       <div>{searching && <Spinner size={10} />}</div>
     </form>
