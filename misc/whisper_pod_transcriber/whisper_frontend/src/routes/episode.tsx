@@ -47,7 +47,7 @@ function ProgressBar({
   );
 }
 
-function Segment({ segment }: { segment: any }) {
+function Segment({ segment, metadata }: { segment: any; metadata: any }) {
   return (
     <li className="pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
       <div className="flex items-center space-x-4">
@@ -58,7 +58,7 @@ function Segment({ segment }: { segment: any }) {
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l">
             <a
               title="listen"
-              href={`${segment.episode_mp3_link}#t=${Math.floor(
+              href={`${metadata.original_download_link}#t=${Math.floor(
                 segment.start
               )}`}
               target="_blank"
@@ -71,7 +71,9 @@ function Segment({ segment }: { segment: any }) {
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r">
             <a
               title="listen"
-              href={`${segment.episode_mp3_link}#t=${Math.floor(segment.end)}`}
+              href={`${metadata.original_download_link}#t=${Math.floor(
+                segment.end
+              )}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -236,7 +238,7 @@ export default function Podcast() {
         <div className="mx-auto max-w-4xl py-8">
           <ul className="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">
             {data.segments.map((segment, idx: number) => (
-              <Segment key={idx} segment={segment} />
+              <Segment key={idx} segment={segment} metadata={data.metadata} />
             ))}
           </ul>
         </div>
