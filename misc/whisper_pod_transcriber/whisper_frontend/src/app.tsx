@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
 import Spinner from "./components/Spinner";
+import { Search as SearchIcon } from "react-feather";
 
 function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
@@ -49,33 +50,30 @@ function Form({ onSubmit, searching }) {
       <div className="text-2xl font-semibold text-gray-700">
         Modal Podcast Transcriber
       </div>
-      <div className="w-3/4 flex flex-row">
-        <label>
-          <span className="pr-4">
-            <strong>Podcast:</strong>
-          </span>
-        </label>
-        <input
-          type="text"
-          value={podcastName}
-          onChange={onChange}
-          placeholder="Signals and Threads podcast"
-          className="flex-1 w-2/3 px-1 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 cursor-pointer"
-        />
-      </div>
-      <div>
+
+      <div className="w-full flex space-x-2">
+        <div className="relative flex-1 w-full">
+          <SearchIcon className="absolute top-[11px] left-3 w-5 h-5 text-zinc-500" />
+          <input
+            type="text"
+            value={podcastName}
+            onChange={onChange}
+            placeholder="Signals and Threads podcast"
+            className="h-10 w-full rounded-md pl-10 text-sm text-gray-900 bg-gray-50 border-2 border-zinc-900"
+          />
+        </div>
         {!searching && (
           <button
-            type="button"
+            type="submit"
             onClick={handleSubmit}
             disabled={!podcastName}
-            className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm"
+            className="bg-indigo-400 disabled:bg-zinc-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded text-sm w-fit"
           >
             Search
           </button>
         )}
-        {searching && <Spinner size={10} />}
       </div>
+      <div>{searching && <Spinner size={10} />}</div>
     </form>
   );
 }
