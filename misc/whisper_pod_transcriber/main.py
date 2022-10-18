@@ -7,14 +7,14 @@ import datetime
 import json
 import pathlib
 import sys
-from typing import Iterator, List, Tuple
+from typing import Iterator, Tuple
 
 import modal
-from fastapi import FastAPI, Request
 
 from . import config, podcast, search
 
 volume = modal.SharedVolume().persist("dataset-cache-vol")
+
 app_image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -45,8 +45,8 @@ stub = modal.Stub(
     image=app_image,
     secrets=[modal.Secret.from_name("podchaser")],
 )
+
 stub.in_progress = modal.Dict()
-web_app = FastAPI()
 
 
 def utc_now() -> datetime:
@@ -59,23 +59,6 @@ def get_episode_metadata_path(podcast_id: str, guid_hash: str) -> pathlib.Path:
 
 def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
-
-
-@web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
-async def get_episode(podcast_id: str, episode_guid_hash: str):
-    episode_metadata_path = get_episode_metadata_path(podcast_id, episode_guid_hash)
-    transcription_path = get_transcript_path(episode_guid_hash)
-
-    with open(episode_metadata_path, "r") as f:
-        metadata = json.load(f)
-
-    if not transcription_path.exists():
-        return dict(metadata=metadata)
-
-    with open(transcription_path, "r") as f:
-        data = json.load(f)
-
-    return dict(metadata=metadata, segments=data["segments"])
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
@@ -101,46 +84,6 @@ def populate_podcast_metadata(podcast_id: str):
     print(f"Populated metadata for {pod_metadata.title}")
 
 
-@web_app.get("/api/podcast/{podcast_id}")
-async def get_podcast(podcast_id: str):
-    pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-
-    if not pod_metadata_path.exists():
-        populate_podcast_metadata(podcast_id)
-    else:
-        # Refresh async.
-        populate_podcast_metadata.submit(podcast_id)
-
-    with open(pod_metadata_path, "r") as f:
-        pod_metadata = json.load(f)
-
-    episodes = []
-    for file in (config.PODCAST_METADATA_DIR / podcast_id).iterdir():
-        if file == pod_metadata_path:
-            continue
-
-        with open(file, "r") as f:
-            ep = json.load(f)
-            ep["transcribed"] = get_transcript_path(ep["guid_hash"]).exists()
-            episodes.append(ep)
-
-    episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
-
-    return dict(pod_metadata=pod_metadata, episodes=episodes)
-
-
-@web_app.post("/api/podcasts")
-async def podcasts_endpoint(request: Request):
-    import dataclasses
-
-    form = await request.form()
-    name = form["podcast"]
-    podcasts_response = []
-    for pod in search_podcast(name):
-        podcasts_response.append(dataclasses.asdict(pod))
-    return podcasts_response
-
-
 @stub.asgi(
     mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
     shared_volumes={config.CACHE_DIR: volume},
@@ -148,6 +91,8 @@ async def podcasts_endpoint(request: Request):
 )
 def fastapi_app():
     import fastapi.staticfiles
+
+    from .api import web_app
 
     web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
@@ -262,52 +207,11 @@ def refresh_index():
     index()
 
 
-@web_app.post("/api/transcribe")
-async def transcribe_job(podcast_id: str, episode_id: str):
-    from modal import container_app
-
-    try:
-        existing_call_id = container_app.in_progress[episode_id]
-        print(f"Found existing call ID {existing_call_id} for episode {episode_id}")
-        return {"call_id": existing_call_id}
-    except KeyError:
-        pass
-
-    call = process_episode.submit(podcast_id, episode_id)
-    container_app.in_progress[episode_id] = call.object_id
-
-    return {"call_id": call.object_id}
-
-
-@web_app.get("/api/status/{call_id}")
-async def poll_status(call_id: str):
-    from modal._call_graph import InputInfo, InputStatus
-    from modal.functions import FunctionCall
-
-    function_call = FunctionCall.from_id(call_id)
-    graph: List[InputInfo] = function_call.get_call_graph()
-
-    try:
-        map_root = graph[0].children[0].children[0]
-    except IndexError:
-        return dict(finished=False)
-
-    assert map_root.function_name == "transcribe_episode"
-
-    leaves = map_root.children
-    tasks = len(set([leaf.task_id for leaf in leaves]))
-    done_segments = len([leaf for leaf in leaves if leaf.status == InputStatus.SUCCESS])
-    total_segments = len(leaves)
-    finished = map_root.status == InputStatus.SUCCESS
-
-    return dict(finished=finished, total_segments=total_segments, tasks=tasks, done_segments=done_segments)
-
-
 def split_silences(
     path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
 ) -> Iterator[Tuple[float, float]]:
-    """Split audio file into contiguous chunks using the ffmpeg `silencedetect`
-    filter.  Yields tuples (start, end) of each chunk in seconds."""
+    """Split audio file into contiguous chunks using the ffmpeg `silencedetect` filter.
+    Yields tuples (start, end) of each chunk in seconds."""
 
     import re
 
