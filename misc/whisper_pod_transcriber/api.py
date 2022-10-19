@@ -11,6 +11,7 @@ from .main import (
     process_episode,
     search_podcast,
 )
+from .podcast import coalesce_short_transcript_segments
 
 web_app = FastAPI()
 
@@ -29,7 +30,7 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
     with open(transcription_path, "r") as f:
         data = json.load(f)
 
-    return dict(metadata=metadata, segments=data["segments"])
+    return dict(metadata=metadata, segments=coalesce_short_transcript_segments(data["segments"]))
 
 
 @web_app.get("/api/podcast/{podcast_id}")
