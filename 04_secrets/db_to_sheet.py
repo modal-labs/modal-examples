@@ -192,8 +192,8 @@ def db_to_sheet():
         print(f"{weather}: {count}")
 
 
-# This entire stub can now be deployed using `modal app deploy db_to_sheet.py`. The [deployments page](/deployments)
-# shows our cron job's execution history and logs.
+# This entire stub can now be deployed using `modal app deploy db_to_sheet.py`. The [apps page](/apps)
+# shows our cron job's execution history and lets you navigate to each invocation's logs.
 # Just to make it easy, we can also add a simple entrypoint so you can run it locally
 
 if __name__ == "__main__":
