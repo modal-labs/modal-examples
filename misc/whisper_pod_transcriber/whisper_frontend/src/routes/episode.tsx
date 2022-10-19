@@ -130,9 +130,12 @@ function TranscribeProgress({
 
   return (
     <div className="flex flex-col content-center">
-      <span><strong>{containerCount} Modal containers running…</strong> </span>
-      <div className="flex flex-wrap">
-        {[...Array(containerCount)].map((_, i) => (<span key={i} className="modal-barloader"></span>))}
+      <div className="flex align-center">
+        <div className="flex mr-2">
+          <span className="modal-barloader -rotate-[60deg]"></span>
+          <span className="modal-barloader rotate-[60deg]"></span>
+        </div>
+        <span className="pt-1"><strong>{containerCount} Modal containers running…</strong></span>
       </div>
       <ProgressBar
         completed={status?.done_segments ?? 0}
