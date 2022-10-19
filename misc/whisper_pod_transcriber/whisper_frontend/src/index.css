@@ -16,3 +16,28 @@
 .podcast-list li:last-child {
   @apply border-b;
 }
+
+.modal-barloader{
+  will-change: transform, opacity;
+  transform: rotate(-45deg);
+  margin-top: 15px;
+	width:0;
+	height: 15px;
+	border-right: 30px solid #333;
+	border-left: 0px solid #bbffaa;
+	box-shadow: 0 0 0 1px #bbffaa;
+	animation: modal-barloader infinite 2s linear;
+  filter: brightness(95%);
+}
+
+@keyframes modal-barloader{
+	0%{
+		border-right: 30px solid #333;
+		border-left: 0px solid #bbffaa;
+	}
+  
+	50%{
+		border-left: 30px solid #bbffaa;
+		border-right: 0px solid #333;
+	}
+}

@@ -33,10 +33,10 @@ function ProgressBar({
 }) {
   let percentage = Math.floor((completed / (total || 1)) * 100);
   return (
-    <div className="w-full bg-gray-200 rounded-full dark:bg-gray-700 h-5">
+    <div className="w-full bg-gray-200 rounded-full dark:bg-gray-700 h-5 mt-4">
       {percentage > 0 && (
         <div
-          className="bg-indigo-600 text-md font-medium text-blue-100 text-center p-0.5 leading-none rounded-full align-middle"
+          className="bg-green-600 text-md font-medium text-blue-100 text-center p-0.5 leading-none rounded-full align-middle"
           style={{ width: `${percentage}%` }}
         >
           {" "}
@@ -126,9 +126,14 @@ function TranscribeProgress({
     return () => clearInterval(intervalId);
   }, [finished]);
 
+  let containerCount = status?.tasks ?? 0;
+
   return (
     <div className="flex flex-col content-center">
-      <span> {status?.tasks ?? 0} containers running ... </span>
+      <span><strong>{containerCount} Modal containers running…</strong> </span>
+      <div className="flex flex-wrap">
+        {[...Array(containerCount)].map((_, i) => (<span key={i} className="modal-barloader"></span>))}
+      </div>
       <ProgressBar
         completed={status?.done_segments ?? 0}
         total={status?.total_segments ?? 1}
