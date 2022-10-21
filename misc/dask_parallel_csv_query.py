@@ -152,26 +152,20 @@ def upload_fake_csv(desired_mb: int):
 
 @stub.function(
     image=image,
-    concurrency_limit=100,
+    concurrency_limit=50,
     cpu=5.0,
     memory=1024,
     secret=modal.Secret.from_name("personal-aws-user"),
 )
 def process_block(i, df):
-    import logging
-    from dask.diagnostics import Profiler
-
-    logging.getLogger("fsspec").setLevel(logging.DEBUG)
-    logging.getLogger("s3fs").setLevel(logging.DEBUG)
     start = time.time()
+
     series = df.partitions[i]["email"]
-    with Profiler() as prof:
-        count = series.str.endswith("@gmail.com").count().compute(scheduler="single-threaded")
-    end = time.time()
-    elapsed = end - start
+    count = series.str.endswith("@gmail.com").count().compute(scheduler="single-threaded")
+
+    elapsed = time.time() - start
+
     print(f"Counted {count} in csv partition {i}. Took {(elapsed):.2f} seconds.")
-    if elapsed > 60:
-        print(prof.results)
     return int(count)
 
 
