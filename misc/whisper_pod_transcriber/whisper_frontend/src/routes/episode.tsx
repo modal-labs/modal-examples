@@ -1,4 +1,5 @@
 import useSWR, { useSWRConfig } from "swr";
+import HomeButton from "../components/HomeButton";
 import Spinner from "../components/Spinner";
 import { Link } from "react-router-dom";
 import { useCallback, useState, useEffect } from "react";
@@ -218,6 +219,7 @@ export default function Podcast() {
 
   return (
     <div className="flex flex-col">
+      <HomeButton/>
       <div className="mx-auto max-w-4xl mt-4 py-8 rounded overflow-hidden shadow-lg">
         <div className="px-6 py-4">
           <Link
