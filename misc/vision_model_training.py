@@ -25,7 +25,7 @@ import os
 import pathlib
 import sys
 from fastapi import FastAPI
-from typing import Optional
+from typing import List, Optional, Tuple
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
@@ -67,7 +67,7 @@ class WandBConfig:
 @dataclasses.dataclass
 class Config:
     epochs: int = 10
-    img_dims: tuple[int] = (32, 224)
+    img_dims: Tuple[int] = (32, 224)
     gpu: bool = USE_GPU
     wandb: WandBConfig = WandBConfig()
 
@@ -202,7 +202,7 @@ class ClassifierModel:
         image=image,
         shared_volumes={str(MODEL_CACHE): volume},
     )
-    def predict(self, image):
+    def predict(self, image) -> str:
         prediction = self.model.predict(image)
         classification = prediction[0]
         return classification
@@ -211,7 +211,7 @@ class ClassifierModel:
 @stub.function(
     image=image,
 )
-def classify_url(image_url):
+def classify_url(image_url: str) -> None:
     """Utility function for command-line classification runs."""
     import httpx
 
@@ -237,7 +237,7 @@ def classify_url(image_url):
 # going to perform best against similarly simple and scaled-down images.
 
 
-def create_demo_examples() -> list[str]:
+def create_demo_examples() -> List[str]:
     # NB: Don't download these images to a shared volume as it doesn't play well with Gradio.
     import httpx
 
