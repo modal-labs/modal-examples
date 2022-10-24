@@ -4,8 +4,8 @@
 #
 # # FastAI model training with Weights & Biases and Gradio.app
 #
-# This example trains a vision model to 98% accuracy on the CIFAR-10 dataset,
-# and then makes this trained model shareable with others using the Gradio.app
+# This example trains a vision model to 98-99% accuracy on the CIFAR-10 dataset,
+# and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
 # web interface framework.
 #
 # Combining GPU-accelerated Modal Functions, shared volumes for caching, and Modal
@@ -16,7 +16,7 @@
 #
 # ## Setting up the dependencies
 #
-# Our GPU training is done with PyTorch which bundled its CUDA dependencies, so
+# Our GPU training is done with PyTorch which bundles its CUDA dependencies, so
 # we can start with a slim Debian OS image and install a handful of `pip` packages into it.
 
 import dataclasses
@@ -35,9 +35,9 @@ image = modal.Image.debian_slim().pip_install(
         "fastai~=2.7.9",
         "gradio~=3.6",
         "httpx~=0.23.0",
-        # When using pip PyTorch is not installed automatically by fastai.
-        "torch",
-        "torchvision",
+        # When using pip PyTorch is not automatically installed by fastai.
+        "torch~=1.12.1",
+        "torchvision~=0.13.1",
         "wandb~=0.13.4",
     ]
 )
@@ -45,7 +45,7 @@ image = modal.Image.debian_slim().pip_install(
 # A persistent shared volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = modal.SharedVolume().persist("cifar-training-vol")
+volume = modal.SharedVolume().persist("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
@@ -77,7 +77,7 @@ class Config:
 # The `fastai` framework famously requires very little code to get things done,
 # so our downloading function is very short and simple. The CIFAR-10 dataset is
 # also not large, about 150MB, so we don't bother persisting it in a shared volume
-# and just download to ephemeral disk.
+# and just download and unpack it to ephemeral disk.
 
 
 def download_dataset():
@@ -93,7 +93,7 @@ def download_dataset():
 # To address the CIFAR-10 image classification problem, we use the high-level fastAI framework
 # to train a Deep Residual Network (https://arxiv.org/pdf/1512.03385.pdf) with 18-layers, called `resnet18`.
 #
-# We don't train the model from scratch. A transfer learning approach is sufficient to reach ~98%
+# We don't train the model from scratch. A transfer learning approach is sufficient to reach 98-99%
 # accuracy on the classification task. The main tweak we make is to adjust the image size of the CIFAR-10
 # examples to be 224x224, which was the image size the `resnet18` model was originally trained on.
 #
@@ -273,7 +273,7 @@ def fastapi_app():
     classifier = ClassifierModel()
     interface = gr.Interface(
         fn=classifier.predict,
-        inputs=gr.Image(shape=(200, 200)),
+        inputs=gr.Image(shape=(224, 224)),
         outputs="label",
         examples=create_demo_examples(),
         css="/assets/index.css",
