@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import { useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
+import HomeButton from "../components/HomeButton";
 import Spinner from "../components/Spinner";
 
 function Epsiode({
@@ -54,6 +55,7 @@ export default function Podcast() {
 
   return (
     <div>
+      <HomeButton />
       <div className="mx-auto max-w-4xl mt-4 py-8 rounded overflow-hidden shadow-lg">
         <div className="px-6 py-4">
           <div className="font-bold text-xl">{data.pod_metadata.title}</div>
