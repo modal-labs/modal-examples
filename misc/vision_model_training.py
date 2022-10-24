@@ -12,7 +12,7 @@
 # webhooks for the model demo, we have a simple, productive, and cost-effective
 # pathway to building and deploying ML in the cloud!
 #
-# # ![Gradio.app image classifer interface](./gradio-image-classify.png)
+# ![Gradio.app image classifer interface](./gradio-image-classify.png)
 #
 # ## Setting up the dependencies
 #
@@ -102,7 +102,7 @@ def download_dataset():
 #
 # ### Tracking with Weights & Biases
 #
-# # ![weights & biases UI](./wandbui.png)
+# ![weights & biases UI](./wandb-ui.png)
 #
 # Weights & Biases (W&B) is a product that provides out-of-the-box model training observability. With a few
 # lines of code and an account, we gain a dashboard will key metrics such as training loss, accuracy, and GPU
