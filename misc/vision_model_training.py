@@ -2,7 +2,7 @@
 # args: ["train"]
 # ---
 #
-# # FastAI model training with Weights & Biases and Gradio.app
+# # FastAI model training with Weights & Biases and Gradio
 #
 # This example trains a vision model to 98-99% accuracy on the CIFAR-10 dataset,
 # and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
