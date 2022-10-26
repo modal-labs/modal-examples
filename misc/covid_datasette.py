@@ -144,6 +144,7 @@ def chunks(it, size):
 @stub.function(
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
+    timeout=900,
 )
 def prep_db():
     import sqlite_utils

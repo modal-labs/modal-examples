@@ -301,6 +301,7 @@ def transcribe_segment(
 @stub.function(
     image=app_image,
     shared_volumes={config.CACHE_DIR: volume},
+    timeout=900,
 )
 def transcribe_episode(
     audio_filepath: pathlib.Path,
@@ -325,6 +326,7 @@ def transcribe_episode(
 @stub.function(
     image=app_image,
     shared_volumes={config.CACHE_DIR: volume},
+    timeout=900,
 )
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
