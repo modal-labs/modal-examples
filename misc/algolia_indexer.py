@@ -81,7 +81,7 @@ def crawl_webhook():
     return "Finished indexing docs"
 
 
-# ## Deploy the Slackbot
+# ## Deploy the indexer
 #
 # That's all the code we need! To deploy your application, run
 #
