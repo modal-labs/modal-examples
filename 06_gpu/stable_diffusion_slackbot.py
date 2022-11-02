@@ -1,5 +1,5 @@
 # ---
-# output-directory: "/tmp/render"
+# output-directory: "/tmp/stable-diffusion"
 # ---
 # # Stable diffusion slackbot
 #
@@ -27,10 +27,10 @@ stub = modal.Stub("stable-diff-bot")
 # ### HuggingFace token
 #
 # We're going to use the pre-trained
-# [stable diffusion model](https://github.com/CompVis/stable-diffusion) in
+# [stable diffusion model](https://github.com/runwayml/stable-diffusion-v1-5) in
 # HuggingFace's `diffusers` library. To gain access, you need to sign in to your
 # HuggingFace account ([sign up here](https://huggingface.co/join)) and request
-# access on the [model card page](https://huggingface.co/CompVis/stable-diffusion-v1-4).
+# access on the [model card page](https://huggingface.co/runwayml/stable-diffusion-v1-5).
 #
 # Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the
@@ -69,7 +69,11 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu=True,
-    image=modal.Image.debian_slim().pip_install(["diffusers", "transformers", "scipy", "ftfy"]),
+    image=(
+        modal.Image.debian_slim()
+        .run_commands(["pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"])
+        .pip_install(["diffusers", "transformers", "scipy", "ftfy"])
+    ),
     shared_volumes={CACHE_PATH: volume},
     secret=modal.Secret.from_name("huggingface-secret"),
 )
@@ -78,13 +82,13 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from torch import autocast
 
     pipe = StableDiffusionPipeline.from_pretrained(
-        "CompVis/stable-diffusion-v1-4",
+        "runwayml/stable-diffusion-v1-5",
         use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
         cache_dir=CACHE_PATH,
     ).to("cuda")
 
     with autocast("cuda"):
-        image = pipe(prompt, num_inference_steps=100)["sample"][0]
+        image = pipe(prompt, num_inference_steps=100).images[0]
 
     # Convert PIL Image to PNG byte array.
     buf = io.BytesIO()
@@ -180,7 +184,7 @@ def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
 #
 # We can also trigger `run_stable_diffusion` manually for easier debugging.
 
-OUTPUT_DIR = "/tmp/render"
+OUTPUT_DIR = "/tmp/stable-diffusion"
 
 if __name__ == "__main__":
     import sys
@@ -194,8 +198,10 @@ if __name__ == "__main__":
 
     with stub.run():
         img_bytes = run_stable_diffusion(prompt)
-        with open(os.path.join(OUTPUT_DIR, "output.png"), "wb") as f:
+        output_path = os.path.join(OUTPUT_DIR, "output.png")
+        with open(output_path, "wb") as f:
             f.write(img_bytes)
+        print(f"Wrote data to {output_path}")
 
 # This code lets us call our script as follows:
 #
