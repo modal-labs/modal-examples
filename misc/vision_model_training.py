@@ -1,4 +1,5 @@
 # ---
+# integration-test: false
 # args: ["train"]
 # ---
 #
