@@ -19,7 +19,7 @@ app_image = (
     modal.Image.debian_slim()
     .pip_install(
         [
-            "https://github.com/openai/whisper/archive/5d8d3e75a4826fe5f01205d81c3017a805fc2bf9.tar.gz",
+            "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
             "dacite",
             "jiwer",
             "ffmpeg-python",
