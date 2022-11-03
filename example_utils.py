@@ -45,9 +45,9 @@ def render_example_md(example: Example) -> str:
         if line == "#" or line.startswith("# "):
             if code:
                 # write buffers into markdown
-                markdown.extend(["", "<section class=\"md-code\">", "", "```python", *code, "```", "", "</section>"])
+                markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
                 if comments:
-                    markdown.extend(["", "<section class=\"md-annotation\"><div>", "", *comments, "", "</div></section>"])
+                    markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
                 else:
                     markdown.extend(["", "<section />"])
                 comments = []
@@ -55,8 +55,8 @@ def render_example_md(example: Example) -> str:
 
             heading = line[2:].startswith("#")
             if heading:
-                markdown.extend(["", "<section class=\"md-text\">", "", *comments, "", "</section>"])
-                markdown.extend(["", "<section class=\"md-header\">", "", line[2:], "", "</section>"])
+                markdown.extend(["", '<section class="md-text">', "", *comments, "", "</section>"])
+                markdown.extend(["", '<section class="md-header">', "", line[2:], "", "</section>"])
                 comments = []
             else:
                 comments.append(line[2:])
@@ -68,16 +68,21 @@ def render_example_md(example: Example) -> str:
                 code.append(line)
 
     if code and comments:
-        markdown.extend(["", "<section class=\"md-code\">", "", "```python", *code, "```", "", "</section>"])
-        markdown.extend(["", "<section class=\"md-annotation\"><div>", "", *comments, "", "</div></section>"])
+        markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
+        markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
         code = []
 
     github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
-    markdown.extend([
-        "", "<section class=\"md-text\">", "",
-        f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
-        "", "</section>",
-    ])
+    markdown.extend(
+        [
+            "",
+            '<section class="md-text">',
+            "",
+            f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
+            "",
+            "</section>",
+        ]
+    )
 
     text = "\n".join(markdown)
     if _RE_FRONTMATTER.match(text):
