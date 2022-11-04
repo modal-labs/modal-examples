@@ -22,12 +22,12 @@ def deploy(
         return None
 
     if not deployable:
-        print(f"⏩ skipping: app '{module_with_stub.name}' is not marked for deploy")
+        print(f"⏩ skipping: '{module_with_stub.name}' is not marked for deploy")
         return None
 
     deploy_command = f"modal app deploy {module_with_stub.name}"
     if dry_run:
-        print(f"🌵 dry-run: Would have deployed '{module_with_stub.name}'")
+        print(f"🌵  dry-run: '{module_with_stub.name}' would have deployed")
     else:
         print(f"⛴ deploying: '{module_with_stub.name}' ...")
         r = subprocess.run(shlex.split(deploy_command), cwd=module_with_stub.parent, capture_output=True)
