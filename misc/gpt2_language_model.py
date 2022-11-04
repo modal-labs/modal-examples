@@ -7,6 +7,7 @@ volume = modal.SharedVolume().persist("gpt2")
 
 CACHE_PATH = "/root/model_cache"
 
+
 @stub.function(
     image=modal.Image.debian_slim().pip_install(["torch", "transformers"]),
     shared_volumes={CACHE_PATH: volume},
@@ -14,7 +15,8 @@ CACHE_PATH = "/root/model_cache"
 )
 def generate_text(prompt):
     from transformers import pipeline
-    generator = pipeline('text-generation', model="gpt2")
+
+    generator = pipeline("text-generation", model="gpt2")
     return generator(prompt, do_sample=True, min_length=50)[0]["generated_text"]
 
 
