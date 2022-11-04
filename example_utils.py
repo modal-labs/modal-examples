@@ -41,24 +41,34 @@ def render_example_md(example: Example) -> str:
     comments: list[str] = []
     code: list[str] = []
 
+    # first heading should be md-title
+    first_heading = True
+    pre_code = True
+
     for line in lines:
         if line == "#" or line.startswith("# "):
             if code:
                 # write buffers into markdown
+                if pre_code:
+                    markdown.extend(["", '<section class="md-break" />'])
+                    pre_code = False
                 markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
+
                 if comments:
-                    markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
+                    markdown.extend(["", '<section class="md-annotation"><div class="md-box">', "", *comments, "", "</div></section>"])
                 else:
                     markdown.extend(["", "<section />"])
                 comments = []
                 code = []
 
             heading = line[2:].startswith("#")
-            if heading:
-                markdown.extend(["", '<section class="md-text">', "", *comments, "", "</section>"])
-                markdown.extend(["", '<section class="md-header">', "", line[2:], "", "</section>"])
-                comments = []
+            if heading and first_heading:
+                markdown.extend(["", '<section class="md-text">', "", line[2:], "", "</section>"])
+                first_heading = False
             else:
+                if heading and comments and pre_code:
+                    markdown.extend(["", '<section class="md-text">', "", *comments, "", "</section>"])
+                    comments = []
                 comments.append(line[2:])
 
             if line[2:].startswith("-"):
@@ -69,7 +79,7 @@ def render_example_md(example: Example) -> str:
 
     if code and comments:
         markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
-        markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
+        markdown.extend(["", '<section class="md-annotation"><div class="md-box">', "", *comments, "", "</div></section>"])
         code = []
 
     github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
