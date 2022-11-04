@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 import shlex
 import subprocess
@@ -10,7 +11,8 @@ from example_utils import get_examples, ExampleType
 
 
 class DeployError(NamedTuple):
-    logs: str
+    stdout: str
+    stderr: str
     code: int
 
 
@@ -30,12 +32,15 @@ def deploy(
     else:
         print(f"⛴ deploying: '{module_with_stub.name}' ...")
         r = subprocess.run(
-            shlex.split(deploy_command), cwd=module_with_stub.parent, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            shlex.split(deploy_command),
+            cwd=module_with_stub.parent,
+            capture_output=True,
+            env=dict({"TERM": "dumb", "NO_COLOR": "1"}, **os.environ),
         )
         if r.returncode != 0:
             print(f"⚠️ deployment failed: '{module_with_stub.name}'", file=sys.stderr)
-            print(r.stdout)
-            return DeployError(logs=r.stdout, code=r.returncode)
+            print(r.stderr)
+            return DeployError(stdout=r.stdout, stderr=r.stderr, code=r.returncode)
         else:
             print(f"✔️ deployed '{module_with_stub.name}")
     return None
