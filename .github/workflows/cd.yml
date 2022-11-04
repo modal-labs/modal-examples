@@ -1,0 +1,26 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy example apps
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-20.04
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/setup-cached-python
+
+      - name: Install Modal client package
+        run: pip install modal-client
+
+      - name: Run deployment script
+        run: |
+          python3 example_deploy.py --no-dry-run

@@ -1,5 +1,6 @@
 # ---
 # integration-test: false
+# deploy: true
 # args: ["train"]
 # ---
 #
