@@ -16,8 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Modal client package
-        run: pip install modal-client
+      - name: Install Modal client package and jupytext
+        run: pip install modal-client jupytext
 
       - name: Run deployment script
         run: |
