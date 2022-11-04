@@ -44,7 +44,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         description="Deploy Modal example programs to our Modal organization.",
         add_help=True,
     )
-    parser.add_argument("--dry-run", default=True, help="show what apps be deployed without deploying them.")
+    parser.add_argument(
+        "--dry-run", default=True, action="store_true", help="show what apps be deployed without deploying them."
+    )
+    parser.add_argument("--no-dry-run", dest="dry_run", action="store_false")
     parser.add_argument(
         "--filter",
         default=None,
@@ -59,7 +62,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     filter_pttrn = (r".*" + arguments.filter + r".*") if arguments.filter else None
     results = [
         deploy(
-            deployable=("deploy" in ex_mod.metadata),
+            deployable=bool(ex_mod.metadata.get("deploy")),
             module_with_stub=Path(ex_mod.filename),
             dry_run=arguments.dry_run,
             filter_pttrn=filter_pttrn,
