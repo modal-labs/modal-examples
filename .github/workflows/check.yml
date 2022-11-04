@@ -8,6 +8,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
 
       - name: Install black
         run: pip install black
@@ -22,6 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
       - name: Install flake8
         run: pip install flake8
 
@@ -33,6 +41,10 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
       - name: Install isort
         run: pip install isort
 
@@ -45,6 +57,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
 
       - name: Install dev dependencies
         run: pip install pytest jupytext
