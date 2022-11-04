@@ -9,6 +9,9 @@ jobs:
     name: Deploy example apps
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-20.04
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
 
     steps:
       - uses: actions/checkout@v3
@@ -17,10 +20,6 @@ jobs:
 
       - name: Install Modal client package
         run: pip install modal-client
-
-      - name: Modal token set
-        run: |
-          modal token set --token-id ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }} --token-secret ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
 
       - name: Run deployment script
         run: |
