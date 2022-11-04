@@ -1,5 +1,4 @@
 import argparse
-import os
 import re
 import shlex
 import subprocess
@@ -35,7 +34,6 @@ def deploy(
             shlex.split(deploy_command),
             cwd=module_with_stub.parent,
             capture_output=True,
-            env=dict({"TERM": "dumb", "NO_COLOR": "1"}, **os.environ),
         )
         if r.returncode != 0:
             print(f"⚠️ deployment failed: '{module_with_stub.name}'", file=sys.stderr)
