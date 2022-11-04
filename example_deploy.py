@@ -30,9 +30,14 @@ def deploy(
         print(f"🌵  dry-run: '{module_with_stub.name}' would have deployed")
     else:
         print(f"⛴ deploying: '{module_with_stub.name}' ...")
-        r = subprocess.run(shlex.split(deploy_command), cwd=module_with_stub.parent, capture_output=True)
+        r = subprocess.run(
+            shlex.split(deploy_command),
+            cwd=module_with_stub.parent,
+            capture_output=True,
+        )
         if r.returncode != 0:
             print(f"⚠️ deployment failed: '{module_with_stub.name}'", file=sys.stderr)
+            print(r.stderr)
             return DeployError(stdout=r.stdout, stderr=r.stderr, code=r.returncode)
         else:
             print(f"✔️ deployed '{module_with_stub.name}")
