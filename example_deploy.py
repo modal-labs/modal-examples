@@ -10,8 +10,7 @@ from example_utils import get_examples, ExampleType
 
 
 class DeployError(NamedTuple):
-    stdout: str
-    stderr: str
+    logs: str
     code: int
 
 
@@ -30,10 +29,11 @@ def deploy(
         print(f"🌵  dry-run: '{module_with_stub.name}' would have deployed")
     else:
         print(f"⛴ deploying: '{module_with_stub.name}' ...")
-        r = subprocess.run(shlex.split(deploy_command), cwd=module_with_stub.parent, capture_output=True)
+        r = subprocess.run(shlex.split(deploy_command), cwd=module_with_stub.parent, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if r.returncode != 0:
             print(f"⚠️ deployment failed: '{module_with_stub.name}'", file=sys.stderr)
-            return DeployError(stdout=r.stdout, stderr=r.stderr, code=r.returncode)
+            print(r.stdout)
+            return DeployError(logs=r.stdout, code=r.returncode)
         else:
             print(f"✔️ deployed '{module_with_stub.name}")
     return None
