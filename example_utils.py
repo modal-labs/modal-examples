@@ -36,24 +36,52 @@ def render_example_md(example: Example) -> str:
 
     lines = _RE_NEWLINE.split(content)
     markdown: list[str] = []
+
+    # temporary buffers for comment and code lines
+    comments: list[str] = []
     code: list[str] = []
+
     for line in lines:
         if line == "#" or line.startswith("# "):
             if code:
-                markdown.extend(["```python", *code, "```", ""])
+                # write buffers into markdown
+                markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
+                if comments:
+                    markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
+                else:
+                    markdown.extend(["", "<section />"])
+                comments = []
                 code = []
-            markdown.append(line[2:])
+
+            heading = line[2:].startswith("#")
+            if heading:
+                markdown.extend(["", '<section class="md-text">', "", *comments, "", "</section>"])
+                markdown.extend(["", '<section class="md-header">', "", line[2:], "", "</section>"])
+                comments = []
+            else:
+                comments.append(line[2:])
+
+            if line[2:].startswith("-"):
+                comments = []
         else:
-            markdown.append("")
             if code or line:
                 code.append(line)
 
-    if code:
-        markdown.extend(["```python", *code, "```", ""])
+    if code and comments:
+        markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
+        markdown.extend(["", '<section class="md-annotation"><div>', "", *comments, "", "</div></section>"])
+        code = []
 
     github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
-    markdown.append(
-        f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
+    markdown.extend(
+        [
+            "",
+            '<section class="md-text">',
+            "",
+            f"\n_The raw source code for this example can be found [on GitHub]({github_url})._\n",
+            "",
+            "</section>",
+        ]
     )
 
     text = "\n".join(markdown)
