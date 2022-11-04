@@ -3,6 +3,7 @@ import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
 import Spinner from "./components/Spinner";
+import teckStackImgUrl from './whisper-app-tech-stack.png'
 import { Search as SearchIcon } from "react-feather";
 
 function truncate(str: string, n: number) {
@@ -46,9 +47,29 @@ function Form({ onSubmit, searching }) {
   };
 
   return (
-    <form className="flex flex-col space-y-4 items-center">
+    <form className="flex flex-col space-y-5 items-center">
+      <div>
+        <img src={teckStackImgUrl} height="300px" />
+      </div>
       <div className="text-2xl font-semibold text-gray-700">
         Modal Podcast Transcriber
+      </div>
+
+      <div className="mb-2 mt-0 text-xl text-center">
+          Transcribe <em>any</em> podcast episode in just 1-2 minutes!
+      </div>
+
+      <div className="text-gray-700">
+        <p className="mb-4">
+          <strong>Enter a query below to search millions of podcasts. Click on a search result and then pick an episode to transcribe.</strong>
+        </p>
+        <p className="mb-1">
+          Try searching for 'ReactJS', 'data science', or 'software engineer career' podcasts. 
+        </p>  
+        <p className="mb-1">
+          <span>If you just want to see some transcripts, we ❤️ these tech podcasts: </span>
+          <a className="text-indigo-500 no-underline hover:underline" href="https://modal-labs-dymtdix.modal.run/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="https://modal-labs-dymtdix.modal.run/#/podcast/972209"><em>CoRecursive</em></a>. 
+        </p>
       </div>
 
       <div className="w-full flex space-x-2">
@@ -59,7 +80,7 @@ function Form({ onSubmit, searching }) {
             value={podcastName}
             onChange={onChange}
             placeholder="Signals and Threads podcast"
-            className="h-10 w-full rounded-md pl-10 text-sm text-gray-900 bg-gray-50 border-2 border-zinc-900"
+            className="h-10 w-full rounded-md pl-10 text-md text-gray-900 bg-gray-50 border-2 border-zinc-900"
           />
         </div>
         <button
@@ -98,7 +119,7 @@ function Search() {
   };
 
   return (
-    <div className="min-w-full min-h-screen screen">
+    <div className="min-w-full min-h-screen screen pt-8">
       <div className="mx-auto max-w-2xl my-8 shadow-lg rounded-xl bg-white p-6">
         <Form onSubmit={handleSubmission} searching={searching} />
         {podcasts && !searching && <PodcastList podcasts={podcasts} />}
