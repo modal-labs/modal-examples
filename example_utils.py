@@ -55,7 +55,16 @@ def render_example_md(example: Example) -> str:
                 markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
 
                 if comments:
-                    markdown.extend(["", '<section class="md-annotation"><div class="md-box">', "", *comments, "", "</div></section>"])
+                    markdown.extend(
+                        [
+                            "",
+                            '<section class="md-annotation"><div class="md-box">',
+                            "",
+                            *comments,
+                            "",
+                            "</div></section>",
+                        ]
+                    )
                 else:
                     markdown.extend(["", "<section />"])
                 comments = []
@@ -79,7 +88,9 @@ def render_example_md(example: Example) -> str:
 
     if code and comments:
         markdown.extend(["", '<section class="md-code">', "", "```python", *code, "```", "", "</section>"])
-        markdown.extend(["", '<section class="md-annotation"><div class="md-box">', "", *comments, "", "</div></section>"])
+        markdown.extend(
+            ["", '<section class="md-annotation"><div class="md-box">', "", *comments, "", "</div></section>"]
+        )
         code = []
 
     github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
