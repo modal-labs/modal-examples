@@ -87,6 +87,15 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
   );
 }
 
+function ErrorCallout({msg}: {msg: string}) {
+  return (
+    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+      <strong className="font-bold">Error: </strong>
+      <span className="block sm:inline">{msg}</span>
+    </div>
+  );
+}
+
 interface Status {
   done_segments: number;
   total_segments: number;
@@ -101,6 +110,7 @@ function TranscribeProgress({
   onFinished: () => void;
 }) {
   const [finished, setFinished] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
   const [status, setStatus] = useState<Status>();
   const [intervalId, setIntervalId] = useState<number>();
 
@@ -113,6 +123,11 @@ function TranscribeProgress({
     async function updateStatus() {
       const resp = await fetch(`/api/status/${callId}`);
       const body = await resp.json();
+      if (body.error) {
+        setError(body.error);
+        setFinished(true);
+      }
+
       setStatus(body);
       if (body.finished) {
         setFinished(true);
@@ -128,6 +143,8 @@ function TranscribeProgress({
   }, [finished]);
 
   let containerCount = status?.tasks ?? 0;
+
+  if (error) return <ErrorCallout msg={error} />;
 
   return (
     <div className="flex flex-col content-center">

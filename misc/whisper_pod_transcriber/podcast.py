@@ -50,7 +50,15 @@ class DownloadResult(NamedTuple):
 
 
 def download_podcast_file(url: str) -> DownloadResult:
-    with urllib.request.urlopen(url) as response:
+    req = urllib.request.Request(
+        url,
+        data=None,
+        # Set a user agent to avoid 403 response from some podcast audio servers.
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
+        },
+    )
+    with urllib.request.urlopen(req) as response:
         return DownloadResult(
             data=response.read(),
             content_type=response.headers["content-type"],

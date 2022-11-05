@@ -92,11 +92,23 @@ async def transcribe_job(podcast_id: str, episode_id: str):
 
 @web_app.get("/api/status/{call_id}")
 async def poll_status(call_id: str):
+    import modal.exception
     from modal._call_graph import InputInfo, InputStatus
     from modal.functions import FunctionCall
 
     function_call = FunctionCall.from_id(call_id)
     graph: List[InputInfo] = function_call.get_call_graph()
+
+    try:
+        function_call.get(timeout=0.1)
+    except TimeoutError:
+        pass
+    except modal.exception.RemoteError as exc:
+        if exc.args:
+            inner_exc = exc.args[0]
+            if "HTTPError 403" in inner_exc:
+                return dict(error="permission denied on podcast audio download")
+        return dict(error="unknown job processing error")
 
     try:
         map_root = graph[0].children[0].children[0]
