@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Machine learning model inference endpoint that uses the webcam
 #
 # This example creates a web endpoint that uses a Huggingface model for object detection.
