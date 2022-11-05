@@ -55,8 +55,8 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
         <div className="flex-1 min-w-0">
           <div>{segment.text}</div>
         </div>
-        <div className="inline-flex items-center text-xs bg-gray-100  text-gray-900 dark:text-white">
-          <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l">
+        <div className="sm:inline-flex sm:flex-row items-center text-xs bg-gray-100  text-gray-900 dark:text-white">
+          <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l text-right">
             <a
               title="listen"
               href={`${metadata.original_download_link}#t=${Math.floor(
@@ -69,7 +69,7 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
             </a>
           </div>
           <span className="text-gray-800 py-1 px-1">-</span>
-          <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r">
+          <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r text-right">
             <a
               title="listen"
               href={`${metadata.original_download_link}#t=${Math.floor(
@@ -220,7 +220,7 @@ export default function Podcast() {
   return (
     <div className="flex flex-col">
       <HomeButton/>
-      <div className="mx-auto max-w-4xl mt-4 py-8 rounded overflow-hidden shadow-lg">
+      <div className="mx-auto sm:max-w-4xl max-w-prose mt-4 py-8 rounded shadow-lg">
         <div className="px-6 py-4">
           <Link
             to={`/podcast/${params.podcastId!}`}
@@ -245,8 +245,8 @@ export default function Podcast() {
       </div>
 
       {data.segments && (
-        <div className="mx-auto max-w-4xl py-8">
-          <ul className="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">
+        <div className="mx-auto sm:max-w-4xl py-8">
+          <ul className="bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
             {data.segments.map((segment, idx: number) => (
               <Segment key={idx} segment={segment} metadata={data.metadata} />
             ))}
