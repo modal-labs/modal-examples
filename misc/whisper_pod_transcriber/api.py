@@ -1,5 +1,4 @@
 import json
-import urllib
 from typing import List
 
 from fastapi import FastAPI, Request
@@ -101,7 +100,7 @@ async def poll_status(call_id: str):
     graph: List[InputInfo] = function_call.get_call_graph()
 
     try:
-        res = function_call.get(timeout=0.1)
+        function_call.get(timeout=0.1)
     except TimeoutError:
         pass
     except modal.exception.RemoteError as exc:
