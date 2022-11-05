@@ -220,8 +220,8 @@ export default function Podcast() {
   return (
     <div className="flex flex-col">
       <HomeButton/>
-      <div className="mx-auto sm:max-w-4xl max-w-prose mt-4 py-8 rounded shadow-lg">
-        <div className="px-6 py-4">
+      <div className="mx-auto max-w-full sm:max-w-4xl mt-4 py-8 rounded shadow-lg">
+        <div className="max-w-full px-6 py-4">
           <Link
             to={`/podcast/${params.podcastId!}`}
             className="font-bold text-l text-green-500 mb-2"
@@ -229,7 +229,7 @@ export default function Podcast() {
             {data.metadata.podcast_title}
           </Link>
           <div className="font-bold text-xl mb-2">{data.metadata.title}</div>
-          <div className="text-gray-700 text-sm py-4">
+          <div className="break-words text-gray-700 sm:text-sm py-4">
             {data.metadata.description}
           </div>
           {!data.segments && (
@@ -245,7 +245,7 @@ export default function Podcast() {
       </div>
 
       {data.segments && (
-        <div className="mx-auto sm:max-w-4xl py-8">
+        <div className="mx-auto sm:max-w-4xl max-w-full py-8">
           <ul className="bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
             {data.segments.map((segment, idx: number) => (
               <Segment key={idx} segment={segment} metadata={data.metadata} />
