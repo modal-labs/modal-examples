@@ -31,7 +31,7 @@ from typing import List, Optional, Tuple
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
-stub = modal.Stub(name="fastai-wandb-gradio-cifar10-demo")
+stub = modal.Stub(name="example-fastai-wandb-gradio-cifar10-demo")
 image = modal.Image.debian_slim().pip_install(
     [
         "fastai~=2.7.9",

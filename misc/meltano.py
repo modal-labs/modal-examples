@@ -5,6 +5,7 @@ import modal
 from .meltano_project.utils import download_meltano_db, upload_meltano_db
 
 stub = modal.Stub(
+    "example-meltano",
     image=modal.Image.from_dockerhub(tag="meltano/meltano")
     # Pre-install extractors and loaders in the image.
     .dockerfile_commands(

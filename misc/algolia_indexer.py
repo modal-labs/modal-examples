@@ -28,7 +28,7 @@ algolia_image = modal.Image.from_dockerhub(
     setup_commands=["ln -sfn /usr/bin/python3.7 /usr/bin/python"],
 )
 
-stub = modal.Stub("algolia-indexer")
+stub = modal.Stub("example-algolia-indexer")
 
 # ## Configure the crawler
 #

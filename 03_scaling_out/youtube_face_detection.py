@@ -49,7 +49,7 @@ image = (
     )
     .pip_install(["pytube", "opencv-python", "moviepy"])
 )
-stub = modal.Stub(image=image)
+stub = modal.Stub("example-youtube-face-detection", image=image)
 if stub.is_inside():
     import cv2
     import moviepy.editor

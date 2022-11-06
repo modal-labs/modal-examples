@@ -47,7 +47,7 @@ import os
 
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-db-to-sheet")
 
 
 @stub.function(secret=modal.Secret.from_name("postgres-secret"))

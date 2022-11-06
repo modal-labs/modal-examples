@@ -28,7 +28,10 @@ import os
 
 import modal
 
-stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["matplotlib", "duckdb"]))
+stub = modal.Stub(
+    "example-duckdb-nyc-taxi",
+    image=modal.Image.debian_slim().pip_install(["matplotlib", "duckdb"])
+)
 
 
 # ## DuckDB Modal function

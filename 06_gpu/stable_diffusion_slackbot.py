@@ -20,7 +20,7 @@ import modal
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-stub = modal.Stub("stable-diff-bot")
+stub = modal.Stub("example-stable-diff-bot")
 
 # ## Inference Function
 #
@@ -75,15 +75,13 @@ CACHE_PATH = "/root/model_cache"
         .pip_install(["diffusers", "transformers", "scipy", "ftfy"])
     ),
     shared_volumes={CACHE_PATH: volume},
-    secret=modal.Secret.from_name("huggingface-secret"),
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from diffusers import StableDiffusionPipeline
     from torch import autocast
 
     pipe = StableDiffusionPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        "stable-diffusion-v1-4",
         cache_dir=CACHE_PATH,
     ).to("cuda")
 

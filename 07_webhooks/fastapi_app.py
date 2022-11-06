@@ -5,7 +5,7 @@ from fastapi import FastAPI, Header
 from pydantic import BaseModel
 
 web_app = FastAPI()
-stub = modal.Stub()
+stub = modal.Stub("example-fastapi-app")
 image = modal.Image.debian_slim()
 
 

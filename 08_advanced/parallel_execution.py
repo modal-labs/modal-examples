@@ -2,7 +2,7 @@ import time
 
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-parallel")
 
 
 @stub.function

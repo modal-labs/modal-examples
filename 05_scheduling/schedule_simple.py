@@ -3,7 +3,7 @@ from datetime import datetime
 
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-schedule-simple")
 
 
 @stub.function(schedule=modal.Period(seconds=5))

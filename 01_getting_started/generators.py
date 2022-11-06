@@ -1,6 +1,6 @@
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-generators")
 
 
 @stub.generator

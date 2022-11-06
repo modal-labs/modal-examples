@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 
 import modal
 
-stub = modal.Stub("covid-datasette")
+stub = modal.Stub("example-covid-datasette")
 datasette_image = (
     modal.Image.debian_slim()
     .pip_install(

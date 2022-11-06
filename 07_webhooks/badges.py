@@ -8,7 +8,7 @@
 import modal
 
 stub = modal.Stub(
-    "web-badges",
+    "example-web-badges",
     image=modal.Image.debian_slim().pip_install(["pybadges", "pypistats"]),
 )
 

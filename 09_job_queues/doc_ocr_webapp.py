@@ -21,7 +21,7 @@ import fastapi.staticfiles
 import modal
 import modal.aio
 
-stub = modal.Stub("doc_ocr_webapp")
+stub = modal.Stub("example-doc-ocr-webapp")
 
 # Modal works with any [ASGI](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
 # [WSGI](/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).

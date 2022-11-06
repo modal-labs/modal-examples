@@ -10,7 +10,7 @@ import sys
 import modal
 
 # We build a custom image by adding the `google` package to the base image.
-stub = modal.Stub(image=modal.Image.debian_slim().pip_install(["google"]))
+stub = modal.Stub("example-google-search-generator", image=modal.Image.debian_slim().pip_install(["google"]))
 
 # Next, let's define a _generator_ function that uses our custom image.
 

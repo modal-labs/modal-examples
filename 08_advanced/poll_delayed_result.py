@@ -3,7 +3,7 @@ import modal
 from modal.functions import FunctionCall
 from starlette.responses import HTMLResponse, RedirectResponse
 
-stub = modal.Stub()
+stub = modal.Stub("example-poll")
 
 web_app = fastapi.FastAPI()
 

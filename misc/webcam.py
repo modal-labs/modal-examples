@@ -41,7 +41,7 @@ from fastapi.staticfiles import StaticFiles
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
 
-stub = modal.Stub("webcam-object-detection")
+stub = modal.Stub("example-webcam-object-detection")
 image = modal.Image.debian_slim().pip_install(["Pillow", "timm", "transformers"]).apt_install(["fonts-freefont-ttf"])
 
 
