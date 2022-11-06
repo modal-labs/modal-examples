@@ -333,40 +333,41 @@ def process_episode(podcast_id: str, episode_id: str):
     import whisper
     from modal import container_app
 
-    # pre-download the model to the cache path, because the _download fn is not
-    # thread-safe.
-    model = config.DEFAULT_MODEL
-    whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
+    try:
+        # pre-download the model to the cache path, because the _download fn is not
+        # thread-safe.
+        model = config.DEFAULT_MODEL
+        whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
 
-    config.RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    config.TRANSCRIPTIONS_DIR.mkdir(parents=True, exist_ok=True)
+        config.RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+        config.TRANSCRIPTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-    metadata_path = get_episode_metadata_path(podcast_id, episode_id)
-    with open(metadata_path, "r") as f:
-        data = json.load(f)
-        episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
+        metadata_path = get_episode_metadata_path(podcast_id, episode_id)
+        with open(metadata_path, "r") as f:
+            data = json.load(f)
+            episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
 
-    destination_path = config.RAW_AUDIO_DIR / episode_id
-    podcast.store_original_audio(
-        url=episode.original_download_link,
-        destination=destination_path,
-    )
-
-    print(f"Using the {model.name} model which has {model.params} parameters.")
-    print(f"Wrote episode metadata to {metadata_path}")
-
-    transcription_path = get_transcript_path(episode.guid_hash)
-    if transcription_path.exists():
-        print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
-        print("Skipping transcription.")
-    else:
-        transcribe_episode(
-            audio_filepath=destination_path,
-            result_path=transcription_path,
-            model=model,
+        destination_path = config.RAW_AUDIO_DIR / episode_id
+        podcast.store_original_audio(
+            url=episode.original_download_link,
+            destination=destination_path,
         )
 
-    del container_app.in_progress[episode_id]
+        print(f"Using the {model.name} model which has {model.params} parameters.")
+        print(f"Wrote episode metadata to {metadata_path}")
+
+        transcription_path = get_transcript_path(episode.guid_hash)
+        if transcription_path.exists():
+            print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
+            print("Skipping transcription.")
+        else:
+            transcribe_episode(
+                audio_filepath=destination_path,
+                result_path=transcription_path,
+                model=model,
+            )
+    finally:
+        del container_app.in_progress[episode_id]
 
     return episode
 
