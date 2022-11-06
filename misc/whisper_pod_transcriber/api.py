@@ -92,7 +92,6 @@ async def transcribe_job(podcast_id: str, episode_id: str):
 
 @web_app.get("/api/status/{call_id}")
 async def poll_status(call_id: str):
-    import modal.exception
     from modal._call_graph import InputInfo, InputStatus
     from modal.functions import FunctionCall
 
@@ -103,7 +102,7 @@ async def poll_status(call_id: str):
         function_call.get(timeout=0.1)
     except TimeoutError:
         pass
-    except modal.exception.RemoteError as exc:
+    except Exception as exc:
         if exc.args:
             inner_exc = exc.args[0]
             if "HTTPError 403" in inner_exc:
