@@ -32,7 +32,7 @@ import modal
 
 stub = modal.Stub(
     "example-fetch-stock-prices",
-    image=modal.Image.debian_slim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"])
+    image=modal.Image.debian_slim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"]),
 )
 
 # ## Fetch a list of tickers

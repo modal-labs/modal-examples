@@ -14,10 +14,7 @@ import modal
 
 # Next, define an stub, with a custom image that installs `sklearn`.
 
-stub = modal.Stub(
-    "import-sklearn",
-    image=modal.Image.debian_slim().apt_install(["libgomp1"]).pip_install(["sklearn"])
-)
+stub = modal.Stub("import-sklearn", image=modal.Image.debian_slim().apt_install(["libgomp1"]).pip_install(["sklearn"]))
 
 # The `stub.is_inside()` lets us conditionally run code in the global scope.
 # This is needed because we might not have sklearn and numpy installed locally,
