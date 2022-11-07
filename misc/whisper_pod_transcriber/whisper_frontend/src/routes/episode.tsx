@@ -1,5 +1,6 @@
 import useSWR, { useSWRConfig } from "swr";
 import HomeButton from "../components/HomeButton";
+import Footer from "../components/Footer";
 import Spinner from "../components/Spinner";
 import { Link } from "react-router-dom";
 import { useCallback, useState, useEffect } from "react";
@@ -205,6 +206,7 @@ function TranscribeNow({
       >
         Transcribe Now
       </button>
+      <Footer />
     </div>
   );
 }
