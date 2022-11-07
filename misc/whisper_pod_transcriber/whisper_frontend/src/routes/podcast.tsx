@@ -5,7 +5,7 @@ import HomeButton from "../components/HomeButton";
 import Footer from "../components/Footer";
 import Spinner from "../components/Spinner";
 
-function Epsiode({
+function Episode({
   guidHash,
   title,
   transcribed,
@@ -55,32 +55,33 @@ export default function Podcast() {
   }
 
   return (
-    <div>
-      <HomeButton />
-      <div className="mx-auto max-w-4xl mt-4 py-8 rounded overflow-hidden shadow-lg">
-        <div className="px-6 py-4">
-          <div className="font-bold text-xl">{data.pod_metadata.title}</div>
-          <div className="text-gray-700 text-md py-1">
-            {data.pod_metadata.description}
+    <div className="w-full">
+      <div>
+        <HomeButton />
+        <div className="mx-auto max-w-4xl mt-4 py-8 rounded overflow-hidden shadow-lg">
+          <div className="px-6 py-4">
+            <div className="font-bold text-xl">{data.pod_metadata.title}</div>
+            <div className="text-gray-700 text-md py-1">
+              {data.pod_metadata.description}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-4xl py-8">
-        <ul className="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">
-          {data.episodes.map((ep) => (
-            <Epsiode
-              key={ep.guid_hash}
-              transcribed={ep.transcribed}
-              guidHash={ep.guid_hash}
-              title={ep.title}
-              publishDate={ep.publish_date}
-              podcastId={params.podcastId!}
-            />
-          ))}
-        </ul>
+        <div className="mx-auto max-w-4xl py-8">
+          <ul className="bg-white rounded-lg border border-gray-200 w-384 text-gray-900">
+            {data.episodes.map((ep) => (
+              <Episode
+                key={ep.guid_hash}
+                transcribed={ep.transcribed}
+                guidHash={ep.guid_hash}
+                title={ep.title}
+                publishDate={ep.publish_date}
+                podcastId={params.podcastId!}
+              />
+            ))}
+          </ul>
+        </div>
       </div>
-      <Footer />
     </div>
   );
 }
