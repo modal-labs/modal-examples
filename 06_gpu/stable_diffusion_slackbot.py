@@ -72,17 +72,20 @@ CACHE_PATH = "/root/model_cache"
     image=(
         modal.Image.debian_slim()
         .run_commands(["pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"])
-        .pip_install(["diffusers", "transformers", "scipy", "ftfy"])
+        .pip_install(["diffusers", "transformers", "scipy", "ftfy", "accelerate"])
     ),
     shared_volumes={CACHE_PATH: volume},
+    secret=modal.Secret.from_name("huggingface-secret"),
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from diffusers import StableDiffusionPipeline
     from torch import autocast
 
     pipe = StableDiffusionPipeline.from_pretrained(
-        "stable-diffusion-v1-4",
+        "runwayml/stable-diffusion-v1-5",
+        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
         cache_dir=CACHE_PATH,
+        device_map="auto",
     ).to("cuda")
 
     with autocast("cuda"):
