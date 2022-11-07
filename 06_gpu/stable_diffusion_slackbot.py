@@ -79,17 +79,18 @@ CACHE_PATH = "/root/model_cache"
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from diffusers import StableDiffusionPipeline
-    from torch import autocast
+    from torch import float16
 
     pipe = StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
         use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        revision="fp16",
+        torch_dtype=float16,
         cache_dir=CACHE_PATH,
         device_map="auto",
-    ).to("cuda")
+    )
 
-    with autocast("cuda"):
-        image = pipe(prompt, num_inference_steps=100).images[0]
+    image = pipe(prompt, num_inference_steps=100).images[0]
 
     # Convert PIL Image to PNG byte array.
     buf = io.BytesIO()
