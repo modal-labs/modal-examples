@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HashRouter, Link, Routes, Route } from "react-router-dom";
 import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
+import Footer from "./components/Footer";
 import Spinner from "./components/Spinner";
 import teckStackImgUrl from './whisper-app-tech-stack.png'
 import { Search as SearchIcon } from "react-feather";
@@ -49,7 +50,13 @@ function Form({ onSubmit, searching }) {
   return (
     <form className="flex flex-col space-y-5 items-center">
       <div>
-        <img src={teckStackImgUrl} height="300px" />
+        <a 
+          href="https://modal.com"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img src={teckStackImgUrl} height="300px" />
+        </a>
       </div>
       <div className="text-2xl font-semibold text-gray-700">
         Modal Podcast Transcriber
@@ -124,6 +131,7 @@ function Search() {
         <Form onSubmit={handleSubmission} searching={searching} />
         {podcasts && !searching && <PodcastList podcasts={podcasts} />}
       </div>
+      <Footer />
     </div>
   );
 }
