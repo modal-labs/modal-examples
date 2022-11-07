@@ -206,7 +206,6 @@ function TranscribeNow({
       >
         Transcribe Now
       </button>
-      <Footer />
     </div>
   );
 }
@@ -239,6 +238,7 @@ export default function Podcast() {
   return (
     <div className="flex flex-col">
       <HomeButton/>
+      <Footer />
       <div className="mx-auto max-w-full sm:max-w-4xl mt-4 py-8 rounded shadow-lg">
         <div className="max-w-full px-6 py-4">
           <Link
