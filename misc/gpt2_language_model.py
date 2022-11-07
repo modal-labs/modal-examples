@@ -1,7 +1,7 @@
 import modal
 import sys
 
-stub = modal.Stub()
+stub = modal.Stub("example-gpt2")
 
 volume = modal.SharedVolume().persist("gpt2")
 

@@ -23,7 +23,8 @@ import io
 import modal
 
 stub = modal.Stub(
-    image=modal.Image.debian_slim().pip_install(["datasets", "matplotlib", "sklearn", "torch", "transformers"])
+    "example-batch-inference-using-huggingface",
+    image=modal.Image.debian_slim().pip_install(["datasets", "matplotlib", "sklearn", "torch", "transformers"]),
 )
 
 # ## Defining the prediction function

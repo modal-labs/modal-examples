@@ -1,6 +1,6 @@
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-pyjulia")
 stub.image = (
     modal.Image.debian_slim()
     # Install Julia 1.7

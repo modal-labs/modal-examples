@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import modal
 
-stub = modal.Stub("say_hello_cron")
+stub = modal.Stub("example-say-hello-cron")
 
 
 @stub.function(schedule=modal.Period(seconds=10))

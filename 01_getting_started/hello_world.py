@@ -16,7 +16,7 @@ import sys
 
 import modal
 
-stub = modal.Stub("hello-world")
+stub = modal.Stub("example-hello-world")
 
 # ## Defining a function
 #

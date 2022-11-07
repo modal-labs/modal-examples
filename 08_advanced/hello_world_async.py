@@ -15,7 +15,7 @@ import modal.aio
 # In this case, we just need to define an asynchronous stub:
 
 
-stub = modal.aio.AioStub()
+stub = modal.aio.AioStub("example-hello-world-async")
 
 
 # ## Defining a function

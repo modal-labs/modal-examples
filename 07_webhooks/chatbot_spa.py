@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-stub = modal.Stub("web-spa")
+stub = modal.Stub("example-web-spa")
 
 stub.cache = modal.SharedVolume()
 stub.chat_histories = modal.Dict()

@@ -27,7 +27,7 @@ import sys
 
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-screenshot")
 
 # ## Defining a custom image
 #

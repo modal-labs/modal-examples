@@ -5,7 +5,7 @@ from typing import Optional
 import modal
 from fastapi import Request
 
-stub = modal.Stub("dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"]))
+stub = modal.Stub("example-dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"]))
 
 volume = modal.SharedVolume().persist("dalle-model-vol")
 

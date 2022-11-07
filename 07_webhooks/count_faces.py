@@ -6,7 +6,7 @@ import os
 
 import modal
 
-stub = modal.Stub()
+stub = modal.Stub("example-count-faces")
 
 
 open_cv_image = modal.Image.debian_slim().apt_install(["python3-opencv"]).pip_install(["opencv-python", "numpy"])

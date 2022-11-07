@@ -2,7 +2,7 @@ import asyncio
 
 import modal.aio
 
-stub = modal.aio.AioStub()
+stub = modal.aio.AioStub("example-generators-async")
 
 
 @stub.generator

@@ -8,7 +8,7 @@ import asyncio
 
 import modal.aio
 
-aio_stub = modal.aio.AioStub(q=modal.aio.AioQueue())
+aio_stub = modal.aio.AioStub("example-queue-simple", q=modal.aio.AioQueue())
 
 
 async def run_async():

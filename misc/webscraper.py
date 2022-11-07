@@ -2,7 +2,7 @@ import os
 
 import modal
 
-stub = modal.Stub("linkscraper")
+stub = modal.Stub("example-linkscraper")
 
 
 playwright_image = modal.Image.debian_slim().run_commands(

@@ -21,7 +21,7 @@
 
 import modal
 
-stub = modal.Stub("doc_ocr_jobs")
+stub = modal.Stub("example-doc-ocr-jobs")
 
 # ## Model cache
 #
