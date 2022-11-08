@@ -142,13 +142,14 @@ def train(config: Config = Config()):
     from fastai.data.transforms import parent_label
     from fastai.metrics import accuracy
     from fastai.vision.all import vision_learner, Resize, models
+    from modal import container_app
 
     print("Downloading dataset")
     dataset_path = download_dataset()
 
     wandb_enabled = bool(os.environ.get("WANDB_API_KEY"))
     if wandb_enabled:
-        wandb.init(project=config.wandb.project, entity=config.wandb.entity)
+        wandb.init(id=container_app.app_id, project=config.wandb.project, entity=config.wandb.entity)
         callbacks = WandbCallback()
     else:
         callbacks = None
