@@ -303,4 +303,4 @@ if __name__ == "__main__":
     else:
         print(f"Invalid cmd '{cmd}'.")
 
-# This ML app is already deployed on Modal and you can try it out at https://modal-labs-fastai-wandb-gradio-cifar10-demo-fastapi-app.modal.run.
+# This ML app is already deployed on Modal and you can try it out at https://modal-labs-example-fastai-wandb-gradio-cifar10-demo-fastapi-app.modal.run.
