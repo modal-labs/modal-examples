@@ -8,7 +8,7 @@
 #
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is COVID-19 case data from Johns Hopkins University which is refreshed daily.
-# Try it out for yourself at [modal-labs-covid-datasette-app.modal.run/covid-19](https://modal-labs-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
+# Try it out for yourself at [modal-labs-example-covid-datasette-app.modal.run/covid-19](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
 #
 # Some Modal features it uses:
 # * Shared volumes: a persisted volume lets us store and grow the published dataset over time
@@ -227,4 +227,4 @@ if __name__ == "__main__":
     else:
         exit("Unknown command. Supported commands: [serve, prep]")
 
-# You can go explore the data over at [modal-labs-covid-datasette-app.modal.run/covid-19/](https://modal-labs-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
+# You can go explore the data over at [modal-labs-covid-datasette-app.modal.run/covid-19/](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
