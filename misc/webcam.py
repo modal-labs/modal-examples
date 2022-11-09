@@ -37,7 +37,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 # We mainly need to install [transformers](https://github.com/huggingface/transformers)
-# which is package Huggingface uses for all their models, but also
+# which is a package Huggingface uses for all their models, but also
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
 
