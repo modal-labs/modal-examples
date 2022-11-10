@@ -1,3 +1,7 @@
+# ---
+# deploy: true
+# ---
+#
 # # Document OCR web app
 #
 # This tutorial shows you how to use Modal to deploy a fully serverless
@@ -6,7 +10,7 @@
 # tasks to a separate Modal app defined in the [Job Queue
 # tutorial](/docs/guide/ex/doc_ocr_jobs), polls until the task is completed, and displays
 # the results. Try it out for yourself
-# [here](https://aksh-at-doc-ocr-webapp-wrapper.modal.run).
+# [here](https://modal-labs-example-doc-ocr-webapp-wrapper.modal.run/).
 #
 # ![receipt parser frontend](./receipt_parser_frontend.jpg)
 
@@ -45,7 +49,7 @@ web_app = fastapi.FastAPI()
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
     # Use aio_lookup since we're in an async context.
-    parse_receipt = modal.lookup("doc_ocr_jobs", "parse_receipt")
+    parse_receipt = modal.lookup("example-doc-ocr-jobs", "parse_receipt")
 
     form = await request.form()
     receipt = await form["receipt"].read()

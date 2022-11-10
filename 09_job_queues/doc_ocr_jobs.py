@@ -1,3 +1,7 @@
+# ---
+# deploy: true
+# ---
+#
 # # Document OCR job queue
 #
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
