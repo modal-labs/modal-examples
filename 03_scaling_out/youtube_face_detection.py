@@ -1,4 +1,5 @@
 # ---
+# deploy: true
 # output-directory: "/tmp"
 # ---
 # # Face detection on Youtube videos
@@ -71,7 +72,7 @@ stub.sv = modal.SharedVolume()
 # and stores the resulting video back to the shared storage.
 
 
-@stub.function(shared_volumes={"/clips": stub.sv})
+@stub.function(shared_volumes={"/clips": stub.sv}, timeout=600)
 def detect_faces(fn, start, stop):
     # Extract the subclip from the video
     clip = moviepy.editor.VideoFileClip(fn).subclip(start, stop)
