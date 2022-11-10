@@ -1,3 +1,6 @@
+# ---
+# args: ["test prompt for symon"]
+# ---
 import modal
 import sys
 
@@ -17,7 +20,7 @@ def generate_text(prompt):
     from transformers import pipeline
 
     generator = pipeline("text-generation", model="gpt2")
-    return generator(prompt, do_sample=True, min_length=50)[0]["generated_text"]
+    return generator(prompt, do_sample=True, min_length=50, max_length=250)[0]["generated_text"]
 
 
 if __name__ == "__main__":
