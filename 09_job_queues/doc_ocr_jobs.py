@@ -23,6 +23,8 @@
 # Let's first import `modal` and define a [`Stub`](/docs/reference/modal.Stub). Later, we'll use the name provided
 # for our `Stub` to find it from our web app, and submit tasks to it.
 
+import urllib.request
+
 import modal
 
 stub = modal.Stub("example-doc-ocr-jobs")
@@ -104,8 +106,13 @@ def parse_receipt(image: bytes):
 if __name__ == "__main__":
     from pathlib import Path
 
-    receipt_filename = str(Path(__file__).parent / "receipt.png")
+    receipt_filename = Path(__file__).parent / "receipt.png"
     with stub.run():
-        with open(receipt_filename, "rb") as f:
-            image = f.read()
-            print(parse_receipt(image))
+        if receipt_filename.exists():
+            with open(receipt_filename, "rb") as f:
+                image = f.read()
+        else:
+            image = urllib.request.urlopen(
+                "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
+            ).read()
+        print(parse_receipt(image))
