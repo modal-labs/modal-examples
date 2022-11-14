@@ -2,7 +2,6 @@ import useSWR from "swr";
 import { useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import HomeButton from "../components/HomeButton";
-import Footer from "../components/Footer";
 import Spinner from "../components/Spinner";
 
 function Episode({
