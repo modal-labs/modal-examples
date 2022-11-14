@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import List
 
@@ -36,12 +37,15 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
 @web_app.get("/api/podcast/{podcast_id}")
 async def get_podcast(podcast_id: str):
     pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-
+    previously_stored = True
     if not pod_metadata_path.exists():
+        previously_stored = False
+        # This runs a Modal function in a separate container in the cloud, so
+        # we are exposed to a race condition with the NFS if we don't wait for the write
+        # to propogate.
         populate_podcast_metadata(podcast_id)
-    else:
-        # Refresh async.
-        populate_podcast_metadata.submit(podcast_id)
+        while not pod_metadata_path.exists():
+            await asyncio.sleep(20)
 
     with open(pod_metadata_path, "r") as f:
         pod_metadata = json.load(f)
@@ -58,6 +62,9 @@ async def get_podcast(podcast_id: str):
 
     episodes.sort(key=lambda ep: ep.get("publish_date"), reverse=True)
 
+    # Refresh possibly stale data asynchronously.
+    if previously_stored:
+        populate_podcast_metadata.submit(podcast_id)
     return dict(pod_metadata=pod_metadata, episodes=episodes)
 
 

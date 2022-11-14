@@ -39,11 +39,12 @@ function PodcastList({ podcasts }) {
 
 function Form({ onSubmit, searching }) {
   const [podcastName, setPodcastName] = useState("");
-  const onChange = (event) => {
+  const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPodcastName(event.target.value);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
     await onSubmit(podcastName);
   };
 
@@ -75,7 +76,7 @@ function Form({ onSubmit, searching }) {
         </p>  
         <p className="mb-1">
           <span>If you just want to see some transcripts, we ❤️ these tech podcasts: </span>
-          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>CoRecursive</em></a>. 
+          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/603405"><em>CoRecursive</em></a>. 
         </p>
       </div>
 
@@ -108,7 +109,7 @@ function Search() {
   const [searching, setSearching] = useState(false);
   const [podcasts, setPodcasts] = useState();
 
-  const handleSubmission = async (podcastName) => {
+  const handleSubmission = async (podcastName: string) => {
     const formData = new FormData();
     formData.append("podcast", podcastName);
     setSearching(true);
