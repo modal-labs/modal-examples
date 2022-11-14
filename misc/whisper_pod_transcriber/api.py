@@ -41,7 +41,7 @@ async def get_podcast(podcast_id: str):
     if not pod_metadata_path.exists():
         previously_stored = False
         # This runs a Modal function in a separate container in the cloud, so
-        # were exposed to a race condition with the NFS if we don't wait for the write
+        # we are exposed to a race condition with the NFS if we don't wait for the write
         # to propogate.
         populate_podcast_metadata(podcast_id)
         while not pod_metadata_path.exists():
