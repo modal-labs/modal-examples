@@ -39,11 +39,12 @@ function PodcastList({ podcasts }) {
 
 function Form({ onSubmit, searching }) {
   const [podcastName, setPodcastName] = useState("");
-  const onChange = (event) => {
+  const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPodcastName(event.target.value);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
     await onSubmit(podcastName);
   };
 
@@ -108,7 +109,7 @@ function Search() {
   const [searching, setSearching] = useState(false);
   const [podcasts, setPodcasts] = useState();
 
-  const handleSubmission = async (podcastName) => {
+  const handleSubmission = async (podcastName: string) => {
     const formData = new FormData();
     formData.append("podcast", podcastName);
     setSearching(true);
