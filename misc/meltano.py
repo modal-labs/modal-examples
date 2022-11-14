@@ -1,5 +1,6 @@
 # ---
 # integration-test: false
+# lambda-test: false
 # ---
 import subprocess
 

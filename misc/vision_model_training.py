@@ -1,7 +1,8 @@
 # ---
-# integration-test: false
-# deploy: true
 # args: ["train"]
+# deploy: true
+# integration-test: false
+# lambda-test: false
 # ---
 #
 # # FastAI model training with Weights & Biases and Gradio
