@@ -75,7 +75,7 @@ function Form({ onSubmit, searching }) {
         </p>  
         <p className="mb-1">
           <span>If you just want to see some transcripts, we ❤️ these tech podcasts: </span>
-          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>CoRecursive</em></a>. 
+          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/603405"><em>CoRecursive</em></a>. 
         </p>
       </div>
 
