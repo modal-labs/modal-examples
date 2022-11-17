@@ -14,6 +14,7 @@ from .main import (
 )
 from .podcast import coalesce_short_transcript_segments
 
+logger = config.get_logger(__name__)
 web_app = FastAPI()
 
 
@@ -86,7 +87,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
 
     try:
         existing_call_id = container_app.in_progress[episode_id]
-        print(f"Found existing call ID {existing_call_id} for episode {episode_id}")
+        logger.info(f"Found existing call ID {existing_call_id} for episode {episode_id}")
         return {"call_id": existing_call_id}
     except KeyError:
         pass

@@ -13,6 +13,7 @@ import modal
 
 from . import config, podcast, search
 
+logger = config.get_logger(__name__)
 volume = modal.SharedVolume().persist("dataset-cache-vol")
 
 app_image = (
@@ -81,7 +82,7 @@ def populate_podcast_metadata(podcast_id: str):
         with open(metadata_path, "w") as f:
             json.dump(dataclasses.asdict(ep), f)
 
-    print(f"Populated metadata for {pod_metadata.title}")
+    logger.info(f"Populated metadata for {pod_metadata.title}")
 
 
 @stub.asgi(
@@ -105,10 +106,10 @@ def fastapi_app():
 def search_podcast(name):
     from gql import gql
 
-    print(f"Searching for '{name}'")
+    logger.info(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
     podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
-    print(f"Found {len(podcasts_raw)} results for '{name}'")
+    logger.info(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(
             id=pod["id"],
@@ -131,7 +132,7 @@ def index():
 
     import dacite
 
-    print("Starting transcript indexing process.")
+    logger.info("Starting transcript indexing process.")
     config.SEARCH_DIR.mkdir(parents=True, exist_ok=True)
 
     episodes = defaultdict(list)
@@ -151,7 +152,7 @@ def index():
                 episodes[ep.podcast_title].append(ep)
                 guid_hash_to_episodes[ep.guid_hash] = ep
 
-    print(f"Loaded {len(guid_hash_to_episodes)} podcast episodes.")
+    logger.info(f"Loaded {len(guid_hash_to_episodes)} podcast episodes.")
 
     transcripts = {}
     if config.TRANSCRIPTIONS_DIR.exists():
@@ -178,32 +179,32 @@ def index():
             # Prepare records for JSON serialization
             indexed_episodes.append(dataclasses.asdict(idxd_episode))
 
-    print(f"Matched {len(search_records)} transcripts to episode records.")
+    logger.info(f"Matched {len(search_records)} transcripts to episode records.")
 
     filepath = config.SEARCH_DIR / "all.json"
-    print(f"writing {filepath}")
+    logger.info(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(indexed_episodes, f)
 
-    print("calc feature vectors for all transcripts, keeping track of similar podcasts")
+    logger.info("calc feature vectors for all transcripts, keeping track of similar podcasts")
     X, v = search.calculate_tfidf_features(search_records)
     sim_svm = search.calculate_similarity_with_svm(X)
     filepath = config.SEARCH_DIR / "sim_tfidf_svm.json"
-    print(f"writing {filepath}")
+    logger.info(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(sim_svm, f)
 
-    print("calculate the search index to support search")
+    logger.info("calculate the search index to support search")
     search_dict = search.build_search_index(search_records, v)
     filepath = config.SEARCH_DIR / "search.json"
-    print(f"writing {filepath}")
+    logger.info(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(search_dict, f)
 
 
 @stub.function(schedule=modal.Period(hours=4))
 def refresh_index():
-    print(f"Running scheduled index refresh at {utc_now()}")
+    logger.info(f"Running scheduled index refresh at {utc_now()}")
     index()
 
 
@@ -252,7 +253,7 @@ def split_silences(
 
     yield cur_start, duration
     num_segments += 1
-    print(f"Split {path} into {num_segments} segments")
+    logger.info(f"Split {path} into {num_segments} segments")
 
 
 @stub.function(
@@ -288,7 +289,7 @@ def transcribe_segment(
         model = whisper.load_model(model.name, device=device, download_root=config.MODEL_DIR)
         result = model.transcribe(f.name, language="en", fp16=use_gpu)  # , verbose=True)
 
-    print(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
+    logger.info(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
 
     # Add back offsets.
     for segment in result["segments"]:
@@ -318,7 +319,7 @@ def transcribe_episode(
 
     result = {"text": output_text, "segments": output_segments, "language": "en"}
 
-    print(f"Writing openai/whisper transcription to {result_path}")
+    logger.info(f"Writing openai/whisper transcription to {result_path}")
     with open(result_path, "w") as f:
         json.dump(result, f, indent=4)
 
@@ -353,13 +354,13 @@ def process_episode(podcast_id: str, episode_id: str):
             destination=destination_path,
         )
 
-        print(f"Using the {model.name} model which has {model.params} parameters.")
-        print(f"Wrote episode metadata to {metadata_path}")
+        logger.info(f"Using the {model.name} model which has {model.params} parameters.")
+        logger.info(f"Wrote episode metadata to {metadata_path}")
 
         transcription_path = get_transcript_path(episode.guid_hash)
         if transcription_path.exists():
-            print(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
-            print("Skipping transcription.")
+            logger.info(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
+            logger.info("Skipping transcription.")
         else:
             transcribe_episode(
                 audio_filepath=destination_path,
@@ -383,7 +384,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 
     client = podcast.create_podchaser_client()
     episodes_raw = podcast.fetch_episodes_data(gql, client, podcast_id, max_episodes=max_episodes)
-    print(f"Retreived {len(episodes_raw)} raw episodes")
+    logger.info(f"Retrieved {len(episodes_raw)} raw episodes")
     episodes = [
         podcast.EpisodeMetadata(
             podcast_id=podcast_id,
@@ -401,7 +402,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
         if "guid" in ep
     ]
     no_guid_count = len(episodes) - len(episodes_raw)
-    print(f"{no_guid_count} episodes had no GUID and couldn't be used.")
+    logger.info(f"{no_guid_count} episodes had no GUID and couldn't be used.")
     return episodes
 
 
