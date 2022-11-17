@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 import pathlib
 
 
@@ -7,6 +8,16 @@ class ModelSpec:
     name: str
     params: str
     relative_speed: int  # Higher is faster
+
+
+def get_logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
 
 
 CACHE_DIR = "/cache"

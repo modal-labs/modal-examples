@@ -4,6 +4,9 @@ import pathlib
 import urllib.request
 from typing import NamedTuple, Optional, TypedDict, Union
 
+from . import config
+
+logger = config.get_logger(__name__)
 Segment = TypedDict("Segment", {"text": str, "start": float, "end": float})
 
 
@@ -147,7 +150,7 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
             current_page=current_page,
         )
     )
-    print(f"Querying Podchaser for podcasts matching query '{name}'.")
+    logger.info(f"Querying Podchaser for podcasts matching query '{name}'.")
     result = client.execute(search_podcast_name_query)
     podcasts_in_page = result["podcasts"]["data"]
     return podcasts_in_page
@@ -197,7 +200,7 @@ def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]
             )
         )
 
-        print(f"Fetching {max_episodes_per_request} episodes from API.")
+        logger.info(f"Fetching {max_episodes_per_request} episodes from API.")
         result = client.execute(list_episodes_query)
         has_more_pages = result["podcast"]["episodes"]["paginatorInfo"]["hasMorePages"]
         episodes_in_page = result["podcast"]["episodes"]["data"]
@@ -224,7 +227,7 @@ def fetch_podcast_data(gql, client, podcast_id) -> dict:
             podcast_id=podcast_id,
         )
     )
-    print(f"Querying Podchaser for podcast with ID {podcast_id}.")
+    logger.info(f"Querying Podchaser for podcast with ID {podcast_id}.")
     result = client.execute(podcast_metadata_query)
     return result["podcast"]
 
@@ -252,17 +255,17 @@ def sizeof_fmt(num, suffix="B") -> str:
 def store_original_audio(url: str, destination: pathlib.Path, overwrite: bool = False) -> None:
     if destination.exists():
         if overwrite:
-            print(f"Audio file exists at {destination} but overwrite option is specified.")
+            logger.info(f"Audio file exists at {destination} but overwrite option is specified.")
         else:
-            print(f"Audio file exists at {destination}, skipping download.")
+            logger.info(f"Audio file exists at {destination}, skipping download.")
             return
 
     podcast_download_result = download_podcast_file(url=url)
     humanized_bytes_str = sizeof_fmt(num=len(podcast_download_result.data))
-    print(f"Downloaded {humanized_bytes_str} episode from URL.")
+    logger.info(f"Downloaded {humanized_bytes_str} episode from URL.")
     with open(destination, "wb") as f:
         f.write(podcast_download_result.data)
-    print(f"Stored audio episode at {destination}.")
+    logger.info(f"Stored audio episode at {destination}.")
 
 
 def coalesce_short_transcript_segments(segments: list[Segment]) -> list[Segment]:
