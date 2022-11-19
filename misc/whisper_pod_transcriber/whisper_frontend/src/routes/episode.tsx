@@ -49,7 +49,7 @@ function ProgressBar({
   );
 }
 
-function Segment({ segment, metadata }: { segment: any; metadata: any }) {
+function SegmentView({ segment, original_download_link }: { segment: any; original_download_link: string }) {
   return (
     <li className="pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
       <div className="flex items-center space-x-4">
@@ -60,7 +60,7 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l text-right">
             <a
               title="listen"
-              href={`${metadata.original_download_link}#t=${Math.floor(
+              href={`${original_download_link}#t=${Math.floor(
                 segment.start
               )}`}
               target="_blank"
@@ -73,7 +73,7 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r text-right">
             <a
               title="listen"
-              href={`${metadata.original_download_link}#t=${Math.floor(
+              href={`${original_download_link}#t=${Math.floor(
                 segment.end
               )}`}
               target="_blank"
@@ -88,7 +88,24 @@ function Segment({ segment, metadata }: { segment: any; metadata: any }) {
   );
 }
 
-function ErrorCallout({msg}: {msg: string}) {
+function SegmentViewPlaceholder() {
+  return (
+    <li className="min-w-full pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
+      <div className="flex items-center animate-pulse">
+        <div className="flex justify-between items-center pt-4 min-w-full">
+          <div className="w-11/12">
+            <div className="w-11/12 h-3 bg-gray-200 rounded-sm dark:bg-gray-400 mb-2.5"></div>
+            <div className="w-11/12 h-3 bg-gray-200 rounded-sm dark:bg-gray-400 mb-2.5"></div>
+            <div className="w-9/12 h-3 bg-gray-200 rounded-sm dark:bg-gray-400"></div>
+          </div>
+          <div className="h-5 bg-gray-100 rounded-r dark:bg-gray-200 w-40"></div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ErrorCallout({ msg }: { msg: string }) {
   return (
     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
       <strong className="font-bold">Error: </strong>
@@ -103,12 +120,18 @@ interface Status {
   tasks: number;
 }
 
+interface Segment {
+  metadata: any;
+}
+
 function TranscribeProgress({
   callId,
   onFinished,
+  onProgress,
 }: {
   callId: string;
   onFinished: () => void;
+  onProgress: (p: number) => void;
 }) {
   const [finished, setFinished] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -130,6 +153,7 @@ function TranscribeProgress({
       }
 
       setStatus(body);
+      onProgress(body.done_segments ?? 0);
       if (body.finished) {
         setFinished(true);
         onFinished();
@@ -168,10 +192,12 @@ function TranscribeNow({
   podcastId,
   episodeId,
   onFinished,
+  onProgress,
 }: {
   podcastId: string;
   episodeId: string;
   onFinished: () => void;
+  onProgress: (p: number) => void;
 }) {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [callId, setCallId] = useState<string | null>(null);
@@ -181,7 +207,7 @@ function TranscribeNow({
 
     const resp = await fetch(
       "/api/transcribe?" +
-        new URLSearchParams({ podcast_id: podcastId, episode_id: episodeId }),
+      new URLSearchParams({ podcast_id: podcastId, episode_id: episodeId }),
       { method: "POST" }
     );
 
@@ -194,7 +220,7 @@ function TranscribeNow({
   }, [isTranscribing]);
 
   if (isTranscribing && callId) {
-    return <TranscribeProgress callId={callId} onFinished={onFinished} />;
+    return <TranscribeProgress callId={callId} onFinished={onFinished} onProgress={onProgress} />;
   }
 
   return (
@@ -210,8 +236,35 @@ function TranscribeNow({
   );
 }
 
+function Transcript({ segments, original_download_link }: { segments: Segment[], original_download_link: string }) {
+  return (
+    <div className="mx-auto sm:max-w-4xl max-w-full py-8">
+      <ul className="bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
+        {segments.map((segment, idx: number) => (
+          <SegmentView
+            key={idx}
+            segment={segment}
+            original_download_link={original_download_link}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TranscriptPlaceholder({ segmentCount }: { segmentCount: number }) {
+  return (
+    <div className="mx-auto sm:max-w-4xl max-w-full py-8">
+      <ul className="sm:min-w-[56em] bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
+        {[...Array(segmentCount)].map((_, i) => <SegmentViewPlaceholder key={i} />)}
+      </ul>
+    </div>
+  );
+}
+
 export default function Podcast() {
   let params = useParams();
+  const [numFinishedSegments, setNumFinishedSegments] = useState<number>(0);
 
   async function fetchData() {
     const response = await fetch(
@@ -237,7 +290,7 @@ export default function Podcast() {
 
   return (
     <div className="flex flex-col">
-      <HomeButton/>
+      <HomeButton />
       <Footer />
       <div className="mx-auto max-w-full sm:max-w-4xl mt-4 py-8 rounded shadow-lg">
         <div className="max-w-full px-6 py-4">
@@ -258,19 +311,19 @@ export default function Podcast() {
               onFinished={() =>
                 mutate(`/api/episode/${params.podcastId}/${params.episodeId}`)
               }
+              onProgress={setNumFinishedSegments}
             />
           )}
         </div>
       </div>
 
+
+      {!data.segments && (numFinishedSegments > 0) && (
+        <TranscriptPlaceholder segmentCount={numFinishedSegments} />
+      )}
+
       {data.segments && (
-        <div className="mx-auto sm:max-w-4xl max-w-full py-8">
-          <ul className="bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
-            {data.segments.map((segment, idx: number) => (
-              <Segment key={idx} segment={segment} metadata={data.metadata} />
-            ))}
-          </ul>
-        </div>
+        <Transcript segments={data.segments} original_download_link={data.metadata.original_download_link} />
       )}
     </div>
   );
