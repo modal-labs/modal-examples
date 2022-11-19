@@ -9,6 +9,7 @@ export default function Footer() {
                 width: "100%",
                 color: "white",
                 textAlign: "center",
+                zIndex: 100,
               }}>
             <a 
                 href="https://modal.com"

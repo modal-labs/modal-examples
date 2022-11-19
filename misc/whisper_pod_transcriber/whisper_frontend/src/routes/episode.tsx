@@ -92,7 +92,7 @@ function SegmentViewPlaceholder() {
   return (
     <li className="min-w-full pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
       <div className="flex items-center animate-pulse">
-        <div className="flex justify-between items-center pt-4 min-w-full">
+        <div className="flex justify-between items-center pt-2 min-w-full">
           <div className="w-11/12">
             <div className="w-11/12 h-3 bg-gray-200 rounded-sm dark:bg-gray-400 mb-2.5"></div>
             <div className="w-11/12 h-3 bg-gray-200 rounded-sm dark:bg-gray-400 mb-2.5"></div>
