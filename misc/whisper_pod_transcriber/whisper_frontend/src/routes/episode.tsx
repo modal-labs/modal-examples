@@ -49,7 +49,10 @@ function ProgressBar({
   );
 }
 
-function SegmentView({ segment, original_download_link }: { segment: any; original_download_link: string }) {
+/**
+ * Displays a transcription segment's text with start-end links to the original audio.
+ */
+function SegmentView({ segment, original_download_link }: { segment: Segment; original_download_link: string }) {
   return (
     <li className="pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
       <div className="flex items-center space-x-4">
@@ -88,6 +91,9 @@ function SegmentView({ segment, original_download_link }: { segment: any; origin
   );
 }
 
+/**
+ * Segment placeholder UI component shown when a transcription is in progress.
+ */
 function SegmentViewPlaceholder() {
   return (
     <li className="min-w-full pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
@@ -121,9 +127,16 @@ interface Status {
 }
 
 interface Segment {
+  text: string;
+  start: any;
+  end: any;
   metadata: any;
 }
 
+/**
+ * Polls the transcription status API endpoint and provides the user
+ * transcription status information while they wait.
+ */
 function TranscribeProgress({
   callId,
   onFinished,
@@ -161,7 +174,7 @@ function TranscribeProgress({
     }
 
     updateStatus();
-    // 2s. Podcasts will take a while to transcribe.
+    // 2s. Podcasts will take a 0.5-3 minutes to transcribe.
     setIntervalId(setInterval(updateStatus, 2000));
 
     return () => clearInterval(intervalId);
@@ -188,6 +201,9 @@ function TranscribeProgress({
   );
 }
 
+/**
+ * Manages the transcription initiation and progress, interacting with backend API.
+ */
 function TranscribeNow({
   podcastId,
   episodeId,
@@ -236,6 +252,9 @@ function TranscribeNow({
   );
 }
 
+/**
+ * Displays a completed episode transcript.
+ */
 function Transcript({ segments, original_download_link }: { segments: Segment[], original_download_link: string }) {
   return (
     <div className="mx-auto sm:max-w-4xl max-w-full py-8">
@@ -252,6 +271,9 @@ function Transcript({ segments, original_download_link }: { segments: Segment[],
   );
 }
 
+/**
+ * Displays a list of placeholder segments while an episode transcription is in progress.
+ */
 function TranscriptPlaceholder({ segmentCount }: { segmentCount: number }) {
   return (
     <div className="mx-auto sm:max-w-4xl max-w-full py-8">
