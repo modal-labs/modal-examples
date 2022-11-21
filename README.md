@@ -18,6 +18,13 @@ python -m 01_getting_started.hello_world
 Although these scripts are run on your local machine, they'll communicate with
 Modal and run in our cloud, spawning serverless containers on demand.
 
+## Examples
+
+* [**`01_getting_started/`**](/01_getting_started/) through [**`10_integrations/`**](/10_integrations/) provide a guided tour through Modal's concepts and capabilities.
+* [**`integrations/`**](/integrations/) contains packages integrating Modal's platform with third-parties.
+* [**`misc/`**](/misc/) contains uncategorized, miscellaneous examples.
+* [**`ml/`**](/ml/) contains machine learning examples, including training examples and full-stack ML apps. 
+
 ## License
 
 The [MIT license](LICENSE).
