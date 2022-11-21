@@ -1,0 +1,16 @@
+/* Bit of Modal Labs color scheming for the Gradio.app UI */
+/*  from https://github.com/modal-labs/modal-examples */
+.dark .gr-button-primary {
+    --tw-border-opacity: 1;
+    border-color: rgb(187 255 170 / var(--tw-border-opacity));
+    --tw-gradient-from: rgb(187 255 170 / .7);
+    --tw-gradient-to: rgb(187 255 170 / 0);
+    --tw-gradient-stops: rgb(187 255 170), #5eff00;
+    --tw-gradient-to: rgb(187 255 170 / .8);
+    --tw-text-opacity: 1;
+    color: rgb(17 17 17 / var(--tw-text-opacity));
+}
+
+.dark .gr-button-primary:hover {
+    opacity: 0.9;
+}
