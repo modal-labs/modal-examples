@@ -68,6 +68,7 @@ gpu = modal.gpu.A100()
 #
 # All configs get their own dataclasses to avoid scattering special/magic values throughout code.
 # You can read more about how the values in `TrainConfig` are chosen and adjusted [in this blog post on Hugging Face](https://huggingface.co/blog/dreambooth).
+# To run training on images of your own pet, upload the images to separate URLs and edit the contents of the file at `TrainConfig.instance_example_urls_file` to point to them.
 
 
 @dataclass
@@ -89,10 +90,8 @@ class TrainConfig(SharedConfig):
     prefix: str = "a photo of"
     postfix: str = ""
 
-    # url of plaintext file with urls for images of target instance
-    images_file_url: str = (
-        "https://raw.githubusercontent.com/modal-labs/modal-examples/main/misc/dreambooth_app/data/qwerty_images.txt"
-    )
+    # locator for plaintext file with urls for images of target instance
+    instance_example_urls_file: str = "dreambooth_app/instance_example_urls.txt"
 
     # identifier for pretrained model on Hugging Face
     model_name: str = "CompVis/stable-diffusion-v1-4"
@@ -124,15 +123,9 @@ class AppConfig(SharedConfig):
 IMG_PATH = Path("/img")
 
 
-def load_images(path):
+def load_images(image_urls):
     from smart_open import open
     import PIL.Image
-
-    print("Loading images.")
-    with open(path) as f:
-        lines = f.readlines()
-
-    image_urls = [line.strip() for line in lines]
 
     os.makedirs(IMG_PATH, exist_ok=True)
     for ii, url in enumerate(image_urls):
@@ -171,8 +164,8 @@ def load_images(path):
 # Lastly, you'll need to create a token from that account and share it with Modal
 # under the name `"huggingface"`. Follow the instructions [here](https://modal.com/secrets).
 #
-# Then, you can kick off a training job with
-# `modal app run dreambooth_app.py --function-name train`
+# Then, you can kick off a training job with the command
+# `python dreambooth_app.py train`.
 # It should take about five minutes.
 
 
@@ -187,7 +180,7 @@ def load_images(path):
     secrets=[modal.Secret.from_name("huggingface")],
     interactive=True,
 )
-def train(config=TrainConfig()):
+def train(instance_example_urls, config=TrainConfig()):
     import subprocess
 
     from accelerate.utils import write_basic_config
@@ -196,7 +189,7 @@ def train(config=TrainConfig()):
     from transformers import CLIPTokenizer
 
     # set up runner-local image and shared model weight directories
-    img_path = load_images(config.images_file_url)
+    img_path = load_images(instance_example_urls)
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     # set up hugging face accelerate library for fast training
@@ -261,6 +254,9 @@ def train(config=TrainConfig()):
 #
 # We also provide some example text inputs to help
 # guide users and to kick-start their creative juices.
+#
+# You can launch the app on Modal with the command
+# `modal app deploy dreambooth_app.py`.
 
 
 @stub.asgi(
@@ -303,7 +299,7 @@ def fastapi_app(config=AppConfig()):
     modal_docs_url = "https://modal.com/docs/guide"
     modal_example_url = f"{modal_docs_url}/ex/dreambooth-app"
 
-    description = f"""Describe what they are doing or pick an artist. Be fantastical! Try the examples below.",
+    description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.",
 
     ### Learn how to make your own [here]({modal_example_url}).
     """
@@ -331,8 +327,10 @@ def fastapi_app(config=AppConfig()):
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) >= 2 else "train"
     if cmd == "train":
+        with open(TrainConfig().instance_example_urls_file) as f:
+            instance_example_urls = map(lambda line: line.strip(), f.readlines())
         with stub.run():
-            train()
+            train(instance_example_urls)
     elif cmd == "serve":
         stub.serve()
     elif cmd == "shell":
