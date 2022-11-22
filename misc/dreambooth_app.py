@@ -94,6 +94,9 @@ class TrainConfig(SharedConfig):
         "https://raw.githubusercontent.com/modal-labs/modal-examples/main/misc/dreambooth_app/data/qwerty_images.txt"
     )
 
+    # identifier for pretrained model on Hugging Face
+    model_name: str = "CompVis/stable-diffusion-v1-4"
+
     # Hyperparameters/constants from the huggingface training example
     resolution: int = 512
     train_batch_size: int = 1
@@ -190,6 +193,7 @@ def train(config=TrainConfig()):
     from accelerate.utils import write_basic_config
     import huggingface_hub
     from smart_open import open
+    from transformers import CLIPTokenizer
 
     # set up runner-local image and shared model weight directories
     img_path = load_images(config.images_file_url)
@@ -201,6 +205,13 @@ def train(config=TrainConfig()):
     # authenticate to hugging face so we can download the model weights
     hf_key = os.environ["HUGGINGFACE_TOKEN"]
     huggingface_hub.login(hf_key)
+
+    # check whether we can access to model repo
+    try:
+        CLIPTokenizer.from_pretrained(config.model_name, subfolder="tokenizer")
+    except OSError as e:  # handle error raised when license is not accepted
+        license_error_msg = f"Unable to load tokenizer. Access to this model requires acceptance of the license on Hugging Face here: https://huggingface.co/{config.model_name}."
+        raise Exception(license_error_msg) from e
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
@@ -223,7 +234,7 @@ def train(config=TrainConfig()):
             "accelerate",
             "launch",
             "train_dreambooth.py",
-            "--pretrained_model_name_or_path=CompVis/stable-diffusion-v1-4",
+            f"--pretrained_model_name_or_path={config.model_name}",
             f"--instance_data_dir={img_path}",
             f"--output_dir={MODEL_DIR}",
             f"--instance_prompt='{prompt}'",
@@ -234,7 +245,8 @@ def train(config=TrainConfig()):
             f"--lr_scheduler={config.lr_scheduler}",
             f"--lr_warmup_steps={config.lr_warmup_steps}",
             f"--max_train_steps={config.max_train_steps}",
-        ]
+        ],
+        check=True,
     )
 
 
