@@ -71,7 +71,7 @@ if stub.is_inside():
 # This is our Modal function. The function runs through the `StableDiffusionPipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
-@stub.function(gpu=modal.gpu.A100())
+@stub.function(gpu=True)
 def _run_inference(prompt:str) -> str:
     with torch.inference_mode():
         with torch.autocast("cuda"):
