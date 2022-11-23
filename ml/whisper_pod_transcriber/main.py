@@ -402,7 +402,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
             original_download_link=ep["audioUrl"],
         )
         for ep in episodes_raw
-        if "guid" in ep
+        if "guid" in ep and ep["guid"] is not None
     ]
     no_guid_count = len(episodes) - len(episodes_raw)
     logger.info(f"{no_guid_count} episodes had no GUID and couldn't be used.")
