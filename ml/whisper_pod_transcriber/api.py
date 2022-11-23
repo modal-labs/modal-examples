@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import List
+import time
+from typing import List, NamedTuple
 
 from fastapi import FastAPI, Request
 
@@ -16,6 +17,14 @@ from .podcast import coalesce_short_transcript_segments
 
 logger = config.get_logger(__name__)
 web_app = FastAPI()
+
+# A transcription taking > 10 minutes should be exceedingly rare.
+MAX_JOB_AGE_SECS = 10 * 60
+
+
+class InProgressJob(NamedTuple):
+    call_id: str
+    start_time: int
 
 
 @web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
@@ -41,12 +50,12 @@ async def get_podcast(podcast_id: str):
     previously_stored = True
     if not pod_metadata_path.exists():
         previously_stored = False
-        # This runs a Modal function in a separate container in the cloud, so
-        # we are exposed to a race condition with the NFS if we don't wait for the write
+        # Don't run this Modal function in a separate container in the cloud, because then
+        # we'd be exposed to a race condition with the NFS if we don't wait for the write
         # to propogate.
-        populate_podcast_metadata(podcast_id)
-        while not pod_metadata_path.exists():
-            await asyncio.sleep(20)
+        raw_populate_podcast_metadata = populate_podcast_metadata.get_raw_f()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, raw_populate_podcast_metadata, podcast_id)
 
     with open(pod_metadata_path, "r") as f:
         pod_metadata = json.load(f)
@@ -85,15 +94,19 @@ async def podcasts_endpoint(request: Request):
 async def transcribe_job(podcast_id: str, episode_id: str):
     from modal import container_app
 
+    now = int(time.time())
     try:
-        existing_call_id = container_app.in_progress[episode_id]
-        logger.info(f"Found existing call ID {existing_call_id} for episode {episode_id}")
-        return {"call_id": existing_call_id}
+        inprogress_job = container_app.in_progress[episode_id]
+        # NB: runtime type check is to handle present of old `str` values that didn't expire.
+        if isinstance(inprogress_job, tuple) and (now - inprogress_job.start_time) < MAX_JOB_AGE_SECS:
+            existing_call_id = inprogress_job.call_id
+            logger.info(f"Found existing, unexpired call ID {existing_call_id} for episode {episode_id}")
+            return {"call_id": existing_call_id}
     except KeyError:
         pass
 
     call = process_episode.submit(podcast_id, episode_id)
-    container_app.in_progress[episode_id] = call.object_id
+    container_app.in_progress[episode_id] = InProgressJob(call_id=call.object_id, start_time=now)
 
     return {"call_id": call.object_id}
 
