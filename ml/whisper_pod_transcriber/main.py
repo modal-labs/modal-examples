@@ -251,8 +251,11 @@ def split_silences(
             cur_start = split_at
             num_segments += 1
 
-    yield cur_start, duration
-    num_segments += 1
+    # silencedetect can place the silence end *after* the end of the full audio segment.
+    # Such segments definitions are negative length and invalid.
+    if duration > cur_start and (duration - cur_start) > min_segment_length:
+        yield cur_start, duration
+        num_segments += 1
     logger.info(f"Split {path} into {num_segments} segments")
 
 
@@ -287,7 +290,7 @@ def transcribe_segment(
         use_gpu = torch.cuda.is_available()
         device = "cuda" if use_gpu else "cpu"
         model = whisper.load_model(model.name, device=device, download_root=config.MODEL_DIR)
-        result = model.transcribe(f.name, language="en", fp16=use_gpu)  # , verbose=True)
+        result = model.transcribe(f.name, language="en", fp16=use_gpu)
 
     logger.info(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
 
