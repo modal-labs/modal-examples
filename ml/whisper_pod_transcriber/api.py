@@ -50,12 +50,12 @@ async def get_podcast(podcast_id: str):
     previously_stored = True
     if not pod_metadata_path.exists():
         previously_stored = False
-        # This runs a Modal function in a separate container in the cloud, so
-        # we are exposed to a race condition with the NFS if we don't wait for the write
+        # Don't run this Modal function in a separate container in the cloud, because then
+        # we'd be exposed to a race condition with the NFS if we don't wait for the write
         # to propogate.
-        populate_podcast_metadata(podcast_id)
-        while not pod_metadata_path.exists():
-            await asyncio.sleep(20)
+        raw_populate_podcast_metadata = populate_podcast_metadata.get_raw_f()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, raw_populate_podcast_metadata, podcast_id)
 
     with open(pod_metadata_path, "r") as f:
         pod_metadata = json.load(f)
