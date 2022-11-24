@@ -21,6 +21,7 @@ Modal and run in our cloud, spawning serverless containers on demand.
 ## Examples
 
 * [**`01_getting_started/`**](/01_getting_started/) through [**`10_integrations/`**](/10_integrations/) provide a guided tour through Modal's concepts and capabilities.
+* [**`data/`**](/data) contains data engineering and analytics examples.
 * [**`integrations/`**](/integrations/) contains packages integrating Modal's platform with third-parties.
 * [**`misc/`**](/misc/) contains uncategorized, miscellaneous examples.
 * [**`ml/`**](/ml/) contains machine learning examples, including training examples and full-stack ML apps. 
