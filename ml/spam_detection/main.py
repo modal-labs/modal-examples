@@ -12,6 +12,7 @@ from .datasets.enron import structure as enron
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     [
         "datasets~=2.7.1",
+        "dill~=0.3.6",
         "evaluate~=0.3.0",
         "loguru~=0.6.0",
         "scikit-learn~=1.1.3",  # Required by evaluate pkg.
@@ -34,8 +35,18 @@ def train():
         config.VOLUME_DIR, "enron", "processed_raw_dataset.json"
     )  # TODO: Shouldn't need to hardcode.
     # models.train_llm_classifier(dataset)
-    classifier = models.train_naive_bayes_classifier(enron.deserialize_dataset(dataset_path))
-    print(classifier)
+    model = models.NaiveBayes()
+    logger.info("💪 training ...")
+    classifier = model.train(enron.deserialize_dataset(dataset_path))
+    model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
+    logger.info(f"saved model to model store. {model_id=}")
+    # Reload the model
+    logger.info(f"🔁 testing reload of model")
+    model = models.NaiveBayes()
+    model.load(
+        sha256_digest=model_id,
+        model_registry_root=config.MODEL_STORE_DIR,
+    )
 
 
 @stub.function(interactive=True)
@@ -46,7 +57,13 @@ def inference(email: str):
     breakpoint()
 
 
+@stub.function(shared_volumes={config.VOLUME_DIR: volume})
+def init_volume():
+    config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 if __name__ == "__main__":
     with stub.run():
+        init_volume()
         train()
         # inference()

@@ -3,11 +3,9 @@ The model trainer module contains functions for the training
 management, serialization, and storage of the email spam models defined
 within models.py.
 """
-import argparse
 import datetime
 import hashlib
 import json
-import logging
 import pathlib
 import subprocess
 
@@ -21,13 +19,10 @@ from typing import (
     Sequence,
 )
 
-import config
-import models
-from datasets.enron import dataset
+from . import config
+from .datasets.enron import structure as dataset
 
-logging.basicConfig(format=config.logging_format_str)
-logging.getLogger().setLevel(logging.DEBUG)
-
+logger = config._get_logger()
 
 Email = str
 Prediction = float
@@ -56,7 +51,7 @@ def get_git_revision_hash() -> str:
 def serialize_classifier(
     classifier_func: SpamClassifier,
 ) -> bytes:
-    import pickle
+    import dill as pickle
 
     return pickle.dumps(classifier_func)
 
@@ -67,13 +62,13 @@ def store_classifier(
     classifier_destination_root: pathlib.Path,
     current_git_commit_hash: str,
 ) -> pathlib.Path:
-    logging.info("Storing spam classifier to model registry.")
+    logger.info("storing spam classifier to model registry.")
 
     serialized_classifier = serialize_classifier(classifier_func)
     hash_base = hashlib.sha256(serialized_classifier).hexdigest().upper()
     ser_clssfr_hash = f"sha256.{hash_base}"
 
-    logging.info(f"Serialized classifier's hash is {ser_clssfr_hash}")
+    logger.info(f"serialized classifier's hash is {ser_clssfr_hash}")
 
     model_registry_metadata = load_classifier_registry_metadata(
         classifier_destination_root=classifier_destination_root,
@@ -81,17 +76,17 @@ def store_classifier(
 
     classifier_dest_path = classifier_destination_root / ser_clssfr_hash
     if classifier_dest_path.is_file():
-        logging.warning(
+        logger.warning(
             (
                 f"Classifier {ser_clssfr_hash} already exists. No need to save again. "
                 "Consider caching model training to save compute cycles."
             )
         )
     else:
-        logging.info(f"Saving classifier to file at '{classifier_dest_path}'")
+        logger.info(f"Saving classifier to file at '{classifier_dest_path}'")
         classifier_dest_path.write_bytes(serialized_classifier)
 
-    logging.info(f"Updating models registry metadata to include information about {ser_clssfr_hash}")
+    logger.info(f"Updating models registry metadata to include information about {ser_clssfr_hash}")
     metadata = ClassifierMetadata(
         impl_name=classifier_name_from_function(classifier_func),
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
@@ -103,8 +98,8 @@ def store_classifier(
         classifier_metadata=metadata,
         classifier_destination_root=classifier_destination_root,
     )
-    logging.info("Done! Classifier model stored 📦.")
-    return classifier_dest_path
+    logger.info("Done! Classifier model stored 📦.")
+    return ser_clssfr_hash
 
 
 def classifier_name_from_function(classifier_func: SpamClassifier) -> str:
@@ -154,7 +149,7 @@ def store_classifier_registry_metadata(
         classifier_sha256_hash=classifier_sha256_hash,
     )
     if existing_metadata is not None:
-        logging.debug("Classifier with matching hash found in registry.")
+        logger.debug("Classifier with matching hash found in registry.")
         # compare new metadata with old to detect registry corruption or
         # strange renaming.
         if classifier_metadata.impl_name != existing_metadata.impl_name:
@@ -202,19 +197,19 @@ def load_serialized_classifier(
     return pickle.loads(classifier_bytes)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model-registry-root", required=True)
-    args = parser.parse_args(argv)
-    model_registry_root = pathlib.Path(args.model_registry_root)
+# def main(argv: Optional[Sequence[str]] = None) -> int:
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--model-registry-root", required=True)
+#     args = parser.parse_args(argv)
+#     model_registry_root = pathlib.Path(args.model_registry_root)
 
-    store_classifier(
-        classifier_func=models.bad_words_spam_classifier,
-        classifier_destination_root=model_registry_root,
-        current_git_commit_hash=get_git_revision_hash(),
-    )
-    return 0
+#     store_classifier(
+#         classifier_func=models.bad_words_spam_classifier,
+#         classifier_destination_root=model_registry_root,
+#         current_git_commit_hash=get_git_revision_hash(),
+#     )
+#     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+# if __name__ == "__main__":
+#     raise SystemExit(main())

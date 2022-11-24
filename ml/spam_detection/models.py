@@ -1,20 +1,32 @@
 import math
+import pathlib
 import re
 from collections import defaultdict
 
 from .datasets.enron import structure
+from . import config
+from . import model_trainer
 
 from typing import (
     Callable,
     Iterable,
-    Set,
+    Protocol,
 )
 
 Prediction = float
 Dataset = Iterable[structure.Example]
 SpamClassifier = Callable[[str], Prediction]
 
-from . import config
+
+class SpamModel(Protocol):
+    def train(self, dataset: Dataset) -> SpamClassifier:
+        ...
+
+    def load(self, model_path: pathlib.Path) -> SpamClassifier:
+        ...
+
+    def save(self, model_path: pathlib.Path) -> str:
+        ...
 
 
 def train_llm_classifier(dataset: Dataset):
@@ -108,52 +120,68 @@ def tokenize(text: str) -> set[str]:
     return set(all_words)
 
 
-def train_naive_bayes_classifier(ds: Dataset, k: float = 0.5) -> SpamClassifier:
-    """
-    TODO:
-    """
-    dataset_tokens: set[str] = set()
-    token_spam_counts: dict[str, int] = defaultdict(int)
-    token_ham_counts: dict[str, int] = defaultdict(int)
-    spam_messages = ham_messages = 0
+class NaiveBayes(SpamModel):
+    def __init__(self, k: float = 0.5) -> None:
+        self.k = k
+        self.classify_fn: SpamClassifier = None
 
-    for example in ds:
-        if example.spam:
-            spam_messages += 1
-        else:
-            ham_messages += 1
+    def train(self, dataset: Dataset) -> SpamClassifier:
+        k = self.k
+        dataset_tokens: set[str] = set()
+        token_spam_counts: dict[str, int] = defaultdict(int)
+        token_ham_counts: dict[str, int] = defaultdict(int)
+        spam_messages = ham_messages = 0
 
-        # Increment word counts
-        for token in tokenize(example.email):
-            dataset_tokens.add(token)
+        for example in dataset:
             if example.spam:
-                token_spam_counts[token] += 1
+                spam_messages += 1
             else:
-                token_ham_counts[token] += 1
+                ham_messages += 1
 
-    def classify(email: str) -> Prediction:
-        email_tokens = tokenize(email)
-        log_prob_if_spam = log_prob_if_ham = 0.0
+            # Increment word counts
+            for token in tokenize(example.email):
+                dataset_tokens.add(token)
+                if example.spam:
+                    token_spam_counts[token] += 1
+                else:
+                    token_ham_counts[token] += 1
 
-        # Iterate through each word in our vocabulary
-        for token in dataset_tokens:
-            spam = token_spam_counts[token]
-            ham = token_ham_counts[token]
+        def classify(email: str) -> Prediction:
+            email_tokens = tokenize(email)
+            log_prob_if_spam = log_prob_if_ham = 0.0
 
-            prob_if_spam = (spam + k) / (spam_messages + 2 * k)
-            prob_if_ham = (ham + k) / (ham_messages + 2 * k)
-            # If *token* appears in the message,
-            # add the log probability of seeing it
-            if token in email_tokens:
-                log_prob_if_spam += math.log(prob_if_spam)
-                log_prob_if_ham += math.log(prob_if_ham)
-            # Otherwise add the log probability of _not_ seeing it,
-            # which is log(1 - probability of seeing it)
-            else:
-                log_prob_if_spam += math.log(1.0 - prob_if_spam)
-                log_prob_if_ham += math.log(1.0 - prob_if_ham)
-        prob_if_spam = math.exp(log_prob_if_spam)
-        prob_if_ham = math.exp(log_prob_if_ham)
-        return prob_if_spam / (prob_if_spam + prob_if_ham)
+            # Iterate through each word in our vocabulary
+            for token in dataset_tokens:
+                spam = token_spam_counts[token]
+                ham = token_ham_counts[token]
 
-    return classify
+                prob_if_spam = (spam + k) / (spam_messages + 2 * k)
+                prob_if_ham = (ham + k) / (ham_messages + 2 * k)
+                # If *token* appears in the message,
+                # add the log probability of seeing it
+                if token in email_tokens:
+                    log_prob_if_spam += math.log(prob_if_spam)
+                    log_prob_if_ham += math.log(prob_if_ham)
+                # Otherwise add the log probability of _not_ seeing it,
+                # which is log(1 - probability of seeing it)
+                else:
+                    log_prob_if_spam += math.log(1.0 - prob_if_spam)
+                    log_prob_if_ham += math.log(1.0 - prob_if_ham)
+            prob_if_spam = math.exp(log_prob_if_spam)
+            prob_if_ham = math.exp(log_prob_if_ham)
+            return prob_if_spam / (prob_if_spam + prob_if_ham)
+
+        return classify
+
+    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> None:
+        self.classify_fn = model_trainer.load_serialized_classifier(
+            classifier_sha256_hash=sha256_digest,
+            classifier_destination_root=model_registry_root,
+        )
+
+    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
+        return model_trainer.store_classifier(
+            classifier_func=fn,
+            classifier_destination_root=model_registry_root,
+            current_git_commit_hash="ffofofo",
+        )
