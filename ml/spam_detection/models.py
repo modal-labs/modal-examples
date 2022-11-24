@@ -83,27 +83,6 @@ def train_llm_classifier(dataset: Dataset):
     trainer.save_model(output_dir=dest_path)
 
 
-def bad_words_spam_classifier(email: str) -> Prediction:
-    """
-    An extremely rudimentary heuritistic model. If a trained model
-    can't beat this something is very wrong.
-    """
-    tokens = " ".split(email)
-    tokens_set = set(tokens)
-    bad_words = {
-        "sex",
-        "xxx",
-        "nigerian",
-        "teens",
-    }
-    max_bad_words = 2
-    bad_words_count = 0
-    for word in bad_words:
-        if word in tokens_set:
-            bad_words_count += 1
-    return 1.0 if bad_words_count > max_bad_words else 0.0
-
-
 # TODO(Jonathon): Calculate spam email's N most popular non-stop-words to use as spam indicators.
 # This is basically a smarter version of `bad_words_spam_classifier`, which is the dumbest classifier,
 # using a fixed set of words and ignoring the available dataset.
@@ -118,6 +97,47 @@ def tokenize(text: str) -> set[str]:
     text = text.lower()
     all_words = re.findall("[a-z0-9]+", text)  # extract the words
     return set(all_words)
+
+
+class BadWords(SpamModel):
+    def train(self, dataset: Dataset) -> SpamClassifier:
+        _ = dataset
+
+        def bad_words_spam_classifier(email: str) -> Prediction:
+            """
+            An extremely rudimentary heuritistic model. If a trained model
+            can't beat this something is very wrong.
+            """
+            tokens = " ".split(email)
+            tokens_set = set(tokens)
+            # TODO: investigate is using a set here makes serialization non-deterministic.
+            bad_words = [
+                "sex",
+                "xxx",
+                "nigerian",
+                "teens",
+            ]
+            max_bad_words = 2
+            bad_words_count = 0
+            for word in bad_words:
+                if word in tokens_set:
+                    bad_words_count += 1
+            return 1.0 if bad_words_count > max_bad_words else 0.0
+
+        return bad_words_spam_classifier
+
+    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+        return model_trainer.load_serialized_classifier(
+            classifier_sha256_hash=sha256_digest,
+            classifier_destination_root=model_registry_root,
+        )
+
+    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
+        return model_trainer.store_classifier(
+            classifier_func=fn,
+            classifier_destination_root=model_registry_root,
+            current_git_commit_hash="ffofofo",
+        )
 
 
 class NaiveBayes(SpamModel):
@@ -173,8 +193,8 @@ class NaiveBayes(SpamModel):
 
         return classify
 
-    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> None:
-        self.classify_fn = model_trainer.load_serialized_classifier(
+    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+        return model_trainer.load_serialized_classifier(
             classifier_sha256_hash=sha256_digest,
             classifier_destination_root=model_registry_root,
         )

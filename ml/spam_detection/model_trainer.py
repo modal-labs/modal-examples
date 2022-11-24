@@ -5,6 +5,7 @@ within models.py.
 """
 import datetime
 import hashlib
+import io
 import json
 import pathlib
 import subprocess
@@ -51,9 +52,14 @@ def get_git_revision_hash() -> str:
 def serialize_classifier(
     classifier_func: SpamClassifier,
 ) -> bytes:
-    import dill as pickle
+    from datasets.utils.py_utils import Pickler
 
-    return pickle.dumps(classifier_func)
+    def dumps(obj, **kwds):
+        file = io.BytesIO()
+        Pickler(file, **kwds).dump(obj)
+        return file.getvalue()
+
+    return dumps(classifier_func)
 
 
 def store_classifier(
