@@ -1,9 +1,15 @@
+import json
+import pathlib
 import sys
 from datetime import timedelta
 
 import modal
 
-image = modal.Image.debian_slim().pip_install(
+from . import config
+from . import models
+from .datasets.enron import structure as enron
+
+image = modal.Image.debian_slim(python_version="3.10").pip_install(
     [
         "datasets~=2.7.1",
         "evaluate~=0.3.0",
@@ -14,70 +20,33 @@ image = modal.Image.debian_slim().pip_install(
     ]
 )
 stub = modal.Stub(name="example-spam-detect-llm", image=image)
+volume = modal.SharedVolume().persist("example-spam-detect-vol")
 
 
-def _get_logger():
-    from loguru import logger
-
-    logger.remove()
-    logger.add(sys.stderr, colorize=True)
-    return logger
-
-
-@stub.function(timeout=int(timedelta(minutes=30).total_seconds()))
+# NOTE: Can't use A100 easily because "Modal SharedVolume data will not be shared between A100 and non-A100 functions"
+@stub.function(shared_volumes={config.VOLUME_DIR: volume}, timeout=int(timedelta(minutes=30).total_seconds()), gpu=True)
 def train():
-    import numpy as np
-    import evaluate
-    from datasets import load_dataset
-    from transformers import AutoModelForSequenceClassification
-    from transformers import AutoTokenizer
-    from transformers import TrainingArguments, Trainer
-
-    logger = _get_logger()
-
+    logger = config._get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
     )
+    dataset_path = pathlib.Path(
+        config.VOLUME_DIR, "enron", "processed_raw_dataset.json"
+    )  # TODO: Shouldn't need to hardcode.
+    # models.train_llm_classifier(dataset)
+    classifier = models.train_naive_bayes_classifier(enron.deserialize_dataset(dataset_path))
+    print(classifier)
 
-    dataset = load_dataset("yelp_review_full")
-    dataset["train"][100]
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+@stub.function(interactive=True)
+def inference(email: str):
+    model_path = config.MODEL_STORE_DIR / "tmpmodel"
+    model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
-    def tokenize_function(examples):
-        return tokenizer(examples["text"], padding="max_length", truncation=True)
-
-    tokenized_datasets = dataset.map(tokenize_function, batched=True)
-
-    model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
-
-    training_args = TrainingArguments(output_dir="test_trainer")
-
-    metric = evaluate.load("accuracy")
-
-    def compute_metrics(eval_pred):
-        logits, labels = eval_pred
-        predictions = np.argmax(logits, axis=-1)
-        return metric.compute(predictions=predictions, references=labels)
-
-    training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
-
-    small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-    small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=small_train_dataset,
-        eval_dataset=small_eval_dataset,
-        compute_metrics=compute_metrics,
-    )
-
-    logger.opt(colors=True).info("<light-yellow>training</light-yellow> 🏋️")
-
-    trainer.train()
+    breakpoint()
 
 
 if __name__ == "__main__":
     with stub.run():
         train()
+        # inference()
