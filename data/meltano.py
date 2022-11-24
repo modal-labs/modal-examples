@@ -65,3 +65,7 @@ if __name__ == "__main__":
 
     with stub.run():
         run()
+
+# Because this example uses relative imports, you must run it as a module:
+#
+# python -m data.meltano
