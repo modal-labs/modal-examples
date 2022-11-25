@@ -49,11 +49,8 @@ def run_delete_model() -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    # create the top-level parser
     parser = argparse.ArgumentParser(prog="model-registry")
     parser.add_argument("--foo", action="store_true", help="foo is great option")
-
-    # create sub-parser
     sub_parsers = parser.add_subparsers(dest="subcommand")
 
     # create the parser for the "list" sub-command
@@ -68,8 +65,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser_delete.add_argument("--model-id", action="store", help="sha256 hashtag of model. eg 'sha256.1234567890abcd'")
 
     args = parser.parse_args()
-    print(args)
-    print(args.subcommand)
     if args.subcommand == "list":
         run_list()
     elif args.subcommand == "delete-model":

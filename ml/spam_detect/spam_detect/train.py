@@ -95,6 +95,6 @@ def init_volume():
 
 if __name__ == "__main__":
     with stub.run():
-        # init_volume()
-        # main()
-        inspect()
+        init_volume()
+        main()
+        # inspect()

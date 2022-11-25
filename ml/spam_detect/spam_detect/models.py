@@ -1,8 +1,6 @@
 import math
 import pathlib
-import random
 import re
-import string
 from collections import defaultdict
 
 from .datasets.enron import structure
@@ -10,6 +8,7 @@ from . import config
 from . import model_trainer
 
 from typing import (
+    cast,
     Callable,
     Iterable,
     Protocol,
@@ -39,7 +38,7 @@ class SpamModel(Protocol):
         ...
 
 
-def train_llm_classifier(dataset: Dataset):
+def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
     import numpy as np
     import evaluate
     from datasets import load_dataset
@@ -85,9 +84,12 @@ def train_llm_classifier(dataset: Dataset):
 
     logger.opt(colors=True).info("<light-yellow>training</light-yellow> 🏋️")
 
-    trainer.train()
+    if not dry_run:
+        trainer.train()
+        logger.opt(colors=True).info(f"<light-green>✔️ training done!</light-green>")
+    else:
+        logger.info(f"{dry_run=}, so skipping training step.")
 
-    logger.opt(colors=True).info(f"<light-green>✔️ training done!</light-green>: saving model to {dest_path}")
     return trainer
 
 
@@ -119,12 +121,14 @@ class LLM(SpamModel):
     Uses huggingface/transformers library.
     """
 
+    model_name = "bert-base-cased"
+
     def train(self, dataset: Dataset) -> SpamClassifier:
         from transformers import AutoTokenizer
 
         trainer = train_llm_classifier(dataset=dataset)
         model = trainer.model
-        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        tokenizer = AutoTokenizer.from_pretrained(LLM.model_name)
         return LLMSpamClassifier(
             tokenizer=tokenizer,
             model=model,
@@ -134,21 +138,26 @@ class LLM(SpamModel):
         from transformers import AutoTokenizer
         from transformers import AutoModelForSequenceClassification
 
+        # TODO: refactor to use model_trainer module for loading.
         model_path = model_registry_root / sha256_digest
         model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        tokenizer = AutoTokenizer.from_pretrained(LLM.model_name)
         return LLMSpamClassifier(
             tokenizer=tokenizer,
             model=model,
         )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
-        model_path = model_registry_root / tmp_dirname
-        fn.save_model(output_dir=model_path)
-        classfr_hash = model_trainer.create_hashtag_from_dir(model_path)
-        model_path.rename(model_registry_root / classfr_hash)
-        return classfr_hash
+        from transformers import Trainer
+
+        llm_fn = cast(LLMSpamClassifier, fn)
+        trainer = Trainer(model=llm_fn.model)
+        return model_trainer.store_huggingface_model(
+            trainer=trainer,
+            model_name=LLM.model_name,
+            model_destination_root=model_registry_root,
+            git_commit_hash="foobar",
+        )
 
 
 class BadWords(SpamModel):
@@ -180,13 +189,13 @@ class BadWords(SpamModel):
         return bad_words_spam_classifier
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
-        return model_trainer.load_serialized_classifier(
+        return model_trainer.load_pickle_serialized_model(
             classifier_sha256_hash=sha256_digest,
             classifier_destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_classifier(
+        return model_trainer.store_picklable_model(
             classifier_func=fn,
             classifier_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
@@ -252,13 +261,13 @@ class NaiveBayes(SpamModel):
         return classify
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
-        return model_trainer.load_serialized_classifier(
+        return model_trainer.load_pickle_serialized_model(
             classifier_sha256_hash=sha256_digest,
             classifier_destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_classifier(
+        return model_trainer.store_picklable_model(
             classifier_func=fn,
             classifier_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",

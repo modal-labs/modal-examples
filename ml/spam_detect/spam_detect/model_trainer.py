@@ -8,6 +8,9 @@ import hashlib
 import io
 import json
 import pathlib
+import pickle
+import random
+import string
 import subprocess
 
 from typing import (
@@ -17,7 +20,6 @@ from typing import (
     Iterable,
     NamedTuple,
     Optional,
-    Sequence,
 )
 
 from . import config
@@ -47,8 +49,8 @@ def get_git_revision_hash() -> str:
     return subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"]).decode("ascii").strip()
 
 
-def serialize_classifier(
-    classifier_func: SpamClassifier,
+def serialize_model(
+    model_func: SpamClassifier,
 ) -> bytes:
     try:
         from datasets.utils.py_utils import Pickler
@@ -60,7 +62,7 @@ def serialize_classifier(
         Pickler(file, **kwds).dump(obj)
         return file.getvalue()
 
-    return dumps(classifier_func)
+    return dumps(model_func)
 
 
 def create_hashtag_from_dir(dir: pathlib.Path) -> str:
@@ -76,18 +78,70 @@ def create_hashtag_from_bytes(b: bytes) -> str:
     return f"sha256.{hash_base}"
 
 
-def store_classifier(
+def store_huggingface_model(
+    trainer: Any,
+    model_name: str,
+    model_destination_root: pathlib.Path,
+    git_commit_hash: str,
+) -> str:
+    """
+    Accepts a Hugginface model that implements `save_model()` and stores it in model
+    registry and persistent filesystem.
+    """
+    tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
+    model_save_path = model_destination_root / tmp_dirname
+    trainer.save_model(output_dir=model_save_path)
+    model_hashtag = create_hashtag_from_dir(model_save_path)
+    model_save_path.rename(model_destination_root / model_hashtag)
+
+    logger.info(f"serialized model's hash is {model_hashtag}")
+
+    model_registry_metadata = load_classifier_registry_metadata(
+        classifier_destination_root=model_destination_root,
+    )
+
+    classifier_dest_path = model_destination_root / model_hashtag
+    if classifier_dest_path.is_file():
+        logger.warning(
+            (
+                f"model {model_hashtag} already exists. No need to save again. "
+                "consider caching model training to save compute cycles."
+            )
+        )
+
+    logger.info(f"updating models registry metadata to include information about {model_hashtag}")
+    metadata = ClassifierMetadata(
+        impl_name=model_name,
+        save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+        git_commit_hash=git_commit_hash,
+    )
+    store_model_registry_metadata(
+        model_registry_metadata=model_registry_metadata,
+        classifier_sha256_hash=model_hashtag,
+        classifier_metadata=metadata,
+        classifier_destination_root=model_destination_root,
+    )
+    logger.info("📦 done! Model stored.")
+    return model_hashtag
+
+
+def store_picklable_model(
     *,
     classifier_func: SpamClassifier,
     classifier_destination_root: pathlib.Path,
     current_git_commit_hash: str,
-) -> pathlib.Path:
-    logger.info("storing spam classifier to model registry.")
+) -> str:
+    """
+    Stores a pickle-able model in registry and persistent filesystem.
+    The `pickle` process only works on a single classifier Python object,
+    and should only be used for simple, pure-Python classifiers.
+    """
+    logger.info("storing spam model to model registry using pickling.")
 
-    serialized_classifier = serialize_classifier(classifier_func)
+    serialized_classifier = serialize_model(classifier_func)
     ser_clssfr_hash = create_hashtag_from_bytes(serialized_classifier)
 
-    logger.info(f"serialized classifier's hash is {ser_clssfr_hash}")
+    logger.info(f"serialized model's hash is {ser_clssfr_hash}")
 
     model_registry_metadata = load_classifier_registry_metadata(
         classifier_destination_root=classifier_destination_root,
@@ -97,33 +151,33 @@ def store_classifier(
     if classifier_dest_path.is_file():
         logger.warning(
             (
-                f"Classifier {ser_clssfr_hash} already exists. No need to save again. "
-                "Consider caching model training to save compute cycles."
+                f"model {ser_clssfr_hash} already exists. No need to save again. "
+                "consider caching model training to save compute cycles."
             )
         )
     else:
-        logger.info(f"Saving classifier to file at '{classifier_dest_path}'")
+        logger.info(f"saving model to file at '{classifier_dest_path}'")
         classifier_dest_path.write_bytes(serialized_classifier)
 
-    logger.info(f"Updating models registry metadata to include information about {ser_clssfr_hash}")
+    logger.info(f"updating models registry metadata to include information about {ser_clssfr_hash}")
     metadata = ClassifierMetadata(
-        impl_name=classifier_name_from_function(classifier_func),
+        impl_name=model_name_from_function(classifier_func),
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
         git_commit_hash=current_git_commit_hash,
     )
-    store_classifier_registry_metadata(
+    store_model_registry_metadata(
         model_registry_metadata=model_registry_metadata,
         classifier_sha256_hash=ser_clssfr_hash,
         classifier_metadata=metadata,
         classifier_destination_root=classifier_destination_root,
     )
-    logger.info("Done! Classifier model stored 📦.")
+    logger.info("📦 done! Model stored.")
     return ser_clssfr_hash
 
 
-def classifier_name_from_function(classifier_func: SpamClassifier) -> str:
+def model_name_from_function(model_func: SpamClassifier) -> str:
     # NOTE: This may be buggy, and create name clashes or ambiguity.
-    return classifier_func.__qualname__
+    return model_func.__qualname__
 
 
 def load_classifier_registry_metadata(
@@ -156,7 +210,7 @@ def retrieve_classifier_registry_metadata(
     return model_registry_metadata.get(classifier_sha256_hash)
 
 
-def store_classifier_registry_metadata(
+def store_model_registry_metadata(
     *,
     model_registry_metadata: ModelRegistryMetadata,
     classifier_sha256_hash: str,
@@ -184,13 +238,11 @@ def store_classifier_registry_metadata(
         json.dump(model_registry_metadata_dict, model_registry_f, indent=4)
 
 
-def load_serialized_classifier(
+def load_pickle_serialized_model(
     *,
     classifier_sha256_hash: str,
     classifier_destination_root: pathlib.Path,
 ) -> SpamClassifier:
-    # TODO: Check registry first???
-
     def check_integrity(*, expected_hash: str, actual_hash: str) -> None:
         if not expected_hash == actual_hash:
             err_msg = f"Shasum integrity check failure. Expected '{expected_hash}' but got '{actual_hash}'"
@@ -211,24 +263,4 @@ def load_serialized_classifier(
         expected_hash=classifier_sha256_hash,
         actual_hash=loaded_classifier_hash,
     )
-    import pickle
-
     return pickle.loads(classifier_bytes)
-
-
-# def main(argv: Optional[Sequence[str]] = None) -> int:
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("--model-registry-root", required=True)
-#     args = parser.parse_args(argv)
-#     model_registry_root = pathlib.Path(args.model_registry_root)
-
-#     store_classifier(
-#         classifier_func=models.bad_words_spam_classifier,
-#         classifier_destination_root=model_registry_root,
-#         current_git_commit_hash=get_git_revision_hash(),
-#     )
-#     return 0
-
-
-# if __name__ == "__main__":
-#     raise SystemExit(main())
