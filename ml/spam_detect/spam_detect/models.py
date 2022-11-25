@@ -40,7 +40,7 @@ def train_llm_classifier(dataset: Dataset):
     from transformers import AutoTokenizer
     from transformers import TrainingArguments, Trainer
 
-    logger = config._get_logger()
+    logger = config.get_logger()
 
     dataset = load_dataset("yelp_review_full")
     dataset["train"][100]
@@ -98,16 +98,10 @@ class LLM(SpamModel):
         return model
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        # 1. temporarily save in randomly named folder.
-        # 2. calculate the digest of the model folder contents
-        # 3. rename the folder with the digest of the folder contents
         tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
         model_path = model_registry_root / tmp_dirname
         fn.save_model(output_dir=model_path)
-        dgst = hashlib.sha256()
-        for f in model_path.glob("**/*"):
-            dgst.update(f.read_bytes())
-        classfr_hash = f"sha256.{dgst.hexdigest().upper()}"
+        classfr_hash = model_trainer.create_hashtag_from_dir(model_path)
         model_path.rename(model_registry_root / classfr_hash)
         return classfr_hash
 

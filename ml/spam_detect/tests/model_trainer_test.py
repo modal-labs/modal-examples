@@ -8,6 +8,39 @@ def dummy_classifier(email: str) -> float:
     return 0.86
 
 
+def test_hashtag_from_bytes():
+    b = b"1234"
+    expected = "sha256.03AC674216F3E15C761EE1A5E255F067953623C8B388B4459E13F978D7C846F4"
+    assert model_trainer.create_hashtag_from_bytes(b) == expected
+
+
+def test_hashtag_from_dir(tmp_path):
+    dir = tmp_path / "dir1"
+    dir.mkdir()
+    contents = {
+        "one": b"1234",
+        "two": b"5678",
+        "three": b"hello world",
+    }
+    for filename, b in contents.items():
+        p = dir / filename
+        p.write_bytes(b)
+
+    hashtag = model_trainer.create_hashtag_from_dir(dir)
+    assert hashtag == "sha256.EC0DAE99CA050AAC0E8D01A54997BB2BFA00E251990AE0A9239AE20670E86CEC"
+    # If we add file, the hash changes
+    p = dir / "four"
+    p.write_bytes(b"I change the hash")
+    hashtag_2 = model_trainer.create_hashtag_from_dir(dir)
+    assert hashtag != hashtag_2
+    # Renaming a file changes the hash
+    p = dir / "one"
+    p.rename(dir / "one.2")
+    hashtag_3 = model_trainer.create_hashtag_from_dir(dir)
+    assert hashtag != hashtag_3
+    assert hashtag_2 != hashtag_3
+
+
 def test_load_classifier_success(tmp_path):
     tmp_classifier_digest = model_trainer.store_classifier(
         classifier_func=dummy_classifier,
@@ -16,7 +49,7 @@ def test_load_classifier_success(tmp_path):
     )
 
     loaded_dummy_classifier = model_trainer.load_serialized_classifier(
-        classifier_sha256_hash=tmp_classifier_digest,  # NOTE: Implementation detail leak
+        classifier_sha256_hash=tmp_classifier_digest,
         classifier_destination_root=tmp_path,
     )
     test_email = "test email: doesn't matter what contents"

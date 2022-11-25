@@ -29,7 +29,7 @@ volume = modal.SharedVolume().persist("example-spam-detect-vol")
     gpu=True,
 )
 def train():
-    logger = config._get_logger()
+    logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
     )

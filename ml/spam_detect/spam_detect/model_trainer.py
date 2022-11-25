@@ -23,7 +23,7 @@ from typing import (
 from . import config
 from .datasets.enron import structure as dataset
 
-logger = config._get_logger()
+logger = config.get_logger()
 
 Email = str
 Prediction = float
@@ -64,6 +64,18 @@ def serialize_classifier(
 
     return dumps(classifier_func)
 
+def create_hashtag_from_dir(dir: pathlib.Path) -> str:
+    dgst = hashlib.sha256()
+    for f in dir.glob("**/*"):
+        dgst.update(f.name.encode())
+        dgst.update(f.read_bytes())
+    return f"sha256.{dgst.hexdigest().upper()}"
+
+
+def create_hashtag_from_bytes(b: bytes) -> str:
+    hash_base = hashlib.sha256(b).hexdigest().upper()
+    return f"sha256.{hash_base}"
+
 
 def store_classifier(
     *,
@@ -74,8 +86,7 @@ def store_classifier(
     logger.info("storing spam classifier to model registry.")
 
     serialized_classifier = serialize_classifier(classifier_func)
-    hash_base = hashlib.sha256(serialized_classifier).hexdigest().upper()
-    ser_clssfr_hash = f"sha256.{hash_base}"
+    ser_clssfr_hash = create_hashtag_from_bytes(serialized_classifier)
 
     logger.info(f"serialized classifier's hash is {ser_clssfr_hash}")
 

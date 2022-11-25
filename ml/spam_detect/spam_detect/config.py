@@ -5,7 +5,7 @@ VOLUME_DIR = "/cache"
 MODEL_STORE_DIR = pathlib.Path(VOLUME_DIR, "models")
 
 
-def _get_logger():
+def get_logger():
     from loguru import logger
 
     logger.remove()
