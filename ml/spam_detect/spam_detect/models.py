@@ -1,4 +1,3 @@
-import hashlib
 import math
 import pathlib
 import random
@@ -19,6 +18,12 @@ from typing import (
 Prediction = float
 Dataset = Iterable[structure.Example]
 SpamClassifier = Callable[[str], Prediction]
+
+
+def tokenize(text: str) -> set[str]:
+    text = text.lower()
+    all_words = re.findall("[a-z0-9]+", text)  # extract the words
+    return set(all_words)
 
 
 class SpamModel(Protocol):
@@ -108,8 +113,22 @@ class LLMSpamClassifier:
 
 
 class LLM(SpamModel):
+    """
+    A large-language model (LLM) fine-tuned for the SPAM/HAM text classification problem.
+
+    Uses huggingface/transformers library.
+    """
+
     def train(self, dataset: Dataset) -> SpamClassifier:
-        return train_llm_classifier(dataset=dataset)
+        from transformers import AutoTokenizer
+
+        trainer = train_llm_classifier(dataset=dataset)
+        model = trainer.model
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        return LLMSpamClassifier(
+            tokenizer=tokenizer,
+            model=model,
+        )
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         from transformers import AutoTokenizer
@@ -132,31 +151,16 @@ class LLM(SpamModel):
         return classfr_hash
 
 
-# TODO(Jonathon): Calculate spam email's N most popular non-stop-words to use as spam indicators.
-# This is basically a smarter version of `bad_words_spam_classifier`, which is the dumbest classifier,
-# using a fixed set of words and ignoring the available dataset.
-def build_top_spam_words_classifier(ds: Dataset) -> SpamClassifier:
-    def classifier(email: str) -> Prediction:
-        return 0.0
-
-    return classifier
-
-
-def tokenize(text: str) -> set[str]:
-    text = text.lower()
-    all_words = re.findall("[a-z0-9]+", text)  # extract the words
-    return set(all_words)
-
-
 class BadWords(SpamModel):
+    """
+    An extremely rudimentary heuritistic model. If a trained model
+    can't beat this something is very wrong.
+    """
+
     def train(self, dataset: Dataset) -> SpamClassifier:
         _ = dataset
 
         def bad_words_spam_classifier(email: str) -> Prediction:
-            """
-            An extremely rudimentary heuritistic model. If a trained model
-            can't beat this something is very wrong.
-            """
             tokens = " ".split(email)
             tokens_set = set(tokens)
             # TODO: investigate is using a set here makes serialization non-deterministic.
@@ -190,6 +194,11 @@ class BadWords(SpamModel):
 
 
 class NaiveBayes(SpamModel):
+    """
+    The classic Naive-Bayes classifier. Implementation drawn from the
+    *Data Science From Scratch* book: github.com/joelgrus/data-science-from-scratch.
+    """
+
     def __init__(self, k: float = 0.5) -> None:
         self.k = k
         self.classify_fn: SpamClassifier = None

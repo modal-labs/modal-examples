@@ -78,14 +78,6 @@ def main():
 def inspect():
     model = models.LLM()
 
-    pretrained_model_name_or_path = (
-        config.MODEL_STORE_DIR / "sha256.2F4C9AFED1C5A6404DCB5E28FCE2EB7F8F8A4A3B22A8E3BF677071EB42FB0AF3"
-    )
-    import os
-
-    print(os.path.isfile(os.path.join("", pretrained_model_name_or_path)))
-    # return
-
     model_id = "sha256.2F4C9AFED1C5A6404DCB5E28FCE2EB7F8F8A4A3B22A8E3BF677071EB42FB0AF3"
     classifier = model.load(
         sha256_digest=model_id,
