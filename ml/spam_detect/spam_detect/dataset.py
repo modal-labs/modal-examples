@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from . import config
 from .datasets.enron import download
-from .main import stub, volume
+from .app import stub, volume
 
 
 @stub.function(

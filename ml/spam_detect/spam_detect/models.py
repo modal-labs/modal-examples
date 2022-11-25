@@ -22,6 +22,8 @@ SpamClassifier = Callable[[str], Prediction]
 
 
 class SpamModel(Protocol):
+    """The training and storage interface that all spam-classification models must implement."""
+
     def train(self, dataset: Dataset) -> SpamClassifier:
         ...
 
@@ -80,10 +82,29 @@ def train_llm_classifier(dataset: Dataset):
 
     trainer.train()
 
-    dest_path = config.MODEL_STORE_DIR / "tmpmodel"
-    dest_path.mkdir(parents=True, exist_ok=True)
     logger.opt(colors=True).info(f"<light-green>✔️ training done!</light-green>: saving model to {dest_path}")
     return trainer
+
+
+class LLMSpamClassifier:
+    """SpamClassifier that wraps a fine-tuned Huggingface BERT transformer model."""
+
+    def __init__(self, tokenizer, model) -> None:
+        self.tokenizer = tokenizer
+        self.model = model
+
+    def __call__(self, email: str) -> Prediction:
+        """Ensures this class-based classifier can be used just like a function-based classifer."""
+        import torch
+
+        inputs = self.tokenizer(email, return_tensors="pt")
+        with torch.no_grad():
+            logits = self.model(**inputs).logits
+
+        predicted_class_id = logits.argmax().item()
+        print(self.model.config.id2label[predicted_class_id])
+        # TODO(Jonathon): map predicted class to boolean.
+        return 0.5
 
 
 class LLM(SpamModel):
@@ -91,11 +112,16 @@ class LLM(SpamModel):
         return train_llm_classifier(dataset=dataset)
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+        from transformers import AutoTokenizer
         from transformers import AutoModelForSequenceClassification
 
         model_path = model_registry_root / sha256_digest
         model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        return model
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        return LLMSpamClassifier(
+            tokenizer=tokenizer,
+            model=model,
+        )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
         tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))

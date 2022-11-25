@@ -5,21 +5,9 @@ import modal
 
 from . import config
 from . import models
+from .app import stub, volume
 from .datasets.enron import structure as enron
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    [
-        "datasets~=2.7.1",
-        "dill==0.3.4",  # pinned b/c of https://github.com/uqfoundation/dill/issues/481
-        "evaluate~=0.3.0",
-        "loguru~=0.6.0",
-        "scikit-learn~=1.1.3",  # Required by evaluate pkg.
-        "torch~=1.13.0",
-        "transformers~=4.24.0",
-    ]
-)
-stub = modal.Stub(name="example-spam-detect-llm", image=image)
-volume = modal.SharedVolume().persist("example-spam-detect-vol")
 
 @stub.function(
     shared_volumes={config.VOLUME_DIR: volume},
@@ -70,7 +58,7 @@ def main():
     )
     dataset_path = enron.dataset_path(config.DATA_DIR)
 
-    model_type = "NAIVE BAYES"  # Change to train different models.
+    model_type = "LLM"  # Change to train different models.
 
     logger.info("💪 training ...")
     if model_type == "NAIVE BAYES":
@@ -86,6 +74,28 @@ def main():
         raise ValueError("Unknown model type")
 
 
+@stub.function(shared_volumes={config.VOLUME_DIR: volume}, interactive=True, timeout=10000)
+def inspect():
+    model = models.LLM()
+
+    pretrained_model_name_or_path = (
+        config.MODEL_STORE_DIR / "sha256.2F4C9AFED1C5A6404DCB5E28FCE2EB7F8F8A4A3B22A8E3BF677071EB42FB0AF3"
+    )
+    import os
+
+    print(os.path.isfile(os.path.join("", pretrained_model_name_or_path)))
+    # return
+
+    model_id = "sha256.2F4C9AFED1C5A6404DCB5E28FCE2EB7F8F8A4A3B22A8E3BF677071EB42FB0AF3"
+    classifier = model.load(
+        sha256_digest=model_id,
+        model_registry_root=config.MODEL_STORE_DIR,
+    )
+
+    pred = classifier("I am a fake email this should be classifer as spam or ham.")
+    print(pred)
+
+
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
@@ -93,5 +103,6 @@ def init_volume():
 
 if __name__ == "__main__":
     with stub.run():
-        init_volume()
-        main()
+        # init_volume()
+        # main()
+        inspect()
