@@ -64,6 +64,7 @@ def serialize_classifier(
 
     return dumps(classifier_func)
 
+
 def create_hashtag_from_dir(dir: pathlib.Path) -> str:
     dgst = hashlib.sha256()
     for f in dir.glob("**/*"):

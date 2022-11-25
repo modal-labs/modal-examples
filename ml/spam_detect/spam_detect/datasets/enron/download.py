@@ -6,10 +6,10 @@ import tempfile
 import urllib.request
 from typing import Iterable
 
-from ...config import _get_logger
-from .structure import Example
+from ...config import get_logger
+from .structure import Example, dataset_path
 
-logger = _get_logger()
+logger = get_logger()
 
 enron_raw_dataset_url_root = "http://nlp.cs.aueb.gr/software_and_datasets/Enron-Spam/raw/"
 enron_dataset_files = {
@@ -47,8 +47,9 @@ def _download_and_extract_dataset(destination_root_path: pathlib.Path):
             destination_path.unlink()
 
 
-def download(destination: pathlib.Path) -> None:
-    processed_dataset_path = destination / "processed_raw_dataset.json"
+def download(base: pathlib.Path) -> None:
+    dest = dataset_path(base)
+    dest.parent.mkdir(exist_ok=True, parents=True)
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_path_name:
         tmp_path = pathlib.Path(tmp_path_name)
@@ -71,5 +72,5 @@ def download(destination: pathlib.Path) -> None:
                 ds.append(ex)
 
     logger.info("writing processed raw dataset to file.")
-    with open(processed_dataset_path, "w") as f:
+    with open(dest, "w") as f:
         json.dump(ds, f, indent=4)

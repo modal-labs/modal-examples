@@ -11,9 +11,9 @@ from .main import stub, volume
     shared_volumes={config.VOLUME_DIR: volume},
 )
 def prep():
-    dataset_path = pathlib.Path(config.VOLUME_DIR, "enron")
-    dataset_path.mkdir(parents=True, exist_ok=True)
-    download.download(destination=dataset_path)
+    datasets_path = config.DATA_DIR
+    datasets_path.mkdir(parents=True, exist_ok=True)
+    download.download(base=datasets_path)
 
 
 if __name__ == "__main__":

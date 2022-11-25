@@ -13,6 +13,10 @@ RawEnronDataset = MutableSequence[Example]
 CleanEnronDataset = dict[str, Example]
 
 
+def dataset_path(base: pathlib.Path) -> pathlib.Path:
+    return base / "raw" / "enron" / "all.json"
+
+
 def deserialize_dataset(dataset_path: pathlib.Path) -> RawEnronDataset:
     with open(dataset_path, "r") as f:
         items = json.load(f)

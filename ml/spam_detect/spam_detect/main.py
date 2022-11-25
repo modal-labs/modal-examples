@@ -33,17 +33,15 @@ def train():
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
     )
-    dataset_path = pathlib.Path(
-        config.VOLUME_DIR, "enron", "processed_raw_dataset.json"
-    )  # TODO: Shouldn't need to hardcode.
+    dataset_path = enron.dataset_path(config.DATA_DIR)
     enron_dataset = enron.deserialize_dataset(dataset_path)
 
-    logger.info("💪 training ...")
-    # LLM
-    model = models.LLM()
-    classifier = model.train(enron_dataset)
-    model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
-    logger.info(f"saved model to model store. {model_id=}")
+    # logger.info("💪 training ...")
+    # # LLM
+    # model = models.LLM()
+    # classifier = model.train(enron_dataset)
+    # model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
+    # logger.info(f"saved model to model store. {model_id=}")
 
     return
 
