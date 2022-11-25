@@ -3,6 +3,7 @@ import sys
 
 VOLUME_DIR = "/cache"
 MODEL_STORE_DIR = pathlib.Path(VOLUME_DIR, "models")
+MODEL_REGISTRY_FILENAME = "registry.json"
 DATA_DIR = pathlib.Path(VOLUME_DIR, "data")
 
 

@@ -32,8 +32,6 @@ Dataset = Iterable[dataset.Example]
 TrainingFunc = Callable[[Dataset], Any]
 ModelBuilder = Callable[[Dataset, Optional[TrainingFunc]], SpamClassifier]
 
-MODEL_REGISTRY_FILENAME = "registry.json"
-
 
 class ClassifierMetadata(NamedTuple):
     impl_name: str
@@ -132,7 +130,7 @@ def load_classifier_registry_metadata(
     *,
     classifier_destination_root: pathlib.Path,
 ):
-    model_registry_metadata_filepath = classifier_destination_root / MODEL_REGISTRY_FILENAME
+    model_registry_metadata_filepath = classifier_destination_root / config.MODEL_REGISTRY_FILENAME
     if not model_registry_metadata_filepath.exists():
         # Create registry metadata file on first save of a model.
         model_registry_metadata_filepath.write_text("{}")
@@ -182,7 +180,7 @@ def store_classifier_registry_metadata(
     model_registry_metadata_dict = {key: value._asdict() for key, value in model_registry_metadata.items()}
     # NOTE: Potentially overwrites with new metadata.
     model_registry_metadata_dict[classifier_sha256_hash] = classifier_metadata._asdict()
-    with open(classifier_destination_root / MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
+    with open(classifier_destination_root / config.MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
         json.dump(model_registry_metadata_dict, model_registry_f, indent=4)
 
 
