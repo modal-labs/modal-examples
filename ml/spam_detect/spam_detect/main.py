@@ -1,6 +1,4 @@
-import json
 import pathlib
-import sys
 from datetime import timedelta
 
 import modal
@@ -28,7 +26,7 @@ volume = modal.SharedVolume().persist("example-spam-detect-vol")
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
-    gpu=False,
+    gpu=True,
 )
 def train():
     logger = config._get_logger()
@@ -38,10 +36,19 @@ def train():
     dataset_path = pathlib.Path(
         config.VOLUME_DIR, "enron", "processed_raw_dataset.json"
     )  # TODO: Shouldn't need to hardcode.
-    # models.train_llm_classifier(dataset)
     enron_dataset = enron.deserialize_dataset(dataset_path)
-    model = models.NaiveBayes()
+
     logger.info("💪 training ...")
+    # LLM
+    model = models.LLM()
+    classifier = model.train(enron_dataset)
+    model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
+    logger.info(f"saved model to model store. {model_id=}")
+
+    return
+
+    # NAIVE BAYES
+    model = models.NaiveBayes()
     classifier = model.train(enron_dataset)
     model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
@@ -55,6 +62,7 @@ def train():
     print(classifier)
     print(classifier("fake email!"))
 
+    # BAD WORDS
     model = models.BadWords()
     classifier = model.train(enron_dataset)
     model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
@@ -67,14 +75,6 @@ def train():
     print(classifier("fake email!"))
 
 
-@stub.function(interactive=True)
-def inference(email: str):
-    model_path = config.MODEL_STORE_DIR / "tmpmodel"
-    model = AutoModelForSequenceClassification.from_pretrained(model_path)
-
-    breakpoint()
-
-
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
@@ -84,4 +84,3 @@ if __name__ == "__main__":
     with stub.run():
         init_volume()
         train()
-        # inference()

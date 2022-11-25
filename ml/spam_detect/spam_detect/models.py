@@ -1,6 +1,9 @@
+import hashlib
 import math
 import pathlib
+import random
 import re
+import string
 from collections import defaultdict
 
 from .datasets.enron import structure
@@ -22,10 +25,10 @@ class SpamModel(Protocol):
     def train(self, dataset: Dataset) -> SpamClassifier:
         ...
 
-    def load(self, model_path: pathlib.Path) -> SpamClassifier:
+    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         ...
 
-    def save(self, model_path: pathlib.Path) -> str:
+    def save(self, fn: SpamClassifier, model_path: pathlib.Path) -> str:
         ...
 
 
@@ -80,7 +83,33 @@ def train_llm_classifier(dataset: Dataset):
     dest_path = config.MODEL_STORE_DIR / "tmpmodel"
     dest_path.mkdir(parents=True, exist_ok=True)
     logger.opt(colors=True).info(f"<light-green>✔️ training done!</light-green>: saving model to {dest_path}")
-    trainer.save_model(output_dir=dest_path)
+    return trainer
+
+
+class LLM(SpamModel):
+    def train(self, dataset: Dataset) -> SpamClassifier:
+        return train_llm_classifier(dataset=dataset)
+
+    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+        from transformers import AutoModelForSequenceClassification
+
+        model_path = model_registry_root / sha256_digest
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        return model
+
+    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
+        # 1. temporarily save in randomly named folder.
+        # 2. calculate the digest of the model folder contents
+        # 3. rename the folder with the digest of the folder contents
+        tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
+        model_path = model_registry_root / tmp_dirname
+        fn.save_model(output_dir=model_path)
+        dgst = hashlib.sha256()
+        for f in model_path.glob("**/*"):
+            dgst.update(f.read_bytes())
+        classfr_hash = f"sha256.{dgst.hexdigest().upper()}"
+        model_path.rename(model_registry_root / classfr_hash)
+        return classfr_hash
 
 
 # TODO(Jonathon): Calculate spam email's N most popular non-stop-words to use as spam indicators.

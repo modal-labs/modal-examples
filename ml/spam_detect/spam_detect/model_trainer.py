@@ -52,7 +52,10 @@ def get_git_revision_hash() -> str:
 def serialize_classifier(
     classifier_func: SpamClassifier,
 ) -> bytes:
-    from datasets.utils.py_utils import Pickler
+    try:
+        from datasets.utils.py_utils import Pickler
+    except ModuleNotFoundError:
+        from pickle import Pickler
 
     def dumps(obj, **kwds):
         file = io.BytesIO()
