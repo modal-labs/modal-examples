@@ -57,8 +57,8 @@ image = modal.Image.debian_slim().pip_install(
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = modal.SharedVolume().persist(f"dreambooth-finetuning-vol")
-MODEL_DIR = Path(f"/model")
+volume = modal.SharedVolume().persist("dreambooth-finetuning-vol")
+MODEL_DIR = Path("/model")
 
 # Finetuning Stable Diffusion at 16-bit precision requires a lot of VRAM,
 # so we request a beefy NVIDIA A100 GPU.
@@ -267,8 +267,6 @@ def train(instance_example_urls, config=TrainConfig()):
     mounts=[modal.Mount("/assets", local_dir=assets_path)],
 )
 def fastapi_app(config=AppConfig()):
-    import os
-
     from diffusers import StableDiffusionPipeline
     import gradio as gr
     from gradio.routes import mount_gradio_app
@@ -310,7 +308,7 @@ def fastapi_app(config=AppConfig()):
         inputs="text",
         outputs=gr.Image(shape=(512, 512)),
         title=f"Generate images of {instance_phrase}.",
-        description="Describe what they are doing or pick an artist. Be fantastical! Try the examples below.",
+        description=description,
         examples=example_prompts,
         css="/assets/index.css",
         allow_flagging="never",
