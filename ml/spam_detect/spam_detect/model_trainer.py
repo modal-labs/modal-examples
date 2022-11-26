@@ -24,6 +24,7 @@ from typing import (
 
 from . import config
 from .datasets.enron import structure as dataset
+from .model_registry import ModelMetadata
 
 logger = config.get_logger()
 
@@ -35,14 +36,8 @@ TrainingFunc = Callable[[Dataset], Any]
 ModelBuilder = Callable[[Dataset, Optional[TrainingFunc]], SpamClassifier]
 
 
-class ClassifierMetadata(NamedTuple):
-    impl_name: str
-    save_date: str
-    git_commit_hash: str
-
-
 Sha256Hash = str
-ModelRegistryMetadata = Dict[Sha256Hash, ClassifierMetadata]
+ModelRegistryMetadata = Dict[Sha256Hash, ModelMetadata]
 
 
 def get_git_revision_hash() -> str:
@@ -110,7 +105,7 @@ def store_huggingface_model(
         )
 
     logger.info(f"updating models registry metadata to include information about {model_hashtag}")
-    metadata = ClassifierMetadata(
+    metadata = ModelMetadata(
         impl_name=model_name,
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
         git_commit_hash=git_commit_hash,
@@ -160,7 +155,7 @@ def store_picklable_model(
         classifier_dest_path.write_bytes(serialized_classifier)
 
     logger.info(f"updating models registry metadata to include information about {ser_clssfr_hash}")
-    metadata = ClassifierMetadata(
+    metadata = ModelMetadata(
         impl_name=model_name_from_function(classifier_func),
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
         git_commit_hash=current_git_commit_hash,
@@ -192,7 +187,7 @@ def load_classifier_registry_metadata(
     with open(model_registry_metadata_filepath, "r") as model_registry_f:
         data = json.load(model_registry_f)
     model_registry_metadata: ModelRegistryMetadata = {
-        key: ClassifierMetadata(
+        key: ModelMetadata(
             impl_name=value["impl_name"],
             save_date=value["save_date"],
             git_commit_hash=value["git_commit_hash"],
@@ -206,7 +201,7 @@ def retrieve_classifier_registry_metadata(
     *,
     model_registry_metadata: ModelRegistryMetadata,
     classifier_sha256_hash: str,
-) -> Optional[ClassifierMetadata]:
+) -> Optional[ModelMetadata]:
     return model_registry_metadata.get(classifier_sha256_hash)
 
 
@@ -214,7 +209,7 @@ def store_model_registry_metadata(
     *,
     model_registry_metadata: ModelRegistryMetadata,
     classifier_sha256_hash: str,
-    classifier_metadata: ClassifierMetadata,
+    classifier_metadata: ModelMetadata,
     classifier_destination_root: pathlib.Path,
 ) -> None:
     existing_metadata = retrieve_classifier_registry_metadata(

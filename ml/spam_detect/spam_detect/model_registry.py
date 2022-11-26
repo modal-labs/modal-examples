@@ -1,14 +1,13 @@
 import argparse
 import dataclasses
 import json
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from . import config
 from .app import stub, volume
 
 
-@dataclasses.dataclass
-class ModelMetadata:
+class ModelMetadata(NamedTuple):
     impl_name: str
     save_date: str  # UTC+ISO8601 formatted.
     git_commit_hash: str
