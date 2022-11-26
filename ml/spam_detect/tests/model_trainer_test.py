@@ -44,13 +44,13 @@ def test_hashtag_from_dir(tmp_path):
 def test_load_model_success(tmp_path):
     tmp_classifier_digest = model_trainer.store_picklable_model(
         classifier_func=dummy_classifier,
-        classifier_destination_root=tmp_path,
+        model_destination_root=tmp_path,
         current_git_commit_hash="TEST-NOT-REALLY-A-COMMIT-HASH",
     )
 
     loaded_dummy_classifier = model_trainer.load_pickle_serialized_model(
-        classifier_sha256_hash=tmp_classifier_digest,
-        classifier_destination_root=tmp_path,
+        sha256_hash=tmp_classifier_digest,
+        destination_root=tmp_path,
     )
     test_email = "test email: doesn't matter what contents"
     assert dummy_classifier(email=test_email) == loaded_dummy_classifier(email=test_email)
@@ -66,6 +66,6 @@ def test_load_model_corrupted_data(tmp_path):
 
     with pytest.raises(ValueError):
         _ = model_trainer.load_pickle_serialized_model(
-            classifier_sha256_hash=bogus_hash,
-            classifier_destination_root=tmp_path,
+            sha256_hash=bogus_hash,
+            destination_root=tmp_path,
         )

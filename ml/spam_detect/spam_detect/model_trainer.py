@@ -91,12 +91,12 @@ def store_huggingface_model(
 
     logger.info(f"serialized model's hash is {model_hashtag}")
 
-    model_registry_metadata = load_classifier_registry_metadata(
-        classifier_destination_root=model_destination_root,
+    model_registry_metadata = load_model_registry_metadata(
+        model_registry_root=model_destination_root,
     )
 
-    classifier_dest_path = model_destination_root / model_hashtag
-    if classifier_dest_path.is_file():
+    model_dest_path = model_destination_root / model_hashtag
+    if model_dest_path.is_file():
         logger.warning(
             (
                 f"model {model_hashtag} already exists. No need to save again. "
@@ -112,9 +112,9 @@ def store_huggingface_model(
     )
     store_model_registry_metadata(
         model_registry_metadata=model_registry_metadata,
-        classifier_sha256_hash=model_hashtag,
-        classifier_metadata=metadata,
-        classifier_destination_root=model_destination_root,
+        sha256_hash=model_hashtag,
+        metadata=metadata,
+        destination_root=model_destination_root,
     )
     logger.info("📦 done! Model stored.")
     return model_hashtag
@@ -123,7 +123,7 @@ def store_huggingface_model(
 def store_picklable_model(
     *,
     classifier_func: SpamClassifier,
-    classifier_destination_root: pathlib.Path,
+    model_destination_root: pathlib.Path,
     current_git_commit_hash: str,
 ) -> str:
     """
@@ -133,17 +133,17 @@ def store_picklable_model(
     """
     logger.info("storing spam model to model registry using pickling.")
 
-    serialized_classifier = serialize_model(classifier_func)
-    ser_clssfr_hash = create_hashtag_from_bytes(serialized_classifier)
+    serialized_model = serialize_model(classifier_func)
+    ser_clssfr_hash = create_hashtag_from_bytes(serialized_model)
 
     logger.info(f"serialized model's hash is {ser_clssfr_hash}")
 
-    model_registry_metadata = load_classifier_registry_metadata(
-        classifier_destination_root=classifier_destination_root,
+    model_registry_metadata = load_model_registry_metadata(
+        model_registry_root=model_destination_root,
     )
 
-    classifier_dest_path = classifier_destination_root / ser_clssfr_hash
-    if classifier_dest_path.is_file():
+    model_dest_path = model_destination_root / ser_clssfr_hash
+    if model_dest_path.is_file():
         logger.warning(
             (
                 f"model {ser_clssfr_hash} already exists. No need to save again. "
@@ -151,8 +151,8 @@ def store_picklable_model(
             )
         )
     else:
-        logger.info(f"saving model to file at '{classifier_dest_path}'")
-        classifier_dest_path.write_bytes(serialized_classifier)
+        logger.info(f"saving model to file at '{model_dest_path}'")
+        model_dest_path.write_bytes(serialized_model)
 
     logger.info(f"updating models registry metadata to include information about {ser_clssfr_hash}")
     metadata = ModelMetadata(
@@ -162,9 +162,9 @@ def store_picklable_model(
     )
     store_model_registry_metadata(
         model_registry_metadata=model_registry_metadata,
-        classifier_sha256_hash=ser_clssfr_hash,
-        classifier_metadata=metadata,
-        classifier_destination_root=classifier_destination_root,
+        sha256_hash=ser_clssfr_hash,
+        metadata=metadata,
+        destination_root=model_destination_root,
     )
     logger.info("📦 done! Model stored.")
     return ser_clssfr_hash
@@ -175,11 +175,11 @@ def model_name_from_function(model_func: SpamClassifier) -> str:
     return model_func.__qualname__
 
 
-def load_classifier_registry_metadata(
+def load_model_registry_metadata(
     *,
-    classifier_destination_root: pathlib.Path,
+    model_registry_root: pathlib.Path,
 ):
-    model_registry_metadata_filepath = classifier_destination_root / config.MODEL_REGISTRY_FILENAME
+    model_registry_metadata_filepath = model_registry_root / config.MODEL_REGISTRY_FILENAME
     if not model_registry_metadata_filepath.exists():
         # Create registry metadata file on first save of a model.
         model_registry_metadata_filepath.write_text("{}")
@@ -197,30 +197,30 @@ def load_classifier_registry_metadata(
     return model_registry_metadata
 
 
-def retrieve_classifier_registry_metadata(
+def retrieve_model_registry_metadata(
     *,
     model_registry_metadata: ModelRegistryMetadata,
-    classifier_sha256_hash: str,
+    sha256_hash: str,
 ) -> Optional[ModelMetadata]:
-    return model_registry_metadata.get(classifier_sha256_hash)
+    return model_registry_metadata.get(sha256_hash)
 
 
 def store_model_registry_metadata(
     *,
     model_registry_metadata: ModelRegistryMetadata,
-    classifier_sha256_hash: str,
-    classifier_metadata: ModelMetadata,
-    classifier_destination_root: pathlib.Path,
+    sha256_hash: str,
+    metadata: ModelMetadata,
+    destination_root: pathlib.Path,
 ) -> None:
-    existing_metadata = retrieve_classifier_registry_metadata(
+    existing_metadata = retrieve_model_registry_metadata(
         model_registry_metadata=model_registry_metadata,
-        classifier_sha256_hash=classifier_sha256_hash,
+        sha256_hash=sha256_hash,
     )
     if existing_metadata is not None:
-        logger.debug("Classifier with matching hash found in registry.")
+        logger.debug("classifier with matching hash found in registry.")
         # compare new metadata with old to detect registry corruption or
         # strange renaming.
-        if classifier_metadata.impl_name != existing_metadata.impl_name:
+        if metadata.impl_name != existing_metadata.impl_name:
             raise RuntimeError(
                 "Existing classifier with identical sha256 hash to current classifier found "
                 "with conflicting metadata. "
@@ -228,15 +228,15 @@ def store_model_registry_metadata(
             )
     model_registry_metadata_dict = {key: value._asdict() for key, value in model_registry_metadata.items()}
     # NOTE: Potentially overwrites with new metadata.
-    model_registry_metadata_dict[classifier_sha256_hash] = classifier_metadata._asdict()
-    with open(classifier_destination_root / config.MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
+    model_registry_metadata_dict[sha256_hash] = metadata._asdict()
+    with open(destination_root / config.MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
         json.dump(model_registry_metadata_dict, model_registry_f, indent=4)
 
 
 def load_pickle_serialized_model(
     *,
-    classifier_sha256_hash: str,
-    classifier_destination_root: pathlib.Path,
+    sha256_hash: str,
+    destination_root: pathlib.Path,
 ) -> SpamClassifier:
     def check_integrity(*, expected_hash: str, actual_hash: str) -> None:
         if not expected_hash == actual_hash:
@@ -244,18 +244,18 @@ def load_pickle_serialized_model(
             raise ValueError(err_msg)
 
     expected_prefix = "sha256."
-    if not classifier_sha256_hash.startswith(expected_prefix):
-        raise ValueError(f"Classifier sha256 hashes are expected to start with the prefix '{expected_prefix}")
+    if not sha256_hash.startswith(expected_prefix):
+        raise ValueError(f"model sha256 hashes are expected to start with the prefix '{expected_prefix}")
 
-    classifier_path = classifier_destination_root / classifier_sha256_hash
-    with open(classifier_path, "rb") as f:
-        classifier_bytes = f.read()
+    model_path = destination_root / sha256_hash
+    with open(model_path, "rb") as f:
+        model_bytes = f.read()
 
-    hash_base = hashlib.sha256(classifier_bytes).hexdigest().upper()
-    loaded_classifier_hash = f"sha256.{hash_base}"
+    hash_base = hashlib.sha256(model_bytes).hexdigest().upper()
+    filestored_model_hashtag = f"sha256.{hash_base}"
 
     check_integrity(
-        expected_hash=classifier_sha256_hash,
-        actual_hash=loaded_classifier_hash,
+        expected_hash=sha256_hash,
+        actual_hash=filestored_model_hashtag,
     )
-    return pickle.loads(classifier_bytes)
+    return pickle.loads(model_bytes)
