@@ -132,29 +132,6 @@ def fastapi_app():
     return web_app
 
 
-@stub.function
-def extract_colors(num=3) -> None:
-    import colorgram
-    import urllib.request
-
-    for card in config.POKEMON_CARDS:
-        print(f"Processing {card['name']}")
-        req = urllib.request.Request(
-            card["images"]["large"],
-            # Set a user agent to avoid 403 response from some podcast audio servers.
-            headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-            },
-        )
-        image_bytes = urllib.request.urlopen(req).read()
-        colors = colorgram.extract(io.BytesIO(image_bytes), num)
-        card["colors"] = [list(color.rgb) for color in colors]
-
-    import json
-
-    print(json.dumps(config.POKEMON_CARDS, indent=4))
-
-
 def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
@@ -279,20 +256,6 @@ def closest_pokecard_by_color(sample: bytes, cards):
 
 
 if __name__ == "__main__":
-    # composite_pokemon_card(
-    #     base=pathlib.Path("text-to-pokemon/bulbasaur.png"),
-    #     character_img=pathlib.Path("text-to-pokemon/abramon.png"),
-    # )
-
-    # with open(pathlib.Path("1668009013_3.png"), "rb") as f:
-    #     image_bytes = f.read()
-    # with stub.run():
-    #     closest = closest_pokecard_by_color(sample=image_bytes, cards=config.POKEMON_CARDS)
-    #     print(closest)
-
-    # with stub.run():
-    #     extract_colors()
-
     if len(sys.argv) == 1:
         print("No prompt provided so running webapp…")
         stub.serve()
