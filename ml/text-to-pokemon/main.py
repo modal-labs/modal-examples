@@ -190,33 +190,47 @@ def color_dist(one: tuple[float, float, float], two: tuple[float, float, float])
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str):
-    # Produce the Pokémon character samples with the StableDiffusion model.
-    samples_data = diskcached_text_to_pokemon(prompt)
+    norm_prompt_digest = hashlib.sha256(normalize_prompt(prompt).encode()).hexdigest()
+    config.FINAL_IMGS.mkdir(parents=True, exist_ok=True)
+    final_cards_dir = config.FINAL_IMGS / norm_prompt_digest
 
-    print("Determining base cards for generate samples.")
-    card_bases_bytes = []
-    for i, sample in enumerate(samples_data):
-        closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
-        print(f"Closest base card for sample {i} is '{closest_card['name']}'")
-        base_card_url = closest_card["images"]["large"]
-        req = urllib.request.Request(
-            base_card_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-            },
-        )
-        base_bytes = urllib.request.urlopen(req).read()
-        card_bases_bytes.append(base_bytes)
+    if final_cards_dir.exists():
+        print("Cached! - prompt has had cards composed before, returning previous Pokémon card results.")
+        cards_data = [card_file.read_bytes() for card_file in final_cards_dir.iterdir()]
+    else:
+        print("No existing final card outputs for prompts. Proceeding...")
+        # Produce the Pokémon character samples with the StableDiffusion model.
+        samples_data = diskcached_text_to_pokemon(prompt)
 
-    print("Compositing the character samples onto Pokémon cards.")
-    images_data = [
-        composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample_bytes))
-        for base_bytes, sample_bytes in zip(card_bases_bytes, samples_data)
-    ]
+        print("Determining base cards for generate samples.")
+        card_bases_bytes = []
+        for i, sample in enumerate(samples_data):
+            closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
+            print(f"Closest base card for sample {i} is '{closest_card['name']}'")
+            base_card_url = closest_card["images"]["large"]
+            req = urllib.request.Request(
+                base_card_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
+                },
+            )
+            base_bytes = urllib.request.urlopen(req).read()
+            card_bases_bytes.append(base_bytes)
+
+        print("Compositing the character samples onto Pokémon cards.")
+        cards_data = [
+            composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample_bytes))
+            for base_bytes, sample_bytes in zip(card_bases_bytes, samples_data)
+        ]
+        print("Persisting results for later disk-cache retrieval.")
+        final_cards_dir.mkdir()
+        for i, c_data in enumerate(cards_data):
+            c_path = final_cards_dir / f"{i}.png"
+            c_path.write_bytes(c_data)
 
     # Return Pokémon cards to client as base64-encoded images with metadata.
     cards = []
-    for i, image_bytes in enumerate(images_data):
+    for i, image_bytes in enumerate(cards_data):
         encoded_image_string = base64.b64encode(image_bytes)
         cards.append(
             PokemonCardResponseItem(
