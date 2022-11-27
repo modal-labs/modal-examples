@@ -1,9 +1,37 @@
 import io
 import json
 import urllib.request
+import shutil
 
 from . import config
-from .main import stub
+from .main import stub, volume
+
+
+@stub.function(shared_volumes={config.CACHE_DIR: volume})
+def reset_diskcache(dry_run=True) -> None:
+    """
+    Delete all Pokémon character samples and cards from disk cache.
+    Useful when a changes are made to character or card generation process
+    and you want create cache misses so the changes so up for users.
+    """
+    if config.POKEMON_IMGS.exists():
+        for i, filepath in enumerate(config.POKEMON_IMGS.glob("**/*")):
+            if not dry_run:
+                filepath.unlink()
+        if dry_run:
+            print(f"dry-run: would have deleted {i+1} Pokémon character samples")
+        else:
+            print(f"deleted {i+1} Pokémon character samples")
+
+    if config.FINAL_IMGS.exists():
+        for i, filepath in enumerate(config.FINAL_IMGS.glob("**/*")):
+            if not dry_run:
+                filepath.unlink()
+
+        if dry_run:
+            print(f"dry-run: would have deleted {i+1} Pokémon card images")
+        else:
+            print(f"deleted {i+1} Pokémon card images")
 
 
 @stub.function
@@ -30,3 +58,8 @@ def extract_colors(num=3) -> None:
         card["colors"] = [list(color.rgb) for color in colors]
 
     print(json.dumps(config.POKEMON_CARDS, indent=4))
+
+
+if __name__ == "__main__":
+    with stub.run():
+        reset_diskcache(dry_run=True)
