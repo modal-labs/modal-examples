@@ -10,6 +10,7 @@
 
 # ## Basic setup
 import modal
+import time
 from pathlib import Path
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
@@ -107,8 +108,11 @@ def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
 
     with stub.run():
         for i in range(samples):
+            t0 = time.time()
             image = _run_inference(prompt, steps)
-            image.save(dir / f"output_{i}.png")
+            output_path = dir / f"output_{i}.png"
+            print(f"Sample {i} took {time.time()-t0:.3f}s. Saving it to {output_path}")
+            image.save(output_path)
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
