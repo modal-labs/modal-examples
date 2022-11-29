@@ -46,19 +46,14 @@ def download_models():
     # Download the Euler A scheduler configuration. Faster than the default and
     # high quality output with fewer steps.
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
-        model_id,
-        subfolder="scheduler",
-        use_auth_token=hugging_face_token,
-        cache_dir=cache_path)
+        model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
+    )
     euler.save_pretrained(cache_path)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-        model_id,
-        use_auth_token=hugging_face_token,
-        revision="fp16",
-        torch_dtype=torch.float16,
-        cache_dir=cache_path)
+        model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
+    )
     pipe.save_pretrained(cache_path)
 
 
@@ -116,6 +111,7 @@ class StableDiffusion:
     @stub.function(gpu=modal.gpu.A100())
     def run_inference(self, prompt: str, steps: int = 20) -> str:
         import torch
+
         with torch.inference_mode():
             image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
 
