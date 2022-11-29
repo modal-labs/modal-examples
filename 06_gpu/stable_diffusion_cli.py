@@ -27,18 +27,27 @@ app = typer.Typer()
 #
 # Your model will be running remotely inside a container. We will be installing
 # all the model dependencies in the next step. We will also be "baking the model"
-# into the image using the script `download_stable_diffusion_models.py`. 
+# into the image using the script `download_stable_diffusion_models.py`.
 # This is technique that allows you to copy model files to
 # a worker more efficiently because they only need to be moved once.
 
-image = modal.Image.conda().apt_install(["curl"]).run_commands([
-    "conda install xformers -c xformers/label/dev",
-    "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
-]).run_commands([
-    "pip install diffusers[torch] transformers ftfy accelerate"
-]).run_commands([
-    "curl -L https://gist.github.com/luiscape/36a8cd29b8ed54cfbfcf56d51fe23cc0/raw/a6bf16996efe7c59114eea7944b0f99741d83d54/download_stable_diffusion_models.py | python"
-], secrets=[modal.Secret.from_name("huggingface-secret")])
+image = (
+    modal.Image.conda()
+    .apt_install(["curl"])
+    .run_commands(
+        [
+            "conda install xformers -c xformers/label/dev",
+            "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
+        ]
+    )
+    .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
+    .run_commands(
+        [
+            "curl -L https://gist.github.com/luiscape/36a8cd29b8ed54cfbfcf56d51fe23cc0/raw/a6bf16996efe7c59114eea7944b0f99741d83d54/download_stable_diffusion_models.py | python"
+        ],
+        secrets=[modal.Secret.from_name("huggingface-secret")],
+    )
+)
 stub.image = image
 
 # ## Global context
@@ -63,19 +72,20 @@ if stub.is_inside():
 
     cache_path = "/vol/cache"
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
-        cache_path,
-        subfolder="scheduler",
-        cache_dir=cache_path)
+        cache_path, subfolder="scheduler", cache_dir=cache_path
+    )
     PIPE = diffusers.StableDiffusionPipeline.from_pretrained(
-        cache_path, torch_dtype=torch.float16, scheduler=euler, cache_dir=cache_path).to("cuda")
+        cache_path, torch_dtype=torch.float16, scheduler=euler, cache_dir=cache_path
+    ).to("cuda")
     PIPE.enable_xformers_memory_efficient_attention()
 
 
 # This is our Modal function. The function runs through the `StableDiffusionPipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
+
 @stub.function(gpu=modal.gpu.A100())
-def _run_inference(prompt:str, steps:int = 20) -> str:
+def _run_inference(prompt: str, steps: int = 20) -> str:
     with torch.inference_mode():
         image = PIPE(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
 
@@ -86,8 +96,9 @@ def _run_inference(prompt:str, steps:int = 20) -> str:
 # `samples` (the number of images you want to generate), and `steps` which
 # configures the number of inference steps the model will make.
 
+
 @app.command()
-def entrypoint(prompt: str, samples:int = 10, steps:int = 20):
+def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}")
 
     dir = Path("/tmp/stable-diffusion")
@@ -98,6 +109,7 @@ def entrypoint(prompt: str, samples:int = 10, steps:int = 20):
         for i in range(samples):
             image = _run_inference(prompt, steps)
             image.save(dir / f"output_{i}.png")
+
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `python stable_diffusion_cli.py --help`
