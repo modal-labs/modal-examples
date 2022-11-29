@@ -78,11 +78,11 @@ def _run_inference(prompt:str, steps:int = 20) -> str:
 # This is the CLI command that we'll use to generate images.
 
 @app.command()
-def entrypoint(prompt: str, samples:int = 10):
-    typer.echo(f"prompt => {prompt}, samples => {samples}")
+def entrypoint(prompt: str, samples:int = 10, steps:int = 20):
+    typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}")
     with stub.run():
         for i in range(samples):
-            image = _run_inference(prompt)
+            image = _run_inference(prompt, steps)
             image.save(f"output_{i}.png")
 
 # And this is our entrypoint; where the CLI is invoked.
