@@ -45,12 +45,12 @@ def download_models():
 
     # Download the Euler A scheduler configuration. Faster than the default and
     # high quality output with fewer steps.
-    euler = diffusers.EulerAncestralDiscreteScheduler.from_config(
+    euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         model_id,
         subfolder="scheduler",
         use_auth_token=hugging_face_token,
         cache_dir=cache_path)
-    euler.save_config(cache_path)
+    euler.save_pretrained(cache_path)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
