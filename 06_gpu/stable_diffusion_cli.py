@@ -27,8 +27,9 @@ app = typer.Typer()
 #
 # Your model will be running remotely inside a container. We will be installing
 # all the model dependencies in the next step. We will also be "baking the model"
-# into the image. This is technique that allows you to load models much faster
-# by using our [high-performance blob storage file server](https://github.com/modal-labs/blobnet).
+# into the image using the script `download_stable_diffusion_models.py`. 
+# This is technique that allows you to copy model files to
+# a worker more efficiently because they only need to be moved once.
 
 image = modal.Image.conda().apt_install(["curl"]).run_commands([
     "conda install xformers -c xformers/label/dev",
@@ -73,7 +74,7 @@ if stub.is_inside():
 # This is our Modal function. The function runs through the `StableDiffusionPipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
-@stub.function(gpu=True)
+@stub.function(gpu=modal.gpu.A100())
 def _run_inference(prompt:str, steps:int = 20) -> str:
     with torch.inference_mode():
         image = PIPE(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
@@ -81,7 +82,9 @@ def _run_inference(prompt:str, steps:int = 20) -> str:
     return image
 
 
-# This is the CLI command that we'll use to generate images.
+# This is the command we'll use to generate images. It takes a `prompt`,
+# `samples` (the number of images you want to generate), and `steps` which
+# configures the number of inference steps the model will make.
 
 @app.command()
 def entrypoint(prompt: str, samples:int = 10, steps:int = 20):
@@ -96,7 +99,8 @@ def entrypoint(prompt: str, samples:int = 10, steps:int = 20):
             image = _run_inference(prompt, steps)
             image.save(dir / f"output_{i}.png")
 
-# And this is our entrypoint; where the CLI is invoked.
+# And this is our entrypoint; where the CLI is invoked. Explore CLI options
+# with: `python stable_diffusion_cli.py --help`
 
 if __name__ == "__main__":
     app()
