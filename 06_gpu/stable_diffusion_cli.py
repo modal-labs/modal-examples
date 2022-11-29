@@ -75,6 +75,7 @@ image = (
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
+        gpu=modal.gpu.A100(),
     )
 )
 stub.image = image
@@ -105,7 +106,6 @@ if is_inside:
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
 
-    cache_path = "/vol/cache"
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         cache_path, subfolder="scheduler", cache_dir=cache_path
     )
