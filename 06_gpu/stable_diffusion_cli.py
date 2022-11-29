@@ -10,6 +10,7 @@
 
 # ## Basic setup
 import modal
+import os
 import time
 from pathlib import Path
 
@@ -32,6 +33,35 @@ app = typer.Typer()
 # This is technique that allows you to copy model files to
 # a worker more efficiently because they only need to be moved once.
 
+model_id = "runwayml/stable-diffusion-v1-5"
+cache_path = "/vol/cache"
+
+
+def download_models():
+    import torch
+    import diffusers
+
+    hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
+
+    # Download the Euler A scheduler configuration. Faster than the default and
+    # high quality output with fewer steps.
+    euler = diffusers.EulerAncestralDiscreteScheduler.from_config(
+        model_id,
+        subfolder="scheduler",
+        use_auth_token=hugging_face_token,
+        cache_dir=cache_path)
+    euler.save_config(cache_path)
+
+    # Downloads all other models.
+    pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+        model_id,
+        use_auth_token=hugging_face_token,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        cache_dir=cache_path)
+    pipe.save_pretrained(cache_path)
+
+
 image = (
     modal.Image.conda()
     .apt_install(["curl"])
@@ -42,10 +72,8 @@ image = (
         ]
     )
     .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
-    .run_commands(
-        [
-            "curl -L https://gist.github.com/luiscape/36a8cd29b8ed54cfbfcf56d51fe23cc0/raw/a6bf16996efe7c59114eea7944b0f99741d83d54/download_stable_diffusion_models.py | python"
-        ],
+    .run_function(
+        download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
@@ -64,7 +92,13 @@ stub.image = image
 # 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
 # generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
-if stub.is_inside():
+try:
+    is_inside = stub.is_inside()
+except KeyError:
+    # TODO: Fix this bug
+    is_inside = False
+
+if is_inside:
     import torch
     import diffusers
 
