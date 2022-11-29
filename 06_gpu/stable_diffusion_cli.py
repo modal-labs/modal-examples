@@ -10,6 +10,8 @@
 
 # ## Basic setup
 import modal
+import os
+import time
 from pathlib import Path
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
@@ -31,6 +33,30 @@ app = typer.Typer()
 # This is technique that allows you to copy model files to
 # a worker more efficiently because they only need to be moved once.
 
+model_id = "runwayml/stable-diffusion-v1-5"
+cache_path = "/vol/cache"
+
+
+def download_models():
+    import torch
+    import diffusers
+
+    hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
+
+    # Download the Euler A scheduler configuration. Faster than the default and
+    # high quality output with fewer steps.
+    euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
+        model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
+    )
+    euler.save_pretrained(cache_path)
+
+    # Downloads all other models.
+    pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+        model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
+    )
+    pipe.save_pretrained(cache_path)
+
+
 image = (
     modal.Image.conda()
     .apt_install(["curl"])
@@ -41,11 +67,10 @@ image = (
         ]
     )
     .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
-    .run_commands(
-        [
-            "curl -L https://gist.github.com/luiscape/36a8cd29b8ed54cfbfcf56d51fe23cc0/raw/a6bf16996efe7c59114eea7944b0f99741d83d54/download_stable_diffusion_models.py | python"
-        ],
+    .run_function(
+        download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
+        gpu=modal.gpu.A100(),
     )
 )
 stub.image = image
@@ -63,33 +88,34 @@ stub.image = image
 # 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
 # generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
-if stub.is_inside():
-    import torch
-    import diffusers
-
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = True
-
-    cache_path = "/vol/cache"
-    euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
-        cache_path, subfolder="scheduler", cache_dir=cache_path
-    )
-    PIPE = diffusers.StableDiffusionPipeline.from_pretrained(
-        cache_path, torch_dtype=torch.float16, scheduler=euler, cache_dir=cache_path
-    ).to("cuda")
-    PIPE.enable_xformers_memory_efficient_attention()
-
-
 # This is our Modal function. The function runs through the `StableDiffusionPipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@stub.function(gpu=modal.gpu.A100())
-def _run_inference(prompt: str, steps: int = 20) -> str:
-    with torch.inference_mode():
-        image = PIPE(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
+class StableDiffusion:
+    def __enter__(self):
+        import torch
+        import diffusers
 
-    return image
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+
+        euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
+            cache_path, subfolder="scheduler", cache_dir=cache_path
+        )
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            cache_path, torch_dtype=torch.float16, scheduler=euler, cache_dir=cache_path
+        ).to("cuda")
+        self.pipe.enable_xformers_memory_efficient_attention()
+
+    @stub.function(gpu=modal.gpu.A100())
+    def run_inference(self, prompt: str, steps: int = 20) -> str:
+        import torch
+
+        with torch.inference_mode():
+            image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
+
+        return image
 
 
 # This is the command we'll use to generate images. It takes a `prompt`,
@@ -106,9 +132,13 @@ def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
         dir.mkdir(exist_ok=True, parents=True)
 
     with stub.run():
+        sd = StableDiffusion()
         for i in range(samples):
-            image = _run_inference(prompt, steps)
-            image.save(dir / f"output_{i}.png")
+            t0 = time.time()
+            image = sd.run_inference(prompt, steps)
+            output_path = dir / f"output_{i}.png"
+            print(f"Sample {i} took {time.time()-t0:.3f}s. Saving it to {output_path}")
+            image.save(output_path)
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
