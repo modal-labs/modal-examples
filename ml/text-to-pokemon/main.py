@@ -54,39 +54,42 @@ def image_to_byte_array(image) -> bytes:
     return img_byte_arr
 
 
+def load_stable_diffusion_pokemon_model():
+    import torch
+    from diffusers import StableDiffusionPipeline
+
+    model_id = "lambdalabs/sd-pokemon-diffusers"
+    cache_dir = config.MODEL_CACHE / model_id
+    if cache_dir.exists():
+        print(f"Using diskcached model for '{model_id}'")
+        local_files_only = True
+        load_action = "loading"
+    else:
+        print(f"No diskcached model found for '{model_id}'")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        local_files_only = False
+        load_action = "downloading"
+    t0 = time.time()
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+        cache_dir=cache_dir,
+        local_files_only=local_files_only,
+    )
+    print(f"finished {load_action} model, took {time.time()-t0:.3f}s.")
+    if config.DISABLE_SAFETY:
+
+        def null_safety(images, **kwargs):
+            return images, False
+
+        pipe.safety_checker = null_safety
+    pipe.to("cuda")
+    return pipe
+
+
 class Model:
     def __enter__(self):
-        import torch
-        from diffusers import StableDiffusionPipeline
-
-        model_id = "lambdalabs/sd-pokemon-diffusers"
-        cache_dir = config.MODEL_CACHE / model_id
-        if cache_dir.exists():
-            local_files_only = True
-            print(f"Using diskcached model for '{model_id}'")
-        else:
-            print(f"No diskcached model found for '{model_id}'")
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            local_files_only = False
-        pipe = StableDiffusionPipeline.from_pretrained(
-            model_id,
-            torch_dtype=torch.float16,
-            cache_dir=cache_dir,
-            local_files_only=local_files_only,
-        )
-        print("Finished loading model")
-        cache_marker = cache_dir / "marker"
-        cache_marker.write_bytes(b"MODEL SHOULD BE CACHED")
-        # Sometimes the NSFW checker is confused by the Pokémon images.
-        # You can disable it at your own risk.
-        disable_safety = True
-        if disable_safety:
-
-            def null_safety(images, **kwargs):
-                return images, False
-
-            pipe.safety_checker = null_safety
-        self.pipe = pipe.to("cuda")
+        self.pipe = load_stable_diffusion_pokemon_model()
 
     @stub.function(gpu=modal.gpu.A100(), shared_volumes={config.CACHE_DIR: model_volume})
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
@@ -193,23 +196,19 @@ def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
         mini_logo_top_right_crnr = (220, 935)
         back_im.paste(logo_img, mini_logo_top_right_crnr)
     else:
-        print(
-            f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.",
-            file=sys.stderr,
-        )
+        print(f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.")
 
     img_byte_arr = io.BytesIO()
     back_im.save(img_byte_arr, format="PNG")
     img_bytes = img_byte_arr.getvalue()
-    # If enabled, replace Pokémon card name.
-    if True:
-        print("Replacing Pokémon card name")
-        return inpaint_new_pokemon_name(img_bytes)
-    else:
-        return img_bytes
+    print("Replacing Pokémon card name")
+    return inpaint_new_pokemon_name(img_bytes)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
+    """
+    A decent but not great RGB color distance function. Range of distance result is [0.0, 3.0].
+    """
     import numpy as np
 
     fst = np.array([[x / 255.0 for x in one]])
@@ -227,7 +226,7 @@ def create_composite_card(i: int, sample: bytes) -> bytes:
     Takes a single Pokémon sample and creates a Pokémon card image for it.
     .starmap over this function to boost performance.
     """
-    print("Determining base cards for generated sample.")
+    print(f"Determining base card for generated sample {i}.")
     closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
     base_card_url = closest_card["images"]["large"]
     print(f"Closest base card for sample {i} is '{closest_card['name']}'")
@@ -238,7 +237,7 @@ def create_composite_card(i: int, sample: bytes) -> bytes:
         },
     )
     base_bytes = urllib.request.urlopen(req).read()
-    print("Compositing the character sample onto a Pokémon card.")
+    print(f"Compositing generated sample {i} onto a Pokémon card.")
     return composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample))
 
 

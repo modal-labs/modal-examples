@@ -1,16 +1,12 @@
 """
 Inpainting removes unwanted parts of an image. The module has
-inpainting functionality to remove the Pokémon name that appears on the 'base' card, 
+inpainting functionality to remove the Pokémon name that appears on the 'base' card,
 eg. Articuno, so that it can be replaced with a new, made up name for the model generated
 Pokémon character.
 
 This code is partly based on code from github.com/Sanster/lama-cleaner/.
 """
 import io
-import pathlib
-from typing import Optional
-
-from . import config
 
 import modal
 
@@ -36,6 +32,7 @@ cv_image = (
 # opencv document https://docs.opencv.org/4.6.0/d7/d8b/group__photo__inpaint.html#gga8002a65f5a3328fbf15df81b842d3c3ca05e763003a805e6c11c673a9f4ba7d07
 cv2_flag: str = "INPAINT_NS"
 cv2_radius: int = 4
+
 
 # From lama-cleaner
 def load_img(img_bytes, gray: bool = False):
@@ -69,29 +66,20 @@ def numpy_to_bytes(image_numpy, ext: str) -> bytes:
     return image_bytes
 
 
-def new_pokemon_name(card_image: Optional[bytes] = None, pokemon_name: str = "Randomon") -> bytes:
+def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes:
     import cv2
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    from PIL import Image, ImageDraw, ImageFont
 
     # 1. Paint out the existing name.
 
     flag_map = {"INPAINT_NS": cv2.INPAINT_NS, "INPAINT_TELEA": cv2.INPAINT_TELEA}
-    # return new image bytes?
-    if not card_image:
-        test_img = "a5ada347c7c21bf34a4000544b62c51c1ed0b881b0664e320e4b50562a1c34c5/1.png"
-        test_img_path = config.FINAL_IMGS / test_img
-        image_bytes = test_img_path.read_bytes()
-    else:
-        image_bytes = card_image
-    img, alpha_channel = load_img(image_bytes)
+    img, alpha_channel = load_img(card_image)
 
     pokecard_name_top_left_crnr = (139, 43)
-    line_height = 40
     pokecard_name_size = (225, 45)  # (width, height)
 
     mask_im = Image.new("L", img.shape[:2][::-1], 0)
     draw = ImageDraw.Draw(mask_im)
-    edge_depth = 1
     (left, upper, right, lower) = (
         pokecard_name_top_left_crnr[0],
         pokecard_name_top_left_crnr[1],
