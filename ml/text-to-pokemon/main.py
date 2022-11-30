@@ -56,7 +56,18 @@ class Model:
         import torch
         from diffusers import StableDiffusionPipeline
 
-        pipe = StableDiffusionPipeline.from_pretrained("lambdalabs/sd-pokemon-diffusers", torch_dtype=torch.float16)
+        model_id = "lambdalabs/sd-pokemon-diffusers"
+        cache_dir = config.MODEL_CACHE / model_id
+        if cache_dir.exists:
+            local_files_only = True
+        else:
+            local_files_only = False
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.float16,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
         # Sometimes the NSFW checker is confused by the Pokémon images.
         # You can disable it at your own risk.
         disable_safety = True

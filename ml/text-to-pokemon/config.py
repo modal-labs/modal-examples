@@ -1,6 +1,7 @@
 import pathlib
 
 CACHE_DIR = "/cache"
+MODEL_CACHE = pathlib.Path(CACHE_DIR, "models")
 # Where generated Pokémon images are stored, by hash of prompt.
 POKEMON_IMGS = pathlib.Path(CACHE_DIR, "generated_samples")
 # Where fully compose Pokémon card output images are stored, by hash of prompt.
