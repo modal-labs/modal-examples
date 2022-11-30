@@ -10,8 +10,6 @@ def meltano_install():
     shutil.copytree("/meltano_source", "/meltano_project")
     os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
     subprocess.call(["meltano", "install"])
-    # doh
-
 
 # TODO: easier way to add build context from local directory, which also invalidates on file changes
 meltano_source_mount = modal.Mount(
@@ -32,7 +30,7 @@ stub = modal.Stub(image=meltano_img)
 db_volume = modal.SharedVolume().persist("meltano_db")
 db_path = Path("/meltano_db_volume/meltano.db")
 
-@stub.wsgi(shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
+@stub.wsgi(image=meltano_img, shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
 def meltano_ui():
     # init database if it doesn't exist
     if not db_path.exists():
@@ -53,7 +51,7 @@ def meltano_ui():
     return meltano.api.app.create_app()
 
 
-@stub.function(schedule=modal.Period(days=1), shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
+@stub.function(image=meltano_img, schedule=modal.Period(days=1), shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
 def daily_ingest():
     os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
     os.environ["MELTANO_PROJECT_READONLY"] = "true"
