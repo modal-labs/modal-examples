@@ -8,9 +8,9 @@ This code is partly based on code from github.com/Sanster/lama-cleaner/.
 """
 import io
 import pathlib
+from typing import Optional
 
 from . import config
-from .main import stub, volume
 
 import modal
 
@@ -69,12 +69,7 @@ def numpy_to_bytes(image_numpy, ext: str) -> bytes:
     return image_bytes
 
 
-@stub.function(
-    image=cv_image,
-    shared_volumes={config.CACHE_DIR: volume},
-    interactive=False,
-)
-def inpaint_new_pokemon_name(pokemon_name="Randomon") -> None:
+def new_pokemon_name(card_image: Optional[bytes] = None, pokemon_name: str = "Randomon") -> bytes:
     import cv2
     from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -82,9 +77,12 @@ def inpaint_new_pokemon_name(pokemon_name="Randomon") -> None:
 
     flag_map = {"INPAINT_NS": cv2.INPAINT_NS, "INPAINT_TELEA": cv2.INPAINT_TELEA}
     # return new image bytes?
-    test_img = "a5ada347c7c21bf34a4000544b62c51c1ed0b881b0664e320e4b50562a1c34c5/1.png"
-    test_img_path = config.FINAL_IMGS / test_img
-    image_bytes = test_img_path.read_bytes()
+    if not card_image:
+        test_img = "a5ada347c7c21bf34a4000544b62c51c1ed0b881b0664e320e4b50562a1c34c5/1.png"
+        test_img_path = config.FINAL_IMGS / test_img
+        image_bytes = test_img_path.read_bytes()
+    else:
+        image_bytes = card_image
     img, alpha_channel = load_img(image_bytes)
 
     pokecard_name_top_left_crnr = (139, 43)
@@ -106,8 +104,6 @@ def inpaint_new_pokemon_name(pokemon_name="Randomon") -> None:
     mask_im.save(mask_bytesio, format="PNG")
     mask_img_bytes = mask_bytesio.getvalue()
     mask, _ = load_img(mask_img_bytes)
-
-    # return numpy_to_bytes(mask, "png")
 
     assert img.shape[:2] == mask.shape[:2], "shapes of base image and mask must match"
 
@@ -149,10 +145,3 @@ def inpaint_new_pokemon_name(pokemon_name="Randomon") -> None:
     img_bytesio = io.BytesIO()
     out.save(img_bytesio, format="PNG")
     return img_bytesio.getvalue()
-
-
-if __name__ == "__main__":
-    with stub.run():
-        mask_bytes = inpaint_new_pokemon_name()
-        p = pathlib.Path("./temp.png")
-        p.write_bytes(mask_bytes)
