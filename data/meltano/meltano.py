@@ -5,7 +5,12 @@ import modal
 import os
 from pathlib import Path
 
-stub = modal.Stub()
+
+def meltano_install():
+    shutil.copytree("/meltano_source", "/meltano_project")
+    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
+    subprocess.call(["meltano", "install"])
+    # doh
 
 
 # TODO: easier way to add build context from local directory, which also invalidates on file changes
@@ -15,25 +20,21 @@ meltano_source_mount = modal.Mount(
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts)
 )
 
-
-def meltano_install():
-    shutil.copytree("/meltano_source", "/meltano_project")
-    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
-    subprocess.call(["meltano", "install"])
-
-
-meltano_img = modal.Image.debian_slim()\
-    .apt_install(["git"])\
-    .pip_install(["meltano"])\
+meltano_img = modal.Image.debian_slim() \
+    .apt_install(["git"]) \
+    .pip_install(["meltano"]) \
     .run_function(meltano_install, mounts=[meltano_source_mount])
 
+
+stub = modal.Stub(image=meltano_img)
+
+
 db_volume = modal.SharedVolume().persist("meltano_db")
+db_path = Path("/meltano_db_volume/meltano.db")
 
-
-@stub.wsgi(image=meltano_img, shared_volumes={"/meltano_db_volume": db_volume})
+@stub.wsgi(shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
 def meltano_ui():
     # init database if it doesn't exist
-    db_path = Path("/meltano_db_volume/meltano.db")
     if not db_path.exists():
         db_path.write_bytes(Path("/meltano_project/.meltano/meltano.db").read_bytes())
     # symlink logs so they end up in persisted shared volume
@@ -50,6 +51,14 @@ def meltano_ui():
     os.environ["MELTANO_DATABASE_URI"] = f"sqlite:///{db_path}"
     import meltano.api.app
     return meltano.api.app.create_app()
+
+
+@stub.function(schedule=modal.Period(days=1), shared_volumes={"/meltano_db_volume": db_volume}, secrets=[modal.Secret.from_name("meltano-secrets")])
+def daily_ingest():
+    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
+    os.environ["MELTANO_PROJECT_READONLY"] = "true"
+    os.environ["MELTANO_DATABASE_URI"] = f"sqlite:///{db_path}"
+    subprocess.call(["meltano", "run", "github-to-jsonl"])
 
 
 if __name__ == "__main__":

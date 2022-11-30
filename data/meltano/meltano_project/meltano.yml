@@ -20,10 +20,7 @@ plugins:
   - name: target-jsonl
     variant: andyh1203
     pip_url: target-jsonl
-schedules:
+jobs:
 - name: github-to-jsonl
-  interval: '@daily'
-  extractor: tap-github
-  loader: target-jsonl
-  transform: skip
-  start_date: 2022-11-28 14:31:37.357593
+  tasks:
+  - tap-github target-jsonl
