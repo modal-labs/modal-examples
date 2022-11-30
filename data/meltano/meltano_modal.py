@@ -33,11 +33,19 @@ stub = modal.Stub(image=meltano_img)
 db_volume = modal.SharedVolume().persist("meltano_db")
 db_path = Path("/meltano_db_volume/meltano.db")
 
+meltano_conf = modal.Secret(
+    {
+        "MELTANO_PROJECT_ROOT": "/meltano_project",
+        "MELTANO_PROJECT_READONLY": "true",
+        "MELTANO_DATABASE_URI": f"sqlite:///{db_path}",
+    }
+)
+
 
 @stub.wsgi(
     image=meltano_img,
     shared_volumes={"/meltano_db_volume": db_volume},
-    secrets=[modal.Secret.from_name("meltano-secrets")],
+    secrets=[modal.Secret.from_name("meltano-secrets"), meltano_conf],
 )
 def meltano_ui():
     # init database if it doesn't exist
@@ -52,9 +60,6 @@ def meltano_ui():
         log_storage.mkdir(exist_ok=True)
         log_output_path.symlink_to(log_storage)
 
-    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
-    os.environ["MELTANO_PROJECT_READONLY"] = "true"
-    os.environ["MELTANO_DATABASE_URI"] = f"sqlite:///{db_path}"
     import meltano.api.app
 
     return meltano.api.app.create_app()
@@ -64,12 +69,9 @@ def meltano_ui():
     image=meltano_img,
     schedule=modal.Period(days=1),
     shared_volumes={"/meltano_db_volume": db_volume},
-    secrets=[modal.Secret.from_name("meltano-secrets")],
+    secrets=[modal.Secret.from_name("meltano-secrets"), meltano_conf],
 )
 def daily_ingest():
-    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
-    os.environ["MELTANO_PROJECT_READONLY"] = "true"
-    os.environ["MELTANO_DATABASE_URI"] = f"sqlite:///{db_path}"
     subprocess.call(["meltano", "run", "github-to-jsonl"])
 
 
