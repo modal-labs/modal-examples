@@ -1,0 +1,29 @@
+version: 1
+default_environment: dev
+project_id: 3b1408e8-f8ba-4387-8167-95d8619585ac
+environments:
+- name: dev
+- name: staging
+- name: prod
+plugins:
+  extractors:
+  - name: tap-github
+    variant: meltanolabs
+    pip_url: git+https://github.com/MeltanoLabs/tap-github.git
+    config:
+      repositories:
+      - modal-labs/synchronicity
+    select:
+    - commits.commit_timestamp
+    - commits.commit.*
+  loaders:
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
+schedules:
+- name: github-to-jsonl
+  interval: '@daily'
+  extractor: tap-github
+  loader: target-jsonl
+  transform: skip
+  start_date: 2022-11-28 14:31:37.357593
