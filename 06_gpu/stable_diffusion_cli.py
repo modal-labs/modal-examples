@@ -101,9 +101,7 @@ class StableDiffusion:
         torch.backends.cuda.matmul.allow_tf32 = True
 
         euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(cache_path, subfolder="scheduler")
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            cache_path, torch_dtype=torch.float16, scheduler=euler
-        ).to("cuda")
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=euler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
     @stub.function(gpu=modal.gpu.A100())
