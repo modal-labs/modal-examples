@@ -29,9 +29,9 @@ app = typer.Typer()
 #
 # Your model will be running remotely inside a container. We will be installing
 # all the model dependencies in the next step. We will also be "baking the model"
-# into the image using the script `download_stable_diffusion_models.py`.
-# This is technique that allows you to copy model files to
-# a worker more efficiently because they only need to be moved once.
+# into the image by running a Python function as a part of building the image.
+# This lets us start containers much faster, since all the data that's needed is
+# already inside the image.
 
 model_id = "runwayml/stable-diffusion-v1-5"
 cache_path = "/vol/cache"
@@ -75,13 +75,15 @@ image = (
 )
 stub.image = image
 
-# ## Global context
+# ## Using container lifecycle methods
 #
-# Modal allows for you to create a global context that is valid only inside a
-# container. It is often useful to load models in this context because it can
-# make subsequent calls to the same predict method much faster given that they
-# no longer need to instantiate the model. We'll get performance improvements
-# using this technique.
+# Modal lets you implement code that runs every time a container starts. This
+# can be a huge optimization when you're calling a function multiple times,
+# since Modal reuses the same containers when possible.
+#
+# The way to implement this is to turn the Modal function into a method on a
+# class that also implement the Python context manager interface, meaning it
+# has the `__enter__` method (the `__exit__` method is optional).
 #
 # We have also have applied a few model optimizations to make the model run
 # faster. On an A100, the model takes about 6.5s to load into memory, and then
