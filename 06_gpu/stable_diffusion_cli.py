@@ -9,10 +9,12 @@
 # using the HuggingFace Hub and the `diffusers` library.
 
 # ## Basic setup
-import modal
+import io
 import os
 import time
 from pathlib import Path
+
+import modal
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -113,7 +115,11 @@ class StableDiffusion:
         with torch.inference_mode():
             image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
 
-        return image
+        # Convert to PNG bytes
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+        return image_bytes
 
 
 # This is the command we'll use to generate images. It takes a `prompt`,
@@ -133,10 +139,11 @@ def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
         sd = StableDiffusion()
         for i in range(samples):
             t0 = time.time()
-            image = sd.run_inference(prompt, steps)
+            image_bytes = sd.run_inference(prompt, steps)
             output_path = dir / f"output_{i}.png"
             print(f"Sample {i} took {time.time()-t0:.3f}s. Saving it to {output_path}")
-            image.save(output_path)
+            with open(output_path, "wb") as f:
+                f.write(image_bytes)
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
