@@ -15,23 +15,41 @@ def reset_diskcache(dry_run=True) -> None:
     and you want create cache misses so the changes so up for users.
     """
     if config.POKEMON_IMGS.exists():
-        for i, filepath in enumerate(config.POKEMON_IMGS.glob("**/*")):
+        files = [f for f in config.POKEMON_IMGS.glob("**/*") if f.is_file()]
+        i = 0
+        for i, filepath in enumerate(files):
             if not dry_run:
                 filepath.unlink()
-        if dry_run:
+        if files and dry_run:
             print(f"dry-run: would have deleted {i+1} Pokémon character samples")
-        else:
+        elif files:
             print(f"deleted {i+1} Pokémon character samples")
+        else:
+            print("No Pokémon character samples to delete")
+
+        if not dry_run:
+            dirs = [f for f in config.POKEMON_IMGS.glob("**/*") if f.is_dir()]
+            for d in dirs:
+                d.rmdir()
 
     if config.FINAL_IMGS.exists():
-        for i, filepath in enumerate(config.FINAL_IMGS.glob("**/*")):
+        files = [f for f in config.FINAL_IMGS.glob("**/*") if f.is_file()]
+        i = 0
+        for i, filepath in enumerate(files):
             if not dry_run:
                 filepath.unlink()
 
-        if dry_run:
+        if files and dry_run:
             print(f"dry-run: would have deleted {i+1} Pokémon card images")
-        else:
+        elif files:
             print(f"deleted {i+1} Pokémon card images")
+        else:
+            print("No Pokémon character card images to delete")
+
+        if not dry_run:
+            dirs = [f for f in config.FINAL_IMGS.glob("**/*") if f.is_dir()]
+            for d in dirs:
+                d.rmdir()
 
 
 @stub.function
@@ -62,4 +80,4 @@ def extract_colors(num=3) -> None:
 
 if __name__ == "__main__":
     with stub.run():
-        reset_diskcache(dry_run=True)
+        reset_diskcache(dry_run=False)
