@@ -9,8 +9,6 @@
   - Pokémon card generation display
 
 -->
-
-
 <script>
     import { prompts } from "../helpers/prefillPromptData";
     import PrefillPrompt from "./PrefillPrompt.svelte";
@@ -60,7 +58,7 @@
             clearInterval(poller);
         }
         poller = setInterval(doPoll(id), 2000);
-    }
+    };
 
     const doPoll = (id) => async () => {
         const resp = await fetch(`/api/status/${id}`);
@@ -74,13 +72,13 @@
             setTimeout(() => {
                 cards = body.cards;
                 loading = false;
-            }, 500)
- 
+            }, 500);
         }
     };
 
     const fetchPokemonCards = async () => {
         loading = true;
+        loadingComplete = false;
         const response = await self.fetch(`/api/create?prompt=${inputValue}`);
         if (response.ok) {
             const data = await response.json();
@@ -149,20 +147,24 @@
                 />
                 <!-- FILTERED LIST OF Prompts -->
                 {#if filteredPrompts?.length > 0}
-                <ul id="autocomplete-items-list">
-                    {#each filteredPrompts as prompt, i}
-                        <PrefillPrompt
-                            itemLabel={prompt}
-                            highlighted={i === hiLiteIndex}
-                            on:click={() => setInputVal(prompt)}
-                        />
-                    {/each}
-                </ul>
+                    <ul id="autocomplete-items-list">
+                        {#each filteredPrompts as prompt, i}
+                            <PrefillPrompt
+                                itemLabel={prompt}
+                                highlighted={i === hiLiteIndex}
+                                on:click={() => setInputVal(prompt)}
+                            />
+                        {/each}
+                    </ul>
                 {/if}
             </div>
 
             <div>
-                <button class="promptbutton shadow-lg" type="submit" disabled={loading}>
+                <button
+                    class="promptbutton shadow-lg"
+                    type="submit"
+                    disabled={loading}
+                >
                     <Pokeball />
                     <span>Create</span>
                 </button>
@@ -171,7 +173,7 @@
     </div>
 
     {#if loading}
-        <ProgressBar finished={loadingComplete}/>
+        <ProgressBar finished={loadingComplete} />
         <CardList>
             {#each Array(4) as _, i}
                 <Card

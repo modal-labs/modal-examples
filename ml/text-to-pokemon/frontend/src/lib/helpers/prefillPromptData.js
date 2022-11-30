@@ -9,20 +9,21 @@ export const prompts = [
     "A Happy Baby With A Rattle",
     "Banana in Pajamas",
     "Crab Made of Cheese",
-    "David Foster Wallace",
+    "Duck sized horse",
     "Elephant With Six Legs",
-    "Freezing Tree", // TODO: Needs edits/additions.
+    "Frodo Baggins",
     "Grandma's Cooking",
     "Homer Simpson",
+    "Horse sized duck",
     "IPhone 7 Device",
     "Joker Evil",
     "King Kong",
     "Kung Fu Panda",
     "Lima Monkey",
     "Marvin The Paranoid Robot",
-    "Modal Labs", // TODO: Needs edits/additions.
+    "Modal Lab Mad Scientist",
     "Nocturnal Animal",
-    "Old Buddhist Monk in Orange Robes", // A- prompt.
+    "Old Buddhist Monk in Orange Robes", // A+ prompt.
     "PDP-11 Computer",
     "Power Couple",
     "Question Mark With Eyes",

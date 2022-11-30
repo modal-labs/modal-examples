@@ -1,12 +1,18 @@
 import pathlib
 
 CACHE_DIR = "/cache"
+MODEL_CACHE = pathlib.Path(CACHE_DIR, "models")
 # Where generated Pokémon images are stored, by hash of prompt.
 POKEMON_IMGS = pathlib.Path(CACHE_DIR, "generated_samples")
+# Where fully compose Pokémon card output images are stored, by hash of prompt.
+FINAL_IMGS = pathlib.Path(CACHE_DIR, "final_cards")
 # Location of web frontend assets.
 ASSETS_PATH = pathlib.Path(__file__).parent / "frontend" / "dist"
 # Card composite component images
 CARD_PART_IMGS = pathlib.Path(CACHE_DIR, "card_parts")
+# Sometimes the NSFW checker is confused by the Pokémon images.
+# You can disable it at your own risk.
+DISABLE_SAFETY = True
 
 
 POKEMON_CARDS = [
