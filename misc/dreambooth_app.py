@@ -178,7 +178,7 @@ def load_images(image_urls):
     },
     timeout=600,  # 10 minutes
     secrets=[modal.Secret.from_name("huggingface")],
-    interactive=True,
+    interactive=False,
 )
 def train(instance_example_urls, config=TrainConfig()):
     import subprocess
