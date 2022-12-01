@@ -62,7 +62,6 @@ def download_models():
 
 image = (
     modal.Image.conda()
-    .apt_install(["curl"])
     .run_commands(
         [
             "conda install xformers -c xformers/label/dev",
