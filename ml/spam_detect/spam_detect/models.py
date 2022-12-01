@@ -59,19 +59,12 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
 
     logger = config.get_logger()
 
-    # dataset_ = load_dataset("yelp_review_full")
-    # dataset_["train"][100]
     huggingface_dataset = construct_huggingface_dataset(dataset)
 
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
     def tokenize_function(examples):
         return tokenizer(examples["text"], padding="max_length", truncation=True)
-
-    # import IPython
-    # IPython.embed()
-
-    # return
 
     tokenized_datasets = huggingface_dataset.map(tokenize_function, batched=True)
 

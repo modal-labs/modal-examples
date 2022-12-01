@@ -9,6 +9,11 @@ from .app import stub, volume
 from .datasets.enron import structure as enron
 
 
+@stub.function(shared_volumes={config.VOLUME_DIR: volume})
+def init_volume():
+    config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 @stub.function(
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
@@ -25,8 +30,8 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
         sha256_digest=model_id,
         model_registry_root=config.MODEL_STORE_DIR,
     )
-    print(classifier)
-    print(classifier("fake email!"))
+    is_spam = classifier("fake email!")
+    print(f"classification: {is_spam=}")
 
 
 @stub.function(
@@ -36,7 +41,6 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     # NOTE: Can't use A100 easily because:
     # "Modal SharedVolume data will not be shared between A100 and non-A100 functions"
     gpu=True,
-    interactive=False,
 )
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
@@ -52,50 +56,28 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=True,
 )
-def main():
+def main(model_type: str = str(config.ModelTypes.LLM)):
     logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
     )
     dataset_path = enron.dataset_path(config.DATA_DIR)
 
-    model_type = "LLM"  # Change to train different models.
-
     logger.info("💪 training ...")
-    if model_type == "NAIVE BAYES":
+    if model_type == config.ModelTypes.NAIVE_BAYES:
         model = models.NaiveBayes()
         train(model, dataset_path=dataset_path)
-    elif model_type == "LLM":
+    elif model_type == config.ModelTypes.LLM:
         model = models.LLM()
         train_gpu(model, dataset_path=dataset_path)
-    elif model_type == "BAD WORDS":
+    elif model_type == config.ModelTypes.BAD_WORDS:
         model = models.BadWords()
         train(model, dataset_path=dataset_path)
     else:
-        raise ValueError("Unknown model type")
-
-
-@stub.function(shared_volumes={config.VOLUME_DIR: volume}, interactive=False, timeout=10000)
-def inspect():
-    model = models.LLM()
-
-    model_id = "sha256.2F4C9AFED1C5A6404DCB5E28FCE2EB7F8F8A4A3B22A8E3BF677071EB42FB0AF3"
-    classifier = model.load(
-        sha256_digest=model_id,
-        model_registry_root=config.MODEL_STORE_DIR,
-    )
-
-    pred = classifier("I am a fake email this should be classifer as spam or ham.")
-    print(pred)
-
-
-@stub.function(shared_volumes={config.VOLUME_DIR: volume})
-def init_volume():
-    config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
+        raise ValueError(f"Unknown model type '{model_type}'")
 
 
 if __name__ == "__main__":
     with stub.run():
         init_volume()
         main()
-        # inspect()

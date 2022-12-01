@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import json
+import sys
 from typing import NamedTuple, Optional
 
 from . import config
@@ -68,6 +69,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         run_list()
     elif args.subcommand == "delete-model":
         run_delete_model()
+    elif args.subcommand is None:
+        parser.print_help(sys.stderr)
     else:
         raise AssertionError(f"Unimplemented subcommand '{args.subcommand}' was invoked.")
     return 0
