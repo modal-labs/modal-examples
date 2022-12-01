@@ -3,7 +3,7 @@ import modal
 stub = modal.Stub("example-generators")
 
 
-@stub.generator
+@stub.function
 def f(i):
     for j in range(i):
         yield j

@@ -42,7 +42,7 @@ stub = modal.Stub(
 # We ask for the top 100 ETFs
 
 
-@stub.generator
+@stub.function
 def get_stocks():
     import bs4
     import requests

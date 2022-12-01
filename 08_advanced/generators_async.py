@@ -5,7 +5,7 @@ import modal.aio
 stub = modal.aio.AioStub("example-generators-async")
 
 
-@stub.generator
+@stub.function
 def f(i):
     for j in range(i):
         yield j
