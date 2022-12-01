@@ -51,13 +51,13 @@ def download_models():
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
-    euler.save_pretrained(cache_path)
+    euler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
         model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
     )
-    pipe.save_pretrained(cache_path)
+    pipe.save_pretrained(cache_path, safe_serialization=True)
 
 
 image = (
@@ -68,7 +68,16 @@ image = (
             "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
         ]
     )
-    .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
+    .apt_install(["git"])  # merge with curl
+    .pip_install(
+        [
+            "git+https://github.com/huggingface/diffusers.git@refs/pull/1494/merge",
+            "transformers",
+            "ftfy",
+            "accelerate",
+            "safetensors",
+        ]
+    )
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -107,7 +116,7 @@ class StableDiffusion:
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=euler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.A100())
+    @stub.function(gpu=modal.gpu.A100(), secret=modal.Secret({"SAFETENSORS_FAST_GPU": "1"}))
     def run_inference(self, prompt: str, steps: int = 20) -> str:
         import torch
 
