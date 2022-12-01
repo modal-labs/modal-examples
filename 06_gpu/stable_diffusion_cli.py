@@ -73,7 +73,6 @@ image = (
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
-        gpu=modal.gpu.A100(),
     )
 )
 stub.image = image
