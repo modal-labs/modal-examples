@@ -10,6 +10,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
         "dill==0.3.4",  # pinned b/c of https://github.com/uqfoundation/dill/issues/481
         "evaluate~=0.3.0",
         "loguru~=0.6.0",
+        "pyarrow~=10.0.1",
         "scikit-learn~=1.1.3",  # Required by evaluate pkg.
         "torch~=1.13.0",
         "transformers~=4.24.0",

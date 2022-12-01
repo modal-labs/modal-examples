@@ -38,9 +38,20 @@ class SpamModel(Protocol):
         ...
 
 
+def construct_huggingface_dataset(dataset: Dataset):
+    import datasets
+    import pyarrow as pa
+
+    emails = pa.array((ex.email for ex in dataset), type=pa.string())
+    labels = pa.array((ex.spam for ex in dataset), type=pa.bool_())
+    pa_table = pa.table([emails, labels], names=["text", "labels"])
+    return datasets.Dataset(pa_table).train_test_split(test_size=0.1)
+
+
 def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
     import numpy as np
     import evaluate
+    import pyarrow
     from datasets import load_dataset
     from transformers import AutoModelForSequenceClassification
     from transformers import AutoTokenizer
@@ -48,15 +59,21 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
 
     logger = config.get_logger()
 
-    dataset = load_dataset("yelp_review_full")
-    dataset["train"][100]
+    # dataset_ = load_dataset("yelp_review_full")
+    # dataset_["train"][100]
+    huggingface_dataset = construct_huggingface_dataset(dataset)
 
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
     def tokenize_function(examples):
         return tokenizer(examples["text"], padding="max_length", truncation=True)
 
-    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+    # import IPython
+    # IPython.embed()
+
+    # return
+
+    tokenized_datasets = huggingface_dataset.map(tokenize_function, batched=True)
 
     model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
 

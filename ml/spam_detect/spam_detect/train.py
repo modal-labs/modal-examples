@@ -36,6 +36,7 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     # NOTE: Can't use A100 easily because:
     # "Modal SharedVolume data will not be shared between A100 and non-A100 functions"
     gpu=True,
+    interactive=False,
 )
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
@@ -74,7 +75,7 @@ def main():
         raise ValueError("Unknown model type")
 
 
-@stub.function(shared_volumes={config.VOLUME_DIR: volume}, interactive=True, timeout=10000)
+@stub.function(shared_volumes={config.VOLUME_DIR: volume}, interactive=False, timeout=10000)
 def inspect():
     model = models.LLM()
 
