@@ -1,20 +1,23 @@
-# # Grid search
+# # Hyperparameter search
 #
-# This example showcases a very simplistic grid search in 1-D where we try different parameters for a model
-# and pick the one with the best results on a holdout set.
-
-import modal
-
+# This example showcases a simple grid search in one dimension, where we try different
+# parameters for a model and pick the one with the best results on a holdout set.
+#
 # ## Defining the image
 #
 # First, let's build a custom image and install scikit-learn in it.
 
-stub = modal.Stub("example-basic-grid-search", image=modal.Image.debian_slim().pip_install(["scikit-learn"]))
+import modal
+
+stub = modal.Stub(
+    "example-basic-grid-search",
+    image=modal.Image.debian_slim().pip_install(["scikit-learn"]),
+)
 
 # ## The Modal function
 #
 # Next, define the function. Note that we use the custom image with scikit-learn in it.
-# We also take the hyperparameter `k` which is how many nearest neighbors we use.
+# We also take the hyperparameter `k`, which is how many nearest neighbors we use.
 
 
 @stub.function
@@ -33,10 +36,10 @@ def fit_knn(k):
     return score, k
 
 
-# ## Hyperparameter search
+# ## Parallel search
 #
-# To do a hyperparameter search, let's map over this function with lots of different values
-# for `k`, and then pick whichever `k` has the best score on the holdout set:
+# To do a hyperparameter search, let's map over this function with different values
+# for `k`, and then select for the best score on the holdout set:
 
 if __name__ == "__main__":
     with stub.run():

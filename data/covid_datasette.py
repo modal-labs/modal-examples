@@ -58,7 +58,7 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 
 # ## Getting a dataset
 #
-# Johns Hopkins has been publishing up-to-date COVID-19 pandemic data on Github since early February 2020, and
+# Johns Hopkins has been publishing up-to-date COVID-19 pandemic data on GitHub since early February 2020, and
 # as of late September 2022 daily reporting is still rolling in. Their dataset is what this example will use to
 # show off Modal and Datasette's capabilities.
 #

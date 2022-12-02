@@ -2,7 +2,7 @@
 # deploy: true
 # output-directory: "/tmp"
 # ---
-# # Face detection on Youtube videos
+# # Face detection on YouTube videos
 #
 # This is an example that uses
 # [OpenCV](https://github.com/opencv/opencv-python)
@@ -44,13 +44,16 @@ FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 
 image = (
     modal.Image.debian_slim()
-    .run_commands(["apt-get install -y libgl1-mesa-glx libglib2.0-0 wget"])
     .run_commands(
-        [f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"]
+        [
+            "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
+            f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
+        ]
     )
     .pip_install(["pytube", "opencv-python", "moviepy"])
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
+
 if stub.is_inside():
     import cv2
     import moviepy.editor
@@ -100,7 +103,7 @@ def detect_faces(fn, start, stop):
 #
 # The "entrypoint" into Modal controls the main flow of the program:
 #
-# 1. Download the video from Youtube
+# 1. Download the video from YouTube
 # 2. Fan-out face detection of individual 1s clips
 # 3. Stitch the results back into a new video
 
@@ -138,7 +141,7 @@ def run(url):
 #
 # The code we run locally to fire up the Modal job is quite simple
 #
-# * Take a Youtube URL on the command line
+# * Take a YouTube URL on the command line
 # * Run the Modal function
 # * Store the output data
 

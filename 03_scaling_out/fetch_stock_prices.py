@@ -33,7 +33,9 @@ import modal
 
 stub = modal.Stub(
     "example-fetch-stock-prices",
-    image=modal.Image.debian_slim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"]),
+    image=modal.Image.debian_slim().pip_install(
+        ["requests", "yfinance", "beautifulsoup4", "matplotlib"],
+    ),
 )
 
 # ## Fetch a list of tickers
@@ -48,7 +50,10 @@ def get_stocks():
     import bs4
     import requests
 
-    headers = {"user-agent": "curl/7.55.1", "referer": "https://finance.yahoo.com/"}
+    headers = {
+        "user-agent": "curl/7.55.1",
+        "referer": "https://finance.yahoo.com/",
+    }
     url = "https://finance.yahoo.com/etfs/?count=100&offset=0"
     res = requests.get(url, headers=headers)
     soup = bs4.BeautifulSoup(res.text, "html.parser")
