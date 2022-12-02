@@ -1,4 +1,4 @@
-# # Hyperparameter tuning with grid search
+# # Grid search
 #
 # This example showcases a very simplistic grid search in 1-D where we try different parameters for a model
 # and pick the one with the best results on a holdout set.

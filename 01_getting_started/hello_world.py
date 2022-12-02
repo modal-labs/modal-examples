@@ -67,7 +67,7 @@ if __name__ == "__main__":
 # container, run it, and stream all the output back to your local
 # computer.
 #
-# Trying doing this next:
+# Try doing one of these things next.
 #
 # ### Change the code and run again
 #
@@ -80,8 +80,8 @@ if __name__ == "__main__":
 #
 # ### Map over a larger dataset
 #
-# Try changing the map range from 20 to some large number. You can see that
-# Modal will execute more and more containers in parallel.
+# Change the map range from 20 to some large number. You can see that
+# Modal will create and run more containers in parallel.
 #
 # The function `f` is obviously silly and doesn't do much, but you could
 # imagine something more significant, like:
@@ -90,5 +90,5 @@ if __name__ == "__main__":
 # * Transcoding media
 # * Backtesting a trading algorithm.
 #
-# Modal lets you parallelize that operation trivially by running 100s or
-# 1000s of containers in the cloud.
+# Modal lets you parallelize that operation trivially by running hundreds or
+# thousands of containers in the cloud.
