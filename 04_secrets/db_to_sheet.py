@@ -1,8 +1,7 @@
-# # Daily update from database to Google Sheets
+# # Write to Google Sheets
 #
-# In this tutorial, we'll show how to use Modal to schedule delivery of a dataset from an analytics
-# database to a Google Sheet. We'll go through every step with some detail to give you an
-# understanding of the Modal features we make use of.
+# In this tutorial, we'll show how to use Modal to schedule a daily update of a dataset
+# from an analytics database to Google Sheets.
 #
 # ## Entering credentials
 #
