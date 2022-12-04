@@ -27,6 +27,12 @@ python3 -m text-to-pokemon.main
 
 Sending <kbd>Ctrl</kbd>+<kbd>C</kbd> will stop your app.
 
+### Tests
+
+```
+python3 -m pytest
+```
+
 ## Deploy
 
 ```bash

@@ -1,9 +1,17 @@
+import argparse
 import io
 import json
+import sys
 import urllib.request
 
 from . import config
 from .main import stub, volume
+from .pokemon_naming import (
+    fetch_pokemon_names,
+    generate_names,
+    rnn_image,
+    train_rnn,
+)
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
@@ -76,6 +84,67 @@ def extract_colors(num=3) -> None:
     print(json.dumps(config.POKEMON_CARDS, indent=4))
 
 
+@stub.function(
+    image=rnn_image,
+    shared_volumes={config.CACHE_DIR: volume},
+    timeout=15 * 60,
+)
+def generate_pokemon_names():
+    """
+    Use a text-generation ML model to create new Pokémon names
+    and persist them in a volume for later use in the card creation
+    process.
+    """
+    desired_generations = 100
+    poke_names = fetch_pokemon_names()
+    # Hyphenated Pokémon names, eg. Hakamo-o, don't play well with RNN model.
+    training_names = [n for n in poke_names if "-" not in n]
+    max_sequence_len = max([len(name) for name in training_names])
+    model = train_rnn(
+        training_names=training_names,
+        max_sequence_len=max_sequence_len,
+    )
+    new_names = generate_names(
+        model=model,
+        training_names=training_names,
+        num=desired_generations,
+        max_sequence_len=max_sequence_len,
+    )
+
+    print(f"Storing {desired_generations} generated names. eg. '{new_names[0]}'")
+    output_path = config.POKEMON_NAMES / "rnn.txt"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(new_names))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="text-to-pokemon-utils")
+    sub_parsers = parser.add_subparsers(dest="subcommand")
+    sub_parsers.add_parser("extract-colors", help="Extract colors for all Pokémon base cards.")
+    sub_parsers.add_parser("gen-pokemon-names", help="Generate new Pokémon names.")
+    parser_reset_diskcache = sub_parsers.add_parser(
+        "reset-diskcache", help="Delete all cached Pokémon card parts from volume."
+    )
+    parser_reset_diskcache.add_argument(
+        "--nodry-run", action="store_true", default=False, help="Actually delete files from volume."
+    )
+
+    args = parser.parse_args()
+    if args.subcommand == "gen-pokemon-names":
+        with stub.run():
+            generate_pokemon_names()
+    elif args.subcommand == "extract-colors":
+        with stub.run():
+            extract_colors()
+    elif args.subcommand == "reset-diskcache":
+        with stub.run():
+            reset_diskcache(dry_run=not args.nodry_run)
+    elif args.subcommand is None:
+        parser.print_help(sys.stderr)
+    else:
+        raise AssertionError(f"Unimplemented subcommand '{args.subcommand}' was invoked.")
+    return 0
+
+
 if __name__ == "__main__":
-    with stub.run():
-        reset_diskcache(dry_run=False)
+    raise SystemExit(main())
