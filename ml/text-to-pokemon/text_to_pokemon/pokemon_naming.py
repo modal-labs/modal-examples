@@ -250,6 +250,7 @@ PREFILL_PROMPT_NAMES: set[str] = {
     "rattlebub",  # A Happy Baby With A Rattle
     "bananapeel",  # Banana in Pajamas
     "cheeseclaw",  # Crab Made of Cheese
+    "Trumpistan",  # Donald Trump
     "duckhoof",  # Duck sized horse
     "elephhix",  # Elephant With Six Legs
     "frodomon",  # Frodo Baggins

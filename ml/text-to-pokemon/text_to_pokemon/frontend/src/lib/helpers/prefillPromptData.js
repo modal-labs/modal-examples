@@ -9,6 +9,7 @@ export const prompts = [
     "A Happy Baby With A Rattle",
     "Banana in Pajamas",
     "Crab Made of Cheese",
+    "Donald Trump",
     "Duck sized horse",
     "Elephant With Six Legs",
     "Frodo Baggins",
