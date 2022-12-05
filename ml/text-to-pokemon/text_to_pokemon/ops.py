@@ -1,3 +1,9 @@
+"""
+Operational tools and scripts. These are run manually by an engineer to facilitate
+the development and maintenance of the application.
+
+eg. python -m text_to_pokemon.ops reset-diskcache
+"""
 import argparse
 import io
 import json
@@ -28,7 +34,7 @@ def reset_diskcache(dry_run=True) -> None:
             if not dry_run:
                 filepath.unlink()
         if files and dry_run:
-            print(f"dry-run: would have deleted {i+1} Pokémon character samples")
+            print(f"🏜 dry-run: would have deleted {i+1} Pokémon character samples")
         elif files:
             print(f"deleted {i+1} Pokémon character samples")
         else:
@@ -47,7 +53,7 @@ def reset_diskcache(dry_run=True) -> None:
                 filepath.unlink()
 
         if files and dry_run:
-            print(f"dry-run: would have deleted {i+1} Pokémon card images")
+            print(f"🏜 dry-run: would have deleted {i+1} Pokémon card images")
         elif files:
             print(f"deleted {i+1} Pokémon card images")
         else:
@@ -97,16 +103,22 @@ def generate_pokemon_names():
     """
     desired_generations = 100
     poke_names = fetch_pokemon_names()
-    # Hyphenated Pokémon names, eg. Hakamo-o, don't play well with RNN model.
+    # Hyphenated Pokémon names, eg. Hakamo-o, don't play mix with RNN model.
     training_names = [n for n in poke_names if "-" not in n]
     max_sequence_len = max([len(name) for name in training_names])
     model = train_rnn(
         training_names=training_names,
         max_sequence_len=max_sequence_len,
     )
+
+    model_path = config.MODEL_CACHE / "poke_gen_model.h5"
+    print(f"Storing model at '{model_path}'")
+    model.save(model_path)
+
+    print(f"Generating {desired_generations} new names.")
     new_names = generate_names(
         model=model,
-        training_names=training_names,
+        training_names=set(training_names),
         num=desired_generations,
         max_sequence_len=max_sequence_len,
     )
@@ -118,7 +130,7 @@ def generate_pokemon_names():
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(prog="text-to-pokemon-utils")
+    parser = argparse.ArgumentParser(prog="text-to-pokemon-ops")
     sub_parsers = parser.add_subparsers(dest="subcommand")
     sub_parsers.add_parser("extract-colors", help="Extract colors for all Pokémon base cards.")
     sub_parsers.add_parser("gen-pokemon-names", help="Generate new Pokémon names.")

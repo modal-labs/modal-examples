@@ -76,7 +76,7 @@ def lcs(one: str, two: str) -> str:
 
 def generate_names(
     model,
-    training_names: list[str],
+    training_names: set[str],
     num: int,
     max_sequence_len: int,
 ):
@@ -87,9 +87,7 @@ def generate_names(
     # Start sequence generation from end of the input sequence
     sequence = concat_names[-(max_sequence_len - 1) :] + "\n"
 
-    new_names = []
-
-    # Find all unique characters by using set()
+    new_names: set[str] = {}
     chars = sorted(list(set(concat_names)))
     num_chars = len(chars)
 
@@ -110,7 +108,7 @@ def generate_names(
         next_char = idx2char[next_idx]
         sequence = sequence[1:] + next_char
 
-        # New line means we have a new name
+        # Newline means we have a new name
         if next_char == "\n":
             gen_name = [name for name in sequence.split("\n")][1]
 
@@ -120,15 +118,15 @@ def generate_names(
 
             if len(gen_name) > MAX_NAME_LEN:
                 continue
-            elif len(gen_name) > MIN_NAME_LEN:
+            elif len(gen_name) >= MIN_NAME_LEN:
 
                 # Only allow new and unique names
-                if gen_name not in training_names + new_names:
-                    new_names.append(gen_name.capitalize())
+                if gen_name not in training_names and gen_name not in new_names:
+                    new_names.add(gen_name)
 
             if len(new_names) % 10 == 0:
-                print("Generated {}".format(len(new_names)))
-    return new_names
+                print("generated {} new names".format(len(new_names)))
+    return list(new_names)
 
 
 def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDataset:
@@ -138,7 +136,6 @@ def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDa
     # Make it all to a long string
     concat_names = "\n".join(training_names).lower()
 
-    # Find all unique characters by using set()
     chars = sorted(list(set(concat_names)))
     num_chars = len(chars)
 
@@ -148,7 +145,7 @@ def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDa
     # Use longest name length as our sequence window
     max_sequence_len = max([len(name) for name in training_names])
 
-    print("Total chars: {}".format(num_chars))
+    print(f"Total chars: {num_chars}")
     print("Corpus length:", len(concat_names))
     print("Number of names: ", len(training_names))
     print("Longest name: ", max_sequence_len)
@@ -176,8 +173,7 @@ def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDa
             X[i, j, char2idx[char]] = 1
         Y[i, char2idx[next_chars[i]]] = 1
 
-    print("X shape: {}".format(X.shape))
-    print("Y shape: {}".format(Y.shape))
+    print(f"X shape: {X.shape}, Y shape: {Y.shape}")
     return TrainingDataset(
         X=X,
         Y=Y,
@@ -198,7 +194,6 @@ def train_rnn(
     batch_size = 32  # Data samples in each training step
     latent_dim = 64  # Size of our LSTM
     dropout_rate = 0.2  # Regularization with dropout
-    model_path = config.MODEL_CACHE / "poke_gen_model.h5"  # Location for the model
     verbosity = 1  # Print result for each epoch
 
     dataset = prep_dataset(training_names, max_sequence_len)
@@ -217,22 +212,25 @@ def train_rnn(
     model.summary()
 
     start = time.time()
-    print("Start training for {} epochs".format(epochs))
+    print("Training for {} epochs".format(epochs))
     model.fit(dataset.X, dataset.Y, epochs=epochs, batch_size=batch_size, verbose=verbosity)
-    end = time.time()
-    print("Finished training - time elapsed:", (end - start) / 60, "min")
-
-    print("Storing model at:", model_path)
-    model.save(model_path)
+    print(f"Finished training - time elapsed: {(time.time() - start)} seconds")
     return model
 
 
 def fetch_pokemon_names() -> list[str]:
+    """
+    Source training data by getting all Pokémon names from the pokeapi.co API.
+    There are 1008 Pokémon as of early December 2022.
+    """
     get_all_url = "https://pokeapi.co/api/v2/pokemon?limit=1500"  # Set limit > than total number of Pokémon.
     req = urllib.request.Request(
         get_all_url,
         headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/35.0.1916.47 Safari/537.36"
+            )
         },
     )
     response = urllib.request.urlopen(req)
@@ -310,7 +308,7 @@ FANDOM_NAMES: set[str] = {
     "sproutrunk",
     "stampyro",
     "taphromet",
-    "tephracornburnoat",
+    "tephracorna",
     "troot",
     "tropiphant",
     "truncoco",
