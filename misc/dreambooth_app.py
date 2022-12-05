@@ -5,9 +5,9 @@
 # lambda-test: false
 # ---
 #
-# # Pet Art Dreambooth with Hugging Face and Gradio
+## Pet Art Dreambooth with Hugging Face and Gradio
 #
-# This example finetunes the [Stable Diffusion v1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4?text=pikachu-at-the-offices-of-a-unicorn-mlops-startup)
+# This example finetunes the [Stable Diffusion v1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 # on images of a pet (by default, a puppy named Qwerty)
 # using a technique called textual inversion from [the "Dreambooth" paper](https://dreambooth.github.io/).
 # Effectively, it teaches a general image generation model a new "proper noun",
@@ -18,7 +18,7 @@
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models
 # by using Modal's building blocks, like
-# GPU-accelerated Modal Functions, shared volumes for caching, and Modal webhooks.
+# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [shared volumes](https://modal.com/docs/guide/shared-volumes#shared-volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
 #
 # And with some light customization, you can use it to generate images of your pet!
 #
@@ -49,7 +49,6 @@ image = (
             "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
         ]
     )
-    .apt_install(["git"])
     .pip_install(
         [
             "diffusers[torch]~=0.9.0",
@@ -154,10 +153,7 @@ def load_images(image_urls):
 # We can use a trained model to synthesize wholly new images
 # by combining the concepts it has learned from the training data.
 #
-# We use a pretrained model, version 1.4 of the Stable Diffusion model,
-# trained by the [Ommer Lab](https://ommer-lab.com/) at LMU Munich.
-#
-# In this example, we "finetune" SD v1.4, making only small adjustments to the weights,
+# We use a pretrained model, version 1.5 of the Stable Diffusion model. In this example, we "finetune" SD v1.5, making only small adjustments to the weights,
 # in order to just teach it a new word: the name of our pet.
 #
 # The result is a model that can generate novel images of our pet:
@@ -168,23 +164,21 @@ def load_images(image_urls):
 # The model weights, libraries, and training script are all provided by [🤗 Hugging Face](https://huggingface.co).
 #
 # To access the model weights, you'll need a [Hugging Face account](https://huggingface.co/join)
-# and from that account you'll need to accept the model license [here](https://huggingface.co/CompVis/stable-diffusion-v1-4).
+# and from that account you'll need to accept the model license [here](https://huggingface.co/runwayml/stable-diffusion-v1-5).
 #
 # Lastly, you'll need to create a token from that account and share it with Modal
 # under the name `"huggingface"`. Follow the instructions [here](https://modal.com/secrets).
 #
 # Then, you can kick off a training job with the command
 # `python dreambooth_app.py train`.
-# It should take about five minutes.
-
-PRETRAINED_CACHE_DIR = MODEL_DIR / ".cache"
+# It should take about ten minutes.
 
 
 @stub.function(
     image=image,
     gpu=gpu,  # finetuning is VRAM hungry, so this should be an A100
     shared_volumes={
-        str(MODEL_DIR): volume,
+        str(MODEL_DIR): volume,  # fine-tuned model will be stored at `MODEL_DIR`
     },
     timeout=1800,  # 30 minutes
     secrets=[modal.Secret.from_name("huggingface")],
@@ -265,7 +259,7 @@ def train(instance_example_urls, config=TrainConfig()):
 # We also provide some example text inputs to help
 # guide users and to kick-start their creative juices.
 #
-# You can launch the app on Modal with the command
+# You can deploy the app on Modal forever with the command
 # `modal app deploy dreambooth_app.py`.
 
 
@@ -333,6 +327,20 @@ def fastapi_app(config=AppConfig()):
     )
 
 
+# ## Define command-line interface
+#
+# Let's define some command-line options to make it easy to trigger various parts of the app:
+#
+# `python dreambooth_app.py train` will train the model
+#
+# `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+#
+# `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
+#
+# Remember, once you've trained your own fine-tuned model, you can deploy it using `modal app deploy dreambooth_app.py`.
+#
+# This app is already deployed on Modal and you can try it out at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) >= 2 else "train"
     if cmd == "train":
@@ -346,5 +354,3 @@ if __name__ == "__main__":
         stub.interactive_shell(image=image)
     else:
         print(f"Invalid cmd '{cmd}'.")
-
-# This app is already deployed on Modal and you can try it out at https://modal-labs-example-dreambooth-app.modal.run.
