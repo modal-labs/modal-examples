@@ -4,6 +4,8 @@ CACHE_DIR = "/cache"
 MODEL_CACHE = pathlib.Path(CACHE_DIR, "models")
 # Where generated Pokémon images are stored, by hash of prompt.
 POKEMON_IMGS = pathlib.Path(CACHE_DIR, "generated_samples")
+# Where human-generated and ML-generated new Pokémon names are stored.
+POKEMON_NAMES = pathlib.Path(CACHE_DIR, "pokemon_names")
 # Where fully compose Pokémon card output images are stored, by hash of prompt.
 FINAL_IMGS = pathlib.Path(CACHE_DIR, "final_cards")
 # Location of web frontend assets.

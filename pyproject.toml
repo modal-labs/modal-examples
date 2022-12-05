@@ -4,6 +4,9 @@ filterwarnings = [
     "error::modal.exception.DeprecationError",
     "ignore::DeprecationWarning:pytest.*:",
 ]
+pythonpath = [
+    "ml/text-to-pokemon",
+]
 
 [tool.black]
 line-length = 120

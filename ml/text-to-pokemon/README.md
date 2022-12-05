@@ -12,26 +12,32 @@ excellent CSS work.
 ### Frontend
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/frontend"
+cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/text_to_pokemon/frontend"
 npx vite build --watch
 ```
 
 ### Backend
 
-Run this to `stub.serve()` the web API iterate on the application backend:
+Run this to `stub.serve()` the web API and iterate on the application backend:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/"
-python3 -m text-to-pokemon.main
+cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon"
+python3 -m text_to_pokemon.main
 ```
 
 Sending <kbd>Ctrl</kbd>+<kbd>C</kbd> will stop your app.
 
+### Tests
+
+```
+python3 -m pytest
+```
+
 ## Deploy
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/frontend"
+cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/text_to_pokemon/frontend"
 npx vite build
-cd "$(git rev-parse --show-toplevel)/ml/"
-modal app deploy text-to-pokemon.main
+cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/"
+modal app deploy text_to_pokemon.main
 ```

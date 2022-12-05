@@ -8,15 +8,17 @@ import sys
 import urllib.request
 import time
 from datetime import timedelta
-from typing import Optional
 
 import modal
 from . import config
 from . import inpaint
+from . import pokemon_naming
 
 volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
 model_volume = modal.SharedVolume().persist("txt-to-pokemon-model-cache-vol")
-image = modal.Image.debian_slim().pip_install(["colorgram.py", "diffusers==0.3.0", "transformers", "scipy", "ftfy"])
+image = modal.Image.debian_slim().pip_install(
+    ["accelerate", "colorgram.py", "diffusers~=0.9.0", "torch", "transformers", "scipy", "ftfy"]
+)
 stub = modal.Stub(name="example-text-to-pokemon", image=image)
 
 
@@ -160,11 +162,23 @@ def fastapi_app():
     shared_volumes={config.CACHE_DIR: volume},
     interactive=False,
 )
-def inpaint_new_pokemon_name(card_image: Optional[bytes] = None, pokemon_name: str = "Randomon") -> bytes:
-    return inpaint.new_pokemon_name(card_image, pokemon_name)
+def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
+    """
+    Pick a name for the generated Pokémon character based on the prompt,
+    and replace the base card's Pokémon name with it.
+
+    Without this, created cards look a bit weird, as the generated Pokémon
+    will have names like 'Articuno', 'Bidoof', and 'Pikachu'.
+    """
+    candidates = pokemon_naming.load_names(
+        include_model_generated=True,
+        include_human_generated=True,
+    )
+    best_name = pokemon_naming.prompt_2_name(prompt, candidates)
+    return inpaint.new_pokemon_name(card_image, best_name.capitalize())
 
 
-def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
+def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -202,7 +216,7 @@ def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
     back_im.save(img_byte_arr, format="PNG")
     img_bytes = img_byte_arr.getvalue()
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name(img_bytes)
+    return inpaint_new_pokemon_name(img_bytes, prompt)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
@@ -221,7 +235,7 @@ def color_dist(one: tuple[float, float, float], two: tuple[float, float, float])
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
-def create_composite_card(i: int, sample: bytes) -> bytes:
+def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     """
     Takes a single Pokémon sample and creates a Pokémon card image for it.
     .starmap over this function to boost performance.
@@ -238,7 +252,7 @@ def create_composite_card(i: int, sample: bytes) -> bytes:
     )
     base_bytes = urllib.request.urlopen(req).read()
     print(f"Compositing generated sample {i} onto a Pokémon card.")
-    return composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample))
+    return composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample), prompt=prompt)
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
@@ -257,7 +271,9 @@ def create_pokemon_cards(prompt: str):
         # Produce the Pokémon character samples with the StableDiffusion model.
         samples_data = diskcached_text_to_pokemon(prompt)
         print(f"Compositing {len(samples_data)} samples onto cards...")
-        cards_data = list(create_composite_card.starmap(list(enumerate(samples_data))))
+        cards_data = list(
+            create_composite_card.starmap((i, sample, norm_prompt) for (i, sample) in enumerate(samples_data))
+        )
         print(f"Persisting {len(cards_data)} results for later disk-cache retrieval.")
         final_cards_dir.mkdir()
         for i, c_data in enumerate(cards_data):
