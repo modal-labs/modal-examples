@@ -29,29 +29,38 @@
 # We can start from a slim Debian OS image and install all of our dependencies
 # with the `pip` Python package installer.
 import os
-from pathlib import Path
 import sys
-
 from dataclasses import dataclass
-from fastapi import FastAPI
+from pathlib import Path
+
 import modal
+from fastapi import FastAPI
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
 
-image = modal.Image.debian_slim().pip_install(
-    [
-        "diffusers~=0.5",
-        "accelerate~=0.14.0",
-        "torchvision~=0.14",
-        "transformers~=4.21",
-        "ftfy",
-        "tensorboard",
-        "smart_open~=6.2.0",
-        "gradio~=3.10",
-    ]
+image = (
+    modal.Image.conda()
+    .run_commands(
+        [
+            "conda install xformers -c xformers/label/dev",
+            "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
+        ]
+    )
+    .apt_install(["git"])
+    .pip_install(
+        [
+            "diffusers[torch]~=0.9.0",
+            "transformers~=4.21",
+            "ftfy",
+            "accelerate==0.14.0",
+            "tensorboard",
+            "smart_open~=6.2.0",
+            "gradio~=3.10",
+        ]
+    )
 )
 
 # A persistent shared volume will store model artefacts across Modal app runs.
@@ -94,16 +103,16 @@ class TrainConfig(SharedConfig):
     instance_example_urls_file: str = "dreambooth_app/instance_example_urls.txt"
 
     # identifier for pretrained model on Hugging Face
-    model_name: str = "CompVis/stable-diffusion-v1-4"
+    model_name: str = "runwayml/stable-diffusion-v1-5"
 
     # Hyperparameters/constants from the huggingface training example
     resolution: int = 512
     train_batch_size: int = 1
     gradient_accumulation_steps: int = 1
-    learning_rate: float = 5e-6
+    learning_rate: float = 2e-6
     lr_scheduler: str = "constant"
     lr_warmup_steps: int = 0
-    max_train_steps: int = 400
+    max_train_steps: int = 800
 
 
 @dataclass
@@ -124,8 +133,8 @@ IMG_PATH = Path("/img")
 
 
 def load_images(image_urls):
-    from smart_open import open
     import PIL.Image
+    from smart_open import open
 
     os.makedirs(IMG_PATH, exist_ok=True)
     for ii, url in enumerate(image_urls):
@@ -168,23 +177,23 @@ def load_images(image_urls):
 # `python dreambooth_app.py train`.
 # It should take about five minutes.
 
+PRETRAINED_CACHE_DIR = MODEL_DIR / ".cache"
+
 
 @stub.function(
     image=image,
     gpu=gpu,  # finetuning is VRAM hungry, so this should be an A100
-    cpu=8,  # request enough CPUs to feed the GPU
     shared_volumes={
         str(MODEL_DIR): volume,
     },
-    timeout=600,  # 10 minutes
+    timeout=1800,  # 30 minutes
     secrets=[modal.Secret.from_name("huggingface")],
-    interactive=False,
 )
 def train(instance_example_urls, config=TrainConfig()):
     import subprocess
 
-    from accelerate.utils import write_basic_config
     import huggingface_hub
+    from accelerate.utils import write_basic_config
     from smart_open import open
     from transformers import CLIPTokenizer
 
@@ -208,7 +217,7 @@ def train(instance_example_urls, config=TrainConfig()):
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_commit_hash = "30220905c4319e46e114cf7dc8047d94eca226f7"
+    script_commit_hash = "daebee0963d2b39fb3fa9532ab271a91674c4070"
     script_path = "examples/dreambooth/train_dreambooth.py"
     script_url = f"{raw_repo_url}/{script_commit_hash}/{script_path}"
 
@@ -227,6 +236,7 @@ def train(instance_example_urls, config=TrainConfig()):
             "accelerate",
             "launch",
             "train_dreambooth.py",
+            "--train_text_encoder",  # needs at least 16GB of GPU RAM.
             f"--pretrained_model_name_or_path={config.model_name}",
             f"--instance_data_dir={img_path}",
             f"--output_dir={MODEL_DIR}",
@@ -262,18 +272,19 @@ def train(instance_example_urls, config=TrainConfig()):
 @stub.asgi(
     image=image,
     gpu=gpu,
-    cpu=1,  # during inference, CPU is less of a bottleneck
     shared_volumes={str(MODEL_DIR): volume},
     mounts=[modal.Mount("/assets", local_dir=assets_path)],
 )
 def fastapi_app(config=AppConfig()):
-    from diffusers import StableDiffusionPipeline
     import gradio as gr
-    from gradio.routes import mount_gradio_app
     import torch
+    from diffusers import DDIMScheduler, StableDiffusionPipeline
+    from gradio.routes import mount_gradio_app
 
     # set up a hugging face inference pipeline using our model
-    pipe = StableDiffusionPipeline.from_pretrained(MODEL_DIR, torch_dtype=torch.float16).to("cuda")
+    ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
+    pipe = StableDiffusionPipeline.from_pretrained(MODEL_DIR, scheduler=ddim, torch_dtype=torch.float16).to("cuda")
+    pipe.enable_xformers_memory_efficient_attention()
 
     # wrap inference in a text-to-image function
     def go(text):
@@ -290,14 +301,14 @@ def fastapi_app(config=AppConfig()):
     example_prompts = [
         f"{instance_phrase}",
         f"a painting of {instance_phrase.title()} With A Pearl Earring, by Vermeer",
-        f"{instance_phrase} flying through space as an astronaut",
+        f"oil painting of {instance_phrase} flying through space as an astronaut",
         f"low polygon count art of {instance_phrase} from the Nintendo 64 game {instance_phrase.title()} 64",
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
     modal_example_url = f"{modal_docs_url}/ex/dreambooth-app"
 
-    description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.",
+    description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.
 
     ### Learn how to make your own [here]({modal_example_url}).
     """
@@ -332,7 +343,7 @@ if __name__ == "__main__":
     elif cmd == "serve":
         stub.serve()
     elif cmd == "shell":
-        stub.interactive_shell()
+        stub.interactive_shell(image=image)
     else:
         print(f"Invalid cmd '{cmd}'.")
 
