@@ -5,7 +5,7 @@
 # lambda-test: false
 # ---
 #
-## Pet Art Dreambooth with Hugging Face and Gradio
+# # Pet Art Dreambooth with Hugging Face and Gradio
 #
 # This example finetunes the [Stable Diffusion v1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 # on images of a pet (by default, a puppy named Qwerty)
