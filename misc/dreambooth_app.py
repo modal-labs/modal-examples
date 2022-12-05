@@ -111,7 +111,7 @@ class TrainConfig(SharedConfig):
     learning_rate: float = 2e-6
     lr_scheduler: str = "constant"
     lr_warmup_steps: int = 0
-    max_train_steps: int = 800
+    max_train_steps: int = 600
 
 
 @dataclass
@@ -172,6 +172,8 @@ def load_images(image_urls):
 # Then, you can kick off a training job with the command
 # `python dreambooth_app.py train`.
 # It should take about ten minutes.
+#
+# Tip: if the results you're seeing don't match the prompt too well, and instead produce an image of your subject again, the model has likely overfit. In this case, repeat training with a lower # of max_train_steps. On the other hand, if the results don't look like your subject, you might need to increase # of max_train_steps.
 
 
 @stub.function(
@@ -296,7 +298,8 @@ def fastapi_app(config=AppConfig()):
         f"{instance_phrase}",
         f"a painting of {instance_phrase.title()} With A Pearl Earring, by Vermeer",
         f"oil painting of {instance_phrase} flying through space as an astronaut",
-        f"low polygon count art of {instance_phrase} from the Nintendo 64 game {instance_phrase.title()} 64",
+        f"a painting of {instance_phrase} in cyberpunk city. character design by cory loftis. volumetric light, detailed, rendered in octane",
+        f"drawing of {instance_phrase} high quality, cartoon, path traced, by studio ghibli and don bluth",
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
