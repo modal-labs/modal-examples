@@ -300,11 +300,11 @@ def fastapi_app(config=AppConfig()):
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
-    modal_example_url = f"{modal_docs_url}/ex/dreambooth-app"
+    modal_example_url = f"{modal_docs_url}/ex/dreambooth_app"
 
     description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.
 
-    ### Learn how to make your own [here]({modal_example_url}).
+### Learn how to make your own [here]({modal_example_url}).
     """
 
     # add a gradio UI around inference
