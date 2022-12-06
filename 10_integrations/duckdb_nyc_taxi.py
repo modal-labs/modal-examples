@@ -25,6 +25,7 @@
 
 import io
 import os
+from datetime import datetime
 
 import modal
 
@@ -77,7 +78,7 @@ def main():
 
     # Map over all inputs and combine the data
     inputs = [(year, month) for year in range(2018, 2023) for month in range(1, 13) if (year, month) <= (2022, 6)]
-    data = [[] for i in range(7)]  # Initialize a list for every weekday
+    data: list[list[tuple[datetime, int]]] = [[] for i in range(7)]  # Initialize a list for every weekday
     for r in get_data.starmap(inputs):
         for d, c in r:
             data[d.weekday()].append((d, c))

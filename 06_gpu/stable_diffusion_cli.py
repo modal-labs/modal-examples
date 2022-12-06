@@ -108,7 +108,7 @@ class StableDiffusion:
         self.pipe.enable_xformers_memory_efficient_attention()
 
     @stub.function(gpu=modal.gpu.A100())
-    def run_inference(self, prompt: str, steps: int = 20) -> str:
+    def run_inference(self, prompt: str, steps: int = 20) -> bytes:
         import torch
 
         with torch.inference_mode():
