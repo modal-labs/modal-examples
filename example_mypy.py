@@ -24,11 +24,13 @@ def run_mypy(toplevel_pkg: str, config_file: pathlib.Path) -> list[str]:
     result = mypy.api.run(args)
     return result[0].splitlines()
 
+
 def extract_errors(output: list[str]) -> list[str]:
     if len(output) > 0 and "success" in output[0].lower():
         print(output[0], file=sys.stderr)
         return []
     return [l for l in output if "error" in l]
+
 
 def main() -> int:
     repo_root = fetch_git_repo_root()
@@ -40,10 +42,12 @@ def main() -> int:
     topic_dirs = sorted([d for d in repo_root.iterdir() if d.name[:2].isdigit()])
     for topic_dir in topic_dirs:
         print(f"⌛️ running mypy on '{topic_dir.name}'", file=sys.stderr)
-        topic_errors = extract_errors(run_mypy(
-            toplevel_pkg=str(topic_dir),
-            config_file=config_file,
-        ))
+        topic_errors = extract_errors(
+            run_mypy(
+                toplevel_pkg=str(topic_dir),
+                config_file=config_file,
+            )
+        )
         if topic_errors:
             print("\n".join(topic_errors))
             errors.extend(topic_errors)
@@ -55,10 +59,12 @@ def main() -> int:
     for py_typed in repo_root.glob("**/py.typed"):
         toplevel_pkg = py_typed.parent
         print(f"⌛️ running mypy on '{toplevel_pkg}'", file=sys.stderr)
-        package_errors = extract_errors(run_mypy(
-            toplevel_pkg=str(toplevel_pkg),
-            config_file=config_file,
-        ))
+        package_errors = extract_errors(
+            run_mypy(
+                toplevel_pkg=str(toplevel_pkg),
+                config_file=config_file,
+            )
+        )
         if package_errors:
             print(f"found {len(package_errors)} errors in '{toplevel_pkg}'", file=sys.stderr)
             print("\n".join(package_errors))
