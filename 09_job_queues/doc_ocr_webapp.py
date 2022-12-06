@@ -52,7 +52,7 @@ async def parse(request: fastapi.Request):
     parse_receipt = modal.lookup("example-doc-ocr-jobs", "parse_receipt")
 
     form = await request.form()
-    receipt = await form["receipt"].read()
+    receipt = await form["receipt"].read()  # type: ignore
     call = parse_receipt.submit(receipt)
     return {"call_id": call.object_id}
 
@@ -70,7 +70,7 @@ async def poll_results(call_id: str):
     try:
         result = function_call.get(timeout=0)
     except TimeoutError:
-        return fastapi.responses.JSONResponse(status_code=202)
+        return fastapi.responses.JSONResponse(content="", status_code=202)
 
     return result
 

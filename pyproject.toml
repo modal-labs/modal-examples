@@ -10,3 +10,13 @@ pythonpath = [
 
 [tool.black]
 line-length = 120
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+no_strict_optional = true
+
+# https://github.com/python/mypy/issues/10632
+[[tool.mypy.overrides]]
+module = "requests"
+ignore_missing_imports = true
