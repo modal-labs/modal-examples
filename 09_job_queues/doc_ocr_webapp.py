@@ -23,7 +23,6 @@ from pathlib import Path
 import fastapi
 import fastapi.staticfiles
 import modal
-import modal.aio
 
 stub = modal.Stub("example-doc-ocr-webapp")
 
@@ -39,7 +38,7 @@ web_app = fastapi.FastAPI()
 #
 # In `parse`, we're going to submit tasks to the function defined in the [Job
 # Queue tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using
-# [`modal.aio_lookup`](/docs/guide/sharing-functions#calling-code-from-outside-modal).
+# [`modal.lookup`](/docs/reference/modal.lookup).
 #
 # We call [`.submit()`](/docs/reference/modal.Function#submit) on the function handle
 # we imported above, to kick off our function without blocking on the results. `submit` returns
@@ -48,7 +47,6 @@ web_app = fastapi.FastAPI()
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
-    # Use aio_lookup since we're in an async context.
     parse_receipt = modal.lookup("example-doc-ocr-jobs", "parse_receipt")
 
     form = await request.form()
