@@ -1,16 +1,17 @@
+import os
 import shutil
 import subprocess
 from hashlib import sha256
+from pathlib import Path
 
 import modal
-import os
-from pathlib import Path
 
 
 def meltano_install():
     shutil.copytree("/meltano_source", "/meltano_project")
     os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
     subprocess.call(["meltano", "install"])
+
 
 local_project_root = Path(__file__).parent / "meltano_project"
 
@@ -21,10 +22,12 @@ meltano_source_mount = modal.Mount(
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts),
 )
 
+
 def invalidating_on_update():
     # invalidates a build when the meltano.yml file changes
     checksum = sha256((local_project_root / "meltano.yml").read_bytes()).hexdigest()
     return ["FROM base", f"RUN echo {checksum}"]
+
 
 meltano_img = (
     modal.Image.debian_slim()
@@ -46,6 +49,7 @@ meltano_conf = modal.Secret(
         "MELTANO_DATABASE_URI": f"sqlite:///{db_path}",
     }
 )
+
 
 class MeltanoContainer:
     def __enter__(self):
@@ -82,6 +86,7 @@ class MeltanoContainer:
     )
     def daily_ingest(self):
         subprocess.call(["meltano", "run", "github-to-jsonl"])
+
 
 @stub.function(schedule=modal.Period(days=1))
 def scheduled_runs():
