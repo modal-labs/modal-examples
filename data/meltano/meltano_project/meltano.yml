@@ -24,6 +24,7 @@ jobs:
 - name: github-to-jsonl
   tasks:
   - tap-github target-jsonl
+
 schedules:
 - name: github-to-jsonl
   interval: '@daily'
