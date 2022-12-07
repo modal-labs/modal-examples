@@ -7,8 +7,9 @@
 # We do this in parallel, which demonstrates the ability to map over a set of items
 # In this case, we fetch 100 stocks in parallel
 #
-# You can run this script on the terminal like this:
-# ```
+# You can run this script on the terminal with
+#
+# ```bash
 # python 03_scaling_out/fetch_stock_prices.py
 # ```
 #
@@ -32,22 +33,27 @@ import modal
 
 stub = modal.Stub(
     "example-fetch-stock-prices",
-    image=modal.Image.debian_slim().pip_install(["requests", "yfinance", "beautifulsoup4", "matplotlib"]),
+    image=modal.Image.debian_slim().pip_install(
+        ["requests", "yfinance", "beautifulsoup4", "matplotlib"],
+    ),
 )
 
 # ## Fetch a list of tickers
 #
 # The `yfinance` package does not have a way to download a list of stocks.
-# To get a list of stocks, we just parse the HTML from Yahoo! Finance using Beautiful Soup
-# We ask for the top 100 ETFs
+# To get a list of stocks, we parse the HTML from Yahoo Finance using Beautiful Soup
+# and ask for the top 100 ETFs.
 
 
-@stub.generator
+@stub.function
 def get_stocks():
     import bs4
     import requests
 
-    headers = {"user-agent": "curl/7.55.1", "referer": "https://finance.yahoo.com/"}
+    headers = {
+        "user-agent": "curl/7.55.1",
+        "referer": "https://finance.yahoo.com/",
+    }
     url = "https://finance.yahoo.com/etfs/?count=100&offset=0"
     res = requests.get(url, headers=headers)
     soup = bs4.BeautifulSoup(res.text, "html.parser")
@@ -61,7 +67,7 @@ def get_stocks():
 # ## Fetch stock prices
 #
 # Now, let's fetch the stock data. This is the function that we will parallelize.
-# It's fairly simple and just uses the yfinance package.
+# It's fairly simple and just uses the `yfinance` package.
 
 
 @stub.function
@@ -77,7 +83,7 @@ def get_prices(symbol):
 
 # ## Plot the result
 #
-# Plotting code. We run this in Modal as well, although you could also run it locally.
+# Here is our plotting code. We run this in Modal, although you could also run it locally.
 # Note that the plotting code calls the other two functions.
 # Since we plot the data in the cloud, we can't display it, so we generate a PNG
 # and return the binary content from the function.
@@ -131,7 +137,8 @@ def run():
 
 # ## Entrypoint
 #
-# The entrypoint locally runs the app, gets the chart back as a .png, and saves it to disk
+# The entrypoint locally runs the app, gets the chart back as a PNG file, and
+# saves it to disk.
 
 OUTPUT_DIR = "/tmp/"
 

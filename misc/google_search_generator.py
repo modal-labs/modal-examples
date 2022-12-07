@@ -15,7 +15,7 @@ stub = modal.Stub("example-google-search-generator", image=modal.Image.debian_sl
 # Next, let's define a _generator_ function that uses our custom image.
 
 
-@stub.generator
+@stub.function
 def scrape(query):
     from googlesearch import search
 

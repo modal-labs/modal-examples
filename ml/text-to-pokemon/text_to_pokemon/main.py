@@ -11,9 +11,14 @@ from datetime import timedelta
 
 import modal
 from . import config
+from . import inpaint
+from . import pokemon_naming
 
 volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
-image = modal.Image.debian_slim().pip_install(["colorgram.py", "diffusers==0.3.0", "transformers", "scipy", "ftfy"])
+model_volume = modal.SharedVolume().persist("txt-to-pokemon-model-cache-vol")
+image = modal.Image.debian_slim().pip_install(
+    ["accelerate", "colorgram.py", "diffusers~=0.9.0", "torch", "transformers", "scipy", "ftfy"]
+)
 stub = modal.Stub(name="example-text-to-pokemon", image=image)
 
 
@@ -51,24 +56,44 @@ def image_to_byte_array(image) -> bytes:
     return img_byte_arr
 
 
+def load_stable_diffusion_pokemon_model():
+    import torch
+    from diffusers import StableDiffusionPipeline
+
+    model_id = "lambdalabs/sd-pokemon-diffusers"
+    cache_dir = config.MODEL_CACHE / model_id
+    if cache_dir.exists():
+        print(f"Using diskcached model for '{model_id}'")
+        local_files_only = True
+        load_action = "loading"
+    else:
+        print(f"No diskcached model found for '{model_id}'")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        local_files_only = False
+        load_action = "downloading"
+    t0 = time.time()
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+        cache_dir=cache_dir,
+        local_files_only=local_files_only,
+    )
+    print(f"finished {load_action} model, took {time.time()-t0:.3f}s.")
+    if config.DISABLE_SAFETY:
+
+        def null_safety(images, **kwargs):
+            return images, False
+
+        pipe.safety_checker = null_safety
+    pipe.to("cuda")
+    return pipe
+
+
 class Model:
     def __enter__(self):
-        import torch
-        from diffusers import StableDiffusionPipeline
+        self.pipe = load_stable_diffusion_pokemon_model()
 
-        pipe = StableDiffusionPipeline.from_pretrained("lambdalabs/sd-pokemon-diffusers", torch_dtype=torch.float16)
-        # Sometimes the NSFW checker is confused by the Pokémon images.
-        # You can disable it at your own risk.
-        disable_safety = True
-        if disable_safety:
-
-            def null_safety(images, **kwargs):
-                return images, False
-
-            pipe.safety_checker = null_safety
-        self.pipe = pipe.to("cuda")
-
-    @stub.function(gpu=modal.gpu.A100())
+    @stub.function(gpu=modal.gpu.A100(), shared_volumes={config.CACHE_DIR: model_volume})
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
@@ -132,30 +157,28 @@ def fastapi_app():
     return web_app
 
 
-@stub.function
-def extract_colors(num=3) -> None:
-    import colorgram
-    import urllib.request
+@stub.function(
+    image=inpaint.cv_image,
+    shared_volumes={config.CACHE_DIR: volume},
+    interactive=False,
+)
+def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
+    """
+    Pick a name for the generated Pokémon character based on the prompt,
+    and replace the base card's Pokémon name with it.
 
-    for card in config.POKEMON_CARDS:
-        print(f"Processing {card['name']}")
-        req = urllib.request.Request(
-            card["images"]["large"],
-            # Set a user agent to avoid 403 response from some podcast audio servers.
-            headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-            },
-        )
-        image_bytes = urllib.request.urlopen(req).read()
-        colors = colorgram.extract(io.BytesIO(image_bytes), num)
-        card["colors"] = [list(color.rgb) for color in colors]
-
-    import json
-
-    print(json.dumps(config.POKEMON_CARDS, indent=4))
+    Without this, created cards look a bit weird, as the generated Pokémon
+    will have names like 'Articuno', 'Bidoof', and 'Pikachu'.
+    """
+    candidates = pokemon_naming.load_names(
+        include_model_generated=True,
+        include_human_generated=True,
+    )
+    best_name = pokemon_naming.prompt_2_name(prompt, candidates)
+    return inpaint.new_pokemon_name(card_image, best_name.capitalize())
 
 
-def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
+def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -187,19 +210,19 @@ def composite_pokemon_card(base: bytes, character_img: bytes) -> bytes:
         mini_logo_top_right_crnr = (220, 935)
         back_im.paste(logo_img, mini_logo_top_right_crnr)
     else:
-        print(
-            f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.",
-            file=sys.stderr,
-        )
+        print(f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.")
 
-    # Finalize composite Pokémond card image.
     img_byte_arr = io.BytesIO()
     back_im.save(img_byte_arr, format="PNG")
     img_bytes = img_byte_arr.getvalue()
-    return img_bytes
+    print("Replacing Pokémon card name")
+    return inpaint_new_pokemon_name(img_bytes, prompt)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
+    """
+    A decent but not great RGB color distance function. Range of distance result is [0.0, 3.0].
+    """
     import numpy as np
 
     fst = np.array([[x / 255.0 for x in one]])
@@ -212,34 +235,54 @@ def color_dist(one: tuple[float, float, float], two: tuple[float, float, float])
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
+def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
+    """
+    Takes a single Pokémon sample and creates a Pokémon card image for it.
+    .starmap over this function to boost performance.
+    """
+    print(f"Determining base card for generated sample {i}.")
+    closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
+    base_card_url = closest_card["images"]["large"]
+    print(f"Closest base card for sample {i} is '{closest_card['name']}'")
+    req = urllib.request.Request(
+        base_card_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
+        },
+    )
+    base_bytes = urllib.request.urlopen(req).read()
+    print(f"Compositing generated sample {i} onto a Pokémon card.")
+    return composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample), prompt=prompt)
+
+
+@stub.function(shared_volumes={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str):
-    # Produce the Pokémon character samples with the StableDiffusion model.
-    samples_data = diskcached_text_to_pokemon(prompt)
+    norm_prompt = normalize_prompt(prompt)
+    print(f"Creating for prompt '{norm_prompt}'")
+    norm_prompt_digest = hashlib.sha256(norm_prompt.encode()).hexdigest()
+    config.FINAL_IMGS.mkdir(parents=True, exist_ok=True)
+    final_cards_dir = config.FINAL_IMGS / norm_prompt_digest
 
-    print("Determining base cards for generate samples.")
-    card_bases_bytes = []
-    for i, sample in enumerate(samples_data):
-        closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
-        print(f"Closest base card for sample {i} is '{closest_card['name']}'")
-        base_card_url = closest_card["images"]["large"]
-        req = urllib.request.Request(
-            base_card_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
-            },
+    if final_cards_dir.exists():
+        print("Cached! - prompt has had cards composed before, returning previous Pokémon card results.")
+        cards_data = [card_file.read_bytes() for card_file in final_cards_dir.iterdir()]
+    else:
+        print("No existing final card outputs for prompts. Proceeding...")
+        # Produce the Pokémon character samples with the StableDiffusion model.
+        samples_data = diskcached_text_to_pokemon(prompt)
+        print(f"Compositing {len(samples_data)} samples onto cards...")
+        cards_data = list(
+            create_composite_card.starmap((i, sample, norm_prompt) for (i, sample) in enumerate(samples_data))
         )
-        base_bytes = urllib.request.urlopen(req).read()
-        card_bases_bytes.append(base_bytes)
-
-    print("Compositing the character samples onto Pokémon cards.")
-    images_data = [
-        composite_pokemon_card(base=io.BytesIO(base_bytes), character_img=io.BytesIO(sample_bytes))
-        for base_bytes, sample_bytes in zip(card_bases_bytes, samples_data)
-    ]
+        print(f"Persisting {len(cards_data)} results for later disk-cache retrieval.")
+        final_cards_dir.mkdir()
+        for i, c_data in enumerate(cards_data):
+            c_path = final_cards_dir / f"{i}.png"
+            c_path.write_bytes(c_data)
 
     # Return Pokémon cards to client as base64-encoded images with metadata.
     cards = []
-    for i, image_bytes in enumerate(images_data):
+    for i, image_bytes in enumerate(cards_data):
         encoded_image_string = base64.b64encode(image_bytes)
         cards.append(
             PokemonCardResponseItem(
@@ -279,20 +322,6 @@ def closest_pokecard_by_color(sample: bytes, cards):
 
 
 if __name__ == "__main__":
-    # composite_pokemon_card(
-    #     base=pathlib.Path("text-to-pokemon/bulbasaur.png"),
-    #     character_img=pathlib.Path("text-to-pokemon/abramon.png"),
-    # )
-
-    # with open(pathlib.Path("1668009013_3.png"), "rb") as f:
-    #     image_bytes = f.read()
-    # with stub.run():
-    #     closest = closest_pokecard_by_color(sample=image_bytes, cards=config.POKEMON_CARDS)
-    #     print(closest)
-
-    # with stub.run():
-    #     extract_colors()
-
     if len(sys.argv) == 1:
         print("No prompt provided so running webapp…")
         stub.serve()

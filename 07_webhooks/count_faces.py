@@ -52,7 +52,7 @@ if __name__ == "__main__":
     @app.post("/process")
     async def process(request: sanic.Request):
         input_file = request.files["file"][0]
-        async with app.run():
+        async with app.run():  # type: ignore
             num_faces = await count_faces(input_file.body)
 
         return sanic.json({"faces": num_faces})

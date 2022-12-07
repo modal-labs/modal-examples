@@ -1,7 +1,7 @@
 # ---
 # lambda-test: false
 # ---
-# # Hacker News Alerts Slackbot
+# # Hacker News Slackbot
 
 # In this example, we use Modal to deploy a cron job that periodically queries Hacker News for
 # new posts matching a given search term, and posts the results to Slack.

@@ -2,25 +2,24 @@
 # integration-test: false
 # output-directory: "/tmp/screenshots"
 # ---
-# # Screenshot with headless Chromium
+# # Screenshot with Chromium
 
-# In this example, we use Modal functions and the `playwright` package to screenshot websites from a list of urls in parallel.
-# Please also see our [introductory guide](/docs/guide/web-scraper) for another example of a web-scraper, with more in-depth examples.
+# In this example, we use Modal functions and the `playwright` package to take screenshots
+# of websites from a list of URLs in parallel.
 #
-# You can run this example on the command line, like this:
+# You can run this example on the command line with
 #
 # ```
 # python 02_building_containers/screenshot.py 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 # ```
 #
-# This should take a few seconds then write a `/tmp/screenshots/screenshot.png` file.
-# This is what the file should look like:
+# This should take a few seconds then create a `/tmp/screenshots/screenshot.png` file, shown below.
 #
 # ![screenshot](./screenshot.png)
 #
 # ## Setup
 #
-# First we import the `modal` client library:
+# First we import the Modal client library.
 
 import pathlib
 import sys
@@ -29,7 +28,7 @@ import modal
 
 stub = modal.Stub("example-screenshot")
 
-# ## Defining a custom image
+# ## Define a custom image
 #
 # We need an image with the `playwright` Python package as well as its `chromium` plugin pre-installed.
 # This requires intalling a few Debian packages, as well as setting up a new Debian repository.
@@ -48,7 +47,7 @@ image = modal.Image.debian_slim().run_commands(
     ],
 )
 
-# ## Defining the screenshot function
+# ## The screenshot function
 #
 # Next, the scraping function which runs headless Chromium, goes to a website, and takes a screenshot.
 # This is a Modal function which runs inside the remote container.
@@ -82,3 +81,6 @@ if __name__ == "__main__":
         with open(filename, "wb") as f:
             f.write(data)
         print(f"wrote {len(data)} bytes to {filename}")
+
+# And we're done! Please also see our [introductory guide](/docs/guide/web-scraper) for another
+# example of a web scraper, with more in-depth logic.
