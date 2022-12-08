@@ -80,7 +80,7 @@ def crawl():
 
 @stub.webhook
 def crawl_webhook():
-    crawl()
+    crawl.call()
     return "Finished indexing docs"
 
 
@@ -107,4 +107,4 @@ def crawl_webhook():
 
 if __name__ == "__main__":
     with stub.run():
-        crawl()
+        crawl.call()

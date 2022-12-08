@@ -144,13 +144,13 @@ def main() -> int:
     args = parser.parse_args()
     if args.subcommand == "gen-pokemon-names":
         with stub.run():
-            generate_pokemon_names()
+            generate_pokemon_names.call()
     elif args.subcommand == "extract-colors":
         with stub.run():
-            extract_colors()
+            extract_colors.call()
     elif args.subcommand == "reset-diskcache":
         with stub.run():
-            reset_diskcache(dry_run=not args.nodry_run)
+            reset_diskcache.call(dry_run=not args.nodry_run)
     elif args.subcommand is None:
         parser.print_help(sys.stderr)
     else:

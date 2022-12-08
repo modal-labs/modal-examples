@@ -24,5 +24,5 @@ async def poll_status(call_id: str):
 
 @web_app.get("/api/create")
 async def create_pokemon_job(prompt: str):
-    call = create_pokemon_cards.submit(prompt)
+    call = create_pokemon_cards.spawn(prompt)
     return {"call_id": call.object_id}

@@ -350,7 +350,7 @@ if __name__ == "__main__":
         with open(TrainConfig().instance_example_urls_file) as f:
             instance_example_urls = map(lambda line: line.strip(), f.readlines())
         with stub.run():
-            train(instance_example_urls)
+            train.call(instance_example_urls)
     elif cmd == "serve":
         stub.serve()
     elif cmd == "shell":
