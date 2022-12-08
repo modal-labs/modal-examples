@@ -83,4 +83,3 @@ if __name__ == "__main__":
         with open(output_path, "wb") as f:
             f.write(img_bytes)
     print(f"Done! Your DALL-E output image is at '{output_path}'")
-        
