@@ -11,4 +11,4 @@ def square(x):
 
 if __name__ == "__main__":
     with stub.run():
-        print("the square is", square(42))
+        print("the square is", square.call(42))

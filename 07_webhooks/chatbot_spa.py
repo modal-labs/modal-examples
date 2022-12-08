@@ -47,7 +47,7 @@ def transformer():
     def chat(body: dict = fastapi.Body(...)):
         message = body["message"]
         chat_id = body.get("id")
-        id, response = generate_response(message, chat_id)
+        id, response = generate_response.call(message, chat_id)
         return JSONResponse({"id": id, "response": response})
 
     app.mount("/", StaticFiles(directory="/assets", html=True))

@@ -51,7 +51,7 @@ async def parse(request: fastapi.Request):
 
     form = await request.form()
     receipt = await form["receipt"].read()  # type: ignore
-    call = parse_receipt.submit(receipt)
+    call = parse_receipt.spawn(receipt)
     return {"call_id": call.object_id}
 
 

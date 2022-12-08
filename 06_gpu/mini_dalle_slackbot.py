@@ -1,5 +1,6 @@
 import io
 import os
+import sys
 from typing import Optional
 
 import modal
@@ -51,7 +52,7 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
     image.save(buf, format="PNG")
 
     if channel_name:
-        post_to_slack(prompt, channel_name, buf.getvalue())
+        post_to_slack.call(prompt, channel_name, buf.getvalue())
     return buf.getvalue()
 
 
@@ -61,7 +62,7 @@ async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]
     # Deferred call to function.
-    run_minidalle.submit(prompt, body["channel_name"])
+    run_minidalle.spawn(prompt, body["channel_name"])
     return f"Running text2im for {prompt}."
 
 
@@ -70,16 +71,15 @@ async def entrypoint(request: Request):
 OUTPUT_DIR = "/tmp/render"
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) > 1:
         prompt = sys.argv[1]
     else:
         prompt = "martha stewart at burning man"
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-
+    output_path = os.path.join(OUTPUT_DIR, "output.png")
     with stub.run():
-        img_bytes = run_minidalle(prompt, None)
-        with open(os.path.join(OUTPUT_DIR, "output.png"), "wb") as f:
+        img_bytes = run_minidalle.call(prompt, None)
+        with open(output_path, "wb") as f:
             f.write(img_bytes)
+    print(f"Done! Your DALL-E output image is at '{output_path}'")

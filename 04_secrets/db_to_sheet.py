@@ -88,7 +88,7 @@ def get_db_rows():
 
 if __name__ == "__main__":
     with stub.run():
-        print(get_db_rows())
+        print(get_db_rows.call())
 
 # ## Applying Python logic
 #
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             "New York,NY,USA",
             "Tokyo,,Japan",
         ]
-        print(create_report(cities))
+        print(create_report.call(cities))
 
 # In this case the logic is quite simple, but in a real world context you could have applied a
 # machine learning model or any other tool you could build into a container to transform the data.
@@ -183,9 +183,9 @@ def update_sheet_report(rows):
 
 @stub.function(schedule=modal.Cron("0 0 * * *"))
 def db_to_sheet():
-    rows = get_db_rows()
-    report = create_report(rows)
-    update_sheet_report(report)
+    rows = get_db_rows.call()
+    report = create_report.call(rows)
+    update_sheet_report.call(report)
     print("Updated sheet with new weather distribution")
     for weather, count in report:
         print(f"{weather}: {count}")
@@ -197,7 +197,7 @@ def db_to_sheet():
 
 if __name__ == "__main__":
     with stub.run():
-        db_to_sheet()
+        db_to_sheet.call()
 
 # Note that each of these function calls above run remotely in isolated containers that are specified per
 # function, but they are called as seamlessly as using regular Python functions. This is a simple

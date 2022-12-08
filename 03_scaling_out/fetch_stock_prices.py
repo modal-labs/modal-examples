@@ -90,7 +90,7 @@ def get_prices(symbol):
 
 
 @stub.function
-def run():
+def plot_stocks():
     from matplotlib import pyplot, ticker
 
     # Setup
@@ -98,7 +98,7 @@ def run():
     fig, ax = pyplot.subplots(figsize=(8, 5))
 
     # Get data
-    tickers = list(get_stocks())
+    tickers = list(get_stocks.call())
     data = list(get_prices.map(tickers))
     first_date = min((min(prices.keys()) for symbol, prices in data if prices))
     last_date = max((max(prices.keys()) for symbol, prices in data if prices))
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with stub.run():
-        data = run()
+        data = plot_stocks.call()
         filename = os.path.join(OUTPUT_DIR, "stock_prices.png")
         print(f"saving data to {filename}")
         with open(filename, "wb") as f:

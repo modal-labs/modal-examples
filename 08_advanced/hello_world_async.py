@@ -44,7 +44,7 @@ def f(i):
 async def run_async():
     async with stub.run():
         # Call the function directly.
-        print(await f(1000))
+        print(await f.call(1000))
 
         # Parallel map.
         total = 0

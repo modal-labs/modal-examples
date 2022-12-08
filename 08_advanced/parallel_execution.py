@@ -24,19 +24,19 @@ def step2(number):
 if __name__ == "__main__":
     with stub.run() as app:
         # Start running a function and return a handle to its result.
-        word_call = step1.submit("foo")
-        number_call = step2.submit(2)
+        word_call = step1.spawn("foo")
+        number_call = step2.spawn(2)
 
         # Print "foofoo" after 2 seconds.
         print(word_call.get() * number_call.get())
 
-        # Alternatively, use `modal.gather(...)` as a convenience wrapper,
+        # Alternatively, use `modal.functions.gather(...)` as a convenience wrapper,
         # which returns an error if either call fails.
-        results = modal.functions.gather(step1.submit("bar"), step2.submit(4))
+        results = modal.functions.gather(step1.spawn("bar"), step2.spawn(4))
         assert results == ["bar", 4]
 
         # Raise exception after 2 seconds.
         try:
-            modal.functions.gather(step1.submit("bar"), step2.submit(0))
+            modal.functions.gather(step1.spawn("bar"), step2.spawn(0))
         except ValueError as exc:
             assert str(exc) == "custom error"
