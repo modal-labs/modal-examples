@@ -51,7 +51,7 @@ def f(i):
 if __name__ == "__main__":
     with stub.run():
         # Call the function directly.
-        print(f(1000))
+        print(f.call(1000))
 
         # Parallel map.
         total = 0

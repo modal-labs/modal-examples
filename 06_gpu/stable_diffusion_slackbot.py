@@ -98,8 +98,8 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     img_bytes = buf.getvalue()
 
     if channel_name:
-        # `post_to_slack` is implemented further below.
-        post_image_to_slack(prompt, channel_name, img_bytes)
+        # `post_image_to_slack` is implemented further below.
+        post_image_to_slack.call(prompt, channel_name, img_bytes)
 
     return img_bytes
 
@@ -130,7 +130,7 @@ from fastapi import Request
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]
-    run_stable_diffusion.submit(prompt, body["channel_name"])
+    run_stable_diffusion.spawn(prompt, body["channel_name"])
     return f"Running stable diffusion for {prompt}."
 
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with stub.run():
-        img_bytes = run_stable_diffusion(prompt)
+        img_bytes = run_stable_diffusion.call(prompt)
         output_path = os.path.join(OUTPUT_DIR, "output.png")
         with open(output_path, "wb") as f:
             f.write(img_bytes)

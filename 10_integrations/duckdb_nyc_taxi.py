@@ -73,7 +73,7 @@ def get_data(year, month):
 
 
 @stub.function
-def main():
+def create_plot():
     from matplotlib import pyplot
 
     # Map over all inputs and combine the data
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     fn = os.path.join(OUTPUT_DIR, "nyc_taxi_chart.png")
 
     with stub.run():
-        png_data = main()
+        png_data = create_plot.call()
         with open(fn, "wb") as f:
             f.write(png_data)
         print(f"wrote output to {fn}")

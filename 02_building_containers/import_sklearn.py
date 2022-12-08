@@ -32,7 +32,7 @@ if stub.is_inside():
 
 
 @stub.function
-def run():
+def fit():
     print("Inside run!")
     t0 = time.time()
     diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
@@ -50,6 +50,6 @@ def run():
 if __name__ == "__main__":
     t0 = time.time()
     with stub.run():
-        t = run()
+        t = fit.call()
         print("Function time spent:", t)
     print("Full time spent:", time.time() - t0)

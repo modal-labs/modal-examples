@@ -76,7 +76,7 @@ if __name__ == "__main__":
     url = sys.argv[1] if len(sys.argv) >= 2 else "https://modal.com"
     filename = pathlib.Path("/tmp/screenshots/screenshot.png")
     with stub.run():
-        data = screenshot(url)
+        data = screenshot.call(url)
         filename.parent.mkdir(exist_ok=True)
         with open(filename, "wb") as f:
             f.write(data)

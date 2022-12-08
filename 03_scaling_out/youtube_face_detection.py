@@ -101,7 +101,7 @@ def detect_faces(fn, start, stop):
 
 # ### Modal entrypoint function
 #
-# The "entrypoint" into Modal controls the main flow of the program:
+# This 'entrypoint' into Modal controls the main flow of the program:
 #
 # 1. Download the video from YouTube
 # 2. Fan-out face detection of individual 1s clips
@@ -109,8 +109,8 @@ def detect_faces(fn, start, stop):
 
 
 @stub.function(shared_volumes={"/clips": stub.sv})
-def run(url):
-    # Download video
+def process_video(url):
+    print(f"Downloading video from '{url}'")
     yt = pytube.YouTube(url)
     stream = yt.streams.filter(file_extension="mp4").first()
     fn = stream.download(output_path="/clips/")
@@ -119,15 +119,15 @@ def run(url):
     duration = moviepy.editor.VideoFileClip(fn).duration
 
     # Create (start, stop) intervals
-    args = [(fn, offset, offset + 1) for offset in range(int(duration))]
+    intervals = [(fn, offset, offset + 1) for offset in range(int(duration))]
 
-    # Process each range of 1s intervals using a Modal map
-    out_fns = list(detect_faces.starmap(args))
+    print("Processing each range of 1s intervals using a Modal map")
+    out_fns = list(detect_faces.starmap(intervals))
 
-    # Convert to video clips
+    print("Converting detections to video clips")
     out_clips = [moviepy.editor.VideoFileClip(out_fn) for out_fn in out_fns]
 
-    # Concatenate results
+    print("Concatenating results")
     final_clip = moviepy.editor.concatenate_videoclips(out_clips)
     final_fn = "/clips/out.mp4"
     final_clip.write_videofile(final_fn)
@@ -148,7 +148,7 @@ def run(url):
 if __name__ == "__main__":
     with stub.run():
         youtube_url = sys.argv[1] if len(sys.argv) > 1 else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        fn, movie_data = run(youtube_url)
+        fn, movie_data = process_video.call(youtube_url)
         abs_fn = os.path.join(OUTPUT_DIR, fn)
         print(f"writing results to {abs_fn}")
         with open(abs_fn, "wb") as f:

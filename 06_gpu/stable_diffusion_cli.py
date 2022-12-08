@@ -138,7 +138,7 @@ def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
         sd = StableDiffusion()
         for i in range(samples):
             t0 = time.time()
-            image_bytes = sd.run_inference(prompt, steps)
+            image_bytes = sd.run_inference.call(prompt, steps)
             output_path = dir / f"output_{i}.png"
             print(f"Sample {i} took {time.time()-t0:.3f}s. Saving it to {output_path}")
             with open(output_path, "wb") as f:
