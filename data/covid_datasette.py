@@ -203,6 +203,7 @@ def refresh_db():
 )
 def app():
     from datasette.app import Datasette
+
     ds = Datasette(files=[DB_PATH])
     asyncio.run(ds.invoke_startup())
     return ds.app()
