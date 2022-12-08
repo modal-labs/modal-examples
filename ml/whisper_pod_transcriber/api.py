@@ -74,7 +74,7 @@ async def get_podcast(podcast_id: str):
 
     # Refresh possibly stale data asynchronously.
     if previously_stored:
-        populate_podcast_metadata.submit(podcast_id)
+        populate_podcast_metadata.spawn(podcast_id)
     return dict(pod_metadata=pod_metadata, episodes=episodes)
 
 
@@ -85,7 +85,7 @@ async def podcasts_endpoint(request: Request):
     form = await request.form()
     name = form["podcast"]
     podcasts_response = []
-    for pod in search_podcast(name):
+    for pod in search_podcast.call(name):
         podcasts_response.append(dataclasses.asdict(pod))
     return podcasts_response
 
@@ -105,7 +105,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
     except KeyError:
         pass
 
-    call = process_episode.submit(podcast_id, episode_id)
+    call = process_episode.spawn(podcast_id, episode_id)
     container_app.in_progress[episode_id] = InProgressJob(call_id=call.object_id, start_time=now)
 
     return {"call_id": call.object_id}

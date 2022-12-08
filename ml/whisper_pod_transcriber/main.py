@@ -75,7 +75,7 @@ def populate_podcast_metadata(podcast_id: str):
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
 
-    episodes = fetch_episodes(show_name=pod_metadata.title, podcast_id=podcast_id)
+    episodes = fetch_episodes.call(show_name=pod_metadata.title, podcast_id=podcast_id)
 
     for ep in episodes:
         metadata_path = get_episode_metadata_path(podcast_id, ep.guid_hash)
@@ -202,10 +202,13 @@ def index():
         json.dump(search_dict, f)
 
 
-@stub.function(schedule=modal.Period(hours=4))
+@stub.function(
+    schedule=modal.Period(hours=4),
+    timeout=(10 * 60),
+)
 def refresh_index():
     logger.info(f"Running scheduled index refresh at {utc_now()}")
-    index()
+    index.call()
 
 
 def split_silences(
@@ -365,7 +368,7 @@ def process_episode(podcast_id: str, episode_id: str):
             logger.info(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
             logger.info("Skipping transcription.")
         else:
-            transcribe_episode(
+            transcribe_episode.call(
                 audio_filepath=destination_path,
                 result_path=transcription_path,
                 model=model,
@@ -418,7 +421,7 @@ if __name__ == "__main__":
             index()
     elif cmd == "search-podcast":
         with stub.run():
-            for pod in search_podcast(sys.argv[2]):
+            for pod in search_podcast.call(sys.argv[2]):
                 print(pod)
     else:
         exit(f"Unknown command {cmd}. Supported commands: [transcribe, run, serve, index, search-podcast]")
