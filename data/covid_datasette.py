@@ -21,6 +21,7 @@
 # For the Modal container image we need a few Python packages,
 # including `GitPython`, which we'll use to download the dataset.
 
+import asyncio
 import pathlib
 import shutil
 import sys
@@ -34,7 +35,7 @@ datasette_image = (
     modal.Image.debian_slim()
     .pip_install(
         [
-            "datasette",
+            "datasette~=0.63.2",
             "flufl.lock",
             "GitPython",
             "sqlite-utils",
@@ -192,8 +193,8 @@ def refresh_db():
 # ## Webhook
 #
 # Hooking up the SQLite database to a Modal webhook is as simple as it gets.
-# The Modal `@stub.asgi` decorator wraps two lines of code. One `import` and a single
-# line to instantiate the `Datasette` instance and return a reference to its ASGI app object.
+# The Modal `@stub.asgi` decorator wraps a few lines of code: one `import` and a few
+# lines to instantiate the `Datasette` instance and return a reference to its ASGI app object.
 
 
 @stub.asgi(
@@ -203,7 +204,9 @@ def refresh_db():
 def app():
     from datasette.app import Datasette
 
-    return Datasette(files=[DB_PATH]).app()
+    ds = Datasette(files=[DB_PATH])
+    asyncio.run(ds.invoke_startup())
+    return ds.app()
 
 
 # ## Publishing to the web
