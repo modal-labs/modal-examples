@@ -224,7 +224,7 @@ def classify_url(image_url: str) -> None:
         raise RuntimeError(f"Could not download '{image_url}'")
 
     classifier = ClassifierModel()
-    label = classifier.predict(image=r.content)
+    label = classifier.predict.call(image=r.content)
     print(f"Classification: {label}")
 
 
@@ -276,7 +276,7 @@ def fastapi_app():
 
     classifier = ClassifierModel()
     interface = gr.Interface(
-        fn=classifier.predict,
+        fn=classifier.predict.call,
         inputs=gr.Image(shape=(224, 224)),
         outputs="label",
         examples=create_demo_examples(),
@@ -294,10 +294,10 @@ if __name__ == "__main__":
     if cmd == "classify":
         image_url = sys.argv[2]
         with stub.run():
-            classify_url(image_url)
+            classify_url.call(image_url)
     elif cmd == "train":
         with stub.run():
-            train()
+            train.call()
     elif cmd == "serve":
         stub.serve()
     elif cmd == "shell":

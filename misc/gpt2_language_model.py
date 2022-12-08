@@ -25,4 +25,4 @@ def generate_text(prompt):
 
 if __name__ == "__main__":
     with stub.run():
-        print(generate_text(sys.argv[1]))
+        print(generate_text.call(prompt=sys.argv[1]))

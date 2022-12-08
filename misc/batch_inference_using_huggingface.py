@@ -107,7 +107,7 @@ def roc_plot(labels, predictions):
 if __name__ == "__main__":
     with stub.run():
         print("Downloading data...")
-        data = get_data()
+        data = get_data.call()
         print("Got", len(data), "reviews")
         reviews = [review for review, label in data]
         labels = [label for review, label in data]
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         # Let's check that the model works by classifying the first 5 entries
         predictor = SentimentAnalysis()
         for review, label in data[:5]:
-            prediction = predictor.predict(review)
+            prediction = predictor.predict.call(review)
             print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
 
         # Now, let's run batch inference over it
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
         # Generate a ROC plot
         print("Creating ROC plot...")
-        png_data = roc_plot(labels, predictions)
+        png_data = roc_plot.call(labels, predictions)
         fn = "/tmp/roc.png"
         with open(fn, "wb") as f:
             f.write(png_data)

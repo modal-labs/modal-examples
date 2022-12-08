@@ -90,7 +90,7 @@ class MeltanoContainer:
 
 @stub.function(schedule=modal.Period(days=1))
 def scheduled_runs():
-    MeltanoContainer().daily_ingest()
+    MeltanoContainer().daily_ingest.call()
 
 
 if __name__ == "__main__":

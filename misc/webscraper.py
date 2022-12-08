@@ -49,14 +49,14 @@ def scrape():
 
     for links in get_links.map(links_of_interest):
         for link in links:
-            bot_token_msg("scraped-links", link)
+            bot_token_msg.call("scraped-links", link)
 
 
 @stub.function(schedule=modal.Period(days=1))
 def daily_scrape():
-    scrape()
+    scrape.call()
 
 
 if __name__ == "__main__":
     with stub.run():
-        scrape()
+        scrape.call()

@@ -185,8 +185,8 @@ def prep_db():
 @stub.function(schedule=modal.Period(hours=24))
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
-    download_dataset(cache=False)
-    prep_db()
+    download_dataset.call(cache=False)
+    prep_db.call()
 
 
 # ## Webhook
@@ -221,9 +221,9 @@ if __name__ == "__main__":
     elif cmd == "prep":
         with stub.run():
             print("Downloading COVID-19 dataset...")
-            download_dataset()
+            download_dataset.call()
             print("Prepping SQLite DB...")
-            prep_db()
+            prep_db.call()
     else:
         exit("Unknown command. Supported commands: [serve, prep]")
 

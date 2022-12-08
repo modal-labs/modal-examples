@@ -130,7 +130,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
         prompt_samples_dir.mkdir()
         # 1. Create images (expensive)
         model = Model()
-        samples_data = model.text_to_pokemon(prompt=norm_prompt)
+        samples_data = model.text_to_pokemon.call(prompt=norm_prompt)
         # 2. Save them (for later run to be cached)
         for i, image_bytes in enumerate(samples_data):
             dest_path = prompt_samples_dir / f"{i}.png"
@@ -216,7 +216,7 @@ def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> by
     back_im.save(img_byte_arr, format="PNG")
     img_bytes = img_byte_arr.getvalue()
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name(img_bytes, prompt)
+    return inpaint_new_pokemon_name.call(img_bytes, prompt)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
@@ -269,7 +269,7 @@ def create_pokemon_cards(prompt: str):
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.
-        samples_data = diskcached_text_to_pokemon(prompt)
+        samples_data = diskcached_text_to_pokemon.call(prompt)
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
             create_composite_card.starmap((i, sample, norm_prompt) for (i, sample) in enumerate(samples_data))
@@ -328,7 +328,7 @@ if __name__ == "__main__":
     elif len(sys.argv) == 2:
         prompt = sys.argv[1]
         with stub.run():
-            images_data = diskcached_text_to_pokemon(prompt)
+            images_data = diskcached_text_to_pokemon.call(prompt)
 
         now = int(time.time())
         for i, image_bytes in enumerate(images_data):

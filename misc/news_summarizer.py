@@ -156,7 +156,7 @@ def summarize_article(text: str) -> str:
 
 @stub.function(schedule=modal.Period(days=1))
 def trigger():
-    articles = latest_science_stories()
+    articles = latest_science_stories.call()
 
     # parallelize article scraping
     for i, text in enumerate(scrape_nyc_article.map([a.url for a in articles])):
@@ -181,7 +181,7 @@ def trigger():
 # call it with regular python as `python news_summarizer.py`
 if __name__ == "__main__":
     with stub.run():
-        trigger()
+        trigger.call()
 
 # And that's it. You will now generate deep learning summaries from the latest
 # NYT Science articles every day.
