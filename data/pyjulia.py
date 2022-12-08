@@ -41,5 +41,5 @@ def julia_matrix_determinant():
 
 if __name__ == "__main__":
     with stub.run():
-        julia_subprocess()
-        julia_matrix_determinant()
+        julia_subprocess.call()
+        julia_matrix_determinant.call()

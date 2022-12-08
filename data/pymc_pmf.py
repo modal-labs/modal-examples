@@ -195,4 +195,4 @@ def pmf():
 
 if __name__ == "__main__":
     with pymc_stub.run():
-        pmf()
+        pmf.call()
