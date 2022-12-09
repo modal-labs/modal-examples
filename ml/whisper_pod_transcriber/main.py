@@ -125,6 +125,7 @@ def search_podcast(name):
 @stub.function(
     image=search_image,
     shared_volumes={config.CACHE_DIR: volume},
+    timeout=(10 * 60),
 )
 def index():
     import dataclasses
