@@ -101,9 +101,9 @@ def create_plot():
     pyplot.tight_layout()
 
     # Dump PNG and return
-    buf = io.BytesIO()
-    pyplot.savefig(buf, format="png", dpi=300)
-    return buf.getvalue()
+    with io.BytesIO() as buf:
+        pyplot.savefig(buf, format="png", dpi=300)
+        return buf.getvalue()
 
 
 # ## Entrypoint
