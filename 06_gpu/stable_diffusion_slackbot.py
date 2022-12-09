@@ -171,17 +171,13 @@ def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
 # If successful, this will print a URL for your new webhook. To point your Slack
 # app at it:
 #
-# Go back to the [Slack apps page](https://api.slack.com/apps/).
-#
-# Find your app and navigate to "Slash Commands" under "Features" in the left
+# - Go back to the [Slack apps page](https://api.slack.com/apps/).
+# - Find your app and navigate to "Slash Commands" under "Features" in the left
 #   sidebar.
-#
-# Click on "Create New Command" and paste the webhook URL from Modal into the
+# - Click on "Create New Command" and paste the webhook URL from Modal into the
 #   "Request URL" field.
-#
-# Name the command whatever you like, and hit "Save".
-#
-# Reinstall the app to your workspace.
+# - Name the command whatever you like, and hit "Save".
+# - Reinstall the app to your workspace.
 #
 # We're done! 🎉 Install the app to any channel you're in, and you can trigger it
 # with the command you chose above.
