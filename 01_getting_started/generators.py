@@ -11,7 +11,7 @@ def f(i):
 
 if __name__ == "__main__":
     with stub.run():
-        for r in f(10):
+        for r in f.call(10):
             print(r)
 
         for r in f.map(range(5)):

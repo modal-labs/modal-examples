@@ -13,7 +13,7 @@ def f(i):
 
 async def run_async():
     async with stub.run():
-        async for r in f(10):
+        async for r in f.call(10):
             print(r)
 
         async for r in f.map(range(5)):
