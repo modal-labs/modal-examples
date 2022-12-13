@@ -31,5 +31,5 @@ if __name__ == "__main__":
     else:
         query = "modal"
     with stub.run():
-        for url in scrape(query):
+        for url in scrape.call(query):
             print(url)
