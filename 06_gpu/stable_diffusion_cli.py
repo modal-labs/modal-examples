@@ -8,7 +8,13 @@
 # that makes it run faster on Modal. The example takes about 20s to cold start
 # and about 1.5s per image generated.
 #
+# For instance, here are 9 images produced by the prompt
+# `An 1600s oil painting of the New York City skyline`
+# ![stable diffusion slackbot](./stable_diffusion_montage.png)
+#
 # ## Optimizations used in this example
+#
+# As mentioned, we use a few optimizations to run this faster:
 #
 # * Use [run_function](/docs/reference/modal.Image#run_function) to download the model while building the container image
 # * Use a [container lifecycle method](https://modal.com/docs/guide/lifecycle-functions) to initialize the model on container startup
