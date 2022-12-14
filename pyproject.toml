@@ -5,7 +5,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest.*:",
 ]
 pythonpath = [
-    "ml/text-to-pokemon",
+    "06_gpu_and_ml/text-to-pokemon",
 ]
 
 [tool.black]

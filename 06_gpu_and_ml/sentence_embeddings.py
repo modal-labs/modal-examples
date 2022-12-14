@@ -97,7 +97,7 @@ class MovieReviewsDataset:
         with tarfile.open(self.output_path) as tf:
             tf.extractall()
 
-    def index(self) -> None:
+    def index(self) -> list[Path]:
         """Creates in-memory index for dataset"""
         # read only train files
         dataset_path = Path("./aclImdb/train")
