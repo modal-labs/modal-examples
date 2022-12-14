@@ -10,7 +10,12 @@
 #
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
+#
 # ![stable diffusion slackbot](./stable_diffusion_montage.png)
+#
+# There is also a [Stable Diffusion Slack bot example](/docs/guide/ex/stable_diffusion_slackbot)
+# which does not have all the optimizations, but shows how you can set up a Slack command to
+# trigger Stable Diffusion.
 #
 # ## Optimizations used in this example
 #
