@@ -3,11 +3,16 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-
-import jupytext
-import jupytext.config
+import warnings
 
 DEFAULT_DIRECTORY = Path(__file__).parent
+
+
+with warnings.catch_warnings():
+    # This triggers some dumb warning in jupyter_core
+    warnings.simplefilter("ignore")
+    import jupytext
+    import jupytext.config
 
 
 class ExampleType(Enum):
