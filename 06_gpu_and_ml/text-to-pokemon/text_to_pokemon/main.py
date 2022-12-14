@@ -52,8 +52,7 @@ def image_grid(imgs, rows, cols):
 def image_to_byte_array(image) -> bytes:
     img_byte_arr = io.BytesIO()
     image.save(img_byte_arr, format="PNG")
-    img_byte_arr = img_byte_arr.getvalue()
-    return img_byte_arr
+    return img_byte_arr.getvalue()
 
 
 def load_stable_diffusion_pokemon_model():
@@ -178,7 +177,7 @@ def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
     return inpaint.new_pokemon_name(card_image, best_name.capitalize())
 
 
-def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> bytes:
+def composite_pokemon_card(base: io.BytesIO, character_img: io.BytesIO, prompt: str) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -283,7 +282,7 @@ def create_pokemon_cards(prompt: str):
     # Return Pokémon cards to client as base64-encoded images with metadata.
     cards = []
     for i, image_bytes in enumerate(cards_data):
-        encoded_image_string = base64.b64encode(image_bytes)
+        encoded_image_string = base64.b64encode(image_bytes).decode("ascii")
         cards.append(
             PokemonCardResponseItem(
                 name=str(i),

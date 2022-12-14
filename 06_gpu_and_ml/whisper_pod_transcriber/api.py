@@ -98,7 +98,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
     try:
         inprogress_job = container_app.in_progress[episode_id]
         # NB: runtime type check is to handle present of old `str` values that didn't expire.
-        if isinstance(inprogress_job, tuple) and (now - inprogress_job.start_time) < MAX_JOB_AGE_SECS:
+        if isinstance(inprogress_job, InProgressJob) and (now - inprogress_job.start_time) < MAX_JOB_AGE_SECS:
             existing_call_id = inprogress_job.call_id
             logger.info(f"Found existing, unexpired call ID {existing_call_id} for episode {episode_id}")
             return {"call_id": existing_call_id}

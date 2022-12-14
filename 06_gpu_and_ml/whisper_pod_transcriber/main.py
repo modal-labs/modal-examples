@@ -50,7 +50,7 @@ stub = modal.Stub(
 stub.in_progress = modal.Dict()
 
 
-def utc_now() -> datetime:
+def utc_now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
@@ -236,7 +236,7 @@ def split_silences(
         .run_async(pipe_stderr=True)
     )
 
-    cur_start = 0
+    cur_start = 0.0
     num_segments = 0
 
     while True:
@@ -294,7 +294,7 @@ def transcribe_segment(
         use_gpu = torch.cuda.is_available()
         device = "cuda" if use_gpu else "cpu"
         model = whisper.load_model(model.name, device=device, download_root=config.MODEL_DIR)
-        result = model.transcribe(f.name, language="en", fp16=use_gpu)
+        result = model.transcribe(f.name, language="en", fp16=use_gpu)  # type: ignore
 
     logger.info(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
 

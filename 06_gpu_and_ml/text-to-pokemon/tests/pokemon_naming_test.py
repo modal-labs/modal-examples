@@ -2,12 +2,12 @@ from text_to_pokemon import pokemon_naming
 
 
 def test_prompt_2_name_basic_matching():
-    test_candidates = [
+    test_candidates = {
         "sleepmon",
         "bulbasaur",
         "bulbysaur",
         "foobar",
-    ]
+    }
     assert (
         pokemon_naming.prompt_2_name(
             prompt="sleepy monkey",
