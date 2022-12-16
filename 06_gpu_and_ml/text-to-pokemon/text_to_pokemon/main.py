@@ -50,9 +50,9 @@ def image_grid(imgs, rows, cols):
 
 
 def image_to_byte_array(image) -> bytes:
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")
-    return img_byte_arr.getvalue()
+    with io.BytesIO() as buf:
+        image.save(buf, format="PNG")
+        return buf.getvalue()
 
 
 def load_stable_diffusion_pokemon_model():
@@ -211,11 +211,8 @@ def composite_pokemon_card(base: io.BytesIO, character_img: io.BytesIO, prompt: 
     else:
         print(f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.")
 
-    img_byte_arr = io.BytesIO()
-    back_im.save(img_byte_arr, format="PNG")
-    img_bytes = img_byte_arr.getvalue()
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name.call(img_bytes, prompt)
+    return inpaint_new_pokemon_name.call(card_image=image_to_byte_array(back_im), prompt=prompt)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:

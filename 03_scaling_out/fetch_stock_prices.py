@@ -130,9 +130,9 @@ def plot_stocks():
     ax.set_ylabel(f"% change, {first_date.date()} = 0%")
 
     # Dump the chart to .png and return the bytes
-    buf = io.BytesIO()
-    pyplot.savefig(buf, format="png", dpi=300)
-    return buf.getvalue()
+    with io.BytesIO() as buf:
+        pyplot.savefig(buf, format="png", dpi=300)
+        return buf.getvalue()
 
 
 # ## Entrypoint

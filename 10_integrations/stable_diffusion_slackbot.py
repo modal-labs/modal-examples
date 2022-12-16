@@ -93,9 +93,9 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     image = pipe(prompt, num_inference_steps=100).images[0]
 
     # Convert PIL Image to PNG byte array.
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
-    img_bytes = buf.getvalue()
+    with io.BytesIO() as buf:
+        image.save(buf, format="PNG")
+        img_bytes = buf.getvalue()
 
     if channel_name:
         # `post_image_to_slack` is implemented further below.

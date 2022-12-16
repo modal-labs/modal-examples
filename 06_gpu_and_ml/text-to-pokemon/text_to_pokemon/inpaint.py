@@ -88,10 +88,10 @@ def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes
     )
     draw.rectangle((left, upper, right, lower), fill=255)
     mask_im = mask_im.convert("L")
-    mask_bytesio = io.BytesIO()
-    mask_im.save(mask_bytesio, format="PNG")
-    mask_img_bytes = mask_bytesio.getvalue()
-    mask, _ = load_img(mask_img_bytes)
+    with io.BytesIO() as buf:
+        mask_im.save(buf, format="PNG")
+        mask_img_bytes = buf.getvalue()
+        mask, _ = load_img(mask_img_bytes)
 
     assert img.shape[:2] == mask.shape[:2], "shapes of base image and mask must match"
 
@@ -130,6 +130,6 @@ def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes
     cur_res_image = Image.fromarray(cur_res_correct_color).convert("RGBA")
     out = Image.alpha_composite(cur_res_image, txt)
 
-    img_bytesio = io.BytesIO()
-    out.save(img_bytesio, format="PNG")
-    return img_bytesio.getvalue()
+    with io.BytesIO() as buf:
+        out.save(buf, format="PNG")
+        return buf.getvalue()
