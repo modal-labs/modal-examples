@@ -111,9 +111,9 @@ class ObjectDetection:
             output_image_draw.text(box[:2], text, font=font, fill=color, width=3)
 
         # Return PNG as bytes
-        output_buf = io.BytesIO()
-        output_image.save(output_buf, format="PNG")
-        return output_buf.getvalue()
+        with io.BytesIO() as output_buf:
+            output_image.save(output_buf, format="PNG")
+            return output_buf.getvalue()
 
 
 # ## Defining the web interface

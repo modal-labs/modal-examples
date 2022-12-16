@@ -133,9 +133,9 @@ class StableDiffusion:
             image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
 
         # Convert to PNG bytes
-        buf = io.BytesIO()
-        image.save(buf, format="PNG")
-        image_bytes = buf.getvalue()
+        with io.BytesIO() as buf:
+            image.save(buf, format="PNG")
+            image_bytes = buf.getvalue()
         return image_bytes
 
 
