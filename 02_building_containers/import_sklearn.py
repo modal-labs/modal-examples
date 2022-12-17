@@ -1,6 +1,3 @@
-# ---
-# smoke-test: true
-# ---
 # # Install scikit-learn in a custom image
 #
 # This builds a custom image which installs the sklearn (scikit-learn) Python package in it.
