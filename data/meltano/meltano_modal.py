@@ -1,54 +1,44 @@
 import os
 import shutil
 import subprocess
-from hashlib import sha256
 from pathlib import Path
 
 import modal
 
-
-def meltano_install():
-    shutil.copytree("/meltano_source", "/meltano_project")
-    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano_project"
-    subprocess.call(["meltano", "install"])
-
-
 local_project_root = Path(__file__).parent / "meltano_project"
 
-# TODO: Update this when there is COPY support for images
 meltano_source_mount = modal.Mount(
     local_dir=local_project_root,
-    remote_dir="/meltano_source",
+    remote_dir="/project",
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts),
 )
-
-
-def invalidating_on_update():
-    # invalidates a build when the meltano.yml file changes
-    checksum = sha256((local_project_root / "meltano.yml").read_bytes()).hexdigest()
-    return ["FROM base", f"RUN echo {checksum}"]
-
-
-meltano_img = (
-    modal.Image.debian_slim()
-    .apt_install(["git"])
-    .pip_install(["meltano"])
-    .extend(dockerfile_commands=invalidating_on_update)
-    .run_function(meltano_install, mounts=[meltano_source_mount])
-)
-
-
-stub = modal.Stub(image=meltano_img)
 
 storage = modal.SharedVolume().persist("meltano_volume")
 db_path = Path("/meltano_db_volume/meltano.db")
 
 meltano_conf = modal.Secret(
     {
-        "MELTANO_PROJECT_ROOT": "/meltano_project",
+        "MELTANO_PROJECT_ROOT": "/meltano/project",
         "MELTANO_DATABASE_URI": f"sqlite:///{db_path}",
     }
 )
+
+
+def install_project_deps():
+    os.environ["MELTANO_PROJECT_ROOT"] = "/meltano/project"
+    subprocess.check_call(["meltano", "install"])
+
+
+meltano_img = (
+    modal.Image.debian_slim()
+    .apt_install(["git"])
+    .pip_install(["meltano"])
+    .copy(meltano_source_mount, "/meltano")
+    .run_function(install_project_deps)
+)
+
+
+stub = modal.Stub(image=meltano_img)
 
 
 class MeltanoContainer:
