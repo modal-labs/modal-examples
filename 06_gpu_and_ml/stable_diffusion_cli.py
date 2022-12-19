@@ -115,8 +115,6 @@ stub.image = image
 
 class StableDiffusion:
     def __enter__(self):
-        os.environ["SAFETENSORS_FAST_GPU"] = "1"
-
         import torch
         import diffusers
 
