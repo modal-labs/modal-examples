@@ -3,11 +3,16 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-
-import jupytext
-import jupytext.config
+import warnings
 
 DEFAULT_DIRECTORY = Path(__file__).parent
+
+
+with warnings.catch_warnings():
+    # This triggers some dumb warning in jupyter_core
+    warnings.simplefilter("ignore")
+    import jupytext
+    import jupytext.config
 
 
 class ExampleType(Enum):
@@ -50,11 +55,6 @@ def render_example_md(example: Example) -> str:
 
     if code:
         markdown.extend(["```python", *code, "```", ""])
-
-    github_url = f"https://github.com/modal-labs/modal-examples/blob/main/{example.repo_filename}"
-    markdown.append(
-        f"\n_The source code for this example can be found [on GitHub]({github_url})._\n",
-    )
 
     text = "\n".join(markdown)
     if _RE_FRONTMATTER.match(text):

@@ -87,13 +87,13 @@ def generate_names(
     # Start sequence generation from end of the input sequence
     sequence = concat_names[-(max_sequence_len - 1) :] + "\n"
 
-    new_names: set[str] = {}
+    new_names: set[str] = set()
     chars = sorted(list(set(concat_names)))
     num_chars = len(chars)
 
     # Build translation dictionaries
-    char2idx = {(c, i) for i, c in enumerate(chars)}  # a -> 0
-    idx2char = {(i, c) for i, c in enumerate(chars)}  # 0 -> a
+    char2idx = {c: i for i, c in enumerate(chars)}  # a -> 0
+    idx2char = {i: c for i, c in enumerate(chars)}  # 0 -> a
 
     while len(new_names) < num:
         # Vectorize sequence for prediction

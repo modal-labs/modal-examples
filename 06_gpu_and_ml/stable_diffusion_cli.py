@@ -10,7 +10,12 @@
 #
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
+#
 # ![stable diffusion slackbot](./stable_diffusion_montage.png)
+#
+# There is also a [Stable Diffusion Slack bot example](/docs/guide/ex/stable_diffusion_slackbot)
+# which does not have all the optimizations, but shows how you can set up a Slack command to
+# trigger Stable Diffusion.
 #
 # ## Optimizations used in this example
 #
@@ -64,13 +69,13 @@ def download_models():
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
-    euler.save_pretrained(cache_path)
+    euler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
         model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
     )
-    pipe.save_pretrained(cache_path)
+    pipe.save_pretrained(cache_path, safe_serialization=True)
 
 
 image = (
@@ -81,7 +86,7 @@ image = (
             "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
         ]
     )
-    .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
+    .run_commands(["pip install diffusers[torch]>=0.10 transformers ftfy accelerate safetensors"])
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -128,9 +133,9 @@ class StableDiffusion:
             image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
 
         # Convert to PNG bytes
-        buf = io.BytesIO()
-        image.save(buf, format="PNG")
-        image_bytes = buf.getvalue()
+        with io.BytesIO() as buf:
+            image.save(buf, format="PNG")
+            image_bytes = buf.getvalue()
         return image_bytes
 
 

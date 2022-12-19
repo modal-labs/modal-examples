@@ -7,7 +7,7 @@ from .main import stub, app_image, split_silences, transcribe_episode, transcrib
 logger = config.get_logger(__name__)
 
 
-def _transcribe_serially(audio_path: str, offset: int = 0) -> list[tuple[float, float]]:
+def _transcribe_serially(audio_path: pathlib.Path, offset: int = 0) -> list[tuple[float, float]]:
     model = config.DEFAULT_MODEL
     segment_gen = split_silences(str(audio_path))
     failed_segments = []

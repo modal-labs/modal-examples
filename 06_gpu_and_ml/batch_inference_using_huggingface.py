@@ -85,9 +85,9 @@ def roc_plot(labels, predictions):
 
     pyplot.style.use("ggplot")
     RocCurveDisplay.from_predictions(labels, predictions)
-    buf = io.BytesIO()
-    pyplot.savefig(buf, format="png")
-    return buf.getvalue()
+    with io.BytesIO() as buf:
+        pyplot.savefig(buf, format="png")
+        return buf.getvalue()
 
 
 # A bit of a spoiler warning, but if you run this script, the ROC curve will look like this:

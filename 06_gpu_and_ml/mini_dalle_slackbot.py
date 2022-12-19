@@ -48,12 +48,11 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
         is_verbose=False,
     )
 
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
-
-    if channel_name:
-        post_to_slack.call(prompt, channel_name, buf.getvalue())
-    return buf.getvalue()
+    with io.BytesIO() as buf:
+        image.save(buf, format="PNG")
+        if channel_name:
+            post_to_slack.call(prompt, channel_name, buf.getvalue())
+        return buf.getvalue()
 
 
 # python-multipart is needed for fastapi form parsing.

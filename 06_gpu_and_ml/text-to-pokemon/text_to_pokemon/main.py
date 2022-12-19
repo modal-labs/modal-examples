@@ -50,10 +50,9 @@ def image_grid(imgs, rows, cols):
 
 
 def image_to_byte_array(image) -> bytes:
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")
-    img_byte_arr = img_byte_arr.getvalue()
-    return img_byte_arr
+    with io.BytesIO() as buf:
+        image.save(buf, format="PNG")
+        return buf.getvalue()
 
 
 def load_stable_diffusion_pokemon_model():
@@ -178,7 +177,7 @@ def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
     return inpaint.new_pokemon_name(card_image, best_name.capitalize())
 
 
-def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> bytes:
+def composite_pokemon_card(base: io.BytesIO, character_img: io.BytesIO, prompt: str) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -212,11 +211,8 @@ def composite_pokemon_card(base: bytes, character_img: bytes, prompt: str) -> by
     else:
         print(f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.")
 
-    img_byte_arr = io.BytesIO()
-    back_im.save(img_byte_arr, format="PNG")
-    img_bytes = img_byte_arr.getvalue()
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name.call(img_bytes, prompt)
+    return inpaint_new_pokemon_name.call(card_image=image_to_byte_array(back_im), prompt=prompt)
 
 
 def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
@@ -283,7 +279,7 @@ def create_pokemon_cards(prompt: str):
     # Return Pokémon cards to client as base64-encoded images with metadata.
     cards = []
     for i, image_bytes in enumerate(cards_data):
-        encoded_image_string = base64.b64encode(image_bytes)
+        encoded_image_string = base64.b64encode(image_bytes).decode("ascii")
         cards.append(
             PokemonCardResponseItem(
                 name=str(i),
