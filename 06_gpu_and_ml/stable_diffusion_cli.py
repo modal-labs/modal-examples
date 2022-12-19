@@ -69,13 +69,13 @@ def download_models():
     euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
-    euler.save_pretrained(cache_path)
+    euler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
         model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
     )
-    pipe.save_pretrained(cache_path)
+    pipe.save_pretrained(cache_path, safe_serialization=True)
 
 
 image = (
@@ -86,7 +86,7 @@ image = (
             "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
         ]
     )
-    .run_commands(["pip install diffusers[torch] transformers ftfy accelerate"])
+    .run_commands(["pip install diffusers[torch]>=0.10 transformers ftfy accelerate safetensors"])
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -115,6 +115,8 @@ stub.image = image
 
 class StableDiffusion:
     def __enter__(self):
+        os.environ["SAFETENSORS_FAST_GPU"] = "1"
+
         import torch
         import diffusers
 
