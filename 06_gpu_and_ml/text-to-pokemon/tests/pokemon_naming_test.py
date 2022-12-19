@@ -5,7 +5,7 @@ def test_prompt_2_name_basic_matching():
     test_candidates = {
         "sleepmon",
         "bulbasaur",
-        "bulbysaur",
+        "bulbasaur",
         "foobar",
     }
     assert (
