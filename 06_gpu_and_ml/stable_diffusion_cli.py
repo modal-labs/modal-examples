@@ -64,12 +64,12 @@ def download_models():
 
     hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
 
-    # Download the Euler A scheduler configuration. Faster than the default and
-    # high quality output with fewer steps.
-    euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
+    # Download the DPMSolver scheduler configuration, currently the fastest
+    # scheduler implementation available.
+    scheduler = diffusers.DPMSolverSinglestepScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
-    euler.save_pretrained(cache_path, safe_serialization=True)
+    scheduler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
@@ -121,8 +121,8 @@ class StableDiffusion:
         torch.backends.cudnn.benchmark = True
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(cache_path, subfolder="scheduler")
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=euler).to("cuda")
+        scheduler = diffusers.DPMSolverSinglestepScheduler.from_pretrained(cache_path, subfolder="scheduler")
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
     @stub.function(gpu=modal.gpu.A100())
@@ -145,7 +145,7 @@ class StableDiffusion:
 
 
 @app.command()
-def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
+def entrypoint(prompt: str, samples: int = 10, steps: int = 10):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}")
 
     dir = Path("/tmp/stable-diffusion")
