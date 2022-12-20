@@ -25,7 +25,7 @@ def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     client.files_upload(channels=channel_name, title=prompt, content=image_bytes)
 
 
-@stub.function(gpu="A10g", shared_volumes={CACHE_PATH: volume})
+@stub.function(gpu="A10G", shared_volumes={CACHE_PATH: volume})
 async def run_minidalle(prompt: str, channel_name: Optional[str]):
     import torch
     from min_dalle import MinDalle
