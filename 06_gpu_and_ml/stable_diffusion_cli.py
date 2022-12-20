@@ -125,7 +125,7 @@ class StableDiffusion:
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.A100())
+    @stub.function(gpu=modal.gpu.T4())
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 
@@ -138,8 +138,7 @@ class StableDiffusion:
         for image in images:
             with io.BytesIO() as buf:
                 image.save(buf, format="PNG")
-                image_output.append(
-                    buf.getvalue())
+                image_output.append(buf.getvalue())
         return image_output
 
 
@@ -150,7 +149,7 @@ class StableDiffusion:
 
 
 @app.command()
-def entrypoint(prompt: str, samples: int = 5, steps: int = 20, batch_size:int = 1):
+def entrypoint(prompt: str, samples: int = 5, steps: int = 20, batch_size: int = 1):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
 
     dir = Path("/tmp/stable-diffusion")
