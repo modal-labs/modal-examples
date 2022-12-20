@@ -73,7 +73,7 @@ class WandBConfig:
 class Config:
     epochs: int = 10
     img_dims: Tuple[int, int] = (32, 224)
-    gpu: bool = USE_GPU
+    gpu: str = USE_GPU
     wandb: WandBConfig = WandBConfig()
 
 
