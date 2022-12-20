@@ -73,7 +73,12 @@ def download_models():
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-        model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
+        model_id,
+        custom_pipeline="lpw_stable_diffusion",
+        use_auth_token=hugging_face_token,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        cache_dir=cache_path,
     )
     pipe.save_pretrained(cache_path, safe_serialization=True)
 
@@ -131,10 +136,12 @@ class StableDiffusion:
             solver_type="midpoint",
             denoise_final=True,  # important if steps are <= 10
         )
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            cache_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler
+        ).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.A100())
+    @stub.function(gpu=modal.gpu.A10G())
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 
