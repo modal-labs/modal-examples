@@ -3,8 +3,9 @@ import os
 import sys
 from typing import Optional
 
-import modal
 from fastapi import Request
+
+import modal
 
 stub = modal.Stub("example-dalle-bot", image=modal.Image.debian_slim().pip_install(["min-dalle"]))
 
@@ -24,7 +25,7 @@ def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     client.files_upload(channels=channel_name, title=prompt, content=image_bytes)
 
 
-@stub.function(gpu=True, shared_volumes={CACHE_PATH: volume})
+@stub.function(gpu="A10g", shared_volumes={CACHE_PATH: volume})
 async def run_minidalle(prompt: str, channel_name: Optional[str]):
     import torch
     from min_dalle import MinDalle

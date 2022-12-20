@@ -20,7 +20,7 @@ stub = modal.Stub(
 # We also take the hyperparameter `k`, which is how many nearest neighbors we use.
 
 
-@stub.function(gpu=modal.gpu.A100())
+@stub.function(gpu="any")
 def fit_knn(k):
     from sklearn.datasets import load_digits
     from sklearn.model_selection import train_test_split

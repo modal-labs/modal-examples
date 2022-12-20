@@ -45,12 +45,12 @@ logdir = "/tensorboard"
 # A few things are worth pointing out:
 #
 # * We set up the shared volume in the arguments to `stub.function`
-# * We also annotate this function with `gpu=True`
+# * We also annotate this function with `gpu="any"`
 # * We put all the Tensorflow imports inside the function body.
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
 
 
-@stub.function(shared_volumes={logdir: stub.volume}, gpu=True)
+@stub.function(shared_volumes={logdir: stub.volume}, gpu="any")
 def train():
     import pathlib
 

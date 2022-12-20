@@ -127,7 +127,7 @@ def scrape_nyc_article(url: str) -> str:
 
 # Now the summarization function. We use `huggingface`'s Pegasus tokenizer and model implementation to
 # generate a summary of the model. You can learn more about Pegasus does in the [HuggingFace
-# documentation](https://huggingface.co/docs/transformers/model_doc/pegasus). Use `gpu=True` to speed-up inference.
+# documentation](https://huggingface.co/docs/transformers/model_doc/pegasus). Use `gpu="any"` to speed-up inference.
 
 
 @stub.function(

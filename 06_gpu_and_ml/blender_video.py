@@ -92,10 +92,10 @@ if stub.is_inside():
 # ## Use a GPU from a Modal function
 #
 # Now, let's define the function that renders each frame in parallel.
-# Note the `gpu=True` argument which tells Modal to use GPU workers.
+# Note the `gpu="any"` argument which tells Modal to use GPU workers.
 
 
-@stub.function(gpu=True)
+@stub.function(gpu="any")
 def render_frame(i):
     print(f"Using frame {i}")
 

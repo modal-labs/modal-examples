@@ -68,7 +68,7 @@ CACHE_PATH = "/root/model_cache"
 
 
 @stub.function(
-    gpu=True,
+    gpu="A10g",
     image=(
         modal.Image.debian_slim()
         .run_commands(["pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"])
