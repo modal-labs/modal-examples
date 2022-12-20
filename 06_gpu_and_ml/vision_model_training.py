@@ -23,12 +23,14 @@
 # we can start with a slim Debian OS image and install a handful of `pip` packages into it.
 
 import dataclasses
-import modal
 import os
 import pathlib
 import sys
-from fastapi import FastAPI
 from typing import List, Optional, Tuple
+
+from fastapi import FastAPI
+
+import modal
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
@@ -52,7 +54,7 @@ volume = modal.SharedVolume().persist("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
-USE_GPU = True if os.environ.get("MODAL_GPU") else False
+USE_GPU = os.environ.get("MODAL_GPU")
 MODEL_EXPORT_PATH = pathlib.Path(MODEL_CACHE, "model-exports", "inference.pkl")
 os.environ["FASTAI_HOME"] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
 
@@ -71,7 +73,7 @@ class WandBConfig:
 class Config:
     epochs: int = 10
     img_dims: Tuple[int, int] = (32, 224)
-    gpu: bool = USE_GPU
+    gpu: str = USE_GPU
     wandb: WandBConfig = WandBConfig()
 
 
@@ -119,7 +121,7 @@ def download_dataset():
 # Fine-tuning the base ResNet model takes about 30-40 minutes on a GPU. To avoid
 # needing to keep our terminal active, we can run training as a 'detached run'.
 #
-# `MODAL_GPU=1 modal app run vision_model_training.py --detach --function-name train`
+# `MODAL_GPU=any modal app run vision_model_training.py --detach --function-name train`
 #
 
 
@@ -132,17 +134,18 @@ def download_dataset():
 )
 def train(config: Config = Config()):
     import wandb
-    from fastai.vision.data import (
-        DataBlock,
-        ImageBlock,
-        CategoryBlock,
-        TensorCategory,
-        get_image_files,
-    )
     from fastai.callback.wandb import WandbCallback
     from fastai.data.transforms import parent_label
     from fastai.metrics import accuracy
-    from fastai.vision.all import vision_learner, Resize, models
+    from fastai.vision.all import Resize, models, vision_learner
+    from fastai.vision.data import (
+        CategoryBlock,
+        DataBlock,
+        ImageBlock,
+        TensorCategory,
+        get_image_files,
+    )
+
     from modal import container_app
 
     print("Downloading dataset")

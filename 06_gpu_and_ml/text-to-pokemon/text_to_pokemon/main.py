@@ -5,14 +5,13 @@ import io
 import pathlib
 import re
 import sys
-import urllib.request
 import time
+import urllib.request
 from datetime import timedelta
 
 import modal
-from . import config
-from . import inpaint
-from . import pokemon_naming
+
+from . import config, inpaint, pokemon_naming
 
 volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
 model_volume = modal.SharedVolume().persist("txt-to-pokemon-model-cache-vol")
@@ -92,7 +91,7 @@ class Model:
     def __enter__(self):
         self.pipe = load_stable_diffusion_pokemon_model()
 
-    @stub.function(gpu=modal.gpu.A100(), shared_volumes={config.CACHE_DIR: model_volume})
+    @stub.function(gpu="A10g", shared_volumes={config.CACHE_DIR: model_volume})
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 

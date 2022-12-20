@@ -33,8 +33,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import modal
 from fastapi import FastAPI
+
+import modal
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
@@ -67,10 +68,6 @@ image = (
 
 volume = modal.SharedVolume().persist("dreambooth-finetuning-vol")
 MODEL_DIR = Path("/model")
-
-# Finetuning Stable Diffusion at 16-bit precision requires a lot of VRAM,
-# so we request a beefy NVIDIA A100 GPU.
-gpu = modal.gpu.A100()
 
 # ## Config
 #
@@ -178,7 +175,7 @@ def load_images(image_urls):
 
 @stub.function(
     image=image,
-    gpu=gpu,  # finetuning is VRAM hungry, so this should be an A100
+    gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
     shared_volumes={
         str(MODEL_DIR): volume,  # fine-tuned model will be stored at `MODEL_DIR`
     },
@@ -267,7 +264,7 @@ def train(instance_example_urls, config=TrainConfig()):
 
 @stub.asgi(
     image=image,
-    gpu=gpu,
+    gpu="A10g",  # Don't need as much VRAM for inference, so can use a cheaper GPU
     shared_volumes={str(MODEL_DIR): volume},
     mounts=[modal.Mount("/assets", local_dir=assets_path)],
 )

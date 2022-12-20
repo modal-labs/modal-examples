@@ -13,9 +13,10 @@ stub = modal.Stub(
 )
 
 
-@stub.function(gpu=True)
+@stub.function(gpu="any")
 def gpu_function():
     import subprocess
+
     import torch
 
     subprocess.run(["nvidia-smi"])

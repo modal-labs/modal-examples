@@ -23,7 +23,7 @@
 #
 # * Use [run_function](/docs/reference/modal.Image#run_function) to download the model while building the container image
 # * Use a [container lifecycle method](https://modal.com/docs/guide/lifecycle-functions) to initialize the model on container startup
-# * Use A100 GPUs
+# * Use A10g GPUs
 # * Use 16 bit floating point math
 
 
@@ -59,8 +59,8 @@ cache_path = "/vol/cache"
 
 
 def download_models():
-    import torch
     import diffusers
+    import torch
 
     hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
 
@@ -105,7 +105,7 @@ stub.image = image
 # has the `__enter__` method (the `__exit__` method is optional).
 #
 # We have also have applied a few model optimizations to make the model run
-# faster. On an A100, the model takes about 6.5s to load into memory, and then
+# faster. On an A10g, the model takes about 6.5s to load into memory, and then
 # 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
 # generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
@@ -115,8 +115,8 @@ stub.image = image
 
 class StableDiffusion:
     def __enter__(self):
-        import torch
         import diffusers
+        import torch
 
         torch.backends.cudnn.benchmark = True
         torch.backends.cuda.matmul.allow_tf32 = True
@@ -134,7 +134,7 @@ class StableDiffusion:
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.A100())
+    @stub.function(gpu="A10g")
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 

@@ -16,9 +16,10 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import fastapi
-import modal
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+import modal
 
 assets_path = Path(__file__).parent / "chatbot_spa"
 stub = modal.Stub("example-web-spa")
@@ -54,7 +55,7 @@ def transformer():
     return app
 
 
-@stub.function(gpu=True, image=stub.gpu_image, shared_volumes={"/cache": stub.cache})
+@stub.function(gpu="any", image=stub.gpu_image, shared_volumes={"/cache": stub.cache})
 def generate_response(message: str, id: Optional[str] = None) -> Tuple[str, str]:
     chat_histories = modal.container_app.chat_histories  # Load the queue object.
 
