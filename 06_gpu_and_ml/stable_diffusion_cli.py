@@ -64,12 +64,12 @@ def download_models():
 
     hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
 
-    # Download the Euler A scheduler configuration. Faster than the default and
-    # high quality output with fewer steps.
-    euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
+    # Download scheduler configuration. Experiment with different schedulers
+    # to identify one that works best for your use-case.
+    scheduler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
-    euler.save_pretrained(cache_path, safe_serialization=True)
+    scheduler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
@@ -121,32 +121,36 @@ class StableDiffusion:
         torch.backends.cudnn.benchmark = True
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        euler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(cache_path, subfolder="scheduler")
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=euler).to("cuda")
+        scheduler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(cache_path, subfolder="scheduler")
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.A100())
-    def run_inference(self, prompt: str, steps: int = 20) -> bytes:
+    @stub.function(gpu=modal.gpu.T4())
+    def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 
         with torch.inference_mode():
-            image = self.pipe(prompt, num_inference_steps=steps, guidance_scale=7.0).images[0]
+            with torch.autocast("cuda"):
+                images = self.pipe([prompt] * batch_size, num_inference_steps=steps, guidance_scale=7.0).images
 
         # Convert to PNG bytes
-        with io.BytesIO() as buf:
-            image.save(buf, format="PNG")
-            image_bytes = buf.getvalue()
-        return image_bytes
+        image_output = []
+        for image in images:
+            with io.BytesIO() as buf:
+                image.save(buf, format="PNG")
+                image_output.append(buf.getvalue())
+        return image_output
 
 
 # This is the command we'll use to generate images. It takes a `prompt`,
-# `samples` (the number of images you want to generate), and `steps` which
-# configures the number of inference steps the model will make.
+# `samples` (the number of images you want to generate), `steps` which
+# configures the number of inference steps the model will make, and `batch_size`
+# which determines how many images to generate for a given prompt.
 
 
 @app.command()
-def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
-    typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}")
+def entrypoint(prompt: str, samples: int = 5, steps: int = 20, batch_size: int = 1):
+    typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
 
     dir = Path("/tmp/stable-diffusion")
     if not dir.exists():
@@ -156,11 +160,14 @@ def entrypoint(prompt: str, samples: int = 10, steps: int = 20):
         sd = StableDiffusion()
         for i in range(samples):
             t0 = time.time()
-            image_bytes = sd.run_inference.call(prompt, steps)
-            output_path = dir / f"output_{i}.png"
-            print(f"Sample {i} took {time.time()-t0:.3f}s. Saving it to {output_path}")
-            with open(output_path, "wb") as f:
-                f.write(image_bytes)
+            images = sd.run_inference.call(prompt, steps, batch_size)
+            total_time = time.time() - t0
+            print(f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image).")
+            for j, image_bytes in enumerate(images):
+                output_path = dir / f"output_{j}_{i}.png"
+                print(f"Saving it to {output_path}")
+                with open(output_path, "wb") as f:
+                    f.write(image_bytes)
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
