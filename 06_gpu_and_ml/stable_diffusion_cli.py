@@ -66,7 +66,7 @@ def download_models():
 
     # Download scheduler configuration. Experiment with different schedulers
     # to identify one that works best for your use-case.
-    scheduler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(
+    scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
         model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
     )
     scheduler.save_pretrained(cache_path, safe_serialization=True)
@@ -121,11 +121,20 @@ class StableDiffusion:
         torch.backends.cudnn.benchmark = True
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        scheduler = diffusers.EulerAncestralDiscreteScheduler.from_pretrained(cache_path, subfolder="scheduler")
+        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
+            cache_path,
+            subfolder="scheduler",
+            solver_order=2,
+            prediction_type="epsilon",
+            thresholding=False,
+            algorithm_type="dpmsolver++",
+            solver_type="midpoint",
+            denoise_final=True,  # important if steps are <= 10
+        )
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu=modal.gpu.T4())
+    @stub.function(gpu=modal.gpu.A100())
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 
@@ -149,7 +158,7 @@ class StableDiffusion:
 
 
 @app.command()
-def entrypoint(prompt: str, samples: int = 5, steps: int = 20, batch_size: int = 1):
+def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
 
     dir = Path("/tmp/stable-diffusion")
