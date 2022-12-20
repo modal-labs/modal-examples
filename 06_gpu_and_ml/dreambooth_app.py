@@ -264,7 +264,7 @@ def train(instance_example_urls, config=TrainConfig()):
 
 @stub.asgi(
     image=image,
-    gpu="A10g",  # Don't need as much VRAM for inference, so can use a cheaper GPU
+    gpu="A10G",  # Don't need as much VRAM for inference, so can use a cheaper GPU
     shared_volumes={str(MODEL_DIR): volume},
     mounts=[modal.Mount("/assets", local_dir=assets_path)],
 )

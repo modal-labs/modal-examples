@@ -23,7 +23,7 @@
 #
 # * Use [run_function](/docs/reference/modal.Image#run_function) to download the model while building the container image
 # * Use a [container lifecycle method](https://modal.com/docs/guide/lifecycle-functions) to initialize the model on container startup
-# * Use A10g GPUs
+# * Use A10G GPUs
 # * Use 16 bit floating point math
 
 
@@ -105,7 +105,7 @@ stub.image = image
 # has the `__enter__` method (the `__exit__` method is optional).
 #
 # We have also have applied a few model optimizations to make the model run
-# faster. On an A10g, the model takes about 6.5s to load into memory, and then
+# faster. On an A10G, the model takes about 6.5s to load into memory, and then
 # 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
 # generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
@@ -134,7 +134,7 @@ class StableDiffusion:
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu="A10g")
+    @stub.function(gpu="A10G")
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
         import torch
 

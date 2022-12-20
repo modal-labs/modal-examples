@@ -91,7 +91,7 @@ class Model:
     def __enter__(self):
         self.pipe = load_stable_diffusion_pokemon_model()
 
-    @stub.function(gpu="A10g", shared_volumes={config.CACHE_DIR: model_volume})
+    @stub.function(gpu="A10G", shared_volumes={config.CACHE_DIR: model_volume})
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
