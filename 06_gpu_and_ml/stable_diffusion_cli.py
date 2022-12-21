@@ -189,3 +189,13 @@ def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int =
 
 if __name__ == "__main__":
     app()
+
+
+# # Performance
+#
+# This example can generate pictures in about a second, with startup time of about 10s for the first picture.
+#
+# See distribution of latencies below. This data was gathered by running 500 requests in sequence (meaning only
+# the first request incurs a cold start). As you can see, the 90th percentile is 1.2s and the 99th percentile is 2.30s.
+#
+# ![latencies](./stable_diffusion_latencies.png)
