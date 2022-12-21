@@ -5,8 +5,8 @@
 # # Stable Diffusion CLI
 #
 # This example shows Stable Ddiffusion 1.5 with a number of optimizations
-# that makes it run faster on Modal. The example takes about 20s to cold start
-# and about 1.5s per image generated.
+# that makes it run faster on Modal. The example takes about 10s to cold start
+# and about 1.0s per image generated.
 #
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
