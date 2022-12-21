@@ -79,14 +79,20 @@ def download_models():
 
 
 image = (
-    modal.Image.conda()
-    .run_commands(
+    modal.Image.debian_slim()
+    .pip_install(
         [
-            "conda install xformers -c xformers/label/dev",
-            "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
+            "accelerate",
+            "diffusers[torch]>=0.10",
+            "ftfy",
+            "torch",
+            "torchvision",
+            "transformers",
+            "triton",
+            "safetensors",
+            "xformers==0.0.16rc393",
         ]
     )
-    .run_commands(["pip install diffusers[torch]>=0.10 transformers ftfy accelerate safetensors"])
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
