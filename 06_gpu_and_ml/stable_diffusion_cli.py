@@ -118,7 +118,6 @@ class StableDiffusion:
         import diffusers
         import torch
 
-        torch.backends.cudnn.benchmark = True
         torch.backends.cuda.matmul.allow_tf32 = True
 
         scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
