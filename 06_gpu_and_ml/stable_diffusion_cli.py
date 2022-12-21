@@ -121,8 +121,11 @@ stub.image = image
 
 class StableDiffusion:
     def __enter__(self):
+        import time
+        t0 = time.time()
         import diffusers
         import torch
+        print("importing took", time.time() - t0)
 
         torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -163,26 +166,48 @@ class StableDiffusion:
 
 
 @app.command()
-def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1):
+def entrypoint(prompt: str, samples: int = 500, steps: int = 10, batch_size: int = 1):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
 
     dir = Path("/tmp/stable-diffusion")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
 
+    total_times = []
     with stub.run():
         sd = StableDiffusion()
         for i in range(samples):
             t0 = time.time()
             images = sd.run_inference.call(prompt, steps, batch_size)
             total_time = time.time() - t0
+            total_times.append(total_time)
             print(f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image).")
             for j, image_bytes in enumerate(images):
                 output_path = dir / f"output_{j}_{i}.png"
                 print(f"Saving it to {output_path}")
                 with open(output_path, "wb") as f:
                     f.write(image_bytes)
-
+                    
+    import seaborn
+    from matplotlib import pyplot
+    import numpy
+    pyplot.style.use("ggplot")
+    pyplot.figure(figsize=(12, 6))
+    seaborn.ecdfplot(total_times)
+    pyplot.title("eCDF (empirical cumulative density function) of inference times")
+    pyplot.xlabel("Inference time in seconds")
+    lo, hi = numpy.percentile(total_times, [1, 99])
+    markers = [
+        ("mean", numpy.mean(total_times)),
+        ("p90", numpy.percentile(total_times, 90)),
+        ("p99", numpy.percentile(total_times, 99)),
+    ]
+    for marker, t in markers:
+        pyplot.axvline(t, alpha=0.3)
+        pyplot.text(t, 0, f"{marker}: {t:.2f}s", ha="center", va="bottom", rotation=90)
+    pyplot.xlim([lo, hi])
+    pyplot.tight_layout()
+    pyplot.savefig("latencies.png", dpi=600)
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `python stable_diffusion_cli.py --help`
