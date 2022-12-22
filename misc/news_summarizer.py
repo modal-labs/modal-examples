@@ -174,7 +174,7 @@ def trigger():
 # Create a new Modal scheduled function with:
 #
 # ```shell
-# modal app deploy --name news_summarizer news_summarizer.py::stub
+# modal deploy --name news_summarizer news_summarizer.py::stub
 # ```
 
 # You can also run this entire Modal app in debugging mode before.

@@ -96,7 +96,7 @@ if __name__ == "__main__":
         search_hackernews.call()
 
 # If you run this script, it will search Hacker News ones. In order to deploy this
-# as a persistent cron job, you can run `modal app deploy hackernews_alerts.py`,
+# as a persistent cron job, you can run `modal deploy hackernews_alerts.py`,
 
 # Once the job is deployed, visit the [apps page](/apps) page to see
 # its execution history, logs and other stats.

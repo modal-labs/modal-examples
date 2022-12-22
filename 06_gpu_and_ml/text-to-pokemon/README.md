@@ -39,5 +39,5 @@ python3 -m pytest
 cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/text_to_pokemon/frontend"
 npx vite build
 cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/"
-modal app deploy text_to_pokemon.main
+modal deploy text_to_pokemon.main
 ```

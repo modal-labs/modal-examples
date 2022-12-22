@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-from example_utils import get_examples, ExampleType
+from example_utils import ExampleType, get_examples
 
 
 class DeployError(NamedTuple):
@@ -25,7 +25,7 @@ def deploy(
         print(f"⏩ skipping: '{module_with_stub.name}' is not marked for deploy")
         return None
 
-    deploy_command = f"modal app deploy {module_with_stub.name}"
+    deploy_command = f"modal deploy {module_with_stub.name}"
     if dry_run:
         print(f"🌵  dry-run: '{module_with_stub.name}' would have deployed")
     else:

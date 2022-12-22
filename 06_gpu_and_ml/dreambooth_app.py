@@ -259,7 +259,7 @@ def train(instance_example_urls, config=TrainConfig()):
 # guide users and to kick-start their creative juices.
 #
 # You can deploy the app on Modal forever with the command
-# `modal app deploy dreambooth_app.py`.
+# `modal deploy dreambooth_app.py`.
 
 
 @stub.asgi(
@@ -337,7 +337,7 @@ def fastapi_app(config=AppConfig()):
 #
 # `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
-# Remember, once you've trained your own fine-tuned model, you can deploy it using `modal app deploy dreambooth_app.py`.
+# Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #
 # This app is already deployed on Modal and you can try it out at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
 

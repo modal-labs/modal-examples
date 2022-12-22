@@ -45,4 +45,4 @@ Once you have `vite build` running, in a separate shell run `python -m whisper_p
 
 ### Deploy to Modal
 
-Once your happy with your changes, run `modal app deploy whisper_pod_transcriber.main` (from the directory above this one) to deploy your app to Modal.
+Once your happy with your changes, run `modal deploy whisper_pod_transcriber.main` (from the directory above this one) to deploy your app to Modal.
