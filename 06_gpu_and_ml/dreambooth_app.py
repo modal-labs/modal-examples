@@ -26,8 +26,8 @@
 #
 # ## Setting up the dependencies
 #
-# We can start from a slim Debian OS image and install all of our dependencies
-# with the `pip` Python package installer.
+# We can start from a base image and specify all of our dependencies.
+
 import os
 import sys
 from dataclasses import dataclass
@@ -41,22 +41,17 @@ web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
-
-image = (
-    modal.Image.conda()
-    .run_commands(
-        "conda install xformers -c xformers/label/dev",
-        "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
-    )
-    .pip_install(
-        "diffusers[torch]~=0.9.0",
-        "transformers~=4.21",
-        "ftfy",
-        "accelerate==0.14.0",
-        "tensorboard",
-        "smart_open~=6.2.0",
-        "gradio~=3.10",
-    )
+image = modal.Image.debian_slim().pip_install(
+    "accelerate",
+    "smart_open",
+    "diffusers[torch]>=0.10",
+    "ftfy",
+    "transformers",
+    "torch",
+    "torchvision",
+    "triton",
+    "xformers==0.0.16rc393",
+    "gradio~=3.10",
 )
 
 # A persistent shared volume will store model artefacts across Modal app runs.
