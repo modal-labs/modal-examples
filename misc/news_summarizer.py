@@ -26,11 +26,11 @@ CACHE_DIR = "/cache"
 # The first image contains dependencies for running our model. We also download the
 # pre-trained model into the image using the `huggingface` API. This caches the model so that
 # we don't have to download it on every function call.
-stub["deep_learning_image"] = modal.Image.debian_slim().pip_install(["transformers==4.16.2", "torch", "sentencepiece"])
+stub["deep_learning_image"] = modal.Image.debian_slim().pip_install("transformers==4.16.2", "torch", "sentencepiece")
 
 # Defining the scraping image is very similar. This image only contains the packages required
 # to scrape the New York Times website, though; so it's much smaller.
-stub["scraping_image"] = modal.Image.debian_slim().pip_install(["requests", "beautifulsoup4", "lxml"])
+stub["scraping_image"] = modal.Image.debian_slim().pip_install("requests", "beautifulsoup4", "lxml")
 
 volume = modal.SharedVolume().persist("pegasus-modal-vol")
 

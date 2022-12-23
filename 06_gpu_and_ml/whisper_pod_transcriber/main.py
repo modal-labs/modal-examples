@@ -19,26 +19,23 @@ volume = modal.SharedVolume().persist("dataset-cache-vol")
 app_image = (
     modal.Image.debian_slim()
     .pip_install(
-        [
-            "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
-            "dacite",
-            "jiwer",
-            "ffmpeg-python",
-            "gql[all]~=3.0.0a5",
-            "pandas",
-            "loguru==0.6.0",
-            "torchaudio==0.12.1",
-        ]
+        "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
+        "dacite",
+        "jiwer",
+        "ffmpeg-python",
+        "gql[all]~=3.0.0a5",
+        "pandas",
+        "loguru==0.6.0",
+        "torchaudio==0.12.1",
     )
-    .apt_install(
-        [
-            "ffmpeg",
-        ]
-    )
-    .pip_install(["ffmpeg-python"])
+    .apt_install("ffmpeg")
+    .pip_install("ffmpeg-python")
 )
 search_image = modal.Image.debian_slim().pip_install(
-    ["scikit-learn~=0.24.2", "tqdm~=4.46.0", "numpy~=1.23.3", "dacite"]
+    "scikit-learn~=0.24.2",
+    "tqdm~=4.46.0",
+    "numpy~=1.23.3",
+    "dacite",
 )
 
 stub = modal.Stub(

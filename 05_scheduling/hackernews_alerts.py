@@ -20,7 +20,7 @@ stub = modal.Stub("example-hn-bot")
 # Now, let's define an image that has the `slack-sdk` package installed, in which we can run a function
 # that posts a slack message.
 
-slack_sdk_image = modal.Image.debian_slim().pip_install(["slack-sdk"])
+slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 # ## Defining the function and importing the secret
 #
@@ -51,7 +51,7 @@ WINDOW_SIZE_DAYS = 1
 
 # Let's also define an image that has the `requests` package installed, so we can query the API.
 
-requests_image = modal.Image.debian_slim().pip_install(["requests"])
+requests_image = modal.Image.debian_slim().pip_install("requests")
 
 # We can now define our main entrypoint, that queries Algolia for the term, and calls `post_to_slack`
 # on all the results. We specify a [schedule](/docs/guide/cron) in the function decorator, which

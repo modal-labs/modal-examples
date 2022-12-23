@@ -8,7 +8,7 @@ stub = modal.Stub("example-poll")
 web_app = fastapi.FastAPI()
 
 
-@stub.function(image=modal.Image.debian_slim().pip_install(["primefac"]))
+@stub.function(image=modal.Image.debian_slim().pip_install("primefac"))
 def factor_number(number):
     import primefac
 

@@ -71,8 +71,8 @@ CACHE_PATH = "/root/model_cache"
     gpu="A10G",
     image=(
         modal.Image.debian_slim()
-        .run_commands(["pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"])
-        .pip_install(["diffusers", "transformers", "scipy", "ftfy", "accelerate"])
+        .run_commands("pip install torch --extra-index-url https://download.pytorch.org/whl/cu117")
+        .pip_install("diffusers", "transformers", "scipy", "ftfy", "accelerate")
     ),
     shared_volumes={CACHE_PATH: volume},
     secret=modal.Secret.from_name("huggingface-secret"),
@@ -150,7 +150,7 @@ async def entrypoint(request: Request):
 
 
 @stub.function(
-    image=modal.Image.debian_slim().pip_install(["slack-sdk"]),
+    image=modal.Image.debian_slim().pip_install("slack-sdk"),
     secret=modal.Secret.from_name("stable-diff-slackbot-secret"),
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):

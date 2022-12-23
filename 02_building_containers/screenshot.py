@@ -36,15 +36,13 @@ stub = modal.Stub("example-screenshot")
 
 
 image = modal.Image.debian_slim().run_commands(
-    [
-        "apt-get install -y software-properties-common",
-        "apt-add-repository non-free",
-        "apt-add-repository contrib",
-        "apt-get update",
-        "pip install playwright==1.20.0",
-        "playwright install-deps chromium",
-        "playwright install chromium",
-    ],
+    "apt-get install -y software-properties-common",
+    "apt-add-repository non-free",
+    "apt-add-repository contrib",
+    "apt-get update",
+    "pip install playwright==1.20.0",
+    "playwright install-deps chromium",
+    "playwright install chromium",
 )
 
 # ## The screenshot function

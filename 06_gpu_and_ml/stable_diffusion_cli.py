@@ -81,17 +81,15 @@ def download_models():
 image = (
     modal.Image.debian_slim()
     .pip_install(
-        [
-            "accelerate",
-            "diffusers[torch]>=0.10",
-            "ftfy",
-            "torch",
-            "torchvision",
-            "transformers",
-            "triton",
-            "safetensors",
-            "xformers==0.0.16rc393",
-        ]
+        "accelerate",
+        "diffusers[torch]>=0.10",
+        "ftfy",
+        "torch",
+        "torchvision",
+        "transformers",
+        "triton",
+        "safetensors",
+        "xformers==0.0.16rc393",
     )
     .run_function(
         download_models,

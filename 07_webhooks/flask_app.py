@@ -1,6 +1,9 @@
 import modal
 
-stub = modal.Stub("example-web-flask", image=modal.Image.debian_slim().pip_install(["flask"]))
+stub = modal.Stub(
+    "example-web-flask",
+    image=modal.Image.debian_slim().pip_install("flask"),
+)
 
 
 @stub.wsgi

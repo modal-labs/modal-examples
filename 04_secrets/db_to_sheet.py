@@ -61,7 +61,7 @@ def my_func():
 # image that's built into modal, and make sure to install the required binary packages as well as
 # the psycopg2 package itself:
 
-pg_image = modal.Image.debian_slim().apt_install(["libpq-dev"]).pip_install(["psycopg2"])
+pg_image = modal.Image.debian_slim().apt_install("libpq-dev").pip_install("psycopg2")
 
 # Since the default keynames for a **Postgres compatible** secret correspond to the environment
 # variables that `psycopg2` looks for, you can now easily connect to the database even without
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 # another modal secret. We'll use a custom secret called "weather" with the key
 # `OPENWEATHER_API_KEY` containing our API key for OpenWeatherMap.
 
-requests_image = modal.Image.debian_slim().pip_install(["requests"])
+requests_image = modal.Image.debian_slim().pip_install("requests")
 
 
 @stub.function(
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 # we'll refer to in our code. We'll make use of the `pygsheets` python package to authenticate with
 # Google Sheets and then update the spreadsheet with information from the report we just created:
 
-pygsheets_image = modal.Image.debian_slim().pip_install(["pygsheets"])
+pygsheets_image = modal.Image.debian_slim().pip_install("pygsheets")
 
 
 @stub.function(

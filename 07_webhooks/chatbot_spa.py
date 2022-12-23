@@ -28,8 +28,8 @@ stub.cache = modal.SharedVolume()
 stub.chat_histories = modal.Dict()
 
 gpu_image = modal.Image.debian_slim()
-gpu_image = gpu_image.pip_install(["torch"], "https://download.pytorch.org/whl/cu116")
-gpu_image = gpu_image.pip_install(["transformers"])
+gpu_image = gpu_image.pip_install("torch", find_links="https://download.pytorch.org/whl/cu116")
+gpu_image = gpu_image.pip_install("transformers")
 stub.gpu_image = gpu_image
 
 if stub.is_inside(stub.gpu_image):

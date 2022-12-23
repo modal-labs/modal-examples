@@ -45,21 +45,17 @@ stub = modal.Stub(name="example-dreambooth-app")
 image = (
     modal.Image.conda()
     .run_commands(
-        [
-            "conda install xformers -c xformers/label/dev",
-            "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
-        ]
+        "conda install xformers -c xformers/label/dev",
+        "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
     )
     .pip_install(
-        [
-            "diffusers[torch]~=0.9.0",
-            "transformers~=4.21",
-            "ftfy",
-            "accelerate==0.14.0",
-            "tensorboard",
-            "smart_open~=6.2.0",
-            "gradio~=3.10",
-        ]
+        "diffusers[torch]~=0.9.0",
+        "transformers~=4.21",
+        "ftfy",
+        "accelerate==0.14.0",
+        "tensorboard",
+        "smart_open~=6.2.0",
+        "gradio~=3.10",
     )
 )
 

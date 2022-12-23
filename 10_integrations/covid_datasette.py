@@ -34,14 +34,12 @@ stub = modal.Stub("example-covid-datasette")
 datasette_image = (
     modal.Image.debian_slim()
     .pip_install(
-        [
-            "datasette~=0.63.2",
-            "flufl.lock",
-            "GitPython",
-            "sqlite-utils",
-        ]
+        "datasette~=0.63.2",
+        "flufl.lock",
+        "GitPython",
+        "sqlite-utils",
     )
-    .apt_install(["git"])
+    .apt_install("git")
 )
 
 # ## Persistent dataset storage

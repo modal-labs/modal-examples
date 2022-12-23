@@ -6,15 +6,13 @@ stub = modal.Stub("example-linkscraper")
 
 
 playwright_image = modal.Image.debian_slim().run_commands(
-    [
-        "apt-get install -y software-properties-common",
-        "apt-add-repository non-free",
-        "apt-add-repository contrib",
-        "apt-get update",
-        "pip install playwright==1.20.0",
-        "playwright install-deps chromium",
-        "playwright install chromium",
-    ],
+    "apt-get install -y software-properties-common",
+    "apt-add-repository non-free",
+    "apt-add-repository contrib",
+    "apt-get update",
+    "pip install playwright==1.20.0",
+    "playwright install-deps chromium",
+    "playwright install chromium",
 )
 
 
@@ -32,7 +30,7 @@ async def get_links(url: str):
     return links
 
 
-slack_sdk_image = modal.Image.debian_slim().pip_install(["slack-sdk"])
+slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 
 @stub.function(image=slack_sdk_image, secret=modal.Secret.from_name("scraper-slack-secret"))

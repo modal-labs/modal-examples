@@ -16,7 +16,13 @@ from . import config, inpaint, pokemon_naming
 volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
 model_volume = modal.SharedVolume().persist("txt-to-pokemon-model-cache-vol")
 image = modal.Image.debian_slim().pip_install(
-    ["accelerate", "colorgram.py", "diffusers~=0.9.0", "torch", "transformers", "scipy", "ftfy"]
+    "accelerate",
+    "colorgram.py",
+    "diffusers~=0.9.0",
+    "torch",
+    "transformers",
+    "scipy",
+    "ftfy",
 )
 stub = modal.Stub(name="example-text-to-pokemon", image=image)
 
