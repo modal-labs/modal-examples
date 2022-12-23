@@ -13,12 +13,10 @@ from . import config
 from typing import Any
 
 rnn_image = modal.Image.debian_slim().pip_install(
-    [
-        "keras",
-        "pandas",
-        "numpy",
-        "tensorflow~=2.9.1",
-    ]
+    "keras",
+    "pandas",
+    "numpy",
+    "tensorflow~=2.9.1",
 )
 
 # Longer names don't fit on Pokémon card

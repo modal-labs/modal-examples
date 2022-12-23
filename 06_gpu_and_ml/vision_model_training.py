@@ -36,15 +36,13 @@ web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
 stub = modal.Stub(name="example-fastai-wandb-gradio-cifar10-demo")
 image = modal.Image.debian_slim().pip_install(
-    [
-        "fastai~=2.7.9",
-        "gradio~=3.6",
-        "httpx~=0.23.0",
-        # When using pip PyTorch is not automatically installed by fastai.
-        "torch~=1.12.1",
-        "torchvision~=0.13.1",
-        "wandb~=0.13.4",
-    ]
+    "fastai~=2.7.9",
+    "gradio~=3.6",
+    "httpx~=0.23.0",
+    # When using pip PyTorch is not automatically installed by fastai.
+    "torch~=1.12.1",
+    "torchvision~=0.13.1",
+    "wandb~=0.13.4",
 )
 
 # A persistent shared volume will store trained model artefacts across Modal app runs.

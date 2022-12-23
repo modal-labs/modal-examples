@@ -45,12 +45,10 @@ FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 image = (
     modal.Image.debian_slim()
     .run_commands(
-        [
-            "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
-            f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
-        ]
+        "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
+        f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
     )
-    .pip_install(["pytube", "opencv-python", "moviepy"])
+    .pip_install("pytube", "opencv-python", "moviepy")
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 

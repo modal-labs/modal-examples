@@ -49,7 +49,7 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu="any",
-    image=modal.Image.debian_slim().pip_install(["donut-python==1.0.7", "transformers==4.21.3"]),
+    image=modal.Image.debian_slim().pip_install("donut-python==1.0.7", "transformers==4.21.3"),
     shared_volumes={CACHE_PATH: volume},
     retries=3,
 )

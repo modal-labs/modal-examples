@@ -9,7 +9,7 @@ import modal
 
 stub = modal.Stub(
     "example-import-torch",
-    image=modal.Image.debian_slim().pip_install(["torch"], "https://download.pytorch.org/whl/cu116"),
+    image=modal.Image.debian_slim().pip_install("torch", find_links="https://download.pytorch.org/whl/cu116"),
 )
 
 

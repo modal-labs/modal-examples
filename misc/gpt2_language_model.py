@@ -12,7 +12,7 @@ CACHE_PATH = "/root/model_cache"
 
 
 @stub.function(
-    image=modal.Image.debian_slim().pip_install(["torch", "transformers"]),
+    image=modal.Image.debian_slim().pip_install("torch", "transformers"),
     shared_volumes={CACHE_PATH: volume},
     secret=modal.Secret({"TRANSFORMERS_CACHE": CACHE_PATH}),
 )

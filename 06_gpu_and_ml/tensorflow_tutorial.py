@@ -26,8 +26,8 @@ stub = modal.Stub(
     "example-tensorflow-tutorial",
     image=(
         modal.Image.conda()
-        .conda_install(["cudatoolkit=11.2", "cudnn=8.1.0", "cuda-nvcc"], channels=["conda-forge", "nvidia"])
-        .pip_install(["tensorflow~=2.9.1"])
+        .conda_install("cudatoolkit=11.2", "cudnn=8.1.0", "cuda-nvcc", channels=["conda-forge", "nvidia"])
+        .pip_install("tensorflow~=2.9.1")
     ),
 )
 
