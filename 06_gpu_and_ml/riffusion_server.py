@@ -1,6 +1,7 @@
 import modal
 
 RIFFUSION_PKG_PATH = "/root/riffusion"
+MODEL_CACHE_PATH = "/cache"
 
 inference_image = (
     modal.Image.debian_slim()
@@ -15,24 +16,24 @@ inference_image = (
 
 stub = modal.Stub("example-riffusion")
 
+volume = modal.SharedVolume().persist("riffusion-model-vol")
 
-class Riffusion:
-    def __enter__(self):
-        print("loading")
-        import sys
 
-        # HACK since riffusion is not a package, but we want to use it like one.
-        sys.path.insert(0, RIFFUSION_PKG_PATH)
-        from riffusion.server import load_model
+@stub.wsgi(image=inference_image, gpu="A10g", shared_volumes={MODEL_CACHE_PATH: volume})
+def server():
+    import os
+    import sys
 
-        load_model()
-        print("loaded")
+    # HACK since riffusion is not a package, but we want to use it like one.
+    sys.path.insert(0, RIFFUSION_PKG_PATH)
 
-    @stub.wsgi(image=inference_image)
-    def server(self):
-        from riffusion.server import app
+    os.environ["HF_HOME"] = MODEL_CACHE_PATH
 
-        return app
+    from riffusion.server import app, load_model
+
+    load_model(checkpoint="riffusion/riffusion-model-v1")
+
+    return app
 
 
 # web_image = (
