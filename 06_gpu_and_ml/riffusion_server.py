@@ -38,30 +38,5 @@ def server():
     return app
 
 
-# web_image = (
-#     modal.Image.debian_slim()
-#     .apt_install(["git", "curl"])
-#     # Install npm
-#     .run_commands(
-#         [
-#             "curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash",
-#             ". $HOME/.nvm/nvm.sh && nvm install 16.14.2",
-#         ]
-#     )
-#     .run_commands(
-#         [
-#             f"git clone https://github.com/hmartiro/riffusion-app.git ~/riffusion-app",
-#             ". $HOME/.nvm/nvm.sh && cd ~/riffusion-app && npm install && next build && next export",
-#         ]
-#     )
-# )
-
-# @stub.wsgi(image=web_image)
-# def web_server():
-#     from riffusion.server import app
-
-#     return app
-
-
 if __name__ == "__main__":
     stub.serve()
