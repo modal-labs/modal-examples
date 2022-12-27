@@ -55,7 +55,7 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
-def main(model_type: str = str(config.ModelTypes.LLM)):
+def main(model_type: str = config.ModelTypes.LLM):
     logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
