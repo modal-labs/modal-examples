@@ -10,7 +10,7 @@
 # You can run this example on the command line with
 #
 # ```
-# modal run 02_building_containers/screenshot.py 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+# modal run 02_building_containers/screenshot.py --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 # ```
 #
 # This should take a few seconds then create a `/tmp/screenshots/screenshot.png` file, shown below.

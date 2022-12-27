@@ -1,6 +1,5 @@
 import io
 import os
-import sys
 from typing import Optional
 
 from fastapi import Request
@@ -66,20 +65,16 @@ async def entrypoint(request: Request):
     return f"Running text2im for {prompt}."
 
 
-# Entrypoint code so this can be run from the command line
+# Entrypoint code so this can be easily run from the command line
 
 OUTPUT_DIR = "/tmp/render"
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        prompt = sys.argv[1]
-    else:
-        prompt = "martha stewart at burning man"
 
+@stub.local_entrypoint
+def main(prompt: str = "martha stewart at burning man"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "output.png")
-    with stub.run():
-        img_bytes = run_minidalle.call(prompt, None)
-        with open(output_path, "wb") as f:
-            f.write(img_bytes)
+    img_bytes = run_minidalle.call(prompt, None)
+    with open(output_path, "wb") as f:
+        f.write(img_bytes)
     print(f"Done! Your DALL-E output image is at '{output_path}'")

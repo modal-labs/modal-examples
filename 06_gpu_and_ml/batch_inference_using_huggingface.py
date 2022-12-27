@@ -104,31 +104,33 @@ def roc_plot(labels, predictions):
 # That's a lot! Luckily because of Modal's `.map` method, we can process everything in a couple of minutes at most.
 # Modal will automatically spin up more and more workers until all inputs are processed.
 
-if __name__ == "__main__":
-    with stub.run():
-        print("Downloading data...")
-        data = get_data.call()
-        print("Got", len(data), "reviews")
-        reviews = [review for review, label in data]
-        labels = [label for review, label in data]
 
-        # Let's check that the model works by classifying the first 5 entries
-        predictor = SentimentAnalysis()
-        for review, label in data[:5]:
-            prediction = predictor.predict.call(review)
-            print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
+@stub.local_entrypoint
+def main():
+    print("Downloading data...")
+    data = get_data.call()
+    print("Got", len(data), "reviews")
+    reviews = [review for review, label in data]
+    labels = [label for review, label in data]
 
-        # Now, let's run batch inference over it
-        print("Running batch prediction...")
-        predictions = list(predictor.predict.map(reviews))
+    # Let's check that the model works by classifying the first 5 entries
+    predictor = SentimentAnalysis()
+    for review, label in data[:5]:
+        prediction = predictor.predict.call(review)
+        print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
 
-        # Generate a ROC plot
-        print("Creating ROC plot...")
-        png_data = roc_plot.call(labels, predictions)
-        fn = "/tmp/roc.png"
-        with open(fn, "wb") as f:
-            f.write(png_data)
-        print(f"Wrote ROC curve to {fn}")
+    # Now, let's run batch inference over it
+    print("Running batch prediction...")
+    predictions = list(predictor.predict.map(reviews))
+
+    # Generate a ROC plot
+    print("Creating ROC plot...")
+    png_data = roc_plot.call(labels, predictions)
+    fn = "/tmp/roc.png"
+    with open(fn, "wb") as f:
+        f.write(png_data)
+    print(f"Wrote ROC curve to {fn}")
+
 
 # ## Running this
 #
