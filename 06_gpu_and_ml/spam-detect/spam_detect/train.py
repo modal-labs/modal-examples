@@ -40,7 +40,7 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     timeout=int(timedelta(minutes=30).total_seconds()),
     # NOTE: Can't use A100 easily because:
     # "Modal SharedVolume data will not be shared between A100 and non-A100 functions"
-    gpu=True,
+    gpu=modal.gpu.T4(),
 )
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
@@ -54,7 +54,6 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
-    gpu=True,
 )
 def main(model_type: str = str(config.ModelTypes.LLM)):
     logger = config.get_logger()
@@ -67,18 +66,18 @@ def main(model_type: str = str(config.ModelTypes.LLM)):
     model: models.SpamModel
     if model_type == config.ModelTypes.NAIVE_BAYES:
         model = models.NaiveBayes()
-        train(model, dataset_path=dataset_path)
+        train.call(model, dataset_path=dataset_path)
     elif model_type == config.ModelTypes.LLM:
         model = models.LLM()
-        train_gpu(model, dataset_path=dataset_path)
+        train_gpu.call(model, dataset_path=dataset_path)
     elif model_type == config.ModelTypes.BAD_WORDS:
         model = models.BadWords()
-        train(model, dataset_path=dataset_path)
+        train.call(model, dataset_path=dataset_path)
     else:
         raise ValueError(f"Unknown model type '{model_type}'")
 
 
 if __name__ == "__main__":
     with stub.run():
-        init_volume()
-        main()
+        init_volume.call()
+        main.call()
