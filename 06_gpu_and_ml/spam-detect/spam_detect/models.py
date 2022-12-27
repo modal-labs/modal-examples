@@ -43,7 +43,7 @@ def construct_huggingface_dataset(dataset: Dataset):
     import pyarrow as pa
 
     emails = pa.array((ex.email for ex in dataset), type=pa.string())
-    labels = pa.array((ex.spam for ex in dataset), type=pa.bool_())
+    labels = pa.array((1 if ex.spam else 0 for ex in dataset), type=pa.uint8())
     pa_table = pa.table([emails, labels], names=["text", "labels"])
     return datasets.Dataset(pa_table).train_test_split(test_size=0.1)
 
@@ -68,7 +68,14 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
 
     tokenized_datasets = huggingface_dataset.map(tokenize_function, batched=True)
 
-    model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
+    id2label = {0: "HAM", 1: "SPAM"}
+    label2id = {"HAM": 0, "SPAM": 1}
+    model = AutoModelForSequenceClassification.from_pretrained(
+        "bert-base-cased",
+        num_labels=len(label2id),
+        id2label=id2label,
+        label2id=label2id,
+    )
 
     training_args = TrainingArguments(output_dir="test_trainer")
 
