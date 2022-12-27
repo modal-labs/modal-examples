@@ -41,8 +41,9 @@ def fit_knn(k):
 # To do a hyperparameter search, let's map over this function with different values
 # for `k`, and then select for the best score on the holdout set:
 
-if __name__ == "__main__":
-    with stub.run():
-        # Do a basic hyperparameter search
-        best_score, best_k = max(fit_knn.map(range(1, 100)))
-        print("Best k = %3d, score = %.4f" % (best_k, best_score))
+
+@stub.local_entrypoint
+def main():
+    # Do a basic hyperparameter search
+    best_score, best_k = max(fit_knn.map(range(1, 100)))
+    print("Best k = %3d, score = %.4f" % (best_k, best_score))

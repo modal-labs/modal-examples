@@ -10,7 +10,7 @@
 # You can run this example on the command line with
 #
 # ```
-# python 02_building_containers/screenshot.py 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+# modal run 02_building_containers/screenshot.py 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 # ```
 #
 # This should take a few seconds then create a `/tmp/screenshots/screenshot.png` file, shown below.
@@ -22,7 +22,6 @@
 # First we import the Modal client library.
 
 import pathlib
-import sys
 
 import modal
 
@@ -72,15 +71,16 @@ async def screenshot(url):
 #
 # Let's kick it off by reading a bunch of URLs from a txt file and scrape some of those.
 
-if __name__ == "__main__":
-    url = sys.argv[1] if len(sys.argv) >= 2 else "https://modal.com"
+
+@stub.local_entrypoint
+def main(url: str = "https://modal.com"):
     filename = pathlib.Path("/tmp/screenshots/screenshot.png")
-    with stub.run():
-        data = screenshot.call(url)
-        filename.parent.mkdir(exist_ok=True)
-        with open(filename, "wb") as f:
-            f.write(data)
-        print(f"wrote {len(data)} bytes to {filename}")
+    data = screenshot.call(url)
+    filename.parent.mkdir(exist_ok=True)
+    with open(filename, "wb") as f:
+        f.write(data)
+    print(f"wrote {len(data)} bytes to {filename}")
+
 
 # And we're done! Please also see our [introductory guide](/docs/guide/web-scraper) for another
 # example of a web scraper, with more in-depth logic.

@@ -142,12 +142,12 @@ def plot_stocks():
 
 OUTPUT_DIR = "/tmp/"
 
-if __name__ == "__main__":
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    with stub.run():
-        data = plot_stocks.call()
-        filename = os.path.join(OUTPUT_DIR, "stock_prices.png")
-        print(f"saving data to {filename}")
-        with open(filename, "wb") as f:
-            f.write(data)
+@stub.local_entrypoint
+def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    data = plot_stocks.call()
+    filename = os.path.join(OUTPUT_DIR, "stock_prices.png")
+    print(f"saving data to {filename}")
+    with open(filename, "wb") as f:
+        f.write(data)

@@ -84,11 +84,7 @@ def get_db_rows():
 
 # Note that we import psycopg2 inside our function instead of the global scope. This allows us to
 # run this Modal function even from an environment where psycopg2 is not installed. We can test run
-# this function itself by simply calling it like a regular function within a `stub.run()` context:
-
-if __name__ == "__main__":
-    with stub.run():
-        print(get_db_rows.call())
+# this function using the `modal run` shell command: `modal run db_to_sheet.py::stub.get_db_rows`.
 
 # ## Applying Python logic
 #
@@ -130,17 +126,25 @@ def create_report(cities):
     return users_by_weather
 
 
-# Let's try to run this! The code below should print something like this:
-# `dict_items([('Clouds', 3)])`.
+# Let's try to run this! To make it simple to trigger the function with some
+# predefined input data, we create a "local entrypoint" `main` that can be
+# easily triggered from the command line:
 
-if __name__ == "__main__":
-    with stub.run():
-        cities = [
-            "Stockholm,,Sweden",
-            "New York,NY,USA",
-            "Tokyo,,Japan",
-        ]
-        print(create_report.call(cities))
+
+@stub.local_entrypoint
+def main():
+    cities = [
+        "Stockholm,,Sweden",
+        "New York,NY,USA",
+        "Tokyo,,Japan",
+    ]
+    print(create_report.call(cities))
+
+
+# Running the local entrypoint using `modal run db_to_sheet.py` should print something like:
+# `dict_items([('Clouds', 3)])`.
+# Note that since this file only has a single stub, and the stub has only one local entrypoint
+# we only have to specify the file to run - the function/entrypoint is inferred.
 
 # In this case the logic is quite simple, but in a real world context you could have applied a
 # machine learning model or any other tool you could build into a container to transform the data.
@@ -193,13 +197,10 @@ def db_to_sheet():
 
 # This entire stub can now be deployed using `modal deploy db_to_sheet.py`. The [apps page](/apps)
 # shows our cron job's execution history and lets you navigate to each invocation's logs.
-# Just to make it easy, we can also add a simple entrypoint so you can run it locally
+# To trigger a manual run from your local code during development, you can also trigger this function using the cli:
+# `modal run db_to_sheet.py::stub.db_to_sheet`
 
-if __name__ == "__main__":
-    with stub.run():
-        db_to_sheet.call()
-
-# Note that each of these function calls above run remotely in isolated containers that are specified per
+# Note that all of the @stub.function annotated functions above run remotely in isolated containers that are specified per
 # function, but they are called as seamlessly as using regular Python functions. This is a simple
 # showcase of how you can mix and match functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.
