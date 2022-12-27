@@ -4,9 +4,9 @@ from datetime import timedelta
 import modal
 
 from . import config
+from . import dataset
 from . import models
 from .app import stub, volume
-from .datasets.enron import structure as enron
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
@@ -20,7 +20,7 @@ def init_volume():
 )
 def train(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
-    enron_dataset = enron.deserialize_dataset(dataset_path)
+    enron_dataset = dataset.deserialize_dataset(dataset_path)
     classifier = model.train(enron_dataset)
     model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
@@ -44,7 +44,7 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
 )
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
-    enron_dataset = enron.deserialize_dataset(dataset_path)
+    enron_dataset = dataset.deserialize_dataset(dataset_path)
     classifier = model.train(enron_dataset)
     model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
@@ -61,7 +61,7 @@ def main(model_type: str = str(config.ModelTypes.LLM)):
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
     )
-    dataset_path = enron.dataset_path(config.DATA_DIR)
+    dataset_path = dataset.dataset_path(config.DATA_DIR)
 
     logger.info("💪 training ...")
     model: models.SpamModel
