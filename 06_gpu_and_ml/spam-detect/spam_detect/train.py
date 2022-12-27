@@ -64,6 +64,7 @@ def main(model_type: str = str(config.ModelTypes.LLM)):
     dataset_path = enron.dataset_path(config.DATA_DIR)
 
     logger.info("💪 training ...")
+    model: models.SpamModel
     if model_type == config.ModelTypes.NAIVE_BAYES:
         model = models.NaiveBayes()
         train(model, dataset_path=dataset_path)

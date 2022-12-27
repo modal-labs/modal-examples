@@ -18,5 +18,5 @@ def get_logger():
     from loguru import logger
 
     logger.remove()
-    logger.add(sys.stderr, colorize=True, level="WARNING")
+    logger.add(sys.stderr, colorize=True, level="INFO")
     return logger

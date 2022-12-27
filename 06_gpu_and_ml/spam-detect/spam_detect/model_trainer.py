@@ -23,7 +23,7 @@ from typing import (
 )
 
 from . import config
-from .datasets.enron import structure as dataset
+from . import dataset
 from .model_registry import ModelMetadata
 
 logger = config.get_logger()
@@ -50,7 +50,7 @@ def serialize_model(
     try:
         from datasets.utils.py_utils import Pickler
     except ModuleNotFoundError:
-        from pickle import Pickler
+        from pickle import Pickler  # type: ignore
 
     def dumps(obj, **kwds):
         file = io.BytesIO()

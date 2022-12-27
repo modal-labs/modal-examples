@@ -3,8 +3,8 @@ import pathlib
 import re
 from collections import defaultdict
 
-from .datasets.enron import structure
 from . import config
+from . import dataset
 from . import model_trainer
 
 from typing import (
@@ -15,7 +15,7 @@ from typing import (
 )
 
 Prediction = float
-Dataset = Iterable[structure.Example]
+Dataset = Iterable[dataset.Example]
 SpamClassifier = Callable[[str], Prediction]
 
 
@@ -34,7 +34,7 @@ class SpamModel(Protocol):
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         ...
 
-    def save(self, fn: SpamClassifier, model_path: pathlib.Path) -> str:
+    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
         ...
 
 
@@ -200,14 +200,14 @@ class BadWords(SpamModel):
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         return model_trainer.load_pickle_serialized_model(
-            classifier_sha256_hash=sha256_digest,
-            classifier_destination_root=model_registry_root,
+            sha256_hash=sha256_digest,
+            destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
         return model_trainer.store_picklable_model(
             classifier_func=fn,
-            classifier_destination_root=model_registry_root,
+            model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
         )
 
@@ -272,13 +272,13 @@ class NaiveBayes(SpamModel):
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         return model_trainer.load_pickle_serialized_model(
-            classifier_sha256_hash=sha256_digest,
-            classifier_destination_root=model_registry_root,
+            sha256_hash=sha256_digest,
+            destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
         return model_trainer.store_picklable_model(
             classifier_func=fn,
-            classifier_destination_root=model_registry_root,
+            model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
         )
