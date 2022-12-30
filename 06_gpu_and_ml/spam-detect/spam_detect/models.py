@@ -11,10 +11,16 @@ from typing import (
     cast,
     Callable,
     Iterable,
+    NamedTuple,
     Protocol,
 )
 
-Prediction = float
+
+class Prediction(NamedTuple):
+    spam: bool
+    score: float
+
+
 Dataset = Iterable[dataset.Example]
 SpamClassifier = Callable[[str], Prediction]
 
@@ -38,12 +44,12 @@ class SpamModel(Protocol):
         ...
 
 
-def construct_huggingface_dataset(dataset: Dataset):
+def construct_huggingface_dataset(dataset: Dataset, label2id: dict[str, int]):
     import datasets
     import pyarrow as pa
 
     emails = pa.array((ex.email for ex in dataset), type=pa.string())
-    labels = pa.array((1 if ex.spam else 0 for ex in dataset), type=pa.uint8())
+    labels = pa.array((label2id["SPAM"] if ex.spam else label2id["HAM"] for ex in dataset), type=pa.uint8())
     pa_table = pa.table([emails, labels], names=["text", "labels"])
     return datasets.Dataset(pa_table).train_test_split(test_size=0.1)
 
@@ -59,7 +65,9 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
 
     logger = config.get_logger()
 
-    huggingface_dataset = construct_huggingface_dataset(dataset)
+    id2label = {0: "HAM", 1: "SPAM"}
+    label2id = {"HAM": 0, "SPAM": 1}
+    huggingface_dataset = construct_huggingface_dataset(dataset, label2id)
 
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
@@ -67,9 +75,6 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
         return tokenizer(examples["text"], padding="max_length", truncation=True)
 
     tokenized_datasets = huggingface_dataset.map(tokenize_function, batched=True)
-
-    id2label = {0: "HAM", 1: "SPAM"}
-    label2id = {"HAM": 0, "SPAM": 1}
     model = AutoModelForSequenceClassification.from_pretrained(
         "bert-base-cased",
         num_labels=len(label2id),
@@ -126,9 +131,13 @@ class LLMSpamClassifier:
             logits = self.model(**inputs).logits
 
         predicted_class_id = logits.argmax().item()
-        print(self.model.config.id2label[predicted_class_id])
-        # TODO(Jonathon): map predicted class to boolean.
-        return 0.5
+        spam_id = self.model.config.label2id["SPAM"]
+        spam_score = logits[0][spam_id]
+        predicted_label: str = self.model.config.id2label[predicted_class_id]
+        return Prediction(
+            spam=bool(predicted_label == "SPAM"),
+            score=spam_score,
+        )
 
 
 class LLM(SpamModel):
@@ -189,7 +198,7 @@ class BadWords(SpamModel):
         def bad_words_spam_classifier(email: str) -> Prediction:
             tokens = " ".split(email)
             tokens_set = set(tokens)
-            # TODO: investigate is using a set here makes serialization non-deterministic.
+            # TODO: investigate why using a set here makes serialization non-deterministic.
             bad_words = [
                 "sex",
                 "xxx",
@@ -201,7 +210,11 @@ class BadWords(SpamModel):
             for word in bad_words:
                 if word in tokens_set:
                     bad_words_count += 1
-            return 1.0 if bad_words_count > max_bad_words else 0.0
+            return (
+                Prediction(score=1.0, spam=True)
+                if bad_words_count > max_bad_words
+                else Prediction(score=0.0, spam=False)
+            )
 
         return bad_words_spam_classifier
 
@@ -273,7 +286,12 @@ class NaiveBayes(SpamModel):
                     log_prob_if_ham += math.log(1.0 - prob_if_ham)
             prob_if_spam = math.exp(log_prob_if_spam)
             prob_if_ham = math.exp(log_prob_if_ham)
-            return prob_if_spam / (prob_if_spam + prob_if_ham)
+            score = prob_if_spam / (prob_if_spam + prob_if_ham)
+            # TODO: Calculate a proper threshold
+            return Prediction(
+                spam=bool(score > 0.5),
+                score=score,
+            )
 
         return classify
 
