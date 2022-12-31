@@ -24,7 +24,7 @@ from typing import (
 
 from . import config
 from . import dataset
-from .model_registry import ModelMetadata
+from .model_registry import ModelMetadata, TrainMetrics
 
 logger = config.get_logger()
 
@@ -75,6 +75,7 @@ def create_hashtag_from_bytes(b: bytes) -> str:
 
 def store_huggingface_model(
     trainer: Any,
+    train_metrics: TrainMetrics,
     model_name: str,
     model_destination_root: pathlib.Path,
     git_commit_hash: str,
@@ -120,9 +121,10 @@ def store_huggingface_model(
     return model_hashtag
 
 
-def store_picklable_model(
+def store_pickleable_model(
     *,
     classifier_func: SpamClassifier,
+    metrics: TrainMetrics,
     model_destination_root: pathlib.Path,
     current_git_commit_hash: str,
 ) -> str:

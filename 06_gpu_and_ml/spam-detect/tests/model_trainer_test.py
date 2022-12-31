@@ -41,8 +41,9 @@ def test_hashtag_from_dir(tmp_path):
 
 
 def test_load_model_success(tmp_path):
-    tmp_classifier_digest = model_trainer.store_picklable_model(
+    tmp_classifier_digest = model_trainer.store_pickleable_model(
         classifier_func=dummy_classifier,
+        metrics=None,
         model_destination_root=tmp_path,
         current_git_commit_hash="TEST-NOT-REALLY-A-COMMIT-HASH",
     )

@@ -8,6 +8,12 @@ from . import config
 from .app import stub, volume
 
 
+class TrainMetrics(NamedTuple):
+    dataset_id: str
+    eval_set_size: int
+    accuracy: Optional[float]
+
+
 class ModelMetadata(NamedTuple):
     impl_name: str
     save_date: str  # UTC+ISO8601 formatted.

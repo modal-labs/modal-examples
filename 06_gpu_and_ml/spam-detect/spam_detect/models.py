@@ -6,6 +6,7 @@ from collections import defaultdict
 from . import config
 from . import dataset
 from . import model_trainer
+from .model_registry import TrainMetrics
 
 from typing import (
     cast,
@@ -34,13 +35,13 @@ def tokenize(text: str) -> set[str]:
 class SpamModel(Protocol):
     """The training and storage interface that all spam-classification models must implement."""
 
-    def train(self, dataset: Dataset) -> SpamClassifier:
+    def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         ...
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         ...
 
-    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
+    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
         ...
 
 
@@ -54,7 +55,32 @@ def construct_huggingface_dataset(dataset: Dataset, label2id: dict[str, int]):
     return datasets.Dataset(pa_table).train_test_split(test_size=0.1)
 
 
-def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
+class LLMSpamClassifier:
+    """SpamClassifier that wraps a fine-tuned Huggingface BERT transformer model."""
+
+    def __init__(self, tokenizer, model) -> None:
+        self.tokenizer = tokenizer
+        self.model = model
+
+    def __call__(self, email: str) -> Prediction:
+        """Ensures this class-based classifier can be used just like a function-based classifer."""
+        import torch
+
+        inputs = self.tokenizer(email, return_tensors="pt")
+        with torch.no_grad():
+            logits = self.model(**inputs).logits
+
+        predicted_class_id = logits.argmax().item()
+        spam_id = self.model.config.label2id["SPAM"]
+        spam_score = logits[0][spam_id]
+        predicted_label: str = self.model.config.id2label[predicted_class_id]
+        return Prediction(
+            spam=bool(predicted_label == "SPAM"),
+            score=spam_score,
+        )
+
+
+def train_llm_classifier(dataset: Dataset, dry_run: bool = False) -> tuple[LLMSpamClassifier, TrainMetrics]:
     import numpy as np
     import evaluate
     import pyarrow
@@ -112,32 +138,12 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = True):
     else:
         logger.info(f"{dry_run=}, so skipping training step.")
 
-    return trainer
-
-
-class LLMSpamClassifier:
-    """SpamClassifier that wraps a fine-tuned Huggingface BERT transformer model."""
-
-    def __init__(self, tokenizer, model) -> None:
-        self.tokenizer = tokenizer
-        self.model = model
-
-    def __call__(self, email: str) -> Prediction:
-        """Ensures this class-based classifier can be used just like a function-based classifer."""
-        import torch
-
-        inputs = self.tokenizer(email, return_tensors="pt")
-        with torch.no_grad():
-            logits = self.model(**inputs).logits
-
-        predicted_class_id = logits.argmax().item()
-        spam_id = self.model.config.label2id["SPAM"]
-        spam_score = logits[0][spam_id]
-        predicted_label: str = self.model.config.id2label[predicted_class_id]
-        return Prediction(
-            spam=bool(predicted_label == "SPAM"),
-            score=spam_score,
-        )
+    metrics = TrainMetrics(
+        dataset_id="enron",
+        eval_set_size=-1,
+        accuracy=0.0,
+    )
+    return trainer, metrics
 
 
 class LLM(SpamModel):
@@ -149,15 +155,18 @@ class LLM(SpamModel):
 
     model_name = "bert-base-cased"
 
-    def train(self, dataset: Dataset) -> SpamClassifier:
+    def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         from transformers import AutoTokenizer
 
-        trainer = train_llm_classifier(dataset=dataset)
+        trainer, metrics = train_llm_classifier(dataset=dataset)
         model = trainer.model
         tokenizer = AutoTokenizer.from_pretrained(LLM.model_name)
-        return LLMSpamClassifier(
-            tokenizer=tokenizer,
-            model=model,
+        return (
+            LLMSpamClassifier(
+                tokenizer=tokenizer,
+                model=model,
+            ),
+            metrics,
         )
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
@@ -173,13 +182,14 @@ class LLM(SpamModel):
             model=model,
         )
 
-    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
+    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
         from transformers import Trainer
 
         llm_fn = cast(LLMSpamClassifier, fn)
         trainer = Trainer(model=llm_fn.model)
         return model_trainer.store_huggingface_model(
             trainer=trainer,
+            train_metrics=metrics,
             model_name=LLM.model_name,
             model_destination_root=model_registry_root,
             git_commit_hash="foobar",
@@ -192,7 +202,7 @@ class BadWords(SpamModel):
     can't beat this something is very wrong.
     """
 
-    def train(self, dataset: Dataset) -> SpamClassifier:
+    def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         _ = dataset
 
         def bad_words_spam_classifier(email: str) -> Prediction:
@@ -216,7 +226,12 @@ class BadWords(SpamModel):
                 else Prediction(score=0.0, spam=False)
             )
 
-        return bad_words_spam_classifier
+        metrics = TrainMetrics(
+            dataset_id="null",
+            eval_set_size=0,
+            accuracy=None,
+        )
+        return bad_words_spam_classifier, metrics
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         return model_trainer.load_pickle_serialized_model(
@@ -224,8 +239,8 @@ class BadWords(SpamModel):
             destination_root=model_registry_root,
         )
 
-    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_picklable_model(
+    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+        return model_trainer.store_pickleable_model(
             classifier_func=fn,
             model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
@@ -242,7 +257,7 @@ class NaiveBayes(SpamModel):
         self.k = k
         self.classify_fn: SpamClassifier = None
 
-    def train(self, dataset: Dataset) -> SpamClassifier:
+    def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         k = self.k
         dataset_tokens: set[str] = set()
         token_spam_counts: dict[str, int] = defaultdict(int)
@@ -293,7 +308,13 @@ class NaiveBayes(SpamModel):
                 score=score,
             )
 
-        return classify
+        # TODO: Split dataset into train/eval and report accuracy.
+        metrics = TrainMetrics(
+            dataset_id="enron",
+            eval_set_size=-1,
+            accuracy=None,
+        )
+        return classify, metrics
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         return model_trainer.load_pickle_serialized_model(
@@ -301,9 +322,10 @@ class NaiveBayes(SpamModel):
             destination_root=model_registry_root,
         )
 
-    def save(self, fn: SpamClassifier, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_picklable_model(
+    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+        return model_trainer.store_pickleable_model(
             classifier_func=fn,
+            train_metrics=metrics,
             model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
         )

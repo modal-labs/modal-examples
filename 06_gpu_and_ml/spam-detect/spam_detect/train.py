@@ -21,8 +21,8 @@ def init_volume():
 def train(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
-    classifier = model.train(enron_dataset)
-    model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
+    classifier, metrics = model.train(enron_dataset)
+    model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
     # Reload the model
     logger.info(f"🔁 testing reload of model")
@@ -45,8 +45,8 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
-    classifier = model.train(enron_dataset)
-    model_id = model.save(fn=classifier, model_registry_root=config.MODEL_STORE_DIR)
+    classifier, metrics = model.train(enron_dataset)
+    model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
 
 
