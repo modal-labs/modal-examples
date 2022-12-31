@@ -264,6 +264,7 @@ class BadWords(SpamModel):
                 fn += 1
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        print(f"Summary: {tp=} {fp=} {tn=} {fn=}")
         return accuracy, precision
 
 

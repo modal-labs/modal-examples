@@ -19,9 +19,10 @@ def init_volume():
     shared_volumes={config.VOLUME_DIR: volume},
 )
 def prep_dataset():
+    logger = config.get_logger()
     datasets_path = config.DATA_DIR
     datasets_path.mkdir(parents=True, exist_ok=True)
-    dataset.download(base=datasets_path)
+    dataset.download(base=datasets_path, logger=logger)
 
 
 @stub.function(
