@@ -23,6 +23,13 @@ class ModelMetadata(NamedTuple):
     impl_name: str
     save_date: str  # UTC+ISO8601 formatted.
     git_commit_hash: str
+    metrics: Optional[TrainMetrics] = None
+
+    def serialize(self) -> dict:
+        d = self._asdict()
+        if d["metrics"]:
+            d["metrics"] = d["metrics"]._asdict()
+        return d
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
@@ -35,6 +42,12 @@ def _list_models() -> dict[str, ModelMetadata]:
             impl_name=m["impl_name"],
             save_date=m["save_date"],
             git_commit_hash=m["git_commit_hash"],
+            metrics=TrainMetrics(
+                dataset_id=m["metrics"]["dataset_id"],
+                eval_set_size=m["metrics"]["eval_set_size"],
+                accuracy=m["metrics"]["accuracy"],
+                precision=m["metrics"]["precision"],
+            ),
         )
         for m_id, m in registry_data.items()
     }

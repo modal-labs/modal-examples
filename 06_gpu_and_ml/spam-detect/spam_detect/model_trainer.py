@@ -161,6 +161,7 @@ def store_pickleable_model(
         impl_name=model_name_from_function(classifier_func),
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
         git_commit_hash=current_git_commit_hash,
+        metrics=metrics,
     )
     store_model_registry_metadata(
         model_registry_metadata=model_registry_metadata,
@@ -230,7 +231,7 @@ def store_model_registry_metadata(
             )
     model_registry_metadata_dict = {key: value._asdict() for key, value in model_registry_metadata.items()}
     # NOTE: Potentially overwrites with new metadata.
-    model_registry_metadata_dict[sha256_hash] = metadata._asdict()
+    model_registry_metadata_dict[sha256_hash] = metadata.serialize()
     with open(destination_root / config.MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
         json.dump(model_registry_metadata_dict, model_registry_f, indent=4)
 
