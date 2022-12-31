@@ -14,7 +14,7 @@
 # Our job queue will handle a single task: running OCR transcription for images.
 # We'll make use of a pre-trained Document Understanding model using the
 # [donut](https://github.com/clovaai/donut) package to accomplish this. Try
-# it out for yourself [here](https://aksh-at-doc-ocr-webapp-wrapper.modal.run).
+# it out for yourself [here](https://modal-labs-example-doc-ocr-webapp-wrapper.modal.run/).
 #
 # ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
