@@ -80,4 +80,4 @@ def main(model_type: str = config.ModelTypes.LLM):
 if __name__ == "__main__":
     with stub.run():
         init_volume.call()
-        main.call()
+        main.call(config.ModelTypes.BAD_WORDS)

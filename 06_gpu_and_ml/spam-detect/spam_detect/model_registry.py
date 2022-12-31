@@ -9,9 +9,14 @@ from .app import stub, volume
 
 
 class TrainMetrics(NamedTuple):
+    # human-readable identifier for the dataset used in training.
     dataset_id: str
+    # How many examples in the evaluation subset.
     eval_set_size: int
-    accuracy: Optional[float]
+    # (TP + TN) / (TP + TN + FP + FN)
+    accuracy: Optional[float] = None
+    # TP / (TP + FP)
+    precision: Optional[float] = None
 
 
 class ModelMetadata(NamedTuple):

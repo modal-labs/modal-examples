@@ -203,13 +203,12 @@ class BadWords(SpamModel):
     """
 
     def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
-        _ = dataset
-
         def bad_words_spam_classifier(email: str) -> Prediction:
-            tokens = " ".split(email)
+            tokens = email.split(" ")
             tokens_set = set(tokens)
-            # TODO: investigate why using a set here makes serialization non-deterministic.
+            # NB: using a set here makes pickle serialization non-deterministic.
             bad_words = [
+                "click",  # http://www.paulgraham.com/spam.html
                 "sex",
                 "xxx",
                 "nigerian",
@@ -226,10 +225,12 @@ class BadWords(SpamModel):
                 else Prediction(score=0.0, spam=False)
             )
 
+        accuracy, precision = self._calc_metrics(classifier=bad_words_spam_classifier, dataset=dataset)
         metrics = TrainMetrics(
-            dataset_id="null",
+            dataset_id="enron",
             eval_set_size=0,
-            accuracy=None,
+            accuracy=accuracy,
+            precision=precision,
         )
         return bad_words_spam_classifier, metrics
 
@@ -242,9 +243,28 @@ class BadWords(SpamModel):
     def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
         return model_trainer.store_pickleable_model(
             classifier_func=fn,
+            metrics=metrics,
             model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
         )
+
+    def _calc_metrics(self, classifier: SpamClassifier, dataset: Dataset) -> tuple[int, int]:
+        if len(dataset) == 0:
+            raise ValueError("Evaluation dataset cannot be empty.")
+        tp, tn, fp, fn = 0, 0, 0, 0
+        for example in dataset:
+            pred = classifier(example.email)
+            if pred.spam and example.spam:
+                tp += 1
+            elif pred.spam and not example.spam:
+                fp += 1
+            elif not pred.spam and not example.spam:
+                tn += 1
+            else:
+                fn += 1
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        return accuracy, precision
 
 
 class NaiveBayes(SpamModel):
