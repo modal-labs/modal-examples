@@ -15,6 +15,16 @@ def init_volume():
 
 
 @stub.function(
+    timeout=int(timedelta(minutes=8).total_seconds()),
+    shared_volumes={config.VOLUME_DIR: volume},
+)
+def prep_dataset():
+    datasets_path = config.DATA_DIR
+    datasets_path.mkdir(parents=True, exist_ok=True)
+    dataset.download(base=datasets_path)
+
+
+@stub.function(
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
 )
@@ -55,7 +65,7 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
-def main(model_type: str = config.ModelTypes.LLM):
+def main(model_type=config.ModelTypes.BAD_WORDS):
     logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"

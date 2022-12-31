@@ -7,10 +7,6 @@ import urllib.request
 from datetime import timedelta
 from typing import Iterable, NamedTuple, MutableSequence
 
-from . import config
-from .app import stub, volume
-
-logger = config.get_logger()
 
 enron_raw_dataset_url_root = "http://nlp.cs.aueb.gr/software_and_datasets/Enron-Spam/raw/"
 enron_dataset_files = {
@@ -99,18 +95,3 @@ def download(base: pathlib.Path) -> None:
     logger.info("writing processed raw dataset to file.")
     with open(dest, "w") as f:
         json.dump(ds, f, indent=4)
-
-
-@stub.function(
-    timeout=int(timedelta(minutes=8).total_seconds()),
-    shared_volumes={config.VOLUME_DIR: volume},
-)
-def prep():
-    datasets_path = config.DATA_DIR
-    datasets_path.mkdir(parents=True, exist_ok=True)
-    download(base=datasets_path)
-
-
-if __name__ == "__main__":
-    with stub.run():
-        prep.call()
