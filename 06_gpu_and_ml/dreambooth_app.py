@@ -42,7 +42,7 @@ assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
 # Commit in `diffusers` to checkout `train_dreambooth.py` from.
-DREAMBOOTH_SCRIPT_COMMIT_HASH = "e4fe9413121b78c4c1f109b50f0f3cc1c320a1a2"
+DREAMBOOTH_SCRIPT_COMMIT_HASH = "2868d99181976753b10fa6a4bb0695982f463cbe"
 
 image = modal.Image.debian_slim().pip_install(
     "accelerate",
