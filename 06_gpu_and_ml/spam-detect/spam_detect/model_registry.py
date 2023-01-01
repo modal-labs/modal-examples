@@ -1,4 +1,3 @@
-import argparse
 import dataclasses
 import json
 import sys
@@ -62,13 +61,21 @@ def _list_models() -> dict[str, ModelMetadata]:
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
-def _delete_model(model_id: str) -> None:
+def delete_model(
+    # sha256 hashtag of model. eg 'sha256.1234567890abcd'
+    model_id: str,
+    # Don't actually delete, just show deletion plan.
+    dry_run: bool = True,
+) -> None:
+    """Remove a model from registry and storage."""
     pass
 
 
-def run_list() -> None:
+@stub.local_entrypoint
+def list_models() -> None:
+    """Show all models in registry."""
     with stub.run():
-        models = _list_models()
+        models = _list_models.call()
     newest_to_oldest = sorted(
         [(key, value) for key, value in models.items()], key=lambda item: item[1].save_date, reverse=True
     )
@@ -76,37 +83,6 @@ def run_list() -> None:
         print(f"\033[96m {model_id} \033[0m{metadata.impl_name}\033[93m {metadata.save_date} \033[0m")
 
 
-def run_delete_model() -> None:
-    pass
-
-
-def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="model-registry")
-    parser.add_argument("--foo", action="store_true", help="foo is great option")
-    sub_parsers = parser.add_subparsers(dest="subcommand")
-
-    # create the parser for the "list" sub-command
-    parser_list = sub_parsers.add_parser("list", help="Show all models in registry.")
-    parser_list.add_argument("--json", type=int, help="Output in JSON format instead of a plaintext table.")
-
-    # create the parser for the "delete-model" sub-command
-    parser_delete = sub_parsers.add_parser("delete-model", help="Remove a model from registry and storage.")
-    parser_delete.add_argument(
-        "--dry-run", action="store_true", default=False, help="Don't actually delete, just show deletion plan."
-    )
-    parser_delete.add_argument("--model-id", action="store", help="sha256 hashtag of model. eg 'sha256.1234567890abcd'")
-
-    args = parser.parse_args()
-    if args.subcommand == "list":
-        run_list()
-    elif args.subcommand == "delete-model":
-        run_delete_model()
-    elif args.subcommand is None:
-        parser.print_help(sys.stderr)
-    else:
-        raise AssertionError(f"Unimplemented subcommand '{args.subcommand}' was invoked.")
-    return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    print("USAGE: modal run spam_detect.model_registry [FUNCTION]")
+    raise SystemExit(1)
