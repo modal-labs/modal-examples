@@ -41,10 +41,14 @@ web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
+# Commit in `diffusers` to checkout `train_dreambooth.py` from.
+DREAMBOOTH_SCRIPT_COMMIT_HASH = "e4fe9413121b78c4c1f109b50f0f3cc1c320a1a2"
+
 image = modal.Image.debian_slim().pip_install(
     "accelerate",
     "smart_open",
-    "diffusers[torch]>=0.10",
+    # Do not update without updating the commit hash above.
+    "diffusers[torch]~=0.11.1",
     "ftfy",
     "transformers",
     "torch",
@@ -201,9 +205,8 @@ def train(instance_example_urls, config=TrainConfig()):
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_commit_hash = "e4fe9413121b78c4c1f109b50f0f3cc1c320a1a2"
     script_path = "examples/dreambooth/train_dreambooth.py"
-    script_url = f"{raw_repo_url}/{script_commit_hash}/{script_path}"
+    script_url = f"{raw_repo_url}/{DREAMBOOTH_SCRIPT_COMMIT_HASH}/{script_path}"
 
     with open(script_url) as from_file:
         script_content = from_file.readlines()
