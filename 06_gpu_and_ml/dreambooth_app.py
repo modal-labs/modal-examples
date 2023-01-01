@@ -41,10 +41,14 @@ web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
+# Commit in `diffusers` to checkout `train_dreambooth.py` from.
+DREAMBOOTH_SCRIPT_COMMIT_HASH = "2868d99181976753b10fa6a4bb0695982f463cbe"
+
 image = modal.Image.debian_slim().pip_install(
     "accelerate",
     "smart_open",
-    "diffusers[torch]>=0.10",
+    # Do not update without updating the commit hash above.
+    "diffusers[torch]~=0.11.1",
     "ftfy",
     "transformers",
     "torch",
@@ -201,9 +205,8 @@ def train(instance_example_urls, config=TrainConfig()):
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_commit_hash = "daebee0963d2b39fb3fa9532ab271a91674c4070"
     script_path = "examples/dreambooth/train_dreambooth.py"
-    script_url = f"{raw_repo_url}/{script_commit_hash}/{script_path}"
+    script_url = f"{raw_repo_url}/{DREAMBOOTH_SCRIPT_COMMIT_HASH}/{script_path}"
 
     with open(script_url) as from_file:
         script_content = from_file.readlines()
@@ -322,11 +325,9 @@ def fastapi_app(config=AppConfig()):
 #
 # Let's define some command-line options to make it easy to trigger various parts of the app:
 #
-# `python dreambooth_app.py train` will train the model
-#
-# `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
-#
-# `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
+# - `python dreambooth_app.py train` will train the model
+# - `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+# - `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal app deploy dreambooth_app.py`.
 #
