@@ -14,6 +14,7 @@ from typing import (
     Callable,
     Iterable,
     NamedTuple,
+    Optional,
     Protocol,
 )
 
@@ -294,8 +295,9 @@ class NaiveBayes(SpamModel):
     *Data Science From Scratch* book: github.com/joelgrus/data-science-from-scratch.
     """
 
-    def __init__(self, k: float = 0.5) -> None:
+    def __init__(self, k: float = 0.5, decision_boundary: Optional[float] = None) -> None:
         self.k = k
+        self.decision_boundary = decision_boundary
         self.classify_fn: SpamClassifier = None
 
     def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
@@ -360,11 +362,14 @@ class NaiveBayes(SpamModel):
 
             return inner
 
-        print("setting decision boundary for binary classifier")
-        decision_boundary, precision, recall = self._set_decision_boundary(
-            prob_fn=predict_prob,
-            test_dataset=test_set,
-        )
+        if self.decision_boundary:
+            decision_boundary, precision, recall = self.decision_boundary, None, None
+        else:
+            print("setting decision boundary for binary classifier")
+            decision_boundary, precision, recall = self._set_decision_boundary(
+                prob_fn=predict_prob,
+                test_dataset=test_set,
+            )
 
         metrics = TrainMetrics(
             dataset_id="enron",

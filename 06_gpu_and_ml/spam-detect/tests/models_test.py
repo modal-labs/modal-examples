@@ -16,7 +16,7 @@ def test_prob_calculation():
         Example(email="hello ham", spam=False),
     ]
 
-    classify_func, _ = models.NaiveBayes().train(dataset)
+    classify_func, _ = models.NaiveBayes(decision_boundary=0.5).train(dataset)
     email = "hello spam"
     probs_if_ham = [
         (1 + 0.5) / (2 + 2 * 0.5),  # "hello" (present)
