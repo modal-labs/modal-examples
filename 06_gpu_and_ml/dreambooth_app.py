@@ -201,7 +201,7 @@ def train(instance_example_urls, config=TrainConfig()):
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_commit_hash = "daebee0963d2b39fb3fa9532ab271a91674c4070"
+    script_commit_hash = "e4fe9413121b78c4c1f109b50f0f3cc1c320a1a2"
     script_path = "examples/dreambooth/train_dreambooth.py"
     script_url = f"{raw_repo_url}/{script_commit_hash}/{script_path}"
 
@@ -322,11 +322,9 @@ def fastapi_app(config=AppConfig()):
 #
 # Let's define some command-line options to make it easy to trigger various parts of the app:
 #
-# `python dreambooth_app.py train` will train the model
-#
-# `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
-#
-# `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
+# - `python dreambooth_app.py train` will train the model
+# - `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+# - `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal app deploy dreambooth_app.py`.
 #
