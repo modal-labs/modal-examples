@@ -1,4 +1,5 @@
 import pathlib
+import random
 from datetime import timedelta
 
 import modal
@@ -28,10 +29,12 @@ def prep_dataset():
 @stub.function(
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    timeout=int(timedelta(minutes=30).total_seconds()),
 )
 def train(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
+    random.shuffle(enron_dataset)
     classifier, metrics = model.train(enron_dataset)
     model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
@@ -56,6 +59,7 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
+    random.shuffle(enron_dataset)
     classifier, metrics = model.train(enron_dataset)
     model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
     logger.info(f"saved model to model store. {model_id=}")
@@ -73,7 +77,7 @@ def main(model_type=config.ModelTypes.BAD_WORDS):
     )
     dataset_path = dataset.dataset_path(config.DATA_DIR)
 
-    logger.info("💪 training ...")
+    logger.info(f"💪 training a {model_type} model...")
     model: models.SpamModel
     if model_type == config.ModelTypes.NAIVE_BAYES:
         model = models.NaiveBayes()
@@ -91,4 +95,4 @@ def main(model_type=config.ModelTypes.BAD_WORDS):
 if __name__ == "__main__":
     with stub.run():
         init_volume.call()
-        main.call(config.ModelTypes.BAD_WORDS)
+        main.call(config.ModelTypes.NAIVE_BAYES)

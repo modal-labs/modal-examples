@@ -1,3 +1,4 @@
+import json
 import math
 import pathlib
 import re
@@ -6,7 +7,7 @@ from collections import defaultdict
 from . import config
 from . import dataset
 from . import model_trainer
-from .model_registry import TrainMetrics
+from .model_registry import ModelMetadata, TrainMetrics
 
 from typing import (
     cast,
@@ -24,6 +25,25 @@ class Prediction(NamedTuple):
 
 Dataset = Iterable[dataset.Example]
 SpamClassifier = Callable[[str], Prediction]
+
+
+def load_model(model_id: str):
+    registry_filepath = config.MODEL_STORE_DIR / config.MODEL_REGISTRY_FILENAME
+    with open(registry_filepath, "r") as f:
+        registry_data = json.load(f)
+    if model_id not in registry_data:
+        raise ValueError(f"{model_id} not contained in registry.")
+
+    metadata = ModelMetadata.from_dict(registry_data[model_id])
+    if metadata.impl_name == "bert-base-cased":
+        m = LLM()
+    elif "NaiveBayes" in metadata.impl_name:
+        m = NaiveBayes()
+    else:
+        raise ValueError(f"Loading '{metadata.impl_name}' not yet supported.")
+
+    classifier = m.load(sha256_digest=config.SERVING_MODEL_ID, model_registry_root=config.MODEL_STORE_DIR)
+    return classifier, metadata
 
 
 def tokenize(text: str) -> set[str]:
@@ -284,6 +304,9 @@ class NaiveBayes(SpamModel):
         token_spam_counts: dict[str, int] = defaultdict(int)
         token_ham_counts: dict[str, int] = defaultdict(int)
         spam_messages = ham_messages = 0
+        test_size = 0.05
+        train_set = dataset[: int(len(dataset) * test_size)]
+        test_set = dataset[-int(len(dataset) * test_size) :]
 
         for example in dataset:
             if example.spam:
@@ -299,7 +322,9 @@ class NaiveBayes(SpamModel):
                 else:
                     token_ham_counts[token] += 1
 
-        def classify(email: str) -> Prediction:
+        print("finished building word count dicts")
+
+        def predict_prob(email: str) -> float:
             email_tokens = tokenize(email)
             log_prob_if_spam = log_prob_if_ham = 0.0
 
@@ -322,20 +347,34 @@ class NaiveBayes(SpamModel):
                     log_prob_if_ham += math.log(1.0 - prob_if_ham)
             prob_if_spam = math.exp(log_prob_if_spam)
             prob_if_ham = math.exp(log_prob_if_ham)
-            score = prob_if_spam / (prob_if_spam + prob_if_ham)
-            # TODO: Calculate a proper threshold
-            return Prediction(
-                spam=bool(score > 0.5),
-                score=score,
-            )
+            score = prob_if_spam / (prob_if_spam + prob_if_ham) if prob_if_spam else 0.0
+            return score
 
-        # TODO: Split dataset into train/eval and report accuracy.
+        def make_classifier(prob_fn, decision_boundary: float) -> SpamClassifier:
+            def inner(email: str):
+                score = prob_fn(email)
+                return Prediction(
+                    spam=score > decision_boundary,
+                    score=score,
+                )
+
+            return inner
+
+        print("setting decision boundary for binary classifier")
+        decision_boundary, precision, recall = self._set_decision_boundary(
+            prob_fn=predict_prob,
+            test_dataset=test_set,
+        )
+
         metrics = TrainMetrics(
             dataset_id="enron",
-            eval_set_size=-1,
+            eval_set_size=len(test_set),
             accuracy=None,
+            precision=precision,
+            recall=recall,
         )
-        return classify, metrics
+        print("making classifier")
+        return make_classifier(predict_prob, decision_boundary), metrics
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
         return model_trainer.load_pickle_serialized_model(
@@ -346,7 +385,26 @@ class NaiveBayes(SpamModel):
     def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
         return model_trainer.store_pickleable_model(
             classifier_func=fn,
-            train_metrics=metrics,
+            metrics=metrics,
             model_destination_root=model_registry_root,
             current_git_commit_hash="ffofofo",
         )
+
+    def _set_decision_boundary(self, prob_fn, test_dataset) -> float:
+        import numpy as np
+        from sklearn.metrics import precision_recall_curve
+
+        print(f"Using {len(test_dataset)} test dataset examples to set decision boundary")
+
+        minimum_acceptable_precision = 0.98  # ie. 2 in a 100 legit emails get marked as spam.
+        y_true = np.array([1 if ex.spam else 0 for ex in test_dataset])
+        # scores are rounded because curve calculation time scales quickly in dim U, where U is number of unique scores.
+        # NB: The precision-recall curve calculation is extremely slow on N ~10k+
+        y_scores = np.array([round(prob_fn(ex.email), ndigits=2) for ex in test_dataset])
+        precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+        for p, r, thres in zip(precisions, recalls, thresholds):
+            print("Using threshold={} as decision boundary, we reach precision={} and recall={}".format(thres, p, r))
+            if p >= minimum_acceptable_precision:
+                print(f"Reached {minimum_acceptable_precision=} at threshold {thres}. Setting that as boundary.")
+                break
+        return thres, p, r

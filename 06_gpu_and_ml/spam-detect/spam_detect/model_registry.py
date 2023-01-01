@@ -17,6 +17,8 @@ class TrainMetrics(NamedTuple):
     accuracy: Optional[float] = None
     # TP / (TP + FP)
     precision: Optional[float] = None
+    # TP / (TP + FN)
+    recall: Optional[float] = None
 
 
 class ModelMetadata(NamedTuple):
@@ -31,26 +33,32 @@ class ModelMetadata(NamedTuple):
             d["metrics"] = d["metrics"]._asdict()
         return d
 
+    @classmethod
+    def from_dict(cls, m: dict) -> "ModelMetadata":
+        if "metrics" not in m or m["metrics"] is None:
+            metrics = None
+        else:
+            metrics = TrainMetrics(
+                dataset_id=m["metrics"]["dataset_id"],
+                eval_set_size=m["metrics"]["eval_set_size"],
+                accuracy=m["metrics"]["accuracy"],
+                precision=m["metrics"]["precision"],
+                recall=m["metrics"]["recall"],
+            )
+        return cls(
+            impl_name=m["impl_name"],
+            save_date=m["save_date"],
+            git_commit_hash=m["git_commit_hash"],
+            metrics=metrics,
+        )
+
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
 def _list_models() -> dict[str, ModelMetadata]:
     registry_filepath = config.MODEL_STORE_DIR / config.MODEL_REGISTRY_FILENAME
     with open(registry_filepath, "r") as f:
         registry_data = json.load(f)
-    return {
-        m_id: ModelMetadata(
-            impl_name=m["impl_name"],
-            save_date=m["save_date"],
-            git_commit_hash=m["git_commit_hash"],
-            metrics=TrainMetrics(
-                dataset_id=m["metrics"]["dataset_id"],
-                eval_set_size=m["metrics"]["eval_set_size"],
-                accuracy=m["metrics"]["accuracy"],
-                precision=m["metrics"]["precision"],
-            ),
-        )
-        for m_id, m in registry_data.items()
-    }
+    return {m_id: ModelMetadata.from_dict(m) for m_id, m in registry_data.items()}
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
