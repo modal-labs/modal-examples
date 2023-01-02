@@ -28,6 +28,7 @@
 
 
 # ## Basic setup
+from __future__ import annotations
 import io
 import os
 import time
