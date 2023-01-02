@@ -18,7 +18,7 @@ volume = modal.SharedVolume().persist("dataset-cache-vol")
 
 app_image = (
     modal.Image.debian_slim()
-    .pip_install(
+    .pip_install([
         "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
         "dacite",
         "jiwer",
@@ -27,16 +27,16 @@ app_image = (
         "pandas",
         "loguru==0.6.0",
         "torchaudio==0.12.1",
-    )
-    .apt_install("ffmpeg")
-    .pip_install("ffmpeg-python")
+    ])
+    .apt_install(["ffmpeg"])
+    .pip_install(["ffmpeg-python"])
 )
-search_image = modal.Image.debian_slim().pip_install(
+search_image = modal.Image.debian_slim().pip_install([
     "scikit-learn~=0.24.2",
     "tqdm~=4.46.0",
     "numpy~=1.23.3",
     "dacite",
-)
+])
 
 stub = modal.Stub(
     "whisper-pod-transcriber",
@@ -210,7 +210,7 @@ def refresh_index():
 
 
 def split_silences(
-    path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
+        path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
 ) -> Iterator[Tuple[float, float]]:
     """Split audio file into contiguous chunks using the ffmpeg `silencedetect` filter.
     Yields tuples (start, end) of each chunk in seconds."""
@@ -266,10 +266,10 @@ def split_silences(
     cpu=2,
 )
 def transcribe_segment(
-    start: float,
-    end: float,
-    audio_filepath: pathlib.Path,
-    model: config.ModelSpec,
+        start: float,
+        end: float,
+        audio_filepath: pathlib.Path,
+        model: config.ModelSpec,
 ):
     import tempfile
     import time
@@ -309,9 +309,9 @@ def transcribe_segment(
     timeout=900,
 )
 def transcribe_episode(
-    audio_filepath: pathlib.Path,
-    result_path: pathlib.Path,
-    model: config.ModelSpec,
+        audio_filepath: pathlib.Path,
+        result_path: pathlib.Path,
+        model: config.ModelSpec,
 ):
     segment_gen = split_silences(str(audio_filepath))
 
