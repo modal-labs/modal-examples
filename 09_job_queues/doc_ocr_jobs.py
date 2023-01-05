@@ -90,7 +90,7 @@ def parse_receipt(image: bytes):
 #
 # ```python
 # fn = modal.lookup("doc_ocr_jobs", "parse_receipt")
-# fn.submit(my_image)
+# fn.spawn(my_image)
 # ```
 #
 # Modal will auto-scale to handle all the tasks queued, and
