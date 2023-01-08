@@ -116,7 +116,6 @@
 
     const handleSubmit = async () => {
         if (inputValue) {
-            console.log(`${inputValue} is submitted!`);
             await fetchPokemonCards();
         } else {
             alert("You didn't type anything.");
