@@ -3,6 +3,7 @@ import dataclasses
 import hashlib
 import io
 import pathlib
+import random
 import re
 import sys
 import time
@@ -13,16 +14,53 @@ import modal
 
 from . import config, inpaint, pokemon_naming
 
+
+def load_stable_diffusion_pokemon_model():
+    import torch
+    from diffusers import StableDiffusionPipeline
+
+    model_id = "lambdalabs/sd-pokemon-diffusers"
+    cache_dir = config.MODEL_CACHE / model_id
+    if cache_dir.exists():
+        print(f"Using diskcached model for '{model_id}'")
+        local_files_only = True
+        load_action = "loading"
+    else:
+        print(f"No diskcached model found for '{model_id}'")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        local_files_only = False
+        load_action = "downloading"
+    load_start_time = time.time()
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+        cache_dir=cache_dir,
+        local_files_only=local_files_only,
+    )
+    print(f"finished {load_action} model, took {time.time()-load_start_time:.3f}s.")
+
+    if config.DISABLE_SAFETY:
+
+        def null_safety(images, **kwargs):
+            return images, False
+
+        pipe.safety_checker = null_safety
+    return pipe
+
+
 volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
-model_volume = modal.SharedVolume().persist("txt-to-pokemon-model-cache-vol")
-image = modal.Image.debian_slim().pip_install(
-    "accelerate",
-    "colorgram.py",
-    "diffusers~=0.9.0",
-    "torch",
-    "transformers",
-    "scipy",
-    "ftfy",
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "accelerate",
+        "colorgram.py",
+        "diffusers~=0.11.1",
+        "ftfy",
+        "torch",
+        "transformers",
+        "scipy",
+    )
+    .run_function(load_stable_diffusion_pokemon_model)
 )
 stub = modal.Stub(name="example-text-to-pokemon", image=image)
 
@@ -34,6 +72,17 @@ class PokemonCardResponseItem:
     b64_encoded_image: str
     mime: str = "image/png"
     rarity: str = "Common"
+
+
+def _choose_rarity() -> str:
+    val = random.random()
+    if val < 0.65:
+        return "Common"
+    elif val < 0.80:
+        return "Uncommon"
+    elif val < 0.95:
+        return "Rare Holo"
+    return random.choice(["Rare Holo Galaxy", "Rare Holo V", "Rare Ultra", "Rare Rainbow Alt"])
 
 
 def log_prompt(prompt: str) -> str:
@@ -60,44 +109,11 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-def load_stable_diffusion_pokemon_model():
-    import torch
-    from diffusers import StableDiffusionPipeline
-
-    model_id = "lambdalabs/sd-pokemon-diffusers"
-    cache_dir = config.MODEL_CACHE / model_id
-    if cache_dir.exists():
-        print(f"Using diskcached model for '{model_id}'")
-        local_files_only = True
-        load_action = "loading"
-    else:
-        print(f"No diskcached model found for '{model_id}'")
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        local_files_only = False
-        load_action = "downloading"
-    t0 = time.time()
-    pipe = StableDiffusionPipeline.from_pretrained(
-        model_id,
-        torch_dtype=torch.float16,
-        cache_dir=cache_dir,
-        local_files_only=local_files_only,
-    )
-    print(f"finished {load_action} model, took {time.time()-t0:.3f}s.")
-    if config.DISABLE_SAFETY:
-
-        def null_safety(images, **kwargs):
-            return images, False
-
-        pipe.safety_checker = null_safety
-    pipe.to("cuda")
-    return pipe
-
-
 class Model:
     def __enter__(self):
-        self.pipe = load_stable_diffusion_pokemon_model()
+        self.pipe = load_stable_diffusion_pokemon_model().to("cuda")
 
-    @stub.function(gpu="A10G", shared_volumes={config.CACHE_DIR: model_volume})
+    @stub.function(gpu="A10G")
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
@@ -257,7 +273,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
-def create_pokemon_cards(prompt: str):
+def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")
     norm_prompt_digest = hashlib.sha256(norm_prompt.encode()).hexdigest()
@@ -286,18 +302,13 @@ def create_pokemon_cards(prompt: str):
     for i, image_bytes in enumerate(cards_data):
         encoded_image_string = base64.b64encode(image_bytes).decode("ascii")
         cards.append(
-            PokemonCardResponseItem(
-                name=str(i),
-                bar=i,
-                b64_encoded_image=encoded_image_string,
-            )
+            PokemonCardResponseItem(name=str(i), bar=i, b64_encoded_image=encoded_image_string, rarity=_choose_rarity())
         )
 
     print(f"✔️ Returning {len(cards)} Pokémon samples.")
     return [dataclasses.asdict(card) for card in cards]
 
 
-@stub.function
 def closest_pokecard_by_color(sample: bytes, cards):
     """
     Takes the list of POKEMON_CARDS and returns the item that's closest
