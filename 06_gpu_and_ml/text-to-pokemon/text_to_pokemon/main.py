@@ -257,7 +257,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
 
 
 @stub.function(shared_volumes={config.CACHE_DIR: volume})
-def create_pokemon_cards(prompt: str):
+def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")
     norm_prompt_digest = hashlib.sha256(norm_prompt.encode()).hexdigest()
@@ -297,7 +297,6 @@ def create_pokemon_cards(prompt: str):
     return [dataclasses.asdict(card) for card in cards]
 
 
-@stub.function
 def closest_pokecard_by_color(sample: bytes, cards):
     """
     Takes the list of POKEMON_CARDS and returns the item that's closest
