@@ -12,6 +12,7 @@
 <script>
     import { prompts } from "../helpers/prefillPromptData";
     import PrefillPrompt from "./PrefillPrompt.svelte";
+    import Callout from "./Callout.svelte";
     import Card from "./Card.svelte";
     import Pokeball from "./Pokeball.svelte";
     import CardList from "./CardList.svelte";
@@ -70,7 +71,14 @@
             loadingComplete = true;
             clearInterval(poller);
             setTimeout(() => {
-                cards = body.cards;
+                if (body.cards.length === 0) {
+                    error = {
+                        message:
+                            "Oh no, sorry but your prompt returned no results! Please try again.",
+                    };
+                } else {
+                    cards = body.cards;
+                }
                 loading = false;
             }, 500);
         }
@@ -186,7 +194,7 @@
                 />
             {/each}
         </CardList>
-    {:else if cards}
+    {:else if cards.length > 0}
         <CardList>
             {#each cards as { name, bar, mime, b64_encoded_image, rarity } (name)}
                 <Card
@@ -200,7 +208,9 @@
             {/each}
         </CardList>
     {:else if error}
-        <p style="color: red">{error.message}</p>
+        <Callout type="error">
+            <p>{error.message}</p>
+        </Callout>
     {/if}
 </div>
 
