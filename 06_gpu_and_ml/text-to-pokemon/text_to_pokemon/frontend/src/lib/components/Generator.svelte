@@ -53,17 +53,35 @@
     $: error = undefined;
     $: cards = [];
     let poller;
+    const MAX_RESULTS_POLLING_MILLIS = 90_000;
 
     const setupPoller = (id) => {
         if (poller) {
             clearInterval(poller);
         }
-        poller = setInterval(doPoll(id), 2000);
+        let currentEpochMillis = Date.now();
+        poller = setInterval(doPoll(id, currentEpochMillis), 2000);
     };
 
-    const doPoll = (id) => async () => {
+    const doPoll = (id, pollStartMillis) => async () => {
+        let currentPollingDurationMillis = Date.now() - pollStartMillis;
+        if (currentPollingDurationMillis >= MAX_RESULTS_POLLING_MILLIS) {
+            // Abandon polling. Card generation has taken too long.
+            loadingComplete = true;
+            clearInterval(poller);
+            setTimeout(() => {
+                error = {
+                    message:
+                        "Sorry, card generation has timed out. Please retry prompt.",
+                };
+                loading = false;
+            }, 500);
+            return;
+        }
+
         const resp = await fetch(`/api/status/${id}`);
         const body = await resp.json();
+
         if (body.error) {
             error = body.error;
             loading = false;
