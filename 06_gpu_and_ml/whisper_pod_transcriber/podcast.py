@@ -44,6 +44,8 @@ class PodcastMetadata:
     html_description: str
     # Link to podcast on Podchaser website.
     web_url: str
+    # Used to detect non-English podcasts.
+    language: Optional[str] = None
 
 
 class DownloadResult(NamedTuple):
@@ -139,6 +141,7 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
                     id,
                     title,
                     description,
+                    language,
                     htmlDescription,
                     webUrl,
                 }}

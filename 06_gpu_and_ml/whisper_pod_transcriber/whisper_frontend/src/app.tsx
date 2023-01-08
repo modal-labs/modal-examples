@@ -11,6 +11,15 @@ function truncate(str: string, n: number) {
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
+function NonEnglishLanguageWarning() {
+  return (
+    <div className="text-yellow-600">
+      <span className="mr-2" role="img" aria-label="warning sign">⚠️</span>
+      Detected non-English podcast. Transcription may be garbage, but amusing.
+    </div>
+  )
+}
+
 function PodcastCard({ podcast }) {
   return (
     <Link to={`/podcast/${podcast.id}`} className="px-6 py-1 group">
@@ -20,6 +29,8 @@ function PodcastCard({ podcast }) {
       <p className="text-gray-700 text-base py-4">
         {truncate(podcast.description, 200)}
       </p>
+      {podcast.language && !podcast.language.startsWith("en") ?
+        <NonEnglishLanguageWarning /> : null}
     </Link>
   );
 }
@@ -51,7 +62,7 @@ function Form({ onSubmit, searching }) {
   return (
     <form className="flex flex-col space-y-5 items-center">
       <div>
-        <a 
+        <a
           href="https://modal.com"
           target="_blank"
           rel="noopener noreferrer"
@@ -64,7 +75,7 @@ function Form({ onSubmit, searching }) {
       </div>
 
       <div className="mb-2 mt-0 text-xl text-center">
-          Transcribe <em>any</em> podcast episode in just 1-2 minutes!
+        Transcribe <em>any</em> podcast episode in just 1-2 minutes!
       </div>
 
       <div className="text-gray-700">
@@ -72,11 +83,11 @@ function Form({ onSubmit, searching }) {
           <strong>Enter a query below to search millions of podcasts. Click on a search result and then pick an episode to transcribe.</strong>
         </p>
         <p className="mb-1">
-          Try searching for 'ReactJS', 'data science', or 'software engineer career' podcasts. 
-        </p>  
+          Try searching for 'ReactJS', 'data science', or 'software engineer career' podcasts.
+        </p>
         <p className="mb-1">
           <span>If you just want to see some transcripts, we ❤️ these tech podcasts: </span>
-          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/603405"><em>CoRecursive</em></a>. 
+          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/603405"><em>CoRecursive</em></a>.
         </p>
       </div>
 
