@@ -32,7 +32,7 @@
         filteredPrompts = storageArr;
     };
 
-    /* HANDLING THE INPUT */
+    // Handling the user's prompt input.
     let promptInput; // use with bind:this to focus element
     let inputValue = "";
 
@@ -53,7 +53,9 @@
     $: error = undefined;
     $: cards = [];
     let poller;
-    const MAX_RESULTS_POLLING_MILLIS = 90_000;
+    // Cold-start loading of the multi-GB model can take around 60s.
+    // Queuing for GPUs can also add a 60s+ of latency.
+    const MAX_RESULTS_POLLING_MILLIS = 180_000;
 
     const setupPoller = (id) => {
         if (poller) {
@@ -109,6 +111,7 @@
         if (response.ok) {
             const data = await response.json();
             setupPoller(data.call_id);
+            cards = [];
         } else {
             throw new Error();
         }
