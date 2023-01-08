@@ -3,6 +3,7 @@ import dataclasses
 import hashlib
 import io
 import pathlib
+import random
 import re
 import sys
 import time
@@ -71,6 +72,17 @@ class PokemonCardResponseItem:
     b64_encoded_image: str
     mime: str = "image/png"
     rarity: str = "Common"
+
+
+def _choose_rarity() -> str:
+    val = random.random()
+    if val < 0.65:
+        return "Common"
+    elif val < 0.80:
+        return "Uncommon"
+    elif val < 0.95:
+        return "Rare Holo"
+    return random.choice(["Rare Holo Galaxy", "Rare Holo V", "Rare Ultra", "Rare Rainbow Alt"])
 
 
 def log_prompt(prompt: str) -> str:
@@ -290,11 +302,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
     for i, image_bytes in enumerate(cards_data):
         encoded_image_string = base64.b64encode(image_bytes).decode("ascii")
         cards.append(
-            PokemonCardResponseItem(
-                name=str(i),
-                bar=i,
-                b64_encoded_image=encoded_image_string,
-            )
+            PokemonCardResponseItem(name=str(i), bar=i, b64_encoded_image=encoded_image_string, rarity=_choose_rarity())
         )
 
     print(f"✔️ Returning {len(cards)} Pokémon samples.")
