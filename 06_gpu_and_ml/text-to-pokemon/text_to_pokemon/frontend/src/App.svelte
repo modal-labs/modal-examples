@@ -59,18 +59,27 @@
 
 		<div class="showcase">
 			<Card
-				name=''
+				name=""
 				img={"https://i.imgur.com/IczIg4r.png"}
-				number={'123'}
-				supertype={'Pokémon'}
-				subtypes={['Basic', 'V']}
-				rarity={'Rare Ultra'}
+				number={"123"}
+				supertype={"Pokémon"}
+				subtypes={["Basic", "V"]}
+				rarity={"Rare Ultra"}
 				showcase={true}
 			/>
 		</div>
 
 		<section class="info">
-			<h3>(👆🏼 Try clicking a card to take a closer look!)</h3>
+			<ul>
+				<li>
+					👆🏼 Try <strong>clicking</strong> or <strong>tapping</strong>
+					a card to take a closer look!
+				</li>
+				<li>
+					Generations may take up-to two minutes in event of
+					cold-start.
+				</li>
+			</ul>
 		</section>
 	</header>
 
@@ -106,5 +115,15 @@
 
 	.info {
 		opacity: 0.8;
+		border: solid 1px;
+		border-radius: 0.5em;
+	}
+
+	.info ul {
+		padding-inline-start: 30px;
+	}
+
+	.info ul li {
+		line-height: 1.5em;
 	}
 </style>
