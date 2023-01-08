@@ -266,6 +266,7 @@
         width: 100%;
         margin-right: 1em;
     }
+
     button[type="submit"] {
         /* I don't yet know why these need !important */
         background: DodgerBlue !important;
@@ -288,7 +289,6 @@
         padding: 0;
         margin-top: 0.5em;
         top: 0;
-        width: 297px;
         border: 1px solid #ddd;
         background-color: #ddd;
         border-radius: 1em;
@@ -325,5 +325,24 @@
     .promptbutton span {
         font-weight: 700;
         padding: 1em;
+    }
+
+    @media screen and (max-width: 600px) {
+        form {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .autocomplete {
+            margin-bottom: 1em;
+        }
+
+        input[type="text"] {
+            margin-right: 0;
+        }
+
+        div.autocomplete {
+            width: 18em;
+        }
     }
 </style>

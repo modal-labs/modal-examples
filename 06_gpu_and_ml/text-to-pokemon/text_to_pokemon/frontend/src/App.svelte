@@ -91,28 +91,36 @@
 <Footer />
 
 <style>
-	h1 {
-		font-size: 2.5em;
+	@media screen and (max-width: 600px) {
+		main {
+			/* Need more space for footer badge on mobile. */
+			padding-bottom: 150px;
+		}
 	}
 
-	h3 {
-		font-size: 1.5em;
-	}
+	@media screen and (min-width: 600px) {
+		h1 {
+			font-size: 2.5em;
+		}
 
-	.title {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-	}
+		h3 {
+			font-size: 1.5em;
+		}
 
-	.title h1 {
-		margin-top: 0.2em;
-	}
+		.title {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
 
-	.intro p {
-		font-size: 1.25em;
-	}
+		.title h1 {
+			margin-top: 0.2em;
+		}
 
+		.intro p {
+			font-size: 1.25em;
+		}
+	}
 	.info {
 		opacity: 0.8;
 		border: solid 1px;
@@ -125,5 +133,9 @@
 
 	.info ul li {
 		line-height: 1.5em;
+	}
+
+	.generator {
+		max-width: 100%;
 	}
 </style>
