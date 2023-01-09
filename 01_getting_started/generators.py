@@ -9,10 +9,10 @@ def f(i):
         yield j
 
 
-if __name__ == "__main__":
-    with stub.run():
-        for r in f.call(10):
-            print(r)
+@stub.local_entrypoint
+def main():
+    for r in f.call(10):
+        print(r)
 
-        for r in f.map(range(5)):
-            print(r)
+    for r in f.map(range(5)):
+        print(r)

@@ -48,17 +48,19 @@ def f(i):
 # 1. As a simple call `f(1000)`
 # 2. By mapping over the integers 0..19
 
-if __name__ == "__main__":
-    with stub.run():
-        # Call the function directly.
-        print(f.call(1000))
 
-        # Parallel map.
-        total = 0
-        for ret in f.map(range(20)):
-            total += ret
+@stub.local_entrypoint
+def main():
+    # Call the function directly.
+    print(f.call(1000))
 
-        print(total)
+    # Parallel map.
+    total = 0
+    for ret in f.map(range(20)):
+        total += ret
+
+    print(total)
+
 
 # ## What happens?
 #

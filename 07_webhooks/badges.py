@@ -54,7 +54,7 @@ if __name__ == "__main__":
 # until you terminate the script.
 #
 # If you want to create a persistent URL, you have to deploy the script.
-# To deploy using the Modal CLI by running `modal app deploy web_badges.py`,
+# To deploy using the Modal CLI by running `modal deploy web_badges.py`,
 #
 # Either way, as soon as we run this command, Modal gives us the link to our brand new
 # webhook in the output:

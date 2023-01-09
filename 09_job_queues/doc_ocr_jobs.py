@@ -82,7 +82,7 @@ def parse_receipt(image: bytes):
 # Now that we have a function, we can publish it by deploying the app:
 #
 # ```shell
-# modal app deploy doc_ocr_jobs.py
+# modal deploy doc_ocr_jobs.py
 # ```
 #
 # Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another

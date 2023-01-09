@@ -9,6 +9,6 @@ def square(x):
     return x**2
 
 
-if __name__ == "__main__":
-    with stub.run():
-        print("the square is", square.call(42))
+@stub.local_entrypoint
+def main():
+    print("the square is", square.call(42))

@@ -77,7 +77,11 @@ def search_hackernews():
         pass
 
 
-# ## Defining the schedule
+# ## Test running
+#
+# We can now test run our scheduled function as follows: `modal run hackernews_alerts.py::stub.search_hackernews`
+
+# ## Defining the schedule and deploying
 #
 # Let's define a function that will be called by Modal every day
 
@@ -87,16 +91,7 @@ def run_daily():
     search_hackernews.call()
 
 
-# ## Running and deploying
-#
-# We can now test run our scheduled function as follows:
-
-if __name__ == "__main__":
-    with stub.run():
-        search_hackernews.call()
-
-# If you run this script, it will search Hacker News ones. In order to deploy this
-# as a persistent cron job, you can run `modal app deploy hackernews_alerts.py`,
+# In order to deploy this as a persistent cron job, you can run `modal deploy hackernews_alerts.py`,
 
 # Once the job is deployed, visit the [apps page](/apps) page to see
 # its execution history, logs and other stats.
