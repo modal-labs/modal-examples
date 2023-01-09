@@ -59,18 +59,27 @@
 
 		<div class="showcase">
 			<Card
-				name=''
+				name=""
 				img={"https://i.imgur.com/IczIg4r.png"}
-				number={'123'}
-				supertype={'Pokémon'}
-				subtypes={['Basic', 'V']}
-				rarity={'Rare Ultra'}
+				number={"123"}
+				supertype={"Pokémon"}
+				subtypes={["Basic", "V"]}
+				rarity={"Rare Ultra"}
 				showcase={true}
 			/>
 		</div>
 
 		<section class="info">
-			<h3>(👆🏼 Try clicking a card to take a closer look!)</h3>
+			<ul>
+				<li>
+					👆🏼 Try <strong>clicking</strong> or <strong>tapping</strong>
+					a card to take a closer look!
+				</li>
+				<li>
+					Generations may take up-to two minutes in event of
+					cold-start.
+				</li>
+			</ul>
 		</section>
 	</header>
 
@@ -82,29 +91,51 @@
 <Footer />
 
 <style>
-	h1 {
-		font-size: 2.5em;
+	@media screen and (max-width: 600px) {
+		main {
+			/* Need more space for footer badge on mobile. */
+			padding-bottom: 150px;
+		}
 	}
 
-	h3 {
-		font-size: 1.5em;
-	}
+	@media screen and (min-width: 600px) {
+		h1 {
+			font-size: 2.5em;
+		}
 
-	.title {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-	}
+		h3 {
+			font-size: 1.5em;
+		}
 
-	.title h1 {
-		margin-top: 0.2em;
-	}
+		.title {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
 
-	.intro p {
-		font-size: 1.25em;
-	}
+		.title h1 {
+			margin-top: 0.2em;
+		}
 
+		.intro p {
+			font-size: 1.25em;
+		}
+	}
 	.info {
 		opacity: 0.8;
+		border: solid 1px;
+		border-radius: 0.5em;
+	}
+
+	.info ul {
+		padding-inline-start: 30px;
+	}
+
+	.info ul li {
+		line-height: 1.5em;
+	}
+
+	.generator {
+		max-width: 100%;
 	}
 </style>

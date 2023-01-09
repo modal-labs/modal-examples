@@ -9,7 +9,7 @@ import modal
 
 stub = modal.Stub(
     "example-web-badges",
-    image=modal.Image.debian_slim().pip_install(["pybadges", "pypistats"]),
+    image=modal.Image.debian_slim().pip_install("pybadges", "pypistats"),
 )
 
 # ## Defining the webhook

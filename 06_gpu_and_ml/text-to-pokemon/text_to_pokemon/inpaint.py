@@ -13,18 +13,14 @@ import modal
 cv_image = (
     modal.Image.debian_slim()
     .pip_install(
-        [
-            "opencv-python~=4.6.0.66",
-            "Pillow~=9.3.0",
-            "numpy~=1.23.5",
-        ]
+        "opencv-python~=4.6.0.66",
+        "Pillow~=9.3.0",
+        "numpy~=1.23.5",
     )
     .run_commands(
-        [
-            "apt-get update",
-            # Required to install libs such as libGL.so.1
-            "apt-get install ffmpeg libsm6 libxext6 --yes",
-        ]
+        "apt-get update",
+        # Required to install libs such as libGL.so.1
+        "apt-get install ffmpeg libsm6 libxext6 --yes",
     )
 )
 

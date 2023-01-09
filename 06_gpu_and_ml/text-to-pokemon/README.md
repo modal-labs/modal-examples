@@ -12,7 +12,7 @@ excellent CSS work.
 ### Frontend
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/text_to_pokemon/frontend"
+cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/text_to_pokemon/frontend"
 npx vite build --watch
 ```
 
@@ -21,7 +21,7 @@ npx vite build --watch
 Run this to `stub.serve()` the web API and iterate on the application backend:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon"
+cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon"
 python3 -m text_to_pokemon.main
 ```
 
@@ -36,8 +36,8 @@ python3 -m pytest
 ## Deploy
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/text_to_pokemon/frontend"
+cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/text_to_pokemon/frontend"
 npx vite build
-cd "$(git rev-parse --show-toplevel)/ml/text-to-pokemon/"
+cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/"
 modal deploy text_to_pokemon.main
 ```

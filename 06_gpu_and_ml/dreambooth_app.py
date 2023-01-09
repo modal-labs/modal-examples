@@ -26,8 +26,8 @@
 #
 # ## Setting up the dependencies
 #
-# We can start from a slim Debian OS image and install all of our dependencies
-# with the `pip` Python package installer.
+# We can start from a base image and specify all of our dependencies.
+
 import os
 import sys
 from dataclasses import dataclass
@@ -41,26 +41,21 @@ web_app = FastAPI()
 assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
+# Commit in `diffusers` to checkout `train_dreambooth.py` from.
+DREAMBOOTH_SCRIPT_COMMIT_HASH = "2868d99181976753b10fa6a4bb0695982f463cbe"
 
-image = (
-    modal.Image.conda()
-    .run_commands(
-        [
-            "conda install xformers -c xformers/label/dev",
-            "conda install pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia",
-        ]
-    )
-    .pip_install(
-        [
-            "diffusers[torch]~=0.9.0",
-            "transformers~=4.21",
-            "ftfy",
-            "accelerate==0.14.0",
-            "tensorboard",
-            "smart_open~=6.2.0",
-            "gradio~=3.10",
-        ]
-    )
+image = modal.Image.debian_slim().pip_install(
+    "accelerate",
+    "smart_open",
+    # Do not update without updating the commit hash above.
+    "diffusers[torch]~=0.11.1",
+    "ftfy",
+    "transformers",
+    "torch",
+    "torchvision",
+    "triton",
+    "xformers==0.0.16rc393",
+    "gradio~=3.10",
 )
 
 # A persistent shared volume will store model artefacts across Modal app runs.
@@ -210,9 +205,8 @@ def train(instance_example_urls, config=TrainConfig()):
 
     # fetch the training script from Hugging Face's GitHub repo
     raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_commit_hash = "daebee0963d2b39fb3fa9532ab271a91674c4070"
     script_path = "examples/dreambooth/train_dreambooth.py"
-    script_url = f"{raw_repo_url}/{script_commit_hash}/{script_path}"
+    script_url = f"{raw_repo_url}/{DREAMBOOTH_SCRIPT_COMMIT_HASH}/{script_path}"
 
     with open(script_url) as from_file:
         script_content = from_file.readlines()
@@ -264,7 +258,7 @@ def train(instance_example_urls, config=TrainConfig()):
 
 @stub.asgi(
     image=image,
-    gpu="A10G",  # Don't need as much VRAM for inference, so can use a cheaper GPU
+    gpu="A100",
     shared_volumes={str(MODEL_DIR): volume},
     mounts=[modal.Mount("/assets", local_dir=assets_path)],
 )
@@ -331,11 +325,9 @@ def fastapi_app(config=AppConfig()):
 #
 # Let's define some command-line options to make it easy to trigger various parts of the app:
 #
-# `python dreambooth_app.py train` will train the model
-#
-# `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
-#
-# `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
+# - `python dreambooth_app.py train` will train the model
+# - `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+# - `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #

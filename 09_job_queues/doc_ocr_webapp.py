@@ -41,8 +41,8 @@ web_app = fastapi.FastAPI()
 # Queue tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using
 # [`modal.lookup`](/docs/reference/modal.lookup).
 #
-# We call [`.submit()`](/docs/reference/modal.Function#submit) on the function handle
-# we imported above, to kick off our function without blocking on the results. `submit` returns
+# We call [`.spawn()`](/docs/reference/modal.Function#spawn) on the function handle
+# we imported above, to kick off our function without blocking on the results. `spawn` returns
 # a unique ID for the function call, that we can use later to poll for its result.
 
 

@@ -14,7 +14,7 @@
 # Our job queue will handle a single task: running OCR transcription for images.
 # We'll make use of a pre-trained Document Understanding model using the
 # [donut](https://github.com/clovaai/donut) package to accomplish this. Try
-# it out for yourself [here](https://aksh-at-doc-ocr-webapp-wrapper.modal.run).
+# it out for yourself [here](https://modal-labs-example-doc-ocr-webapp-wrapper.modal.run/).
 #
 # ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
@@ -49,7 +49,7 @@ CACHE_PATH = "/root/model_cache"
 
 @stub.function(
     gpu="any",
-    image=modal.Image.debian_slim().pip_install(["donut-python==1.0.7", "transformers==4.21.3"]),
+    image=modal.Image.debian_slim().pip_install("donut-python==1.0.7", "transformers==4.21.3"),
     shared_volumes={CACHE_PATH: volume},
     retries=3,
 )
@@ -90,7 +90,7 @@ def parse_receipt(image: bytes):
 #
 # ```python
 # fn = modal.lookup("doc_ocr_jobs", "parse_receipt")
-# fn.submit(my_image)
+# fn.spawn(my_image)
 # ```
 #
 # Modal will auto-scale to handle all the tasks queued, and

@@ -42,7 +42,15 @@ from fastapi.staticfiles import StaticFiles
 # and a system font for drawing.
 
 stub = modal.Stub("example-webcam-object-detection")
-image = modal.Image.debian_slim().pip_install(["Pillow", "timm", "transformers"]).apt_install(["fonts-freefont-ttf"])
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "Pillow",
+        "timm",
+        "transformers",
+    )
+    .apt_install("fonts-freefont-ttf")
+)
 
 
 # ## Prediction function

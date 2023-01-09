@@ -12,6 +12,7 @@
 <script>
     import { prompts } from "../helpers/prefillPromptData";
     import PrefillPrompt from "./PrefillPrompt.svelte";
+    import Callout from "./Callout.svelte";
     import Card from "./Card.svelte";
     import Pokeball from "./Pokeball.svelte";
     import CardList from "./CardList.svelte";
@@ -31,7 +32,7 @@
         filteredPrompts = storageArr;
     };
 
-    /* HANDLING THE INPUT */
+    // Handling the user's prompt input.
     let promptInput; // use with bind:this to focus element
     let inputValue = "";
 
@@ -52,17 +53,37 @@
     $: error = undefined;
     $: cards = [];
     let poller;
+    // Cold-start loading of the multi-GB model can take around 60s.
+    // Queuing for GPUs can also add a 60s+ of latency.
+    const MAX_RESULTS_POLLING_MILLIS = 180_000;
 
     const setupPoller = (id) => {
         if (poller) {
             clearInterval(poller);
         }
-        poller = setInterval(doPoll(id), 2000);
+        let currentEpochMillis = Date.now();
+        poller = setInterval(doPoll(id, currentEpochMillis), 2000);
     };
 
-    const doPoll = (id) => async () => {
+    const doPoll = (id, pollStartMillis) => async () => {
+        let currentPollingDurationMillis = Date.now() - pollStartMillis;
+        if (currentPollingDurationMillis >= MAX_RESULTS_POLLING_MILLIS) {
+            // Abandon polling. Card generation has taken too long.
+            loadingComplete = true;
+            clearInterval(poller);
+            setTimeout(() => {
+                error = {
+                    message:
+                        "Sorry, card generation has timed out. Please retry prompt.",
+                };
+                loading = false;
+            }, 500);
+            return;
+        }
+
         const resp = await fetch(`/api/status/${id}`);
         const body = await resp.json();
+
         if (body.error) {
             error = body.error;
             loading = false;
@@ -70,7 +91,14 @@
             loadingComplete = true;
             clearInterval(poller);
             setTimeout(() => {
-                cards = body.cards;
+                if (body.cards.length === 0) {
+                    error = {
+                        message:
+                            "Oh no, sorry but your prompt returned no results! Please try again.",
+                    };
+                } else {
+                    cards = body.cards;
+                }
                 loading = false;
             }, 500);
         }
@@ -83,6 +111,7 @@
         if (response.ok) {
             const data = await response.json();
             setupPoller(data.call_id);
+            cards = [];
         } else {
             throw new Error();
         }
@@ -90,7 +119,6 @@
 
     const handleSubmit = async () => {
         if (inputValue) {
-            console.log(`${inputValue} is submitted!`);
             await fetchPokemonCards();
         } else {
             alert("You didn't type anything.");
@@ -186,7 +214,7 @@
                 />
             {/each}
         </CardList>
-    {:else if cards}
+    {:else if cards.length > 0}
         <CardList>
             {#each cards as { name, bar, mime, b64_encoded_image, rarity } (name)}
                 <Card
@@ -200,7 +228,9 @@
             {/each}
         </CardList>
     {:else if error}
-        <p style="color: red">{error.message}</p>
+        <Callout type="error">
+            <p>{error.message}</p>
+        </Callout>
     {/if}
 </div>
 
@@ -236,6 +266,7 @@
         width: 100%;
         margin-right: 1em;
     }
+
     button[type="submit"] {
         /* I don't yet know why these need !important */
         background: DodgerBlue !important;
@@ -258,7 +289,6 @@
         padding: 0;
         margin-top: 0.5em;
         top: 0;
-        width: 297px;
         border: 1px solid #ddd;
         background-color: #ddd;
         border-radius: 1em;
@@ -295,5 +325,24 @@
     .promptbutton span {
         font-weight: 700;
         padding: 1em;
+    }
+
+    @media screen and (max-width: 600px) {
+        form {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .autocomplete {
+            margin-bottom: 1em;
+        }
+
+        input[type="text"] {
+            margin-right: 0;
+        }
+
+        div.autocomplete {
+            width: 18em;
+        }
     }
 </style>
