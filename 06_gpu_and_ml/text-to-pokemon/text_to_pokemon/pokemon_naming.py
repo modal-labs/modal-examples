@@ -280,7 +280,7 @@ PREFILL_PROMPT_NAMES: set[str] = {
 }
 
 FANDOM_NAMES: set[str] = {
-    "azelfuelinferneece",
+    "azelfuel",
     "billiaze",
     "bronzera",
     "camyke",
