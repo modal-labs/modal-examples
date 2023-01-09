@@ -1,0 +1,11 @@
+sample_proj:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PGHOST') }}"
+      port: 5432
+      schema: public
+      dbname: "{{ env_var('PGDATABASE') }}"
+      user: "{{ env_var('PGUSER') }}"
+      password: "{{ env_var('PGPASSWORD') }}"
