@@ -113,6 +113,7 @@ def search_podcast(name):
             title=pod["title"],
             description=pod["description"],
             html_description=pod["htmlDescription"],
+            language=pod["language"],
             web_url=pod["webUrl"],
         )
         for pod in podcasts_raw
@@ -122,7 +123,7 @@ def search_podcast(name):
 @stub.function(
     image=search_image,
     shared_volumes={config.CACHE_DIR: volume},
-    timeout=(10 * 60),
+    timeout=(15 * 60),
 )
 def index():
     import dataclasses
@@ -202,7 +203,7 @@ def index():
 
 @stub.function(
     schedule=modal.Period(hours=4),
-    timeout=(10 * 60),
+    timeout=(15 * 60),
 )
 def refresh_index():
     logger.info(f"Running scheduled index refresh at {utc_now()}")
