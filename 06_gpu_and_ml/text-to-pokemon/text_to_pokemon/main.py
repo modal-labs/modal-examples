@@ -147,11 +147,13 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
             with open(sample_file, "rb") as f:
                 samples_data.append(f.read())
     else:
-        prompt_samples_dir.mkdir()
         # 1. Create images (expensive)
         model = Model()
         samples_data = model.text_to_pokemon.call(prompt=norm_prompt)
         # 2. Save them (for later run to be cached)
+        # Allow prior existence of dir because multiple concurrent requests for same prompt
+        # can race each other.
+        prompt_samples_dir.mkdir(exist_ok=True)
         for i, image_bytes in enumerate(samples_data):
             dest_path = prompt_samples_dir / f"{i}.png"
             with open(dest_path, "wb") as f:
