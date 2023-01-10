@@ -1,3 +1,22 @@
+# # A Plan for Spam, 20 Years On: LLM vs. Naive Bayes
+#
+# This example trains multiple models (LLM, Naive Bayes) to perform
+# spam classification on the ENRON email dataset. This is a return to Paul Graham's
+# well-known 2002 post, A Plan For Spam (http://www.paulgraham.com/spam.html).
+#
+# Graham's original post focused on the Naive Bayes model. Here we pit that model against
+# a current state-of-the-art large-language-model (LLM). Both models are trained on the dataset
+# and served via a model API (serving.py).
+#
+# This module, train.py, is the model training entrypoint, providing functions to do CPU/GPU training
+# before saving to disk. The other significant modules are as follows:
+#
+# * models.py — contains the core `SpamModel` interface and three implementing model classes, including `LLMSpamClassifier`.
+# * serving.py — a minimal FastAPI model serving API, loading models by ID from a Modal persistent volume.
+# * model_registry.py — defines minimal data structures and CLI commands for a model registry stored on Modal.
+# * model_storage.py — functions concerned withn serializing and deserializing (ie. loading) the trained ML models.
+#
+
 import pathlib
 import random
 from datetime import timedelta
@@ -52,8 +71,6 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     shared_volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
-    # NOTE: Can't use A100 easily because:
-    # "Modal SharedVolume data will not be shared between A100 and non-A100 functions"
     gpu=modal.gpu.T4(),
 )
 def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):

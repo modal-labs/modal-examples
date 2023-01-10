@@ -1,3 +1,8 @@
+"""
+Defines minimal data structures and command-line interface (CLI) commands for a model registry.
+The CLI commands are operationally useful, used to inspect prior trained models and promote the
+most promising models to production serving.
+"""
 import dataclasses
 import json
 import sys

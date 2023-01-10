@@ -1,7 +1,6 @@
 """
-The model trainer module contains functions for the training
-management, serialization, and storage of the email spam models defined
-within models.py.
+The model storage module contains functions for the serialization, and
+disk-based storage of the email spam models defined within models.py.
 """
 import datetime
 import hashlib

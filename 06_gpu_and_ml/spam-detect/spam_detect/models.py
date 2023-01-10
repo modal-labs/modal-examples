@@ -1,3 +1,14 @@
+"""
+
+The core model interface is `SpamModel`, which must be implemented by all
+trainable and serveable spam-detection models in the module.
+
+Current model implementations are:
+
+* BadWords (a baseline heuristic classifier)
+* LLM (a fine-tuned BERT language classifier)
+* NaiveBayes
+"""
 import json
 import math
 import pathlib
@@ -6,7 +17,7 @@ from collections import defaultdict
 
 from . import config
 from . import dataset
-from . import model_trainer
+from . import model_storage
 from .model_registry import ModelMetadata, TrainMetrics
 
 from typing import (
@@ -194,7 +205,7 @@ class LLM(SpamModel):
         from transformers import AutoTokenizer
         from transformers import AutoModelForSequenceClassification
 
-        # TODO: refactor to use model_trainer module for loading.
+        # TODO: refactor to use model_storage module for loading.
         model_path = model_registry_root / sha256_digest
         model = AutoModelForSequenceClassification.from_pretrained(model_path)
         tokenizer = AutoTokenizer.from_pretrained(LLM.model_name)
@@ -208,7 +219,7 @@ class LLM(SpamModel):
 
         llm_fn = cast(LLMSpamClassifier, fn)
         trainer = Trainer(model=llm_fn.model)
-        return model_trainer.store_huggingface_model(
+        return model_storage.store_huggingface_model(
             trainer=trainer,
             train_metrics=metrics,
             model_name=LLM.model_name,
@@ -256,13 +267,13 @@ class BadWords(SpamModel):
         return bad_words_spam_classifier, metrics
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
-        return model_trainer.load_pickle_serialized_model(
+        return model_storage.load_pickle_serialized_model(
             sha256_hash=sha256_digest,
             destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_pickleable_model(
+        return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
             model_destination_root=model_registry_root,
@@ -382,13 +393,13 @@ class NaiveBayes(SpamModel):
         return make_classifier(predict_prob, decision_boundary), metrics
 
     def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
-        return model_trainer.load_pickle_serialized_model(
+        return model_storage.load_pickle_serialized_model(
             sha256_hash=sha256_digest,
             destination_root=model_registry_root,
         )
 
     def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
-        return model_trainer.store_pickleable_model(
+        return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
             model_destination_root=model_registry_root,

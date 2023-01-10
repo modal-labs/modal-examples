@@ -1,3 +1,7 @@
+"""
+Module for the fetching, pre-processing, and loading of spam classification datasets.
+Currently only provides access to the ENRON email dataset.
+"""
 import csv
 import json
 import pathlib
