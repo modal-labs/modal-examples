@@ -181,7 +181,7 @@ def prep_db():
 # setup a [scheduled](/docs/guide/cron) Modal function to run automatically once every 24 hours.
 
 
-@stub.function(schedule=modal.Period(hours=24))
+@stub.function(schedule=modal.Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.call(cache=False)
