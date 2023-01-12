@@ -16,6 +16,7 @@
     import Card from "./Card.svelte";
     import Pokeball from "./Pokeball.svelte";
     import CardList from "./CardList.svelte";
+    import CopyToClipboard from "./CopyToClipboard.svelte";
     import ProgressBar from "./ProgressBar.svelte";
 
     let filteredPrompts = [];
@@ -227,6 +228,17 @@
                 />
             {/each}
         </CardList>
+        <CopyToClipboard
+            on:copy={() => alert("successfully copied!")}
+            text={"Hello from the component!"}
+            let:copy
+        >
+            <div class="action">
+                <button id="copy-button" on:click={copy}>
+                    Share (Click to copy 📋)
+                </button>
+            </div>
+        </CopyToClipboard>
     {:else if error}
         <Callout type="error">
             <p>{error.message}</p>
