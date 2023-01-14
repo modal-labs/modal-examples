@@ -392,6 +392,10 @@
         padding-right: 0.5em;
     }
 
+    .action button span {
+        font-size: 1.4em;
+    }
+
     .action button:hover {
         background-color: #999;
     }
