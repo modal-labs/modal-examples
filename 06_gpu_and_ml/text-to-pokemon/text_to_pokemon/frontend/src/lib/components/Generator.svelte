@@ -10,6 +10,8 @@
 
 -->
 <script>
+    import { onMount } from "svelte";
+
     import { prompts } from "../helpers/prefillPromptData";
     import PrefillPrompt from "./PrefillPrompt.svelte";
     import Callout from "./Callout.svelte";
@@ -18,6 +20,9 @@
     import CardList from "./CardList.svelte";
     import CopyToClipboard from "./CopyToClipboard.svelte";
     import ProgressBar from "./ProgressBar.svelte";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedPrompt = urlParams.get("share");
 
     let filteredPrompts = [];
 
@@ -35,7 +40,16 @@
 
     // Handling the user's prompt input.
     let promptInput; // use with bind:this to focus element
-    let inputValue = "";
+    let inputValue = sharedPrompt || "";
+
+    onMount(async () => {
+        if (sharedPrompt) {
+            await handleSubmit(); // Immediately submit a shared prompt...
+        }
+        // ...and auto-scroll to view progress.
+        const scrollingElement = document.scrollingElement || document.body;
+        scrollingElement.scrollTop = scrollingElement.scrollHeight;
+    });
 
     $: if (!inputValue) {
         filteredPrompts = [];
