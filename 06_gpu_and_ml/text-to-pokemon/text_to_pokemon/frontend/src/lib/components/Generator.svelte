@@ -230,7 +230,9 @@
         </CardList>
         <CopyToClipboard
             on:copy={() => alert("successfully copied!")}
-            text={"Hello from the component!"}
+            text={`${window.location.href}?share=${encodeURIComponent(
+                inputValue
+            )}`}
             let:copy
         >
             <div class="action">
