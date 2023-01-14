@@ -91,11 +91,9 @@
 <Footer />
 
 <style>
-	@media screen and (max-width: 600px) {
-		main {
-			/* Need more space for footer badge on mobile. */
-			padding-bottom: 150px;
-		}
+	main {
+		/* Need more space for 'Built with Modal' footer badge. */
+		padding-bottom: 150px;
 	}
 
 	@media screen and (min-width: 600px) {

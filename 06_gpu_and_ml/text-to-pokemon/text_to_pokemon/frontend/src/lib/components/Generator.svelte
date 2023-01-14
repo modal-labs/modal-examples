@@ -10,13 +10,19 @@
 
 -->
 <script>
+    import { onMount } from "svelte";
+
     import { prompts } from "../helpers/prefillPromptData";
     import PrefillPrompt from "./PrefillPrompt.svelte";
     import Callout from "./Callout.svelte";
     import Card from "./Card.svelte";
     import Pokeball from "./Pokeball.svelte";
     import CardList from "./CardList.svelte";
+    import CopyToClipboard from "./CopyToClipboard.svelte";
     import ProgressBar from "./ProgressBar.svelte";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedPrompt = urlParams.get("share");
 
     let filteredPrompts = [];
 
@@ -34,7 +40,16 @@
 
     // Handling the user's prompt input.
     let promptInput; // use with bind:this to focus element
-    let inputValue = "";
+    let inputValue = sharedPrompt || "";
+
+    onMount(async () => {
+        if (sharedPrompt) {
+            await handleSubmit(); // Immediately submit a shared prompt...
+        }
+        // ...and auto-scroll to view progress.
+        const scrollingElement = document.scrollingElement || document.body;
+        scrollingElement.scrollTop = scrollingElement.scrollHeight;
+    });
 
     $: if (!inputValue) {
         filteredPrompts = [];
@@ -227,6 +242,35 @@
                 />
             {/each}
         </CardList>
+        <CopyToClipboard
+            on:copy={() => alert("successfully copied!")}
+            text={`${window.location.href}?share=${encodeURIComponent(
+                inputValue
+            )}`}
+            let:copy
+        >
+            <div class="action">
+                <button id="copy-button" on:click={copy}>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#000000"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        ><g fill="none" fill-rule="evenodd"
+                            ><path
+                                d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h5M15 3h6v6M10 14L20.2 3.8"
+                            /></g
+                        ></svg
+                    >
+                    <span>Share</span>
+                </button>
+            </div>
+        </CopyToClipboard>
     {:else if error}
         <Callout type="error">
             <p>{error.message}</p>
@@ -325,6 +369,31 @@
     .promptbutton span {
         font-weight: 700;
         padding: 1em;
+    }
+
+    .action {
+        display: flex;
+        justify-content: center;
+    }
+
+    .action button {
+        background-color: white;
+        color: #222;
+        font-weight: bold;
+        padding: 1em 2em;
+        border-radius: 1em;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1),
+            0 1px 2px -1px rgb(0 0 0 / 0.1);
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .action button svg {
+        padding-right: 0.5em;
+    }
+
+    .action button:hover {
+        background-color: #999;
     }
 
     @media screen and (max-width: 600px) {
