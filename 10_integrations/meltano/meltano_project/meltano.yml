@@ -26,6 +26,15 @@ plugins:
               - USER_ID
               - ORDER_DATE
               - STATUS
+          - entity: payments
+            path: downloads/stripe_payments.csv
+            keys:
+              - ID
+              - ORDERID
+              - PAYMENTMETHOD
+              - STATUS
+              - AMOUNT
+              - CREATED
   loaders:
     - name: target-sqlite
       variant: meltanolabs
