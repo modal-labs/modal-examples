@@ -66,10 +66,6 @@ class MeltanoContainer:
         return meltano.api.app.create_app()
 
     @stub.function(shared_volumes={PERSISTED_VOLUME_PATH: storage})
-    def github_to_jsonl(self):
-        subprocess.call(["meltano", "run", "github-to-jsonl"])
-
-    @stub.function(shared_volumes={PERSISTED_VOLUME_PATH: storage})
     def elt(self):
         subprocess.call(["meltano", "run", "download_sample_data", "tap-csv", "target-sqlite"])
 
@@ -77,15 +73,9 @@ class MeltanoContainer:
 @stub.function(schedule=modal.Period(days=1))
 def scheduled_runs():
     MeltanoContainer().elt.call()
-    MeltanoContainer().github_to_jsonl.call()
 
 
+# Run this example using `modal run meltano_modal.py::stub.etl`
 @stub.local_entrypoint
-def github_json_example():
-    MeltanoContainer().github_to_jsonl.call()
-
-
-# Run this example using `modal run meltano_modal.py`
-@stub.local_entrypoint
-def main():
+def etl():
     MeltanoContainer().elt.call()
