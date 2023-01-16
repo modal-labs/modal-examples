@@ -31,7 +31,7 @@ meltano_conf = modal.Secret(
 
 
 def install_project_deps():
-    os.environ["MELTANO_DATABASE_URI"] = f"sqlite:////.empty_meltano.db"  # dummy during installation
+    os.environ["MELTANO_DATABASE_URI"] = "sqlite:////.empty_meltano.db"  # dummy during installation
     subprocess.check_call(["meltano", "install"])
     # delete empty logs dir, so running containers can add a symlink instead
     shutil.rmtree(REMOTE_LOGS_PATH, ignore_errors=True)
