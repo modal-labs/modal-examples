@@ -1,0 +1,40 @@
+{
+  "plugin_type": "extractors",
+  "name": "tap-csv",
+  "namespace": "tap_csv",
+  "variant": "meltanolabs",
+  "label": "Comma Separated Values (CSV)",
+  "docs": "https://hub.meltano.com/extractors/tap-csv--meltanolabs",
+  "repo": "https://github.com/MeltanoLabs/tap-csv",
+  "pip_url": "git+https://github.com/MeltanoLabs/tap-csv.git",
+  "description": "Generic data extractor of CSV (comma separated value) files",
+  "logo_url": "https://hub.meltano.com/assets/logos/extractors/csv.png",
+  "capabilities": [
+    "discover",
+    "catalog",
+    "state"
+  ],
+  "settings_group_validation": [
+    [
+      "files"
+    ],
+    [
+      "csv_files_definition"
+    ]
+  ],
+  "settings": [
+    {
+      "name": "files",
+      "kind": "array",
+      "label": "Files",
+      "description": "Array of objects with `entity`, `path`, `keys`, and `encoding` [Optioanl] keys:\n\n* `entity`: The entity name, used as the table name for the data loaded from that CSV.\n* `path`: Local path (relative to the project's root) to the file to be ingested. Note that this may be a directory, in which case all files in that directory and any of its subdirectories will be recursively processed\n* `keys`: The names of the columns that constitute the unique keys for that entity.\n* `encoding`: [Optional] The file encoding to use when reading the file (i.e. \"latin1\", \"UTF-8\"). Use this setting when you get a UnicodeDecodeError error.\n  Each input CSV file must be a traditionally-delimited CSV (comma separated columns, newlines indicate new rows, double quoted values).\n\nThe following entries are passed through in an internal CSV dialect that then is used to configure the CSV reader:\n\n* `delimiter`: A one-character string used to separate fields. It defaults to ','.\n* `doublequote`: Controls how instances of quotechar appearing inside a field should themselves be quoted. When True, the character is doubled. When False, the escapechar is used as a prefix to the quotechar. It defaults to True.\n* `escapechar`: A one-character string used by the reader, where the escapechar removes any special meaning from the following character. It defaults to None, which disables escaping.\n* `quotechar`: A one-character string used to quote fields containing special characters, such as the delimiter or quotechar, or which contain new-line characters. It defaults to '\"'.\n* `skipinitialspace`: When True, spaces immediately following the delimiter are ignored. The default is False.\n* `strict`: When True, raise exception Error on bad CSV input. The default is False.\n\nThe first row is the header defining the attribute name for that column and will result to a column of the same name in the database. It must have a valid format with no spaces or special characters (like for example `!` or `@`, etc).\n"
+    },
+    {
+      "name": "csv_files_definition",
+      "label": "CSV Files Definition",
+      "documentation": "https://github.com/MeltanoLabs/tap-csv#settings",
+      "description": "Project-relative path to JSON file holding array of objects as described under [Files](#files) - with `entity`, `path`, `keys`, and other optional keys:\n\n```json\n[\n  {\n    \"entity\": \"<entity>\",\n    \"path\": \"<path>\",\n    \"keys\": [\"<key>\"],\n  },\n  // ...\n]\n```\n",
+      "placeholder": "Ex. files-def.json"
+    }
+  ]
+}

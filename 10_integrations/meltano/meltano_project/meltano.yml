@@ -1,36 +1,40 @@
 version: 1
-default_environment: dev
+default_environment: local
 project_id: 3b1408e8-f8ba-4387-8167-95d8619585ac
 environments:
-  - name: dev
-  - name: staging
-  - name: prod
+  - name: local
+    env:
+      SQLITE_WAREHOUSE: warehouse
+  - name: modal
 plugins:
   extractors:
-    - name: tap-github
+    - name: tap-csv
       variant: meltanolabs
-      pip_url: git+https://github.com/MeltanoLabs/tap-github.git
+      pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
       config:
-        repositories:
-          - modal-labs/synchronicity
-      select:
-        - commits.commit_timestamp
-        - commits.commit.*
+        files:
+          - entity: customer
+            path: downloads/jaffle_shop_customers.csv
+            keys:
+              - ID
+              - FIRST_NAME
+              - LAST_NAME
+          - entity: orders
+            path: downloads/jaffle_shop_orders.csv
+            keys:
+              - ID
+              - USER_ID
+              - ORDER_DATE
+              - STATUS
   loaders:
-    - name: target-jsonl
-      variant: andyh1203
-      pip_url: target-jsonl
+    - name: target-sqlite
+      variant: meltanolabs
+      pip_url: git+https://github.com/MeltanoLabs/target-sqlite.git
       config:
-        destination_path: /meltano_db_volume/output
-jobs:
-  - name: github-to-jsonl
-    tasks:
-      - tap-github target-jsonl
-
-schedules:
-  - name: github-to-jsonl
-    interval: "@daily"
-    extractor: tap-github
-    loader: target-jsonl
-    transform: skip
-    start_date: 2022-11-30 12:43:40.484102
+        database: ${SQLITE_WAREHOUSE}
+        batch_size: 50
+  utilities:
+    - name: download_sample_data
+      namespace: utils
+      pip_url: -e ${MELTANO_PROJECT_ROOT}/utils/
+      executable: download_sample_data
