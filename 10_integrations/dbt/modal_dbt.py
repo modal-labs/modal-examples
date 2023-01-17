@@ -5,25 +5,31 @@ from pathlib import Path
 
 import modal
 
-image = modal.Image.debian_slim().pip_install("dbt-postgres").run_commands("apt-get install -y git")
+LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj"
+REMOTE_DBT_PROJECT = "/sample_proj"
 
-stub = modal.Stub(image=image, secrets=[modal.Secret.from_name("postgres-secret")])
+image = modal.Image.debian_slim().pip_install("dbt-sqlite").run_commands("apt-get install -y git")
 
-local_project_path = Path(__file__).parent / "sample_proj"
+# raw data loaded by meltano, see the meltano example in 10_integrations/meltano
+raw_volume = modal.SharedVolume.from_name("meltano_volume")
 
-project_mount = modal.Mount(local_dir=local_project_path, remote_dir="/sample_proj")
+# output schemas
+db_volume = modal.SharedVolume().persist("dbt_dbs")
+project_mount = modal.Mount(local_dir=LOCAL_DBT_PROJECT, remote_dir=REMOTE_DBT_PROJECT)
+stub = modal.Stub(image=image, mounts=[project_mount])
 
 
-def _dbt_cli(subcommand: typing.List):
-    os.chdir("/sample_proj")
+@stub.function(shared_volumes={"/raw": raw_volume, "/db": db_volume})
+def dbt_cli(subcommand: typing.List):
+    os.chdir(REMOTE_DBT_PROJECT)
     subprocess.check_call(["dbt"] + subcommand)
 
 
-@stub.function(mounts=[project_mount])
+@stub.function
 def run():
-    _dbt_cli(["run"])
+    dbt_cli.call(["run"])
 
 
-@stub.function(mounts=[project_mount])
-def test():
-    _dbt_cli(["test"])
+@stub.function
+def debug():
+    dbt_cli.call(["debug"])
