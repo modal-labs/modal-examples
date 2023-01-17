@@ -114,8 +114,8 @@ class MovieReviewsDataset:
             self.dataset.append(file.open().read())  # limit to 500 characters
 
 
-if __name__ == "__main__":
-
+@stub.local_entrypoint
+def main():
     # download & prepare dataset
     dataset = MovieReviewsDataset()
     dataset.download()

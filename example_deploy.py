@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-from example_utils import get_examples, ExampleType
+from example_utils import ExampleType, get_examples
 
 
 class DeployError(NamedTuple):

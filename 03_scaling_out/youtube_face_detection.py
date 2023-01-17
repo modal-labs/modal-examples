@@ -35,7 +35,6 @@
 # This requires installing a few dependencies needed for OpenCV as well as downloading the face detection model
 
 import os
-import sys
 
 import modal
 
@@ -143,14 +142,15 @@ def process_video(url):
 # * Run the Modal function
 # * Store the output data
 
-if __name__ == "__main__":
-    with stub.run():
-        youtube_url = sys.argv[1] if len(sys.argv) > 1 else "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        fn, movie_data = process_video.call(youtube_url)
-        abs_fn = os.path.join(OUTPUT_DIR, fn)
-        print(f"writing results to {abs_fn}")
-        with open(abs_fn, "wb") as f:
-            f.write(movie_data)
+
+@stub.local_entrypoint
+def main(youtube_url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
+    fn, movie_data = process_video.call(youtube_url)
+    abs_fn = os.path.join(OUTPUT_DIR, fn)
+    print(f"writing results to {abs_fn}")
+    with open(abs_fn, "wb") as f:
+        f.write(movie_data)
+
 
 # ## Running the script
 #

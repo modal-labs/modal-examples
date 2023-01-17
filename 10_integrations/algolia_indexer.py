@@ -89,7 +89,7 @@ def crawl_webhook():
 # That's all the code we need! To deploy your application, run
 #
 # ```shell
-# modal app deploy algolia_indexer.py
+# modal deploy algolia_indexer.py
 # ```
 #
 # If successful, this will print a URL for your new webhook, that you can hit using

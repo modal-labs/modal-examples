@@ -29,6 +29,7 @@
 
 # ## Basic setup
 from __future__ import annotations
+
 import io
 import os
 import time
@@ -161,7 +162,7 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@app.command()
+@stub.local_entrypoint
 def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1):
     typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
 
@@ -184,10 +185,7 @@ def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int =
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
-# with: `python stable_diffusion_cli.py --help`
-
-if __name__ == "__main__":
-    app()
+# with: `modal run stable_diffusion_cli.py --help`
 
 
 # # Performance

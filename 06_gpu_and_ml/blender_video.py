@@ -125,14 +125,15 @@ def render_frame(i):
 
 OUTPUT_DIR = "/tmp/render"
 
-if __name__ == "__main__":
+
+@stub.local_entrypoint
+def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # Render the frames in parallel using modal, and write them to disk.
-    with stub.run():
-        for idx, frame in render_frame.map(range(START_FRAME, END_FRAME + 1)):
-            with open(os.path.join(OUTPUT_DIR, f"scene_{idx:03}.png"), "wb") as f:
-                f.write(frame)
+    for idx, frame in render_frame.map(range(START_FRAME, END_FRAME + 1)):
+        with open(os.path.join(OUTPUT_DIR, f"scene_{idx:03}.png"), "wb") as f:
+            f.write(frame)
 
     # Stitch together frames into a gif.
     import glob

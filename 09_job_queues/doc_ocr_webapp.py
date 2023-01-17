@@ -22,6 +22,7 @@ from pathlib import Path
 
 import fastapi
 import fastapi.staticfiles
+
 import modal
 
 stub = modal.Stub("example-doc-ocr-webapp")
@@ -95,7 +96,7 @@ def wrapper():
 # That's all! To deploy your application, run
 #
 # ```shell
-# modal app deploy doc_ocr_webapp.py
+# modal deploy doc_ocr_webapp.py
 # ```
 #
 # If successful, this will print a URL for your app, that you can navigate to from

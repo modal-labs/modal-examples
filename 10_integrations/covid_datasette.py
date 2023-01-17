@@ -213,7 +213,7 @@ def app():
 # web URL that exists until you terminate the script.
 #
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
-# This is achieved by deploying the script with `modal app deploy covid_datasette.py`.
+# This is achieved by deploying the script with `modal deploy covid_datasette.py`.
 
 if __name__ == "__main__":
     cmd = sys.argv[1]

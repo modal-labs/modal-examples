@@ -165,7 +165,7 @@ def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
 # That's all the code we need! To deploy your application, run
 #
 # ```shell
-# modal app deploy stable_diffusion_slackbot.py
+# modal deploy stable_diffusion_slackbot.py
 # ```
 #
 # If successful, this will print a URL for your new webhook. To point your Slack
