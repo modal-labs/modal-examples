@@ -1,7 +1,7 @@
 sample_proj:
-  target: sqlite
+  target: modal
   outputs:
-    sqlite:
+    modal:
       type: sqlite
       threads: 1
       schema: "main"
@@ -10,3 +10,12 @@ sample_proj:
         main: "{{ env_var('MAIN_DB_PATH') }}"
         jaffle_shop: "{{ env_var('RAW_DB_PATH') }}"
       schema_directory: "{{ env_var('OUTPUT_SCHEMAS_PATH') }}"
+    local:
+      type: sqlite
+      threads: 1
+      schema: "main"
+      database: "database"
+      schemas_and_paths:
+        main: "dbs/main.db"
+        jaffle_shop: "../../meltano/meltano_project/jaffle_shop_raw.db"
+      schema_directory: "dbs/"
