@@ -1,3 +1,16 @@
+"""This is a simple demonstration of how to run a dbt-core project on Modal
+
+The underlying DBT data and models are from https://docs.getdbt.com/docs/get-started/getting-started-dbt-core
+To run this example, first run the meltano example in 10_integrations/meltano to load the required data
+into sqlite.
+
+To run this example:
+`modal run modal_dbt.py::stub.run`
+
+To launch an interactive sqlite3 shell on the output database:
+`modal run modal_dbt.py::stub.explore`
+"""
+
 import os
 import subprocess
 import typing
