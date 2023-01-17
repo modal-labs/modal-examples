@@ -33,3 +33,14 @@ def run():
 @stub.function
 def debug():
     dbt_cli.call(["debug"])
+
+
+@stub.function(
+    interactive=True,
+    shared_volumes={"/raw": raw_volume, "/db": db_volume},
+    timeout=86400,
+    image=modal.Image.debian_slim().apt_install("sqlite3"),
+)
+def explore():
+    # explore the output database interactively using the sqlite3 shell
+    os.execlp("sqlite3", "sqlite3", "/db/main.db")
