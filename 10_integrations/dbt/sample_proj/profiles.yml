@@ -7,17 +7,6 @@ sample_proj:
       schema: "main"
       database: "database" # required but has no meaning for sqlite
       schemas_and_paths:
-        main: "/db/main.db"
-        jaffle_shop: "/raw/jaffle_shop_raw.db"
-      schema_directory: "/db"
-#    To use some real database/datawarehouse w/ credentials from Modal secrets,
-#    you can use env_var references and attach a corresponding secret to your Modal
-#    image/function:
-#    pg:
-#      type: postgres
-#      host: "{{ env_var('PGHOST') }}"
-#      port: 5432
-#      schema: public
-#      dbname: "{{ env_var('PGDATABASE') }}"
-#      user: "{{ env_var('PGUSER') }}"
-#      password: "{{ env_var('PGPASSWORD') }}"
+        main: "{{ env_var('MAIN_DB_PATH') }}"
+        jaffle_shop: "{{ env_var('RAW_DB_PATH') }}"
+      schema_directory: "{{ env_var('OUTPUT_SCHEMAS_PATH') }}"

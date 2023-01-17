@@ -7,6 +7,17 @@ import modal
 
 LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj"
 REMOTE_DBT_PROJECT = "/sample_proj"
+RAW_SCHEMAS = "/raw"
+OUTPUT_SCHEMAS = "/db"
+
+# Create an environment dict that will be usable by dbt templates:
+dbt_env = modal.Secret(
+    {
+        "RAW_DB_PATH": f"{RAW_SCHEMAS}/jaffle_shop_raw.db",
+        "OUTPUT_SCHEMAS_PATH": OUTPUT_SCHEMAS,
+        "MAIN_DB_PATH": f"{OUTPUT_SCHEMAS}/main.db",
+    }
+)
 
 image = modal.Image.debian_slim().pip_install("dbt-sqlite").run_commands("apt-get install -y git")
 
@@ -16,31 +27,31 @@ raw_volume = modal.SharedVolume.from_name("meltano_volume")
 # output schemas
 db_volume = modal.SharedVolume().persist("dbt_dbs")
 project_mount = modal.Mount(local_dir=LOCAL_DBT_PROJECT, remote_dir=REMOTE_DBT_PROJECT)
-stub = modal.Stub(image=image, mounts=[project_mount])
+stub = modal.Stub(image=image, mounts=[project_mount], secrets=[dbt_env])
 
 
-@stub.function(shared_volumes={"/raw": raw_volume, "/db": db_volume})
+@stub.function(shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume})
 def dbt_cli(subcommand: typing.List):
     os.chdir(REMOTE_DBT_PROJECT)
     subprocess.check_call(["dbt"] + subcommand)
 
 
-@stub.function
+@stub.local_entrypoint
 def run():
     dbt_cli.call(["run"])
 
 
-@stub.function
+@stub.local_entrypoint
 def debug():
     dbt_cli.call(["debug"])
 
 
 @stub.function(
     interactive=True,
-    shared_volumes={"/raw": raw_volume, "/db": db_volume},
+    shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),
 )
 def explore():
     # explore the output database interactively using the sqlite3 shell
-    os.execlp("sqlite3", "sqlite3", "/db/main.db")
+    os.execlp("sqlite3", "sqlite3", os.environ["MAIN_DB_PATH"])
