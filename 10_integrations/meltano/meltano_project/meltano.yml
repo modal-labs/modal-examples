@@ -4,7 +4,7 @@ project_id: 3b1408e8-f8ba-4387-8167-95d8619585ac
 environments:
   - name: local
     env:
-      SQLITE_WAREHOUSE: warehouse
+      SQLITE_WAREHOUSE: jaffle_shop_raw
   - name: modal
 plugins:
   extractors:
@@ -13,7 +13,7 @@ plugins:
       pip_url: git+https://github.com/MeltanoLabs/tap-csv.git
       config:
         files:
-          - entity: customer
+          - entity: customers
             path: downloads/jaffle_shop_customers.csv
             keys:
               - ID

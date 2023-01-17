@@ -24,7 +24,7 @@ meltano_conf = modal.Secret(
     {
         "MELTANO_PROJECT_ROOT": REMOTE_PROJECT_ROOT,
         "MELTANO_DATABASE_URI": f"sqlite:///{REMOTE_DB_PATH}",
-        "SQLITE_WAREHOUSE": f"{PERSISTED_VOLUME_PATH}/warehouse",
+        "SQLITE_WAREHOUSE": f"{PERSISTED_VOLUME_PATH}/jaffle_shop_raw",
         "MELTANO_ENVIRONMENT": "modal",
     }
 )
@@ -79,3 +79,15 @@ def scheduled_runs():
 @stub.local_entrypoint
 def etl():
     MeltanoContainer().elt.call()
+
+
+@stub.function(
+    interactive=True,
+    shared_volumes={PERSISTED_VOLUME_PATH: storage},
+    timeout=86400,
+    image=modal.Image.debian_slim().apt_install("sqlite3"),
+    secrets=[meltano_conf],
+)
+def explore():
+    # explore the output database interactively using the sqlite3 shell
+    os.execlp("sqlite3", "sqlite3", os.environ["SQLITE_WAREHOUSE"] + ".db")
