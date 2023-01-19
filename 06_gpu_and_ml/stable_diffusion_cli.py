@@ -91,8 +91,8 @@ image = (
         "transformers",
         "triton",
         "safetensors",
-        "xformers==0.0.16rc393",
     )
+    .pip_install("xformers", pre=True)
     .run_function(
         download_models,
         secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -170,18 +170,17 @@ def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int =
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
 
-    with stub.run():
-        sd = StableDiffusion()
-        for i in range(samples):
-            t0 = time.time()
-            images = sd.run_inference.call(prompt, steps, batch_size)
-            total_time = time.time() - t0
-            print(f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image).")
-            for j, image_bytes in enumerate(images):
-                output_path = dir / f"output_{j}_{i}.png"
-                print(f"Saving it to {output_path}")
-                with open(output_path, "wb") as f:
-                    f.write(image_bytes)
+    sd = StableDiffusion()
+    for i in range(samples):
+        t0 = time.time()
+        images = sd.run_inference.call(prompt, steps, batch_size)
+        total_time = time.time() - t0
+        print(f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image).")
+        for j, image_bytes in enumerate(images):
+            output_path = dir / f"output_{j}_{i}.png"
+            print(f"Saving it to {output_path}")
+            with open(output_path, "wb") as f:
+                f.write(image_bytes)
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
