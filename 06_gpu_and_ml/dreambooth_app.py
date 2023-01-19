@@ -97,7 +97,7 @@ class TrainConfig(SharedConfig):
     postfix: str = ""
 
     # locator for plaintext file with urls for images of target instance
-    instance_example_urls_file: str = "dreambooth_app/instance_example_urls.txt"
+    instance_example_urls_file: str = str(Path(__file__).parent / "dreambooth_app/instance_example_urls.txt")
 
     # identifier for pretrained model on Hugging Face
     model_name: str = "runwayml/stable-diffusion-v1-5"
