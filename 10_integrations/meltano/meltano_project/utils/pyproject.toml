@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "download-sample-data"
+version = "0.1.0"
+description = ""
+authors = ["Elias Freider <elias@modal.com>"]
+packages = [{include = "download_sample_data"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.28.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+download_sample_data = 'download_sample_data.main:run'
