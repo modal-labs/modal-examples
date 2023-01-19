@@ -42,20 +42,26 @@ assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
 # Commit in `diffusers` to checkout `train_dreambooth.py` from.
-DREAMBOOTH_SCRIPT_COMMIT_HASH = "2868d99181976753b10fa6a4bb0695982f463cbe"
+GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 
-image = modal.Image.debian_slim().pip_install(
-    "accelerate",
-    "smart_open",
-    # Do not update without updating the commit hash above.
-    "diffusers[torch]~=0.11.1",
-    "ftfy",
-    "transformers",
-    "torch",
-    "torchvision",
-    "triton",
-    "xformers==0.0.16rc393",
-    "gradio~=3.10",
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "accelerate",
+        "datasets",
+        "ftfy",
+        "gradio~=3.10",
+        "smart_open",
+        "transformers",
+        "torch",
+        "torchvision",
+        "triton",
+    )
+    .pip_install("xformers", pre=True)
+    .apt_install("git")
+    .run_commands(
+        f"cd /root && git clone https://github.com/huggingface/diffusers && cd diffusers && git checkout {GIT_SHA} && pip install -e ."
+    )
 )
 
 # A persistent shared volume will store model artefacts across Modal app runs.
@@ -91,7 +97,7 @@ class TrainConfig(SharedConfig):
     postfix: str = ""
 
     # locator for plaintext file with urls for images of target instance
-    instance_example_urls_file: str = "dreambooth_app/instance_example_urls.txt"
+    instance_example_urls_file: str = str(Path(__file__).parent / "dreambooth_app/instance_example_urls.txt")
 
     # identifier for pretrained model on Hugging Face
     model_name: str = "runwayml/stable-diffusion-v1-5"
@@ -182,7 +188,6 @@ def train(instance_example_urls, config=TrainConfig()):
 
     import huggingface_hub
     from accelerate.utils import write_basic_config
-    from smart_open import open
     from transformers import CLIPTokenizer
 
     # set up runner-local image and shared model weight directories
@@ -203,16 +208,6 @@ def train(instance_example_urls, config=TrainConfig()):
         license_error_msg = f"Unable to load tokenizer. Access to this model requires acceptance of the license on Hugging Face here: https://huggingface.co/{config.model_name}."
         raise Exception(license_error_msg) from e
 
-    # fetch the training script from Hugging Face's GitHub repo
-    raw_repo_url = "https://raw.githubusercontent.com/huggingface/diffusers"
-    script_path = "examples/dreambooth/train_dreambooth.py"
-    script_url = f"{raw_repo_url}/{DREAMBOOTH_SCRIPT_COMMIT_HASH}/{script_path}"
-
-    with open(script_url) as from_file:
-        script_content = from_file.readlines()
-        with open("train_dreambooth.py", "w") as to_file:
-            to_file.writelines(script_content)
-
     # define the training prompt
     instance_phrase = f"{config.instance_name} {config.class_name}"
     prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
@@ -222,7 +217,7 @@ def train(instance_example_urls, config=TrainConfig()):
         [
             "accelerate",
             "launch",
-            "train_dreambooth.py",
+            "examples/dreambooth/train_dreambooth.py",
             "--train_text_encoder",  # needs at least 16GB of GPU RAM.
             f"--pretrained_model_name_or_path={config.model_name}",
             f"--instance_data_dir={img_path}",
@@ -237,6 +232,7 @@ def train(instance_example_urls, config=TrainConfig()):
             f"--max_train_steps={config.max_train_steps}",
         ],
         check=True,
+        cwd="diffusers",
     )
 
 
