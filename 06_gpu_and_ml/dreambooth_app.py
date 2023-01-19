@@ -29,7 +29,6 @@
 # We can start from a base image and specify all of our dependencies.
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -317,28 +316,22 @@ def fastapi_app(config=AppConfig()):
     )
 
 
-# ## Define command-line interface
+# ## Running this on the command line
 #
-# Let's define some command-line options to make it easy to trigger various parts of the app:
+# You can use the `modal` command-line interface to interact with this code,
+# in particular training the model and running the interactive Gradio service
 #
-# - `python dreambooth_app.py train` will train the model
-# - `python dreambooth_app.py serve` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
-# - `python dreambooth_app.py shell` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
+# - `modal run dreambooth_app.py` will train the model
+# - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+# - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #
 # This app is already deployed on Modal and you can try it out at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
 
-if __name__ == "__main__":
-    cmd = sys.argv[1] if len(sys.argv) >= 2 else "train"
-    if cmd == "train":
-        with open(TrainConfig().instance_example_urls_file) as f:
-            instance_example_urls = map(lambda line: line.strip(), f.readlines())
-        with stub.run():
-            train.call(instance_example_urls)
-    elif cmd == "serve":
-        stub.serve()
-    elif cmd == "shell":
-        stub.interactive_shell(image=image)
-    else:
-        print(f"Invalid cmd '{cmd}'.")
+
+@stub.local_entrypoint
+def run():
+    with open(TrainConfig().instance_example_urls_file) as f:
+        instance_example_urls = map(lambda line: line.strip(), f.readlines())
+    train.call(instance_example_urls)
