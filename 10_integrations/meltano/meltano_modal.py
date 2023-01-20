@@ -48,39 +48,36 @@ meltano_img = (
 
 stub = modal.Stub(
     image=meltano_img,
-    secrets=[modal.Secret.from_name("meltano-secrets"), meltano_conf],
+    secrets=[meltano_conf],
 )
 
 
-class MeltanoContainer:
-    def __enter__(self):
-        # symlink logs so they end up in persisted shared volume
+def symlink_logs():
+    # symlink logs so that they end up in persisted shared volume
+    # we can get rid of this if meltano gets a way to configure
+    # the logging directory
+    if not REMOTE_LOGS_PATH.exists():
         PERSISTED_LOGS_DIR.mkdir(exist_ok=True, parents=True)
         REMOTE_LOGS_PATH.symlink_to(PERSISTED_LOGS_DIR)
 
-    @stub.wsgi(shared_volumes={PERSISTED_VOLUME_PATH: storage})
-    def meltano_ui(self):
-        # This serves the deprecated meltano UI as a webhook
-        import meltano.api.app
 
-        return meltano.api.app.create_app()
+@stub.wsgi(shared_volumes={PERSISTED_VOLUME_PATH: storage})
+def meltano_ui(self):
+    # This serves the deprecated meltano UI as a webhook
+    symlink_logs()
+    import meltano.api.app
 
-    @stub.function(shared_volumes={PERSISTED_VOLUME_PATH: storage})
-    def elt(self):
-        subprocess.call(["meltano", "run", "download_sample_data", "tap-csv", "target-sqlite"])
+    return meltano.api.app.create_app()
 
 
-@stub.function(schedule=modal.Period(days=1))
-def scheduled_runs():
-    MeltanoContainer().elt.call()
+# Run this example using `modal run meltano_modal.py::stub.extract_and_load`
+@stub.function(shared_volumes={PERSISTED_VOLUME_PATH: storage}, schedule=modal.Period(days=1))
+def extract_and_load():
+    symlink_logs()
+    subprocess.call(["meltano", "run", "download_sample_data", "tap-csv", "target-sqlite"])
 
 
-# Run this example using `modal run meltano_modal.py::stub.etl`
-@stub.local_entrypoint
-def etl():
-    MeltanoContainer().elt.call()
-
-
+# Interactive sqlite3 exploration using `modal run meltano_modal.py::stub.explore`
 @stub.function(
     interactive=True,
     shared_volumes={PERSISTED_VOLUME_PATH: storage},
