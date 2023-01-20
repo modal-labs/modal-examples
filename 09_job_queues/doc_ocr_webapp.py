@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# lambda-test: false
 # ---
 #
 # # Document OCR web app

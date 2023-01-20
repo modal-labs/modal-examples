@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# lambda-test: false
 # ---
 # # Machine learning model inference endpoint that uses the webcam
 #
@@ -31,10 +32,11 @@ import base64
 import io
 from pathlib import Path
 
-import modal
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+
+import modal
 
 # We mainly need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -175,8 +177,4 @@ def fastapi_app():
 
 # ## Running this locally
 #
-# For convenience, we have a `stub.serve()` so that you can run this ephemerally.
-
-
-if __name__ == "__main__":
-    stub.serve()
+# To try this out, run `modal serve webcam.py`

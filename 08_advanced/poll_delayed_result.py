@@ -1,7 +1,11 @@
+# ---
+# lambda-test: false
+# ---
 import fastapi
+from starlette.responses import HTMLResponse, RedirectResponse
+
 import modal
 from modal.functions import FunctionCall
-from starlette.responses import HTMLResponse, RedirectResponse
 
 stub = modal.Stub("example-poll")
 

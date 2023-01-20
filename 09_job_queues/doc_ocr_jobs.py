@@ -100,19 +100,22 @@ def parse_receipt(image: bytes):
 
 # ## Run manually
 #
-# We can also trigger `parse_receipt` manually for easier debugging. To try it out, you can find some
+# We can also trigger `parse_receipt` manually for easier debugging:
+# `modal run doc_ocr_jobs::stub.main`
+# To try it out, you can find some
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
-if __name__ == "__main__":
+
+@stub.local_entrypoint
+def main():
     from pathlib import Path
 
     receipt_filename = Path(__file__).parent / "receipt.png"
-    with stub.run():
-        if receipt_filename.exists():
-            with open(receipt_filename, "rb") as f:
-                image = f.read()
-        else:
-            image = urllib.request.urlopen(
-                "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
-            ).read()
-        print(parse_receipt.call(image))
+    if receipt_filename.exists():
+        with open(receipt_filename, "rb") as f:
+            image = f.read()
+    else:
+        image = urllib.request.urlopen(
+            "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
+        ).read()
+    print(parse_receipt.call(image))

@@ -1,5 +1,4 @@
 # ---
-# args: ["train"]
 # deploy: true
 # integration-test: false
 # lambda-test: false
@@ -119,7 +118,7 @@ def download_dataset():
 # Fine-tuning the base ResNet model takes about 30-40 minutes on a GPU. To avoid
 # needing to keep our terminal active, we can run training as a 'detached run'.
 #
-# `MODAL_GPU=any modal run --detach vision_model_training.py train`
+# `MODAL_GPU=any modal run --detach vision_model_training.py::stub.train`
 #
 
 
@@ -290,20 +289,9 @@ def fastapi_app():
     )
 
 
-if __name__ == "__main__":
-    cmd = sys.argv[1] if len(sys.argv) >= 2 else "train"
-    if cmd == "classify":
-        image_url = sys.argv[2]
-        with stub.run():
-            classify_url.call(image_url)
-    elif cmd == "train":
-        with stub.run():
-            train.call()
-    elif cmd == "serve":
-        stub.serve()
-    elif cmd == "shell":
-        stub.interactive_shell()
-    else:
-        print(f"Invalid cmd '{cmd}'.")
+@stub.local_entrypoint
+def main():
+    train.call()
+
 
 # This ML app is already deployed on Modal and you can try it out at https://modal-labs-example-fastai-wandb-gradio-cifar10-demo-fastapi-app.modal.run.
