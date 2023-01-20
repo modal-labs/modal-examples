@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
-# args: ["a software engineer smoking a pumpkin pipe"]
+# args: ["--prompt", "a software engineer smoking a pumpkin pipe"]
 # ---
 # # Stable Diffusion CLI
 #

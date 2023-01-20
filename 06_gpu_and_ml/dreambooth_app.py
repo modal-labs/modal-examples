@@ -1,8 +1,6 @@
 # ---
-# args: ["train"]
 # deploy: true
 # integration-test: false
-# lambda-test: false
 # ---
 #
 # # Pet Art Dreambooth with Hugging Face and Gradio
@@ -167,7 +165,7 @@ def load_images(image_urls):
 # under the name `"huggingface"`. Follow the instructions [here](https://modal.com/secrets).
 #
 # Then, you can kick off a training job with the command
-# `python dreambooth_app.py train`.
+# `modal run dreambooth_app.py::stub.train`.
 # It should take about ten minutes.
 #
 # Tip: if the results you're seeing don't match the prompt too well, and instead produce an image of your subject again, the model has likely overfit. In this case, repeat training with a lower # of max_train_steps. On the other hand, if the results don't look like your subject, you might need to increase # of max_train_steps.

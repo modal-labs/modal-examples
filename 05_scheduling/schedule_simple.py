@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import time
 from datetime import datetime
 
