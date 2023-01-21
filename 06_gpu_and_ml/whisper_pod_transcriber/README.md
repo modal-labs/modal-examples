@@ -2,7 +2,7 @@
 
 This is a complete application that uses [OpenAI Whisper](https://github.com/openai/whisper) to transcribe podcasts. Modal spins up 100-300 containers for a single transcription run, so hours of audio can be transcribed on-demand in a few minutes.
 
-You can find the app here: https://modal-labs-whisper-pod-transcriber-fastapi-app.modal.run/
+You can find the app here: https://modal-labs--whisper-pod-transcriber-fastapi-app.modal.run/
 
 ## Architecture
 
