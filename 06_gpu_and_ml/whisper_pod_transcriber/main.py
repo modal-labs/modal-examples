@@ -6,7 +6,6 @@ import dataclasses
 import datetime
 import json
 import pathlib
-import sys
 from typing import Iterator, Tuple
 
 import modal
@@ -411,16 +410,9 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     return episodes
 
 
-if __name__ == "__main__":
-    cmd = sys.argv[1]
-    if cmd == "serve":
-        stub.serve()
-    elif cmd == "index":
-        with stub.run():
-            index()
-    elif cmd == "search-podcast":
-        with stub.run():
-            for pod in search_podcast.call(sys.argv[2]):
-                print(pod)
-    else:
-        exit(f"Unknown command {cmd}. Supported commands: [transcribe, run, serve, index, search-podcast]")
+@stub.local_entrypoint
+def search_entrypoint(name: str):
+    # To search for a podcast, run:
+    # modal run whisper_pod_transcriber/main.py --name "search string"
+    for pod in search_podcast.call(name):
+        print(pod)
