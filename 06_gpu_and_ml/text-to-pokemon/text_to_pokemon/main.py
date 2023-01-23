@@ -5,7 +5,6 @@ import io
 import pathlib
 import random
 import re
-import sys
 import time
 import urllib.request
 from datetime import timedelta
@@ -335,20 +334,13 @@ def closest_pokecard_by_color(sample: bytes, cards):
     return closest_card
 
 
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        print("No prompt provided so running webapp…")
-        stub.serve()
-    elif len(sys.argv) == 2:
-        prompt = sys.argv[1]
-        with stub.run():
-            images_data = diskcached_text_to_pokemon.call(prompt)
+@stub.local_entrypoint
+def run_local(prompt: str):
+    images_data = diskcached_text_to_pokemon.call(prompt)
 
-        now = int(time.time())
-        for i, image_bytes in enumerate(images_data):
-            dest_path = pathlib.Path(".", f"{now}_{i}.png")
-            with open(dest_path, "wb") as f:
-                f.write(image_bytes)
-            print(f"✔️ Saved a Pokémon sample to {dest_path}.")
-    else:
-        exit('USAGE: main.py ["PROMPT"]')
+    now = int(time.time())
+    for i, image_bytes in enumerate(images_data):
+        dest_path = pathlib.Path(".", f"{now}_{i}.png")
+        with open(dest_path, "wb") as f:
+            f.write(image_bytes)
+        print(f"✔️ Saved a Pokémon sample to {dest_path}.")

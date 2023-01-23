@@ -18,11 +18,11 @@ npx vite build --watch
 
 ### Backend
 
-Run this to `stub.serve()` the web API and iterate on the application backend:
+Run this to create an ephemeral app live reloading the web API. That way you can iterate on the application backend:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon"
-python3 -m text_to_pokemon.main
+modal serve text_to_pokemon.main
 ```
 
 Sending <kbd>Ctrl</kbd>+<kbd>C</kbd> will stop your app.
