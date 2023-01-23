@@ -81,7 +81,7 @@ def download_models():
 
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
         "diffusers[torch]>=0.10",
