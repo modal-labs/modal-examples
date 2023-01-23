@@ -41,7 +41,12 @@ The last command will start a watcher process that will rebuild your static fron
 
 ### Serve on Modal
 
-Once you have `vite build` running, in a separate shell run `python -m whisper_pod_transcriber.main serve` (from the directory above this one) to start [serving](https://modal.com/docs/reference/modal.Stub#serve) your app on Modal. Pressing `Ctrl+C` will stop your app.
+Once you have `vite build` running, in a separate shell run (from the directory above this one)
+```shell
+modal serve whisper_pod_transcriber.main
+```
+to start an ephemeral app on Modal. Pressing `Ctrl+C` will stop your app.
+
 
 ### Deploy to Modal
 
