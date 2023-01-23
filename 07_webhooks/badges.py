@@ -45,13 +45,14 @@ async def package_downloads(package_name: str):
 
 # ## Running and deploying
 #
-# We can now run this function as follows:
-
-if __name__ == "__main__":
-    stub.serve()
-
-# You can run this script and it will create a short-lived web url that exists
-# until you terminate the script.
+# We can now run an ephemeral app on the command line using:
+#
+# ```shell
+# modal serve badges.py
+# ```
+#
+# This will create a short-lived web url that exists until you terminate the script.
+# It will also hot-reload the code if you make changes to it.
 #
 # If you want to create a persistent URL, you have to deploy the script.
 # To deploy using the Modal CLI by running `modal deploy web_badges.py`,
