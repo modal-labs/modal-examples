@@ -21,7 +21,3 @@ def flask_app():
         return request.json
 
     return web_app
-
-
-if __name__ == "__main__":
-    stub.serve()

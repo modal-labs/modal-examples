@@ -72,7 +72,3 @@ def generate_response(message: str, id: Optional[str] = None) -> Tuple[str, str]
 
     chat_histories[id] = chat_history
     return id, response
-
-
-if __name__ == "__main__":
-    stub.serve()

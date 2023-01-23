@@ -16,7 +16,3 @@ def say_hello():
     for i in range(10):
         print(f"Message #{i} from invocation at {start_time}")
         time.sleep(1.5)
-
-
-if __name__ == "__main__":
-    stub.serve()
