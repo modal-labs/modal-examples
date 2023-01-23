@@ -91,6 +91,14 @@ def wrapper():
     return web_app
 
 
+# ## Running
+#
+# You can run this as an ephemeral app, by running the command
+#
+# ```shell
+# modal serve doc_ocr_webapp.py
+# ```
+#
 # ## Deploy
 #
 # That's all! To deploy your application, run
@@ -106,9 +114,6 @@ def wrapper():
 #
 # ## Developing
 #
-# If desired, instead of deploying, we can [serve](/docs/guide/webhooks#developing-with-stubserve)
+# If desired, instead of deploying, we can [serve](/docs/guide/webhooks#developing-with-modal-serve)
 # our app ephemerally. In this case, Modal watches all the mounted files, and updates
 # the app if anything changes.
-
-if __name__ == "__main__":
-    stub.serve()
