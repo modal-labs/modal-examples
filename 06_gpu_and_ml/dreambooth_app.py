@@ -322,7 +322,7 @@ def fastapi_app(config=AppConfig()):
 # in particular training the model and running the interactive Gradio service
 #
 # - `modal run dreambooth_app.py` will train the model
-# - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-stubserve) the Gradio interface at a temporarily location.
+# - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-modal-serve) the Gradio interface at a temporarily location.
 # - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image (for debugging)
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
