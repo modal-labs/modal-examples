@@ -24,7 +24,6 @@
 import asyncio
 import pathlib
 import shutil
-import sys
 import tempfile
 from datetime import datetime, timedelta
 
@@ -209,23 +208,21 @@ def app():
 
 # ## Publishing to the web
 #
-# You can run this script with the 'serve' command and it will create a short-lived
-# web URL that exists until you terminate the script.
+# Run this script using `modal run covid_datasette.py` and it will create the database.
+#
+# You can run this script using `modal serve covid_datasette.py` and it will create a
+# short-lived web URL that exists until you terminate the script.
 #
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
 # This is achieved by deploying the script with `modal deploy covid_datasette.py`.
 
-if __name__ == "__main__":
-    cmd = sys.argv[1]
-    if cmd == "serve":
-        stub.serve()
-    elif cmd == "prep":
-        with stub.run():
-            print("Downloading COVID-19 dataset...")
-            download_dataset.call()
-            print("Prepping SQLite DB...")
-            prep_db.call()
-    else:
-        exit("Unknown command. Supported commands: [serve, prep]")
+
+@stub.local_entrypoint
+def run():
+    print("Downloading COVID-19 dataset...")
+    download_dataset.call()
+    print("Prepping SQLite DB...")
+    prep_db.call()
+
 
 # You can go explore the data over at [modal-labs-covid-datasette-app.modal.run/covid-19/](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
