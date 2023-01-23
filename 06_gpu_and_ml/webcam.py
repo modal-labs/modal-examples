@@ -175,8 +175,8 @@ def fastapi_app():
 
 # ## Running this locally
 #
-# For convenience, we have a `stub.serve()` so that you can run this ephemerally.
-
-
-if __name__ == "__main__":
-    stub.serve()
+# You can run this as an ephemeral app, by running
+#
+# ```shell
+# modal serve webcam.py
+# ```
