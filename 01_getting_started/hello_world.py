@@ -10,7 +10,7 @@
 #
 # Let's start with the top level imports.
 # You need to import Modal and define the app.
-# An stub is an object that defines everything that will be run.
+# A stub is an object that defines everything that will be run.
 
 import sys
 
