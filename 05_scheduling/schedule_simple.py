@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# cmd: ["python", "-m", "05_scheduling.schedule_simple"]
 # ---
 import time
 from datetime import datetime
