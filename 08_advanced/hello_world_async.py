@@ -4,7 +4,6 @@
 
 # First, let's import some global stuff.
 
-import asyncio
 import sys
 
 import modal.aio
@@ -41,23 +40,14 @@ def f(i):
 # call the function using `await` or iterate over the map using `async for`.
 
 
+@stub.local_entrypoint
 async def run_async():
-    async with stub.run():
-        # Call the function directly.
-        print(await f.call(1000))
+    # Call the function directly.
+    print(await f.call(1000))
 
-        # Parallel map.
-        total = 0
-        async for ret in f.map(range(20)):
-            total += ret
+    # Parallel map.
+    total = 0
+    async for ret in f.map(range(20)):
+        total += ret
 
-        print(total)
-
-
-# ## Entrypoint
-#
-# Trigger the async function. This is some boiler plate required by
-# asyncio to get an event loop running and run the main function.
-
-if __name__ == "__main__":
-    asyncio.run(run_async())
+    print(total)

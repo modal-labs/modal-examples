@@ -31,10 +31,11 @@ import base64
 import io
 from pathlib import Path
 
-import modal
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+
+import modal
 
 # We mainly need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also

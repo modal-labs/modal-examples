@@ -1,9 +1,9 @@
 import re
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-import warnings
 
 DEFAULT_DIRECTORY = Path(__file__).parent
 
@@ -64,7 +64,7 @@ def render_example_md(example: Example) -> str:
     return text
 
 
-def get_examples(directory: Path = DEFAULT_DIRECTORY):
+def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
     if not directory.exists():
         raise Exception(f"Can't find directory {directory}. You might need to clone the modal-examples repo there")
 
@@ -92,7 +92,8 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY):
                 yield Example(ExampleType.ASSET, filename_abs, None, None, repo_filename)
             else:
                 ignored.append(str(filename))
-    print(f"Ignoring examples files: {ignored}")
+    if not silent:
+        print(f"Ignoring examples files: {ignored}")
 
 
 if __name__ == "__main__":

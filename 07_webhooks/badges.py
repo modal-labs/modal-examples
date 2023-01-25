@@ -55,7 +55,7 @@ async def package_downloads(package_name: str):
 # It will also hot-reload the code if you make changes to it.
 #
 # If you want to create a persistent URL, you have to deploy the script.
-# To deploy using the Modal CLI by running `modal deploy web_badges.py`,
+# To deploy using the Modal CLI by running `modal deploy badges.py`,
 #
 # Either way, as soon as we run this command, Modal gives us the link to our brand new
 # webhook in the output:

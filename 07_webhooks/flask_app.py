@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 import modal
 
 stub = modal.Stub(

@@ -1,5 +1,5 @@
 # ---
-# args: ["train"]
+# cmd: ["modal", "run", "vision_model_training.py::stub.train"]
 # deploy: true
 # integration-test: false
 # lambda-test: false
@@ -119,7 +119,7 @@ def download_dataset():
 # Fine-tuning the base ResNet model takes about 30-40 minutes on a GPU. To avoid
 # needing to keep our terminal active, we can run training as a 'detached run'.
 #
-# `MODAL_GPU=any modal run --detach vision_model_training.py train`
+# `MODAL_GPU=any modal run --detach vision_model_training.py::stub.train`
 #
 
 

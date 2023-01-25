@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# args: ["prep"]
 # ---
 # # Publish interactive datasets with Datasette
 #

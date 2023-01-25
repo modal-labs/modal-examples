@@ -1,3 +1,6 @@
+# ---
+# args: ["--message", "what's up?"]
+# ---
 """Single-page application that lets you talk to a transformer chatbot.
 
 This is a complex example demonstrating an end-to-end web application backed by
@@ -72,3 +75,9 @@ def generate_response(message: str, id: Optional[str] = None) -> Tuple[str, str]
 
     chat_histories[id] = chat_history
     return id, response
+
+
+@stub.local_entrypoint
+def test_response(message: str):
+    _, response = generate_response.call(message)
+    print(response)

@@ -1,5 +1,5 @@
 # ---
-# args: ["just-run"]
+# args: ["--just-run=1"]
 # ---
 # # Tensorflow tutorial
 #
@@ -17,7 +17,6 @@
 # We also need to install `cudatoolkit` and `cudnn` for it to work.
 # Other than that, installing the `tensorflow` Python package is essentially enough.
 
-import sys
 import time
 
 import modal
@@ -166,14 +165,13 @@ def tensorboard_app():
 # The first time you run it, it might have to build the image, which can take an additional few minutes.
 
 
-if __name__ == "__main__":
-    arg = None if len(sys.argv) < 2 else sys.argv[1]
-    with stub.run():
-        train.call()
-        if arg != "just-run":
-            print("Training is done, but app is still running until you hit ctrl-c")
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                print("Terminating app")
+@stub.local_entrypoint()
+def main(just_run: bool = False):
+    train.call()
+    if not just_run:
+        print("Training is done, but app is still running until you hit ctrl-c")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("Terminating app")

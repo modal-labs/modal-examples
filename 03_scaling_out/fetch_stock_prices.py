@@ -10,7 +10,7 @@
 # You can run this script on the terminal with
 #
 # ```bash
-# python 03_scaling_out/fetch_stock_prices.py
+# modal run 03_scaling_out/fetch_stock_prices.py
 # ```
 #
 # If everything goes well, it should plot something like this:
