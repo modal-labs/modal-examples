@@ -1,4 +1,5 @@
 # ---
+# cmd: ["modal", "run", "07_webhooks.chatbot_spa::stub.generate_response"]
 # args: ["--message", "what's up?"]
 # ---
 """Single-page application that lets you talk to a transformer chatbot.
@@ -75,16 +76,3 @@ def generate_response(message: str, id: Optional[str] = None) -> Tuple[str, str]
 
     chat_histories[id] = chat_history
     return id, response
-
-
-# Test a single response: `modal run chatbot_spa::stub.test_response --message="what's up?"`
-@stub.local_entrypoint
-def test_response(message: str):
-    _, response = generate_response.call(message, None)
-    print(response)
-
-
-# Run this as a temporary web app using:
-# `modal serve chatbot_spa.py`
-# Or deploy it using
-# `modal deploy chatbot_spa.py`

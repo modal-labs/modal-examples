@@ -52,7 +52,3 @@ async def web_poll(function_id: str):
 @stub.asgi
 def fastapi_app():
     return web_app
-
-
-if __name__ == "__main__":
-    stub.serve()

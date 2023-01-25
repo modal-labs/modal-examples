@@ -1,6 +1,3 @@
-# ---
-# lambda-test: false
-# ---
 # # Serve a dynamic SVG badge
 
 # In this example, we use Modal's [webhook](/docs/guide/webhooks) capability to host a dynamic SVG badge that shows
@@ -48,11 +45,14 @@ async def package_downloads(package_name: str):
 
 # ## Running and deploying
 #
-# We can now run this function as follows:
-# `modal serve badges.py`
-
-# Running this temporarily deploys the app to Modal and creates a short-lived web url that exists
-# until you terminate the script.
+# We can now run an ephemeral app on the command line using:
+#
+# ```shell
+# modal serve badges.py
+# ```
+#
+# This will create a short-lived web url that exists until you terminate the script.
+# It will also hot-reload the code if you make changes to it.
 #
 # If you want to create a persistent URL, you have to deploy the script.
 # To deploy using the Modal CLI by running `modal deploy badges.py`,

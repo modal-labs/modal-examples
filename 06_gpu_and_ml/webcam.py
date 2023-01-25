@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# lambda-test: false
 # ---
 # # Machine learning model inference endpoint that uses the webcam
 #
@@ -177,4 +176,8 @@ def fastapi_app():
 
 # ## Running this locally
 #
-# To try this out, run `modal serve webcam.py`
+# You can run this as an ephemeral app, by running
+#
+# ```shell
+# modal serve webcam.py
+# ```

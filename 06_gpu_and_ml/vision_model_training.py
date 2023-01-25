@@ -1,4 +1,5 @@
 # ---
+# cmd: ["modal", "run", "vision_model_training.py::stub.train"]
 # deploy: true
 # integration-test: false
 # lambda-test: false
@@ -129,7 +130,7 @@ def download_dataset():
     secret=modal.Secret.from_name("wandb"),
     timeout=2700,  # 45 minutes
 )
-def train(config: Config = Config()):
+def train():
     import wandb
     from fastai.callback.wandb import WandbCallback
     from fastai.data.transforms import parent_label
@@ -144,6 +145,8 @@ def train(config: Config = Config()):
     )
 
     from modal import container_app
+
+    config: Config = Config()
 
     print("Downloading dataset")
     dataset_path = download_dataset()
@@ -289,9 +292,24 @@ def fastapi_app():
     )
 
 
-@stub.local_entrypoint
-def main():
-    train.call()
-
-
+## Running this
+#
+# To run training as an ephemeral app:
+#
+# ```shell
+# modal run vision_model_training.py::stub.train
+# ```
+#
+# To test the model on an image, run:
+#
+# ```shell
+# modal run vision_model_training.py::stub.classify_url --image-url <url>
+# ```
+#
+# To run the Gradio server, run:
+#
+# ```shell
+# modal serve vision_model_training.py
+# ```
+#
 # This ML app is already deployed on Modal and you can try it out at https://modal-labs-example-fastai-wandb-gradio-cifar10-demo-fastapi-app.modal.run.

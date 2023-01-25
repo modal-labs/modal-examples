@@ -2,7 +2,7 @@
 
 This is a complete application that uses [OpenAI Whisper](https://github.com/openai/whisper) to transcribe podcasts. Modal spins up 100-300 containers for a single transcription run, so hours of audio can be transcribed on-demand in a few minutes.
 
-You can find the app here: https://modal-labs-whisper-pod-transcriber-fastapi-app.modal.run/
+You can find the app here: https://modal-labs--whisper-pod-transcriber-fastapi-app.modal.run/
 
 ## Architecture
 
@@ -41,7 +41,12 @@ The last command will start a watcher process that will rebuild your static fron
 
 ### Serve on Modal
 
-Once you have `vite build` running, in a separate shell run `python -m whisper_pod_transcriber.main serve` (from the directory above this one) to start [serving](https://modal.com/docs/reference/modal.Stub#serve) your app on Modal. Pressing `Ctrl+C` will stop your app.
+Once you have `vite build` running, in a separate shell run (from the directory above this one)
+```shell
+modal serve whisper_pod_transcriber.main
+```
+to start an ephemeral app on Modal. Pressing `Ctrl+C` will stop your app.
+
 
 ### Deploy to Modal
 
