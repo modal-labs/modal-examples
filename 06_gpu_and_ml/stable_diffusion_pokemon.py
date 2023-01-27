@@ -108,7 +108,7 @@ def fastapi_app():
         fn=go,
         inputs="text",
         outputs=gr.Image(shape=(512, 512)),
-        title=f"Generate Pokemon images",
+        title="Generate Pokemon images",
         allow_flagging="never",
     )
 
