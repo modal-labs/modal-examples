@@ -33,7 +33,9 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 # and then uses it to post a message to a given channel name.
 
 
-@stub.function(image=slack_sdk_image, secret=modal.Secret.from_name("hn-bot-slack"))
+@stub.function(
+    image=slack_sdk_image, secret=modal.Secret.from_name("hn-bot-slack")
+)
 async def post_to_slack(message: str):
     import slack_sdk
 
@@ -66,7 +68,10 @@ def search_hackernews():
 
     threshold = datetime.utcnow() - timedelta(days=WINDOW_SIZE_DAYS)
 
-    params = {"query": QUERY, "numericFilters": f"created_at_i>{threshold.timestamp()}"}
+    params = {
+        "query": QUERY,
+        "numericFilters": f"created_at_i>{threshold.timestamp()}",
+    }
 
     response = requests.get(url, params).json()
     urls = [item["url"] for item in response["hits"] if item["url"]]

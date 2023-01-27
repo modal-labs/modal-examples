@@ -10,7 +10,11 @@ import mypy.api
 
 
 def fetch_git_repo_root() -> pathlib.Path:
-    return pathlib.Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("ascii").strip())
+    return pathlib.Path(
+        subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
+        .decode("ascii")
+        .strip()
+    )
 
 
 def run_mypy(toplevel_pkg: str, config_file: pathlib.Path) -> list[str]:
@@ -39,7 +43,9 @@ def main() -> int:
 
     # Type-check scripts:
     # (Only finds numbered folders up until '99_*')
-    topic_dirs = sorted([d for d in repo_root.iterdir() if d.name[:2].isdigit()])
+    topic_dirs = sorted(
+        [d for d in repo_root.iterdir() if d.name[:2].isdigit()]
+    )
     for topic_dir in topic_dirs:
         print(f"⌛️ running mypy on '{topic_dir.name}'", file=sys.stderr)
         topic_errors = extract_errors(
@@ -66,7 +72,10 @@ def main() -> int:
             )
         )
         if package_errors:
-            print(f"found {len(package_errors)} errors in '{toplevel_pkg}'", file=sys.stderr)
+            print(
+                f"found {len(package_errors)} errors in '{toplevel_pkg}'",
+                file=sys.stderr,
+            )
             print("\n".join(package_errors))
             errors.extend(package_errors)
 

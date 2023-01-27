@@ -33,8 +33,12 @@ async def index():
 
 @web_app.get("/factors")
 async def web_submit(request: fastapi.Request, number: int):
-    call = factor_number.spawn(number)  # returns a FunctionCall without waiting for result
-    polling_url = request.url.replace(path="/result", query=f"function_id={call.object_id}")
+    call = factor_number.spawn(
+        number
+    )  # returns a FunctionCall without waiting for result
+    polling_url = request.url.replace(
+        path="/result", query=f"function_id={call.object_id}"
+    )
     return RedirectResponse(polling_url)
 
 

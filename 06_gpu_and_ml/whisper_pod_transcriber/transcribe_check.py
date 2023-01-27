@@ -2,12 +2,21 @@ import pathlib
 
 from . import config
 from . import podcast
-from .main import stub, app_image, split_silences, transcribe_episode, transcribe_segment, volume
+from .main import (
+    stub,
+    app_image,
+    split_silences,
+    transcribe_episode,
+    transcribe_segment,
+    volume,
+)
 
 logger = config.get_logger(__name__)
 
 
-def _transcribe_serially(audio_path: pathlib.Path, offset: int = 0) -> list[tuple[float, float]]:
+def _transcribe_serially(
+    audio_path: pathlib.Path, offset: int = 0
+) -> list[tuple[float, float]]:
     model = config.DEFAULT_MODEL
     segment_gen = split_silences(str(audio_path))
     failed_segments = []
@@ -16,7 +25,9 @@ def _transcribe_serially(audio_path: pathlib.Path, offset: int = 0) -> list[tupl
             continue
         logger.info(f"Attempting transcription of ({start}, {end})...")
         try:
-            transcribe_segment(start=start, end=end, audio_filepath=audio_path, model=model)
+            transcribe_segment(
+                start=start, end=end, audio_filepath=audio_path, model=model
+            )
         except Exception as exc:
             logger.info(f"Transcription failed for ({start}, {end}).")
             print(exc)
@@ -25,7 +36,9 @@ def _transcribe_serially(audio_path: pathlib.Path, offset: int = 0) -> list[tupl
     return failed_segments
 
 
-@stub.function(image=app_image, shared_volumes={config.CACHE_DIR: volume}, timeout=1000)
+@stub.function(
+    image=app_image, shared_volumes={config.CACHE_DIR: volume}, timeout=1000
+)
 def test_transcribe_handles_dangling_segment():
     """
     Some podcast episodes have an empty, dangling audio segment after being split on silences.
@@ -50,7 +63,9 @@ def test_transcribe_handles_dangling_segment():
         "episode_url": "https://www.podchaser.com/podcasts/super-data-science-217829/episodes/sds-503-deep-reinforcement-lea-98045099",
         "original_download_link": "http://www.podtrac.com/pts/redirect.mp3/feeds.soundcloud.com/stream/1120216126-superdatascience-sds-503-deep-reinforcement-learning-for-robotics.mp3",
     }
-    audio_path = pathlib.Path(config.CACHE_DIR, "test", f"{problem_episode['guid_hash']}.tmp.mp3")
+    audio_path = pathlib.Path(
+        config.CACHE_DIR, "test", f"{problem_episode['guid_hash']}.tmp.mp3"
+    )
     audio_path.parent.mkdir(exist_ok=True)
     podcast.store_original_audio(
         url=problem_episode["original_download_link"],
@@ -60,7 +75,11 @@ def test_transcribe_handles_dangling_segment():
     model = config.DEFAULT_MODEL
 
     try:
-        result_path = pathlib.Path(config.CACHE_DIR, "test", f"{problem_episode['guid_hash']}.transcription.json")
+        result_path = pathlib.Path(
+            config.CACHE_DIR,
+            "test",
+            f"{problem_episode['guid_hash']}.transcription.json",
+        )
         transcribe_episode(
             audio_filepath=audio_path,
             result_path=result_path,
@@ -68,7 +87,9 @@ def test_transcribe_handles_dangling_segment():
         )
     except Exception as exc:
         print(exc)
-        logger.error("Transcription failed. Proceeding to checks of individual segments.")
+        logger.error(
+            "Transcription failed. Proceeding to checks of individual segments."
+        )
     else:
         return  # Transcription worked fine.
 
@@ -79,10 +100,18 @@ def test_transcribe_handles_dangling_segment():
     end = problem_segment[1]
     logger.info(f"Problem segment time range is ({start}, {end})")
     try:
-        transcribe_segment(start=start, end=end, audio_filepath=audio_path, model=model)
+        transcribe_segment(
+            start=start, end=end, audio_filepath=audio_path, model=model
+        )
     except Exception:
-        logger.info("Writing the problem segment to shared volume for further debugging.")
-        bad_segment_path = pathlib.Path(config.CACHE_DIR, "test", f"{problem_episode['guid_hash']}.badsegment.mp3")
+        logger.info(
+            "Writing the problem segment to shared volume for further debugging."
+        )
+        bad_segment_path = pathlib.Path(
+            config.CACHE_DIR,
+            "test",
+            f"{problem_episode['guid_hash']}.badsegment.mp3",
+        )
         with open(bad_segment_path, "wb") as f:
             (
                 ffmpeg.input(str(audio_path))

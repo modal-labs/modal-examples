@@ -71,7 +71,9 @@ CACHE_PATH = "/root/model_cache"
     gpu="A10G",
     image=(
         modal.Image.debian_slim()
-        .run_commands("pip install torch --extra-index-url https://download.pytorch.org/whl/cu117")
+        .run_commands(
+            "pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"
+        )
         .pip_install("diffusers", "transformers", "scipy", "ftfy", "accelerate")
     ),
     shared_volumes={CACHE_PATH: volume},

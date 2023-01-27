@@ -26,7 +26,9 @@ async def handle_root(user_agent: Optional[str] = Header(None)):
 
 @web_app.post("/foo")
 async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
-    print(f"POST /foo - received user_agent={user_agent}, item.name={item.name}")
+    print(
+        f"POST /foo - received user_agent={user_agent}, item.name={item.name}"
+    )
     return item
 
 

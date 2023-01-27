@@ -87,7 +87,9 @@ assets_path = Path(__file__).parent / "doc_ocr_frontend"
 
 @stub.asgi(mounts=[modal.Mount("/assets", local_dir=assets_path)])
 def wrapper():
-    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
+    web_app.mount(
+        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+    )
 
     return web_app
 

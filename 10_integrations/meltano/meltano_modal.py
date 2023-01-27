@@ -31,7 +31,9 @@ meltano_conf = modal.Secret(
 
 
 def install_project_deps():
-    os.environ["MELTANO_DATABASE_URI"] = "sqlite:////.empty_meltano.db"  # dummy during installation
+    os.environ[
+        "MELTANO_DATABASE_URI"
+    ] = "sqlite:////.empty_meltano.db"  # dummy during installation
     subprocess.check_call(["meltano", "install"])
     # delete empty logs dir, so running containers can add a symlink instead
     shutil.rmtree(REMOTE_LOGS_PATH, ignore_errors=True)
@@ -71,10 +73,15 @@ def meltano_ui(self):
 
 
 # Run this example using `modal run meltano_modal.py::stub.extract_and_load`
-@stub.function(shared_volumes={PERSISTED_VOLUME_PATH: storage}, schedule=modal.Period(days=1))
+@stub.function(
+    shared_volumes={PERSISTED_VOLUME_PATH: storage},
+    schedule=modal.Period(days=1),
+)
 def extract_and_load():
     symlink_logs()
-    subprocess.call(["meltano", "run", "download_sample_data", "tap-csv", "target-sqlite"])
+    subprocess.call(
+        ["meltano", "run", "download_sample_data", "tap-csv", "target-sqlite"]
+    )
 
 
 # Interactive sqlite3 exploration using `modal run meltano_modal.py::stub.explore`

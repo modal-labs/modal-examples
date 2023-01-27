@@ -25,7 +25,12 @@ stub = modal.Stub(
     "example-tensorflow-tutorial",
     image=(
         modal.Image.conda()
-        .conda_install("cudatoolkit=11.2", "cudnn=8.1.0", "cuda-nvcc", channels=["conda-forge", "nvidia"])
+        .conda_install(
+            "cudatoolkit=11.2",
+            "cudnn=8.1.0",
+            "cuda-nvcc",
+            channels=["conda-forge", "nvidia"],
+        )
         .pip_install("tensorflow~=2.9.1")
     ),
 )
@@ -58,7 +63,9 @@ def train():
     from tensorflow.keras.models import Sequential
 
     dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
-    data_dir = tf.keras.utils.get_file("flower_photos", origin=dataset_url, untar=True)
+    data_dir = tf.keras.utils.get_file(
+        "flower_photos", origin=dataset_url, untar=True
+    )
     data_dir = pathlib.Path(data_dir)
 
     batch_size = 32
@@ -84,7 +91,9 @@ def train():
     )
 
     class_names = train_ds.class_names
-    train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
+    train_ds = (
+        train_ds.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
+    )
     val_ds = val_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
     num_classes = len(class_names)
 

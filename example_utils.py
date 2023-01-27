@@ -66,9 +66,13 @@ def render_example_md(example: Example) -> str:
 
 def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
     if not directory.exists():
-        raise Exception(f"Can't find directory {directory}. You might need to clone the modal-examples repo there")
+        raise Exception(
+            f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
+        )
 
-    config = jupytext.config.JupytextConfiguration(root_level_metadata_as_raw_cell=False)
+    config = jupytext.config.JupytextConfiguration(
+        root_level_metadata_as_raw_cell=False
+    )
     ignored = []
     for subdir in sorted(list(directory.iterdir())):
         if not subdir.is_dir():
@@ -80,7 +84,9 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
             if ext == ".py":
                 module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
-                metadata = data["metadata"]["jupytext"].get("root_level_metadata", {})
+                metadata = data["metadata"]["jupytext"].get(
+                    "root_level_metadata", {}
+                )
                 yield Example(
                     ExampleType.MODULE,
                     filename_abs,
@@ -89,7 +95,9 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
                     repo_filename,
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
-                yield Example(ExampleType.ASSET, filename_abs, None, None, repo_filename)
+                yield Example(
+                    ExampleType.ASSET, filename_abs, None, None, repo_filename
+                )
             else:
                 ignored.append(str(filename))
     if not silent:

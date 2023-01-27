@@ -15,8 +15,12 @@ import modal
 
 # The S3 locations of the assets we want to render, and the frame ranges.
 
-SCENE_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_cam.blend"
-MATERIALS_FILENAME = "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
+SCENE_FILENAME = (
+    "https://modal-public-assets.s3.amazonaws.com/living_room_cam.blend"
+)
+MATERIALS_FILENAME = (
+    "https://modal-public-assets.s3.amazonaws.com/living_room_final.mtl"
+)
 
 START_FRAME = 32
 END_FRAME = 34
@@ -51,7 +55,9 @@ dockerfile_commands = [
 ]
 stub = modal.Stub(
     "example-blender-video",
-    image=modal.Image.debian_slim(python_version="3.9").dockerfile_commands(dockerfile_commands),
+    image=modal.Image.debian_slim(python_version="3.9").dockerfile_commands(
+        dockerfile_commands
+    ),
 )
 
 
@@ -72,7 +78,9 @@ if stub.is_inside():
     bpy.data.scenes[0].render.engine = "CYCLES"
 
     # Set the device_type
-    bpy.context.preferences.addons["cycles"].preferences.compute_device_type = "CUDA"
+    bpy.context.preferences.addons[
+        "cycles"
+    ].preferences.compute_device_type = "CUDA"
 
     # Set the device and feature set
     bpy.context.scene.cycles.device = "GPU"
@@ -84,7 +92,9 @@ if stub.is_inside():
 
     print(
         "Has active device:",
-        bpy.context.preferences.addons["cycles"].preferences.has_active_device(),
+        bpy.context.preferences.addons[
+            "cycles"
+        ].preferences.has_active_device(),
     )
 
     bpy.data.scenes[0].render.tile_x = 64
@@ -143,7 +153,10 @@ def main():
 
     from PIL import Image
 
-    img, *imgs = [Image.open(f) for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))]
+    img, *imgs = [
+        Image.open(f)
+        for f in sorted(glob.glob(os.path.join(OUTPUT_DIR, "scene*.png")))
+    ]
     img.save(
         fp=os.path.join(OUTPUT_DIR, "scene.gif"),
         format="GIF",

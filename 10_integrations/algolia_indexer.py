@@ -66,7 +66,9 @@ CONFIG = {
 # so we're invoking it using a subprocess.
 
 
-@stub.function(image=algolia_image, secrets=[modal.Secret.from_name("algolia-secret")])
+@stub.function(
+    image=algolia_image, secrets=[modal.Secret.from_name("algolia-secret")]
+)
 def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(

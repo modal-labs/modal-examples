@@ -75,7 +75,9 @@ def download_dataset(cache=True):
         print(f"Dataset already present and {cache=}. Skipping download.")
         return
     elif REPO_DIR.exists():
-        print("Acquiring lock before deleting dataset, which may be in use by other runs.")
+        print(
+            "Acquiring lock before deleting dataset, which may be in use by other runs."
+        )
         with Lock(LOCK_FILE, default_timeout=timedelta(hours=1)):
             shutil.rmtree(REPO_DIR)
         print("Cleaned dataset before re-downloading.")
@@ -94,7 +96,9 @@ def download_dataset(cache=True):
 
 def load_daily_reports():
     jhu_csse_base = REPO_DIR
-    reports_path = jhu_csse_base / "csse_covid_19_data" / "csse_covid_19_daily_reports"
+    reports_path = (
+        jhu_csse_base / "csse_covid_19_data" / "csse_covid_19_daily_reports"
+    )
     daily_reports = list(reports_path.glob("*.csv"))
     for filepath in daily_reports:
         yield from load_report(filepath)
@@ -107,18 +111,29 @@ def load_report(filepath):
     with filepath.open() as fp:
         for row in csv.DictReader(fp):
             province_or_state = (
-                row.get("\ufeffProvince/State") or row.get("Province/State") or row.get("Province_State") or None
+                row.get("\ufeffProvince/State")
+                or row.get("Province/State")
+                or row.get("Province_State")
+                or None
             )
-            country_or_region = row.get("Country_Region") or row.get("Country/Region")
+            country_or_region = row.get("Country_Region") or row.get(
+                "Country/Region"
+            )
             yield {
                 "day": f"{yyyy}-{mm}-{dd}",
-                "country_or_region": country_or_region.strip() if country_or_region else None,
-                "province_or_state": province_or_state.strip() if province_or_state else None,
+                "country_or_region": country_or_region.strip()
+                if country_or_region
+                else None,
+                "province_or_state": province_or_state.strip()
+                if province_or_state
+                else None,
                 "confirmed": int(float(row["Confirmed"] or 0)),
                 "deaths": int(float(row["Deaths"] or 0)),
                 "recovered": int(float(row["Recovered"] or 0)),
                 "active": int(row["Active"]) if row.get("Active") else None,
-                "last_update": row.get("Last Update") or row.get("Last_Update") or None,
+                "last_update": row.get("Last Update")
+                or row.get("Last_Update")
+                or None,
             }
 
 
@@ -152,7 +167,9 @@ def prep_db():
     records = load_daily_reports()
 
     with Lock(
-        LOCK_FILE, lifetime=timedelta(minutes=2), default_timeout=timedelta(hours=1)
+        LOCK_FILE,
+        lifetime=timedelta(minutes=2),
+        default_timeout=timedelta(hours=1),
     ) as lck, tempfile.NamedTemporaryFile() as tmp:
         db = sqlite_utils.Database(tmp.name)
         table = db["johns_hopkins_csse_daily_reports"]

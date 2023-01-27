@@ -94,7 +94,9 @@ class TrainConfig(SharedConfig):
     postfix: str = ""
 
     # locator for plaintext file with urls for images of target instance
-    instance_example_urls_file: str = str(Path(__file__).parent / "dreambooth_app/instance_example_urls.txt")
+    instance_example_urls_file: str = str(
+        Path(__file__).parent / "dreambooth_app/instance_example_urls.txt"
+    )
 
     # identifier for pretrained model on Hugging Face
     model_name: str = "runwayml/stable-diffusion-v1-5"
@@ -175,7 +177,9 @@ def load_images(image_urls):
     image=image,
     gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
     shared_volumes={
-        str(MODEL_DIR): volume,  # fine-tuned model will be stored at `MODEL_DIR`
+        str(
+            MODEL_DIR
+        ): volume,  # fine-tuned model will be stored at `MODEL_DIR`
     },
     timeout=1800,  # 30 minutes
     secrets=[modal.Secret.from_name("huggingface")],
@@ -263,7 +267,9 @@ def fastapi_app(config=AppConfig()):
 
     # set up a hugging face inference pipeline using our model
     ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
-    pipe = StableDiffusionPipeline.from_pretrained(MODEL_DIR, scheduler=ddim, torch_dtype=torch.float16).to("cuda")
+    pipe = StableDiffusionPipeline.from_pretrained(
+        MODEL_DIR, scheduler=ddim, torch_dtype=torch.float16
+    ).to("cuda")
     pipe.enable_xformers_memory_efficient_attention()
 
     # wrap inference in a text-to-image function

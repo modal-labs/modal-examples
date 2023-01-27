@@ -9,7 +9,7 @@ pythonpath = [
 ]
 
 [tool.black]
-line-length = 120
+line-length = 80
 
 [tool.mypy]
 ignore_missing_imports = true

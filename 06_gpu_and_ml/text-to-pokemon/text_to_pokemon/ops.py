@@ -34,7 +34,9 @@ def reset_diskcache(dry_run=True) -> None:
             if not dry_run:
                 filepath.unlink()
         if files and dry_run:
-            print(f"🏜 dry-run: would have deleted {i+1} Pokémon character samples")
+            print(
+                f"🏜 dry-run: would have deleted {i+1} Pokémon character samples"
+            )
         elif files:
             print(f"deleted {i+1} Pokémon character samples")
         else:
@@ -123,7 +125,9 @@ def generate_pokemon_names():
         max_sequence_len=max_sequence_len,
     )
 
-    print(f"Storing {desired_generations} generated names. eg. '{new_names[0]}'")
+    print(
+        f"Storing {desired_generations} generated names. eg. '{new_names[0]}'"
+    )
     output_path = config.POKEMON_NAMES / "rnn.txt"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(new_names))
@@ -132,13 +136,21 @@ def generate_pokemon_names():
 def main() -> int:
     parser = argparse.ArgumentParser(prog="text-to-pokemon-ops")
     sub_parsers = parser.add_subparsers(dest="subcommand")
-    sub_parsers.add_parser("extract-colors", help="Extract colors for all Pokémon base cards.")
-    sub_parsers.add_parser("gen-pokemon-names", help="Generate new Pokémon names.")
+    sub_parsers.add_parser(
+        "extract-colors", help="Extract colors for all Pokémon base cards."
+    )
+    sub_parsers.add_parser(
+        "gen-pokemon-names", help="Generate new Pokémon names."
+    )
     parser_reset_diskcache = sub_parsers.add_parser(
-        "reset-diskcache", help="Delete all cached Pokémon card parts from volume."
+        "reset-diskcache",
+        help="Delete all cached Pokémon card parts from volume.",
     )
     parser_reset_diskcache.add_argument(
-        "--nodry-run", action="store_true", default=False, help="Actually delete files from volume."
+        "--nodry-run",
+        action="store_true",
+        default=False,
+        help="Actually delete files from volume.",
     )
 
     args = parser.parse_args()
@@ -154,7 +166,9 @@ def main() -> int:
     elif args.subcommand is None:
         parser.print_help(sys.stderr)
     else:
-        raise AssertionError(f"Unimplemented subcommand '{args.subcommand}' was invoked.")
+        raise AssertionError(
+            f"Unimplemented subcommand '{args.subcommand}' was invoked."
+        )
     return 0
 
 
