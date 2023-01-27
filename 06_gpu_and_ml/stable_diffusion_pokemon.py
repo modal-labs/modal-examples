@@ -9,17 +9,24 @@ import modal
 web_app = FastAPI()
 stub = modal.Stub(name="stable-diffusion-fine-tune-pokemon")
 
-image = modal.Image.debian_slim().run_commands([
-    "apt-get install -y git wget libgl1 libglib2.0-0",
-    "git clone https://github.com/justinpinkney/stable-diffusion.git repo",
-    "cd repo && pip install -r requirements.txt",
-]).pip_install("gradio~=3.10")
+image = (
+    modal.Image.debian_slim()
+    .run_commands(
+        [
+            "apt-get install -y git wget libgl1 libglib2.0-0",
+            "git clone https://github.com/justinpinkney/stable-diffusion.git repo",
+            "cd repo && pip install -r requirements.txt",
+        ]
+    )
+    .pip_install("gradio~=3.10")
+)
 
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
 volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
 MODEL_DIR = Path("/stable-diffusion")
+
 
 @stub.function(
     image=image,
@@ -36,7 +43,14 @@ def train():
     subprocess.check_call(["cp", "-R", "repo", "stable-diffusion"], cwd=Path("/"))
 
     print("Downloading model")
-    subprocess.check_call(["wget", "-q", "https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/sd-v1-4-full-ema.ckpt"], cwd=MODEL_DIR)
+    subprocess.check_call(
+        [
+            "wget",
+            "-q",
+            "https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/sd-v1-4-full-ema.ckpt",
+        ],
+        cwd=MODEL_DIR,
+    )
 
     print("Starting training")
     subprocess.run(
@@ -59,6 +73,7 @@ def train():
         ],
         cwd=MODEL_DIR,
     )
+
 
 # ## Wrap the trained model in Gradio's web UI
 #
@@ -84,7 +99,9 @@ def fastapi_app():
     # take the latest one in logs
     logs_dir = max(os.listdir(MODEL_DIR / "logs"))
     checkpoint = "last.ckpt"
-    go = prepare_model(MODEL_DIR / "configs/stable-diffusion/pokemon.yaml",  MODEL_DIR / f"logs/{logs_dir}/checkpoints/{checkpoint}")
+    go = prepare_model(
+        MODEL_DIR / "configs/stable-diffusion/pokemon.yaml", MODEL_DIR / f"logs/{logs_dir}/checkpoints/{checkpoint}"
+    )
 
     # add a gradio UI around inference
     interface = gr.Interface(
@@ -101,6 +118,7 @@ def fastapi_app():
         blocks=interface,
         path="/",
     )
+
 
 def load_model_from_config(config, ckpt, verbose=False):
     import torch
@@ -123,6 +141,7 @@ def load_model_from_config(config, ckpt, verbose=False):
     model.cuda()
     model.eval()
     return model
+
 
 # from https://github.com/justinpinkney/stable-diffusion/blob/main/scripts/txt2img.py
 def prepare_model(config_file, ckpt_file):
@@ -161,7 +180,7 @@ def prepare_model(config_file, ckpt_file):
                 x_samples_ddim = model.decode_first_stage(samples_ddim)
                 x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
                 x_sample = x_samples_ddim[0]
-                x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                x_sample = 255.0 * rearrange(x_sample.cpu().numpy(), "c h w -> h w c")
                 return Image.fromarray(x_sample.astype(np.uint8))
 
     return go
