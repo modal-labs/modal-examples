@@ -16,7 +16,10 @@ class DeployError(NamedTuple):
 
 
 def deploy(
-    deployable: bool, module_with_stub: Path, dry_run: bool, filter_pttrn: Optional[str]
+    deployable: bool,
+    module_with_stub: Path,
+    dry_run: bool,
+    filter_pttrn: Optional[str],
 ) -> Optional[DeployError]:
     if filter_pttrn and not re.match(filter_pttrn, module_with_stub.name):
         return None
@@ -36,9 +39,14 @@ def deploy(
             capture_output=True,
         )
         if r.returncode != 0:
-            print(f"⚠️ deployment failed: '{module_with_stub.name}'", file=sys.stderr)
+            print(
+                f"⚠️ deployment failed: '{module_with_stub.name}'",
+                file=sys.stderr,
+            )
             print(r.stderr)
-            return DeployError(stdout=r.stdout, stderr=r.stderr, code=r.returncode)
+            return DeployError(
+                stdout=r.stdout, stderr=r.stderr, code=r.returncode
+            )
         else:
             print(f"✔️ deployed '{module_with_stub.name}")
     return None
@@ -50,7 +58,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         add_help=True,
     )
     parser.add_argument(
-        "--dry-run", default=True, action="store_true", help="show what apps be deployed without deploying them."
+        "--dry-run",
+        default=True,
+        action="store_true",
+        help="show what apps be deployed without deploying them.",
     )
     parser.add_argument("--no-dry-run", dest="dry_run", action="store_false")
     parser.add_argument(
@@ -61,10 +72,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     arguments = parser.parse_args()
 
     if arguments.dry_run:
-        print("INFO: dry-run is active. Intended deployments will be displayed to console.")
+        print(
+            "INFO: dry-run is active. Intended deployments will be displayed to console."
+        )
 
-    example_modules = (ex for ex in get_examples() if ex.type == ExampleType.MODULE)
-    filter_pttrn = (r".*" + arguments.filter + r".*") if arguments.filter else None
+    example_modules = (
+        ex for ex in get_examples() if ex.type == ExampleType.MODULE
+    )
+    filter_pttrn = (
+        (r".*" + arguments.filter + r".*") if arguments.filter else None
+    )
     results = [
         deploy(
             deployable=bool(ex_mod.metadata.get("deploy")),

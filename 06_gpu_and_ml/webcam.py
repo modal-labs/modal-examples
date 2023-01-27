@@ -76,14 +76,20 @@ class ObjectDetection:
     def __enter__(self):
         from transformers import DetrFeatureExtractor, DetrForObjectDetection
 
-        self.feature_extractor = DetrFeatureExtractor.from_pretrained("facebook/detr-resnet-50")
-        self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
+        self.feature_extractor = DetrFeatureExtractor.from_pretrained(
+            "facebook/detr-resnet-50"
+        )
+        self.model = DetrForObjectDetection.from_pretrained(
+            "facebook/detr-resnet-50"
+        )
 
     @stub.function(
         cpu=4,
         shared_volumes={"/cache": modal.SharedVolume()},
         image=image,
-        secret=modal.Secret({"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}),
+        secret=modal.Secret(
+            {"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}
+        ),
     )
     def detect(self, img_data_in):
         # Based on https://huggingface.co/spaces/nateraw/detr-object-detection/blob/main/app.py
@@ -98,7 +104,9 @@ class ObjectDetection:
         inputs = self.feature_extractor(image, return_tensors="pt")
         outputs = self.model(**inputs)
         img_size = torch.tensor([tuple(reversed(image.size))])
-        processed_outputs = self.feature_extractor.post_process(outputs, img_size)
+        processed_outputs = self.feature_extractor.post_process(
+            outputs, img_size
+        )
         output_dict = processed_outputs[0]
 
         # Grab boxes
@@ -109,7 +117,9 @@ class ObjectDetection:
 
         # Plot bounding boxes
         colors = list(ImageColor.colormap.values())
-        font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMono.ttf", 18)
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/freefont/FreeMono.ttf", 18
+        )
         output_image = Image.new("RGBA", (image.width, image.height))
         output_image_draw = ImageDraw.Draw(output_image)
         for score, box, label in zip(scores, boxes, labels):
@@ -117,7 +127,9 @@ class ObjectDetection:
             text = self.model.config.id2label[label]
             box = tuple(map(int, box))
             output_image_draw.rectangle(box, outline=color)
-            output_image_draw.text(box[:2], text, font=font, fill=color, width=3)
+            output_image_draw.text(
+                box[:2], text, font=font, fill=color, width=3
+            )
 
         # Return PNG as bytes
         with io.BytesIO() as output_buf:

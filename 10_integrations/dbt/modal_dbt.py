@@ -32,18 +32,26 @@ dbt_env = modal.Secret(
     }
 )
 
-image = modal.Image.debian_slim().pip_install("dbt-sqlite").run_commands("apt-get install -y git")
+image = (
+    modal.Image.debian_slim()
+    .pip_install("dbt-sqlite")
+    .run_commands("apt-get install -y git")
+)
 
 # raw data loaded by meltano, see the meltano example in 10_integrations/meltano
 raw_volume = modal.SharedVolume.from_name("meltano_volume")
 
 # output schemas
 db_volume = modal.SharedVolume().persist("dbt_dbs")
-project_mount = modal.Mount(local_dir=LOCAL_DBT_PROJECT, remote_dir=REMOTE_DBT_PROJECT)
+project_mount = modal.Mount(
+    local_dir=LOCAL_DBT_PROJECT, remote_dir=REMOTE_DBT_PROJECT
+)
 stub = modal.Stub(image=image, mounts=[project_mount], secrets=[dbt_env])
 
 
-@stub.function(shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume})
+@stub.function(
+    shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume}
+)
 def dbt_cli(subcommand: typing.List):
     os.chdir(REMOTE_DBT_PROJECT)
     subprocess.check_call(["dbt"] + subcommand)

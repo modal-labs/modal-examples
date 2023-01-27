@@ -54,7 +54,9 @@ FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
 USE_GPU = os.environ.get("MODAL_GPU")
 MODEL_EXPORT_PATH = pathlib.Path(MODEL_CACHE, "model-exports", "inference.pkl")
-os.environ["FASTAI_HOME"] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
+os.environ[
+    "FASTAI_HOME"
+] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
 
 # ## Config
 #
@@ -153,7 +155,11 @@ def train():
 
     wandb_enabled = bool(os.environ.get("WANDB_API_KEY"))
     if wandb_enabled:
-        wandb.init(id=container_app.app_id, project=config.wandb.project, entity=config.wandb.entity)
+        wandb.init(
+            id=container_app.app_id,
+            project=config.wandb.project,
+            entity=config.wandb.entity,
+        )
         callbacks = WandbCallback()
     else:
         callbacks = None
@@ -169,13 +175,17 @@ def train():
 
         dls = dblock.dataloaders(dataset_path, bs=64)
 
-        learn = vision_learner(dls, models.resnet18, metrics=accuracy, cbs=callbacks).to_fp16()
+        learn = vision_learner(
+            dls, models.resnet18, metrics=accuracy, cbs=callbacks
+        ).to_fp16()
         learn.fine_tune(config.epochs, freeze_epochs=3)
         learn.save(f"cifar10_{dim}")
 
         # run on test set
         test_files = get_image_files(dataset_path / "test")
-        label = TensorCategory([dls.vocab.o2i[parent_label(f)] for f in test_files])
+        label = TensorCategory(
+            [dls.vocab.o2i[parent_label(f)] for f in test_files]
+        )
 
         test_set = learn.dls.test_dl(test_files)
         pred = learn.get_preds(0, test_set)
@@ -188,7 +198,9 @@ def train():
 
     print("Exporting model for later inference.")
     MODEL_EXPORT_PATH.parent.mkdir(exist_ok=True)
-    learn.remove_cbs(WandbCallback)  # Added W&B callback is not compatible with inference.
+    learn.remove_cbs(
+        WandbCallback
+    )  # Added W&B callback is not compatible with inference.
     learn.export(MODEL_EXPORT_PATH)
 
 

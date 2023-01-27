@@ -56,19 +56,29 @@ def numpy_to_bytes(image_numpy, ext: str) -> bytes:
     data = cv2.imencode(
         f".{ext}",
         image_numpy,
-        [int(cv2.IMWRITE_JPEG_QUALITY), 100, int(cv2.IMWRITE_PNG_COMPRESSION), 0],
+        [
+            int(cv2.IMWRITE_JPEG_QUALITY),
+            100,
+            int(cv2.IMWRITE_PNG_COMPRESSION),
+            0,
+        ],
     )[1]
     image_bytes = data.tobytes()
     return image_bytes
 
 
-def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes:
+def new_pokemon_name(
+    card_image: bytes, pokemon_name: str = "Randomon"
+) -> bytes:
     import cv2
     from PIL import Image, ImageDraw, ImageFont
 
     # 1. Paint out the existing name.
 
-    flag_map = {"INPAINT_NS": cv2.INPAINT_NS, "INPAINT_TELEA": cv2.INPAINT_TELEA}
+    flag_map = {
+        "INPAINT_NS": cv2.INPAINT_NS,
+        "INPAINT_TELEA": cv2.INPAINT_TELEA,
+    }
     img, alpha_channel = load_img(card_image)
 
     pokecard_name_top_left_crnr = (139, 43)
@@ -89,7 +99,9 @@ def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes
         mask_img_bytes = buf.getvalue()
         mask, _ = load_img(mask_img_bytes)
 
-    assert img.shape[:2] == mask.shape[:2], "shapes of base image and mask must match"
+    assert (
+        img.shape[:2] == mask.shape[:2]
+    ), "shapes of base image and mask must match"
 
     # "No GPU is required, and for simple backgrounds, the results may even be better than AI models."
     cur_res = cv2.inpaint(

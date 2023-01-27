@@ -40,9 +40,13 @@ def split_train_test(data, percent_test=0.1):
 
     # Draw random sample of training data to use for testing.
     tosample = np.where(~np.isnan(train))  # ignore nan values in data
-    idx_pairs = list(zip(tosample[0], tosample[1]))  # tuples of row/col index pairs
+    idx_pairs = list(
+        zip(tosample[0], tosample[1])
+    )  # tuples of row/col index pairs
 
-    test_size = int(len(idx_pairs) * percent_test)  # use 10% of data as test set
+    test_size = int(
+        len(idx_pairs) * percent_test
+    )  # use 10% of data as test set
     train_size = len(idx_pairs) - test_size  # and remainder for training
 
     indices = np.arange(len(idx_pairs))  # indices of index pairs
@@ -166,7 +170,9 @@ def pmf():
     sparsity = 1 - len(data) / (num_users * num_items)
     print(f"Users: {num_users}\nMovies: {num_items}\nSparsity: {sparsity}")
 
-    dense_data = data.pivot(index="userid", columns="itemid", values="rating").values
+    dense_data = data.pivot(
+        index="userid", columns="itemid", values="rating"
+    ).values
     dense_data = dense_data[:100, :200]
     train, test = split_train_test(dense_data)
 

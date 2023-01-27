@@ -66,12 +66,16 @@ def populate_podcast_metadata(podcast_id: str):
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
     metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
+    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(
+        gql, podcast_id
+    )
 
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
 
-    episodes = fetch_episodes.call(show_name=pod_metadata.title, podcast_id=podcast_id)
+    episodes = fetch_episodes.call(
+        show_name=pod_metadata.title, podcast_id=podcast_id
+    )
 
     for ep in episodes:
         metadata_path = get_episode_metadata_path(podcast_id, ep.guid_hash)
@@ -91,7 +95,9 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
+    web_app.mount(
+        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+    )
 
     return web_app
 
@@ -104,7 +110,9 @@ def search_podcast(name):
 
     logger.info(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
-    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
+    podcasts_raw = podcast.search_podcast_name(
+        gql, client, name, max_results=10
+    )
     logger.info(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(
@@ -146,7 +154,9 @@ def index():
 
             with open(file, "r") as f:
                 data = json.load(f)
-                ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
+                ep = dacite.from_dict(
+                    data_class=podcast.EpisodeMetadata, data=data
+                )
                 episodes[ep.podcast_title].append(ep)
                 guid_hash_to_episodes[ep.guid_hash] = ep
 
@@ -177,14 +187,18 @@ def index():
             # Prepare records for JSON serialization
             indexed_episodes.append(dataclasses.asdict(idxd_episode))
 
-    logger.info(f"Matched {len(search_records)} transcripts to episode records.")
+    logger.info(
+        f"Matched {len(search_records)} transcripts to episode records."
+    )
 
     filepath = config.SEARCH_DIR / "all.json"
     logger.info(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(indexed_episodes, f)
 
-    logger.info("calc feature vectors for all transcripts, keeping track of similar podcasts")
+    logger.info(
+        "calc feature vectors for all transcripts, keeping track of similar podcasts"
+    )
     X, v = search.calculate_tfidf_features(search_records)
     sim_svm = search.calculate_similarity_with_svm(X)
     filepath = config.SEARCH_DIR / "sim_tfidf_svm.json"
@@ -290,10 +304,14 @@ def transcribe_segment(
 
         use_gpu = torch.cuda.is_available()
         device = "cuda" if use_gpu else "cpu"
-        model = whisper.load_model(model.name, device=device, download_root=config.MODEL_DIR)
+        model = whisper.load_model(
+            model.name, device=device, download_root=config.MODEL_DIR
+        )
         result = model.transcribe(f.name, language="en", fp16=use_gpu)  # type: ignore
 
-    logger.info(f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds.")
+    logger.info(
+        f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds."
+    )
 
     # Add back offsets.
     for segment in result["segments"]:
@@ -317,11 +335,17 @@ def transcribe_episode(
 
     output_text = ""
     output_segments = []
-    for result in transcribe_segment.starmap(segment_gen, kwargs=dict(audio_filepath=audio_filepath, model=model)):
+    for result in transcribe_segment.starmap(
+        segment_gen, kwargs=dict(audio_filepath=audio_filepath, model=model)
+    ):
         output_text += result["text"]
         output_segments += result["segments"]
 
-    result = {"text": output_text, "segments": output_segments, "language": "en"}
+    result = {
+        "text": output_text,
+        "segments": output_segments,
+        "language": "en",
+    }
 
     logger.info(f"Writing openai/whisper transcription to {result_path}")
     with open(result_path, "w") as f:
@@ -350,7 +374,9 @@ def process_episode(podcast_id: str, episode_id: str):
         metadata_path = get_episode_metadata_path(podcast_id, episode_id)
         with open(metadata_path, "r") as f:
             data = json.load(f)
-            episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
+            episode = dacite.from_dict(
+                data_class=podcast.EpisodeMetadata, data=data
+            )
 
         destination_path = config.RAW_AUDIO_DIR / episode_id
         podcast.store_original_audio(
@@ -358,12 +384,16 @@ def process_episode(podcast_id: str, episode_id: str):
             destination=destination_path,
         )
 
-        logger.info(f"Using the {model.name} model which has {model.params} parameters.")
+        logger.info(
+            f"Using the {model.name} model which has {model.params} parameters."
+        )
         logger.info(f"Wrote episode metadata to {metadata_path}")
 
         transcription_path = get_transcript_path(episode.guid_hash)
         if transcription_path.exists():
-            logger.info(f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}.")
+            logger.info(
+                f"Transcription already exists for '{episode.title}' with ID {episode.guid_hash}."
+            )
             logger.info("Skipping transcription.")
         else:
             transcribe_episode.call(
@@ -387,7 +417,9 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     from gql import gql
 
     client = podcast.create_podchaser_client()
-    episodes_raw = podcast.fetch_episodes_data(gql, client, podcast_id, max_episodes=max_episodes)
+    episodes_raw = podcast.fetch_episodes_data(
+        gql, client, podcast_id, max_episodes=max_episodes
+    )
     logger.info(f"Retrieved {len(episodes_raw)} raw episodes")
     episodes = [
         podcast.EpisodeMetadata(

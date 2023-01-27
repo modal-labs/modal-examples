@@ -69,13 +69,20 @@ def download_models():
     # Download scheduler configuration. Experiment with different schedulers
     # to identify one that works best for your use-case.
     scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-        model_id, subfolder="scheduler", use_auth_token=hugging_face_token, cache_dir=cache_path
+        model_id,
+        subfolder="scheduler",
+        use_auth_token=hugging_face_token,
+        cache_dir=cache_path,
     )
     scheduler.save_pretrained(cache_path, safe_serialization=True)
 
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-        model_id, use_auth_token=hugging_face_token, revision="fp16", torch_dtype=torch.float16, cache_dir=cache_path
+        model_id,
+        use_auth_token=hugging_face_token,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        cache_dir=cache_path,
     )
     pipe.save_pretrained(cache_path, safe_serialization=True)
 
@@ -136,16 +143,24 @@ class StableDiffusion:
             solver_type="midpoint",
             denoise_final=True,  # important if steps are <= 10
         )
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(cache_path, scheduler=scheduler).to("cuda")
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            cache_path, scheduler=scheduler
+        ).to("cuda")
         self.pipe.enable_xformers_memory_efficient_attention()
 
     @stub.function(gpu="A10G")
-    def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4) -> list[bytes]:
+    def run_inference(
+        self, prompt: str, steps: int = 20, batch_size: int = 4
+    ) -> list[bytes]:
         import torch
 
         with torch.inference_mode():
             with torch.autocast("cuda"):
-                images = self.pipe([prompt] * batch_size, num_inference_steps=steps, guidance_scale=7.0).images
+                images = self.pipe(
+                    [prompt] * batch_size,
+                    num_inference_steps=steps,
+                    guidance_scale=7.0,
+                ).images
 
         # Convert to PNG bytes
         image_output = []
@@ -163,8 +178,12 @@ class StableDiffusion:
 
 
 @stub.local_entrypoint
-def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1):
-    typer.echo(f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}")
+def entrypoint(
+    prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
+):
+    typer.echo(
+        f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"
+    )
 
     dir = Path("/tmp/stable-diffusion")
     if not dir.exists():
@@ -175,7 +194,9 @@ def entrypoint(prompt: str, samples: int = 5, steps: int = 10, batch_size: int =
         t0 = time.time()
         images = sd.run_inference.call(prompt, steps, batch_size)
         total_time = time.time() - t0
-        print(f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image).")
+        print(
+            f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image)."
+        )
         for j, image_bytes in enumerate(images):
             output_path = dir / f"output_{j}_{i}.png"
             print(f"Saving it to {output_path}")

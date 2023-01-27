@@ -127,10 +127,14 @@ def generate_names(
     return list(new_names)
 
 
-def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDataset:
+def prep_dataset(
+    training_names: list[str], max_sequence_len: int
+) -> TrainingDataset:
     import numpy as np
 
-    step_length = 1  # The step length we take to get our samples from our corpus
+    step_length = (
+        1  # The step length we take to get our samples from our corpus
+    )
     # Make it all to a long string
     concat_names = "\n".join(training_names).lower()
 
@@ -161,7 +165,11 @@ def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDa
     print("Number of sequences:", num_sequences)
     print("First 10 sequences and next chars:")
     for i in range(10):
-        print("X=[{}]   y=[{}]".replace("\n", " ").format(sequences[i], next_chars[i]).replace("\n", " "))
+        print(
+            "X=[{}]   y=[{}]".replace("\n", " ")
+            .format(sequences[i], next_chars[i])
+            .replace("\n", " ")
+        )
 
     X = np.zeros((num_sequences, max_sequence_len, num_chars), dtype=np.bool)
     Y = np.zeros((num_sequences, num_chars), dtype=np.bool)
@@ -201,7 +209,11 @@ def train_rnn(
         dataset.num_unique_chars,
     )
     model = Sequential()
-    model.add(LSTM(latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate))
+    model.add(
+        LSTM(
+            latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate
+        )
+    )
     model.add(Dense(units=dataset.num_unique_chars, activation="softmax"))
 
     optimizer = RMSprop(learning_rate=0.01)
@@ -211,7 +223,13 @@ def train_rnn(
 
     start = time.time()
     print("Training for {} epochs".format(epochs))
-    model.fit(dataset.X, dataset.Y, epochs=epochs, batch_size=batch_size, verbose=verbosity)
+    model.fit(
+        dataset.X,
+        dataset.Y,
+        epochs=epochs,
+        batch_size=batch_size,
+        verbose=verbosity,
+    )
     print(f"Finished training - time elapsed: {(time.time() - start)} seconds")
     return model
 

@@ -112,7 +112,9 @@ def plot_stocks():
             continue
         dates = list(sorted(prices.keys()))
         prices = list(prices[date] for date in dates)
-        changes = [100.0 * (price / prices[0] - 1) for price in prices]  # Normalize to initial price
+        changes = [
+            100.0 * (price / prices[0] - 1) for price in prices
+        ]  # Normalize to initial price
         if changes[-1] > 20:
             # Highlight this line
             p = ax.plot(dates, changes, alpha=0.7)

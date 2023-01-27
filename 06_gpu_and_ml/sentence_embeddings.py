@@ -20,7 +20,10 @@ import modal
 
 # dependencies
 dependencies = ["torch==1.10.2", "transformers==4.16.2", "tensorboard"]
-stub = modal.Stub("example-sentence-embeddings", image=modal.Image.debian_slim().pip_install(*dependencies))
+stub = modal.Stub(
+    "example-sentence-embeddings",
+    image=modal.Image.debian_slim().pip_install(*dependencies),
+)
 
 if stub.is_inside():
     import numpy as np
@@ -29,21 +32,33 @@ if stub.is_inside():
     from torch.utils.tensorboard import SummaryWriter
     from transformers import AutoModel, AutoTokenizer
 
-    TOKENIZER = AutoTokenizer.from_pretrained("sentence-transformers/paraphrase-xlm-r-multilingual-v1")
-    MODEL = AutoModel.from_pretrained("sentence-transformers/paraphrase-xlm-r-multilingual-v1")
+    TOKENIZER = AutoTokenizer.from_pretrained(
+        "sentence-transformers/paraphrase-xlm-r-multilingual-v1"
+    )
+    MODEL = AutoModel.from_pretrained(
+        "sentence-transformers/paraphrase-xlm-r-multilingual-v1"
+    )
 
 
 def mean_pooling(model_output, attention_mask):
-    token_embeddings = model_output[0]  # First element of model_output contains all token embeddings
-    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+    token_embeddings = model_output[
+        0
+    ]  # First element of model_output contains all token embeddings
+    input_mask_expanded = (
+        attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    )
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+        input_mask_expanded.sum(1), min=1e-9
+    )
 
 
 @stub.function
 def vectorize(x: str):
     """Vectorizes a string (sentence) into a PyTorch Tensor."""
     # encode input and calculate vector
-    encoded_input = TOKENIZER(x, padding=True, truncation=True, return_tensors="pt")
+    encoded_input = TOKENIZER(
+        x, padding=True, truncation=True, return_tensors="pt"
+    )
     model_output = MODEL(**encoded_input)
     y = mean_pooling(model_output, encoded_input["attention_mask"])
 
@@ -65,7 +80,9 @@ class MovieReviewsDataset:
 
     url: str = "http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 
-    def __init__(self, output_path: Path = Path("./movie_reviews_dataset.tar.gz")):
+    def __init__(
+        self, output_path: Path = Path("./movie_reviews_dataset.tar.gz")
+    ):
         self.output_path = output_path
         self.dataset: List[str] = []
 
@@ -136,5 +153,7 @@ def main():
 
     # open tensorboard
     print(" → done!")
-    print(" → to see results in TensorBoard, run: tensorboard --logdir tensorboard/")
+    print(
+        " → to see results in TensorBoard, run: tensorboard --logdir tensorboard/"
+    )
     print(" → (open http://localhost:6006#projector and wait for it to load)")

@@ -61,7 +61,9 @@ def my_func():
 # image that's built into modal, and make sure to install the required binary packages as well as
 # the psycopg2 package itself:
 
-pg_image = modal.Image.debian_slim().apt_install("libpq-dev").pip_install("psycopg2")
+pg_image = (
+    modal.Image.debian_slim().apt_install("libpq-dev").pip_install("psycopg2")
+)
 
 # Since the default keynames for a **Postgres compatible** secret correspond to the environment
 # variables that `psycopg2` looks for, you can now easily connect to the database even without

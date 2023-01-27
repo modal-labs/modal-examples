@@ -30,7 +30,11 @@ image = modal.Image.debian_slim().pip_install(
     "langchain~=0.0.7",
     "openai~=0.26.3",
 )
-stub = modal.Stub(name="example-langchain-qanda", image=image, secrets=[modal.Secret.from_name("openai-secret")])
+stub = modal.Stub(
+    name="example-langchain-qanda",
+    image=image,
+    secrets=[modal.Secret.from_name("openai-secret")],
+)
 docsearch = None  # embedding index that's relatively expensive to compute, so caching with global var.
 
 # ## Scraping the speech from whitehouse.gov
@@ -55,7 +59,9 @@ def scrape_state_of_the_union() -> str:
 
     # get all text paragraphs & construct string of article text
     speech_text = ""
-    speech_section = soup.find_all("div", {"class": "sotu-annotations__content"})
+    speech_section = soup.find_all(
+        "div", {"class": "sotu-annotations__content"}
+    )
     if speech_section:
         paragraph_tags = speech_section[0].find_all("p")
         speech_text = "".join([p.get_text() for p in paragraph_tags])
@@ -79,7 +85,9 @@ def retrieve_sources(sources_refs: str, texts: list[str]) -> list[str]:
     """
     Map back from the references given by the LLM's output to the original text parts.
     """
-    target_indices = [int(r.replace("-pl", "")) for r in sources_refs.split(",")]
+    target_indices = [
+        int(r.replace("-pl", "")) for r in sources_refs.split(",")
+    ]
     return [texts[i] for i in target_indices]
 
 
@@ -116,14 +124,22 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     if not docsearch:
         print("generating docsearch indexer")
         embeddings = OpenAIEmbeddings()
-        docsearch = FAISS.from_texts(texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))])
+        docsearch = FAISS.from_texts(
+            texts,
+            embeddings,
+            metadatas=[{"source": i} for i in range(len(texts))],
+        )
 
     print("selecting text parts by similarity to query")
     docs = docsearch.similarity_search(query)
 
-    chain = load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
+    chain = load_qa_with_sources_chain(
+        OpenAI(temperature=0), chain_type="stuff"
+    )
     print("running query against Q&A chain")
-    result = chain({"input_documents": docs, "question": query}, return_only_outputs=True)
+    result = chain(
+        {"input_documents": docs, "question": query}, return_only_outputs=True
+    )
     answer, sources_refs = result["output_text"].split("SOURCES: ")
     sources = retrieve_sources(sources_refs, texts)
     return answer.strip(), sources

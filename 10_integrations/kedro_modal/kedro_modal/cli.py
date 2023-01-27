@@ -10,7 +10,9 @@ def commands():
     pass
 
 
-@commands.group(name="modal", context_settings=dict(help_option_names=["-h", "--help"]))
+@commands.group(
+    name="modal", context_settings=dict(help_option_names=["-h", "--help"])
+)
 def modal_group():
     """Interact with Kedro pipelines run on Modal"""
 
@@ -22,7 +24,9 @@ def run(metadata):
         metadata.project_path, metadata.project_name, metadata.package_name
     )
     with stub.run() as app:
-        app.sync_data(remote_project_mount_path / "data", remote_data_path, reset=False)
+        app.sync_data(
+            remote_project_mount_path / "data", remote_data_path, reset=False
+        )
         app.run_kedro(remote_project_mount_path, remote_data_path)
 
 
@@ -35,7 +39,9 @@ def debug(metadata):
     stub.interactive_shell()
 
 
-@modal_group.command(help="Deploy kedro project to Modal, scheduling it to run daily")
+@modal_group.command(
+    help="Deploy kedro project to Modal, scheduling it to run daily"
+)
 @click.pass_obj
 def deploy(metadata):
     stub, remote_project_mount_point, remote_data_path = main_stub(
@@ -53,6 +59,8 @@ def deploy(metadata):
 )
 @click.pass_obj
 def reset(metadata):
-    stub, source_path, destination_path = sync_stub(metadata.project_path, metadata.project_name)
+    stub, source_path, destination_path = sync_stub(
+        metadata.project_path, metadata.project_name
+    )
     with stub.run() as app:
         app.sync_data(source_path, destination_path, reset=True)

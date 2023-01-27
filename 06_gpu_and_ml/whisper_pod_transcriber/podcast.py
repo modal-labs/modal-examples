@@ -84,7 +84,9 @@ def create_podchaser_client():
     podchaser_client_secret = os.environ.get("PODCHASER_CLIENT_SECRET")
 
     if not podchaser_client_id or not podchaser_client_secret:
-        exit("Must provide both PODCHASER_CLIENT_ID and PODCHASER_CLIENT_SECRET as environment vars.")
+        exit(
+            "Must provide both PODCHASER_CLIENT_ID and PODCHASER_CLIENT_SECRET as environment vars."
+        )
 
     query = gql(
         """
@@ -125,7 +127,9 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
     useful in this application.
     """
     if max_results > 100:
-        raise ValueError(f"A maximum of 100 results is supported, but {max_results} results were requested.")
+        raise ValueError(
+            f"A maximum of 100 results is supported, but {max_results} results were requested."
+        )
     current_page = 0
     max_episodes_per_request = max_results
     search_podcast_name_query = gql(
@@ -159,7 +163,9 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
     return podcasts_in_page
 
 
-def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]:
+def fetch_episodes_data(
+    gql, client, podcast_id, max_episodes=100
+) -> list[dict]:
     """
     Use the Podchaser API to grab a podcast's episodes.
     """
@@ -205,7 +211,9 @@ def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]
 
         logger.info(f"Fetching {max_episodes_per_request} episodes from API.")
         result = client.execute(list_episodes_query)
-        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"]["hasMorePages"]
+        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"][
+            "hasMorePages"
+        ]
         episodes_in_page = result["podcast"]["episodes"]["data"]
         episodes.extend(episodes_in_page)
         current_page += 1
@@ -255,12 +263,18 @@ def sizeof_fmt(num, suffix="B") -> str:
     return "%.1f%s%s" % (num, "Yi", suffix)
 
 
-def store_original_audio(url: str, destination: pathlib.Path, overwrite: bool = False) -> None:
+def store_original_audio(
+    url: str, destination: pathlib.Path, overwrite: bool = False
+) -> None:
     if destination.exists():
         if overwrite:
-            logger.info(f"Audio file exists at {destination} but overwrite option is specified.")
+            logger.info(
+                f"Audio file exists at {destination} but overwrite option is specified."
+            )
         else:
-            logger.info(f"Audio file exists at {destination}, skipping download.")
+            logger.info(
+                f"Audio file exists at {destination}, skipping download."
+            )
             return
 
     podcast_download_result = download_podcast_file(url=url)
@@ -271,7 +285,9 @@ def store_original_audio(url: str, destination: pathlib.Path, overwrite: bool = 
     logger.info(f"Stored audio episode at {destination}.")
 
 
-def coalesce_short_transcript_segments(segments: list[Segment]) -> list[Segment]:
+def coalesce_short_transcript_segments(
+    segments: list[Segment],
+) -> list[Segment]:
     """
     Some extracted transcript segments from openai/whisper are really short, like even just one word.
     This function accepts a minimum segment length and combines short segments until the minimum is reached.
