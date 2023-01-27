@@ -3,7 +3,7 @@ import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
 DEFAULT_DIRECTORY = Path(__file__).parent
 
@@ -23,9 +23,12 @@ class ExampleType(Enum):
 @dataclass
 class Example:
     type: ExampleType
+    # absolute filepath to example file
     filename: str
+    # python import path, or none if file is not a py module.
     module: Optional[str]
     metadata: Optional[dict]
+    # git repo relative filepath
     repo_filename: str
 
 
@@ -64,25 +67,35 @@ def render_example_md(example: Example) -> str:
     return text
 
 
-def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
-    if not directory.exists():
-        raise Exception(
-            f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
-        )
-
+def gather_example_files(
+    parents: list[str], subdir: Path, ignored: list[str], recurse: bool
+) -> Iterator[Example]:
     config = jupytext.config.JupytextConfiguration(
         root_level_metadata_as_raw_cell=False
     )
-    ignored = []
-    for subdir in sorted(list(directory.iterdir())):
-        if not subdir.is_dir():
-            continue
-        for filename in sorted(list(subdir.iterdir())):
+
+    for filename in sorted(list(subdir.iterdir())):
+        if filename.is_dir() and recurse:
+            # Gather two-subdirectories deep, but no further.
+            yield from gather_example_files(
+                parents + [str(subdir.stem)], filename, ignored, recurse=False
+            )
+        else:
             filename_abs: str = str(filename.resolve())
             ext: str = filename.suffix
-            repo_filename: str = f"{subdir.name}/{filename.name}"
-            if ext == ".py":
-                module = f"{subdir.stem}.{filename.stem}"
+            if parents:
+                repo_filename: str = (
+                    f"{'/'.join(parents)}/{subdir.name}/{filename.name}"
+                )
+            else:
+                repo_filename: str = f"{subdir.name}/{filename.name}"
+
+            if ext == ".py" and filename.stem != "__init__":
+                if parents:
+                    parent_mods = ".".join(parents)
+                    module = f"{parent_mods}.{subdir.stem}.{filename.stem}"
+                else:
+                    module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
                 metadata = data["metadata"]["jupytext"].get(
                     "root_level_metadata", {}
@@ -100,6 +113,26 @@ def get_examples(directory: Path = DEFAULT_DIRECTORY, silent=False):
                 )
             else:
                 ignored.append(str(filename))
+
+
+def get_examples(
+    directory: Path = DEFAULT_DIRECTORY, silent=False
+) -> Iterator[Example]:
+    """Yield all Python module files and asset files relevant to building modal.com/docs."""
+    if not directory.exists():
+        raise Exception(
+            f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
+        )
+
+    ignored = []
+    for subdir in sorted(
+        p
+        for p in directory.iterdir()
+        if p.is_dir() and not p.name.startswith(".")
+    ):
+        yield from gather_example_files(
+            parents=[], subdir=subdir, ignored=ignored, recurse=True
+        )
     if not silent:
         print(f"Ignoring examples files: {ignored}")
 
