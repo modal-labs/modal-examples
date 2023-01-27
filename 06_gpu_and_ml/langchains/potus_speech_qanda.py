@@ -8,12 +8,12 @@
 # It's the [LangChain](https://github.com/hwchase17/langchain) library that makes this all so easy. This demo is only around 100 lines of code!
 
 # ## Defining dependencies
-# 
+#
 # The example uses three PyPi packages to make scraping easy, and three to build and run the question-answering functionality.
 # These are installed into a Debian Slim base image using the `pip_install` function.
-# 
+#
 # Because OpenAI's API is used, we also specify the `openai-secret` Modal Secret, which contains an OpenAI API key.
-# 
+#
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
 
 from pathlib import Path
@@ -30,18 +30,15 @@ image = modal.Image.debian_slim().pip_install(
     "langchain~=0.0.7",
     "openai~=0.26.3",
 )
-stub = modal.Stub(
-    name="example-langchain-qanda", 
-    image=image, 
-    secrets=[modal.Secret.from_name("openai-secret")]
-)
-docsearch = None # embedding index that's relatively expensive to compute, so caching with global var.
+stub = modal.Stub(name="example-langchain-qanda", image=image, secrets=[modal.Secret.from_name("openai-secret")])
+docsearch = None  # embedding index that's relatively expensive to compute, so caching with global var.
 
 # ## Scraping the speech from whitehouse.gov
 #
 # It's super easy to scrape the transcipt of Biden's speech using `httpx` and `BeautifulSoup`.
 # This speech is just one document and it's relatively short, but it's enough to demonstrate
 # the question-answering capability of the LLM chain.
+
 
 def scrape_state_of_the_union() -> str:
     import httpx
@@ -92,8 +89,9 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     from langchain.llms import OpenAI
     from langchain.text_splitter import CharacterTextSplitter
     from langchain.vectorstores.faiss import FAISS
+
     # Support caching speech text on disk.
-    speech_file_path = Path("state-of-the-union.txt") 
+    speech_file_path = Path("state-of-the-union.txt")
 
     if speech_file_path.exists():
         state_of_the_union = speech_file_path.read_text()
@@ -110,7 +108,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     texts = text_splitter.split_text(state_of_the_union)
 
     # Embedding-based query<->text similarity comparison is used to select
-    # a small subset of the speech text chunks. 
+    # a small subset of the speech text chunks.
     # Generating the `docsearch` index is too slow to re-run on every request,
     # so we do rudimentary caching using a global variable.
     global docsearch
@@ -118,11 +116,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     if not docsearch:
         print("generating docsearch indexer")
         embeddings = OpenAIEmbeddings()
-        docsearch = FAISS.from_texts(
-            texts, 
-            embeddings, 
-            metadatas=[{"source": i} for i in range(len(texts))]
-        )
+        docsearch = FAISS.from_texts(texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))])
 
     print("selecting text parts by similarity to query")
     docs = docsearch.similarity_search(query)
