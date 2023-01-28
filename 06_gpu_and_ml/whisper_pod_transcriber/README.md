@@ -8,15 +8,15 @@ You can find the app here: https://modal-labs--whisper-pod-transcriber-fastapi-a
 
 The entire application is hosted serverlessly on Modal and consists of 3 components:
 
-1. React + Vite SPA (`whisper_frontend/`)
-2. FastAPI server (`./api.py`)
-3. Modal async job queue (`./main.py`)
+1. React + Vite SPA ([`pod_transcriber/frontend/`](./pod_transcriber/frontend/))
+2. FastAPI server ([`pod_transcriber/api.py`](./pod_transcriber/api.py))
+3. Modal async job queue ([`pod_transcriber/main.py`](./pod_transcriber/main.py))
 
 ## Developing locally
 
 ### Requirements
 
-- npm
+- `npm`
 - `modal` installed in your current Python virtual environment
 
 ### Podchaser Secret
@@ -32,7 +32,7 @@ You can find both on [their API page](https://www.podchaser.com/profile/settings
 
 ### Vite build
 
-`cd` into the `whisper_frontend` directory, and run:
+`cd` into the `pod_transcriber/frontend` directory, and run:
 
 - `npm install`
 - `npx vite build --watch`
@@ -41,13 +41,14 @@ The last command will start a watcher process that will rebuild your static fron
 
 ### Serve on Modal
 
-Once you have `vite build` running, in a separate shell run (from the directory above this one)
-```shell
-modal serve whisper_pod_transcriber.main
-```
-to start an ephemeral app on Modal. Pressing `Ctrl+C` will stop your app.
+Once you have `vite build` running, in a separate shell run this to start an ephemeral app on Modal:
 
+```shell
+modal serve pod_transcriber.main
+```
+
+Pressing `Ctrl+C` will stop your app.
 
 ### Deploy to Modal
 
-Once your happy with your changes, run `modal deploy whisper_pod_transcriber.main` (from the directory above this one) to deploy your app to Modal.
+Once your happy with your changes, run `modal deploy pod_transcriber.main` to deploy your app to Modal.
