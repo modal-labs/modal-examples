@@ -36,7 +36,7 @@ SEARCH_DIR = pathlib.Path(CACHE_DIR, "search")
 # Location of modal checkpoint.
 MODEL_DIR = pathlib.Path(CACHE_DIR, "model")
 # Location of web frontend assets.
-ASSETS_PATH = pathlib.Path(__file__).parent / "whisper_frontend" / "dist"
+ASSETS_PATH = pathlib.Path(__file__).parent / "frontend" / "dist"
 
 transcripts_per_podcast_limit = 2
 
