@@ -216,7 +216,7 @@ def index():
 
 @stub.function(
     schedule=modal.Period(hours=4),
-    timeout=(15 * 60),
+    timeout=(30 * 60),
 )
 def refresh_index():
     logger.info(f"Running scheduled index refresh at {utc_now()}")
