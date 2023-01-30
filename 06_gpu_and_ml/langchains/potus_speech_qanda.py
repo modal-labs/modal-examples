@@ -205,6 +205,9 @@ def cli(query: str, show_sources: bool = False):
 # curl --get \
 #   --data-urlencode "query=What did the president say about Justice Breyer" \
 #   https://modal-labs--example-langchain-qanda-web.modal.run
+# ```
+#
+# ```json
 # {
 #   "answer": "The president thanked Justice Breyer for his service and mentioned his legacy of excellence. He also nominated Ketanji Brown Jackson to continue in Justice Breyer's legacy."
 # }
