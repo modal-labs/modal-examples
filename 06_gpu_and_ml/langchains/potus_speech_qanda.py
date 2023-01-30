@@ -74,7 +74,7 @@ def scrape_state_of_the_union() -> str:
 # At a high-level, this LLM chain will be able to answer questions asked about Biden's speech and provide
 # references to which parts of the speech contain the evidence for given answers.
 #
-# The chain combines text-embedding index over parts of Biden's speech with OpenAI's [GPT-3 LLM](https://openai.com/blog/chatgpt/).
+# The chain combines a text-embedding index over parts of Biden's speech with OpenAI's [GPT-3 LLM](https://openai.com/blog/chatgpt/).
 # The index is used to select the most likely relevant parts of the speech given the question, and these
 # are used to build a specialized prompt for the OpenAI language model.
 #
@@ -171,10 +171,10 @@ def cli(query: str, show_sources: bool = False):
     # Terminal codes for pretty-printing.
     bold, end = "\033[1m", "\033[0m"
 
-    print(f"🤖 {bold}ANSWER:{end}")
+    print(f"🦜 {bold}ANSWER:{end}")
     print(answer)
     if show_sources:
-        print(f"📃 {bold}SOURCES:{end}")
+        print(f"🔗 {bold}SOURCES:{end}")
         for text in sources:
             print(text)
             print("----")
@@ -184,7 +184,7 @@ def cli(query: str, show_sources: bool = False):
 #
 # ```bash
 # modal run potus_speech_qanda.py --query "What did the president say about Justice Breyer"
-# 🤖 ANSWER:
+# 🦜 ANSWER:
 # The president thanked Justice Breyer for his service and mentioned his legacy of excellence. He also nominated Ketanji Brown Jackson to continue in Justice Breyer's legacy.
 # ```
 #
