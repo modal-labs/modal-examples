@@ -78,7 +78,7 @@ def scrape_state_of_the_union() -> str:
 # The index is used to select the most likely relevant parts of the speech given the question, and these
 # are used to build a specialized prompt for the OpenAI language model.
 #
-# For more information on this, see [langchain.readthedocs.io/en/latest/use_cases/question_answering](https://langchain.readthedocs.io/en/latest/use_cases/question_answering).
+# For more information on this, see [LangChain's "Question Answering" notebook](https://langchain.readthedocs.io/en/latest/use_cases/evaluation/question_answering.html).
 
 
 def retrieve_sources(sources_refs: str, texts: list[str]) -> list[str]:
