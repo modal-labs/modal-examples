@@ -80,7 +80,6 @@ class NYArticle:
     secret=modal.Secret.from_name("nytimes"), image=stub["scraping_image"]
 )
 def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
-
     # query api for latest science articles
     params = {
         "api-key": os.environ["NYTIMES_API_KEY"],
@@ -116,7 +115,6 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
 
 @stub.function(image=stub["scraping_image"])
 def scrape_nyc_article(url: str) -> str:
-
     print(f"Scraping article => {url}")
 
     # fetch article; simulate desktop browser
@@ -151,7 +149,6 @@ def scrape_nyc_article(url: str) -> str:
     memory=4096,
 )
 def summarize_article(text: str) -> str:
-
     print(f"Summarizing text with {len(text)} characters.")
 
     # summarize text

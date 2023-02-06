@@ -5,12 +5,11 @@ import dataclasses
 import json
 import time
 import urllib.request
+from typing import Any
 
 import modal
 
 from . import config
-
-from typing import Any
 
 rnn_image = modal.Image.debian_slim().pip_install(
     "keras",
@@ -117,7 +116,6 @@ def generate_names(
             if len(gen_name) > MAX_NAME_LEN:
                 continue
             elif len(gen_name) >= MIN_NAME_LEN:
-
                 # Only allow new and unique names
                 if gen_name not in training_names and gen_name not in new_names:
                     new_names.add(gen_name)
@@ -191,9 +189,8 @@ def train_rnn(
     training_names: list[str],
     max_sequence_len: int,
 ):
+    from keras.layers import LSTM, Dense
     from keras.models import Sequential
-    from keras.layers import Dense
-    from keras.layers import LSTM
     from keras.optimizers import RMSprop
 
     epochs = 100  # Number of times we train on our full data
