@@ -42,8 +42,8 @@ def f(i):
 # We put this invocation code inside a `@stub.local_entrypoint`.
 # This is because this module will be imported in the cloud, and we don't want
 # this code to be executed a second time in the cloud.
-# 
-# Run `modal run hello_world.py` and the `@stub.local_entrypoint` decorator will handle 
+#
+# Run `modal run hello_world.py` and the `@stub.local_entrypoint` decorator will handle
 # starting the Modal app and then executing the wrapped function body.
 #
 # Inside the `main()` function body, we are calling the function `f` in two ways:
