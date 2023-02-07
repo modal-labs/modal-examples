@@ -50,9 +50,11 @@ def tailscale_sidecar(tailscale_authkey, show_output=False):
         "--hostname=modal-app",
     ]
 
-    with subprocess.Popen(
-        PROXY_SIDECAR_CMD, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    ) as p:
+    if not show_output:
+        output_args = dict(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        output_args = {}
+    with subprocess.Popen(PROXY_SIDECAR_CMD, **output_args) as p:
         subprocess.check_call(AUTH_CMD)
         # wait for tailscale to fully configure network, otherwise proxies can fail:
         time.sleep(2)
@@ -71,6 +73,6 @@ def tail():
     import requests
 
     TAILSCALE_AUTHKEY = os.environ["TAILSCALE_AUTHKEY"]
-    with tailscale_sidecar(TAILSCALE_AUTHKEY, show_output=True):
+    with tailscale_sidecar(TAILSCALE_AUTHKEY, show_output=False):
         resp = requests.get("http://raspberrypi:5000")
         print(resp.content)
