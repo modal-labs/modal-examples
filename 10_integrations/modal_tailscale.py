@@ -8,8 +8,7 @@ be called from the container defined in `tailscale_image`.
 import contextlib
 import os
 import subprocess
-import sys
-import threading
+import time
 
 import modal
 
@@ -50,25 +49,13 @@ def tailscale_sidecar(tailscale_authkey, show_output=False):
         f"--authkey={tailscale_authkey}",
         "--hostname=modal-app",
     ]
-    working_tailscale = threading.Event()
-
-    def output_watcher(tailscaled_output):
-        for line in tailscaled_output:
-            if show_output:
-                print(f"TAILSCALE: {line}", file=sys.stderr)
-            if b"magicsock: derp-1 connected" in line:
-                working_tailscale.set()
 
     with subprocess.Popen(
         PROXY_SIDECAR_CMD, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as p:
         subprocess.check_call(AUTH_CMD)
-        # wait for tailscale to fully configure userspace, otherwise proxies can fail:
-        t = threading.Thread(
-            target=output_watcher, args=(p.stdout,), daemon=True
-        )
-        t.start()
-        working_tailscale.wait()
+        # wait for tailscale to fully configure network, otherwise proxies can fail:
+        time.sleep(2)
         os.environ["ALL_PROXY"] = "socks5://localhost:1055/"
         for key in ["HTTP_PROXY", "http_proxy"]:
             os.environ[key] = "http://localhost:1055/"
@@ -79,14 +66,11 @@ def tailscale_sidecar(tailscale_authkey, show_output=False):
         p.kill()  # stop sidecar daemon
 
 
-tailscale_secret = modal.Secret.from_name("tailscale-auth")
-
-
-@stub.function(secrets=[tailscale_secret])
+@stub.function(secrets=[modal.Secret.from_name("tailscale-auth")])
 def tail():
     import requests
 
     TAILSCALE_AUTHKEY = os.environ["TAILSCALE_AUTHKEY"]
-    with tailscale_sidecar(TAILSCALE_AUTHKEY):
+    with tailscale_sidecar(TAILSCALE_AUTHKEY, show_output=True):
         resp = requests.get("http://raspberrypi:5000")
         print(resp.content)
