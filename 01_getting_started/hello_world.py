@@ -39,13 +39,16 @@ def f(i):
 # ## Running it
 #
 # Finally, let's actually invoke it.
-# We put this code inside an `if __name__ == "__main__":` guard.
+# We put this invocation code inside a `@stub.local_entrypoint`.
 # This is because this module will be imported in the cloud, and we don't want
 # this code to be executed a second time in the cloud.
-# We start the Modal app with the `stub.run()` context manager.
+# 
+# Run `modal run hello_world.py` and the `@stub.local_entrypoint` decorator will handle 
+# starting the Modal app and then executing the wrapped function body.
 #
-# Inside the block, we are calling the function `f` in two ways:
-# 1. As a simple call `f(1000)`
+# Inside the `main()` function body, we are calling the function `f` in two ways:
+#
+# 1. As a simple call `f.call(1000)`
 # 2. By mapping over the integers 0..19
 
 
@@ -73,7 +76,7 @@ def main():
 #
 # ### Change the code and run again
 #
-# For instance, change the print statement in the function `f`.
+# For instance, change the `print` statement in the function `f`.
 # You can see that the latest code is always run.
 #
 # Modal's goal is to make running code in the cloud feel like you're
