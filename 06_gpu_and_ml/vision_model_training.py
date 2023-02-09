@@ -283,7 +283,7 @@ def create_demo_examples() -> List[str]:
 @stub.asgi(
     image=image,
     shared_volumes={str(MODEL_CACHE): volume},
-    mounts=[modal.Mount("/assets", local_dir=assets_path)],
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 def fastapi_app():
     import gradio as gr

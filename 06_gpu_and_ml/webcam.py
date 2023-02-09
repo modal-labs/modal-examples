@@ -180,7 +180,7 @@ async def predict(request: Request):
 
 
 @stub.asgi(
-    mounts=[modal.Mount(local_dir=static_path, remote_dir="/assets")],
+    mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
 def fastapi_app():
     web_app.mount("/", StaticFiles(directory="/assets", html=True))

@@ -85,7 +85,7 @@ async def poll_results(call_id: str):
 assets_path = Path(__file__).parent / "doc_ocr_frontend"
 
 
-@stub.asgi(mounts=[modal.Mount("/assets", local_dir=assets_path)])
+@stub.asgi(mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")])
 def wrapper():
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)

@@ -257,7 +257,7 @@ def train(instance_example_urls, config=TrainConfig()):
     image=image,
     gpu="A100",
     shared_volumes={str(MODEL_DIR): volume},
-    mounts=[modal.Mount("/assets", local_dir=assets_path)],
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 def fastapi_app(config=AppConfig()):
     import gradio as gr
