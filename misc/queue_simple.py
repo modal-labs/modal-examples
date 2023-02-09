@@ -1,3 +1,7 @@
+# ---
+# cmd: ["python", "-m", "misc.queue_simple"]
+# ---
+#
 # # Using a queue to send/receive data
 #
 # This is an example of how to use queues to send/receive data.

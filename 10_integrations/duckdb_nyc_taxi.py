@@ -122,14 +122,16 @@ def create_plot():
 #
 # Finally, we have some simple entrypoint code that kicks everything off.
 # Note that the plotting function returns raw PNG data that we store locally.
+#
+# Run this local entrypoint with `modal run`.
 
 
-OUTPUT_DIR = "/tmp/nyc"
+@stub.local_entrypoint
+def main():
+    output_dir = "/tmp/nyc"
+    os.makedirs(output_dir, exist_ok=True)
 
-if __name__ == "__main__":
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    fn = os.path.join(OUTPUT_DIR, "nyc_taxi_chart.png")
+    fn = os.path.join(output_dir, "nyc_taxi_chart.png")
 
     with stub.run():
         png_data = create_plot.call()

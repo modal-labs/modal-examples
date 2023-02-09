@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "run", "misc.webscraper::stub.scrape"]
+# ---
 import os
 
 import modal

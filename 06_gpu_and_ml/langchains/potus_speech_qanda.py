@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py", "--query", "test query"]
+# ---
 # # Question-answering with LangChain
 #
 # In this example we create a large-language-model (LLM) powered question answering

@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve"]
+# ---
 # # Serve a dynamic SVG badge
 
 # In this example, we use Modal's [webhook](/docs/guide/webhooks) capability to host a dynamic SVG badge that shows
