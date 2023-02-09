@@ -1,4 +1,5 @@
 # ---
+# cmd: ["modal", "serve"]
 # deploy: true
 # ---
 # # Machine learning model inference endpoint that uses the webcam

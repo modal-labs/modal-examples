@@ -1,4 +1,5 @@
 # ---
+# cmd: ["python", "10_integrations/stable_diffusion_slackbot.py", "a photo of an astronaut riding a horse on mars"]
 # output-directory: "/tmp/stable-diffusion"
 # ---
 # # Stable diffusion slackbot

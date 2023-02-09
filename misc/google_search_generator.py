@@ -5,8 +5,6 @@
 # 1. Installs a custom Python package.
 # 2. Uses a _generator_ to return results back to the launcher process.
 
-import sys
-
 import modal
 
 # We build a custom image by adding the `google` package to the base image.
@@ -26,13 +24,10 @@ def scrape(query):
         yield url
 
 
-# Finally, let's launch it from the command line by searching for the first argument:
+# Finally, let's launch it from the command line with `modal run`:
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        query = sys.argv[1]
-    else:
-        query = "modal"
-    with stub.run():
-        for url in scrape.call(query):
-            print(url)
+
+@stub.local_entrypoint
+def main(query: str = "modal"):
+    for url in scrape.call(query):
+        print(url)
