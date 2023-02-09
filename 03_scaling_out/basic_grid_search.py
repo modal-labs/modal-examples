@@ -11,7 +11,7 @@ import modal
 
 stub = modal.Stub(
     "example-basic-grid-search",
-    image=modal.Image.debian_slim().pip_install("scikit-learn"),
+    image=modal.Image.debian_slim().pip_install("scikit-learn")
 )
 
 # ## The Modal function
