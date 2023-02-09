@@ -12,9 +12,9 @@ REMOTE_DB_PATH = Path(f"{PERSISTED_VOLUME_PATH}/meltano.db")
 REMOTE_LOGS_PATH = Path(f"{REMOTE_PROJECT_ROOT}/.meltano/logs")
 PERSISTED_LOGS_DIR = Path(f"{PERSISTED_VOLUME_PATH}/logs")
 
-meltano_source_mount = modal.Mount(
-    local_dir=LOCAL_PROJECT_ROOT,
-    remote_dir=REMOTE_PROJECT_ROOT,
+meltano_source_mount = modal.Mount.from_local_dir(
+    LOCAL_PROJECT_ROOT,
+    remote_path=REMOTE_PROJECT_ROOT,
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts),
 )
 
