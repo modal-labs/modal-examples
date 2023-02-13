@@ -107,6 +107,7 @@ def crawl_webhook():
 # To make it easier to test this, we also have an entrypoint for when you run
 # `python algolia_indexer.py`
 
-if __name__ == "__main__":
-    with stub.run():
-        crawl.call()
+
+@stub.local_entrypoint
+def run():
+    crawl.call()

@@ -199,6 +199,7 @@ def pmf():
 
 # Now we can run the probabilistic program.
 
-if __name__ == "__main__":
-    with pymc_stub.run():
-        pmf.call()
+
+@pymc_stub.local_entrypoint
+def run():
+    pmf.call()

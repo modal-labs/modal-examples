@@ -189,29 +189,24 @@ def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
 #
 # We can also trigger `run_stable_diffusion` manually for easier debugging.
 
-OUTPUT_DIR = "/tmp/stable-diffusion"
 
-if __name__ == "__main__":
-    import sys
+@stub.local_entrypoint
+def run(
+    prompt: str = "oil painting of a shiba",
+    output_dir: str = "/tmp/stable-diffusion",
+):
+    os.makedirs(output_dir, exist_ok=True)
+    img_bytes = run_stable_diffusion.call(prompt)
+    output_path = os.path.join(output_dir, "output.png")
+    with open(output_path, "wb") as f:
+        f.write(img_bytes)
+    print(f"Wrote data to {output_path}")
 
-    if len(sys.argv) > 1:
-        prompt = sys.argv[1]
-    else:
-        prompt = "oil painting of a shiba"
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    with stub.run():
-        img_bytes = run_stable_diffusion.call(prompt)
-        output_path = os.path.join(OUTPUT_DIR, "output.png")
-        with open(output_path, "wb") as f:
-            f.write(img_bytes)
-        print(f"Wrote data to {output_path}")
 
 # This code lets us call our script as follows:
 #
 # ```shell
-# python stable_diffusion_slackbot.py "a photo of an astronaut riding a horse on mars"
+# modal run stable_diffusion_slackbot.py "a photo of an astronaut riding a horse on mars"
 # ```
 #
-# The resulting image can be found in `/tmp/render/output.png`.
+# The resulting image can be found in `/tmp/stable-diffusion/output.png`.

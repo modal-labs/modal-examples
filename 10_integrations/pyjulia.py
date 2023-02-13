@@ -37,7 +37,7 @@ def julia_matrix_determinant():
     print(det(rand(10, 10)))
 
 
-if __name__ == "__main__":
-    with stub.run():
-        julia_subprocess.call()
-        julia_matrix_determinant.call()
+@stub.local_entrypoint
+def run():
+    julia_subprocess.call()
+    julia_matrix_determinant.call()
