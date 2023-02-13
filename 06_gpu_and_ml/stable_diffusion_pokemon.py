@@ -8,7 +8,7 @@ import modal
 web_app = FastAPI()
 stub = modal.Stub(name="stable-diffusion-fine-tune-pokemon")
 
-REPO_PATH = "/stable-diffusion"
+REPO_DIR = "/stable-diffusion"
 MODEL_DIR = "/model"
 
 image = (
@@ -16,8 +16,8 @@ image = (
     .apt_install("git", "wget", "libgl1", "libglib2.0-0")
     .run_commands(
         [
-            f"git clone https://github.com/justinpinkney/stable-diffusion.git {REPO_PATH}",
-            f"cd {REPO_PATH} && pip install -r requirements.txt",
+            f"git clone https://github.com/justinpinkney/stable-diffusion.git {REPO_DIR}",
+            f"cd {REPO_DIR} && pip install -r requirements.txt",
         ]
     )
     .pip_install("gradio~=3.10")
@@ -31,22 +31,25 @@ volume = modal.SharedVolume().persist("sd-pokemon")
 
 @stub.function(
     image=image,
-    gpu=modal.gpu.A10G(count=4),
+    gpu=modal.gpu.A10G(count=2),
     # fine-tuned model will be stored at `MODEL_DIR`
     shared_volumes={MODEL_DIR: volume},
     timeout=5 * 60 * 60,  # 5 hours
+    secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 def train():
+    import os
     import subprocess
 
+    from huggingface_hub import hf_hub_download
+
+    # Download huggingface model to MODEL_DIR
     print("Downloading model")
-    subprocess.check_call(
-        [
-            "wget",
-            "-q",
-            "https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/sd-v1-4-full-ema.ckpt",
-        ],
-        cwd=MODEL_DIR,
+    ckpt_path = hf_hub_download(
+        repo_id="stabilityai/stable-diffusion-2-1",
+        filename="v2-1_768-ema-pruned.ckpt",
+        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        cache_dir=MODEL_DIR,
     )
 
     print("Starting training")
@@ -58,7 +61,7 @@ def train():
             "--base",
             "configs/stable-diffusion/pokemon.yaml",
             "--gpus",
-            "0,1,2,3",
+            "0,1",
             "--scale_lr",
             "False",
             "--num_nodes",
@@ -66,9 +69,9 @@ def train():
             "--check_val_every_n_epoch",
             "10",
             "--finetune_from",
-            "sd-v1-4-full-ema.ckpt",
+            ckpt_path,
         ],
-        cwd=MODEL_DIR,
+        cwd=REPO_DIR,
     )
 
 
