@@ -1,6 +1,8 @@
 # Follows https://lambdalabs.com/blog/how-to-fine-tune-stable-diffusion-how-we-made-the-text-to-pokemon-model-at-lambda to fine-tune stable diffusion for Pokemon
 
 
+from pathlib import Path
+
 from fastapi import FastAPI
 
 import modal
@@ -8,16 +10,16 @@ import modal
 web_app = FastAPI()
 stub = modal.Stub(name="stable-diffusion-fine-tune-pokemon")
 
-REPO_DIR = "/stable-diffusion"
-MODEL_DIR = "/model"
+REPO_DIR = Path("/stable-diffusion")
+MODEL_DIR = Path("/model")
 
 image = (
     modal.Image.debian_slim()
     .apt_install("git", "wget", "libgl1", "libglib2.0-0")
     .run_commands(
         [
-            f"git clone https://github.com/justinpinkney/stable-diffusion.git {REPO_DIR}",
-            f"cd {REPO_DIR} && pip install -r requirements.txt",
+            f"git clone https://github.com/justinpinkney/stable-diffusion.git {str(REPO_DIR)}",
+            f"cd {str(REPO_DIR)} && pip install -r requirements.txt",
         ]
     )
     .pip_install("gradio~=3.10")
@@ -64,12 +66,12 @@ def train():
             "0,1",
             "--scale_lr",
             "False",
-            "--num_nodes",
-            "1",
             "--check_val_every_n_epoch",
             "10",
             "--finetune_from",
             ckpt_path,
+            "--logs_dir",
+            MODEL_DIR / "logs",
         ],
         cwd=REPO_DIR,
     )
