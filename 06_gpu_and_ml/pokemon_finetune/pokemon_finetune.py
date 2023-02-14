@@ -12,6 +12,7 @@ stub = modal.Stub(name="stable-diffusion-fine-tune-pokemon")
 
 REPO_DIR = Path("/stable-diffusion")
 MODEL_DIR = Path("/model")
+CONFIG_PATH = Path("/config.yaml")
 
 image = (
     modal.Image.debian_slim()
@@ -28,16 +29,17 @@ image = (
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = modal.SharedVolume().persist("sd-pokemon")
+volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
 
 
 @stub.function(
     image=image,
-    gpu=modal.gpu.A10G(count=2),
+    gpu="A100",
     # fine-tuned model will be stored at `MODEL_DIR`
     shared_volumes={MODEL_DIR: volume},
     timeout=5 * 60 * 60,  # 5 hours
     secrets=[modal.Secret.from_name("huggingface-secret")],
+    mounts=[modal.Mount.from_local_file("config.yaml", CONFIG_PATH)],
 )
 def train():
     import os
@@ -48,8 +50,8 @@ def train():
     # Download huggingface model to MODEL_DIR
     print("Downloading model")
     ckpt_path = hf_hub_download(
-        repo_id="stabilityai/stable-diffusion-2-1",
-        filename="v2-1_768-ema-pruned.ckpt",
+        repo_id="CompVis/stable-diffusion-v-1-4-original",
+        filename="sd-v1-4-full-ema.ckpt",
         use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
         cache_dir=MODEL_DIR,
     )
@@ -61,9 +63,9 @@ def train():
             "main.py",
             "-t",
             "--base",
-            "configs/stable-diffusion/pokemon.yaml",
+            CONFIG_PATH.as_posix(),
             "--gpus",
-            "0,1",
+            "0,",
             "--scale_lr",
             "False",
             "--check_val_every_n_epoch",
@@ -71,7 +73,7 @@ def train():
             "--finetune_from",
             ckpt_path,
             "--logs_dir",
-            MODEL_DIR / "logs",
+            (MODEL_DIR / "logs").as_posix(),
         ],
         cwd=REPO_DIR,
     )
@@ -89,7 +91,7 @@ def train():
 
 @stub.asgi(
     image=image,
-    gpu="A10G",
+    gpu="A100",
     shared_volumes={str(MODEL_DIR): volume},
 )
 def fastapi_app():
