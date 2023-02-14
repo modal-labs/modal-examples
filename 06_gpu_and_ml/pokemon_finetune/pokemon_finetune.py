@@ -39,7 +39,11 @@ volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
     shared_volumes={MODEL_DIR: volume},
     timeout=5 * 60 * 60,  # 5 hours
     secrets=[modal.Secret.from_name("huggingface-secret")],
-    mounts=[modal.Mount.from_local_file("config.yaml", CONFIG_PATH)],
+    mounts=[
+        modal.Mount.from_local_file(
+            Path(__file__).parent / "config.yaml", CONFIG_PATH
+        )
+    ],
 )
 def train():
     import os
