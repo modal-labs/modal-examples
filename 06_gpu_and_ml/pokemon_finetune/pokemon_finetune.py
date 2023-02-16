@@ -1,6 +1,7 @@
 # Follows https://lambdalabs.com/blog/how-to-fine-tune-stable-diffusion-how-we-made-the-text-to-pokemon-model-at-lambda to fine-tune stable diffusion for Pokemon
 
 
+import signal
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -42,7 +43,7 @@ volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
     mounts=[
         modal.Mount.from_local_file(
             Path(__file__).parent / "config.yaml", CONFIG_PATH
-        )
+        ),
     ],
 )
 def train():
@@ -60,27 +61,37 @@ def train():
         cache_dir=MODEL_DIR,
     )
 
-    print("Starting training")
-    subprocess.run(
-        [
-            "python",
-            "main.py",
-            "-t",
-            "--base",
-            CONFIG_PATH.as_posix(),
-            "--gpus",
-            "0,",
-            "--scale_lr",
-            "False",
-            "--check_val_every_n_epoch",
-            "10",
-            "--finetune_from",
-            ckpt_path,
-            "--logs_dir",
-            (MODEL_DIR / "logs").as_posix(),
-        ],
-        cwd=REPO_DIR,
-    )
+    try:
+        p = subprocess.Popen(
+            [
+                "python",
+                "main.py",
+                "-t",
+                "--base",
+                CONFIG_PATH.as_posix(),
+                "--gpus",
+                "0,",
+                "--scale_lr",
+                "False",
+                "--check_val_every_n_epoch",
+                "10",
+                "--finetune_from",
+                ckpt_path,
+                "--logdir",
+                (MODEL_DIR / "logs").as_posix(),
+                # "--resume",
+                # (MODEL_DIR / "logs").as_posix(),
+            ],
+            cwd=REPO_DIR,
+        )
+        p.wait()
+    except KeyboardInterrupt:
+        print("Received SIGINT, interrupting training...")
+        p.send_signal(signal.SIGINT)
+        p.wait(timeout=20)
+        if p.poll() is None:
+            print("Training process did not terminate, killing...")
+            p.kill()
 
 
 # ## Wrap the trained model in Gradio's web UI
