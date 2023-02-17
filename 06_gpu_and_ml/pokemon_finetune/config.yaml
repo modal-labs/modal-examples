@@ -71,7 +71,7 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 4
+    batch_size: 2
     num_workers: 4
     num_val_workers: 0 # Avoid a weird val dataloader issue
     train:
@@ -96,7 +96,7 @@ data:
           - "Yoda"
           - "An epic landscape photo of a mountain"
         output_size: 512
-        n_gpus: 2 # small hack to sure we see all our samples
+        n_gpus: 1 # small hack to sure we see all our samples
 
 lightning:
   find_unused_parameters: False

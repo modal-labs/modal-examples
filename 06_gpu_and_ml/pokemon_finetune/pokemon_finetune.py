@@ -2,6 +2,7 @@
 
 
 import signal
+import subprocess
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,10 +14,11 @@ stub = modal.Stub(name="stable-diffusion-fine-tune-pokemon")
 
 REPO_DIR = Path("/stable-diffusion")
 MODEL_DIR = Path("/model")
+LOGS_DIR = MODEL_DIR / "logs"
 CONFIG_PATH = Path("/config.yaml")
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "wget", "libgl1", "libglib2.0-0")
     .run_commands(
         [
@@ -31,15 +33,22 @@ image = (
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
 volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
+# volume = modal.SharedVolume().persist("sd-pokemon")
+
+
+def find_last_checkpoint(dir: Path):
+    nonempty_ckpts = [c for c in dir.glob("**/*.ckpt") if c.stat().st_size > 0]
+    if not nonempty_ckpts:
+        return None
+    return max(*nonempty_ckpts, key=lambda c: c.stat().st_mtime)
 
 
 @stub.function(
     image=image,
     gpu="A100",
-    # fine-tuned model will be stored at `MODEL_DIR`
     shared_volumes={MODEL_DIR: volume},
     timeout=5 * 60 * 60,  # 5 hours
-    secrets=[modal.Secret.from_name("huggingface-secret")],
+    secrets=[modal.Secret.from_name("huggingface")],
     mounts=[
         modal.Mount.from_local_file(
             Path(__file__).parent / "config.yaml", CONFIG_PATH
@@ -48,47 +57,51 @@ volume = modal.SharedVolume().persist("stable-diffusion-pokemon")
 )
 def train():
     import os
-    import subprocess
 
     from huggingface_hub import hf_hub_download
 
     # Download huggingface model to MODEL_DIR
     print("Downloading model")
-    ckpt_path = hf_hub_download(
+    base_ckpt_path = hf_hub_download(
         repo_id="CompVis/stable-diffusion-v-1-4-original",
         filename="sd-v1-4-full-ema.ckpt",
         use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
         cache_dir=MODEL_DIR,
     )
 
+    args = [
+        "python",
+        "main.py",
+        "--train",
+        "--base",
+        CONFIG_PATH.as_posix(),
+        "--gpus",
+        "0,",
+        "--scale_lr",
+        "False",
+        "--check_val_every_n_epoch",
+        "10",
+        "--finetune_from",
+        base_ckpt_path,
+        "--logdir",
+        LOGS_DIR.as_posix(),
+    ]
+
+    last_trained_ckpt = find_last_checkpoint(LOGS_DIR)
+    if last_trained_ckpt:
+        print(f"Resuming from {last_trained_ckpt}")
+        args.extend(["--resume", last_trained_ckpt.as_posix()])
+    else:
+        print("No checkpoint found, starting from scratch")
+
     try:
-        p = subprocess.Popen(
-            [
-                "python",
-                "main.py",
-                "-t",
-                "--base",
-                CONFIG_PATH.as_posix(),
-                "--gpus",
-                "0,",
-                "--scale_lr",
-                "False",
-                "--check_val_every_n_epoch",
-                "10",
-                "--finetune_from",
-                ckpt_path,
-                "--logdir",
-                (MODEL_DIR / "logs").as_posix(),
-                # "--resume",
-                # (MODEL_DIR / "logs").as_posix(),
-            ],
-            cwd=REPO_DIR,
-        )
+        p = subprocess.Popen(args, cwd=REPO_DIR)
         p.wait()
     except KeyboardInterrupt:
-        print("Received SIGINT, interrupting training...")
+        print("Received SIGINT, waiting for training to finish...")
+        # The training process receives its own SIGINT already.
         p.send_signal(signal.SIGINT)
-        p.wait(timeout=20)
+        p.wait(timeout=30)
         if p.poll() is None:
             print("Training process did not terminate, killing...")
             p.kill()
@@ -115,12 +128,13 @@ def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app
 
-    # take the latest one in logs
-    logs_dir = max(os.listdir(MODEL_DIR / "logs"))
-    checkpoint = "last.ckpt"
+    checkpoint = find_last_checkpoint(LOGS_DIR)
+
+    if checkpoint is None:
+        raise Exception("No checkpoint found")
+
     go = prepare_model(
-        MODEL_DIR / "configs/stable-diffusion/pokemon.yaml",
-        MODEL_DIR / f"logs/{logs_dir}/checkpoints/{checkpoint}",
+        MODEL_DIR / "configs/stable-diffusion/pokemon.yaml", checkpoint
     )
 
     # add a gradio UI around inference
