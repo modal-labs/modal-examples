@@ -1,8 +1,14 @@
 import importlib
+import json
 import pathlib
 import pytest
 
-from example_utils import ExampleType, get_examples, render_example_md
+from example_utils import (
+    ExampleType,
+    get_examples,
+    get_examples_json,
+    render_example_md,
+)
 
 examples = [ex for ex in get_examples() if ex.type == ExampleType.MODULE]
 example_ids = [ex.module for ex in examples]
@@ -24,3 +30,10 @@ def test_render(example):
     md = render_example_md(example)
     assert isinstance(md, str)
     assert len(md) > 0
+
+
+def test_json():
+    data = get_examples_json()
+    examples = json.loads(data)
+    assert isinstance(examples, list)
+    assert len(examples) > 0
