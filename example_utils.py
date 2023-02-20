@@ -23,15 +23,14 @@ class ExampleType(int, Enum):
 
 class Example(BaseModel):
     type: ExampleType
-    # absolute filepath to example file
-    filename: str
-    # python import path, or none if file is not a py module.
-    module: Optional[str]
+    filename: str  # absolute filepath to example file
+    module: Optional[
+        str
+    ]  # python import path, or none if file is not a py module.
     metadata: Optional[dict]
-    # git repo relative filepath
-    repo_filename: str
-    # Full command line args to run it
-    cli_args: Optional[list]
+    repo_filename: str  # git repo relative filepath
+    cli_args: Optional[list]  # Full command line args to run it
+    stem: Optional[str]  # stem of path
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -111,6 +110,7 @@ def gather_example_files(
                     metadata=metadata,
                     repo_filename=repo_filename,
                     cli_args=(cmd + args),
+                    stem=Path(filename_abs).stem,
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
                 yield Example(
