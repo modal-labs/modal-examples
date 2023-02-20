@@ -1,6 +1,7 @@
+import json
 import re
 import warnings
-from dataclasses import dataclass
+from pydantic import BaseModel
 from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
@@ -15,13 +16,12 @@ with warnings.catch_warnings():
     import jupytext.config
 
 
-class ExampleType(Enum):
+class ExampleType(int, Enum):
     MODULE = 1
     ASSET = 2
 
 
-@dataclass
-class Example:
+class Example(BaseModel):
     type: ExampleType
     # absolute filepath to example file
     filename: str
@@ -30,6 +30,8 @@ class Example:
     metadata: Optional[dict]
     # git repo relative filepath
     repo_filename: str
+    # Full command line args to run it
+    cli_args: Optional[list]
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -100,16 +102,21 @@ def gather_example_files(
                 metadata = data["metadata"]["jupytext"].get(
                     "root_level_metadata", {}
                 )
+                cmd = metadata.get("cmd", ["modal", "run", module])
+                args = metadata.get("args", [])
                 yield Example(
-                    ExampleType.MODULE,
-                    filename_abs,
-                    module,
-                    metadata,
-                    repo_filename,
+                    type=ExampleType.MODULE,
+                    filename=filename_abs,
+                    module=module,
+                    metadata=metadata,
+                    repo_filename=repo_filename,
+                    cli_args=(cmd + args),
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
                 yield Example(
-                    ExampleType.ASSET, filename_abs, None, None, repo_filename
+                    type=ExampleType.ASSET,
+                    filename=filename_abs,
+                    repo_filename=repo_filename,
                 )
             else:
                 ignored.append(str(filename))
@@ -137,6 +144,11 @@ def get_examples(
         print(f"Ignoring examples files: {ignored}")
 
 
+def get_examples_json():
+    examples = list(ex.dict() for ex in get_examples())
+    return json.dumps(examples)
+
+
 if __name__ == "__main__":
     for example in get_examples():
-        print(example)
+        print(example.json())
