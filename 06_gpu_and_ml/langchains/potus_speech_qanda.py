@@ -134,7 +134,6 @@ def create_retrying_openai_embedder():
 
 def qanda_langchain(query: str) -> tuple[str, list[str]]:
     from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-    from langchain.embeddings.openai import OpenAIEmbeddings
     from langchain.llms import OpenAI
     from langchain.text_splitter import CharacterTextSplitter
     from langchain.vectorstores.faiss import FAISS
