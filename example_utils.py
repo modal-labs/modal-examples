@@ -27,6 +27,7 @@ class Example(BaseModel):
     module: Optional[
         str
     ]  # python import path, or none if file is not a py module.
+    # TODO(erikbern): don't think the module is used (by docs or monitors)?
     metadata: Optional[dict]
     repo_filename: str  # git repo relative filepath
     cli_args: Optional[list]  # Full command line args to run it
@@ -101,13 +102,13 @@ def gather_example_files(
                 metadata = data["metadata"]["jupytext"].get(
                     "root_level_metadata", {}
                 )
-                cmd = metadata.get("cmd", ["modal", "run", module])
+                cmd = metadata.get("cmd", ["modal", "run", repo_filename])
                 args = metadata.get("args", [])
                 yield Example(
                     type=ExampleType.MODULE,
                     filename=filename_abs,
-                    module=module,
                     metadata=metadata,
+                    module=module,
                     repo_filename=repo_filename,
                     cli_args=(cmd + args),
                     stem=Path(filename_abs).stem,
