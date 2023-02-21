@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
-# args: ["--prompt", "a software engineer smoking a pumpkin pipe"]
+# args: ["--prompt", "An 1600s oil painting of the New York City skyline"]
 # ---
 # # Stable Diffusion CLI
 #
