@@ -18,7 +18,7 @@
 # Because OpenAI's API is used, we also specify the `openai-secret` Modal Secret, which contains an OpenAI API key.
 #
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
-
+import itertools
 from pathlib import Path
 
 import modal
@@ -88,10 +88,47 @@ def retrieve_sources(sources_refs: str, texts: list[str]) -> list[str]:
     """
     Map back from the references given by the LLM's output to the original text parts.
     """
-    target_indices = [
-        int(r.replace("-pl", "")) for r in sources_refs.split(",")
+    clean_indices = [
+        r.replace("-pl", "").strip() for r in sources_refs.split(",")
     ]
-    return [texts[i] for i in target_indices]
+    numeric_indices = (int(r) if r.isnumeric() else None for r in clean_indices)
+    return [
+        texts[i] if i is not None else "INVALID SOURCE" for i in numeric_indices
+    ]
+
+
+def create_retrying_openai_embedder():
+    """
+    New OpenAI accounts have a very low rate-limit for their first 48 hrs.
+    It's too low to embed even just this single Biden speech.
+    As a workaround this wrapper handles rate-limit errors and slows embedding requests.
+
+    Ref: https://platform.openai.com/docs/guides/rate-limits/overview.
+    """
+    from tenacity import retry, wait_exponential
+    from langchain.embeddings.openai import OpenAIEmbeddings
+
+    def batched(iterable, n):
+        if n < 1:
+            raise ValueError("n must be at least one")
+        it = iter(iterable)
+        batch = list(itertools.islice(it, n))
+        while batch:
+            yield batch
+            batch = list(itertools.islice(it, n))
+
+    class RetryingEmbedder(OpenAIEmbeddings):
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            all_embeddings = []
+            for i, batch in enumerate(batched(texts, n=5)):
+                print(f"embedding documents batch {i}...")
+                retrying_fn = retry(
+                    wait=wait_exponential(multiplier=1, min=4, max=10)
+                )(super().embed_documents)
+                all_embeddings.extend(retrying_fn(batch))
+            return all_embeddings
+
+    return RetryingEmbedder()
 
 
 def qanda_langchain(query: str) -> tuple[str, list[str]]:
@@ -126,7 +163,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 
     if not docsearch:
         print("generating docsearch indexer")
-        embeddings = OpenAIEmbeddings()
+        embeddings = create_retrying_openai_embedder()
         docsearch = FAISS.from_texts(
             texts,
             embeddings,
@@ -139,7 +176,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     chain = load_qa_with_sources_chain(
         OpenAI(temperature=0), chain_type="stuff"
     )
-    print("running query against Q&A chain")
+    print("running query against Q&A chain.\n")
     result = chain(
         {"input_documents": docs, "question": query}, return_only_outputs=True
     )
