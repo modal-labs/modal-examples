@@ -32,6 +32,7 @@ image = modal.Image.debian_slim().pip_install(
     "faiss-cpu~=1.7.3",
     "langchain~=0.0.7",
     "openai~=0.26.3",
+    "tenacity~=8.2.1",
 )
 stub = modal.Stub(
     name="example-langchain-qanda",
@@ -119,12 +120,12 @@ def create_retrying_openai_embedder():
 
     class RetryingEmbedder(OpenAIEmbeddings):
         def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            retrying_fn = retry(
+                wait=wait_exponential(multiplier=1, min=4, max=10)
+            )(super().embed_documents)
             all_embeddings = []
             for i, batch in enumerate(batched(texts, n=5)):
                 print(f"embedding documents batch {i}...")
-                retrying_fn = retry(
-                    wait=wait_exponential(multiplier=1, min=4, max=10)
-                )(super().embed_documents)
                 all_embeddings.extend(retrying_fn(batch))
             return all_embeddings
 
