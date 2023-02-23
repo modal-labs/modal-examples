@@ -13,26 +13,32 @@
 # ## Setting up the dependencies
 #
 # Installing Tensorflow in Modal is quite straightforward.
-# If you want it to run on a GPU, it's easiest to use the base Conda image.
-# We also need to install `cudatoolkit` and `cudnn` for it to work.
-# Other than that, installing the `tensorflow` Python package is essentially enough.
+# If you want it to run on a GPU, you need the image to have CUDA libraries available
+# to the Tensorflow package. You can use Conda to install these libraries before `pip` installing `tensorflow`, or you
+# can use Tensorflow's official GPU base image which comes with the CUDA libraries and `tensorflow` already installed.
 
 import time
 
 import modal
 
+dockerhub_image = modal.Image.from_dockerhub(
+    "tensorflow/tensorflow:latest-gpu",
+).pip_install("protobuf==3.20.*")
+
+conda_image = (
+    modal.Image.conda()
+    .conda_install(
+        "cudatoolkit=11.2",
+        "cudnn=8.1.0",
+        "cuda-nvcc",
+        channels=["conda-forge", "nvidia"],
+    )
+    .pip_install("tensorflow~=2.9.1")
+)
+
 stub = modal.Stub(
     "example-tensorflow-tutorial",
-    image=(
-        modal.Image.conda()
-        .conda_install(
-            "cudatoolkit=11.2",
-            "cudnn=8.1.0",
-            "cuda-nvcc",
-            channels=["conda-forge", "nvidia"],
-        )
-        .pip_install("tensorflow~=2.9.1")
-    ),
+    image=conda_image or dockerhub_image,  # pick one and remove the other.
 )
 
 # ## Logging data for Tensorboard
