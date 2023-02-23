@@ -13,7 +13,7 @@
 # ## Setting up the dependencies
 #
 # Installing Tensorflow in Modal is quite straightforward.
-# If you want it to run on a GPU, you need the image to have CUDA libraries available
+# If you want it to run on a GPU, you need the container image to have CUDA libraries available
 # to the Tensorflow package. You can use Conda to install these libraries before `pip` installing `tensorflow`, or you
 # can use Tensorflow's official GPU base image which comes with the CUDA libraries and `tensorflow` already installed.
 
