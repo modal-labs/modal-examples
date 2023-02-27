@@ -123,7 +123,7 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
 # Instead of blocking on the result of the stable diffusion model (which could
 # take some time), we want to notify the user immediately that their request
 # is being processed. Modal Functions let you
-# [`submit`](/docs/reference/modal.Function#submit) an input without waiting for
+# [`spawn`](/docs/reference/modal.Function#spawn) an input without waiting for
 # the results, which we use here to kick off model inference as a background task.
 
 from fastapi import Request
