@@ -54,7 +54,7 @@ def tailscale_sidecar(tailscale_authkey, show_output=False):
         output_args = dict(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         output_args = {}
-    with subprocess.Popen(PROXY_SIDECAR_CMD, **output_args) as p:
+    with subprocess.Popen(PROXY_SIDECAR_CMD, **output_args) as p:  # type: ignore
         subprocess.check_call(AUTH_CMD)
         # wait for tailscale to fully configure network, otherwise proxies can fail:
         time.sleep(2)
