@@ -88,7 +88,7 @@ def populate_podcast_metadata(podcast_id: str):
 @stub.asgi(
     mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
     shared_volumes={config.CACHE_DIR: volume},
-    keep_warm=True,
+    keep_warm=2,
 )
 def fastapi_app():
     import fastapi.staticfiles
@@ -360,6 +360,7 @@ def transcribe_episode(
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
     import whisper
+
     from modal import container_app
 
     try:
