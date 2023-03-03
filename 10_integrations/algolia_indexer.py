@@ -38,12 +38,16 @@ stub = modal.Stub("example-algolia-indexer")
 
 CONFIG = {
     "index_name": "modal_docs",
-    "start_urls": ["https://modal.com/docs"],
+    "start_urls": [
+        {"url": "https://modal.com/docs/guide", "page_rank": 5},
+        {"url": "https://modal.com/docs/reference", "page_rank": 1},
+    ],
     "selectors": {
         "lvl0": "article h1",
         "lvl1": "article h1",
         "lvl2": "article h2",
         "lvl3": "article h3",
+        "lvl4": "article h4",
         "text": "article p,article ol,article ul",
     },
 }
