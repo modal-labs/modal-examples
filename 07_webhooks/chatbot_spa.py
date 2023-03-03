@@ -72,9 +72,7 @@ def transformer():
 def generate_response(
     message: str, id: Optional[str] = None
 ) -> Tuple[str, str]:
-    chat_histories = (
-        modal.container_app.chat_histories
-    )  # Load the queue object.
+    chat_histories = stub.app.chat_histories  # Load the queue object.
 
     new_input_ids = tokenizer.encode(
         message + tokenizer.eos_token, return_tensors="pt"

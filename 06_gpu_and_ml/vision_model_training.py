@@ -146,8 +146,6 @@ def train():
         get_image_files,
     )
 
-    from modal import container_app
-
     config: Config = Config()
 
     print("Downloading dataset")
@@ -156,7 +154,7 @@ def train():
     wandb_enabled = bool(os.environ.get("WANDB_API_KEY"))
     if wandb_enabled:
         wandb.init(
-            id=container_app.app_id,
+            id=stub.app.app_id,
             project=config.wandb.project,
             entity=config.wandb.entity,
         )
