@@ -189,7 +189,9 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
         answer = parts[0]
         sources = []
     else:
-        raise RuntimeError(f"Expected to receive an answer with a single 'SOURCES' block, got:\n{output}")
+        raise RuntimeError(
+            f"Expected to receive an answer with a single 'SOURCES' block, got:\n{output}"
+        )
     return answer.strip(), sources
 
 
