@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import os
 import shutil
 import subprocess

@@ -193,10 +193,11 @@ def trigger():
 # ```
 
 # You can also run this entire Modal app in debugging mode before.
-# call it with regular python as `python news_summarizer.py`
-if __name__ == "__main__":
-    with stub.run():
-        trigger.call()
+# call it with `modal run news_summarizer.py`
+
+@stub.local_entrypoint
+def main():
+    trigger.call()
 
 # And that's it. You will now generate deep learning summaries from the latest
 # NYT Science articles every day.
