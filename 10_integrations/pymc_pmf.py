@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "run", "10_integrations/pymc_pmf.py::pymc_stub"]
+# ---
 # # Probabilistic programming (PyMC)
 #
 # This example shows how you can use Modal to scale up PyMC code to run with massive parallelism.

@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py", "--query", "test query"]
+# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py", "--query", "How many oil barrels were released from reserves"]
 # ---
 # # Question-answering with LangChain
 #
@@ -180,8 +180,18 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     result = chain(
         {"input_documents": docs, "question": query}, return_only_outputs=True
     )
-    answer, sources_refs = result["output_text"].split("SOURCES: ")
-    sources = retrieve_sources(sources_refs, texts)
+    output: str = result["output_text"]
+    parts = output.split("SOURCES: ")
+    if len(parts) == 2:
+        answer, sources_refs = parts
+        sources = retrieve_sources(sources_refs, texts)
+    elif len(parts) == 1:
+        answer = parts[0]
+        sources = []
+    else:
+        raise RuntimeError(
+            f"Expected to receive an answer with a single 'SOURCES' block, got:\n{output}"
+        )
     return answer.strip(), sources
 
 
