@@ -297,7 +297,7 @@ def run():
 
 
 # ## Have fun!
-# 
+#
 # Serve your chosen demo app with `modal serve controlnet_gradio_demos.py`. If you don't have any images ready at hand,
 # try one that's in the `06_gpu_and_ml/controlnet/demo_images/` folder.
 #
