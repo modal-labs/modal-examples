@@ -8,7 +8,9 @@ import modal
 stub = modal.Stub("example-linkscraper")
 
 
-playwright_image = modal.Image.debian_slim().run_commands(
+playwright_image = modal.Image.debian_slim(
+    python_version="3.10"
+).run_commands(  # Doesn't work with 3.11 yet
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
