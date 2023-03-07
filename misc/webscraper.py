@@ -1,6 +1,3 @@
-# ---
-# cmd: ["modal", "run", "misc.webscraper::stub.scrape"]
-# ---
 import os
 
 import modal
@@ -8,7 +5,9 @@ import modal
 stub = modal.Stub("example-linkscraper")
 
 
-playwright_image = modal.Image.debian_slim().run_commands(
+playwright_image = modal.Image.debian_slim(
+    python_version="3.10"
+).run_commands(  # Doesn't work with 3.11 yet
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
@@ -44,6 +43,7 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 def bot_token_msg(channel, message):
     import slack_sdk
 
+    print(f"Posting {message} to #{channel}")
     client = slack_sdk.WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.chat_postMessage(channel=channel, text=message)
 
@@ -62,6 +62,6 @@ def daily_scrape():
     scrape.call()
 
 
-if __name__ == "__main__":
-    with stub.run():
-        scrape.call()
+@stub.local_entrypoint
+def run():
+    scrape.call()
