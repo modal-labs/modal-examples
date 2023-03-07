@@ -1,6 +1,7 @@
 # ---
-# lambda-test: false
+# cmd: ["modal", "run", "10_integrations.dbt.modal_dbt.py::run"]
 # ---
+
 """This is a simple demonstration of how to run a dbt-core project on Modal
 
 The underlying DBT data and models are from https://docs.getdbt.com/docs/get-started/getting-started-dbt-core

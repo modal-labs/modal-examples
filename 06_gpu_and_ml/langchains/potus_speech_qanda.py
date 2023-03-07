@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py", "--query", "How many oil barrels were released from reserves"]
+# args: ["--query", "How many oil barrels were released from reserves"]
 # ---
 # # Question-answering with LangChain
 #
@@ -106,8 +106,8 @@ def create_retrying_openai_embedder():
 
     Ref: https://platform.openai.com/docs/guides/rate-limits/overview.
     """
-    from tenacity import retry, wait_exponential
     from langchain.embeddings.openai import OpenAIEmbeddings
+    from tenacity import retry, wait_exponential
 
     def batched(iterable, n):
         if n < 1:

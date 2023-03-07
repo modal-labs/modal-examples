@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "misc.webscraper::stub.scrape"]
+# cmd: ["modal", "run", "misc.webscraper::scrape"]
 # ---
 import os
 
