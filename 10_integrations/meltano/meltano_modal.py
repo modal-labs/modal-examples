@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# cmd: ["modal", "run", "10_integrations.meltano.meltano_modal.py::extract_and_load"]
 # ---
 import os
 import shutil
@@ -75,7 +75,7 @@ def meltano_ui(self):
     return meltano.api.app.create_app()
 
 
-# Run this example using `modal run meltano_modal.py::stub.extract_and_load`
+# Run this example using `modal run meltano_modal.py::extract_and_load`
 @stub.function(
     shared_volumes={PERSISTED_VOLUME_PATH: storage},
     schedule=modal.Period(days=1),
@@ -87,7 +87,7 @@ def extract_and_load():
     )
 
 
-# Interactive sqlite3 exploration using `modal run meltano_modal.py::stub.explore`
+# Interactive sqlite3 exploration using `modal run meltano_modal.py::explore`
 @stub.function(
     interactive=True,
     shared_volumes={PERSISTED_VOLUME_PATH: storage},
