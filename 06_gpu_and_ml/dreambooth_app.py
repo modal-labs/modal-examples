@@ -42,7 +42,7 @@ stub = modal.Stub(name="example-dreambooth-app")
 GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
         "datasets",
