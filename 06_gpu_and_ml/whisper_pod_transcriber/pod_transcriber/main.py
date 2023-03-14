@@ -86,7 +86,9 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @stub.asgi(
-    mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
+    mounts=[
+        modal.Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")
+    ],
     shared_volumes={config.CACHE_DIR: volume},
     keep_warm=2,
 )
@@ -129,16 +131,17 @@ def search_podcast(name):
 
 @stub.function(
     image=search_image,
+    schedule=modal.Period(hours=4),
     shared_volumes={config.CACHE_DIR: volume},
-    timeout=(15 * 60),
+    timeout=(30 * 60),
 )
-def index():
+def refresh_index():
     import dataclasses
     from collections import defaultdict
 
     import dacite
 
-    logger.info("Starting transcript indexing process.")
+    logger.info(f"Running scheduled index refresh at {utc_now()}")
     config.SEARCH_DIR.mkdir(parents=True, exist_ok=True)
 
     episodes = defaultdict(list)
@@ -148,17 +151,22 @@ def index():
         if not pod_dir.is_dir():
             continue
 
-        for file in pod_dir.iterdir():
-            if file.name == "metadata.json":
+        for filepath in pod_dir.iterdir():
+            if filepath.name == "metadata.json":
                 continue
 
-            with open(file, "r") as f:
-                data = json.load(f)
-                ep = dacite.from_dict(
-                    data_class=podcast.EpisodeMetadata, data=data
+            try:
+                with open(filepath, "r") as f:
+                    data = json.load(f)
+            except json.decoder.JSONDecodeError:
+                logger.warning(
+                    f"Removing corrupt JSON metadata file: {filepath}."
                 )
-                episodes[ep.podcast_title].append(ep)
-                guid_hash_to_episodes[ep.guid_hash] = ep
+                filepath.unlink()
+
+            ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
+            episodes[ep.podcast_title].append(ep)
+            guid_hash_to_episodes[ep.guid_hash] = ep
 
     logger.info(f"Loaded {len(guid_hash_to_episodes)} podcast episodes.")
 
@@ -212,15 +220,6 @@ def index():
     logger.info(f"writing {filepath}")
     with open(filepath, "w") as f:
         json.dump(search_dict, f)
-
-
-@stub.function(
-    schedule=modal.Period(hours=4),
-    timeout=(30 * 60),
-)
-def refresh_index():
-    logger.info(f"Running scheduled index refresh at {utc_now()}")
-    index.call()
 
 
 def split_silences(
