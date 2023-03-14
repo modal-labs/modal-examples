@@ -86,7 +86,7 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @stub.asgi(
-    mounts=[modal.Mount("/assets", local_dir=config.ASSETS_PATH)],
+    mounts=[modal.Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")],
     shared_volumes={config.CACHE_DIR: volume},
     keep_warm=2,
 )
