@@ -1,3 +1,8 @@
+# ---
+# integration-test: false
+# lambda-test: false
+# ---
+
 """Example of setting up tailscale VPN (https://tailscale.com/) as a sidecar
 
 In this example, it's used to access a private API in another machine on the tailnet
