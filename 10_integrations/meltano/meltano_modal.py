@@ -47,7 +47,7 @@ meltano_img = (
     .apt_install("git")
     .pip_install("meltano")
     .copy(meltano_source_mount)
-    .run_function(install_project_deps)
+    .run_function(install_project_deps, secret=meltano_conf)
 )
 
 
@@ -64,15 +64,6 @@ def symlink_logs():
     if not REMOTE_LOGS_PATH.exists():
         PERSISTED_LOGS_DIR.mkdir(exist_ok=True, parents=True)
         REMOTE_LOGS_PATH.symlink_to(PERSISTED_LOGS_DIR)
-
-
-@stub.wsgi(shared_volumes={PERSISTED_VOLUME_PATH: storage})
-def meltano_ui(self):
-    # This serves the deprecated meltano UI as a webhook
-    symlink_logs()
-    import meltano.api.app
-
-    return meltano.api.app.create_app()
 
 
 # Run this example using `modal run meltano_modal.py::extract_and_load`
