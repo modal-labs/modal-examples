@@ -1,14 +1,15 @@
 import asyncio
-import json
 import io
 import logging
 import pathlib
+import re
 import tempfile
+import time
 from typing import Iterator
 
 import modal
 
-from fastapi import FastAPI, Header, File, UploadFile, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
 image = (
@@ -16,19 +17,15 @@ image = (
     .apt_install("git", "ffmpeg")
     .pip_install(
         "https://github.com/openai/whisper/archive/v20230314.tar.gz",
-        "python-multipart==0.0.6",
-        "git+https://github.com/shirayu/whispering.git@v0.6.6",
         "ffmpeg-python",
         "pytube~=12.1.2",
     )
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
-
 web_app = FastAPI()
 
 
 def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
-    import tempfile
     import ffmpeg
     import numpy as np
 
@@ -66,12 +63,25 @@ def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
 
 
 def split_silences(
-    path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
+    path: str, min_segment_length: float = 30.0, min_silence_length: float = 0.8
 ) -> Iterator[tuple[float, float]]:
-    """Split audio file into contiguous chunks using the ffmpeg `silencedetect` filter.
-    Yields tuples (start, end) of each chunk in seconds."""
+    """
+    Split audio file into contiguous chunks using the ffmpeg `silencedetect` filter.
+    Yields tuples (start, end) of each chunk in seconds.
 
-    import re
+    Parameters
+    ----------
+    path: str
+        path to the audio file on disk.
+    min_segment_length : float
+        The minimum acceptable length for an audio segment in seconds. Lower values
+        allow for more splitting and increased parallelizing, but decrease transcription
+        accuracy. Whisper models expect to transcribe in 30 second segments, so this is the
+        default minimum.
+    min_silence_length : float
+        Minimum silence to detect and split on, in seconds. Lower values are more likely to split
+        audio in middle of phrases and degrade transcription accuracy.
+    """
     import ffmpeg
 
     silence_end_re = re.compile(
@@ -117,9 +127,9 @@ def split_silences(
 
 @stub.function
 def download_mp3_from_youtube(youtube_url: str) -> bytes:
-    import logging
     from pytube import YouTube
-    logging.getLogger("pytube").setLevel(logging.DEBUG)
+
+    logging.getLogger("pytube").setLevel(logging.INFO)
     yt = YouTube(youtube_url)
     video = yt.streams.filter(only_audio=True).first()
     buffer = io.BytesIO()
@@ -128,30 +138,28 @@ def download_mp3_from_youtube(youtube_url: str) -> bytes:
     return buffer.read()
 
 
-@stub.function(
-    cpu=2,
-)
+@stub.function(cpu=2)
 def transcribe_segment(
     start: float,
     end: float,
     audio_data: bytes,
     model: str,
 ):
-    import tempfile
-    import time
-
-    import ffmpeg
     import torch
     import whisper
-    print(f"Transcribing segment {start:.2f} to {end:.2f}")
+
+    print(
+        f"Transcribing segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration)"
+    )
 
     t0 = time.time()
     use_gpu = torch.cuda.is_available()
     device = "cuda" if use_gpu else "cpu"
     model = whisper.load_model(model, device=device)
-    result = model.transcribe(load_audio(audio_data, start=start, end=end), language="en", fp16=use_gpu)  # type: ignore
+    np_array = load_audio(audio_data, start=start, end=end)
+    result = model.transcribe(np_array, language="en", fp16=use_gpu)  # type: ignore
     print(
-        f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds."
+        f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
     )
 
     # Add back offsets.
@@ -163,73 +171,74 @@ def transcribe_segment(
 
 
 async def stream_whisper(audio_data: bytes):
-    import logging
-    import numpy as np
-
     with tempfile.NamedTemporaryFile(delete=False) as f:
         f.write(audio_data)
         f.flush()
-        file_len = len(pathlib.Path(f.name).read_bytes())
-        print(f"file len is {file_len}")
         segment_gen = split_silences(f.name)
 
-        for result in transcribe_segment.starmap(
-            segment_gen, kwargs=dict(audio_data=audio_data, model="base.en"),
-            order_outputs=True,
-        ):
-            yield result["text"]
+    for result in transcribe_segment.starmap(
+        segment_gen, kwargs=dict(audio_data=audio_data, model="base.en")
+    ):
+        # Must cooperatively yeild here otherwise `StreamingResponse` will not iteratively return stream parts.
+        # see: https://github.com/python/asyncio/issues/284
+        await asyncio.sleep(0.5)
+        # Addition of newline character is necessary for stream response structure.
+        # Remove it and streaming responses are buffered until the end.
+        yield result["text"] + "\n"
 
 
-@web_app.post("/transcribe")
-async def transcribe(request: Request):
+@web_app.get("/")
+async def transcribe(url: str):
     """
-    Transcribe an 'example.wav' file in your current directory with the following
-    `curl` request:
+    Usage:
 
     ```sh
-curl --verbose -X POST https://modal-labs--example-whisper-streaming-fastapi-app-th-7ade17-dev.modal.run/transcribe \
-    -H  "accept: application/json" \
-    -H  "Content-Type: multipart/form-data" \
-    -F "audio=@harvard.wav;type=audio/wav"
+    curl https://modal-labs--example-whisper-streaming-web.modal.run/transcribe?url=https://www.youtube.com/watch?v=s_LncVnecLA" \
     ```
 
-    This endpoint will stream back the audio file's transcription as it makes progress.
+    This endpoint will stream back the Youtube's audio transcription as it makes progress.
+
+    Some example Youtube videos for inspiration:
+
+    1. Churchill's 'We shall never surrender' speech - https://www.youtube.com/watch?v=s_LncVnecLA
+    2. Charlie Chaplin's final speech from The Great Dictator - https://www.youtube.com/watch?v=J7GY1Xg6X20
     """
-    body = await request.body()
-    # FastAPI's built-in `File` type does not work with `curl`.
-    # https://github.com/encode/starlette/issues/1059#issuecomment-696419776
-    request._body = body.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-    inp = await request.form()
-    audio = inp["audio"]
-    # content_size = int(request.headers['content-length'])
-    print(audio)
-    print(dir(audio))
-    print(audio.headers)
-    print(f"{audio.file=}")
-    print("reading from file, which should be 12034158 for churchill.mp3")
-    audio_data = audio.file.read(12034158)
-    print(len(audio_data))
-    # return
-    return StreamingResponse(stream_whisper(audio_data))
+    import pytube.exceptions
+
+    print(f"downloading {url}")
+    try:
+        audio_data = download_mp3_from_youtube(url)
+    except pytube.exceptions.RegexMatchError:
+        raise HTTPException(
+            status_code=422, detail=f"Could not process url {url}"
+        )
+    print(f"streaming transcription of {url} audio to client...")
+    return StreamingResponse(
+        stream_whisper(audio_data), media_type="text/plain"
+    )
 
 
-@stub.asgi(gpu="any")
-def fastapi_app():
+@stub.asgi
+def web():
     return web_app
 
 
-@stub.function(gpu="any", timeout=600)
+@stub.function
 async def transcribe_cli(data: bytes, suffix: str):
     async for result in stream_whisper(data):
         print(result)
 
 
 @stub.local_entrypoint
-def main(filepath: str):
-    data = download_mp3_from_youtube.call("https://www.youtube.com/watch?v=s_LncVnecLA")
-    filepath = pathlib.Path(filepath)
-    # data = filepath.read_bytes()
+def main(path: str):
+    if path.startswith("https"):
+        data = download_mp3_from_youtube.call(path)
+        suffix = ".mp3"
+    else:
+        filepath = pathlib.Path(path)
+        data = filepath.read_bytes()
+        suffix = filepath.suffix
     transcribe_cli.call(
         data,
-        suffix=filepath.suffix,
+        suffix=suffix,
     )

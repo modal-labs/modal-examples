@@ -3,7 +3,7 @@
 # deploy: true
 # ---
 import asyncio
-from fastapi import FastAPI, Header
+from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
 import modal
@@ -17,7 +17,6 @@ async def fake_video_streamer():
     for i in range(10):
         yield f"frame {i}: some fake video bytes\n".encode()
         await asyncio.sleep(1.0)
-
 
 
 @web_app.get("/")

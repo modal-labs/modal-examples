@@ -309,7 +309,7 @@ def transcribe_segment(
         result = model.transcribe(f.name, language="en", fp16=use_gpu)  # type: ignore
 
     logger.info(
-        f"Transcribed segment {start:.2f} to {end:.2f} of {end - start:.2f} in {time.time() - t0:.2f} seconds."
+        f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
     )
 
     # Add back offsets.
