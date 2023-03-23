@@ -31,6 +31,7 @@ algolia_image = modal.Image.from_dockerhub(
         "RUN wget https://bootstrap.pypa.io/get-pip.py",
         "RUN python3.8 get-pip.py",
         "RUN ln --symbolic --force --no-dereference /usr/bin/python3.8 /usr/bin/python",
+        "ENTRYPOINT []",
     ],
 )
 
