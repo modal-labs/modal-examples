@@ -182,9 +182,7 @@ async def stream_whisper(audio_data: bytes):
         # Must cooperatively yeild here otherwise `StreamingResponse` will not iteratively return stream parts.
         # see: https://github.com/python/asyncio/issues/284
         await asyncio.sleep(0.5)
-        # Addition of newline character is necessary for stream response structure.
-        # Remove it and streaming responses are buffered until the end.
-        yield result["text"] + "\n"
+        yield result["text"]
 
 
 @web_app.get("/")
@@ -193,7 +191,8 @@ async def transcribe(url: str):
     Usage:
 
     ```sh
-    curl https://modal-labs--example-whisper-streaming-web.modal.run/transcribe?url=https://www.youtube.com/watch?v=s_LncVnecLA" \
+    curl --no-buffer \
+        https://modal-labs--example-whisper-streaming-web.modal.run/transcribe?url=https://www.youtube.com/watch?v=s_LncVnecLA"
     ```
 
     This endpoint will stream back the Youtube's audio transcription as it makes progress.
@@ -214,7 +213,7 @@ async def transcribe(url: str):
         )
     print(f"streaming transcription of {url} audio to client...")
     return StreamingResponse(
-        stream_whisper(audio_data), media_type="text/plain"
+        stream_whisper(audio_data), media_type="text/event-stream"
     )
 
 
