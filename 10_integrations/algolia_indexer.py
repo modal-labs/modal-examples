@@ -25,12 +25,12 @@ import modal
 
 algolia_image = modal.Image.from_dockerhub(
     tag="algolia/docsearch-scraper",
-    setup_commands=[
-        "apt-get update",
-        "apt-get install -y python3.8 python3-distutils wget",
-        "wget https://bootstrap.pypa.io/get-pip.py",
-        "python3.8 get-pip.py",
-        "ln --symbolic --force --no-dereference /usr/bin/python3.8 /usr/bin/python",
+    setup_dockerfile_commands=[
+        "RUN apt-get update",
+        "RUN apt-get install -y python3.8 python3-distutils wget",
+        "RUN wget https://bootstrap.pypa.io/get-pip.py",
+        "RUN python3.8 get-pip.py",
+        "RUN ln --symbolic --force --no-dereference /usr/bin/python3.8 /usr/bin/python",
     ],
 )
 
