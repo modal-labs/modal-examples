@@ -4,7 +4,7 @@
 # ---
 # # Stable Diffusion CLI
 #
-# This example shows Stable Ddiffusion 1.5 with a number of optimizations
+# This example shows Stable Diffusion 1.5 with a number of optimizations
 # that makes it run faster on Modal. The example takes about 10s to cold start
 # and about 1.0s per image generated.
 #
