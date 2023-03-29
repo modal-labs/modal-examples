@@ -159,7 +159,7 @@ class AlpacaLoRAModel:
 
 
 # This Modal app local entrypoint just runs the example instructions shown in the
-# repositorie's README: https://github.com/tloen/alpaca-lora#example-outputs.
+# repository's README: https://github.com/tloen/alpaca-lora#example-outputs.
 #
 # Run this app with `modal run alpaca_lora.py` and you can cross-reference against the
 # repository to see how well the outputs match.
