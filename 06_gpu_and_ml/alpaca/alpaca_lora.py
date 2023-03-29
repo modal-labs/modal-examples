@@ -1,3 +1,4 @@
+import sys
 import modal
 
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
@@ -38,69 +39,89 @@ image = (
 )
 stub = modal.Stub(name="example-alpaca-lora", image=image)
 
+# The Alpaca-LoRA model is integrated into model as a Python class with an __enter__
+# method to take advantage of Modal's container lifecycle functionality.
+#
+# https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta
+#
+# On each container startup the model is loaded once and then subsequent model
+# text generations are run 'warm' with the model already initialized in memory.
 
-@stub.function(gpu="A10G")
-def generate(instructions: list[str]):
-    import sys
-    import torch
-    from peft import PeftModel
-    from transformers import GenerationConfig, LlamaForCausalLM, LlamaTokenizer
 
-    from generate import generate_prompt
+class AlpacaLoRAModel:
+    def __enter__(self):
+        """
+        Container-lifeycle method for model setup. Code is taken from
+        https://github.com/tloen/alpaca-lora/blob/main/generate.py and minor
+        modifications are made to support usage in a Python class.
+        """
+        import torch
+        from peft import PeftModel
+        from transformers import LlamaForCausalLM, LlamaTokenizer
 
-    load_8bit = False
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    base_model = "decapoda-research/llama-7b-hf"
-    lora_weights = "tloen/alpaca-lora-7b"
+        load_8bit = False
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        base_model = "decapoda-research/llama-7b-hf"
+        lora_weights = "tloen/alpaca-lora-7b"
 
-    tokenizer = LlamaTokenizer.from_pretrained(base_model)
-    if device == "cuda":
-        model = LlamaForCausalLM.from_pretrained(
-            base_model,
-            load_in_8bit=load_8bit,
-            torch_dtype=torch.float16,
-            device_map="auto",
-        )
-        model = PeftModel.from_pretrained(
-            model,
-            lora_weights,
-            torch_dtype=torch.float16,
-        )
-    elif device == "mps":
-        model = LlamaForCausalLM.from_pretrained(
-            base_model,
-            device_map={"": device},
-            torch_dtype=torch.float16,
-        )
-        model = PeftModel.from_pretrained(
-            model,
-            lora_weights,
-            device_map={"": device},
-            torch_dtype=torch.float16,
-        )
-    else:
-        model = LlamaForCausalLM.from_pretrained(
-            base_model, device_map={"": device}, low_cpu_mem_usage=True
-        )
-        model = PeftModel.from_pretrained(
-            model,
-            lora_weights,
-            device_map={"": device},
-        )
+        self.tokenizer = LlamaTokenizer.from_pretrained(base_model)
+        if device == "cuda":
+            model = LlamaForCausalLM.from_pretrained(
+                base_model,
+                load_in_8bit=load_8bit,
+                torch_dtype=torch.float16,
+                device_map="auto",
+            )
+            model = PeftModel.from_pretrained(
+                model,
+                lora_weights,
+                torch_dtype=torch.float16,
+            )
+        elif device == "mps":
+            model = LlamaForCausalLM.from_pretrained(
+                base_model,
+                device_map={"": device},
+                torch_dtype=torch.float16,
+            )
+            model = PeftModel.from_pretrained(
+                model,
+                lora_weights,
+                device_map={"": device},
+                torch_dtype=torch.float16,
+            )
+        else:
+            model = LlamaForCausalLM.from_pretrained(
+                base_model, device_map={"": device}, low_cpu_mem_usage=True
+            )
+            model = PeftModel.from_pretrained(
+                model,
+                lora_weights,
+                device_map={"": device},
+            )
 
-    # unwind broken decapoda-research config
-    model.config.pad_token_id = tokenizer.pad_token_id = 0  # unk
-    model.config.bos_token_id = 1
-    model.config.eos_token_id = 2
+        # unwind broken decapoda-research config
+        model.config.pad_token_id = self.tokenizer.pad_token_id = 0  # unk
+        model.config.bos_token_id = 1
+        model.config.eos_token_id = 2
 
-    if not load_8bit:
-        model.half()  # seems to fix bugs for some users.
+        if not load_8bit:
+            model.half()  # seems to fix bugs for some users.
 
-    model.eval()
-    if torch.__version__ >= "2" and sys.platform != "win32":
-        model = torch.compile(model)
+        model.eval()
+        if torch.__version__ >= "2" and sys.platform != "win32":
+            model = torch.compile(model)
+        self.model = model
+        self.device = device
+
+    @stub.function(gpu="A10G")
+    def generate(self, instructions: list[str]):
+        for instrctn in instructions:
+            print(f"\033[96mInstruction: {instrctn}\033[0m")
+            print("Response:", self.evaluate(instrctn))
+            print()
 
     def evaluate(
+        self,
         instruction,
         input=None,
         temperature=0.1,
@@ -110,9 +131,13 @@ def generate(instructions: list[str]):
         max_new_tokens=128,
         **kwargs,
     ):
+        import torch
+        from generate import generate_prompt
+        from transformers import GenerationConfig
+
         prompt = generate_prompt(instruction, input)
-        inputs = tokenizer(prompt, return_tensors="pt")
-        input_ids = inputs["input_ids"].to(device)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        input_ids = inputs["input_ids"].to(self.device)
         generation_config = GenerationConfig(
             temperature=temperature,
             top_p=top_p,
@@ -121,7 +146,7 @@ def generate(instructions: list[str]):
             **kwargs,
         )
         with torch.no_grad():
-            generation_output = model.generate(
+            generation_output = self.model.generate(
                 input_ids=input_ids,
                 generation_config=generation_config,
                 return_dict_in_generate=True,
@@ -129,13 +154,8 @@ def generate(instructions: list[str]):
                 max_new_tokens=max_new_tokens,
             )
         s = generation_output.sequences[0]
-        output = tokenizer.decode(s)
+        output = self.tokenizer.decode(s)
         return output.split("### Response:")[1].strip()
-
-    for instrctn in instructions:
-        print(f"\033[96mInstruction: {instrctn}\033[0m")
-        print("Response:", evaluate(instrctn))
-        print()
 
 
 # This Modal app local entrypoint just runs the example instructions shown in the
@@ -158,4 +178,5 @@ def main():
         "Translate the sentence 'I have no mouth but I must scream' into Spanish.",
         "Count up from 1 to 500.",
     ]
-    generate.call(instructions)
+    model = AlpacaLoRAModel()
+    model.generate.call(instructions)
