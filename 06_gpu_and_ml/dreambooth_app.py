@@ -237,6 +237,45 @@ def train(instance_example_urls, config=TrainConfig()):
     )
 
 
+# ## The inference function.
+#
+# To generate images from prompts using our fine-tuned model, we define a function called `inference`.
+# In order to initialize the model just once on container startup, we use Modal's [container
+# lifecycle](https://modal.com/docs/guide/lifecycle-functions) feature, which requires the function to be part
+# of a class.  The shared volume is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
+
+
+class Model:
+    def __enter__(self):
+        import torch
+        from diffusers import DDIMScheduler, StableDiffusionPipeline
+
+        # set up a hugging face inference pipeline using our model
+        ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
+        pipe = StableDiffusionPipeline.from_pretrained(
+            MODEL_DIR,
+            scheduler=ddim,
+            torch_dtype=torch.float16,
+            safety_checker=None,
+        ).to("cuda")
+        pipe.enable_xformers_memory_efficient_attention()
+        self.pipe = pipe
+
+    @stub.function(
+        image=image,
+        gpu="A100",
+        shared_volumes={str(MODEL_DIR): volume},
+    )
+    def inference(self, text, config):
+        image = self.pipe(
+            text,
+            num_inference_steps=config.num_inference_steps,
+            guidance_scale=config.guidance_scale,
+        ).images[0]
+
+        return image
+
+
 # ## Wrap the trained model in Gradio's web UI
 #
 # Gradio.app makes it super easy to expose a model's functionality
@@ -255,32 +294,16 @@ def train(instance_example_urls, config=TrainConfig()):
 
 @stub.asgi(
     image=image,
-    gpu="A100",
-    shared_volumes={str(MODEL_DIR): volume},
+    concurrency_limit=3,
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 def fastapi_app(config=AppConfig()):
     import gradio as gr
-    import torch
-    from diffusers import DDIMScheduler, StableDiffusionPipeline
     from gradio.routes import mount_gradio_app
 
-    # set up a hugging face inference pipeline using our model
-    ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
-    pipe = StableDiffusionPipeline.from_pretrained(
-        MODEL_DIR, scheduler=ddim, torch_dtype=torch.float16
-    ).to("cuda")
-    pipe.enable_xformers_memory_efficient_attention()
-
-    # wrap inference in a text-to-image function
+    # Call to the GPU inference function on Modal.
     def go(text):
-        image = pipe(
-            text,
-            num_inference_steps=config.num_inference_steps,
-            guidance_scale=config.guidance_scale,
-        ).images[0]
-
-        return image
+        return Model().inference.call(text, config)
 
     instance_phrase = f"{config.instance_name} the {config.class_name}"
 
