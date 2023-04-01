@@ -56,8 +56,14 @@ image = (
     )
     .pip_install("xformers", pre=True)
     .apt_install("git")
+    # Perform a shallow fetch of just the target `diffusers` commit, checking out
+    # the commit in the container's current working directory, /root. Then install
+    # the `diffusers` package.
     .run_commands(
-        f"cd /root && git clone https://github.com/huggingface/diffusers && cd diffusers && git checkout {GIT_SHA} && pip install -e ."
+        "cd /root && git init .",
+        f"cd /root && git remote add origin https://github.com/huggingface/diffusers",
+        f"cd /root && git fetch --depth=1 origin {GIT_SHA} && git checkout {GIT_SHA}",
+        f"cd /root && pip install -e ."
     )
 )
 
@@ -109,6 +115,7 @@ class TrainConfig(SharedConfig):
     lr_scheduler: str = "constant"
     lr_warmup_steps: int = 0
     max_train_steps: int = 600
+    checkpointing_steps: int = 1000
 
 
 @dataclass
@@ -231,9 +238,9 @@ def train(instance_example_urls, config=TrainConfig()):
             f"--lr_scheduler={config.lr_scheduler}",
             f"--lr_warmup_steps={config.lr_warmup_steps}",
             f"--max_train_steps={config.max_train_steps}",
+            f"--checkpointing_steps={config.checkpointing_steps}"
         ],
         check=True,
-        cwd="diffusers",
     )
 
 
