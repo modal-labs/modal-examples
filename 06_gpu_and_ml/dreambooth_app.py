@@ -61,9 +61,9 @@ image = (
     # the `diffusers` package.
     .run_commands(
         "cd /root && git init .",
-        f"cd /root && git remote add origin https://github.com/huggingface/diffusers",
+        "cd /root && git remote add origin https://github.com/huggingface/diffusers",
         f"cd /root && git fetch --depth=1 origin {GIT_SHA} && git checkout {GIT_SHA}",
-        f"cd /root && pip install -e ."
+        "cd /root && pip install -e .",
     )
 )
 
@@ -238,7 +238,7 @@ def train(instance_example_urls, config=TrainConfig()):
             f"--lr_scheduler={config.lr_scheduler}",
             f"--lr_warmup_steps={config.lr_warmup_steps}",
             f"--max_train_steps={config.max_train_steps}",
-            f"--checkpointing_steps={config.checkpointing_steps}"
+            f"--checkpointing_steps={config.checkpointing_steps}",
         ],
         check=True,
     )
