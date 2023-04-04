@@ -6,6 +6,7 @@ import modal
 # image.
 
 repo_url = "https://github.com/tloen/alpaca-lora"
+commit_hash = "fcbc45e4c0db8948743bd1227b46a796c1effcd0"
 image = (
     modal.Image.debian_slim().apt_install("git")
     # Here we place the latest repository code into /root.
@@ -14,7 +15,7 @@ image = (
     .run_commands(
         "cd /root && git init .",
         f"cd /root && git remote add --fetch origin {repo_url}",
-        "cd /root && git checkout main",
+        f"cd /root && git checkout {commit_hash}",
     )
     # The alpaca-lora repository's dependencies list is in the repository,
     # but it's currently missing a dependency and not specifying dependency versions,

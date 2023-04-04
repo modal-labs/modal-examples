@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/webcam.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/obj_detection_webcam/webcam.py"]
 # deploy: true
 # ---
 # # Machine learning model inference endpoint that uses the webcam
