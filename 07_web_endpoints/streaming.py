@@ -36,12 +36,18 @@ async def main():
 def fastapi_app():
     return web_app
 
+@stub.webhook()
+def hook():
+    return StreamingResponse(
+        fake_video_streamer(), media_type="text/event-stream"
+    )
+
 
 # This is a very basic 'hello world' example of a webhook streaming response.
 #
 #
 # ```
-# modal server streaming.py
+# modal serve streaming.py
 # ```
 #
 # To try out the webhook, ensure that your client is not buffering the server response
@@ -50,4 +56,5 @@ def fastapi_app():
 #
 # ```shell
 # curl --no-buffer https://modal-labs--example-fastapi-streaming-fastapi-app.modal.run
+# curl --no-buffer https://modal-labs--example-fastapi-streaming-hook.modal.run
 # ````
