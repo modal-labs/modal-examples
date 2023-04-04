@@ -253,12 +253,13 @@ def train(instance_example_urls, config=TrainConfig()):
 # `modal deploy dreambooth_app.py`.
 
 
-@stub.asgi(
+@stub.function(
     image=image,
     gpu="A100",
     shared_volumes={str(MODEL_DIR): volume},
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
+@stub.asgi_app()
 def fastapi_app(config=AppConfig()):
     import gradio as gr
     import torch

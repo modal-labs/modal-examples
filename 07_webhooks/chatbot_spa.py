@@ -49,9 +49,10 @@ if stub.is_inside(stub.gpu_image):
     )
 
 
-@stub.asgi(
+@stub.function(
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
 )
+@stub.asgi_app()
 def transformer():
     app = fastapi.FastAPI()
 

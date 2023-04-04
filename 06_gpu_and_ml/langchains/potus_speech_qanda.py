@@ -201,7 +201,8 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 # As said above, we're implementing a web endpoint, `web`, and a CLI command, `cli`.
 
 
-@stub.webhook(method="GET")
+@stub.function()
+@stub.web_endpoint(method="GET")
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     if show_sources:

@@ -152,7 +152,8 @@ def train():
 # Note that this server will be exposed to the public internet!
 
 
-@stub.wsgi(shared_volumes={logdir: stub.volume})
+@stub.function(shared_volumes={logdir: stub.volume})
+@stub.wsgi_app()
 def tensorboard_app():
     import tensorboard
 
