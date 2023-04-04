@@ -299,11 +299,12 @@ class Model:
 # `modal deploy dreambooth_app.py`.
 
 
-@stub.asgi(
+@stub.function(
     image=image,
     concurrency_limit=3,
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
+@stub.asgi_app()
 def fastapi_app(config=AppConfig()):
     import gradio as gr
     from gradio.routes import mount_gradio_app

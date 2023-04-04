@@ -53,6 +53,7 @@ async def web_poll(function_id: str):
     return result
 
 
-@stub.asgi
+@stub.function()
+@stub.asgi_app()
 def fastapi_app():
     return web_app

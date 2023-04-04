@@ -32,12 +32,14 @@ async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
     return item
 
 
-@stub.asgi(image=image)
+@stub.function(image=image)
+@stub.asgi_app()
 def fastapi_app():
     return web_app
 
 
-@stub.webhook(method="POST")
+@stub.function()
+@stub.web_endpoint(method="POST")
 def f(item: Item):
     return "Hello " + item.name
 

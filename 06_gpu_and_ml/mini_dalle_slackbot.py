@@ -61,9 +61,11 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
 
 
 # python-multipart is needed for fastapi form parsing.
-@stub.webhook(
-    method="POST",
+@stub.function(
     image=modal.Image.debian_slim().pip_install("python-multipart"),
+)
+@stub.web_endpoint(
+    method="POST",
 )
 async def entrypoint(request: Request):
     body = await request.form()

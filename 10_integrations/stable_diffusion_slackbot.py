@@ -115,7 +115,7 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
 # trigger webhooks of your choice.
 #
 # To serve our model as a web endpoint, we apply the
-# [`@stub.webhook`](/docs/guide/webhooks#webhook) decorator in place of
+# [`@stub.web_endpoint`](/docs/guide/webhooks#web-endpoint) decorator in addition to
 # `@stub.function`. Modal webhooks are [FastAPI](https://fastapi.tiangolo.com/)
 # endpoints by default (though we accept any ASGI web framework). This webhook
 # retrieves the form body passed from Slack.
@@ -129,7 +129,8 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
 from fastapi import Request
 
 
-@stub.webhook(method="POST")
+@stub.function()
+@stub.web_endpoint(method="POST")
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]

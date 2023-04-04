@@ -6,8 +6,8 @@
 #
 # This example creates a web endpoint that uses a Huggingface model for object detection.
 #
-# The web endpoint takes an image from their webcam, and sends it to a Modal webhook.
-# The Modal webhook in turn calls a Modal function that runs the actual model.
+# The web endpoint takes an image from their webcam, and sends it to a Modal web endpoint.
+# The Modal web endpoint in turn calls a Modal function that runs the actual model.
 #
 # If you run this, it will look something like this:
 #
@@ -179,9 +179,10 @@ async def predict(request: Request):
 # Let's take the Fast API app and expose it to Modal.
 
 
-@stub.asgi(
+@stub.function(
     mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
+@stub.asgi_app()
 def fastapi_app():
     web_app.mount("/", StaticFiles(directory="/assets", html=True))
     return web_app
