@@ -35,7 +35,7 @@ from fastapi import FastAPI
 import modal
 
 web_app = FastAPI()
-assets_path = Path(__file__).parent / "dreambooth_app" / "assets"
+assets_path = Path(__file__).parent / "assets"
 stub = modal.Stub(name="example-dreambooth-app")
 
 # Commit in `diffusers` to checkout `train_dreambooth.py` from.
@@ -101,7 +101,7 @@ class TrainConfig(SharedConfig):
 
     # locator for plaintext file with urls for images of target instance
     instance_example_urls_file: str = str(
-        Path(__file__).parent / "dreambooth_app/instance_example_urls.txt"
+        Path(__file__).parent / "instance_example_urls.txt"
     )
 
     # identifier for pretrained model on Hugging Face
