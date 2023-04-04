@@ -45,7 +45,8 @@ def sync_fake_video_streamer():
         time.sleep(1)
 
 
-@stub.webhook()
+@stub.function()
+@stub.web_endpoint()
 def hook():
     return StreamingResponse(
         iter(sync_fake_video_streamer.call()), media_type="text/event-stream"
