@@ -98,9 +98,9 @@ def train():
 
     class_names = train_ds.class_names
     train_ds = (
-        train_ds.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
+        train_ds.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)  # type: ignore
     )
-    val_ds = val_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+    val_ds = val_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)  # type: ignore
     num_classes = len(class_names)
 
     model = Sequential(
