@@ -70,7 +70,7 @@ CONFIG = {
 # ## The actual function
 #
 # We want to trigger our crawler from our CI/CD pipeline, so we're serving it as a
-# [web endpoint](/docs/guide/webhooks#web-endpoint) that can be triggered by a `GET` request during deploy.
+# [web endpoint](/docs/guide/webhooks#web_endpoint) that can be triggered by a `GET` request during deploy.
 # You could also consider running the crawler on a [schedule](/docs/guide/cron).
 #
 # The Algolia crawler is written for Python 3.6 and needs to run in the `pipenv` created for it,
