@@ -38,23 +38,17 @@ def fastapi_app():
     return web_app
 
 
-@stub.function
+@stub.function(is_generator=True)
 def sync_fake_video_streamer():
     for i in range(10):
         yield f"frame {i}: some data\n".encode()
         time.sleep(1)
 
-def wrapper():
-    # `sync_fake_video_streamer` is a Modal function, and can't be passed
-    # directly into FastAPI's `StreamingResponse` class, so we wrap it in
-    # a standard Python generator function.
-    for res in sync_fake_video_streamer.call():
-        yield res
 
 @stub.webhook()
 def hook():
     return StreamingResponse(
-        wrapper(), media_type="text/event-stream"
+        iter(sync_fake_video_streamer.call()), media_type="text/event-stream"
     )
 
 
