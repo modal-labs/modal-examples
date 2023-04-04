@@ -13,7 +13,7 @@ stub = modal.Stub("example-fastapi-streaming")
 
 web_app = FastAPI()
 
-# This is fake asynchronous generator function simulates
+# This asynchronous generator function simulates
 # progressively returning data to the client. The `asyncio.sleep`
 # is not necessary, but makes it easier to see the iterative behavior
 # of the response.
