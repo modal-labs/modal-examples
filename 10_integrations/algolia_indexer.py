@@ -70,7 +70,7 @@ CONFIG = {
 # ## The actual function
 #
 # We want to trigger our crawler from our CI/CD pipeline, so we're serving it as a
-# [webhook](/docs/guide/webhooks#webhook) that can be triggered by a `GET` request during deploy.
+# [web endpoint](/docs/guide/webhooks#web-endpoint) that can be triggered by a `GET` request during deploy.
 # You could also consider running the crawler on a [schedule](/docs/guide/cron).
 #
 # The Algolia crawler is written for Python 3.6 and needs to run in the `pipenv` created for it,
@@ -80,6 +80,7 @@ CONFIG = {
 @stub.function(
     image=algolia_image, secrets=[modal.Secret.from_name("algolia-secret")]
 )
+@stub.web_endpoint()
 def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
@@ -91,7 +92,8 @@ def crawl():
 # We want to be able to trigger this function through a webhook.
 
 
-@stub.webhook
+@stub.function()
+@stub.web_endpoint()
 def crawl_webhook():
     crawl.call()
     return "Finished indexing docs"

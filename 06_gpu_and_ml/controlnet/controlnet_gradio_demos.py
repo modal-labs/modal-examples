@@ -288,11 +288,12 @@ def import_gradio_app_blocks(demo: DemoApp):
 # given the cold-start time.
 
 
-@stub.asgi(
+@stub.function(
     gpu="A10G",
     concurrency_limit=1,
     keep_warm=1,
 )
+@stub.asgi_app()
 def run():
     from gradio.routes import mount_gradio_app
 

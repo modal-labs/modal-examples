@@ -206,14 +206,15 @@ def refresh_db():
 # ## Webhook
 #
 # Hooking up the SQLite database to a Modal webhook is as simple as it gets.
-# The Modal `@stub.asgi` decorator wraps a few lines of code: one `import` and a few
+# The Modal `@stub.asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return a reference to its ASGI app object.
 
 
-@stub.asgi(
+@stub.function(
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
 )
+@stub.asgi_app()
 def app():
     from datasette.app import Datasette
 

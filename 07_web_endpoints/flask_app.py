@@ -10,7 +10,8 @@ stub = modal.Stub(
 )
 
 
-@stub.wsgi
+@stub.function()
+@stub.wsgi_app()
 def flask_app():
     from flask import Flask, request
 

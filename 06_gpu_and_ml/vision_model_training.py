@@ -278,11 +278,12 @@ def create_demo_examples() -> List[str]:
     return available_examples
 
 
-@stub.asgi(
+@stub.function(
     image=image,
     shared_volumes={str(MODEL_CACHE): volume},
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
+@stub.asgi_app()
 def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app

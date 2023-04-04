@@ -217,7 +217,8 @@ async def transcribe(url: str):
     )
 
 
-@stub.asgi
+@stub.function()
+@stub.asgi_app()
 def web():
     return web_app
 
