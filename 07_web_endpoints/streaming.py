@@ -36,6 +36,7 @@ async def main():
 def fastapi_app():
     return web_app
 
+
 @stub.webhook()
 def hook():
     return StreamingResponse(
