@@ -174,7 +174,11 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
 
 
 @stub.asgi(
-    mounts=[modal.Mount.from_local_dir(local_path=config.ASSETS_PATH, remote_path="/assets")],
+    mounts=[
+        modal.Mount.from_local_dir(
+            local_path=config.ASSETS_PATH, remote_path="/assets"
+        )
+    ],
 )
 def fastapi_app():
     import fastapi.staticfiles
