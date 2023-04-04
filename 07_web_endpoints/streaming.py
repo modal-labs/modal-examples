@@ -13,7 +13,7 @@ stub = modal.Stub("example-fastapi-streaming")
 
 web_app = FastAPI()
 
-# This is 'faker' asynchronous generator function simulates
+# This is fake asynchronous generator function simulates
 # progressively returning data to the client. The `asyncio.sleep`
 # is not necessary, but makes it easier to see the iterative behavior
 # of the response.
@@ -38,7 +38,7 @@ def fastapi_app():
     return web_app
 
 
-@stub.function(is_generator=True)
+@stub.function()
 def sync_fake_video_streamer():
     for i in range(10):
         yield f"frame {i}: some data\n".encode()
@@ -48,6 +48,11 @@ def sync_fake_video_streamer():
 @stub.function()
 @stub.web_endpoint()
 def hook():
+    # `iter()` is used because `.call` returns an iterable object but not in Iterator,
+    # so the `StreamingResponse` can't call `next()` on it.
+    # `iter()` produces an Iterator from an iterable.
+    #
+    # See: https://docs.python.org/3/library/stdtypes.html#typeiter
     return StreamingResponse(
         iter(sync_fake_video_streamer.call()), media_type="text/event-stream"
     )
