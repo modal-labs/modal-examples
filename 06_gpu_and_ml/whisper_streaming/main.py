@@ -23,7 +23,9 @@ image = (
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
 web_app = FastAPI()
-CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = "https://www.youtube.com/watch?v=J7GY1Xg6X20"
+CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = (
+    "https://www.youtube.com/watch?v=J7GY1Xg6X20"
+)
 
 
 def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
