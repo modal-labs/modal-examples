@@ -23,6 +23,9 @@ image = (
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
 web_app = FastAPI()
+CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = (
+    "https://www.youtube.com/watch?v=J7GY1Xg6X20"
+)
 
 
 def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
@@ -230,7 +233,7 @@ async def transcribe_cli(data: bytes, suffix: str):
 
 
 @stub.local_entrypoint
-def main(path: str):
+def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
     if path.startswith("https"):
         data = download_mp3_from_youtube.call(path)
         suffix = ".mp3"
