@@ -95,7 +95,7 @@ def parse_receipt(image: bytes):
 # Python process and submit tasks to it:
 #
 # ```python
-# fn = modal.lookup("example-doc-ocr-jobs", "parse_receipt")
+# fn = modal.Function.lookup("example-doc-ocr-jobs", "parse_receipt")
 # fn.spawn(my_image)
 # ```
 #
