@@ -44,7 +44,7 @@ stub = modal.Stub(
 # the range).
 
 
-@stub.function
+@stub.function()
 def get_data(year, month):
     import duckdb
 
@@ -75,7 +75,7 @@ def get_data(year, month):
 # 2. Aggregate the data and plot the result
 
 
-@stub.function
+@stub.function()
 def create_plot():
     from matplotlib import pyplot
 
@@ -126,7 +126,7 @@ def create_plot():
 # Run this local entrypoint with `modal run`.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     output_dir = "/tmp/nyc"
     os.makedirs(output_dir, exist_ok=True)

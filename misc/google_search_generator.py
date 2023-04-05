@@ -16,7 +16,7 @@ stub = modal.Stub(
 # Next, let's define a _generator_ function that uses our custom image.
 
 
-@stub.function
+@stub.function()
 def scrape(query):
     from googlesearch import search
 
@@ -27,7 +27,7 @@ def scrape(query):
 # Finally, let's launch it from the command line with `modal run`:
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main(query: str = "modal"):
     for url in scrape.call(query):
         print(url)

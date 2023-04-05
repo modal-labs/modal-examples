@@ -139,7 +139,7 @@ def render_frame(i):
 OUTPUT_DIR = "/tmp/render"
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 

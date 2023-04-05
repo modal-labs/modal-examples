@@ -80,7 +80,7 @@ async def entrypoint(request: Request):
 OUTPUT_DIR = "/tmp/render"
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main(prompt: str = "martha stewart at burning man"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "output.png")

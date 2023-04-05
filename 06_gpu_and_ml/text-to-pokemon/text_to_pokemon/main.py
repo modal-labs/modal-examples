@@ -393,7 +393,7 @@ def closest_pokecard_by_color(sample: bytes, cards):
     return closest_card
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run_local(prompt: str):
     images_data = diskcached_text_to_pokemon.call(prompt)
 

@@ -52,7 +52,7 @@ def mean_pooling(model_output, attention_mask):
     )
 
 
-@stub.function
+@stub.function()
 def vectorize(x: str):
     """Vectorizes a string (sentence) into a PyTorch Tensor."""
     # encode input and calculate vector
@@ -131,7 +131,7 @@ class MovieReviewsDataset:
             self.dataset.append(file.open().read())  # limit to 500 characters
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     # download & prepare dataset
     dataset = MovieReviewsDataset()

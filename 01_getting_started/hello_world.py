@@ -26,7 +26,7 @@ stub = modal.Stub("example-hello-world")
 # and "world" alternatingly to standard out and standard error.
 
 
-@stub.function
+@stub.function()
 def f(i):
     if i % 2 == 0:
         print("hello", i)
@@ -39,11 +39,11 @@ def f(i):
 # ## Running it
 #
 # Finally, let's actually invoke it.
-# We put this invocation code inside a `@stub.local_entrypoint`.
+# We put this invocation code inside a `@stub.local_entrypoint()`.
 # This is because this module will be imported in the cloud, and we don't want
 # this code to be executed a second time in the cloud.
 #
-# Run `modal run hello_world.py` and the `@stub.local_entrypoint` decorator will handle
+# Run `modal run hello_world.py` and the `@stub.local_entrypoint()` decorator will handle
 # starting the Modal app and then executing the wrapped function body.
 #
 # Inside the `main()` function body, we are calling the function `f` in two ways:
@@ -52,7 +52,7 @@ def f(i):
 # 2. By mapping over the integers 0..19
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     # Call the function directly.
     print(f.call(1000))

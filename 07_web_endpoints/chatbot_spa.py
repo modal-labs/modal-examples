@@ -96,7 +96,7 @@ def generate_response(
     return id, response
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def test_response(message: str):
     _, response = generate_response.call(message)
     print(response)

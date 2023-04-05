@@ -67,7 +67,7 @@ def reset_diskcache(dry_run=True) -> None:
                 d.rmdir()
 
 
-@stub.function
+@stub.function()
 def extract_colors(num=3) -> None:
     """
     Extracts the colors for all Pokémon cards contained in `config` module

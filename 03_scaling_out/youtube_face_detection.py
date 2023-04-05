@@ -143,7 +143,7 @@ def process_video(url):
 # * Store the output data
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main(youtube_url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
     fn, movie_data = process_video.call(youtube_url)
     abs_fn = os.path.join(OUTPUT_DIR, fn)

@@ -7,10 +7,10 @@ import tempfile
 import time
 from typing import Iterator
 
-import modal
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+
+import modal
 
 image = (
     modal.Image.debian_slim()
@@ -128,7 +128,7 @@ def split_silences(
     print(f"Split {path} into {num_segments} segments")
 
 
-@stub.function
+@stub.function()
 def download_mp3_from_youtube(youtube_url: str) -> bytes:
     from pytube import YouTube
 
@@ -226,13 +226,13 @@ def web():
     return web_app
 
 
-@stub.function
+@stub.function()
 async def transcribe_cli(data: bytes, suffix: str):
     async for result in stream_whisper(data):
         print(result)
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
     if path.startswith("https"):
         data = download_mp3_from_youtube.call(path)

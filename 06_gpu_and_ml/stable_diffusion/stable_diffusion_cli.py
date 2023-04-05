@@ -177,7 +177,7 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def entrypoint(
     prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
 ):

@@ -17,7 +17,7 @@ stub.image = (
 )
 
 
-@stub.function
+@stub.function()
 def julia_subprocess():
     """Run the Julia interpreter as a subprocess."""
     import subprocess
@@ -26,7 +26,7 @@ def julia_subprocess():
     subprocess.run('julia -e "println(2 + 3)"', shell=True)
 
 
-@stub.function
+@stub.function()
 def julia_matrix_determinant():
     """Compute the determinant of a random matrix with PyJulia."""
     from julia.Base import rand
@@ -37,7 +37,7 @@ def julia_matrix_determinant():
     print(det(rand(10, 10)))
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     julia_subprocess.call()
     julia_matrix_determinant.call()

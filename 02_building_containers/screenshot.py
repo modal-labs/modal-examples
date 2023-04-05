@@ -70,7 +70,7 @@ async def screenshot(url):
 # Let's kick it off by reading a bunch of URLs from a txt file and scrape some of those.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main(url: str = "https://modal.com"):
     filename = pathlib.Path("/tmp/screenshots/screenshot.png")
     data = screenshot.call(url)

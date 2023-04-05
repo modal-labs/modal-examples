@@ -17,7 +17,7 @@ stub = modal.Stub(
 
 # ## Defining the web endpoint
 #
-# In addition to using `@stub.function` to decorate our function, we use the
+# In addition to using `@stub.function()` to decorate our function, we use the
 # `@modal.web_endpoint` decorator ([learn more](/docs/guide/webhooks#web_endpoint)), which instructs Modal
 # to create a REST endpoint that serves this function. Note that the default method is `GET`, but this
 # can be overridden using the `method` argument.

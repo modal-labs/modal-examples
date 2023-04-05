@@ -203,6 +203,6 @@ def pmf():
 # Now we can run the probabilistic program.
 
 
-@pymc_stub.local_entrypoint
+@pymc_stub.local_entrypoint()
 def run():
     pmf.call()

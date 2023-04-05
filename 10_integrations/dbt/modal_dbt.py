@@ -61,12 +61,12 @@ def dbt_cli(subcommand: typing.List):
     subprocess.check_call(["dbt"] + subcommand)
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     dbt_cli.call(["run"])
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def debug():
     dbt_cli.call(["debug"])
 

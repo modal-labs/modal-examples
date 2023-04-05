@@ -3,13 +3,13 @@ import modal
 stub = modal.Stub("example-generators")
 
 
-@stub.function
+@stub.function()
 def f(i):
     for j in range(i):
         yield j
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     for r in f.call(10):
         print(r)

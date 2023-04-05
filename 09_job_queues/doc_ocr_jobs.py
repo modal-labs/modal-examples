@@ -41,7 +41,7 @@ CACHE_PATH = "/root/model_cache"
 
 # ## Handler function
 #
-# Now let's define our handler function. Using the [@stub.function](https://modal.com/docs/reference/modal.Stub#function)
+# Now let's define our handler function. Using the [@stub.function()](https://modal.com/docs/reference/modal.Stub#function)
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
 # has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
@@ -112,7 +112,7 @@ def parse_receipt(image: bytes):
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     from pathlib import Path
 

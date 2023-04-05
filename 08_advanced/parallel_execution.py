@@ -5,14 +5,14 @@ import modal
 stub = modal.Stub("example-parallel")
 
 
-@stub.function
+@stub.function()
 def step1(word):
     time.sleep(2)
     print("step1 done")
     return word
 
 
-@stub.function
+@stub.function()
 def step2(number):
     time.sleep(1)
     print("step2 done")
@@ -21,7 +21,7 @@ def step2(number):
     return number
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     # Start running a function and return a handle to its result.
     word_call = step1.spawn("foo")

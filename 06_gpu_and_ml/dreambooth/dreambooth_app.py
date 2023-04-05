@@ -365,7 +365,7 @@ def fastapi_app(config=AppConfig()):
 # This app is already deployed on Modal and you can try it out at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     with open(TrainConfig().instance_example_urls_file) as f:
         instance_example_urls = [line.strip() for line in f.readlines()]
