@@ -40,7 +40,7 @@ web_app = fastapi.FastAPI()
 #
 # In `parse`, we're going to submit tasks to the function defined in the [Job
 # Queue tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using
-# [`modal.lookup`](/docs/reference/modal.lookup).
+# [`Function.lookup`](/docs/reference/modal.Function#lookup).
 #
 # We call [`.spawn()`](/docs/reference/modal.Function#spawn) on the function handle
 # we imported above, to kick off our function without blocking on the results. `spawn` returns
@@ -49,7 +49,9 @@ web_app = fastapi.FastAPI()
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
-    parse_receipt = modal.lookup("example-doc-ocr-jobs", "parse_receipt")
+    parse_receipt = modal.Function.lookup(
+        "example-doc-ocr-jobs", "parse_receipt"
+    )
 
     form = await request.form()
     receipt = await form["receipt"].read()  # type: ignore
