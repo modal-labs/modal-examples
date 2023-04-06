@@ -47,9 +47,9 @@ def stream_chat(prompt: str):
 
 # ## Streaming web endpoint
 #
-# These four lines are all that's needed to take that function above and serve it
+# These four lines are all you need to take that function above and serve it
 # over HTTP. It is a single function definition, annotated with decorators to make
-# it a Modal function that is [wrapped in a web serving capability](/docs/guide/webhooks).
+# it a Modal function [with a web serving capability](/docs/guide/webhooks).
 #
 # Notice that the `stream_chat` function is passed into the retuned streaming response.
 # This works because the function is a generator and is thus compatible with streaming.
