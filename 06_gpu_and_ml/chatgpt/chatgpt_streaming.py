@@ -56,8 +56,8 @@ def stream_chat(prompt: str):
 #
 # We use the standard Python calling convention `stream_chat(...)` and not the
 # Modal-specific calling convention `stream_chat.call(...)`. The latter would still work,
-# but it would create a remote function invocation which would uncessarily involve `stream_chat`
-# running in a separate container and sending its results back to the caller over the network.
+# but it would create a remote function invocation which would unnecessarily involve `stream_chat`
+# running in a separate container, sending its results back to the caller over the network.
 
 
 @stub.function()
@@ -71,7 +71,7 @@ def web(prompt: str):
 # ## Try out the web endpoint
 #
 # Run this example with `modal serve chatgpt_streaming.py` and you'll see an ephemeral web endpoint
-# has started serving. Hit this endpoint with a prompt and see the ChatGPT response streaming back in
+# has started serving. Hit this endpoint with a prompt and watch the ChatGPT response streaming back in
 # your browser or terminal window.
 #
 # We've also already deployed this example and so you can try out our deployed web endpoint:
