@@ -1,10 +1,10 @@
 #
 # # Using the ChatGPT streaming API
-# 
-# This example shows how to stream from the ChatGPT API as the model is generating a completion, instead of 
+#
+# This example shows how to stream from the ChatGPT API as the model is generating a completion, instead of
 # waiting for the entire completion to finish. This provides a much better user experience, and is what you
 # get when playing with ChatGPT on [chat.openai.com](https://chat.openai.com/).
-# 
+#
 # You can try this out from the command line using the `modal` CLI, or serve the application and use the
 # included web endpoint.
 #
@@ -25,10 +25,11 @@ stub = modal.Stub(
 
 # This is all the code needed to stream answers back from ChatGPT.
 # Not much code to worry about!
-# 
+#
 # Because this Python function is decorated with `@stub.function`, it becomes
 # callable as a Modal remote function. But `stream_chat` can still be used as a
 # regular Python function, which becomes important below.
+
 
 @stub.function()
 def stream_chat(prompt: str):
@@ -36,15 +37,13 @@ def stream_chat(prompt: str):
 
     for chunk in openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{
-            "role": "user",
-            "content": prompt
-        }],
+        messages=[{"role": "user", "content": prompt}],
         stream=True,
     ):
         content = chunk["choices"][0].get("delta", {}).get("content")
         if content is not None:
             yield content
+
 
 # ## Streaming web endpoint
 #
@@ -55,25 +54,28 @@ def stream_chat(prompt: str):
 # Notice that the `stream_chat` function is passed into the retuned streaming response.
 # This works because the function is a generator and is thus compatible with streaming.
 #
-# We use the standard Python calling convention `stream_chat(...)` and not the 
+# We use the standard Python calling convention `stream_chat(...)` and not the
 # Modal-specific calling convention `stream_chat.call(...)`. The latter would still work,
 # but it would create a remote function invocation which would uncessarily involve `stream_chat`
 # running in a separate container and sending its results back to the caller over the network.
+
 
 @stub.function()
 @stub.web_endpoint()
 def web(prompt: str):
     from fastapi.responses import StreamingResponse
+
     return StreamingResponse(stream_chat(prompt), media_type="text/html")
 
+
 # ## Try out the web endpoint
-# 
+#
 # Run this example with `modal serve chatgpt_streaming.py` and you'll see an ephemeral web endpoint
 # has started serving. Hit this endpoint with a prompt and see the ChatGPT response streaming back in
 # your browser or terminal window.
-# 
+#
 # We've also already deployed this example and so you can try out our deployed web endpoint:
-# 
+#
 # ```bash
 # curl --get \
 #   --data-urlencode "prompt=Generate a list of 20 great names for sentient cheesecakes that teach SQL" \
@@ -81,10 +83,13 @@ def web(prompt: str):
 # ```
 #
 # ## CLI interface
-# 
+#
 # Doing `modal run chatgpt_streaming.py --prompt="Generate a list of the world's most famous people"` also works, and uses the `local_entrypoint` defined below.
 
-default_prompt = "Generate a list of 20 great names for sentient cheesecakes that teach SQL"
+default_prompt = (
+    "Generate a list of 20 great names for sentient cheesecakes that teach SQL"
+)
+
 
 @stub.local_entrypoint()
 def main(prompt: str = default_prompt):
