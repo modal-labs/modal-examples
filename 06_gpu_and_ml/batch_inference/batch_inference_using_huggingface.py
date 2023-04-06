@@ -35,7 +35,7 @@ stub = modal.Stub(
 
 # ## Defining the prediction function
 #
-# Instead of a using `@stub.function` in the global scope,
+# Instead of a using `@stub.function()` in the global scope,
 # we put the method on a class, and define an `__enter__` method on that class.
 # Modal reuses containers for successive calls to the same function, so
 # we want to take advantage of this and avoid setting up the same model
@@ -72,7 +72,7 @@ class SentimentAnalysis:
 # which we can download using the `datasets` package:
 
 
-@stub.function
+@stub.function()
 def get_data():
     from datasets import load_dataset
 
@@ -88,7 +88,7 @@ def get_data():
 # This is a common way to evaluate classifiers on binary data.
 
 
-@stub.function
+@stub.function()
 def roc_plot(labels, predictions):
     from matplotlib import pyplot
     from sklearn.metrics import RocCurveDisplay
@@ -115,7 +115,7 @@ def roc_plot(labels, predictions):
 # Modal will automatically spin up more and more workers until all inputs are processed.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     print("Downloading data...")
     data = get_data.call()

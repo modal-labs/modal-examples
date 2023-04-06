@@ -234,7 +234,7 @@ def app():
 # This is achieved by deploying the script with `modal deploy covid_datasette.py`.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     print("Downloading COVID-19 dataset...")
     download_dataset.call()

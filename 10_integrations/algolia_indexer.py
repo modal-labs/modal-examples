@@ -121,6 +121,6 @@ def crawl_webhook():
 # `python algolia_indexer.py`
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     crawl.call()

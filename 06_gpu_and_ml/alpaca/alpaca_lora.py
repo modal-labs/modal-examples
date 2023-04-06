@@ -1,4 +1,5 @@
 import sys
+
 import modal
 
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
@@ -166,7 +167,7 @@ class AlpacaLoRAModel:
 # repository to see how well the outputs match.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     instructions = [
         "Tell me about alpacas.",

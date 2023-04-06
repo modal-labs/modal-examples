@@ -196,7 +196,7 @@ def trigger():
 # call it with `modal run news_summarizer.py`
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     trigger.call()
 

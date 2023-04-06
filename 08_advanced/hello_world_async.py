@@ -24,7 +24,7 @@ stub = modal.aio.AioStub("example-hello-world-async")
 # Let's stick to a normal synchronous function
 
 
-@stub.function
+@stub.function()
 def f(i):
     if i % 2 == 0:
         print("hello", i)
@@ -40,7 +40,7 @@ def f(i):
 # call the function using `await` or iterate over the map using `async for`.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 async def run_async():
     # Call the function directly.
     print(await f.call(1000))

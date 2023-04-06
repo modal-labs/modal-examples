@@ -57,7 +57,7 @@ volume = modal.SharedVolume().persist("stable-diff-model-vol")
 #
 # Let's define a function that takes a text prompt and an optional channel name
 # (so we can post results to Slack if the value is set) and runs stable diffusion.
-# The `@stub.function` decorator declares all the resources this function will
+# The `@stub.function()` decorator declares all the resources this function will
 # use: we configure it to use a GPU, run on an image that has all the packages we
 # need to run the model, mount the `SharedVolume` to a path of our choice, and
 # also provide it the secret that contains the token we created above.
@@ -116,7 +116,7 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
 #
 # To serve our model as a web endpoint, we apply the
 # [`@stub.web_endpoint`](/docs/guide/webhooks#web_endpoint) decorator in addition to
-# `@stub.function`. Modal webhooks are [FastAPI](https://fastapi.tiangolo.com/)
+# `@stub.function()`. Modal webhooks are [FastAPI](https://fastapi.tiangolo.com/)
 # endpoints by default (though we accept any ASGI web framework). This webhook
 # retrieves the form body passed from Slack.
 #
@@ -191,7 +191,7 @@ def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
 # We can also trigger `run_stable_diffusion` manually for easier debugging.
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run(
     prompt: str = "oil painting of a shiba",
     output_dir: str = "/tmp/stable-diffusion",

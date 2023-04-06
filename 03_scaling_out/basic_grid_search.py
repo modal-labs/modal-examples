@@ -20,7 +20,7 @@ stub = modal.Stub(
 # We also take the hyperparameter `k`, which is how many nearest neighbors we use.
 
 
-@stub.function
+@stub.function()
 def fit_knn(k):
     from sklearn.datasets import load_digits
     from sklearn.model_selection import train_test_split
@@ -42,7 +42,7 @@ def fit_knn(k):
 # for `k`, and then select for the best score on the holdout set:
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     # Do a basic hyperparameter search
     best_score, best_k = max(fit_knn.map(range(1, 100)))

@@ -48,7 +48,7 @@ def bot_token_msg(channel, message):
     client.chat_postMessage(channel=channel, text=message)
 
 
-@stub.function
+@stub.function()
 def scrape():
     links_of_interest = ["http://modal.com"]
 
@@ -62,6 +62,6 @@ def daily_scrape():
     scrape.call()
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def run():
     scrape.call()

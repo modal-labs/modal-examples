@@ -48,7 +48,7 @@ stub = modal.Stub(
 # and ask for the top 100 ETFs.
 
 
-@stub.function
+@stub.function()
 def get_stocks():
     import bs4
     import requests
@@ -73,7 +73,7 @@ def get_stocks():
 # It's fairly simple and just uses the `yfinance` package.
 
 
-@stub.function
+@stub.function()
 def get_prices(symbol):
     import yfinance
 
@@ -92,7 +92,7 @@ def get_prices(symbol):
 # and return the binary content from the function.
 
 
-@stub.function
+@stub.function()
 def plot_stocks():
     from matplotlib import pyplot, ticker
 
@@ -148,7 +148,7 @@ def plot_stocks():
 OUTPUT_DIR = "/tmp/"
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     data = plot_stocks.call()

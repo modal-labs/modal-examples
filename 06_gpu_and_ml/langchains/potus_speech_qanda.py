@@ -216,7 +216,7 @@ def web(query: str, show_sources: bool = False):
         }
 
 
-@stub.function
+@stub.function()
 def cli(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     # Terminal codes for pretty-printing.

@@ -31,7 +31,7 @@ if stub.is_inside():
 # and fits a very simple model (linear regression) to it
 
 
-@stub.function
+@stub.function()
 def fit():
     print("Inside run!")
     t0 = time.time()

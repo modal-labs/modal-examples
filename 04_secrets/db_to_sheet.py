@@ -120,7 +120,7 @@ def city_weather(city):
 from collections import Counter
 
 
-@stub.function
+@stub.function()
 def create_report(cities):
     # run city_weather for each city in parallel
     user_weather = city_weather.map(cities)
@@ -133,7 +133,7 @@ def create_report(cities):
 # easily triggered from the command line:
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def main():
     cities = [
         "Stockholm,,Sweden",
@@ -202,7 +202,7 @@ def db_to_sheet():
 # To trigger a manual run from your local code during development, you can also trigger this function using the cli:
 # `modal run db_to_sheet.py::stub.db_to_sheet`
 
-# Note that all of the @stub.function annotated functions above run remotely in isolated containers that are specified per
+# Note that all of the @stub.function() annotated functions above run remotely in isolated containers that are specified per
 # function, but they are called as seamlessly as using regular Python functions. This is a simple
 # showcase of how you can mix and match functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.

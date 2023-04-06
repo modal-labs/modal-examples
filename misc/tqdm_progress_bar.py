@@ -8,7 +8,7 @@ stub = modal.Stub(
 )
 
 
-@stub.function
+@stub.function()
 def f():
     from tqdm import tqdm
 
