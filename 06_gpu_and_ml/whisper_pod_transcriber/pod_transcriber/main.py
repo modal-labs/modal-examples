@@ -85,13 +85,14 @@ def populate_podcast_metadata(podcast_id: str):
     logger.info(f"Populated metadata for {pod_metadata.title}")
 
 
-@stub.asgi(
+@stub.function(
     mounts=[
         modal.Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")
     ],
     shared_volumes={config.CACHE_DIR: volume},
     keep_warm=2,
 )
+@stub.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
 
