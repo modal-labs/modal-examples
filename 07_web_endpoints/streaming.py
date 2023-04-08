@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_webhooks/streaming.py"]
+# cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
 # deploy: true
 # ---
 import asyncio

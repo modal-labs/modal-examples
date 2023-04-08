@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_webhooks/badges.py"]
+# cmd: ["modal", "serve", "07_web_endpoints/badges.py"]
 # ---
 # # Serve a dynamic SVG badge
 
