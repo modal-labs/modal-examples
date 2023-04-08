@@ -33,7 +33,6 @@ import io
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import modal
@@ -151,12 +150,6 @@ class ObjectDetection:
 
 web_app = FastAPI()
 static_path = Path(__file__).with_name("webcam").resolve()
-
-
-@web_app.get("/", response_class=HTMLResponse)
-async def slash(request: Request):
-    with open("/assets/index.html") as f:
-        return HTMLResponse(status_code=200, content=f.read())
 
 
 # The endpoint for the prediction function takes an image as a
