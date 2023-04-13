@@ -18,7 +18,6 @@
 # Because OpenAI's API is used, we also specify the `openai-secret` Modal Secret, which contains an OpenAI API key.
 #
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
-import itertools
 from pathlib import Path
 
 import modal
@@ -30,9 +29,9 @@ image = modal.Image.debian_slim().pip_install(
     "lxml~=4.9.2",
     # langchain pkgs
     "faiss-cpu~=1.7.3",
-    "langchain~=0.0.7",
-    "openai~=0.26.3",
-    "tenacity~=8.2.1",
+    "langchain~=0.0.138",
+    "openai~=0.27.4",
+    "tiktoken==0.3.0",
 )
 stub = modal.Stub(
     name="example-langchain-qanda",
@@ -98,43 +97,10 @@ def retrieve_sources(sources_refs: str, texts: list[str]) -> list[str]:
     ]
 
 
-def create_retrying_openai_embedder():
-    """
-    New OpenAI accounts have a very low rate-limit for their first 48 hrs.
-    It's too low to embed even just this single Biden speech.
-    As a workaround this wrapper handles rate-limit errors and slows embedding requests.
-
-    Ref: https://platform.openai.com/docs/guides/rate-limits/overview.
-    """
-    from langchain.embeddings.openai import OpenAIEmbeddings
-    from tenacity import retry, wait_exponential
-
-    def batched(iterable, n):
-        if n < 1:
-            raise ValueError("n must be at least one")
-        it = iter(iterable)
-        batch = list(itertools.islice(it, n))
-        while batch:
-            yield batch
-            batch = list(itertools.islice(it, n))
-
-    class RetryingEmbedder(OpenAIEmbeddings):
-        def embed_documents(self, texts: list[str]) -> list[list[float]]:
-            retrying_fn = retry(
-                wait=wait_exponential(multiplier=1, min=4, max=10)
-            )(super().embed_documents)
-            all_embeddings = []
-            for i, batch in enumerate(batched(texts, n=5)):
-                print(f"embedding documents batch {i}...")
-                all_embeddings.extend(retrying_fn(batch))
-            return all_embeddings
-
-    return RetryingEmbedder()
-
-
 def qanda_langchain(query: str) -> tuple[str, list[str]]:
     from langchain.chains.qa_with_sources import load_qa_with_sources_chain
     from langchain.llms import OpenAI
+    from langchain.embeddings.openai import OpenAIEmbeddings
     from langchain.text_splitter import CharacterTextSplitter
     from langchain.vectorstores.faiss import FAISS
 
@@ -162,11 +128,16 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     global docsearch
 
     if not docsearch:
+        # New OpenAI accounts have a very low rate-limit for their first 48 hrs.
+        # It's too low to embed even just this single Biden speech.
+        # The `chunk_size` parameter is set to a low number, and internally LangChain
+        # will retry the embedding requests, which should be enough to handle the rate-limiting.
+        #
+        # Ref: https://platform.openai.com/docs/guides/rate-limits/overview.
         print("generating docsearch indexer")
-        embeddings = create_retrying_openai_embedder()
         docsearch = FAISS.from_texts(
             texts,
-            embeddings,
+            OpenAIEmbeddings(chunk_size=5),
             metadatas=[{"source": i} for i in range(len(texts))],
         )
 
