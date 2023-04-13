@@ -18,7 +18,6 @@
 # Because OpenAI's API is used, we also specify the `openai-secret` Modal Secret, which contains an OpenAI API key.
 #
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
-import itertools
 from pathlib import Path
 
 import modal
