@@ -446,6 +446,6 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 @stub.local_entrypoint()
 def search_entrypoint(name: str):
     # To search for a podcast, run:
-    # modal run whisper_pod_transcriber/main.py --name "search string"
+    # modal run app.main --name "search string"
     for pod in search_podcast.call(name):
         print(pod)
