@@ -20,9 +20,9 @@
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
 from pathlib import Path
 
-import modal
+from modal import Image, Secret, Stub, web_endpoint
 
-image = modal.Image.debian_slim().pip_install(
+image = Image.debian_slim().pip_install(
     # scraping pkgs
     "beautifulsoup4~=4.11.1",
     "httpx~=0.23.3",
@@ -33,10 +33,10 @@ image = modal.Image.debian_slim().pip_install(
     "openai~=0.27.4",
     "tiktoken==0.3.0",
 )
-stub = modal.Stub(
+stub = Stub(
     name="example-langchain-qanda",
     image=image,
-    secrets=[modal.Secret.from_name("openai-secret")],
+    secrets=[Secret.from_name("openai-secret")],
 )
 docsearch = None  # embedding index that's relatively expensive to compute, so caching with global var.
 
@@ -173,7 +173,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 
 
 @stub.function()
-@stub.web_endpoint(method="GET")
+@web_endpoint(method="GET")
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     if show_sources:

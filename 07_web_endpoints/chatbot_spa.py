@@ -22,15 +22,15 @@ import fastapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import modal
+from modal import Dict, Image, Mount, SharedVolume, Stub, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-stub = modal.Stub("example-web-spa")
+stub = Stub("example-web-spa")
 
-stub.cache = modal.SharedVolume()
-stub.chat_histories = modal.Dict()
+stub.cache = SharedVolume()
+stub.chat_histories = Dict()
 
-gpu_image = modal.Image.debian_slim()
+gpu_image = Image.debian_slim()
 gpu_image = gpu_image.pip_install(
     "torch", find_links="https://download.pytorch.org/whl/cu116"
 )
@@ -50,9 +50,9 @@ if stub.is_inside(stub.gpu_image):
 
 
 @stub.function(
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
+    mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")]
 )
-@stub.asgi_app()
+@asgi_app()
 def transformer():
     app = fastapi.FastAPI()
 

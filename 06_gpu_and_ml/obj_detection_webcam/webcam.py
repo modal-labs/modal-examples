@@ -35,7 +35,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
-from modal import Image, Mount, Secret, SharedVolume, Stub, method
+from modal import Image, Mount, Secret, SharedVolume, Stub, method, asgi_app
 
 # We mainly need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -174,7 +174,7 @@ async def predict(request: Request):
 @stub.function(
     mounts=[Mount.from_local_dir(static_path, remote_path="/assets")],
 )
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     web_app.mount("/", StaticFiles(directory="/assets", html=True))
     return web_app

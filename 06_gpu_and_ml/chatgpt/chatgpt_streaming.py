@@ -14,13 +14,13 @@
 # The former is specified in the Modal application's `image` definition, and the latter is attached to the app's
 # stub as a [`modal.Secret`](/docs/guide/secrets).
 
-import modal
+from modal import Image, Secret, Stub, web_endpoint
 
-image = modal.Image.debian_slim().pip_install("openai")
-stub = modal.Stub(
+image = Image.debian_slim().pip_install("openai")
+stub = Stub(
     name="example-chatgpt-stream",
     image=image,
-    secrets=[modal.Secret.from_name("openai-secret")],
+    secrets=[Secret.from_name("openai-secret")],
 )
 
 # This is all the code needed to stream answers back from ChatGPT.
@@ -61,7 +61,7 @@ def stream_chat(prompt: str):
 
 
 @stub.function()
-@stub.web_endpoint()
+@web_endpoint()
 def web(prompt: str):
     from fastapi.responses import StreamingResponse
 

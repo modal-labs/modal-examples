@@ -16,12 +16,12 @@ import io
 import os
 from typing import Optional
 
-import modal
+from modal import Image, Secret, SharedVolume, Stub, web_endpoint
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-stub = modal.Stub("example-stable-diff-bot")
+stub = Stub("example-stable-diff-bot")
 
 # ## Inference Function
 #
@@ -49,7 +49,7 @@ stub = modal.Stub("example-stable-diff-bot")
 # To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a
 # writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = modal.SharedVolume().persist("stable-diff-model-vol")
+volume = SharedVolume().persist("stable-diff-model-vol")
 
 # ### The actual function
 #
@@ -71,14 +71,14 @@ CACHE_PATH = "/root/model_cache"
 @stub.function(
     gpu="A10G",
     image=(
-        modal.Image.debian_slim()
+        Image.debian_slim()
         .run_commands(
             "pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"
         )
         .pip_install("diffusers", "transformers", "scipy", "ftfy", "accelerate")
     ),
     shared_volumes={CACHE_PATH: volume},
-    secret=modal.Secret.from_name("huggingface-secret"),
+    secret=Secret.from_name("huggingface-secret"),
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     from diffusers import StableDiffusionPipeline
@@ -130,7 +130,7 @@ from fastapi import Request
 
 
 @stub.function()
-@stub.web_endpoint(method="POST")
+@web_endpoint(method="POST")
 async def entrypoint(request: Request):
     body = await request.form()
     prompt = body["text"]
@@ -154,8 +154,8 @@ async def entrypoint(request: Request):
 
 
 @stub.function(
-    image=modal.Image.debian_slim().pip_install("slack-sdk"),
-    secret=modal.Secret.from_name("stable-diff-slackbot-secret"),
+    image=Image.debian_slim().pip_install("slack-sdk"),
+    secret=Secret.from_name("stable-diff-slackbot-secret"),
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
     import slack_sdk

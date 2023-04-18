@@ -16,14 +16,14 @@ import json
 import os
 import subprocess
 
-import modal
+from modal import Image, Secret, Stub, web_endpoint
 
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.8 and symlink that as the `python` executable instead.
 
-algolia_image = modal.Image.from_dockerhub(
+algolia_image = Image.from_dockerhub(
     tag="algolia/docsearch-scraper",
     setup_dockerfile_commands=[
         "RUN apt-get update",
@@ -35,7 +35,7 @@ algolia_image = modal.Image.from_dockerhub(
     ],
 )
 
-stub = modal.Stub("example-algolia-indexer")
+stub = Stub("example-algolia-indexer")
 
 # ## Configure the crawler
 #
@@ -78,9 +78,9 @@ CONFIG = {
 
 
 @stub.function(
-    image=algolia_image, secrets=[modal.Secret.from_name("algolia-secret")]
+    image=algolia_image, secrets=[Secret.from_name("algolia-secret")]
 )
-@stub.web_endpoint()
+@web_endpoint()
 def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
@@ -93,7 +93,7 @@ def crawl():
 
 
 @stub.function()
-@stub.web_endpoint()
+@web_endpoint()
 def crawl_webhook():
     crawl.call()
     return "Finished indexing docs"

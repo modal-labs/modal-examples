@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 
 from fastapi import FastAPI
 
-import modal
+from modal import Image, Secret, Stub, asgi_app
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.
 # The demos each depend on their own custom pretrained StableDiffusion model, and these models are 5-6GB each.
@@ -198,7 +198,7 @@ def download_demo_files() -> None:
 
 
 image = (
-    modal.Image.debian_slim()
+    Image.debian_slim()
     .pip_install(
         "gradio==3.16.2",
         "albumentations==1.3.0",
@@ -244,11 +244,9 @@ image = (
             "apt-get install --yes ffmpeg libsm6 libxext6",
         ]
     )
-    .run_function(
-        download_demo_files, secret=modal.Secret({"DEMO_NAME": DEMO_NAME})
-    )
+    .run_function(download_demo_files, secret=Secret({"DEMO_NAME": DEMO_NAME}))
 )
-stub = modal.Stub(name="example-controlnet", image=image)
+stub = Stub(name="example-controlnet", image=image)
 
 web_app = FastAPI()
 
@@ -293,7 +291,7 @@ def import_gradio_app_blocks(demo: DemoApp):
     concurrency_limit=1,
     keep_warm=1,
 )
-@stub.asgi_app()
+@asgi_app()
 def run():
     from gradio.routes import mount_gradio_app
 

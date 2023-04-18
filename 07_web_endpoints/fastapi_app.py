@@ -7,11 +7,11 @@ from typing import Optional
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
 
-import modal
+from modal import Image, Stub, asgi_app, web_endpoint
 
 web_app = FastAPI()
-stub = modal.Stub("example-fastapi-app")
-image = modal.Image.debian_slim()
+stub = Stub("example-fastapi-app")
+image = Image.debian_slim()
 
 
 class Item(BaseModel):
@@ -33,13 +33,13 @@ async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
 
 
 @stub.function(image=image)
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     return web_app
 
 
 @stub.function()
-@stub.web_endpoint(method="POST")
+@web_endpoint(method="POST")
 def f(item: Item):
     return "Hello " + item.name
 

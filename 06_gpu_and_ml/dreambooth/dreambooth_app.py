@@ -32,7 +32,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from modal import Image, Mount, Secret, SharedVolume, Stub, method
+from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
@@ -305,7 +305,7 @@ class Model:
     concurrency_limit=3,
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app(config=AppConfig()):
     import gradio as gr
     from gradio.routes import mount_gradio_app

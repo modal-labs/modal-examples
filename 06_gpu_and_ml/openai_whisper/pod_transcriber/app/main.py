@@ -8,15 +8,24 @@ import json
 import pathlib
 from typing import Iterator, Tuple
 
-import modal
+from modal import (
+    Dict,
+    Image,
+    Mount,
+    Period,
+    Secret,
+    SharedVolume,
+    Stub,
+    asgi_app,
+)
 
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = modal.SharedVolume().persist("dataset-cache-vol")
+volume = SharedVolume().persist("dataset-cache-vol")
 
 app_image = (
-    modal.Image.debian_slim()
+    Image.debian_slim()
     .pip_install(
         "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
         "dacite",
@@ -30,20 +39,20 @@ app_image = (
     .apt_install("ffmpeg")
     .pip_install("ffmpeg-python")
 )
-search_image = modal.Image.debian_slim().pip_install(
+search_image = Image.debian_slim().pip_install(
     "scikit-learn~=0.24.2",
     "tqdm~=4.46.0",
     "numpy~=1.23.3",
     "dacite",
 )
 
-stub = modal.Stub(
+stub = Stub(
     "whisper-pod-transcriber",
     image=app_image,
-    secrets=[modal.Secret.from_name("podchaser")],
+    secrets=[Secret.from_name("podchaser")],
 )
 
-stub.in_progress = modal.Dict()
+stub.in_progress = Dict()
 
 
 def utc_now() -> datetime.datetime:
@@ -86,13 +95,11 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @stub.function(
-    mounts=[
-        modal.Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")
-    ],
+    mounts=[Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")],
     shared_volumes={config.CACHE_DIR: volume},
     keep_warm=2,
 )
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
 
@@ -132,7 +139,7 @@ def search_podcast(name):
 
 @stub.function(
     image=search_image,
-    schedule=modal.Period(hours=4),
+    schedule=Period(hours=4),
     shared_volumes={config.CACHE_DIR: volume},
     timeout=(30 * 60),
 )
