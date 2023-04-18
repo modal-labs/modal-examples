@@ -1,6 +1,6 @@
 import sys
 
-import modal
+from modal import Image, Stub, method
 
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
 # installable by `pip`, so instead we install the repository by cloning it into our Modal
@@ -9,7 +9,7 @@ import modal
 repo_url = "https://github.com/tloen/alpaca-lora"
 commit_hash = "fcbc45e4c0db8948743bd1227b46a796c1effcd0"
 image = (
-    modal.Image.debian_slim().apt_install("git")
+    Image.debian_slim().apt_install("git")
     # Here we place the latest repository code into /root.
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,
     # so this `init` then `checkout` workaround is used.
@@ -39,7 +39,7 @@ image = (
         "sentencepiece==0.1.97",
     )
 )
-stub = modal.Stub(name="example-alpaca-lora", image=image)
+stub = Stub(name="example-alpaca-lora", image=image)
 
 # The Alpaca-LoRA model is integrated into model as a Python class with an __enter__
 # method to take advantage of Modal's container lifecycle functionality.
@@ -50,6 +50,7 @@ stub = modal.Stub(name="example-alpaca-lora", image=image)
 # text generations are run 'warm' with the model already initialized in memory.
 
 
+@stub.cls(gpu="A10G")
 class AlpacaLoRAModel:
     def __enter__(self):
         """
@@ -115,13 +116,6 @@ class AlpacaLoRAModel:
         self.model = model
         self.device = device
 
-    @stub.function(gpu="A10G")
-    def generate(self, instructions: list[str]):
-        for instrctn in instructions:
-            print(f"\033[96mInstruction: {instrctn}\033[0m")
-            print("Response:", self.evaluate(instrctn))
-            print()
-
     def evaluate(
         self,
         instruction,
@@ -158,6 +152,13 @@ class AlpacaLoRAModel:
         s = generation_output.sequences[0]
         output = self.tokenizer.decode(s)
         return output.split("### Response:")[1].strip()
+
+    @method()
+    def generate(self, instructions: list[str]):
+        for instrctn in instructions:
+            print(f"\033[96mInstruction: {instrctn}\033[0m")
+            print("Response:", self.evaluate(instrctn))
+            print()
 
 
 # This Modal app local entrypoint just runs the example instructions shown in the

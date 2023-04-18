@@ -35,12 +35,12 @@ import os
 import time
 from pathlib import Path
 
-import modal
+from modal import Image, Secret, Stub, method
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-stub = modal.Stub("stable-diffusion-cli")
+stub = Stub("stable-diffusion-cli")
 
 # We will be using `typer` to create our CLI interface.
 
@@ -88,7 +88,7 @@ def download_models():
 
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
         "diffusers[torch]>=0.10",
@@ -103,7 +103,7 @@ image = (
     .pip_install("xformers", pre=True)
     .run_function(
         download_models,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
+        secrets=[Secret.from_name("huggingface-secret")],
     )
 )
 stub.image = image
@@ -127,6 +127,7 @@ stub.image = image
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
+@stub.cls(gpu="A10G")
 class StableDiffusion:
     def __enter__(self):
         import diffusers
@@ -150,7 +151,7 @@ class StableDiffusion:
             ).to("cuda")
             self.pipe.enable_xformers_memory_efficient_attention()
 
-    @stub.function(gpu="A10G")
+    @method()
     def run_inference(
         self, prompt: str, steps: int = 20, batch_size: int = 4
     ) -> list[bytes]:

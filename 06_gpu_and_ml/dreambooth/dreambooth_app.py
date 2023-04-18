@@ -32,17 +32,17 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-import modal
+from modal import Image, Mount, Secret, SharedVolume, Stub, method
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
-stub = modal.Stub(name="example-dreambooth-app")
+stub = Stub(name="example-dreambooth-app")
 
 # Commit in `diffusers` to checkout `train_dreambooth.py` from.
 GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
         "datasets",
@@ -70,7 +70,7 @@ image = (
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = modal.SharedVolume().persist("dreambooth-finetuning-vol")
+volume = SharedVolume().persist("dreambooth-finetuning-vol")
 MODEL_DIR = Path("/model")
 
 # ## Config
@@ -189,7 +189,7 @@ def load_images(image_urls):
         ): volume,  # fine-tuned model will be stored at `MODEL_DIR`
     },
     timeout=1800,  # 30 minutes
-    secrets=[modal.Secret.from_name("huggingface")],
+    secrets=[Secret.from_name("huggingface")],
 )
 def train(instance_example_urls, config=TrainConfig()):
     import subprocess
@@ -252,6 +252,11 @@ def train(instance_example_urls, config=TrainConfig()):
 # of a class.  The shared volume is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
 
 
+@stub.cls(
+    image=image,
+    gpu="A100",
+    shared_volumes={str(MODEL_DIR): volume},
+)
 class Model:
     def __enter__(self):
         import torch
@@ -268,11 +273,7 @@ class Model:
         pipe.enable_xformers_memory_efficient_attention()
         self.pipe = pipe
 
-    @stub.function(
-        image=image,
-        gpu="A100",
-        shared_volumes={str(MODEL_DIR): volume},
-    )
+    @method()
     def inference(self, text, config):
         image = self.pipe(
             text,
@@ -302,7 +303,7 @@ class Model:
 @stub.function(
     image=image,
     concurrency_limit=3,
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
+    mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @stub.asgi_app()
 def fastapi_app(config=AppConfig()):
