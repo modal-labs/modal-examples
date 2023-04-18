@@ -98,6 +98,7 @@ image = (
         "transformers",
         "triton",
         "safetensors",
+        "torch>=2.0",
     )
     .pip_install("xformers", pre=True)
     .run_function(
@@ -133,20 +134,21 @@ class StableDiffusion:
 
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-            cache_path,
-            subfolder="scheduler",
-            solver_order=2,
-            prediction_type="epsilon",
-            thresholding=False,
-            algorithm_type="dpmsolver++",
-            solver_type="midpoint",
-            denoise_final=True,  # important if steps are <= 10
-        )
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            cache_path, scheduler=scheduler
-        ).to("cuda")
-        self.pipe.enable_xformers_memory_efficient_attention()
+        with torch.device("cuda"):
+            scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
+                cache_path,
+                subfolder="scheduler",
+                solver_order=2,
+                prediction_type="epsilon",
+                thresholding=False,
+                algorithm_type="dpmsolver++",
+                solver_type="midpoint",
+                denoise_final=True,  # important if steps are <= 10
+            )
+            self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+                cache_path, scheduler=scheduler
+            ).to("cuda")
+            self.pipe.enable_xformers_memory_efficient_attention()
 
     @stub.function(gpu="A10G")
     def run_inference(
