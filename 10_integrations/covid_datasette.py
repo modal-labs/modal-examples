@@ -26,11 +26,11 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 
-import modal
+from modal import Image, Period, SharedVolume, Stub, asgi_app
 
-stub = modal.Stub("example-covid-datasette")
+stub = Stub("example-covid-datasette")
 datasette_image = (
-    modal.Image.debian_slim()
+    Image.debian_slim()
     .pip_install(
         "datasette~=0.63.2",
         "flufl.lock",
@@ -46,7 +46,7 @@ datasette_image = (
 # database file to be stored persistently. To achieve this we use a [`SharedVolume`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = modal.SharedVolume().persist("covid-dataset-cache-vol")
+volume = SharedVolume().persist("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
 LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))
@@ -196,7 +196,7 @@ def prep_db():
 # setup a [scheduled](/docs/guide/cron) Modal function to run automatically once every 24 hours.
 
 
-@stub.function(schedule=modal.Period(hours=24), timeout=1000)
+@stub.function(schedule=Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.call(cache=False)
@@ -214,7 +214,7 @@ def refresh_db():
     image=datasette_image,
     shared_volumes={CACHE_DIR: volume},
 )
-@stub.asgi_app()
+@asgi_app()
 def app():
     from datasette.app import Datasette
 

@@ -19,14 +19,14 @@
 
 import time
 
-import modal
+from modal import Image, SharedVolume, Stub, wsgi_app
 
-dockerhub_image = modal.Image.from_dockerhub(
+dockerhub_image = Image.from_dockerhub(
     "tensorflow/tensorflow:latest-gpu",
 ).pip_install("protobuf==3.20.*")
 
 conda_image = (
-    modal.Image.conda()
+    Image.conda()
     .conda_install(
         "cudatoolkit=11.2",
         "cudnn=8.1.0",
@@ -36,7 +36,7 @@ conda_image = (
     .pip_install("tensorflow~=2.9.1")
 )
 
-stub = modal.Stub(
+stub = Stub(
     "example-tensorflow-tutorial",
     image=conda_image or dockerhub_image,  # pick one and remove the other.
 )
@@ -46,7 +46,7 @@ stub = modal.Stub(
 # We want to run the web server for Tensorboard at the same time as we are training the Tensorflow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-stub.volume = modal.SharedVolume()
+stub.volume = SharedVolume()
 logdir = "/tensorboard"
 
 # ## Training function
@@ -153,7 +153,7 @@ def train():
 
 
 @stub.function(shared_volumes={logdir: stub.volume})
-@stub.wsgi_app()
+@wsgi_app()
 def tensorboard_app():
     import tensorboard
 

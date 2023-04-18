@@ -7,9 +7,9 @@ import time
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
-import modal
+from modal import Stub, asgi_app, web_endpoint
 
-stub = modal.Stub("example-fastapi-streaming")
+stub = Stub("example-fastapi-streaming")
 
 web_app = FastAPI()
 
@@ -39,7 +39,7 @@ async def main():
 
 
 @stub.function()
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     return web_app
 
@@ -56,7 +56,7 @@ def sync_fake_video_streamer():
 
 
 @stub.function()
-@stub.web_endpoint()
+@web_endpoint()
 def hook():
     return StreamingResponse(
         sync_fake_video_streamer.call(), media_type="text/event-stream"
@@ -74,7 +74,7 @@ def map_me(i):
 
 
 @stub.function()
-@stub.web_endpoint()
+@web_endpoint()
 def mapped():
     return StreamingResponse(
         map_me.map(range(10)), media_type="text/event-stream"

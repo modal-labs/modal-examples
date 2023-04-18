@@ -9,7 +9,7 @@ import time
 import urllib.request
 from datetime import timedelta
 
-import modal
+from modal import Image, Mount, SharedVolume, Stub, asgi_app
 
 from . import config, inpaint, pokemon_naming
 
@@ -49,9 +49,9 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = modal.SharedVolume().persist("txt-to-pokemon-cache-vol")
+volume = SharedVolume().persist("txt-to-pokemon-cache-vol")
 image = (
-    modal.Image.debian_slim()
+    Image.debian_slim()
     .pip_install(
         "accelerate",
         "colorgram.py",
@@ -63,7 +63,7 @@ image = (
     )
     .run_function(load_stable_diffusion_pokemon_model)
 )
-stub = modal.Stub(name="example-text-to-pokemon", image=image)
+stub = Stub(name="example-text-to-pokemon", image=image)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -175,12 +175,12 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
 
 @stub.function(
     mounts=[
-        modal.Mount.from_local_dir(
+        Mount.from_local_dir(
             local_path=config.ASSETS_PATH, remote_path="/assets"
         )
     ],
 )
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
 

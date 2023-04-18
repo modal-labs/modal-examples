@@ -8,11 +8,11 @@
 #
 # First let's start off by creating a Modal stub, and defining an image with the Python packages we're going to be using:
 
-import modal
+from modal import Stub, Image, web_endpoint
 
-stub = modal.Stub(
+stub = Stub(
     "example-web-badges",
-    image=modal.Image.debian_slim().pip_install("pybadges", "pypistats"),
+    image=Image.debian_slim().pip_install("pybadges", "pypistats"),
 )
 
 # ## Defining the web endpoint
@@ -24,7 +24,7 @@ stub = modal.Stub(
 
 
 @stub.function()
-@stub.web_endpoint()
+@web_endpoint()
 async def package_downloads(package_name: str):
     import json
 

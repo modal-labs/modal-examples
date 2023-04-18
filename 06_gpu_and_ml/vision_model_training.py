@@ -30,7 +30,7 @@ from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
 
-from modal import Image, Mount, Secret, SharedVolume, Stub, method
+from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
@@ -286,7 +286,7 @@ def create_demo_examples() -> List[str]:
     shared_volumes={str(MODEL_CACHE): volume},
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
-@stub.asgi_app()
+@asgi_app()
 def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app
