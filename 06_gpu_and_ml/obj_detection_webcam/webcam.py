@@ -35,16 +35,16 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
-import modal
+from modal import Image, Mount, Secret, SharedVolume, Stub, method
 
 # We mainly need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
 
-stub = modal.Stub("example-webcam-object-detection")
+stub = Stub("example-webcam-object-detection")
 image = (
-    modal.Image.debian_slim()
+    Image.debian_slim()
     .pip_install(
         "Pillow",
         "timm",
@@ -72,6 +72,12 @@ image = (
 # web interface can render it on top of the webcam view.
 
 
+@stub.cls(
+    cpu=4,
+    shared_volumes={"/cache": SharedVolume()},
+    image=image,
+    secret=Secret({"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}),
+)
 class ObjectDetection:
     def __enter__(self):
         from transformers import DetrFeatureExtractor, DetrForObjectDetection
@@ -83,14 +89,7 @@ class ObjectDetection:
             "facebook/detr-resnet-50"
         )
 
-    @stub.function(
-        cpu=4,
-        shared_volumes={"/cache": modal.SharedVolume()},
-        image=image,
-        secret=modal.Secret(
-            {"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}
-        ),
-    )
+    @method()
     def detect(self, img_data_in):
         # Based on https://huggingface.co/spaces/nateraw/detr-object-detection/blob/main/app.py
         from PIL import Image, ImageColor, ImageDraw, ImageFont
@@ -173,7 +172,7 @@ async def predict(request: Request):
 
 
 @stub.function(
-    mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
+    mounts=[Mount.from_local_dir(static_path, remote_path="/assets")],
 )
 @stub.asgi_app()
 def fastapi_app():

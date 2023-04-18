@@ -30,12 +30,12 @@ from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
 
-import modal
+from modal import Image, Mount, Secret, SharedVolume, Stub, method
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
-stub = modal.Stub(name="example-fastai-wandb-gradio-cifar10-demo")
-image = modal.Image.debian_slim().pip_install(
+stub = Stub(name="example-fastai-wandb-gradio-cifar10-demo")
+image = Image.debian_slim().pip_install(
     "fastai~=2.7.9",
     "gradio~=3.6",
     "httpx~=0.23.0",
@@ -48,7 +48,7 @@ image = modal.Image.debian_slim().pip_install(
 # A persistent shared volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = modal.SharedVolume().persist("cifar10-training-vol")
+volume = SharedVolume().persist("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
@@ -129,7 +129,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     shared_volumes={str(MODEL_CACHE): volume},
-    secret=modal.Secret.from_name("wandb"),
+    secret=Secret.from_name("wandb"),
     timeout=2700,  # 45 minutes
 )
 def train():
@@ -209,16 +209,19 @@ def train():
 # disk once on container start.
 #
 # The model's predict function accepts an image as bytes or a numpy array.
+
+
+@stub.cls(
+    image=image,
+    shared_volumes={str(MODEL_CACHE): volume},
+)
 class ClassifierModel:
     def __enter__(self):
         from fastai.learner import load_learner
 
         self.model = load_learner(MODEL_EXPORT_PATH)
 
-    @stub.function(
-        image=image,
-        shared_volumes={str(MODEL_CACHE): volume},
-    )
+    @method()
     def predict(self, image) -> str:
         prediction = self.model.predict(image)
         classification = prediction[0]
@@ -281,7 +284,7 @@ def create_demo_examples() -> List[str]:
 @stub.function(
     image=image,
     shared_volumes={str(MODEL_CACHE): volume},
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
+    mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @stub.asgi_app()
 def fastapi_app():
