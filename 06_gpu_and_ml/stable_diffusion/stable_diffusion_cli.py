@@ -98,7 +98,7 @@ image = (
         "transformers",
         "triton",
         "safetensors",
-        "torch>=2.0"
+        "torch>=2.0",
     )
     .pip_install("xformers", pre=True)
     .run_function(
