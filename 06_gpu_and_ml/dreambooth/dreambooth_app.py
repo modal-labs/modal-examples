@@ -191,12 +191,15 @@ def load_images(image_urls):
     timeout=1800,  # 30 minutes
     secrets=[Secret.from_name("huggingface")],
 )
-def train(instance_example_urls, config=TrainConfig()):
+def train(instance_example_urls):
     import subprocess
 
     import huggingface_hub
     from accelerate.utils import write_basic_config
     from transformers import CLIPTokenizer
+
+    # set up TrainConfig
+    config = TrainConfig()
 
     # set up runner-local image and shared model weight directories
     img_path = load_images(instance_example_urls)
@@ -306,13 +309,16 @@ class Model:
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @asgi_app()
-def fastapi_app(config=AppConfig()):
+def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app
 
     # Call to the GPU inference function on Modal.
     def go(text):
         return Model().inference.call(text, config)
+
+    # set up AppConfig
+    config = AppConfig()
 
     instance_phrase = f"{config.instance_name} the {config.class_name}"
 
