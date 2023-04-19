@@ -1,13 +1,7 @@
-import itertools
-import os
-import re
-import sys
 import time
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
 
 import torch
-from fastapi import Query
 from huggingface_hub import snapshot_download
 from pydantic import BaseModel, Field
 from rich import print
@@ -76,7 +70,7 @@ class StopOnTokens(StoppingCriteria):
 
 
 @stub.cls(gpu="A10G")
-class Alpha7B:
+class StabilityLM:
     def __init__(self, model_url: str = "stabilityai/stablelm-tuned-alpha-7b"):
         self.model_url = model_url
 
@@ -136,7 +130,7 @@ def format_prompt(instruction):
 @stub.function()
 @modal.web_endpoint(method="GET")
 def ask(prompt: str, temperature: float = 1.0, max_new_tokens: int = 512):
-    return Alpha7B().generate.call(
+    return StabilityLM().generate.call(
         prompt, temperature=temperature, max_new_tokens=max_new_tokens
     )
 
@@ -148,5 +142,5 @@ def main():
         "Generate a list of 20 great names for sentient cheesecakes that teach SQL.",
         "How can I tell apart female and male red cardinals?",
     ]
-    for q, a in zip(instructions, list(Alpha7B().generate.map(instructions))):
+    for q, a in zip(instructions, list(StabilityLM().generate.map(instructions))):
         print(f"{q_style}{q}{q_end}\n{a['response']}\n\n")
