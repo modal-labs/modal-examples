@@ -80,7 +80,6 @@ CONFIG = {
 @stub.function(
     image=algolia_image, secrets=[Secret.from_name("algolia-secret")]
 )
-@web_endpoint()
 def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
