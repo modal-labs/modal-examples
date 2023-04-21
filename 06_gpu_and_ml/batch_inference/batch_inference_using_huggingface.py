@@ -45,6 +45,7 @@ stub = modal.Stub(
 # to the model.
 # Every container that runs will have 8 CPUs set aside for it.
 
+
 @stub.cls(cpu=8, retries=3)
 class SentimentAnalysis:
     def __enter__(self):
