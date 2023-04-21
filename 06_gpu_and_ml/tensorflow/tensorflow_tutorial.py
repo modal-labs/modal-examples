@@ -1,5 +1,5 @@
 # ---
-# args: ["--just-run=1"]
+# args: ["--just-run"]
 # ---
 # # Tensorflow tutorial
 #
