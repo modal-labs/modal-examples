@@ -148,7 +148,8 @@ class StableDiffusion:
             device_map="auto",
         )
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            cache_path, scheduler=scheduler,
+            cache_path,
+            scheduler=scheduler,
             low_cpu_mem_usage=True,
             device_map="auto",
         )
