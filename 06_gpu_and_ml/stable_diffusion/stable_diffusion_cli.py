@@ -144,10 +144,12 @@ class StableDiffusion:
             algorithm_type="dpmsolver++",
             solver_type="midpoint",
             denoise_final=True,  # important if steps are <= 10
+            low_cpu_mem_usage=True,
             device_map="auto",
         )
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
             cache_path, scheduler=scheduler,
+            low_cpu_mem_usage=True,
             device_map="auto",
         )
         self.pipe.enable_xformers_memory_efficient_attention()
