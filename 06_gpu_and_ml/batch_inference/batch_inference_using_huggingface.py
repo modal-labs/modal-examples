@@ -46,6 +46,7 @@ stub = modal.Stub(
 # Every container that runs will have 8 CPUs set aside for it.
 
 
+@stub.cls(cpu=8, retries=3)
 class SentimentAnalysis:
     def __enter__(self):
         from transformers import pipeline
@@ -54,7 +55,7 @@ class SentimentAnalysis:
             model="distilbert-base-uncased-finetuned-sst-2-english"
         )
 
-    @stub.function(cpu=8, retries=3)
+    @modal.method()
     def predict(self, phrase: str):
         pred = self.sentiment_pipeline(
             phrase, truncation=True, max_length=512, top_k=2
