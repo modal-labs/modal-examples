@@ -1,0 +1,5 @@
+transformers~=4.28.1
+safetensors~=0.3.0
+accelerate~=0.18.0
+bitsandbytes~=0.38.1
+sentencepiece~=0.1.98
