@@ -1,9 +1,12 @@
 import importlib
 import json
 import pathlib
+import sys
+
 import pytest
 
 from utils import (
+    DEFAULT_DIRECTORY,
     ExampleType,
     get_examples,
     get_examples_json,
@@ -13,6 +16,12 @@ from utils import (
 examples = [ex for ex in get_examples() if ex.type == ExampleType.MODULE]
 example_ids = [ex.module for ex in examples]
 
+@pytest.fixture(autouse=False)
+def add_root_to_syspath(monkeypatch):
+    sys.path.append(str(DEFAULT_DIRECTORY))
+    yield
+    sys.path.pop()
+
 
 @pytest.mark.parametrize("example", examples, ids=example_ids)
 def test_filename(example):
@@ -21,7 +30,7 @@ def test_filename(example):
 
 
 @pytest.mark.parametrize("example", examples, ids=example_ids)
-def test_import(example):
+def test_import(example, add_root_to_syspath):
     importlib.import_module(example.module)
 
 
