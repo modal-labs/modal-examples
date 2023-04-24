@@ -5,7 +5,7 @@
   </a>
 </p>
 
-This is a collection of examples for [Modal](https://modal.com/).
+This is a collection of examples for [Modal](https://modal.com/). Use these examples to learn Modal and build your own robust and scalable applications.
 
 ## Usage
 
