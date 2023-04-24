@@ -16,6 +16,7 @@ from utils import (
 examples = [ex for ex in get_examples() if ex.type == ExampleType.MODULE]
 example_ids = [ex.module for ex in examples]
 
+
 @pytest.fixture(autouse=False)
 def add_root_to_syspath(monkeypatch):
     sys.path.append(str(DEFAULT_DIRECTORY))

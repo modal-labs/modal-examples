@@ -136,7 +136,9 @@ def get_examples(
     for subdir in sorted(
         p
         for p in directory.iterdir()
-        if p.is_dir() and not p.name.startswith(".") and not p.name.startswith("internal")
+        if p.is_dir()
+        and not p.name.startswith(".")
+        and not p.name.startswith("internal")
     ):
         yield from gather_example_files(
             parents=[], subdir=subdir, ignored=ignored, recurse=True
