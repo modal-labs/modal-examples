@@ -139,7 +139,7 @@ def ask(prompt: str, temperature: float = 1.0, max_new_tokens: int = 512):
 def main():
     q_style, q_end = "[bold bright_magenta]", "[/bold bright_magenta]"
     instructions = [
-        "Generate a list of 20 great names for sentient cheesecakes that teach SQL.",
+        "Generate a list of the 10 most beautiful cities in the world..",
         "How can I tell apart female and male red cardinals?",
     ]
     for q, a in zip(instructions, list(StabilityLM().generate.map(instructions))):
