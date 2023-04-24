@@ -1,6 +1,11 @@
-# Modal Examples
+<p align="center">
+  <a href="https://modal.com">
+    <img src="https://modal-public-assets.s3.amazonaws.com/bigicon.png" height="96">
+    <h3 align="center">Modal Examples</h3>
+  </a>
+</p>
 
-This is a collection of examples for [Modal](https://modal.com/).
+This is a collection of examples for [Modal](https://modal.com/). Use these examples to learn Modal and build your own robust and scalable applications.
 
 ## Usage
 
