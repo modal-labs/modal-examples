@@ -1,40 +1,29 @@
+import base64
+import os
 import time
 from pathlib import Path
 
-import torch
-from huggingface_hub import snapshot_download
-from pydantic import BaseModel, Field
-from rich import print
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    GenerationConfig,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    pipeline,
-)
-
 import modal
 
+with open("requirements.txt", "r") as f:
+    requirements = base64.b64encode(f.read().encode("utf-8")).decode("utf-8")
 
-def fetch_models():
-    MODEL_PATH = snapshot_download("stabilityai/stablelm-tuned-alpha-7b", ignore_patterns=["*.md"], revision="25071b093c15c0d1cb2b2876c6deb621b764fcf5")
 
-
-def compile_models():
+def build_models():
+    import torch
+    from huggingface_hub import snapshot_download
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    MODEL_PATH = snapshot_download("stabilityai/stablelm-tuned-alpha-7b", ignore_patterns=["*.md"], revision="25071b093c15c0d1cb2b2876c6deb621b764fcf5")
-    m = AutoModelForCausalLM.from_pretrained(MODEL_PATH, torch_dtype=torch.float16, local_files_only=True).cuda()
-    tok = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
-    m = torch.compile(m)
-    m.save_pretrained(MODEL_PATH, safe_serialization=True, max_shard_size="24GB")
-    tok.save_pretrained(MODEL_PATH)
-    [p.unlink() for p in Path(MODEL_PATH).rglob("*.bin")]
+    model_path = snapshot_download("stabilityai/stablelm-tuned-alpha-7b", ignore_patterns=["*.md"], revision="25071b093c15c0d1cb2b2876c6deb621b764fcf5")
+    m = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, device_map="auto", local_files_only=True)
+    m.save_pretrained(model_path, safe_serialization=True, max_shard_size="24GB")
+    tok = AutoTokenizer.from_pretrained(model_path)
+    tok.save_pretrained(model_path)
+    [p.unlink() for p in Path(model_path).rglob("*.bin")]  # type: ignore
 
 
 image = (
     modal.Image.conda()
-    .apt_install("git", "software-properties-common", "curl", "wget", "libopenblas-dev", "libblas-dev", "g++", "libboost-all-dev", "cmake", "ninja-build", "libpq-dev", "libatlas-base-dev", "gfortran", "libclblast-dev", "libprotobuf-dev", "protobuf-compiler")
+    .apt_install("git", "software-properties-common", "wget")
     .conda_install(
         "cudatoolkit-dev=11.7",
         "pytorch-cuda=11.7",
@@ -42,26 +31,18 @@ image = (
     )
     .env({"HF_HOME": "/root", "SAFETENSORS_FAST_GPU": "1", "BITSANDBYTES_NOWELCOME": "1", "PIP_DISABLE_PIP_VERSION_CHECK": "1", "PIP_NO_CACHE_DIR": "1"})
     .run_commands(
-        "pip install transformers==4.28.1 accelerate==0.18.0 safetensors==0.3.0 bitsandbytes==0.38.1 sentencepiece==0.1.98",
+        f"echo '{requirements}' | base64 --decode > /root/requirements.txt",
+        "pip install -r /root/requirements.txt",
         gpu="A10G"
     )
     .run_function(
-        compile_models,
-        gpu="A10G",
+        build_models,
+        gpu=None,
         timeout=3600,
     )
 )
 
-stub = modal.Stub(name="example-stability-lm", image=image)
-
-
-class StopOnTokens(StoppingCriteria):
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        stop_ids = [50278, 50279, 50277, 1, 0]
-        for stop_id in stop_ids:
-            if input_ids[0][-1] == stop_id:
-                return True
-        return False
+stub = modal.Stub(name="example-stability-lm", image=image, secrets=[modal.Secret({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})])
 
 
 @stub.cls(gpu="A10G")
@@ -74,30 +55,16 @@ class StabilityLM:
         Container-lifeycle method for model setup.
         """
         import accelerate
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        import torch
+        from transformers import pipeline
 
-        start = time.time()
-        tokenizer = AutoTokenizer.from_pretrained(self.model_url)
-        model = AutoModelForCausalLM.from_pretrained(
-            self.model_url,
-            torch_dtype=torch.float16,
-            device_map="auto",
-        )
-        print(f"Loaded model in {time.time() - start:.2f} seconds.")
-
-        if hasattr(model.config, "max_sequence_length"):
-            context_len = model.config.max_sequence_length
-        else:
-            context_len = 4096
-
-        self.context_len = context_len
         self.generator = pipeline(
             "text-generation",
-            model=model,
-            tokenizer=tokenizer,
+            model=self.model_url,
             torch_dtype=torch.float16,
             device_map="auto",
         )
+
 
     @modal.method()
     def generate(
@@ -113,7 +80,7 @@ class StabilityLM:
             do_sample=True,
             top_p=0.95,
             top_k=1000,
-            stopping_criteria=StoppingCriteriaList([StopOnTokens()]),
+            stopping_criteria=[] # TODO: add stopping criteria
         )
         return {"response": result[0]["generated_text"].replace(text, "")}
 
@@ -132,7 +99,7 @@ def ask(prompt: str, temperature: float = 1.0, max_new_tokens: int = 512):
 
 @stub.local_entrypoint()
 def main():
-    q_style, q_end = "[bold bright_magenta]", "[/bold bright_magenta]"
+    q_style, q_end = "\033[1m", "\033[0m"
     instructions = [
         "Generate a list of the 10 most beautiful cities in the world..",
         "How can I tell apart female and male red cardinals?",
