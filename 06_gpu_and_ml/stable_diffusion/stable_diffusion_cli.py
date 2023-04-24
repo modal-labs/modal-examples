@@ -91,11 +91,11 @@ image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
-        "diffusers[torch]>=0.10",
+        "diffusers[torch]>=0.15.1",
         "ftfy",
         "torch",
         "torchvision",
-        "transformers",
+        "transformers~=4.25.1",
         "triton",
         "safetensors",
         "torch>=2.0",
@@ -135,21 +135,25 @@ class StableDiffusion:
 
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        with torch.device("cuda"):
-            scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-                cache_path,
-                subfolder="scheduler",
-                solver_order=2,
-                prediction_type="epsilon",
-                thresholding=False,
-                algorithm_type="dpmsolver++",
-                solver_type="midpoint",
-                denoise_final=True,  # important if steps are <= 10
-            )
-            self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-                cache_path, scheduler=scheduler
-            ).to("cuda")
-            self.pipe.enable_xformers_memory_efficient_attention()
+        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
+            cache_path,
+            subfolder="scheduler",
+            solver_order=2,
+            prediction_type="epsilon",
+            thresholding=False,
+            algorithm_type="dpmsolver++",
+            solver_type="midpoint",
+            denoise_final=True,  # important if steps are <= 10
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            cache_path,
+            scheduler=scheduler,
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+        self.pipe.enable_xformers_memory_efficient_attention()
 
     @method()
     def run_inference(
