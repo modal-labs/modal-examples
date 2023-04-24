@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
 
-DEFAULT_DIRECTORY = Path(__file__).parent
+DEFAULT_DIRECTORY = Path(__file__).parent.parent
 
 
 with warnings.catch_warnings():

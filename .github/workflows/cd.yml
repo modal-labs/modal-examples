@@ -25,4 +25,4 @@ jobs:
 
       - name: Run deployment script
         run: |
-          python3 example_deploy.py --no-dry-run
+          python3 internal/deploy.py --no-dry-run

@@ -3,7 +3,7 @@ import json
 import pathlib
 import pytest
 
-from example_utils import (
+from utils import (
     ExampleType,
     get_examples,
     get_examples_json,
