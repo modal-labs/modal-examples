@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
 
-DEFAULT_DIRECTORY = Path(__file__).parent
+DEFAULT_DIRECTORY = Path(__file__).parent.parent
 
 
 with warnings.catch_warnings():
@@ -136,7 +136,9 @@ def get_examples(
     for subdir in sorted(
         p
         for p in directory.iterdir()
-        if p.is_dir() and not p.name.startswith(".")
+        if p.is_dir()
+        and not p.name.startswith(".")
+        and not p.name.startswith("internal")
     ):
         yield from gather_example_files(
             parents=[], subdir=subdir, ignored=ignored, recurse=True
