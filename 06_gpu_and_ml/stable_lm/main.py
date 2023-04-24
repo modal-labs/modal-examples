@@ -46,11 +46,6 @@ image = (
         gpu="A10G"
     )
     .run_function(
-        fetch_models,
-        gpu=None,
-        timeout=3600,
-    )
-    .run_function(
         compile_models,
         gpu="A10G",
         timeout=3600,
