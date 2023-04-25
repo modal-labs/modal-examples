@@ -11,6 +11,12 @@ pythonpath = [
 [tool.black]
 line-length = 80
 
+[tool.isort]
+known_first_party="modal"
+extra_standard_library="pytest"
+profile="black"
+
+
 [tool.mypy]
 ignore_missing_imports = true
 check_untyped_defs = true
