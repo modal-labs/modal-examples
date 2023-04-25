@@ -20,7 +20,6 @@ def build_models():
     model_path = snapshot_download(
         "stabilityai/stablelm-tuned-alpha-7b",
         ignore_patterns=["*.md"],
-        revision="25071b093c15c0d1cb2b2876c6deb621b764fcf5",
     )
     m = AutoModelForCausalLM.from_pretrained(
         model_path,
@@ -42,11 +41,13 @@ image = (
     .conda_install(
         "cudatoolkit-dev=11.7",
         "pytorch-cuda=11.7",
-        channels=["nvidia", "pytorch"],
+        "rust=1.69.0",
+        channels=["nvidia", "pytorch", "conda-forge"],
     )
     .env(
         {
             "HF_HOME": "/root",
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
             "SAFETENSORS_FAST_GPU": "1",
             "BITSANDBYTES_NOWELCOME": "1",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
@@ -98,6 +99,8 @@ class CompletionResponse(BaseModel):
 class StabilityLM:
     def __init__(self, model_url: str = "stabilityai/stablelm-tuned-alpha-7b"):
         self.model_url = model_url
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
     def __enter__(self):
         """
