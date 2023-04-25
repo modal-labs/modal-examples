@@ -115,7 +115,9 @@ class StabilityLM:
             model=self.model_url,
             torch_dtype=torch.float16,
             device_map="auto",
+            model_kwargs={"local_files_only": True},
         )
+        self.generator.model = torch.compile(self.generator.model)
 
     @modal.method()
     def generate(self, completion_request: CompletionRequest):
