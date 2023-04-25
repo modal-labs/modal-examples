@@ -20,3 +20,12 @@ no_strict_optional = true
 [[tool.mypy.overrides]]
 module = "requests"
 ignore_missing_imports = true
+
+[tool.ruff]
+# TODO: Add when available: "E266", "E203"
+ignore = ["E501","E741","E402"]
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+]
