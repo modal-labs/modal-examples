@@ -129,7 +129,9 @@ class StabilityLM:
             do_sample=completion_request.do_sample,
             pad_token_id=self.generator.tokenizer.eos_token_id,
             eos_token_id=self.generator.tokenizer.convert_tokens_to_ids(
-                completion_request.stop
+                self.generator.tokenizer.tokenize(
+                    "".join(completion_request.stop)
+                )
             ),
         )
         return {"text": result[0]["generated_text"].replace(text, "")}
