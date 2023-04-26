@@ -47,7 +47,7 @@ image = (
         "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
         f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
     )
-    .pip_install("pytube", "opencv-python", "moviepy")
+    .pip_install("pytube~=12.1.3", "opencv-python~=4.7.0.72", "moviepy~=1.0.3")
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 
@@ -105,12 +105,12 @@ def detect_faces(fn, start, stop):
 # 3. Stitch the results back into a new video
 
 
-@stub.function(shared_volumes={"/clips": stub.sv})
+@stub.function(shared_volumes={"/clips": stub.sv}, retries=1)
 def process_video(url):
     print(f"Downloading video from '{url}'")
     yt = pytube.YouTube(url)
     stream = yt.streams.filter(file_extension="mp4").first()
-    fn = stream.download(output_path="/clips/")
+    fn = stream.download(output_path="/clips/", max_retries=5)
 
     # Get duration
     duration = moviepy.editor.VideoFileClip(fn).duration
