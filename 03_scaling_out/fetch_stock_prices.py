@@ -22,7 +22,7 @@
 #
 # For this image, we need
 #
-# - `requests` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
+# - `httpx` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
 # - `yfinance` to fetch stock prices from the Yahoo Finance API
 # - `matplotlib` to plot the result
 
@@ -34,10 +34,10 @@ import modal
 stub = modal.Stub(
     "example-fetch-stock-prices",
     image=modal.Image.debian_slim().pip_install(
-        "requests",
-        "yfinance",
-        "beautifulsoup4",
-        "matplotlib",
+        "httpx~=0.24.0",
+        "yfinance~=0.2.18",
+        "beautifulsoup4~=4.12.2",
+        "matplotlib~=3.7.1",
     ),
 )
 
@@ -51,14 +51,14 @@ stub = modal.Stub(
 @stub.function()
 def get_stocks():
     import bs4
-    import requests
+    import httpx
 
     headers = {
         "user-agent": "curl/7.55.1",
         "referer": "https://finance.yahoo.com/",
     }
     url = "https://finance.yahoo.com/etfs/?count=100&offset=0"
-    res = requests.get(url, headers=headers)
+    res = httpx.get(url, headers=headers)
     soup = bs4.BeautifulSoup(res.text, "html.parser")
     for td in soup.find_all("td", {"aria-label": "Symbol"}):
         for link in td.find_all("a", {"data-test": "quoteLink"}):
