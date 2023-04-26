@@ -2,9 +2,10 @@ import base64
 import os
 import time
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from pydantic import BaseModel
+from typing_extensions import Annotated, Literal
 
 import modal
 
@@ -57,7 +58,7 @@ image = (
     .run_commands(
         f"echo '{requirements}' | base64 --decode > /root/requirements.txt",
         "pip install -r /root/requirements.txt",
-        gpu="A10G",
+        gpu="any",
     )
     .run_function(
         build_models,
@@ -74,31 +75,51 @@ stub = modal.Stub(
 
 
 class CompletionRequest(BaseModel):
-    prompt: str = ""
-    model: Optional[str] = "stabilityai/stablelm-tuned-alpha-7b"
-    temperature: Optional[float] = 1.0
-    max_tokens: Optional[int] = 16
-    top_p: Optional[float] = 0.95
-    stream: Optional[bool] = False
-    stop: Optional[Union[str, List[str]]] = [
-        "<|USER|>",
-        "<|ASSISTANT|>",
-        "<|SYSTEM|>",
-        "<|padding|>",
-        "<|endoftext|>",
-    ]
-    top_k: Optional[int] = 1000
-    do_sample: Optional[bool] = True
-
-
-class CompletionResponse(BaseModel):
-    text: str = ""
+    prompt: Annotated[str, "The prompt for text completion"]
+    model: Annotated[
+        Literal["stabilityai/stablelm-tuned-alpha-7b"],
+        "The model to use for text completion",
+    ] = "stabilityai/stablelm-tuned-alpha-7b"
+    temperature: Annotated[
+        float,
+        "Adjusts randomness of outputs, greater than 1 is random and 0 is deterministic.",
+    ] = 0.8
+    max_tokens: Annotated[
+        int, "Maximum number of new tokens to generate for text completion."
+    ] = 16
+    top_p: Annotated[
+        float,
+        "Probability threshold for the decoder to use in sampling next most likely token.",
+    ] = 0.9
+    stream: Annotated[
+        bool, "Whether to stream the generated text or return it all at once."
+    ] = False
+    stop: Annotated[Union[str, List[str]], "Any additional stop words."] = []
+    top_k: Annotated[
+        int,
+        "Limits the set of tokens to consider for next token generation to the top k.",
+    ] = 40
+    do_sample: Annotated[
+        bool, "Whether to use sampling or greedy decoding for text completion."
+    ] = True
 
 
 @stub.cls(gpu="A10G")
 class StabilityLM:
-    def __init__(self, model_url: str = "stabilityai/stablelm-tuned-alpha-7b"):
+    def __init__(
+        self,
+        model_url: str = "stabilityai/stablelm-tuned-alpha-7b",
+        decode_kwargs: Optional[Dict[str, Any]] = None,
+    ):
         self.model_url = model_url
+        self.decode_kwargs = decode_kwargs or {}
+        self.stop_tokens = [
+            "<|USER|>",
+            "<|ASSISTANT|>",
+            "<|SYSTEM|>",
+            "<|padding|>",
+            "<|endoftext|>",
+        ]
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
@@ -108,45 +129,161 @@ class StabilityLM:
         """
         import accelerate
         import torch
-        from transformers import pipeline
+        from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.model_url, local_files_only=True
+        )
+        self.stop_ids = tokenizer.convert_tokens_to_ids(self.stop_tokens)
+        self.streamer = TextIteratorStreamer(
+            tokenizer, skip_prompt=True, **self.decode_kwargs
+        )
         self.generator = pipeline(
             "text-generation",
             model=self.model_url,
+            tokenizer=tokenizer,
+            streamer=self.streamer,
             torch_dtype=torch.float16,
             device_map="auto",
             model_kwargs={"local_files_only": True},
         )
         self.generator.model = torch.compile(self.generator.model)
 
-    @modal.method()
-    def generate(self, completion_request: CompletionRequest):
-        text = format_prompt(completion_request.prompt)
-        result = self.generator(
-            text,
-            temperature=completion_request.temperature,
-            max_new_tokens=completion_request.max_tokens,
-            top_p=completion_request.top_p,
-            top_k=completion_request.top_k,
-            do_sample=completion_request.do_sample,
+    def get_config(
+        self, completion_request: CompletionRequest
+    ) -> Dict[str, Any]:
+        return dict(
             pad_token_id=self.generator.tokenizer.eos_token_id,
-            eos_token_id=self.generator.tokenizer.convert_tokens_to_ids(
-                self.generator.tokenizer.tokenize(
-                    "".join(completion_request.stop)
+            eos_token_id=list(
+                set(
+                    self.generator.tokenizer.convert_tokens_to_ids(
+                        self.generator.tokenizer.tokenize(
+                            "".join(completion_request.stop)
+                        )
+                    )
+                    + self.stop_ids
                 )
             ),
+            max_new_tokens=completion_request.max_tokens,
+            **completion_request.dict(
+                exclude={"prompt", "model", "stop", "max_tokens", "stream"}
+            ),
         )
-        return {"text": result[0]["generated_text"].replace(text, "")}
+
+    def generate_completion(
+        self, completion_request: CompletionRequest
+    ) -> Generator[str, None, None]:
+        import re
+        from threading import Thread
+
+        from transformers import GenerationConfig
+
+        text = format_prompt(completion_request.prompt)
+        gen_config = GenerationConfig(**self.get_config(completion_request))
+        stop_words = self.generator.tokenizer.convert_ids_to_tokens(
+            gen_config.eos_token_id
+        )
+        stop_words_pattern = re.compile("|".join(map(re.escape, stop_words)))
+        thread = Thread(
+            target=self.generator.__call__,
+            kwargs=dict(text_inputs=text, generation_config=gen_config),
+        )
+        thread.start()
+        for new_text in self.streamer:
+            if new_text.strip():
+                new_text = stop_words_pattern.sub("", new_text)
+                yield new_text
+        thread.join()
+
+    @modal.method()
+    def generate(self, completion_request: CompletionRequest) -> str:
+        return "".join(self.generate_completion(completion_request))
+
+    @modal.method()
+    def generate_stream(
+        self, completion_request: CompletionRequest
+    ) -> Generator:
+        for text in self.generate_completion(completion_request):
+            yield text
 
 
 def format_prompt(instruction: str) -> str:
     return f"<|USER|>{instruction}<|ASSISTANT|>"
 
 
+if stub.is_inside():
+    import uuid
+
+    import msgspec
+
+    class Choice(msgspec.Struct):
+        text: str
+        index: Union[int, None] = 0
+        logprobs: Union[int, None] = None
+        finish_reason: Union[str, None] = None
+
+    class CompletionResponse(msgspec.Struct, kw_only=True):
+        id: Union[str, None] = None
+        object: str = "text_completion"
+        created: Union[int, None] = None
+        model: str
+        choices: List[Choice]
+
+        def __post_init__(self):
+            if self.id is None:
+                self.id = str(uuid.uuid4())
+            if self.created is None:
+                self.created = int(time.time())
+
+
 @stub.function()
 @modal.web_endpoint(method="POST")
-def completions(completion_request: CompletionRequest) -> CompletionResponse:
-    return StabilityLM().generate.call(completion_request=completion_request)
+async def completions(completion_request: CompletionRequest):
+    from fastapi import Response, status
+    from fastapi.responses import StreamingResponse
+
+    response_id = str(uuid.uuid4())
+    response_utc = int(time.time())
+
+    if not completion_request.stream:
+        return Response(
+            content=msgspec.json.encode(
+                CompletionResponse(
+                    id=response_id,
+                    created=response_utc,
+                    model=completion_request.model,
+                    choices=[
+                        Choice(
+                            index=0,
+                            text=StabilityLM().generate.call(
+                                completion_request=completion_request
+                            ),
+                        )
+                    ],
+                )
+            ),
+            status_code=status.HTTP_200_OK,
+            media_type="application/json",
+        )
+
+    def wrapped_stream():
+        for new_text in StabilityLM().generate_stream.call(
+            completion_request=completion_request
+        ):
+            yield msgspec.json.encode(
+                CompletionResponse(
+                    id=response_id,
+                    created=response_utc,
+                    model=completion_request.model,
+                    choices=[Choice(index=0, text=new_text)],
+                )
+            ) + b"\n\n"
+
+    return StreamingResponse(
+        content=wrapped_stream(),
+        status_code=status.HTTP_200_OK,
+        media_type="text/event-stream",
+    )
 
 
 @stub.local_entrypoint()
@@ -157,9 +294,29 @@ def main():
         "How can I tell apart female and male red cardinals?",
     ]
     instruction_requests = [
-        CompletionRequest(prompt=q, max_tokens=512) for q in instructions
+        CompletionRequest(prompt=q, max_tokens=128) for q in instructions
     ]
+    print("Running example non-streaming completions:\n")
     for q, a in zip(
         instructions, list(StabilityLM().generate.map(instruction_requests))
     ):
-        print(f"{q_style}{q}{q_end}\n{a['text']}\n\n")
+        print(f"{q_style}{q}{q_end}\n{a}\n\n")
+
+    print("Running example streaming completion:\n")
+    for part in StabilityLM().generate_stream.call(
+        CompletionRequest(
+            prompt="Generate a list of ten sure-to-be unicorn AI startup names.",
+            max_tokens=128,
+            stream=True,
+        )
+    ):
+        print(part, end="", flush=True)
+
+
+# curl $MODEL_APP_ENDPOINT \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "prompt": "Generate a list of 20 great names for sentient cheesecakes that teach SQL",
+#     "stream": true,
+#     "max_tokens": 64
+#   }'
