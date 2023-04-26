@@ -44,7 +44,7 @@ def flask_app():
         # which will stream back to the web client.
         #
         # This is less efficient, but demonstrates how web serving
-        # containers can be seperated from and cooperate with other
+        # containers can be separated from and cooperate with other
         # containers.
         return generate_rows.call(), {"Content-Type": "text/csv"}
 
