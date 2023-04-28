@@ -223,7 +223,7 @@ if stub.is_inside():
         logprobs: Union[int, None] = None
         finish_reason: Union[str, None] = None
 
-    class CompletionResponse(msgspec.Struct, kw_only=True):
+    class CompletionResponse(msgspec.Struct, kw_only=True):  # type: ignore
         id: Union[str, None] = None
         object: str = "text_completion"
         created: Union[int, None] = None
