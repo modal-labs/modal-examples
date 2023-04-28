@@ -314,7 +314,7 @@ def main():
         print(part, end="", flush=True)
 
 
-# ```
+# ```bash
 # curl $MODEL_APP_ENDPOINT \
 #   -H "Content-Type: application/json" \
 #   -d '{
