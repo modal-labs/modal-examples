@@ -9,8 +9,10 @@ from typing_extensions import Annotated, Literal
 
 import modal
 
-with open("requirements.txt", "r") as f:
-    requirements = base64.b64encode(f.read().encode("utf-8")).decode("utf-8")
+requirements_txt_path = Path(__file__).resolve().parent / "requirements.txt"
+requirements_data = base64.b64encode(
+    requirements_txt_path.read_text().encode("utf-8")
+).decode("utf-8")
 
 
 def build_models():
@@ -56,7 +58,7 @@ image = (
         }
     )
     .run_commands(
-        f"echo '{requirements}' | base64 --decode > /root/requirements.txt",
+        f"echo '{requirements_data}' | base64 --decode > /root/requirements.txt",
         "pip install -r /root/requirements.txt",
         gpu="any",
     )
@@ -127,7 +129,6 @@ class StabilityLM:
         """
         Container-lifeycle method for model setup.
         """
-        import accelerate
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
@@ -222,7 +223,7 @@ if stub.is_inside():
         logprobs: Union[int, None] = None
         finish_reason: Union[str, None] = None
 
-    class CompletionResponse(msgspec.Struct, kw_only=True):
+    class CompletionResponse(msgspec.Struct, kw_only=True):  # type: ignore
         id: Union[str, None] = None
         object: str = "text_completion"
         created: Union[int, None] = None
