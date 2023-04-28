@@ -17,9 +17,9 @@ def fetch_git_repo_root() -> pathlib.Path:
     )
 
 
-def run_mypy(toplevel_pkg: str, config_file: pathlib.Path) -> list[str]:
+def run_mypy(pkg: str, config_file: pathlib.Path) -> list[str]:
     args = [
-        toplevel_pkg,
+        pkg,
         "--no-incremental",
         "--namespace-packages",
         "--config-file",
@@ -47,16 +47,31 @@ def main() -> int:
         [d for d in repo_root.iterdir() if d.name[:2].isdigit()]
     )
     for topic_dir in topic_dirs:
-        print(f"⌛️ running mypy on '{topic_dir.name}'", file=sys.stderr)
-        topic_errors = extract_errors(
-            run_mypy(
-                toplevel_pkg=str(topic_dir),
-                config_file=config_file,
+        # Most topic directories have only independent .py module files.
+        # But in some places topic directories have subdirectory packages, which
+        # are independent examples and should be type-checked independently.
+        #
+        # Ignore any non-Python files.
+        #
+        # TODO: parallelize type-checking across packages.
+        for pth in topic_dir.iterdir():
+            if (
+                pth.is_file() and not pth.name.endswith(".py")
+            ) or pth.name == "__pycache__":
+                continue
+            print(
+                f"⌛️ running mypy on '{topic_dir.name}/{pth.name}'",
+                file=sys.stderr,
             )
-        )
-        if topic_errors:
-            print("\n".join(topic_errors))
-            errors.extend(topic_errors)
+            topic_errors = extract_errors(
+                run_mypy(
+                    pkg=str(pth),
+                    config_file=config_file,
+                )
+            )
+            if topic_errors:
+                print("\n".join(topic_errors))
+                errors.extend(topic_errors)
 
     # Type-check packages:
     # Getting mypy running successfully with a monorepo of heterogenous packaging structures
