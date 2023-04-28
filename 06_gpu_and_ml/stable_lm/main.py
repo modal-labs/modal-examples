@@ -313,6 +313,7 @@ def main():
     ):
         print(part, end="", flush=True)
 
+
 # ```
 # curl $MODEL_APP_ENDPOINT \
 #   -H "Content-Type: application/json" \
