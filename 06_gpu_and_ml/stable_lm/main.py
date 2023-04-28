@@ -127,7 +127,6 @@ class StabilityLM:
         """
         Container-lifeycle method for model setup.
         """
-        import accelerate
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
