@@ -10,7 +10,9 @@ from typing_extensions import Annotated, Literal
 import modal
 
 requirements_txt_path = Path(__file__).resolve().parent / "requirements.txt"
-requirements_data = base64.b64encode(requirements_txt_path.read_text().encode("utf-8")).decode("utf-8")
+requirements_data = base64.b64encode(
+    requirements_txt_path.read_text().encode("utf-8")
+).decode("utf-8")
 
 
 def build_models():
