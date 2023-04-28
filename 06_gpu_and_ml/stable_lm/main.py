@@ -313,7 +313,7 @@ def main():
     ):
         print(part, end="", flush=True)
 
-
+# ```
 # curl $MODEL_APP_ENDPOINT \
 #   -H "Content-Type: application/json" \
 #   -d '{
@@ -321,3 +321,4 @@ def main():
 #     "stream": true,
 #     "max_tokens": 64
 #   }'
+# ```
