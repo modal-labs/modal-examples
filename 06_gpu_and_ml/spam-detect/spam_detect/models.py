@@ -83,6 +83,7 @@ class SpamModel(Protocol):
         fn: SpamClassifier,
         metrics: TrainMetrics,
         model_registry_root: pathlib.Path,
+        git_commit_hash: str,
     ) -> str:
         ...
 
@@ -246,6 +247,7 @@ class LLM(SpamModel):
         fn: SpamClassifier,
         metrics: TrainMetrics,
         model_registry_root: pathlib.Path,
+        git_commit_hash: str,
     ) -> str:
         from transformers import Trainer
 
@@ -256,7 +258,7 @@ class LLM(SpamModel):
             train_metrics=metrics,
             model_name=LLM.model_name,
             model_destination_root=model_registry_root,
-            git_commit_hash="foobar",
+            git_commit_hash=git_commit_hash,
         )
 
 
@@ -313,12 +315,13 @@ class BadWords(SpamModel):
         fn: SpamClassifier,
         metrics: TrainMetrics,
         model_registry_root: pathlib.Path,
+        git_commit_hash: str,
     ) -> str:
         return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
             model_destination_root=model_registry_root,
-            current_git_commit_hash="ffofofo",
+            current_git_commit_hash=git_commit_hash,
         )
 
     def _calc_metrics(
@@ -468,12 +471,13 @@ class NaiveBayes(SpamModel):
         fn: SpamClassifier,
         metrics: TrainMetrics,
         model_registry_root: pathlib.Path,
+        git_commit_hash: str,
     ) -> str:
         return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
             model_destination_root=model_registry_root,
-            current_git_commit_hash="ffofofo",
+            current_git_commit_hash=git_commit_hash,
         )
 
     def _set_decision_boundary(self, prob_fn, test_dataset) -> float:

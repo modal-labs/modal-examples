@@ -95,7 +95,9 @@ def prep_dataset():
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
-def train(model: models.SpamModel, dataset_path: pathlib.Path):
+def train(
+    model: models.SpamModel, dataset_path: pathlib.Path, git_commit_hash: str
+):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
     random.shuffle(enron_dataset)
@@ -104,6 +106,7 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
         fn=classifier,
         metrics=metrics,
         model_registry_root=config.MODEL_STORE_DIR,
+        git_commit_hash=git_commit_hash,
     )
     logger.info(f"saved model to model store. {model_id=}")
     # Reload the model
@@ -122,7 +125,9 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=modal.gpu.T4(),
 )
-def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
+def train_gpu(
+    model: models.SpamModel, dataset_path: pathlib.Path, git_commit_hash: str
+):
     logger = config.get_logger()
     enron_dataset = dataset.deserialize_dataset(dataset_path)
     random.shuffle(enron_dataset)
@@ -131,6 +136,7 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
         fn=classifier,
         metrics=metrics,
         model_registry_root=config.MODEL_STORE_DIR,
+        git_commit_hash=git_commit_hash,
     )
     logger.info(f"saved model to model store. {model_id=}")
 
@@ -140,7 +146,7 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
-def main(model_type=config.ModelTypes.BAD_WORDS):
+def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
     logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
@@ -148,21 +154,34 @@ def main(model_type=config.ModelTypes.BAD_WORDS):
     dataset_path = dataset.dataset_path(config.DATA_DIR)
 
     logger.info(f"💪 training a {model_type} model...")
-    model: models.SpamModel
     if model_type == config.ModelTypes.NAIVE_BAYES:
-        model = models.NaiveBayes()
-        train.call(model, dataset_path=dataset_path)
+        train.call(
+            model=models.NaiveBayes(),
+            dataset_path=dataset_path,
+            git_commit_hash=git_commit_hash,
+        )
     elif model_type == config.ModelTypes.LLM:
-        model = models.LLM()
-        train_gpu.call(model, dataset_path=dataset_path)
+        train_gpu.call(
+            model=models.LLM(),
+            dataset_path=dataset_path,
+            git_commit_hash=git_commit_hash,
+        )
     elif model_type == config.ModelTypes.BAD_WORDS:
-        model = models.BadWords()
-        train.call(model, dataset_path=dataset_path)
+        train.call(
+            model=models.BadWords(),
+            dataset_path=dataset_path,
+            git_commit_hash=git_commit_hash,
+        )
     else:
         raise ValueError(f"Unknown model type '{model_type}'")
 
 
 if __name__ == "__main__":
+    # All training runs are versioned against git repository state.
+    git_commit_hash: str = fetch_git_commit_hash(allow_dirty=False)
     with stub.run():
         init_volume.call()
-        main.call(config.ModelTypes.NAIVE_BAYES)
+        main.call(
+            git_commit_hash=git_commit_hash,
+            model_type=config.ModelTypes.NAIVE_BAYES,
+        )
