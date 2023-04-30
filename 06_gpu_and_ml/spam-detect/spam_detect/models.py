@@ -350,11 +350,15 @@ class NaiveBayes(SpamModel):
     """
 
     def __init__(
-        self, k: float = 0.5, decision_boundary: Optional[float] = None
+        self,
+        k: float = 0.5,
+        decision_boundary: Optional[float] = None,
+        test_set_size: float = 0.05,
     ) -> None:
         self.k = k
         self.decision_boundary = decision_boundary
         self.classify_fn: SpamClassifier = None
+        self.test_set_size = test_set_size
 
     def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         k = self.k
@@ -362,9 +366,13 @@ class NaiveBayes(SpamModel):
         token_spam_counts: dict[str, int] = defaultdict(int)
         token_ham_counts: dict[str, int] = defaultdict(int)
         spam_messages = ham_messages = 0
-        test_size = 0.05
-        train_set = dataset[: int(len(dataset) * test_size)]
-        test_set = dataset[-int(len(dataset) * test_size) :]
+        test_samples = int(len(dataset) * self.test_set_size)
+        if test_samples > 0:
+            train_set = dataset[:-test_samples]
+            test_set = dataset[-test_samples:]
+        else:
+            train_set = dataset
+            test_set = []
 
         for example in train_set:
             if example.spam:
