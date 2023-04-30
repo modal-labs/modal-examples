@@ -176,12 +176,18 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
         raise ValueError(f"Unknown model type '{model_type}'")
 
 
-if __name__ == "__main__":
+@stub.local_entrypoint()
+def train_model(model_type: str):
+    model_type_val = config.ModelTypes(model_type)
     # All training runs are versioned against git repository state.
     git_commit_hash: str = fetch_git_commit_hash(allow_dirty=False)
+    init_volume.call()
+    main.call(
+        git_commit_hash=git_commit_hash,
+        model_type=model_type_val,
+    )
+
+
+if __name__ == "__main__":
     with stub.run():
-        init_volume.call()
-        main.call(
-            git_commit_hash=git_commit_hash,
-            model_type=config.ModelTypes.NAIVE_BAYES,
-        )
+        train_model(model_type="NAIVE_BAYES")
