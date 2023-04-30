@@ -52,7 +52,7 @@ async def handle_classification(
     eg. 
     
     ```bash
-    curl -X POST https://modal-labs--example-spam-detect-llm-fastapi-app-thun-ed2e0f-dev.modal.run/api/v1/classify \ 
+    curl -X POST https://modal-labs--example-spam-detect-llm-web.modal.run/api/v1/classify \ 
     -H 'Content-Type: application/json' \
     -d '{"text": "hello world"}'
     ```
@@ -70,7 +70,7 @@ async def handle_classification(
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
 @modal.asgi_app()
-def fastapi_app():
+def web():
     return web_app
 
 
