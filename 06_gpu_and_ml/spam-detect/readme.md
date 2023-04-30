@@ -11,6 +11,23 @@ The models are:
 - _Naive Bayes_
 - Blacklist-based hueristic model (`BadWords`)
 
+The inference API accepts email text and returns responses like:
+
+```json
+curl -X POST "https://modal-labs--example-spam-detect-llm-web.modal.run/api/v1/classify" \
+-H 'Content-Type: application/json' \
+-d '{"text": "Subject: christmas tree farm pictures"}'
+
+{
+  "spam": false,
+  "score": -0.10338655114173889,
+  "metadata": {
+    "model_name": "bert-base-cased",
+    "model_id": "sha256.4D4CA273952449C9D20E837F4425DC012C1BABF9AFD4D8E118BB50A596C72B87"
+  }
+}
+```
+
 ### ML engineering support
 
 The demo application showcases how to do all the major machine learning engineering processes:
