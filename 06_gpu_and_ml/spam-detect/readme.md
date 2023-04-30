@@ -28,7 +28,7 @@ The demo application showcases how to do all the major machine learning engineer
 
 Unit-tests exist in `tests/` and can be run with:
 
-```
+```bash
 python3 -m pytest
 ```
 ### Training
@@ -40,7 +40,7 @@ python3 -m spam_detect.train
 ```
 ### Serving
 
-```
+```bash
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/spam-detect"
 python3 -m spam_detect.serving
 ```
@@ -56,6 +56,11 @@ cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/spam-detect"
 modal deploy spam_detect.serving
 ```
 
-### Deploying models
+### Deploy models
 
-TODO
+Update the `SERVING_MODEL_ID` string value in `config.py` to the
+model ID you want to deploy, then redeploy the Modal app as shown
+above.
+
+The updated model will be read from volume on container startup and
+used in API inference requests.

@@ -2,12 +2,12 @@ import enum
 import pathlib
 import sys
 
-VOLUME_DIR = "/cache"
+VOLUME_DIR: str = "/cache"
 MODEL_STORE_DIR = pathlib.Path(VOLUME_DIR, "models")
-MODEL_REGISTRY_FILENAME = "registry.json"
+MODEL_REGISTRY_FILENAME: str = "registry.json"
 DATA_DIR = pathlib.Path(VOLUME_DIR, "data")
 
-SERVING_MODEL_ID = (
+SERVING_MODEL_ID: str = (
     "sha256.4D4CA273952449C9D20E837F4425DC012C1BABF9AFD4D8E118BB50A596C72B87"
 )
 
