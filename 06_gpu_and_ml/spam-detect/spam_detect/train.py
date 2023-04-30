@@ -19,6 +19,7 @@
 
 import pathlib
 import random
+import subprocess
 from datetime import timedelta
 
 import modal
@@ -27,6 +28,50 @@ from . import config
 from . import dataset
 from . import models
 from .app import stub, volume
+
+
+def fetch_git_commit_hash(allow_dirty: bool) -> str:
+    # Ensure git state is clean so that the git commit hash accurately reflects
+    # the configuration of the training run.
+    #
+    # Ignoring dirty git state when kicking off a training run means accepting
+    # unreproducible model training outcomes.
+    if not allow_dirty:
+        if (
+            subprocess.run(
+                ("git", "diff-index", "--quiet", "--cached", "HEAD", "--")
+            ).returncode
+            != 0
+        ):
+            breakpoint()
+            raise RuntimeError(
+                "Dirty git status. Repository has staged but not yet committed changes.\n"
+                "Commit these changes or remove them to get a clean git state."
+            )
+        elif subprocess.run(("git", "diff-files", "--quiet")).returncode != 0:
+            raise RuntimeError(
+                "Dirty git status. Repository has changes that could be staged.\n"
+                "Commit these changes or add them to .gitignore."
+            )
+        res = subprocess.run(
+            ("git", "ls-files", "--exclude-standard", "--others"),
+            capture_output=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(
+                f"Could not check `git` for untracked files. {res.stderr}"
+            )
+        if res.stdout:
+            raise RuntimeError(
+                "Dirty git status. Repository has untracked files.\n"
+                "Remove these files, commit them, or add them to .gitignore."
+            )
+    result = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        check=True,
+        capture_output=True,
+    )
+    return result.stdout.decode().strip()
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
