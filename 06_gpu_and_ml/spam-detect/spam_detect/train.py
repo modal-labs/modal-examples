@@ -153,7 +153,7 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
     )
     dataset_path = dataset.dataset_path(config.DATA_DIR)
 
-    logger.info(f"💪 training a {model_type} model...")
+    logger.info(f"💪 training a {model_type} model at git commit {git_commit_hash[:8]}")
     if model_type == config.ModelTypes.NAIVE_BAYES:
         train.call(
             model=models.NaiveBayes(),
