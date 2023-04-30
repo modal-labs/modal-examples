@@ -1,4 +1,5 @@
 """
+
 The core model interface is `SpamModel`, which must be implemented by all
 trainable and serveable spam-detection models in the module.
 
@@ -11,7 +12,6 @@ Current model implementations are:
 import json
 import math
 import pathlib
-import random
 import re
 from collections import defaultdict
 
@@ -368,9 +368,8 @@ class NaiveBayes(SpamModel):
         spam_messages = ham_messages = 0
         test_samples = int(len(dataset) * self.test_set_size)
         if test_samples > 0:
-            shuffled = random.sample(dataset, len(dataset))
-            train_set = shuffled[:-test_samples]
-            test_set = shuffled[-test_samples:]
+            train_set = dataset[:-test_samples]
+            test_set = dataset[-test_samples:]
         else:
             train_set = dataset
             test_set = []
