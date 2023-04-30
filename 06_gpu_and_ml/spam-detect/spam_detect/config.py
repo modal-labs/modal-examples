@@ -12,7 +12,7 @@ SERVING_MODEL_ID: str = (
 )
 
 
-class ModelTypes(str, enum.Enum):
+class ModelType(str, enum.Enum):
     BAD_WORDS = "BAD_WORDS"
     LLM = "LLM"
     NAIVE_BAYES = "NAIVE_BAYES"

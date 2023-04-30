@@ -146,7 +146,7 @@ def train_gpu(
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
-def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
+def main(git_commit_hash: str, model_type=config.ModelType.BAD_WORDS):
     logger = config.get_logger()
     logger.opt(colors=True).info(
         "Ready to detect <fg #9dc100><b>SPAM</b></fg #9dc100> from <fg #ffb6c1><b>HAM</b></fg #ffb6c1>?"
@@ -156,19 +156,19 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
     logger.info(
         f"💪 training a {model_type} model at git commit {git_commit_hash[:8]}"
     )
-    if model_type == config.ModelTypes.NAIVE_BAYES:
+    if model_type == config.ModelType.NAIVE_BAYES:
         train.call(
             model=models.NaiveBayes(),
             dataset_path=dataset_path,
             git_commit_hash=git_commit_hash,
         )
-    elif model_type == config.ModelTypes.LLM:
+    elif model_type == config.ModelType.LLM:
         train_gpu.call(
             model=models.LLM(),
             dataset_path=dataset_path,
             git_commit_hash=git_commit_hash,
         )
-    elif model_type == config.ModelTypes.BAD_WORDS:
+    elif model_type == config.ModelType.BAD_WORDS:
         train.call(
             model=models.BadWords(),
             dataset_path=dataset_path,
@@ -190,7 +190,7 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
 
 @stub.local_entrypoint()
 def train_model(model_type: str):
-    model_type_val = config.ModelTypes(model_type)
+    model_type_val = config.ModelType(model_type)
     # All training runs are versioned against git repository state.
     git_commit_hash: str = fetch_git_commit_hash(allow_dirty=False)
     init_volume.call()
