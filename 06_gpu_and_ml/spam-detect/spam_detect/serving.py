@@ -66,9 +66,8 @@ async def handle_classification(input_: ModelInput, user_agent: Optional[str] = 
     )
 
 
-@stub.asgi(
-    shared_volumes={config.VOLUME_DIR: volume},
-)
+@stub.function(shared_volumes={config.VOLUME_DIR: volume})
+@modal.asgi_app()
 def fastapi_app():
     return web_app
 
