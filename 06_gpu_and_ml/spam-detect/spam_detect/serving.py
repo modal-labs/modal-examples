@@ -42,6 +42,7 @@ async def handle_list_models(user_agent: Optional[str] = Header(None)):
     return {config.SERVING_MODEL_ID: metadata.serialize()}
 
 
+# TODO(Jonathon): Adopt lifeycle method structure when it's supported for modal.asgi_app.
 @web_app.post("/api/v1/classify")
 async def handle_classification(
     input_: ModelInput, user_agent: Optional[str] = Header(None)
