@@ -481,7 +481,8 @@ class NaiveBayes(SpamModel):
         from sklearn.metrics import precision_recall_curve
 
         print(
-            f"Using {len(test_dataset)} test dataset examples to set decision boundary"
+            f"Using {len(test_dataset)} test dataset examples to set decision boundary.\n"
+            "Warning: this is a slow operation that takes ~15 minutes."
         )
 
         minimum_acceptable_precision = (
@@ -493,6 +494,7 @@ class NaiveBayes(SpamModel):
         y_scores = np.array(
             [round(prob_fn(ex.email), ndigits=2) for ex in test_dataset]
         )
+        # TODO: Optimize this very slow process.
         precisions, recalls, thresholds = precision_recall_curve(
             y_true, y_scores
         )
