@@ -76,7 +76,7 @@ def delete_model(
     pass
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def list_models() -> None:
     """Show all models in registry."""
     with stub.run():
