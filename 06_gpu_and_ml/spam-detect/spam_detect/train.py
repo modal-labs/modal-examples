@@ -153,7 +153,9 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
     )
     dataset_path = dataset.dataset_path(config.DATA_DIR)
 
-    logger.info(f"💪 training a {model_type} model at git commit {git_commit_hash[:8]}")
+    logger.info(
+        f"💪 training a {model_type} model at git commit {git_commit_hash[:8]}"
+    )
     if model_type == config.ModelTypes.NAIVE_BAYES:
         train.call(
             model=models.NaiveBayes(),
@@ -174,6 +176,16 @@ def main(git_commit_hash: str, model_type=config.ModelTypes.BAD_WORDS):
         )
     else:
         raise ValueError(f"Unknown model type '{model_type}'")
+
+
+# Pass in the string representation of a supported `ModelType` to train
+# a model of that type on the dataset.
+#
+# Example:
+#
+# ```
+# modal run spam_detect.train::stub.train_model --model-type "BAD_WORDS"
+# ```
 
 
 @stub.local_entrypoint()
