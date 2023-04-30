@@ -55,10 +55,14 @@ def train(model: models.SpamModel, dataset_path: pathlib.Path):
     enron_dataset = dataset.deserialize_dataset(dataset_path)
     random.shuffle(enron_dataset)
     classifier, metrics = model.train(enron_dataset)
-    model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
+    model_id = model.save(
+        fn=classifier,
+        metrics=metrics,
+        model_registry_root=config.MODEL_STORE_DIR,
+    )
     logger.info(f"saved model to model store. {model_id=}")
     # Reload the model
-    logger.info(f"🔁 testing reload of model")
+    logger.info("🔁 testing reload of model")
     classifier = model.load(
         sha256_digest=model_id,
         model_registry_root=config.MODEL_STORE_DIR,
@@ -78,7 +82,11 @@ def train_gpu(model: models.SpamModel, dataset_path: pathlib.Path):
     enron_dataset = dataset.deserialize_dataset(dataset_path)
     random.shuffle(enron_dataset)
     classifier, metrics = model.train(enron_dataset)
-    model_id = model.save(fn=classifier, metrics=metrics, model_registry_root=config.MODEL_STORE_DIR)
+    model_id = model.save(
+        fn=classifier,
+        metrics=metrics,
+        model_registry_root=config.MODEL_STORE_DIR,
+    )
     logger.info(f"saved model to model store. {model_id=}")
 
 

@@ -3,9 +3,7 @@ Defines minimal data structures and command-line interface (CLI) commands for a 
 The CLI commands are operationally useful, used to inspect prior trained models and promote the
 most promising models to production serving.
 """
-import dataclasses
 import json
-import sys
 from typing import NamedTuple, Optional
 
 from . import config
@@ -62,7 +60,9 @@ def _list_models() -> dict[str, ModelMetadata]:
     registry_filepath = config.MODEL_STORE_DIR / config.MODEL_REGISTRY_FILENAME
     with open(registry_filepath, "r") as f:
         registry_data = json.load(f)
-    return {m_id: ModelMetadata.from_dict(m) for m_id, m in registry_data.items()}
+    return {
+        m_id: ModelMetadata.from_dict(m) for m_id, m in registry_data.items()
+    }
 
 
 @stub.function(shared_volumes={config.VOLUME_DIR: volume})
@@ -82,10 +82,14 @@ def list_models() -> None:
     with stub.run():
         models = _list_models.call()
     newest_to_oldest = sorted(
-        [(key, value) for key, value in models.items()], key=lambda item: item[1].save_date, reverse=True
+        [(key, value) for key, value in models.items()],
+        key=lambda item: item[1].save_date,
+        reverse=True,
     )
     for model_id, metadata in newest_to_oldest:
-        print(f"\033[96m {model_id} \033[0m{metadata.impl_name}\033[93m {metadata.save_date} \033[0m")
+        print(
+            f"\033[96m {model_id} \033[0m{metadata.impl_name}\033[93m {metadata.save_date} \033[0m"
+        )
 
 
 if __name__ == "__main__":

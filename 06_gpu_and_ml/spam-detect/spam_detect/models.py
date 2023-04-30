@@ -54,7 +54,10 @@ def load_model(model_id: str):
     else:
         raise ValueError(f"Loading '{metadata.impl_name}' not yet supported.")
 
-    classifier = m.load(sha256_digest=config.SERVING_MODEL_ID, model_registry_root=config.MODEL_STORE_DIR)
+    classifier = m.load(
+        sha256_digest=config.SERVING_MODEL_ID,
+        model_registry_root=config.MODEL_STORE_DIR,
+    )
     return classifier, metadata
 
 
@@ -70,10 +73,17 @@ class SpamModel(Protocol):
     def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
         ...
 
-    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+    def load(
+        self, sha256_digest: str, model_registry_root: pathlib.Path
+    ) -> SpamClassifier:
         ...
 
-    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+    def save(
+        self,
+        fn: SpamClassifier,
+        metrics: TrainMetrics,
+        model_registry_root: pathlib.Path,
+    ) -> str:
         ...
 
 
@@ -82,7 +92,10 @@ def construct_huggingface_dataset(dataset: Dataset, label2id: dict[str, int]):
     import pyarrow as pa
 
     emails = pa.array((ex.email for ex in dataset), type=pa.string())
-    labels = pa.array((label2id["SPAM"] if ex.spam else label2id["HAM"] for ex in dataset), type=pa.uint8())
+    labels = pa.array(
+        (label2id["SPAM"] if ex.spam else label2id["HAM"] for ex in dataset),
+        type=pa.uint8(),
+    )
     pa_table = pa.table([emails, labels], names=["text", "labels"])
     return datasets.Dataset(pa_table).train_test_split(test_size=0.1)
 
@@ -112,11 +125,11 @@ class LLMSpamClassifier:
         )
 
 
-def train_llm_classifier(dataset: Dataset, dry_run: bool = False) -> tuple[LLMSpamClassifier, TrainMetrics]:
+def train_llm_classifier(
+    dataset: Dataset, dry_run: bool = False
+) -> tuple[LLMSpamClassifier, TrainMetrics]:
     import numpy as np
     import evaluate
-    import pyarrow
-    from datasets import load_dataset
     from transformers import AutoModelForSequenceClassification
     from transformers import AutoTokenizer
     from transformers import TrainingArguments, Trainer
@@ -130,9 +143,13 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = False) -> tuple[LLMSp
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
     def tokenize_function(examples):
-        return tokenizer(examples["text"], padding="max_length", truncation=True)
+        return tokenizer(
+            examples["text"], padding="max_length", truncation=True
+        )
 
-    tokenized_datasets = huggingface_dataset.map(tokenize_function, batched=True)
+    tokenized_datasets = huggingface_dataset.map(
+        tokenize_function, batched=True
+    )
     model = AutoModelForSequenceClassification.from_pretrained(
         "bert-base-cased",
         num_labels=len(label2id),
@@ -149,10 +166,16 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = False) -> tuple[LLMSp
         predictions = np.argmax(logits, axis=-1)
         return metric.compute(predictions=predictions, references=labels)
 
-    training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
+    training_args = TrainingArguments(
+        output_dir="test_trainer", evaluation_strategy="epoch"
+    )
 
-    small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-    small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
+    small_train_dataset = (
+        tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
+    )
+    small_eval_dataset = (
+        tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
+    )
 
     trainer = Trainer(
         model=model,
@@ -166,7 +189,9 @@ def train_llm_classifier(dataset: Dataset, dry_run: bool = False) -> tuple[LLMSp
 
     if not dry_run:
         trainer.train()
-        logger.opt(colors=True).info(f"<light-green>✔️ training done!</light-green>")
+        logger.opt(colors=True).info(
+            "<light-green>✔️ training done!</light-green>"
+        )
     else:
         logger.info(f"{dry_run=}, so skipping training step.")
 
@@ -201,7 +226,9 @@ class LLM(SpamModel):
             metrics,
         )
 
-    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+    def load(
+        self, sha256_digest: str, model_registry_root: pathlib.Path
+    ) -> SpamClassifier:
         from transformers import AutoTokenizer
         from transformers import AutoModelForSequenceClassification
 
@@ -214,7 +241,12 @@ class LLM(SpamModel):
             model=model,
         )
 
-    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+    def save(
+        self,
+        fn: SpamClassifier,
+        metrics: TrainMetrics,
+        model_registry_root: pathlib.Path,
+    ) -> str:
         from transformers import Trainer
 
         llm_fn = cast(LLMSpamClassifier, fn)
@@ -257,7 +289,9 @@ class BadWords(SpamModel):
                 else Prediction(score=0.0, spam=False)
             )
 
-        accuracy, precision = self._calc_metrics(classifier=bad_words_spam_classifier, dataset=dataset)
+        accuracy, precision = self._calc_metrics(
+            classifier=bad_words_spam_classifier, dataset=dataset
+        )
         metrics = TrainMetrics(
             dataset_id="enron",
             eval_set_size=0,
@@ -266,13 +300,20 @@ class BadWords(SpamModel):
         )
         return bad_words_spam_classifier, metrics
 
-    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+    def load(
+        self, sha256_digest: str, model_registry_root: pathlib.Path
+    ) -> SpamClassifier:
         return model_storage.load_pickle_serialized_model(
             sha256_hash=sha256_digest,
             destination_root=model_registry_root,
         )
 
-    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+    def save(
+        self,
+        fn: SpamClassifier,
+        metrics: TrainMetrics,
+        model_registry_root: pathlib.Path,
+    ) -> str:
         return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
@@ -280,7 +321,9 @@ class BadWords(SpamModel):
             current_git_commit_hash="ffofofo",
         )
 
-    def _calc_metrics(self, classifier: SpamClassifier, dataset: Dataset) -> tuple[int, int]:
+    def _calc_metrics(
+        self, classifier: SpamClassifier, dataset: Dataset
+    ) -> tuple[int, int]:
         if len(dataset) == 0:
             raise ValueError("Evaluation dataset cannot be empty.")
         tp, tn, fp, fn = 0, 0, 0, 0
@@ -306,7 +349,9 @@ class NaiveBayes(SpamModel):
     *Data Science From Scratch* book: github.com/joelgrus/data-science-from-scratch.
     """
 
-    def __init__(self, k: float = 0.5, decision_boundary: Optional[float] = None) -> None:
+    def __init__(
+        self, k: float = 0.5, decision_boundary: Optional[float] = None
+    ) -> None:
         self.k = k
         self.decision_boundary = decision_boundary
         self.classify_fn: SpamClassifier = None
@@ -321,7 +366,7 @@ class NaiveBayes(SpamModel):
         train_set = dataset[: int(len(dataset) * test_size)]
         test_set = dataset[-int(len(dataset) * test_size) :]
 
-        for example in dataset:
+        for example in train_set:
             if example.spam:
                 spam_messages += 1
             else:
@@ -360,10 +405,16 @@ class NaiveBayes(SpamModel):
                     log_prob_if_ham += math.log(1.0 - prob_if_ham)
             prob_if_spam = math.exp(log_prob_if_spam)
             prob_if_ham = math.exp(log_prob_if_ham)
-            score = prob_if_spam / (prob_if_spam + prob_if_ham) if prob_if_spam else 0.0
+            score = (
+                prob_if_spam / (prob_if_spam + prob_if_ham)
+                if prob_if_spam
+                else 0.0
+            )
             return score
 
-        def make_classifier(prob_fn, decision_boundary: float) -> SpamClassifier:
+        def make_classifier(
+            prob_fn, decision_boundary: float
+        ) -> SpamClassifier:
             def inner(email: str):
                 score = prob_fn(email)
                 return Prediction(
@@ -374,7 +425,11 @@ class NaiveBayes(SpamModel):
             return inner
 
         if self.decision_boundary:
-            decision_boundary, precision, recall = self.decision_boundary, None, None
+            decision_boundary, precision, recall = (
+                self.decision_boundary,
+                None,
+                None,
+            )
         else:
             print("setting decision boundary for binary classifier")
             decision_boundary, precision, recall = self._set_decision_boundary(
@@ -392,13 +447,20 @@ class NaiveBayes(SpamModel):
         print("making classifier")
         return make_classifier(predict_prob, decision_boundary), metrics
 
-    def load(self, sha256_digest: str, model_registry_root: pathlib.Path) -> SpamClassifier:
+    def load(
+        self, sha256_digest: str, model_registry_root: pathlib.Path
+    ) -> SpamClassifier:
         return model_storage.load_pickle_serialized_model(
             sha256_hash=sha256_digest,
             destination_root=model_registry_root,
         )
 
-    def save(self, fn: SpamClassifier, metrics: TrainMetrics, model_registry_root: pathlib.Path) -> str:
+    def save(
+        self,
+        fn: SpamClassifier,
+        metrics: TrainMetrics,
+        model_registry_root: pathlib.Path,
+    ) -> str:
         return model_storage.store_pickleable_model(
             classifier_func=fn,
             metrics=metrics,
@@ -410,17 +472,31 @@ class NaiveBayes(SpamModel):
         import numpy as np
         from sklearn.metrics import precision_recall_curve
 
-        print(f"Using {len(test_dataset)} test dataset examples to set decision boundary")
+        print(
+            f"Using {len(test_dataset)} test dataset examples to set decision boundary"
+        )
 
-        minimum_acceptable_precision = 0.98  # ie. 2 in a 100 legit emails get marked as spam.
+        minimum_acceptable_precision = (
+            0.98  # ie. 2 in a 100 legit emails get marked as spam.
+        )
         y_true = np.array([1 if ex.spam else 0 for ex in test_dataset])
         # scores are rounded because curve calculation time scales quickly in dim U, where U is number of unique scores.
         # NB: The precision-recall curve calculation is extremely slow on N ~10k+
-        y_scores = np.array([round(prob_fn(ex.email), ndigits=2) for ex in test_dataset])
-        precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+        y_scores = np.array(
+            [round(prob_fn(ex.email), ndigits=2) for ex in test_dataset]
+        )
+        precisions, recalls, thresholds = precision_recall_curve(
+            y_true, y_scores
+        )
         for p, r, thres in zip(precisions, recalls, thresholds):
-            print("Using threshold={} as decision boundary, we reach precision={} and recall={}".format(thres, p, r))
+            print(
+                "Using threshold={} as decision boundary, we reach precision={} and recall={}".format(
+                    thres, p, r
+                )
+            )
             if p >= minimum_acceptable_precision:
-                print(f"Reached {minimum_acceptable_precision=} at threshold {thres}. Setting that as boundary.")
+                print(
+                    f"Reached {minimum_acceptable_precision=} at threshold {thres}. Setting that as boundary."
+                )
                 break
         return thres, p, r

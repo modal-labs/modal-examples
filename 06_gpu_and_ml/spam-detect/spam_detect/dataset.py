@@ -6,12 +6,10 @@ import csv
 import json
 import pathlib
 import shutil
-import tarfile
 import tempfile
 import urllib.request
 import zipfile
-from datetime import timedelta
-from typing import Iterable, NamedTuple, MutableSequence
+from typing import NamedTuple, MutableSequence
 
 # TODO:
 # This dataset only produces ~50,000 examples.
@@ -49,11 +47,13 @@ def _download_and_extract_dataset(destination_root_path: pathlib.Path, logger):
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36"
         },
     )
-    with urllib.request.urlopen(req) as response, open(destination_path, "wb") as out_file:
+    with urllib.request.urlopen(req) as response, open(
+        destination_path, "wb"
+    ) as out_file:
         shutil.copyfileobj(response, out_file)
 
     with zipfile.ZipFile(destination_path, "r") as zip_ref:
-        logger.info(f"Extracting zip with contents: ")
+        logger.info("Extracting zip with contents: ")
         zip_ref.printdir()
         zip_ref.extractall(destination_root_path)
 
@@ -69,7 +69,9 @@ def download(logger, base: pathlib.Path) -> None:
     dest = dataset_path(base)
     dest.parent.mkdir(exist_ok=True, parents=True)
     tmp_path = pathlib.Path(tempfile.TemporaryDirectory().name)
-    dataset_csv_path = _download_and_extract_dataset(destination_root_path=tmp_path, logger=logger)
+    dataset_csv_path = _download_and_extract_dataset(
+        destination_root_path=tmp_path, logger=logger
+    )
     ds: list[Example] = []
     spam_count = 0
     with open(dataset_csv_path, "r") as csvfile:

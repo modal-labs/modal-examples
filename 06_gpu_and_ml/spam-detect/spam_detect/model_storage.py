@@ -17,7 +17,6 @@ from typing import (
     Callable,
     Dict,
     Iterable,
-    NamedTuple,
     Optional,
 )
 
@@ -40,7 +39,11 @@ ModelRegistryMetadata = Dict[Sha256Hash, ModelMetadata]
 
 
 def get_git_revision_hash() -> str:
-    return subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"]).decode("ascii").strip()
+    return (
+        subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"])
+        .decode("ascii")
+        .strip()
+    )
 
 
 def serialize_model(
@@ -83,7 +86,9 @@ def store_huggingface_model(
     Accepts a Hugginface model that implements `save_model()` and stores it in model
     registry and persistent filesystem.
     """
-    tmp_dirname = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
+    tmp_dirname = "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=20)
+    )
     model_save_path = model_destination_root / tmp_dirname
     trainer.save_model(output_dir=model_save_path)
     model_hashtag = create_hashtag_from_dir(model_save_path)
@@ -104,7 +109,9 @@ def store_huggingface_model(
             )
         )
 
-    logger.info(f"updating models registry metadata to include information about {model_hashtag}")
+    logger.info(
+        f"updating models registry metadata to include information about {model_hashtag}"
+    )
     metadata = ModelMetadata(
         impl_name=model_name,
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
@@ -155,7 +162,9 @@ def store_pickleable_model(
         logger.info(f"saving model to file at '{model_dest_path}'")
         model_dest_path.write_bytes(serialized_model)
 
-    logger.info(f"updating models registry metadata to include information about {ser_clssfr_hash}")
+    logger.info(
+        f"updating models registry metadata to include information about {ser_clssfr_hash}"
+    )
     metadata = ModelMetadata(
         impl_name=model_name_from_function(classifier_func),
         save_date=datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
@@ -181,7 +190,9 @@ def load_model_registry_metadata(
     *,
     model_registry_root: pathlib.Path,
 ):
-    model_registry_metadata_filepath = model_registry_root / config.MODEL_REGISTRY_FILENAME
+    model_registry_metadata_filepath = (
+        model_registry_root / config.MODEL_REGISTRY_FILENAME
+    )
     if not model_registry_metadata_filepath.exists():
         # Create registry metadata file on first save of a model.
         model_registry_metadata_filepath.write_text("{}")
@@ -228,10 +239,14 @@ def store_model_registry_metadata(
                 "with conflicting metadata. "
                 "Something has gone wrong."
             )
-    model_registry_metadata_dict = {key: value._asdict() for key, value in model_registry_metadata.items()}
+    model_registry_metadata_dict = {
+        key: value._asdict() for key, value in model_registry_metadata.items()
+    }
     # NOTE: Potentially overwrites with new metadata.
     model_registry_metadata_dict[sha256_hash] = metadata.serialize()
-    with open(destination_root / config.MODEL_REGISTRY_FILENAME, "w") as model_registry_f:
+    with open(
+        destination_root / config.MODEL_REGISTRY_FILENAME, "w"
+    ) as model_registry_f:
         json.dump(model_registry_metadata_dict, model_registry_f, indent=4)
 
 
@@ -247,7 +262,9 @@ def load_pickle_serialized_model(
 
     expected_prefix = "sha256."
     if not sha256_hash.startswith(expected_prefix):
-        raise ValueError(f"model sha256 hashes are expected to start with the prefix '{expected_prefix}")
+        raise ValueError(
+            f"model sha256 hashes are expected to start with the prefix '{expected_prefix}"
+        )
 
     model_path = destination_root / sha256_hash
     with open(model_path, "rb") as f:

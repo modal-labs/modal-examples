@@ -43,7 +43,9 @@ async def handle_list_models(user_agent: Optional[str] = Header(None)):
 
 
 @web_app.post("/api/v1/classify")
-async def handle_classification(input_: ModelInput, user_agent: Optional[str] = Header(None)):
+async def handle_classification(
+    input_: ModelInput, user_agent: Optional[str] = Header(None)
+):
     """
     Classify a body of text as spam or ham.
 
