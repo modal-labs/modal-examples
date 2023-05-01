@@ -1,4 +1,5 @@
 import enum
+import logging
 import pathlib
 import sys
 
@@ -19,8 +20,22 @@ class ModelType(str, enum.Enum):
 
 
 def get_logger():
-    from loguru import logger
+    try:
+        from loguru import logger
 
-    logger.remove()
-    logger.add(sys.stderr, colorize=True, level="INFO")
+        logger.remove()
+        logger.add(sys.stderr, colorize=True, level="INFO")
+    except ModuleNotFoundError:
+        logger = logging.getLogger()
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter(
+                "%(levelname)s: %(asctime)s: %(name)s  %(message)s"
+            )
+        )
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = (
+            False  # Prevent the modal client from double-logging.
+        )
     return logger
