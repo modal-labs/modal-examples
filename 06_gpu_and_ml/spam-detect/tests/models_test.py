@@ -1,12 +1,7 @@
 import math
-from typing import NamedTuple
 
 from spam_detect import models
-
-
-class Example(NamedTuple):
-    email: str
-    spam: bool
+from spam_detect.dataset import Example
 
 
 def test_prob_calculation():

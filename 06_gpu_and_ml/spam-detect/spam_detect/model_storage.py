@@ -23,12 +23,10 @@ from typing import (
 from . import config
 from . import dataset
 from .model_registry import ModelMetadata, TrainMetrics
+from .models import SpamClassifier
 
 logger = config.get_logger()
 
-Email = str
-Prediction = float
-SpamClassifier = Callable[[Email], Prediction]
 Dataset = Iterable[dataset.Example]
 TrainingFunc = Callable[[Dataset], Any]
 ModelBuilder = Callable[[Dataset, Optional[TrainingFunc]], SpamClassifier]

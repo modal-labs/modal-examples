@@ -1,11 +1,12 @@
 import pytest
 
 from spam_detect import model_storage
+from spam_detect import models
 
 
-def dummy_classifier(email: str) -> float:
+def dummy_classifier(email: str) -> models.Prediction:
     _ = email
-    return 0.86
+    return models.Prediction(spam=False, score=0.86)
 
 
 def test_hashtag_from_bytes():

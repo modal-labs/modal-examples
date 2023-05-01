@@ -23,7 +23,6 @@ from .model_registry import ModelMetadata, TrainMetrics
 from typing import (
     cast,
     Callable,
-    Iterable,
     NamedTuple,
     Optional,
     Protocol,
@@ -35,7 +34,7 @@ class Prediction(NamedTuple):
     score: float
 
 
-Dataset = Iterable[dataset.Example]
+Dataset = list[dataset.Example]
 SpamClassifier = Callable[[str], Prediction]
 
 
@@ -47,6 +46,7 @@ def load_model(model_id: str):
         raise ValueError(f"{model_id} not contained in registry.")
 
     metadata = ModelMetadata.from_dict(registry_data[model_id])
+    m: SpamModel
     if metadata.impl_name == "bert-base-cased":
         m = LLM()
     elif "NaiveBayes" in metadata.impl_name:
@@ -326,7 +326,7 @@ class BadWords(SpamModel):
 
     def _calc_metrics(
         self, classifier: SpamClassifier, dataset: Dataset
-    ) -> tuple[int, int]:
+    ) -> tuple[float, float]:
         if len(dataset) == 0:
             raise ValueError("Evaluation dataset cannot be empty.")
         tp, tn, fp, fn = 0, 0, 0, 0
@@ -360,7 +360,7 @@ class NaiveBayes(SpamModel):
     ) -> None:
         self.k = k
         self.decision_boundary = decision_boundary
-        self.classify_fn: SpamClassifier = None
+        self.classify_fn: Optional[SpamClassifier] = None
         self.test_set_size = test_set_size
 
     def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
@@ -480,7 +480,9 @@ class NaiveBayes(SpamModel):
             current_git_commit_hash=git_commit_hash,
         )
 
-    def _set_decision_boundary(self, prob_fn, test_dataset) -> float:
+    def _set_decision_boundary(
+        self, prob_fn, test_dataset
+    ) -> tuple[float, float, float]:
         import numpy as np
         from sklearn.metrics import precision_recall_curve
 

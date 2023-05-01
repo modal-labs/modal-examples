@@ -59,7 +59,7 @@ def fetch_git_commit_hash(allow_dirty: bool) -> str:
         )
         if res.returncode != 0:
             raise RuntimeError(
-                f"Could not check `git` for untracked files. {res.stderr}"
+                f"Could not check `git` for untracked files. {res.stderr.decode()}"
             )
         if res.stdout:
             raise RuntimeError(

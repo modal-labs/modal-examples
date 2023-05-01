@@ -9,7 +9,7 @@ import shutil
 import tempfile
 import urllib.request
 import zipfile
-from typing import NamedTuple, MutableSequence
+from typing import NamedTuple
 
 # TODO:
 # This dataset only produces ~50,000 examples.
@@ -23,7 +23,7 @@ class Example(NamedTuple):
     spam: bool
 
 
-RawEnronDataset = MutableSequence[Example]
+RawEnronDataset = list[Example]
 CleanEnronDataset = dict[str, Example]
 
 
