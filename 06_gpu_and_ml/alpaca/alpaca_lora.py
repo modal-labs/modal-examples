@@ -2,14 +2,34 @@ import sys
 
 from modal import Image, Stub, method
 
+# Define a function for downloading the models, that will run once on image build.
+# This allows the weights to be present inside the image for faster startup.
+
+base_model = "decapoda-research/llama-7b-hf"
+lora_weights = "tloen/alpaca-lora-7b"
+
+
+def download_models():
+    from peft import PeftModel
+    from transformers import LlamaForCausalLM, LlamaTokenizer
+
+    model = LlamaForCausalLM.from_pretrained(
+        base_model,
+    )
+    PeftModel.from_pretrained(model, lora_weights)
+    LlamaTokenizer.from_pretrained(base_model)
+
+
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
 # installable by `pip`, so instead we install the repository by cloning it into our Modal
 # image.
 
+
 repo_url = "https://github.com/tloen/alpaca-lora"
 commit_hash = "fcbc45e4c0db8948743bd1227b46a796c1effcd0"
 image = (
-    Image.debian_slim().apt_install("git")
+    Image.debian_slim()
+    .apt_install("git")
     # Here we place the latest repository code into /root.
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,
     # so this `init` then `checkout` workaround is used.
@@ -38,6 +58,7 @@ image = (
         "torchvision==0.15.1",
         "sentencepiece==0.1.97",
     )
+    .run_function(download_models)
 )
 stub = Stub(name="example-alpaca-lora", image=image)
 
@@ -64,8 +85,6 @@ class AlpacaLoRAModel:
 
         load_8bit = False
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        base_model = "decapoda-research/llama-7b-hf"
-        lora_weights = "tloen/alpaca-lora-7b"
 
         self.tokenizer = LlamaTokenizer.from_pretrained(base_model)
         if device == "cuda":
@@ -123,7 +142,7 @@ class AlpacaLoRAModel:
         temperature=0.1,
         top_p=0.75,
         top_k=40,
-        num_beams=4,
+        num_beams=1,
         max_new_tokens=128,
         **kwargs,
     ):
@@ -139,6 +158,7 @@ class AlpacaLoRAModel:
             top_p=top_p,
             top_k=top_k,
             num_beams=num_beams,
+            do_sample=temperature > 0,
             **kwargs,
         )
         with torch.no_grad():
