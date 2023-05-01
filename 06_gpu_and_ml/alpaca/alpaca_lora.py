@@ -10,15 +10,14 @@ lora_weights = "tloen/alpaca-lora-7b"
 
 
 def download_models():
-    import torch
     from peft import PeftModel
     from transformers import LlamaForCausalLM, LlamaTokenizer
 
     model = LlamaForCausalLM.from_pretrained(
         base_model,
     )
-    model = PeftModel.from_pretrained(model, lora_weights)
-    tokenizer = LlamaTokenizer.from_pretrained(base_model)
+    PeftModel.from_pretrained(model, lora_weights)
+    LlamaTokenizer.from_pretrained(base_model)
 
 
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
