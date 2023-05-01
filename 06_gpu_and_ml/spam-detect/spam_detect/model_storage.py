@@ -22,8 +22,7 @@ from typing import (
 
 from . import config
 from . import dataset
-from .model_registry import ModelMetadata, TrainMetrics
-from .models import SpamClassifier
+from .model_registry import ModelMetadata, TrainMetrics, SpamClassifier
 
 logger = config.get_logger()
 

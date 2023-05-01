@@ -4,10 +4,18 @@ The CLI commands are operationally useful, used to inspect prior trained models 
 most promising models to production serving.
 """
 import json
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 from . import config
 from .app import stub, volume
+
+
+class Prediction(NamedTuple):
+    spam: bool
+    score: float
+
+
+SpamClassifier = Callable[[str], Prediction]
 
 
 class TrainMetrics(NamedTuple):

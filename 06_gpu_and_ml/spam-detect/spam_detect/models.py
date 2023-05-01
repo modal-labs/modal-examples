@@ -16,26 +16,22 @@ import re
 from collections import defaultdict
 
 from . import config
-from . import dataset
 from . import model_storage
-from .model_registry import ModelMetadata, TrainMetrics
+from .dataset import Example
+from .model_registry import (
+    ModelMetadata,
+    TrainMetrics,
+    Prediction,
+    SpamClassifier,
+)
 
 from typing import (
     cast,
-    Callable,
-    NamedTuple,
     Optional,
     Protocol,
 )
 
-
-class Prediction(NamedTuple):
-    spam: bool
-    score: float
-
-
-Dataset = list[dataset.Example]
-SpamClassifier = Callable[[str], Prediction]
+Dataset = list[Example]
 
 
 def load_model(model_id: str):
