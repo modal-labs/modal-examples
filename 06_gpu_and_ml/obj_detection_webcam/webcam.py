@@ -76,7 +76,7 @@ image = (
     cpu=4,
     shared_volumes={"/cache": SharedVolume()},
     image=image,
-    secret=Secret({"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}),
+    secret=Secret.from_dict({"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}),
 )
 class ObjectDetection:
     def __enter__(self):

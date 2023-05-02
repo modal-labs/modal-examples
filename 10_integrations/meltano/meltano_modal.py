@@ -23,7 +23,7 @@ meltano_source_mount = modal.Mount.from_local_dir(
 
 storage = modal.SharedVolume().persist("meltano_volume")
 
-meltano_conf = modal.Secret(
+meltano_conf = modal.Secret.from_dict(
     {
         "MELTANO_PROJECT_ROOT": REMOTE_PROJECT_ROOT,
         "MELTANO_DATABASE_URI": f"sqlite:///{REMOTE_DB_PATH}",

@@ -113,8 +113,9 @@ def download_dataset():
 # lines of code and an account, we gain a dashboard will key metrics such as training loss, accuracy, and GPU
 # utilization.
 #
-# If you want to run this example without setting up Weights & Biases, just remove the `secret=modal.Secret(…)`
-# line from the Function decorator below; this will disable Weights & Biases functionality.
+# If you want to run this example without setting up Weights & Biases, just remove the
+# `secret=Secret.from_name("wandb")` line from the Function decorator below; this will disable Weights & Biases
+# functionality.
 #
 # ### Detaching our training run
 #
