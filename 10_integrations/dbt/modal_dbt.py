@@ -28,7 +28,7 @@ RAW_SCHEMAS = "/raw"
 OUTPUT_SCHEMAS = "/db"
 
 # Create an environment dict that will be usable by dbt templates:
-dbt_env = modal.Secret(
+dbt_env = modal.Secret.from_dict(
     {
         "RAW_DB_PATH": f"{RAW_SCHEMAS}/jaffle_shop_raw.db",
         "OUTPUT_SCHEMAS_PATH": OUTPUT_SCHEMAS,

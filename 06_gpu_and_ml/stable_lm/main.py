@@ -72,7 +72,11 @@ image = (
 stub = modal.Stub(
     name="example-stability-lm",
     image=image,
-    secrets=[modal.Secret({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})],
+    secrets=[
+        modal.Secret.from_dict(
+            {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
+        )
+    ],
 )
 
 
