@@ -91,7 +91,7 @@ def parse_receipt(image: bytes):
 # modal deploy doc_ocr_jobs.py
 # ```
 #
-# Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another
+# Once it's published, we can [look up](/docs/guide/trigger-deployed-functions) this function from another
 # Python process and submit tasks to it:
 #
 # ```python
