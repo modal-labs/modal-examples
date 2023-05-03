@@ -50,8 +50,8 @@ image = (
     .pip_install(
         # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
         "pytube @ git+https://github.com/felipeucelli/pytube@03d72641191ced9d92f31f94f38cfb18c76cfb05",
-        "opencv-python~=4.7.0.72", 
-        "moviepy~=1.0.3"
+        "opencv-python~=4.7.0.72",
+        "moviepy~=1.0.3",
     )
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
