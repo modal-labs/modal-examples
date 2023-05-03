@@ -18,7 +18,8 @@ image = (
     .pip_install(
         "https://github.com/openai/whisper/archive/v20230314.tar.gz",
         "ffmpeg-python",
-        "pytube~=12.1.2",
+        # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
+        "pytube @ git+https://github.com/felipeucelli/pytube@03d72641191ced9d92f31f94f38cfb18c76cfb05",
     )
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
@@ -221,7 +222,7 @@ async def transcribe(url: str):
 
 
 @stub.function()
-@stub.asgi_app()
+@modal.asgi_app()
 def web():
     return web_app
 

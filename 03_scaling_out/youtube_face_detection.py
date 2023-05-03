@@ -47,7 +47,12 @@ image = (
         "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
         f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
     )
-    .pip_install("pytube~=12.1.3", "opencv-python~=4.7.0.72", "moviepy~=1.0.3")
+    .pip_install(
+        # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
+        "pytube @ git+https://github.com/felipeucelli/pytube@03d72641191ced9d92f31f94f38cfb18c76cfb05",
+        "opencv-python~=4.7.0.72",
+        "moviepy~=1.0.3",
+    )
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 
