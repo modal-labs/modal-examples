@@ -42,12 +42,6 @@ from modal import Image, Secret, Stub, method
 
 stub = Stub("stable-diffusion-cli")
 
-# We will be using `typer` to create our CLI interface.
-
-import typer
-
-app = typer.Typer()
-
 # ## Model dependencies
 #
 # Your model will be running remotely inside a container. We will be installing
@@ -188,7 +182,7 @@ class StableDiffusion:
 def entrypoint(
     prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
 ):
-    typer.echo(
+    print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"
     )
 
