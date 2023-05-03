@@ -207,7 +207,7 @@ def run(
 # This code lets us call our script as follows:
 #
 # ```shell
-# modal run stable_diffusion_slackbot.py "a photo of an astronaut riding a horse on mars"
+# modal run stable_diffusion_slackbot.py --prompt "a photo of an astronaut riding a horse on mars"
 # ```
 #
 # The resulting image can be found in `/tmp/stable-diffusion/output.png`.
