@@ -24,20 +24,6 @@ image = (
 stub = Stub(name="example-open-llama", image=image)
 
 
-# Alpaca prompt for now (not trained on this dataset though)
-def generate_prompt(instruction, input, output=""):
-    return f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
-
-### Instruction:
-{instruction}
-
-### Input:
-{input}
-
-### Response:
-{output}"""
-
-
 @stub.cls(gpu="A10G")
 class OpenLlamaModel:
     def __enter__(self):
@@ -63,8 +49,7 @@ class OpenLlamaModel:
     @method()
     def generate(
         self,
-        instruction,
-        input=None,
+        input,
         temperature=0.1,
         top_p=0.75,
         top_k=40,
@@ -75,8 +60,7 @@ class OpenLlamaModel:
         import torch
         from transformers import GenerationConfig
 
-        prompt = generate_prompt(instruction, input)
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(input, return_tensors="pt")
         input_ids = inputs["input_ids"].to(self.device)
 
         generation_config = GenerationConfig(
@@ -97,23 +81,15 @@ class OpenLlamaModel:
             )
         s = generation_output.sequences[0]
         output = self.tokenizer.decode(s)
-        return output.split("### Response:")[1].strip()
+        print(f"\033[96m{input}\033[0m")
+        print(output.split(input)[1].strip())
 
 
 @stub.local_entrypoint()
 def main():
-    instructions = [
-        "Tell me about alpacas.",
-        "Tell me about the president of Mexico in 2019.",
-        "Tell me about the king of France in 2019.",
-        "List all Canadian provinces in alphabetical order.",
-        "Write a Python program that prints the first 10 Fibonacci numbers.",
-        "Write a program that prints the numbers from 1 to 100. But for multiples of three print 'Fizz' instead of the number and for the multiples of five print 'Buzz'. For numbers which are multiples of both three and five print 'FizzBuzz'.",  # noqa: E501
-        "Tell me five words that rhyme with 'shock'.",
-        "Translate the sentence 'I have no mouth but I must scream' into Spanish.",
-        "Count up from 1 to 500.",
+    inputs = [
+        "Building a website can be done in 10 simple steps:",
     ]
     model = OpenLlamaModel()
-    for instruction in instructions:
-        print(f"\033[96mInstruction: {instruction}\033[0m")
-        print(model.generate.call(instruction))
+    for input in inputs:
+        model.generate.call(input)
