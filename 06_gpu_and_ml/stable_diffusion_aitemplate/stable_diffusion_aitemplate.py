@@ -205,10 +205,10 @@ class InferenceRequest(BaseModel):
 
 stub = modal.Stub()
 
-# ## Inference as 
+# ## Inference as asgi app
 @stub.function(**function_params)
-@modal.wsgi_app()
-def baremetal_wsgi():
+@modal.asgi_app(label=f'{gpu_type.lower()}-{width}-{height}-{batch_size}-{model_id.replace("/","--")}')
+def baremetal_asgi():
     pipe = _get_pipe()
     app = FastAPI()
     @app.post("/inference")
@@ -230,6 +230,3 @@ def baremetal_wsgi():
 #    Request finished with status 200. (execution time: 507.5 ms, total latency: 648.9 ms)
 # '''
 
-
-# 17s loading model
-# 2s if model is already in page cache
