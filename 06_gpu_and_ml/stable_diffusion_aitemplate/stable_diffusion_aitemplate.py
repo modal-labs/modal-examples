@@ -154,9 +154,12 @@ image = (
             "WORKDIR /app",
             "RUN git clone --recursive https://github.com/facebookincubator/AITemplate.git",
             "WORKDIR /app/AITemplate/python",
+            # Set hash for reproducibility
             "RUN git checkout b041e0e",
-            "RUN python setup.py bdist_wheel && pip install dist/aitemplate-*.whl",
+            # Build and install aitemplate library
+            "RUN python setup.py bdist_wheel && pip install dist/aitemplate-*.whl && rm -rf dist",
             "WORKDIR /app/AITemplate/examples/05_stable_diffusion",
+            # Patch deprecated access of unet.in_channels (silence warning) in AIT pipeline example implementation
             "RUN sed -i src/pipeline_stable_diffusion_ait.py -e 's/unet.in_channels/unet.config.in_channels/g'",
         ],
     )
@@ -184,7 +187,6 @@ image = (
         "find /app/AITemplate/examples/05_stable_diffusion/tmp/AutoencoderKL -type f ! -name '*.so' -delete ",
         "rm -rf /app/AITemplate/examples/05_stable_diffusion/tmp/profiler",
         "rm -rf /app/AITemplate/examples/05_stable_diffusion/tmp/diffusers/models--runwayml--stable-diffusion-v1-5",
-        "rm -rf /app/AITemplate/python/dist",
     )
 )
 
