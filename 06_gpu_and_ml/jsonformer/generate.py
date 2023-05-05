@@ -51,7 +51,7 @@ stub = modal.Stub("synthetic-json-entry", image=image)
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
 @stub.function(gpu=modal.gpu.A10G())
-def generate(prompt: str, json_schema: dict[Any]) -> dict[Any]:
+def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
     from jsonformer import Jsonformer
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
