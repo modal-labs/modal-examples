@@ -21,23 +21,28 @@ CACHE_PATH: str = "/root/cache"
 def download_model():
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, use_cache=True, device_map="auto")
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID, use_cache=True, device_map="auto"
+    )
     model.save_pretrained(CACHE_PATH, safe_serialization=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, use_fast=True, use_cache=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_ID, use_fast=True, use_cache=True
+    )
     tokenizer.save_pretrained(CACHE_PATH, safe_serialization=True)
+
 
 # Install dependencies.
 image = (
     modal.Image.debian_slim(python_version="3.10")
-        .pip_install(
-            "jsonformer==0.9.0",
-            "transformers",
-            "torch",
-            "accelerate",
-            "safetensors"
-        )
-        .run_function(download_model)
+    .pip_install(
+        "jsonformer==0.9.0",
+        "transformers",
+        "torch",
+        "accelerate",
+        "safetensors",
+    )
+    .run_function(download_model)
 )
 stub = modal.Stub("synthetic-json-entry", image=image)
 
@@ -46,16 +51,20 @@ stub = modal.Stub("synthetic-json-entry", image=image)
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
 @stub.function(gpu=modal.gpu.A10G())
-def generate(prompt:str, json_schema:dict[Any]) -> dict[Any]:
+def generate(prompt: str, json_schema: dict[Any]) -> dict[Any]:
     from jsonformer import Jsonformer
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(CACHE_PATH, use_cache=True, device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, use_fast=True, use_cache=True, device_map="auto")
+    model = AutoModelForCausalLM.from_pretrained(
+        CACHE_PATH, use_cache=True, device_map="auto"
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_ID, use_fast=True, use_cache=True, device_map="auto"
+    )
 
     jsonformer = Jsonformer(model, tokenizer, json_schema, prompt)
     generated_data = jsonformer()
-    
+
     return generated_data
 
 
@@ -63,7 +72,7 @@ def generate(prompt:str, json_schema:dict[Any]) -> dict[Any]:
 @stub.local_entrypoint()
 def main():
     prompt = "Generate random plant information based on the following schema:"
-    json_schema={
+    json_schema = {
         "type": "object",
         "properties": {
             "height_cm": {"type": "number"},
@@ -74,10 +83,10 @@ def main():
                     "species": {"type": "string"},
                     "kingdom": {"type": "string"},
                     "family": {"type": "string"},
-                    "genus": {"type": "string"}
+                    "genus": {"type": "string"},
                 },
             },
-        }
+        },
     }
 
     result = generate.call(prompt, json_schema)
