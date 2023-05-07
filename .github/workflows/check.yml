@@ -68,6 +68,23 @@ jobs:
       - name: Run
         run: python3 internal/typecheck.py
 
+  nbconvert:
+    name: NbConvert
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install NbConvert
+        run: pip install jupyter nbconvert
+
+      - name: Check notebooks are cleaned
+        run: |
+          jupyter nbconvert --clear-output --inplace 11_notebooks/*.ipynb
+          git diff --quiet && git diff --cached --quiet || exit 1
+
   pytest:
     name: Pytest
     runs-on: ubuntu-20.04
