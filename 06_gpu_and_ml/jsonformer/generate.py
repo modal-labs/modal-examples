@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # lambda-test: false
 # ---
 # # Generate synthetic data using Jsonformer
