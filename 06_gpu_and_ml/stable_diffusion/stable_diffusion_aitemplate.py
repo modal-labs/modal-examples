@@ -1,5 +1,7 @@
 # # Stable Diffusion (AITemplate Edition)
 #
+# Example by [@maxscheel](https://github.com/maxscheel)
+#
 # This example shows the Stable Diffusion 2.1 compiled with [AITemplate](https://github.com/facebookincubator/AITemplate) to run faster on Modal.
 # There is also a [Stable Diffusion CLI example](/docs/guide/ex/stable_diffusion_cli).
 # 
@@ -9,7 +11,7 @@
 # #### Downsides
 #  - Width and HEIGHT as well as batch size must be configured prior to compilation which takes about 15 minutes.
 #  - In this example the compilation is done at docker image creation.
-#  - Cold start time are also increased to upto ~30s.
+#  - Cold start time are also increased to up-to ~30s from ~10s.
 
 # ## Setup
 import io
@@ -227,7 +229,7 @@ def inference_asgi():
 #      --header 'Content-Type: application/json' \
 #      --data-raw '{
 #         "prompt": "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field",
-#         "num_inference_steps": 10,
+#         "num_inference_steps": 10
 #         "guidance_scale": 10.0,
 #         "negative_prompt": "deformed, extra legs, no tail",
 #         "format": "webp"
