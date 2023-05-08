@@ -1,4 +1,7 @@
-# Generate a synthetic data using Jsonformer
+# ---
+# lambda-test: false
+# ---
+# # Generate a synthetic data using Jsonformer
 #
 # [Jsonformer](https://github.com/1rgs/jsonformer) is a tool that generates structured synthetic data using LLMs.
 # You provide a JSON spec and it generates a JSON object following the spec. It's a
@@ -16,7 +19,7 @@ MODEL_ID: str = "databricks/dolly-v2-3b"
 CACHE_PATH: str = "/root/cache"
 
 
-## Build image and cache model
+# ## Build image and cache model
 #
 # We'll download models from the Huggingface Hub and store them in our image.
 # This skips the downloading of models during inference and reduces cold boot
@@ -50,7 +53,7 @@ image = (
 stub = modal.Stub("synthetic-json-entry", image=image)
 
 
-## Generate examples
+# ## Generate examples
 #
 # The generate function takes two arguments `prompt` and `json_schema`, where
 # `prompt` is used to describe the domain of your data (for example, "plants")
