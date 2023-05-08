@@ -1,4 +1,4 @@
-# Generate a synthetic dataset using Jsonformer
+# Generate a synthetic data using Jsonformer
 #
 # [Jsonformer](https://github.com/1rgs/jsonformer) is a tool that generates structured synthetic data using LLMs.
 # You provide a JSON spec and it generates a JSON object following the spec. It's a
@@ -10,14 +10,17 @@ import modal
 from typing import Any
 
 # We will be using one of [Databrick's Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)
-# models, chosing for the smallest version with 3B parameters but feel free to use any of the other models
-# available from the [Huggingface Hub](https://huggingface.co/databricks).
+# models, chosing for the smallest version with 3B parameters. Feel free to use any of the other models
+# available from the [Huggingface Hub Dolly repository](https://huggingface.co/databricks).
 MODEL_ID: str = "databricks/dolly-v2-3b"
 CACHE_PATH: str = "/root/cache"
 
 
-# Download model and cache into image. We'll download models from the Huggingface Hub
-# and store them in our image. This skips the downloading of models during inference.
+## Build image and cache model
+#
+# We'll download models from the Huggingface Hub and store them in our image.
+# This skips the downloading of models during inference and reduces cold boot
+# times.
 def download_model():
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -32,7 +35,7 @@ def download_model():
     tokenizer.save_pretrained(CACHE_PATH, safe_serialization=True)
 
 
-# Install dependencies.
+# Define our image; install dependencies.
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
@@ -47,6 +50,8 @@ image = (
 stub = modal.Stub("synthetic-json-entry", image=image)
 
 
+## Generate examples
+#
 # The generate function takes two arguments `prompt` and `json_schema`, where
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
@@ -68,7 +73,7 @@ def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
     return generated_data
 
 
-# Add Modal entrypoint for invoking your script.
+# Add Modal entrypoint for invoking your script, and done!
 @stub.local_entrypoint()
 def main():
     prompt = "Generate random plant information based on the following schema:"
