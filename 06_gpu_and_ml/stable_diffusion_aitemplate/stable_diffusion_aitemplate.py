@@ -1,13 +1,13 @@
 # # Stable Diffusion (AITemplate Edition)
 #
-# This example shows the Stable Diffusion 1.5 compiled with [AITemplate](https://github.com/facebookincubator/AITemplate) to run faster on Modal.
+# This example shows the Stable Diffusion 2.1 compiled with [AITemplate](https://github.com/facebookincubator/AITemplate) to run faster on Modal.
 # There is also a [Stable Diffusion CLI example](/docs/guide/ex/stable_diffusion_cli).
 # 
 # #### Upsides
 #  - Image generation improves over the CLI example to about 550ms per image generated (A10G, 10 steps, 512x512, png).
 # 
 # #### Downsides
-#  - Width and height as well as batch size must be configured prior to compilation which takes about 15 minutes.
+#  - Width and HEIGHT as well as batch size must be configured prior to compilation which takes about 15 minutes.
 #  - In this example the compilation is done at docker image creation.
 #  - Cold start time are also increased to upto ~30s.
 
@@ -19,38 +19,41 @@ import modal
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
 
-hf_dir = "/root/.cache/huggingface"
-hf_volume = modal.SharedVolume().persist("hf-cache-vol")
+# Set cache path, size of output image, and stable diffusion version.
+HF_CACHE_DIR:str = "/root/.cache/huggingface"
+AIT_BUILD_CACHE_DIR:str = "/root/.cache/aitemplate"
+GPU_TYPE:str = "A10G"
+MODEL_ID:str = "stabilityai/stable-diffusion-2-1"
+WIDTH:int = 512
+HEIGHT:int = 512
+BATCH_SIZE:int = 1
+MODEL_PATH:str = "./tmp/diffusers/"
 
-# ## Define the GPU Type and model, dimensions and batch size
-gpu_type = "A10G"
-model_id = "runwayml/stable-diffusion-v1-5"
-width = 512
-height = 512
-batch_size = 1
-
-# ## Set the paths to the AITemplate example. This is needed to import the compiler and pipeline.
 
 def set_paths():
     ait_sd_example_path = "/app/AITemplate/examples/05_stable_diffusion"
     os.chdir(ait_sd_example_path)
     sys.path.append(ait_sd_example_path)
 
+# Download and compile model during image creation. This will store both the
+# original HuggingFace model and the AITemplate compiled artifacts in the image, 
+# making startup times slightly faster.
 def download_and_compile():
     import diffusers
     import torch
     set_paths()
 
-    # Download model and scheduler
-    model_pt = "./tmp/diffusers/"
-    diffusers.StableDiffusionPipeline.from_pretrained(
-        model_id, revision="fp16", torch_dtype=torch.float16,
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"]
-    ).save_pretrained(model_pt, safe_serialization=True)
+    os.environ["AIT_BUILD_CACHE_DIR"] = AIT_BUILD_CACHE_DIR
 
-    diffusers.DPMSolverMultistepScheduler.from_pretrained(
-        model_pt, subfolder="scheduler",
-    ).save_pretrained(model_pt, safe_serialization=True)
+    # Download model and scheduler
+    diffusers.StableDiffusionPipeline.from_pretrained(
+        MODEL_ID, revision="fp16", torch_dtype=torch.float16,
+        use_auth_token=os.environ["HUGGINGFACE_TOKEN"]
+    ).save_pretrained(MODEL_PATH, safe_serialization=True)
+
+    diffusers.EulerDiscreteScheduler.from_pretrained(
+        MODEL_PATH, subfolder="scheduler",
+    ).save_pretrained(MODEL_PATH, safe_serialization=True)
 
     # Compilation
     from src.compile_lib.compile_clip import compile_clip
@@ -58,12 +61,12 @@ def download_and_compile():
     from src.compile_lib.compile_vae import compile_vae
 
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-        model_pt, revision="fp16", torch_dtype=torch.float16
+        MODEL_PATH, revision="fp16", torch_dtype=torch.float16
     )
 
     compile_clip(
         pipe.text_encoder,
-        batch_size=batch_size,
+        batch_size=BATCH_SIZE,
         seqlen=77,
         use_fp16_acc=True,
         convert_conv_to_gemm=True,
@@ -74,9 +77,9 @@ def download_and_compile():
     )
     compile_unet(
         pipe.unet,
-        batch_size=batch_size * 2,
-        width=width // 8,
-        height=height // 8,
+        batch_size=BATCH_SIZE * 2,
+        width=WIDTH // 8,
+        height=HEIGHT // 8,
         use_fp16_acc=True,
         convert_conv_to_gemm=True,
         hidden_dim=pipe.unet.config.cross_attention_dim,
@@ -85,38 +88,32 @@ def download_and_compile():
     )
     compile_vae(
         pipe.vae,
-        batch_size=batch_size,
-        width=width // 8,
-        height=height // 8,
+        batch_size=BATCH_SIZE,
+        width=WIDTH // 8,
+        height=HEIGHT // 8,
         use_fp16_acc=True,
         convert_conv_to_gemm=True,
     )
 
 def _get_pipe():
     set_paths()
+    os.environ["AIT_BUILD_CACHE_DIR"] = AIT_BUILD_CACHE_DIR
+
     import torch
-    from diffusers import DPMSolverMultistepScheduler
+    from diffusers import EulerDiscreteScheduler
     from src.pipeline_stable_diffusion_ait import StableDiffusionAITPipeline
     
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
 
-    model_pt = "./tmp/diffusers/"
-    scheduler = DPMSolverMultistepScheduler.from_pretrained(
-        model_pt,
+    scheduler = EulerDiscreteScheduler.from_pretrained(
+        MODEL_PATH,
         subfolder="scheduler",
-        solver_order=2,
-        prediction_type="epsilon",
-        thresholding=False,
-        algorithm_type="dpmsolver++",
-        solver_type="midpoint",
-        denoise_final=True,
-        low_cpu_mem_usage=True,
         device_map="auto",
     )
 
     pipe = StableDiffusionAITPipeline.from_pretrained(
-        model_pt,
+        MODEL_PATH,
         scheduler=scheduler,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16,
@@ -131,19 +128,22 @@ def _inference(pipe, prompt: str, num_inference_steps: int, guidance_scale: floa
     with inference_mode():
         with autocast("cuda"):
             single_image = pipe(
-                prompt=[prompt] * batch_size,
-                height=height,
-                width=width,
+                prompt=[prompt] * BATCH_SIZE,
+                HEIGHT=HEIGHT,
+                WIDTH=WIDTH,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
-                negative_prompt=[negative_prompt] * batch_size,
+                negative_prompt=[negative_prompt] * BATCH_SIZE,
             ).images[0]
             with io.BytesIO() as buf:
                 single_image.save(buf, format=format)
                 return Response(content=buf.getvalue(), media_type=f"image/{format}")
 
-# ## Define Image from Dockerhub
-# Install AITemplate from source, download and compile the configured model.
+# ## Build image
+#
+# Install AITemplate from source, download, and compile the configured model. We
+# will use an official NVIDIA image from [Docker Hub](https://hub.docker.com/r/nvidia/cuda)
+# which include all required drivers.
 
 image = (
     modal.Image.from_dockerhub(
@@ -175,18 +175,9 @@ image = (
     )
     .run_function(
         download_and_compile,
-        secret=modal.Secret.from_name("my-huggingface-secret"),
-        shared_volumes={hf_dir: hf_volume},
+        secret=modal.Secret.from_name("huggingface-secret"),
         timeout=60 * 30,
-        gpu=gpu_type
-    )
-    .run_commands(
-        # clean up some files we don't need
-        "find /app/AITemplate/examples/05_stable_diffusion/tmp/CLIPTextModel -type f ! -name '*.so' -delete ",
-        "find /app/AITemplate/examples/05_stable_diffusion/tmp/UNet2DConditionModel -type f ! -name '*.so' -delete ",
-        "find /app/AITemplate/examples/05_stable_diffusion/tmp/AutoencoderKL -type f ! -name '*.so' -delete ",
-        "rm -rf /app/AITemplate/examples/05_stable_diffusion/tmp/profiler",
-        "rm -rf /app/AITemplate/examples/05_stable_diffusion/tmp/diffusers/models--runwayml--stable-diffusion-v1-5",
+        gpu=GPU_TYPE
     )
 )
 
@@ -195,40 +186,42 @@ function_params = {
     "concurrency_limit": 1,
     "container_idle_timeout": 60,
     "timeout": 60,
-    "gpu": gpu_type,
+    "gpu": GPU_TYPE,
 }
 
+stub = modal.Stub("example-stable-diffusion-aitemplate")
+
+# ## Inference as asgi app
+#
+# We load the pipe and serve the example via the `/inference` endpoint. You can interact
+# the endpoint via a `POST` request with a JSON payload containing parameters defined
+# in `InferenceRequest`.
+
 class InferenceRequest(BaseModel):
-    prompt: str = "photo of a cat in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field"
+    prompt: str = "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field"
     num_inference_steps: int = 10
     guidance_scale: float = 7.5
     negative_prompt: str = "deformed, extra legs, no tail"
-    format: str = "webp"
+    format: str = "webp" # png or webp; webp is slightly faster
 
-stub = modal.Stub()
-
-# ## Inference as asgi app
 @stub.function(**function_params)
-@modal.asgi_app(label=f'{gpu_type.lower()}-{width}-{height}-{batch_size}-{model_id.replace("/","--")}')
+@modal.asgi_app(label=f'{GPU_TYPE.lower()}-{WIDTH}-{HEIGHT}-{BATCH_SIZE}-{MODEL_ID.replace("/","--")}')
 def baremetal_asgi():
     pipe = _get_pipe()
     app = FastAPI()
     @app.post("/inference")
     def inference(request: InferenceRequest):
-        # A10G inference time for 10 steps 512x512 webp: execution time: 505.0 ms, total latency: 585.8 ms
-        # A10G inference time for 10 steps 512x512 png: execution time: 557.6 ms, total latency: 629.9 ms
         return _inference(pipe, request.prompt, request.num_inference_steps, request.guidance_scale, request.negative_prompt, request.format)
     return app
 
-# ## Cold Start: [14..33] seconds
-# '''
-#    90%|█████████ | 9/10 [00:00<00:00, 25.00it/s]100%|██████████| 10/10 [00:00<00:00, 24.84it/s]
-#    Request finished with status 200. (execution time: 2324.5 ms, total latency: 33779.0 ms)
-#    90%|█████████ | 9/10 [00:00<00:00, 25.60it/s]100%|██████████| 10/10 [00:00<00:00, 25.59it/s]
-#    Request finished with status 200. (execution time: 508.6 ms, total latency: 592.6 ms)
-#    90%|█████████ | 9/10 [00:00<00:00, 25.67it/s]100%|██████████| 10/10 [00:00<00:00, 25.67it/s]
-#    Request finished with status 200. (execution time: 507.2 ms, total latency: 598.3 ms)
-#    90%|█████████ | 9/10 [00:00<00:00, 25.67it/s]100%|██████████| 10/10 [00:00<00:00, 25.67it/s]
-#    Request finished with status 200. (execution time: 507.5 ms, total latency: 648.9 ms)
-# '''
-
+# ```bash
+# curl --location --request POST '$ENDPOINT_URL' \
+#      --header 'Content-Type: application/json' \
+#      --data-raw '{
+#         "prompt": "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field",
+#         "num_inference_steps": 10,
+#         "guidance_scale": 10.0,
+#         "negative_prompt": "deformed, extra legs, no tail",
+#         "format": "webp"
+#      }'
+# ```
