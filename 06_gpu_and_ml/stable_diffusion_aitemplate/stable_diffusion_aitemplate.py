@@ -206,7 +206,7 @@ class InferenceRequest(BaseModel):
 
 @stub.function(**function_params)
 @modal.asgi_app(label=f'{GPU_TYPE.lower()}-{WIDTH}-{HEIGHT}-{BATCH_SIZE}-{MODEL_ID.replace("/","--")}')
-def baremetal_asgi():
+def inference_asgi():
     pipe = _get_pipe()
     app = FastAPI()
     @app.post("/inference")
@@ -214,8 +214,16 @@ def baremetal_asgi():
         return _inference(pipe, request.prompt, request.num_inference_steps, request.guidance_scale, request.negative_prompt, request.format)
     return app
 
+# Serve your app using `modal serve` as follows:
+#
 # ```bash
-# curl --location --request POST '$ENDPOINT_URL' \
+# modal serve stable_diffusion_aitemplate.py
+# ```
+#
+# Grab the Modal app URL then query the  API with curl:
+#
+# ```bash
+# curl --location --request POST '$ENDPOINT_URL/inference' \
 #      --header 'Content-Type: application/json' \
 #      --data-raw '{
 #         "prompt": "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field",
