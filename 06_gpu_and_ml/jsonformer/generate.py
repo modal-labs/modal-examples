@@ -1,7 +1,7 @@
 # ---
 # lambda-test: false
 # ---
-# # Generate a synthetic data using Jsonformer
+# # Generate synthetic data using Jsonformer
 #
 # [Jsonformer](https://github.com/1rgs/jsonformer) is a tool that generates structured synthetic data using LLMs.
 # You provide a JSON spec and it generates a JSON object following the spec. It's a
@@ -13,7 +13,7 @@ import modal
 from typing import Any
 
 # We will be using one of [Databrick's Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)
-# models, chosing for the smallest version with 3B parameters. Feel free to use any of the other models
+# models, choosing for the smallest version with 3B parameters. Feel free to use any of the other models
 # available from the [Huggingface Hub Dolly repository](https://huggingface.co/databricks).
 MODEL_ID: str = "databricks/dolly-v2-3b"
 CACHE_PATH: str = "/root/cache"
