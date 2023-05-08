@@ -4,10 +4,10 @@
 #
 # This example shows the Stable Diffusion 2.1 compiled with [AITemplate](https://github.com/facebookincubator/AITemplate) to run faster on Modal.
 # There is also a [Stable Diffusion CLI example](/docs/guide/ex/stable_diffusion_cli).
-# 
+#
 # #### Upsides
 #  - Image generation improves over the CLI example to about 550ms per image generated (A10G, 10 steps, 512x512, png).
-# 
+#
 # #### Downsides
 #  - Width and HEIGHT as well as batch size must be configured prior to compilation which takes about 15 minutes.
 #  - In this example the compilation is done at docker image creation.
@@ -22,14 +22,14 @@ from fastapi import FastAPI, Response
 from pydantic import BaseModel
 
 # Set cache path, size of output image, and stable diffusion version.
-HF_CACHE_DIR:str = "/root/.cache/huggingface"
-AIT_BUILD_CACHE_DIR:str = "/root/.cache/aitemplate"
-GPU_TYPE:str = "A10G"
-MODEL_ID:str = "stabilityai/stable-diffusion-2-1"
-WIDTH:int = 512
-HEIGHT:int = 512
-BATCH_SIZE:int = 1
-MODEL_PATH:str = "./tmp/diffusers/"
+HF_CACHE_DIR: str = "/root/.cache/huggingface"
+AIT_BUILD_CACHE_DIR: str = "/root/.cache/aitemplate"
+GPU_TYPE: str = "A10G"
+MODEL_ID: str = "stabilityai/stable-diffusion-2-1"
+WIDTH: int = 512
+HEIGHT: int = 512
+BATCH_SIZE: int = 1
+MODEL_PATH: str = "./tmp/diffusers/"
 
 
 def set_paths():
@@ -37,24 +37,29 @@ def set_paths():
     os.chdir(ait_sd_example_path)
     sys.path.append(ait_sd_example_path)
 
+
 # Download and compile model during image creation. This will store both the
-# original HuggingFace model and the AITemplate compiled artifacts in the image, 
+# original HuggingFace model and the AITemplate compiled artifacts in the image,
 # making startup times slightly faster.
 def download_and_compile():
     import diffusers
     import torch
+
     set_paths()
 
     os.environ["AIT_BUILD_CACHE_DIR"] = AIT_BUILD_CACHE_DIR
 
     # Download model and scheduler
     diffusers.StableDiffusionPipeline.from_pretrained(
-        MODEL_ID, revision="fp16", torch_dtype=torch.float16,
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"]
+        MODEL_ID,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
     ).save_pretrained(MODEL_PATH, safe_serialization=True)
 
     diffusers.EulerDiscreteScheduler.from_pretrained(
-        MODEL_PATH, subfolder="scheduler",
+        MODEL_PATH,
+        subfolder="scheduler",
     ).save_pretrained(MODEL_PATH, safe_serialization=True)
 
     # Compilation
@@ -86,7 +91,9 @@ def download_and_compile():
         convert_conv_to_gemm=True,
         hidden_dim=pipe.unet.config.cross_attention_dim,
         attention_head_dim=pipe.unet.config.attention_head_dim,
-        use_linear_projection=pipe.unet.config.get("use_linear_projection", False),
+        use_linear_projection=pipe.unet.config.get(
+            "use_linear_projection", False
+        ),
     )
     compile_vae(
         pipe.vae,
@@ -97,6 +104,7 @@ def download_and_compile():
         convert_conv_to_gemm=True,
     )
 
+
 def _get_pipe():
     set_paths()
     os.environ["AIT_BUILD_CACHE_DIR"] = AIT_BUILD_CACHE_DIR
@@ -104,7 +112,7 @@ def _get_pipe():
     import torch
     from diffusers import EulerDiscreteScheduler
     from src.pipeline_stable_diffusion_ait import StableDiffusionAITPipeline
-    
+
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -125,8 +133,16 @@ def _get_pipe():
     return pipe
 
 
-def _inference(pipe, prompt: str, num_inference_steps: int, guidance_scale: float, negative_prompt: str, format: str = "webp"):
+def _inference(
+    pipe,
+    prompt: str,
+    num_inference_steps: int,
+    guidance_scale: float,
+    negative_prompt: str,
+    format: str = "webp",
+):
     from torch import autocast, inference_mode
+
     with inference_mode():
         with autocast("cuda"):
             single_image = pipe(
@@ -139,7 +155,10 @@ def _inference(pipe, prompt: str, num_inference_steps: int, guidance_scale: floa
             ).images[0]
             with io.BytesIO() as buf:
                 single_image.save(buf, format=format)
-                return Response(content=buf.getvalue(), media_type=f"image/{format}")
+                return Response(
+                    content=buf.getvalue(), media_type=f"image/{format}"
+                )
+
 
 # ## Build image
 #
@@ -179,7 +198,7 @@ image = (
         download_and_compile,
         secret=modal.Secret.from_name("huggingface-secret"),
         timeout=60 * 30,
-        gpu=GPU_TYPE
+        gpu=GPU_TYPE,
     )
 )
 
@@ -199,22 +218,36 @@ stub = modal.Stub("example-stable-diffusion-aitemplate")
 # the endpoint via a `POST` request with a JSON payload containing parameters defined
 # in `InferenceRequest`.
 
+
 class InferenceRequest(BaseModel):
     prompt: str = "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field"
     num_inference_steps: int = 10
     guidance_scale: float = 7.5
     negative_prompt: str = "deformed, extra legs, no tail"
-    format: str = "webp" # png or webp; webp is slightly faster
+    format: str = "webp"  # png or webp; webp is slightly faster
+
 
 @stub.function(**function_params)
-@modal.asgi_app(label=f'{GPU_TYPE.lower()}-{WIDTH}-{HEIGHT}-{BATCH_SIZE}-{MODEL_ID.replace("/","--")}')
+@modal.asgi_app(
+    label=f'{GPU_TYPE.lower()}-{WIDTH}-{HEIGHT}-{BATCH_SIZE}-{MODEL_ID.replace("/","--")}'
+)
 def inference_asgi():
     pipe = _get_pipe()
     app = FastAPI()
+
     @app.post("/inference")
     def inference(request: InferenceRequest):
-        return _inference(pipe, request.prompt, request.num_inference_steps, request.guidance_scale, request.negative_prompt, request.format)
+        return _inference(
+            pipe,
+            request.prompt,
+            request.num_inference_steps,
+            request.guidance_scale,
+            request.negative_prompt,
+            request.format,
+        )
+
     return app
+
 
 # Serve your app using `modal serve` as follows:
 #
