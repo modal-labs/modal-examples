@@ -50,7 +50,7 @@ image = (
     )
     .run_function(download_model)
 )
-stub = modal.Stub("synthetic-json-entry", image=image)
+stub = modal.Stub("example-jsonformer", image=image)
 
 
 # ## Generate examples
