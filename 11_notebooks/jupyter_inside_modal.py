@@ -1,0 +1,91 @@
+# Quick snippet to connect to a Jupyter notebook server running inside a Modal container,
+# especially useful for exploring the contents of Modal shared volumes.
+# This uses https://github.com/ekzhang/bore to expose the server to the public internet.
+
+import os
+import subprocess
+import time
+
+import modal
+
+stub = modal.Stub(
+    image=modal.Image.debian_slim()
+    .pip_install("jupyter", "bing-image-downloader~=1.1.2")
+    .apt_install("curl")
+    .run_commands("curl https://sh.rustup.rs -sSf | bash -s -- -y")
+    .run_commands(". $HOME/.cargo/env && cargo install bore-cli")
+)
+# This volume is not persisted, so the data will be deleted when this demo app is stopped.
+volume = modal.SharedVolume()
+
+CACHE_DIR = "/root/cache"
+JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
+
+
+@stub.function(
+    shared_volumes={CACHE_DIR: volume},
+)
+def seed_volume():
+    # Bing it!
+    from bing_image_downloader import downloader
+
+    # This will save into the Modal volume and allow you view the images
+    # from within Jupyter at a path like `/cache/modal labs/Image_1.png`.
+    downloader.download(
+        query="modal labs",
+        limit=10,
+        output_dir=CACHE_DIR,
+        force_replace=False,
+        timeout=60,
+        verbose=True,
+    )
+
+
+# This is all that's needed to create a long-lived Jupyter server process in Modal
+# that you can access in your Browser through a secure network tunnel.
+# This can come in when you want to interactively engage with shared volume contents
+# without having to download it to your host computer.
+
+
+@stub.function(
+    concurrency_limit=1, shared_volumes={CACHE_DIR: volume}, timeout=1_500
+)
+def run_jupyter():
+    jupyter_process = subprocess.Popen(
+        [
+            "jupyter",
+            "notebook",
+            "--no-browser",
+            "--allow-root",
+            "--port=8888",
+            "--NotebookApp.allow_origin='*'",
+            "--NotebookApp.allow_remote_access=1",
+        ],
+        env={**os.environ, "JUPYTER_TOKEN": JUPYTER_TOKEN},
+    )
+
+    bore_process = subprocess.Popen(
+        ["/root/.cargo/bin/bore", "local", "8888", "--to", "bore.pub"],
+    )
+
+    try:
+        while True:
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("Exiting...")
+    finally:
+        bore_process.kill()
+        jupyter_process.kill()
+
+
+@stub.local_entrypoint()
+def main():
+    # Write some images to a volume, for demonstration purposes.
+    seed_volume.call()
+    # Run the Jupyter Notebook server
+    run_jupyter.call()
+
+
+# Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts
+# the Juypter server at an address like http://bore.pub:$PORT/. Visit this address
+# in your browser, and enter the security token you set for `JUPYTER_TOKEN`.
