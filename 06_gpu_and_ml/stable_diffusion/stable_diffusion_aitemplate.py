@@ -9,7 +9,7 @@
 #  - Image generation improves over the CLI example to about 550ms per image generated (A10G, 10 steps, 512x512, png).
 #
 # #### Downsides
-#  - Width and HEIGHT as well as batch size must be configured prior to compilation which takes about 15 minutes.
+#  - Width and height as well as batch size must be configured prior to compilation which takes about 15 minutes.
 #  - In this example the compilation is done at docker image creation.
 #  - Cold start time are also increased to up-to ~30s from ~10s.
 
