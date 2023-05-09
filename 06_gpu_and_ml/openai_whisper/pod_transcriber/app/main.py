@@ -141,7 +141,7 @@ def search_podcast(name):
     image=search_image,
     schedule=Period(hours=4),
     shared_volumes={config.CACHE_DIR: volume},
-    timeout=(30 * 60),
+    timeout=(100 * 60),
 )
 def refresh_index():
     import dataclasses
