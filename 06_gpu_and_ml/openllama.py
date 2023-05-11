@@ -64,7 +64,7 @@ stub = Stub(name="example-open-llama", image=image)
 # Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU with 20 GB of VRAM](/pricing).
 #
-# The rest is just using the [generate](/docs/transformers/en/main_classes/text_generation#transformers.GenerationMixin.generate) function
+# The rest is just using the [generate](https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationMixin.generate) function
 # from the `transformers` library. Refer to the documentation for more parameters and tuning.
 
 
