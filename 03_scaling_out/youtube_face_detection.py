@@ -10,9 +10,9 @@
 # [pytube](https://pytube.io/en/latest/)
 # and
 # [moviepy](https://zulko.github.io/moviepy/)
-# to work with video files.
+# to process video files in parallel.
 #
-# The face detection is a quite simple model built into OpenCV
+# The face detection is a pretty simple model built into OpenCV
 # and is not state of the art.
 #
 # ## The result
@@ -23,10 +23,6 @@
 # <track kind="captions" />
 # </video>
 # </center>
-#
-# If you watched this, we succeeded
-# [rickrolling](https://en.wikipedia.org/wiki/Rickrolling)
-# you! 🤣
 #
 #
 # ## The Python code
@@ -43,9 +39,9 @@ FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 
 image = (
     modal.Image.debian_slim()
+    .apt_install("libgl1-mesa-glx", "libglib2.0-0", "wget", "git")
     .run_commands(
-        "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
-        f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
+        f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
     )
     .pip_install(
         # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
