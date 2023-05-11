@@ -2,7 +2,7 @@
 #
 # This example is similar to the example [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
 # but running inference unsing the [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch. We still use the
-# [diffusers](https://github.com/huggingface/diffusers) package to load the models and pipeline like we do in Stable Diffusion, using
+# [diffusers](https://github.com/huggingface/diffusers) package to load models and pipeline like we do in Stable Diffusion, using
 # the `OnnxStableDiffusionPipeline` instead of the `StableDiffusionPipeline`. More details
 # on how the ONNX runtime works in diffusers in [this article](https://huggingface.co/docs/diffusers/optimization/onnx).
 #
@@ -40,14 +40,14 @@ def download_models():
 
     hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
 
-    # Downloads all other models.
+    # Download models from the HunggingFace Hub and store
+    # in local image cache.
     pipe = diffusers.OnnxStableDiffusionPipeline.from_pretrained(
         model_id,
         revision="fp16",
         provider="CUDAExecutionProvider",
         use_auth_token=hugging_face_token,
     )
-
     pipe.save_pretrained(cache_path, safe_serialization=True)
 
 
