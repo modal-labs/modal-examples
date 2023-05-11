@@ -37,7 +37,6 @@ cache_path = "/vol/cache"
 
 def download_models():
     import diffusers
-    import torch
 
     hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
 
