@@ -9,7 +9,6 @@ def get_logger(name, level=logging.INFO):
     )
     logger.addHandler(handler)
     logger.setLevel(level)
-    logger.propagate = False  # Prevent the modal client from double-logging.
     return logger
 
 
