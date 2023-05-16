@@ -1,8 +1,8 @@
 with source as (
 
     {#-
-    Normally we would select from the table here, but we are using seeds to load
-    our data in this project
+    Here we load from the external S3 bucket data, which was seeded
+    by running the `seed` Modal function.
     #}
     select * from {{ source('external_source', 'raw_customers') }}
 
