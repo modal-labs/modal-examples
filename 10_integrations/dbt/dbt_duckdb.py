@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import modal
@@ -43,13 +42,14 @@ dbt_target = modal.SharedVolume().persist("dbt-target")
 s3_secret = modal.Secret.from_name("personal-aws-user")
 
 # ## Seed data
-# 
+#
 # In order to provide source data for DBT to ingest and transform,
 # we have this `seed` function which creates an AWS S3 bucket and
 # populates it with .parquet files based of CSV data in the seeds/ directory.
-# 
+#
 # This is not the typical way that seeds/ data is used, but it is fine for this
 # demonstration example. See https://docs.getdbt.com/docs/build/seeds for more info.
+
 
 @stub.function(
     mounts=[dbt_project],
@@ -73,10 +73,12 @@ def seed():
         print(f"uploading {object_key=} to S3 bucket '{BUCKET_NAME}'")
         s3_client.upload_file(parquet_filename, BUCKET_NAME, object_key)
 
+
 # This `daily_build` function runs on a schedule to keep the DuckDB data warehouse
 # up-to-date. Currently, the source data for this warehouse is static, so the updates
 # don't really update anything, just re-build. But this example could be extended
 # to have sources which continually provide new data across time.
+
 
 @stub.function(
     schedule=modal.Period(days=1),
@@ -85,7 +87,8 @@ def seed():
     shared_volumes={TARGET_PATH: dbt_target},
 )
 def daily_build() -> None:
-    run_command("build")
+    run("build")
+
 
 # `modal run dbt_duckdb.py::run --command run`
 #
@@ -113,7 +116,8 @@ def daily_build() -> None:
 # 03:41:08
 # 03:41:08  Done. PASS=5 WARN=0 ERROR=0 SKIP=0 TOTAL=5
 # ```
-# 
+#
+
 
 @stub.function(
     secrets=[s3_secret],
@@ -126,6 +130,7 @@ def run(command: str) -> None:
     res = dbtRunner().invoke([command])
     if res.exception:
         print(res.exception)
+
 
 # Look for the "'materialized='external'" DBT config in the SQL templates
 # to see how `dbt-duckdb` is able to write back the transformed data to AWS S3!
