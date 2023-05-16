@@ -6,15 +6,9 @@
 
 import sys
 
-import modal.aio
+import modal
 
-# ## Using Modal asynchronously
-#
-# If you want to use Modal asynchronously, you need to import `modal.aio` and use classes prefixed by `Aio`.
-# In this case, we just need to define an asynchronous stub:
-
-
-stub = modal.aio.AioStub("example-hello-world-async")
+stub = modal.Stub("example-hello-world-async")
 
 
 # ## Defining a function
@@ -38,16 +32,18 @@ def f(i):
 #
 # Let's make the main entrypoint asynchronous. In async contexts, we should
 # call the function using `await` or iterate over the map using `async for`.
+# Otherwise we would block the event loop while our call is being run.
 
 
 @stub.local_entrypoint()
 async def run_async():
-    # Call the function directly.
-    print(await f.call(1000))
+    # Call the function using .call.aio() in order to run it asynchronously
+    print(await f.call.aio(1000))
 
     # Parallel map.
     total = 0
-    async for ret in f.map(range(20)):
+    # Call .map asynchronously using using f.map.aio(...)
+    async for ret in f.map.aio(range(20)):
         total += ret
 
     print(total)
