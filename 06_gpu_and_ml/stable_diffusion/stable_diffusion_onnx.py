@@ -111,7 +111,10 @@ class StableDiffusion:
 
 @stub.local_entrypoint()
 def entrypoint(
-    prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
+    prompt: str = "martha stewart at burning man",
+    samples: int = 5,
+    steps: int = 10,
+    batch_size: int = 1,
 ):
     print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"

@@ -19,7 +19,7 @@ import modal
 # image. This is powerful because you add only the dependencies you need for
 # each function.
 
-stub = modal.Stub("example-news-summarizer")
+stub = modal.Stub(name="example-news-summarizer")
 MODEL_NAME = "google/pegasus-xsum"
 CACHE_DIR = "/cache"
 

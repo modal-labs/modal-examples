@@ -1,3 +1,6 @@
+# ---
+# args: ["--timeout", 10]
+# ---
 # Quick snippet to connect to a Jupyter notebook server running inside a Modal container,
 # especially useful for exploring the contents of Modal shared volumes.
 # This uses https://github.com/ekzhang/bore to expose the server to the public internet.
@@ -50,7 +53,7 @@ def seed_volume():
 @stub.function(
     concurrency_limit=1, shared_volumes={CACHE_DIR: volume}, timeout=1_500
 )
-def run_jupyter():
+def run_jupyter(timeout: int):
     jupyter_process = subprocess.Popen(
         [
             "jupyter",
@@ -69,8 +72,10 @@ def run_jupyter():
     )
 
     try:
-        while True:
+        end_time = time.time() + timeout
+        while time.time() < end_time:
             time.sleep(5)
+        print(f"Reached end of {timeout} second timeout period. Exiting...")
     except KeyboardInterrupt:
         print("Exiting...")
     finally:
@@ -79,11 +84,11 @@ def run_jupyter():
 
 
 @stub.local_entrypoint()
-def main():
+def main(timeout: int = 10_000):
     # Write some images to a volume, for demonstration purposes.
     seed_volume.call()
     # Run the Jupyter Notebook server
-    run_jupyter.call()
+    run_jupyter.call(timeout=timeout)
 
 
 # Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts
