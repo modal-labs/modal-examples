@@ -25,6 +25,19 @@ dbt_image = (
     )
 )
 stub = modal.Stub(name="example-dbt-duckdb-s3", image=dbt_image)
+
+# ## DBT Configuration
+#
+# Most of the DBT code and configuration is taken directly from the
+# https://github.com/dbt-labs/jaffle_shop demo and modified to support
+# using dbt-duckdb with an S3 bucket.
+#
+# The DBT profiles.yml configuration is taken from
+# https://github.com/jwills/dbt-duckdb#configuring-your-profile.
+#
+# Here we mount all this local code and configuration into the Modal function
+# so that it will be available when we run DBT in the Modal cloud.
+
 dbt_project = modal.Mount.from_local_dir(
     LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
 )
