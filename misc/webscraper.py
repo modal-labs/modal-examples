@@ -19,7 +19,7 @@ playwright_image = modal.Image.debian_slim(
 
 
 @stub.function(image=playwright_image)
-async def get_links(url: str):
+async def get_links(url: str) -> set[str]:
     from playwright.async_api import async_playwright
 
     async with async_playwright() as p:
@@ -31,7 +31,7 @@ async def get_links(url: str):
         )
         await browser.close()
 
-    return links
+    return set(links)
 
 
 slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")

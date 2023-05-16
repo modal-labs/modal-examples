@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve", "06_gpu_and_ml/stable_diffusion/stable_diffusion_aitemplate.py"]
+# ---
 # # Stable Diffusion (AITemplate Edition)
 #
 # Example by [@maxscheel](https://github.com/maxscheel)
