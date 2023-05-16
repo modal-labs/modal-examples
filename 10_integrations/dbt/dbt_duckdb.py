@@ -1,3 +1,12 @@
+# This example contains a minimal but capable cloud data warehouse.
+# It's comprised of the following:
+#
+# - [DuckDB](https://duckdb.org) as the warehouse's OLAP database engine
+# - AWS S3 as the data storage provider
+# - [DBT](https://docs.getdbt.com/docs/introduction) as the data transformation tool
+#
+# Meet your new cloud data warehouse.
+
 from pathlib import Path
 
 import modal
