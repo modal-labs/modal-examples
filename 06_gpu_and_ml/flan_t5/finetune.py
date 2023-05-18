@@ -1,5 +1,7 @@
 # # Finetuning Flan-T5
 #
+# Example by [@anishpdalal](https://github.com/anishpdalal)
+#
 # [Flan-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5) is a highly versatile model that's been instruction-tuned to
 # perform well on a variety of text-based tasks such as question answering and summarization. There are smaller model variants available which makes
 # Flan-T5 a great base model to use for finetuning on a specific instruction dataset with just a single GPU. In this example, we'll
@@ -36,7 +38,7 @@ image = Image.debian_slim().pip_install(
     "tensorboard",
 )
 
-stub = Stub(name="news-summarizer", image=image)
+stub = Stub(name="example-news-summarizer", image=image)
 output_vol = SharedVolume().persist("finetune-vol")
 
 # ## Finetuning Flan-T5 on XSum dataset
@@ -159,7 +161,9 @@ def finetune(
 
 # ## Monitoring Finetuning with Tensorboard
 #
-
+# Tensorboard is an application for visualizing training loss. In this example we 
+# serve it as a Modal WSGI app.
+#
 @stub.function(shared_volumes={VOL_MOUNT_PATH: output_vol})
 @wsgi_app()
 def monitor():
