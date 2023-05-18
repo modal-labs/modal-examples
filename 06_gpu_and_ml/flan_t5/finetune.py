@@ -224,7 +224,7 @@ def main():
     I hit it much better today, which was nice." Scotland's Martin Laird and England's Paul Casey 
     are both on two under, while Ireland's Shane Lowry is on level par.
     """
-    model = NewsSummarizer()
+    model = Summarizer()
     response = model.generate.call(input)
     print(response)
 
