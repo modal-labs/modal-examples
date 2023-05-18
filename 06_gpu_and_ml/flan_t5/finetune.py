@@ -234,7 +234,7 @@ def main():
 #
 # ```bash
 # modal run --detach finetune.py::finetune --num-train-epochs=1 --size-percentage=10
-# View the tensorboard logs at https://<username>--news-summarizer-monitor-dev.modal.run
+# View the tensorboard logs at https://<username>--example-news-summarizer-monitor-dev.modal.run
 # ```
 #
 # Invoke finetuned model inference via local entrypoint
