@@ -186,7 +186,7 @@ def monitor():
 #
 
 @stub.cls(shared_volumes={VOL_MOUNT_PATH: output_vol})
-class NewsSummarizer():
+class Summarizer():
     def __enter__(self):
         from transformers import (
             pipeline,
