@@ -27,8 +27,7 @@ stub = Stub("example-stable-diff-bot")
 #
 # ### HuggingFace token
 #
-# We're going to use the pre-trained
-# [stable diffusion model](https://github.com/runwayml/stable-diffusion-v1-5) in
+# We're going to use the pre-trained stable diffusion model in
 # HuggingFace's `diffusers` library. To gain access, you need to sign in to your
 # HuggingFace account ([sign up here](https://huggingface.co/join)) and request
 # access on the [model card page](https://huggingface.co/runwayml/stable-diffusion-v1-5).
