@@ -24,15 +24,14 @@ from modal import Image, Stub, gpu, method
 # the model weights will be saved and available for use when the container starts up next time.
 
 
-BASE_MODEL = "openlm-research/open_llama_7b_preview_300bt"
-SUBFOLDER = "open_llama_7b_preview_300bt_transformers_weights"
+BASE_MODEL = "openlm-research/open_llama_7b_400bt_preview"
 
 
 def download_models():
     from transformers import LlamaForCausalLM, LlamaTokenizer
 
-    LlamaForCausalLM.from_pretrained(BASE_MODEL, subfolder=SUBFOLDER)
-    LlamaTokenizer.from_pretrained(BASE_MODEL, subfolder=SUBFOLDER)
+    LlamaForCausalLM.from_pretrained(BASE_MODEL)
+    LlamaTokenizer.from_pretrained(BASE_MODEL)
 
 
 # Now, we define our image. We'll use the `debian-slim` base image, and install the dependencies we need
@@ -41,7 +40,8 @@ def download_models():
 # function defined above as part of the image build.
 
 image = (
-    Image.debian_slim()
+    # Python 3.11+ not yet supported for torch.compile
+    Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate~=0.18.0",
         "transformers~=4.28.1",
@@ -74,13 +74,10 @@ class OpenLlamaModel:
         import torch
         from transformers import LlamaForCausalLM, LlamaTokenizer
 
-        self.tokenizer = LlamaTokenizer.from_pretrained(
-            BASE_MODEL, subfolder=SUBFOLDER
-        )
+        self.tokenizer = LlamaTokenizer.from_pretrained(BASE_MODEL)
 
         model = LlamaForCausalLM.from_pretrained(
             BASE_MODEL,
-            subfolder=SUBFOLDER,
             torch_dtype=torch.float16,
             device_map="auto",
         )
