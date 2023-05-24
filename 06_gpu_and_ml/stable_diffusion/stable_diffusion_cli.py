@@ -87,14 +87,16 @@ image = (
         "accelerate",
         "diffusers[torch]>=0.15.1",
         "ftfy",
-        "torch",
         "torchvision",
         "transformers~=4.25.1",
         "triton",
         "safetensors",
-        "torch>=2.0",
     )
     .pip_install("xformers", pre=True)
+    .pip_install(
+        "torch==1.12.1+cu116",
+        find_links="https://download.pytorch.org/whl/torch_stable.html",
+    )
     .run_function(
         download_models,
         secrets=[Secret.from_name("huggingface-secret")],
