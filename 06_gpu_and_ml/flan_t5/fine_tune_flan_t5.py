@@ -201,7 +201,7 @@ class Summarizer:
 
 @stub.local_entrypoint()
 def main():
-    input = f"""
+    input = """
     The 14-time major champion, playing in his first full PGA Tour event for almost 18 months, 
     carded a level-par second round of 72, but missed the cut by four shots after his first-round 76. 
     World number one Jason Day and US Open champion Dustin Johnson also missed the cut at Torrey Pines in San Diego. 
