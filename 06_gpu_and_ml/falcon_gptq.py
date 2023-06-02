@@ -22,11 +22,14 @@ from modal import Image, gpu, Stub, method, web_endpoint
 # into a folder inside our container image. These weights come from a quantized model
 # found on Huggingface.
 IMAGE_MODEL_DIR = "/model"
+
+
 def download_model():
     from huggingface_hub import snapshot_download
 
     model_name = "TheBloke/falcon-40b-instruct-GPTQ"
     snapshot_download(model_name, local_dir=IMAGE_MODEL_DIR)
+
 
 # Now, we define our image. We'll use the `debian-slim` base image, and install the dependencies we need
 # using [`pip_install`](/docs/reference/modal.Image#pip_install). At the end, we'll use
@@ -40,7 +43,7 @@ image = (
         "huggingface_hub==0.14.1",
         "transformers @ git+https://github.com/huggingface/transformers.git@f49a3453caa6fe606bb31c571423f72264152fce",
         "auto-gptq @ git+https://github.com/PanQiWei/AutoGPTQ.git@b5db750c00e5f3f195382068433a3408ec3e8f3c",
-        "einops==0.6.1"
+        "einops==0.6.1",
     )
     .run_function(download_model)
 )
@@ -65,12 +68,10 @@ class Falcon40BGPTQ:
         from transformers import AutoTokenizer
         from auto_gptq import AutoGPTQForCausalLM
 
-
         model_basename = "gptq_model-4bit--1g"
 
         self.tokenizer = AutoTokenizer.from_pretrained(
-            IMAGE_MODEL_DIR,
-            use_fast=True
+            IMAGE_MODEL_DIR, use_fast=True
         )
         print("Loaded tokenizer.")
 
@@ -90,14 +91,16 @@ class Falcon40BGPTQ:
         from threading import Thread
         from transformers import TextIteratorStreamer
 
-        inputs = self.tokenizer(prompt, return_tensors='pt')
-        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        streamer = TextIteratorStreamer(
+            self.tokenizer, skip_special_tokens=True
+        )
         generation_kwargs = dict(
             inputs=inputs.input_ids.cuda(),
             attention_mask=inputs.attention_mask,
             temperature=0.1,
             max_new_tokens=512,
-            streamer=streamer
+            streamer=streamer,
         )
 
         # Run generation on separate thread to enable response streaming.
@@ -105,8 +108,9 @@ class Falcon40BGPTQ:
         thread.start()
         for new_text in streamer:
             yield new_text
-        
+
         thread.join()
+
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
@@ -117,12 +121,14 @@ prompt_template = (
     "\n\nUser:\n{}\n\nAssistant:\n"
 )
 
+
 @stub.local_entrypoint()
 def cli():
     question = "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40BGPTQ()
     for text in model.generate.call(prompt_template.format(question)):
         print(text, end="", flush=True)
+
 
 # ## Serve the model
 # Finally, we can serve the model from a web endpoint with `modal deploy falcon_gptq.py`. If
