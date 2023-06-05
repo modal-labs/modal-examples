@@ -10,11 +10,15 @@
 # Due to the current limitations of the library, the inference speed is a little under 1 token/second and the
 # cold start time on Modal is around 25s.
 #
+# For faster inference at the expense of a slower cold start, check out
+# [Running Falcon-40B with `bitsandbytes` quantization](/docs/guide/ex/falcon_bitsandbytes). You can also
+# run a smaller, 7-billion-parameter model with the [OpenLLaMa example](/docs/guide/openllama).
+#
 # ## Setup
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, gpu, Stub, method, web_endpoint
+from modal import Image, Stub, gpu, method, web_endpoint
 
 # ## Define a container image
 #
@@ -51,6 +55,7 @@ image = (
 # Let's instantiate and name our [Stub](/docs/guide/apps).
 stub = Stub(name="example-falcon-gptq", image=image)
 
+
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
@@ -60,8 +65,12 @@ stub = Stub(name="example-falcon-gptq", image=image)
 # to specify that we want to run our function on an [A100 GPU](/pricing). We also allow each call 10 mintues to complete,
 # and request the runner to stay live for 5 minutes after its last request.
 #
-# The rest is just using the [pipeline()](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
-# abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
+# The rest is just using the `transformers` library to run the model. Refer to the
+# [documentation](https://huggingface.co/docs/transformers/v4.29.1/en/main_classes/text_generation#transformers.GenerationMixin.generate)
+# for more parameters and tuning.
+#
+# Note that we need to create a separate thread to call the `generate` function because we need to
+# yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
 @stub.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
     def __enter__(self):
