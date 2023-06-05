@@ -19,6 +19,7 @@
 
 from modal import Image, Stub, gpu, method, web_endpoint
 
+
 # Spec for an image where falcon-40b-instruct is cached locally
 def download_falcon_40b():
     from huggingface_hub import snapshot_download
@@ -53,6 +54,7 @@ image = (
 )
 
 stub = Stub(image=image, name="example-falcon-bnb")
+
 
 # ## The model class
 #

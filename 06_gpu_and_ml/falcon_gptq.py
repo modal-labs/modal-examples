@@ -55,6 +55,7 @@ image = (
 # Let's instantiate and name our [Stub](/docs/guide/apps).
 stub = Stub(name="example-falcon-gptq", image=image)
 
+
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
