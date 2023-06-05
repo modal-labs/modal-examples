@@ -38,7 +38,7 @@ def load_names(
     names = set()
     if include_model_generated:
         rnn_names_output_path = config.POKEMON_NAMES / "rnn.txt"
-        model_names = set(rnn_names_output_path.read_text().split("\n"))
+        model_names = set(rnn_names_output_path.read_text().split("\n") if rnn_names_output_path.exists() else [])
         names.update(model_names)
     if include_human_generated:
         names.update(FANDOM_NAMES)
