@@ -68,7 +68,7 @@ stub = Stub(name="example-falcon-gptq", image=image)
 # [documentation](https://huggingface.co/docs/transformers/v4.29.1/en/main_classes/text_generation#transformers.GenerationMixin.generate)
 # for more parameters and tuning.
 #
-# Note that we need to create a separate thread to call the `generate` function because we need to 
+# Note that we need to create a separate thread to call the `generate` function because we need to
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
 @stub.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
@@ -115,6 +115,7 @@ class Falcon40BGPTQ:
             yield new_text
 
         thread.join()
+
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function

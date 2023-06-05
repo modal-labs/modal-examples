@@ -10,18 +10,12 @@
 # ## Defining dependencies
 #
 # The example uses the `dataset` package from HuggingFace to load the xsum dataset. It also uses the `transformers`
-# and `accelerate` packages with a PyTorch backend to finetune and serve the model. Finally, we also 
-# install `tensorboard` and serve it via a web app. All packages are installed into a Debian Slim base image 
+# and `accelerate` packages with a PyTorch backend to finetune and serve the model. Finally, we also
+# install `tensorboard` and serve it via a web app. All packages are installed into a Debian Slim base image
 # using the `pip_install` function.
 #
 
-from modal import (
-    Image,
-    method,
-    Stub,
-    SharedVolume,
-    wsgi_app
-)
+from modal import Image, method, Stub, SharedVolume, wsgi_app
 
 from pathlib import Path
 
@@ -45,15 +39,13 @@ output_vol = SharedVolume().persist("finetune-vol")
 #
 # Each row in the dataset has a `document` (input news article) and `summary` column.
 
+
 @stub.function(
     gpu="A10g",
     timeout=7200,
     shared_volumes={VOL_MOUNT_PATH: output_vol},
 )
-def finetune(
-    num_train_epochs: int = 1,
-    size_percentage: int = 10
-):
+def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     from datasets import load_dataset
     from transformers import (
         AutoTokenizer,
@@ -87,36 +79,35 @@ def finetune(
     def preprocess(batch):
         # prepend summarize: prefix to document to convert the example to a summarization instruction
         inputs = ["summarize: " + doc for doc in batch["document"]]
-        
+
         model_inputs = tokenizer(
-            inputs,
-            max_length=512,
-            truncation=True,
-            padding="max_length"
+            inputs, max_length=512, truncation=True, padding="max_length"
         )
 
         labels = tokenizer(
             text_target=batch["summary"],
             max_length=128,
             truncation=True,
-            padding="max_length"
+            padding="max_length",
         )
 
-        labels["input_ids"] = [[l if l != tokenizer.pad_token_id else padding_token_id for l in label] for label in labels["input_ids"]]
+        labels["input_ids"] = [
+            [
+                l if l != tokenizer.pad_token_id else padding_token_id
+                for l in label
+            ]
+            for label in labels["input_ids"]
+        ]
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
     tokenized_xsum_train = xsum_train.map(
-        preprocess,
-        batched=True,
-        remove_columns=["document", "summary", "id"]
+        preprocess, batched=True, remove_columns=["document", "summary", "id"]
     )
 
     tokenized_xsum_test = xsum_test.map(
-        preprocess,
-        batched=True,
-        remove_columns=["document", "summary", "id"]
+        preprocess, batched=True, remove_columns=["document", "summary", "id"]
     )
 
     data_collator = DataCollatorForSeq2Seq(
@@ -161,7 +152,7 @@ def finetune(
 
 # ## Monitoring Finetuning with Tensorboard
 #
-# Tensorboard is an application for visualizing training loss. In this example we 
+# Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
 #
 @stub.function(shared_volumes={VOL_MOUNT_PATH: output_vol})
@@ -185,26 +176,26 @@ def monitor():
 # ## Model Inference
 #
 
-@stub.cls(shared_volumes={VOL_MOUNT_PATH: output_vol})
-class Summarizer():
-    def __enter__(self):
-        from transformers import (
-            pipeline,
-            AutoTokenizer,
-            AutoModelForSeq2SeqLM
-        )
-        
-        # Load saved tokenizer and finetuned from training run
-        tokenizer = AutoTokenizer.from_pretrained(str(VOL_MOUNT_PATH / "tokenizer"))
-        model = AutoModelForSeq2SeqLM.from_pretrained(str(VOL_MOUNT_PATH / "model"))
 
-        self.summarizer = pipeline("summarization", tokenizer=tokenizer, model=model)
-    
+@stub.cls(shared_volumes={VOL_MOUNT_PATH: output_vol})
+class Summarizer:
+    def __enter__(self):
+        from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+
+        # Load saved tokenizer and finetuned from training run
+        tokenizer = AutoTokenizer.from_pretrained(
+            str(VOL_MOUNT_PATH / "tokenizer")
+        )
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            str(VOL_MOUNT_PATH / "model")
+        )
+
+        self.summarizer = pipeline(
+            "summarization", tokenizer=tokenizer, model=model
+        )
+
     @method()
-    def generate(
-        self,
-        input: str
-    ) -> str:
+    def generate(self, input: str) -> str:
         return self.summarizer(input)[0]["summary_text"]
 
 

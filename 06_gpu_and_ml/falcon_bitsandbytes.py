@@ -68,14 +68,18 @@ stub = Stub(image=image, name="example-falcon-bnb")
 # The rest is just using the [pipeline()](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
 # abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
 @stub.cls(
-    gpu=gpu.A100(), # Use A100s
-    timeout=60 * 10, # 10 minute timeout on inputs
-    container_idle_timeout=60 * 5, # Keep runner alive for 5 minutes
+    gpu=gpu.A100(),  # Use A100s
+    timeout=60 * 10,  # 10 minute timeout on inputs
+    container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
 )
 class Falcon40B_4bit:
     def __enter__(self):
         import torch
-        from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
+        from transformers import (
+            AutoTokenizer,
+            BitsAndBytesConfig,
+            AutoModelForCausalLM,
+        )
 
         model_name = "tiiuae/falcon-40b-instruct"
 
@@ -89,14 +93,17 @@ class Falcon40B_4bit:
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             trust_remote_code=True,
-            local_files_only=True, # Model is downloaded to cache dir
+            local_files_only=True,  # Model is downloaded to cache dir
             device_map="auto",
             quantization_config=nf4_config,
         )
         model.eval()
 
         tokenizer = AutoTokenizer.from_pretrained(
-            model_name, trust_remote_code=True, local_files_only=True, device_map="auto"
+            model_name,
+            trust_remote_code=True,
+            local_files_only=True,
+            device_map="auto",
         )
         tokenizer.bos_token_id = 1
 
@@ -119,7 +126,9 @@ class Falcon40B_4bit:
             max_new_tokens=512,
         )
 
-        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(
+            self.tokenizer, skip_special_tokens=True
+        )
         generate_kwargs = dict(
             input_ids=input_ids,
             generation_config=generation_config,
@@ -137,7 +146,7 @@ class Falcon40B_4bit:
         for new_text in streamer:
             print(new_text, end="")
             yield new_text
-        
+
         thread.join()
 
 
@@ -150,6 +159,7 @@ prompt_template = (
     "A chat between a curious human user and an artificial intelligence assistant. The assistant give a helpful, detailed, and accurate answer to the user's question."
     "\n\nUser:\n{}\n\nAssistant:\n"
 )
+
 
 @stub.function(timeout=60 * 10)
 @web_endpoint()
