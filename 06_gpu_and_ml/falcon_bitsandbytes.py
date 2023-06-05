@@ -7,10 +7,10 @@
 # Tim Dettmer's [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
 # into a single GPU (A100 40GB).
 #
-# Due to the current limitations of the library, the inference speed is a little over 2 token/second and due
+# Due to the current limitations of the library, the inference speed is a little over 2 tokens/second and due
 # to the sheer size of the model, the cold start time on Modal is around 2 minutes.
 #
-# For faster cold start at the expense of inference, check out
+# For faster cold start at the expense of inference speed, check out
 # [Running Falcon-40B with AutoGPTQ](/docs/guide/ex/falcon_gptq).
 #
 # ## Setup
