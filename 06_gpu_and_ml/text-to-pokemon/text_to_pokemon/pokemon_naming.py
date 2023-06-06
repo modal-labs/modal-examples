@@ -23,6 +23,8 @@ MAX_NAME_LEN = 14
 # Discard names too short to make sense
 MIN_NAME_LEN = 4
 
+rnn_names_output_path = config.POKEMON_NAMES / "rnn.txt"
+
 
 @dataclasses.dataclass
 class TrainingDataset:
@@ -37,7 +39,6 @@ def load_names(
 ) -> set[str]:
     names = set()
     if include_model_generated:
-        rnn_names_output_path = config.POKEMON_NAMES / "rnn.txt"
         if rnn_names_output_path.exists():
             model_names = set(rnn_names_output_path.read_text().split("\n"))
             names.update(model_names)

@@ -9,7 +9,7 @@ import time
 import urllib.request
 from datetime import timedelta
 
-from modal import Mount, asgi_app
+from modal import Mount, asgi_app, method
 from . import config, inpaint, pokemon_naming, ops
 from .config import stub, volume
 
@@ -60,14 +60,15 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
+@stub.cls(gpu="A10G", shared_volumes={config.CACHE_DIR: volume}, keep_warm=1)
 class Model:
     def __enter__(self):
         import threading
-
-        threading.Thread(target=ops.generate_pokemon_names.call).start()
+        if not pokemon_naming.rnn_names_output_path.exists():
+            threading.Thread(target=ops.generate_pokemon_names.call).start()
         self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
 
-    @stub.function(gpu="A10G", keep_warm=1)
+    @method()
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
