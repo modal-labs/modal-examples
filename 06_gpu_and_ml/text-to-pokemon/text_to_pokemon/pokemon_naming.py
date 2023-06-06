@@ -15,7 +15,7 @@ rnn_image = modal.Image.debian_slim().pip_install(
     "keras",
     "pandas",
     "numpy",
-    "tensorflow~=2.9.1",
+    "tensorflow",
 )
 
 # Longer names don't fit on Pokémon card
@@ -38,8 +38,11 @@ def load_names(
     names = set()
     if include_model_generated:
         rnn_names_output_path = config.POKEMON_NAMES / "rnn.txt"
-        model_names = set(rnn_names_output_path.read_text().split("\n") if rnn_names_output_path.exists() else [])
-        names.update(model_names)
+        if rnn_names_output_path.exists():
+            model_names = set(rnn_names_output_path.read_text().split("\n"))
+            names.update(model_names)
+        else:
+            print(f"Model generated names at `{rnn_names_output_path}` are not ready, skipping")
     if include_human_generated:
         names.update(FANDOM_NAMES)
         names.update(PREFILL_PROMPT_NAMES)

@@ -11,7 +11,7 @@ import sys
 import urllib.request
 
 from . import config
-from .main import stub, volume
+from .config import stub, volume
 from .pokemon_naming import (
     fetch_pokemon_names,
     generate_names,
