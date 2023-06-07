@@ -64,6 +64,7 @@ def image_to_byte_array(image) -> bytes:
 class Model:
     def __enter__(self):
         import threading
+
         if not pokemon_naming.rnn_names_output_path.exists():
             threading.Thread(target=ops.generate_pokemon_names.call).start()
         self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
