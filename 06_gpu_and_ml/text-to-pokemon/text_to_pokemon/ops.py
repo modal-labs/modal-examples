@@ -11,12 +11,13 @@ import sys
 import urllib.request
 
 from . import config
-from .main import stub, volume
+from .config import stub, volume
 from .pokemon_naming import (
     fetch_pokemon_names,
     generate_names,
     rnn_image,
     train_rnn,
+    rnn_names_output_path,
 )
 
 
@@ -128,7 +129,7 @@ def generate_pokemon_names():
     print(
         f"Storing {desired_generations} generated names. eg. '{new_names[0]}'"
     )
-    output_path = config.POKEMON_NAMES / "rnn.txt"
+    output_path = rnn_names_output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(new_names))
 

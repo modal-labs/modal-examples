@@ -13,6 +13,7 @@ excellent CSS work.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/text_to_pokemon/frontend"
+npm install
 npx vite build --watch
 ```
 
@@ -29,7 +30,7 @@ Sending <kbd>Ctrl</kbd>+<kbd>C</kbd> will stop your app.
 
 ### Tests
 
-```
+```bash
 python3 -m pytest
 ```
 
@@ -37,6 +38,7 @@ python3 -m pytest
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/text_to_pokemon/frontend"
+npm install
 npx vite build
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/"
 modal deploy text_to_pokemon.main

@@ -1,4 +1,6 @@
 import pathlib
+import time
+from modal import Image, SharedVolume, Stub
 
 CACHE_DIR = "/cache"
 MODEL_CACHE = pathlib.Path("/models")
@@ -149,3 +151,54 @@ POKEMON_CARDS = [
         "colors": [[238, 131, 72], [236, 89, 59], [253, 222, 98]],
     },
 ]
+
+
+def load_stable_diffusion_pokemon_model():
+    import torch
+    from diffusers import StableDiffusionPipeline
+
+    model_id = "lambdalabs/sd-pokemon-diffusers"
+    cache_dir = MODEL_CACHE / model_id
+    if cache_dir.exists():
+        print(f"Using diskcached model for '{model_id}'")
+        local_files_only = True
+        load_action = "loading"
+    else:
+        print(f"No diskcached model found for '{model_id}'")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        local_files_only = False
+        load_action = "downloading"
+    load_start_time = time.time()
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+        cache_dir=cache_dir,
+        local_files_only=local_files_only,
+    )
+    print(
+        f"finished {load_action} model, took {time.time() - load_start_time:.3f}s."
+    )
+
+    if DISABLE_SAFETY:
+        def null_safety(images, **kwargs):
+            return images, False
+
+        pipe.safety_checker = null_safety
+    return pipe
+
+
+volume = SharedVolume().persist("txt-to-pokemon-cache-vol")
+image = (
+    Image.debian_slim()
+    .pip_install(
+        "accelerate",
+        "colorgram.py",
+        "diffusers~=0.11.1",
+        "ftfy",
+        "torch",
+        "transformers",
+        "scipy",
+    )
+    .run_function(load_stable_diffusion_pokemon_model)
+)
+stub = Stub(name="example-text-to-pokemon", image=image)
