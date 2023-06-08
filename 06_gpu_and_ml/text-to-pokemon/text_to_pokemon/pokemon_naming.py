@@ -43,7 +43,9 @@ def load_names(
             model_names = set(rnn_names_output_path.read_text().split("\n"))
             names.update(model_names)
         else:
-            print(f"Model generated names at `{rnn_names_output_path}` are not ready, skipping")
+            print(
+                f"Model generated names at `{rnn_names_output_path}` are not ready, skipping"
+            )
     if include_human_generated:
         names.update(FANDOM_NAMES)
         names.update(PREFILL_PROMPT_NAMES)

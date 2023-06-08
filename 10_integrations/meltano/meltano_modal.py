@@ -46,7 +46,7 @@ meltano_img = (
     modal.Image.debian_slim()
     .apt_install("git")
     .pip_install("meltano")
-    .copy(meltano_source_mount)
+    .copy_mount(meltano_source_mount)
     .run_function(install_project_deps, secret=meltano_conf)
 )
 

@@ -180,6 +180,7 @@ def load_stable_diffusion_pokemon_model():
     )
 
     if DISABLE_SAFETY:
+
         def null_safety(images, **kwargs):
             return images, False
 
