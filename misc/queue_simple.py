@@ -1,5 +1,5 @@
 # ---
-# cmd: ["python", "-m", "misc.queue_simple"]
+# cmd: ["python", "misc/queue_simple.py"]
 # ---
 #
 # # Using a queue to send/receive data
