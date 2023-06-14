@@ -132,9 +132,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     fn = os.path.join(output_dir, "nyc_taxi_chart.png")
-
-    with stub.run():
-        png_data = create_plot.call()
-        with open(fn, "wb") as f:
-            f.write(png_data)
-        print(f"wrote output to {fn}")
+    png_data = create_plot.call()
+    with open(fn, "wb") as f:
+        f.write(png_data)
+    print(f"wrote output to {fn}")

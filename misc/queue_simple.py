@@ -1,5 +1,6 @@
 # ---
-# cmd: ["python", "-m", "misc.queue_simple"]
+# cmd: ["python", "misc/queue_simple.py"]
+# runtimes: ["runc", "gvisor"]
 # ---
 #
 # # Using a queue to send/receive data
