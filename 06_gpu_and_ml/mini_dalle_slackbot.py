@@ -13,6 +13,7 @@ CACHE_PATH = "/root/model_cache"
 def load_model(device=None):
     import torch
     from min_dalle import MinDalle
+
     # Instantiate the model, which has the side-effect of persisting
     # the model to disk if it does not already exist.
     return MinDalle(

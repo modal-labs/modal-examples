@@ -184,12 +184,10 @@ class Summarizer:
 
         # Load saved tokenizer and finetuned from training run
         tokenizer = AutoTokenizer.from_pretrained(
-            BASE_MODEL,
-            cache_dir=VOL_MOUNT_PATH / "tokenizer/"
+            BASE_MODEL, cache_dir=VOL_MOUNT_PATH / "tokenizer/"
         )
         model = AutoModelForSeq2SeqLM.from_pretrained(
-            BASE_MODEL,
-            cache_dir=VOL_MOUNT_PATH / "model/"
+            BASE_MODEL, cache_dir=VOL_MOUNT_PATH / "model/"
         )
 
         self.summarizer = pipeline(
