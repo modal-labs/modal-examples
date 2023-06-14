@@ -54,11 +54,12 @@ def get_stocks():
     import httpx
 
     headers = {
-        "user-agent": "curl/7.55.1",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36",
         "referer": "https://finance.yahoo.com/",
     }
-    url = "https://finance.yahoo.com/etfs/?count=100&offset=0"
+    url = "https://finance.yahoo.com/etfs?count=100&offset=0"
     res = httpx.get(url, headers=headers)
+    res.raise_for_status()
     soup = bs4.BeautifulSoup(res.text, "html.parser")
     for td in soup.find_all("td", {"aria-label": "Symbol"}):
         for link in td.find_all("a", {"data-test": "quoteLink"}):
@@ -102,6 +103,8 @@ def plot_stocks():
 
     # Get data
     tickers = list(get_stocks.call())
+    if not tickers:
+        raise RuntimeError("Retrieved zero stock tickers!")
     data = list(get_prices.map(tickers))
     first_date = min((min(prices.keys()) for symbol, prices in data if prices))
     last_date = max((max(prices.keys()) for symbol, prices in data if prices))
