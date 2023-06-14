@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import Request
 
-from modal import Image, Secret, SharedVolume, Stub, web_endpoint
+from modal import Image, Secret, Stub, web_endpoint
 
 
 CACHE_PATH = "/root/model_cache"
