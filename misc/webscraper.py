@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 import os
 
 import modal
