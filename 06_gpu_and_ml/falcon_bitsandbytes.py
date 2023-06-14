@@ -1,5 +1,6 @@
 # ---
 # integration-test: false
+# args: ["--prompt", "How do planes work?"]
 # ---
 # # Run Falcon-40B with bitsandbytes
 
