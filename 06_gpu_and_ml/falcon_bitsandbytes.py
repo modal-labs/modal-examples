@@ -153,17 +153,29 @@ class Falcon40B_4bit:
         thread.join()
 
 
-# ## Serve the model
-# Finally, we can serve the model from a web endpoint with `modal deploy falcon_bitsandbytes.py`. If
-# you visit the resulting URL with a question parameter in your URL, you can view the model's
-# stream back a response.
-# You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
+# ## Run the model
+# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# sequentially for a list of inputs. You can run this locally with `modal run -q falcon_bitsandbytes.py`. The `-q` flag
+# enables streaming to work in the terminal output.
 prompt_template = (
     "A chat between a curious human user and an artificial intelligence assistant. The assistant give a helpful, detailed, and accurate answer to the user's question."
     "\n\nUser:\n{}\n\nAssistant:\n"
 )
 
 
+@stub.local_entrypoint()
+def cli():
+    question = "What are the main differences between Python and JavaScript programming languages?"
+    model = Falcon40B_4bit()
+    for text in model.generate.call(prompt_template.format(question)):
+        print(text, end="", flush=True)
+
+
+# ## Serve the model
+# Finally, we can serve the model from a web endpoint with `modal deploy falcon_bitsandbytes.py`. If
+# you visit the resulting URL with a question parameter in your URL, you can view the model's
+# stream back a response.
+# You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
 @stub.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):

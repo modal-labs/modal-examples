@@ -141,7 +141,7 @@ def cli():
 # you visit the resulting URL with a question parameter in your URL, you can view the model's
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
-@stub.function(timeout=600)
+@stub.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
     from fastapi.responses import StreamingResponse
