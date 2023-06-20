@@ -92,11 +92,11 @@ image = (
         "triton",
         "safetensors",
     )
-    .pip_install("xformers", pre=True)
     .pip_install(
-        "torch==1.12.1+cu116",
+        "torch==2.0.1+cu117",
         find_links="https://download.pytorch.org/whl/torch_stable.html",
     )
+    .pip_install("xformers", pre=True)
     .run_function(
         download_models,
         secrets=[Secret.from_name("huggingface-secret")],
