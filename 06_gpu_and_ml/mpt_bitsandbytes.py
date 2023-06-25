@@ -51,10 +51,12 @@ class MPT30B:
             AutoModelForCausalLM,
         )
 
-        model_name = 'mosaicml/mpt-30b-instruct'
+        model_name = "mosaicml/mpt-30b-instruct"
 
         config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-        config.max_seq_len = 16384 # (input + output) tokens can now be up to 16384
+        config.max_seq_len = (
+            16384  # (input + output) tokens can now be up to 16384
+        )
 
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -91,7 +93,7 @@ class MPT30B:
             max_new_tokens=512,
         )
 
-        with torch.autocast('cuda', dtype=torch.bfloat16):
+        with torch.autocast("cuda", dtype=torch.bfloat16):
             tokenized = self.tokenizer(prompt, return_tensors="pt")
             input_ids = tokenized.input_ids
             input_ids = input_ids.to(self.model.device)
@@ -119,7 +121,9 @@ class MPT30B:
 
             thread.join()
 
+
 prompt_template = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n###Instruction\n{}\n\n### Response\n"
+
 
 @stub.local_entrypoint()
 def cli():
@@ -127,6 +131,7 @@ def cli():
     model = MPT30B()
     for text in model.generate.call(prompt_template.format(question)):
         print(text, end="", flush=True)
+
 
 @stub.function(timeout=60 * 10)
 @web_endpoint()
