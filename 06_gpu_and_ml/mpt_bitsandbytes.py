@@ -45,11 +45,7 @@ stub = Stub(image=image, name="mpt")
 class MPT30B:
     def __enter__(self):
         import torch
-        from transformers import (
-            AutoTokenizer,
-            AutoConfig,
-            AutoModelForCausalLM,
-        )
+        from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
         model_name = "mosaicml/mpt-30b-instruct"
 
@@ -82,10 +78,10 @@ class MPT30B:
 
     @method()
     def generate(self, prompt: str):
-        import torch
         from threading import Thread
-        from transformers import TextIteratorStreamer
-        from transformers import GenerationConfig
+
+        import torch
+        from transformers import GenerationConfig, TextIteratorStreamer
 
         generation_config = GenerationConfig(
             do_sample=True,
@@ -116,7 +112,6 @@ class MPT30B:
             thread = Thread(target=self.model.generate, kwargs=generate_kwargs)
             thread.start()
             for new_text in streamer:
-                print(new_text, end="")
                 yield new_text
 
             thread.join()
@@ -136,8 +131,9 @@ def cli():
 @stub.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
-    from fastapi.responses import StreamingResponse
     from itertools import chain
+
+    from fastapi.responses import StreamingResponse
 
     model = MPT30B()
     return StreamingResponse(
