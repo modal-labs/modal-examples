@@ -70,7 +70,9 @@ class Model:
         from vllm import SamplingParams
 
         prompts = [self.template.format(q) for q in user_questions]
-        sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=800)
+        sampling_params = SamplingParams(
+            temperature=0.8, top_p=0.95, max_tokens=800
+        )
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
             n += len(output.outputs[0].token_ids)
