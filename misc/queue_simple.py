@@ -14,7 +14,7 @@ import asyncio
 import modal
 import modal.queue
 
-stub = modal.Stub("example-queue-simple", q=modal.Queue())
+stub = modal.Stub("example-queue-simple", q=modal.Queue.new())
 
 
 @stub.function()

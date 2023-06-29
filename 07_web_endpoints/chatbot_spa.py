@@ -28,7 +28,7 @@ assets_path = Path(__file__).parent / "chatbot_spa"
 stub = Stub("example-web-spa")
 
 stub.cache = SharedVolume()
-stub.chat_histories = Dict()
+stub.chat_histories = Dict.new()
 
 gpu_image = Image.debian_slim()
 gpu_image = gpu_image.pip_install(
