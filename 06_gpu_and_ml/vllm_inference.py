@@ -9,7 +9,7 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# One can expect 32 second cold starts and 120 tokens/second during inference. The example generates around 1500 tokens in 12 seconds.
+# One can expect 30 second cold starts and 120 tokens/second during inference. The example generates around 1000 tokens in 8 seconds.
 #
 # ## Setup
 #
@@ -63,20 +63,17 @@ class Model:
         from vllm import LLM
 
         self.llm = LLM(model="lmsys/vicuna-13b-v1.3")  # Load the model
-        self.template = (
-            "You are a helpful assistant.\n### USER:\n{}\n### ASSISTANT:\n"
-        )
+        self.template = "You are a helpful assistant.\nUSER:\n{}\nASSISTANT:\n"
 
     @method()
     def generate(self, user_questions):
         from vllm import SamplingParams
 
         prompts = [self.template.format(q) for q in user_questions]
-        sampling_params = SamplingParams(
-            temperature=0.8, top_p=0.95, max_tokens=512
-        )
+        sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=800)
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
+            n += len(output.outputs[0].token_ids)
             print(output.prompt, output.outputs[0].text, "\n\n", sep="")
 
 
@@ -89,6 +86,7 @@ def main():
     questions = [
         "Implement a Python function to compute the Fibonacci numbers.",
         "Write a Rust function that performs fast exponentiation.",
+        "How do I allocate memory in C?",
         "What is the fable involving a fox and grapes?",
     ]
     model.generate.call(questions)
