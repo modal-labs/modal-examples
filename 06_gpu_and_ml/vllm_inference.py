@@ -75,7 +75,6 @@ class Model:
         )
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
-            n += len(output.outputs[0].token_ids)
             print(output.prompt, output.outputs[0].text, "\n\n", sep="")
 
 
