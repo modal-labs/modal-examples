@@ -3,7 +3,7 @@
 # ---
 # # Run inference with vLLM
 
-# In this example, we show how to run basic inference, using `[vLLM](https://github.com/vllm-project/vllm)`
+# In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
 #
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
@@ -18,11 +18,13 @@
 from modal import Stub, Image, method
 
 
-# We now want to create a Modal image which has the model weights pre-saved. The benefit of this
+# ## Define a container image
+#
+# We want to create a Modal image which has the model weights pre-saved. The benefit of this
 # is that the container no longer has to re-download the model from Huggingface - instead, it will take
 # advantage of Modal's internal filesystem for faster cold starts.
 #
-# Since `vLLM` uses the default Huggingface cache location, so we can use library functions to pre-download the model into our image.
+# Since `vLLM` uses the default Huggingface cache location, we can use library functions to pre-download the model into our image.
 def download_model():
     from huggingface_hub import snapshot_download
 
@@ -30,6 +32,10 @@ def download_model():
     snapshot_download("hf-internal-testing/llama-tokenizer")
 
 
+# Now, we define our image. We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
+# version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
+# Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
+# are saved within the container image.
 image = (
     Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
@@ -46,10 +52,11 @@ stub = Stub(image=image)
 
 # ## The model class
 #
-# Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the __enter__` method.
+# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `__enter__` method.
+# This enables us to load the model into memory just once every time a container starts up, and keep it cached
+# on the GPU for each subsequent invocation of the function.
 #
-# The `vLLM` allows the inference code to remain quite clean.
+# The `vLLM` library allows the code to remain quite clean.
 @stub.cls(gpu="A100")
 class Model:
     def __enter__(self):
@@ -57,7 +64,7 @@ class Model:
 
         self.llm = LLM(model="lmsys/vicuna-13b-v1.3")  # Load the model
         self.template = (
-            "You are a helpful assistant.\n\n### USER:\n{}\n### ASSISTANT:\n"
+            "You are a helpful assistant.\n### USER:\n{}\n### ASSISTANT:\n"
         )
 
     @method()
@@ -68,9 +75,7 @@ class Model:
         sampling_params = SamplingParams(
             temperature=0.8, top_p=0.95, max_tokens=512
         )
-        result = self.llm.generate(
-            prompts, sampling_params
-        )  # Trigger inference
+        result = self.llm.generate(prompts, sampling_params)
         for output in result:
             print(output.prompt, output.outputs[0].text, "\n\n", sep="")
 
@@ -81,10 +86,9 @@ class Model:
 @stub.local_entrypoint()
 def main():
     model = Model()
-    model.generate.call(
-        [
-            "Implement a Python function to compute the Fibonacci numbers.",
-            "Write a Rust function that performs fast exponentiation.",
-            "What is the fable involving a fox and grapes?",
-        ]
-    )
+    questions = [
+        "Implement a Python function to compute the Fibonacci numbers.",
+        "Write a Rust function that performs fast exponentiation.",
+        "What is the fable involving a fox and grapes?",
+    ]
+    model.generate.call(questions)
