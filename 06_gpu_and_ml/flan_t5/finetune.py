@@ -33,7 +33,7 @@ image = Image.debian_slim().pip_install(
 )
 
 stub = Stub(name="example-news-summarizer", image=image)
-output_vol = SharedVolume().persist("finetune-vol")
+output_vol = SharedVolume.persisted("finetune-vol")
 
 # ## Finetuning Flan-T5 on XSum dataset
 #

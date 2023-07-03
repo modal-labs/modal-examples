@@ -19,7 +19,7 @@ stub = modal.Stub(
     .run_commands(". $HOME/.cargo/env && cargo install bore-cli")
 )
 # This volume is not persisted, so the data will be deleted when this demo app is stopped.
-volume = modal.SharedVolume()
+volume = modal.SharedVolume.new()
 
 CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!

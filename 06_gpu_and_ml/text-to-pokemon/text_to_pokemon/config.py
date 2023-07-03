@@ -188,7 +188,7 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = SharedVolume().persist("txt-to-pokemon-cache-vol")
+volume = SharedVolume.persisted("txt-to-pokemon-cache-vol")
 image = (
     Image.debian_slim()
     .pip_install(

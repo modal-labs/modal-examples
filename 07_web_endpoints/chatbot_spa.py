@@ -27,7 +27,7 @@ from modal import Dict, Image, Mount, SharedVolume, Stub, asgi_app
 assets_path = Path(__file__).parent / "chatbot_spa"
 stub = Stub("example-web-spa")
 
-stub.cache = SharedVolume()
+stub.cache = SharedVolume.new()
 stub.chat_histories = Dict.new()
 
 gpu_image = Image.debian_slim()

@@ -22,7 +22,7 @@ from modal import (
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = SharedVolume().persist("dataset-cache-vol")
+volume = SharedVolume.persisted("dataset-cache-vol")
 
 app_image = (
     Image.debian_slim()

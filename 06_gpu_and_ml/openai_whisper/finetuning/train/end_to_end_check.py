@@ -16,7 +16,7 @@ from .__main__ import stub, train
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
 
-test_volume = modal.SharedVolume()
+test_volume = modal.SharedVolume.new()
 
 logger = get_logger(__name__)
 

@@ -21,7 +21,7 @@ meltano_source_mount = modal.Mount.from_local_dir(
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts),
 )
 
-storage = modal.SharedVolume().persist("meltano_volume")
+storage = modal.SharedVolume.persisted("meltano_volume")
 
 meltano_conf = modal.Secret.from_dict(
     {

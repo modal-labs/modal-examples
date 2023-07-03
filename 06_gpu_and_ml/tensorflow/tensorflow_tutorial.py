@@ -46,7 +46,7 @@ stub = Stub(
 # We want to run the web server for Tensorboard at the same time as we are training the Tensorflow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-stub.volume = SharedVolume()
+stub.volume = SharedVolume.new()
 logdir = "/tensorboard"
 
 # ## Training function

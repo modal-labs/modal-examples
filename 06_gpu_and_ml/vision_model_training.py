@@ -48,7 +48,7 @@ image = Image.debian_slim().pip_install(
 # A persistent shared volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = SharedVolume().persist("cifar10-training-vol")
+volume = SharedVolume.persisted("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")

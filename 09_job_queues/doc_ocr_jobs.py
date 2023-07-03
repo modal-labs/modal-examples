@@ -36,7 +36,7 @@ stub = modal.Stub("example-doc-ocr-jobs")
 # To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a writable volume that can be attached
 # to Modal functions and persisted across function runs.
 
-volume = modal.SharedVolume().persist("doc_ocr_model_vol")
+volume = modal.SharedVolume.persisted("doc_ocr_model_vol")
 CACHE_PATH = "/root/model_cache"
 
 # ## Handler function

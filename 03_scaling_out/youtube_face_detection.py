@@ -59,7 +59,7 @@ if stub.is_inside():
 
 # For temporary storage of movie clips, we use a "shared volume"
 
-stub.sv = modal.SharedVolume()
+stub.sv = modal.SharedVolume.new()
 
 # ### Face detection function
 #

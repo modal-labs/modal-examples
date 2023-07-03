@@ -70,7 +70,7 @@ image = (
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = SharedVolume().persist("dreambooth-finetuning-vol")
+volume = SharedVolume.persisted("dreambooth-finetuning-vol")
 MODEL_DIR = Path("/model")
 
 # ## Config
