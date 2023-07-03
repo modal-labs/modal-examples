@@ -48,7 +48,7 @@ stub = Stub("example-stable-diff-bot")
 # To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a
 # writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = SharedVolume().persist("stable-diff-model-vol")
+volume = SharedVolume.persisted("stable-diff-model-vol")
 
 # ### The actual function
 #

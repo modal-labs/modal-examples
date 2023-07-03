@@ -60,7 +60,7 @@ def main_stub(project_path, project_name, package_name) -> Stub:
         mounts=[kedro_proj_mount] + package_mounts,
     )
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = SharedVolume().persist(volume_name)
+    data_volume = SharedVolume.persisted(volume_name)
 
     stub.function(shared_volumes={"/kedro-storage": data_volume})(run_kedro)
     stub.function(shared_volumes={"/kedro-storage": data_volume})(sync_data)

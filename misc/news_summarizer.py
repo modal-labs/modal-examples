@@ -36,7 +36,7 @@ stub["scraping_image"] = modal.Image.debian_slim().pip_install(
     "requests", "beautifulsoup4", "lxml"
 )
 
-volume = modal.SharedVolume().persist("pegasus-modal-vol")
+volume = modal.SharedVolume.persisted("pegasus-modal-vol")
 
 # We will also instantiate the model and tokenizer globally so it’s available for all functions that use this image.
 if stub.is_inside(stub["deep_learning_image"]):

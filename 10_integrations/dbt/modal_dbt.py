@@ -46,7 +46,7 @@ image = (
 raw_volume = modal.SharedVolume.from_name("meltano_volume")
 
 # output schemas
-db_volume = modal.SharedVolume().persist("dbt_dbs")
+db_volume = modal.SharedVolume.persisted("dbt_dbs")
 project_mount = modal.Mount.from_local_dir(
     LOCAL_DBT_PROJECT, remote_path=REMOTE_DBT_PROJECT
 )

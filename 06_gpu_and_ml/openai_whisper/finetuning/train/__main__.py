@@ -22,7 +22,7 @@ except ModuleNotFoundError:
     )
 
 
-persistent_volume = modal.SharedVolume().persist(app_config.persistent_vol_name)
+persistent_volume = modal.SharedVolume.persisted(app_config.persistent_vol_name)
 image = modal.Image.debian_slim().pip_install_from_requirements(
     "requirements.txt"
 )

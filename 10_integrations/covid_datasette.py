@@ -46,7 +46,7 @@ datasette_image = (
 # database file to be stored persistently. To achieve this we use a [`SharedVolume`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = SharedVolume().persist("covid-dataset-cache-vol")
+volume = SharedVolume.persisted("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
 LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))

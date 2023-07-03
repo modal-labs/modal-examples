@@ -74,7 +74,7 @@ image = (
 
 @stub.cls(
     cpu=4,
-    shared_volumes={"/cache": SharedVolume()},
+    shared_volumes={"/cache": SharedVolume.new()},
     image=image,
     secret=Secret.from_dict(
         {"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}
