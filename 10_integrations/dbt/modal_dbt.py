@@ -43,10 +43,10 @@ image = (
 )
 
 # raw data loaded by meltano, see the meltano example in 10_integrations/meltano
-raw_volume = modal.SharedVolume.from_name("meltano_volume")
+raw_volume = modal.NetworkFileSystem.from_name("meltano_volume")
 
 # output schemas
-db_volume = modal.SharedVolume.persisted("dbt_dbs")
+db_volume = modal.NetworkFileSystem.persisted("dbt_dbs")
 project_mount = modal.Mount.from_local_dir(
     LOCAL_DBT_PROJECT, remote_path=REMOTE_DBT_PROJECT
 )
@@ -54,7 +54,7 @@ stub = modal.Stub(image=image, mounts=[project_mount], secrets=[dbt_env])
 
 
 @stub.function(
-    shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume}
+    network_file_systems={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume}
 )
 def dbt_cli(subcommand: typing.List):
     os.chdir(REMOTE_DBT_PROJECT)
@@ -73,7 +73,7 @@ def debug():
 
 @stub.function(
     interactive=True,
-    shared_volumes={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
+    network_file_systems={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),
 )

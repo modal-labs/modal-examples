@@ -60,7 +60,9 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-@stub.cls(gpu="A10G", shared_volumes={config.CACHE_DIR: volume}, keep_warm=1)
+@stub.cls(
+    gpu="A10G", network_file_systems={config.CACHE_DIR: volume}, keep_warm=1
+)
 class Model:
     def __enter__(self):
         import threading
@@ -86,7 +88,7 @@ def normalize_prompt(p: str) -> str:
     return re.sub("[^a-z0-9- ]", "", p.lower())
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     start_time = time.monotonic()
     cached = False
@@ -148,7 +150,7 @@ def fastapi_app():
 
 @stub.function(
     image=inpaint.cv_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     interactive=False,
 )
 def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
@@ -245,7 +247,7 @@ def color_dist(
     return delta_e
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     """
     Takes a single Pokémon sample and creates a Pokémon card image for it.
@@ -272,7 +274,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     )
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")

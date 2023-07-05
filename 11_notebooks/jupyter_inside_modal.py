@@ -19,14 +19,14 @@ stub = modal.Stub(
     .run_commands(". $HOME/.cargo/env && cargo install bore-cli")
 )
 # This volume is not persisted, so the data will be deleted when this demo app is stopped.
-volume = modal.SharedVolume.new()
+volume = modal.NetworkFileSystem.new()
 
 CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
 
 
 @stub.function(
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
 )
 def seed_volume():
     # Bing it!
@@ -51,7 +51,7 @@ def seed_volume():
 
 
 @stub.function(
-    concurrency_limit=1, shared_volumes={CACHE_DIR: volume}, timeout=1_500
+    concurrency_limit=1, network_file_systems={CACHE_DIR: volume}, timeout=1_500
 )
 def run_jupyter(timeout: int):
     jupyter_process = subprocess.Popen(

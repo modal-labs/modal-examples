@@ -15,7 +15,7 @@
 # using the `pip_install` function.
 #
 
-from modal import Image, method, Stub, SharedVolume, wsgi_app
+from modal import Image, method, Stub, NetworkFileSystem, wsgi_app
 
 from pathlib import Path
 
@@ -33,7 +33,7 @@ image = Image.debian_slim().pip_install(
 )
 
 stub = Stub(name="example-news-summarizer", image=image)
-output_vol = SharedVolume.persisted("finetune-vol")
+output_vol = NetworkFileSystem.persisted("finetune-vol")
 
 # ## Finetuning Flan-T5 on XSum dataset
 #
@@ -43,7 +43,7 @@ output_vol = SharedVolume.persisted("finetune-vol")
 @stub.function(
     gpu="A10g",
     timeout=7200,
-    shared_volumes={VOL_MOUNT_PATH: output_vol},
+    network_file_systems={VOL_MOUNT_PATH: output_vol},
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     from datasets import load_dataset
@@ -155,7 +155,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 # Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
 #
-@stub.function(shared_volumes={VOL_MOUNT_PATH: output_vol})
+@stub.function(network_file_systems={VOL_MOUNT_PATH: output_vol})
 @wsgi_app()
 def monitor():
     import tensorboard
@@ -177,7 +177,7 @@ def monitor():
 #
 
 
-@stub.cls(shared_volumes={VOL_MOUNT_PATH: output_vol})
+@stub.cls(network_file_systems={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
     def __enter__(self):
         from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM

@@ -16,7 +16,7 @@ import io
 import os
 from typing import Optional
 
-from modal import Image, Secret, SharedVolume, Stub, web_endpoint
+from modal import Image, Secret, NetworkFileSystem, Stub, web_endpoint
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -45,24 +45,24 @@ stub = Stub("example-stable-diff-bot")
 # The `diffusers` library downloads the weights for a pre-trained model to a local
 # directory, if those weights don't already exist. To decrease start-up time, we want
 # this download to happen just once, even across separate function invocations.
-# To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a
+# To accomplish this, we use a [`NetworkFileSystem`](/docs/guide/shared-volumes), a
 # writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = SharedVolume.persisted("stable-diff-model-vol")
+volume = NetworkFileSystem.persisted("stable-diff-model-vol")
 
 # ### The actual function
 #
-# Now that we have our token and `SharedVolume` set up, we can put everything together.
+# Now that we have our token and `NetworkFileSystem` set up, we can put everything together.
 #
 # Let's define a function that takes a text prompt and an optional channel name
 # (so we can post results to Slack if the value is set) and runs stable diffusion.
 # The `@stub.function()` decorator declares all the resources this function will
 # use: we configure it to use a GPU, run on an image that has all the packages we
-# need to run the model, mount the `SharedVolume` to a path of our choice, and
+# need to run the model, mount the `NetworkFileSystem` to a path of our choice, and
 # also provide it the secret that contains the token we created above.
 #
 # By setting the `cache_dir` argument for the model to the mount path of our
-# `SharedVolume`, we ensure that the model weights are downloaded only once.
+# `NetworkFileSystem`, we ensure that the model weights are downloaded only once.
 
 CACHE_PATH = "/root/model_cache"
 
@@ -76,7 +76,7 @@ CACHE_PATH = "/root/model_cache"
         )
         .pip_install("diffusers", "transformers", "scipy", "ftfy", "accelerate")
     ),
-    shared_volumes={CACHE_PATH: volume},
+    network_file_systems={CACHE_PATH: volume},
     secret=Secret.from_name("huggingface-secret"),
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):

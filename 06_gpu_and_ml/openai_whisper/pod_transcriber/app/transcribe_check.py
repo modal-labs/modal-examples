@@ -37,7 +37,9 @@ def _transcribe_serially(
 
 
 @stub.function(
-    image=app_image, shared_volumes={config.CACHE_DIR: volume}, timeout=1000
+    image=app_image,
+    network_file_systems={config.CACHE_DIR: volume},
+    timeout=1000,
 )
 def test_transcribe_handles_dangling_segment():
     """

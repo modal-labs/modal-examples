@@ -22,12 +22,12 @@ import fastapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from modal import Dict, Image, Mount, SharedVolume, Stub, asgi_app
+from modal import Dict, Image, Mount, NetworkFileSystem, Stub, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
 stub = Stub("example-web-spa")
 
-stub.cache = SharedVolume.new()
+stub.cache = NetworkFileSystem.new()
 stub.chat_histories = Dict.new()
 
 gpu_image = Image.debian_slim()
@@ -68,7 +68,7 @@ def transformer():
 
 
 @stub.function(
-    gpu="any", image=stub.gpu_image, shared_volumes={"/cache": stub.cache}
+    gpu="any", image=stub.gpu_image, network_file_systems={"/cache": stub.cache}
 )
 def generate_response(
     message: str, id: Optional[str] = None

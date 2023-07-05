@@ -32,7 +32,15 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
+from modal import (
+    Image,
+    Mount,
+    Secret,
+    NetworkFileSystem,
+    Stub,
+    asgi_app,
+    method,
+)
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
@@ -70,7 +78,7 @@ image = (
 # A persistent shared volume will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = SharedVolume.persisted("dreambooth-finetuning-vol")
+volume = NetworkFileSystem.persisted("dreambooth-finetuning-vol")
 MODEL_DIR = Path("/model")
 
 # ## Config
@@ -183,7 +191,7 @@ def load_images(image_urls):
 @stub.function(
     image=image,
     gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
-    shared_volumes={
+    network_file_systems={
         str(
             MODEL_DIR
         ): volume,  # fine-tuned model will be stored at `MODEL_DIR`
@@ -258,7 +266,7 @@ def train(instance_example_urls):
 @stub.cls(
     image=image,
     gpu="A100",
-    shared_volumes={str(MODEL_DIR): volume},
+    network_file_systems={str(MODEL_DIR): volume},
 )
 class Model:
     def __enter__(self):

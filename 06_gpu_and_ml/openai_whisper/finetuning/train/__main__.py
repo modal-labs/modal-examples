@@ -22,7 +22,9 @@ except ModuleNotFoundError:
     )
 
 
-persistent_volume = modal.SharedVolume.persisted(app_config.persistent_vol_name)
+persistent_volume = modal.NetworkFileSystem.persisted(
+    app_config.persistent_vol_name
+)
 image = modal.Image.debian_slim().pip_install_from_requirements(
     "requirements.txt"
 )
@@ -37,7 +39,7 @@ logger = get_logger(__name__)
 
 @stub.function(
     gpu="A10G",
-    shared_volumes={app_config.model_dir: persistent_volume},
+    network_file_systems={app_config.model_dir: persistent_volume},
     # 12hrs
     timeout=12 * 60 * 60,
     # For occasional connection error to 'cdn-lfs.huggingface.co'

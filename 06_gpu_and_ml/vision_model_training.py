@@ -30,7 +30,15 @@ from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
 
-from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
+from modal import (
+    Image,
+    Mount,
+    Secret,
+    NetworkFileSystem,
+    Stub,
+    asgi_app,
+    method,
+)
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
@@ -48,7 +56,7 @@ image = Image.debian_slim().pip_install(
 # A persistent shared volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = SharedVolume.persisted("cifar10-training-vol")
+volume = NetworkFileSystem.persisted("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
@@ -129,7 +137,7 @@ def download_dataset():
 @stub.function(
     image=image,
     gpu=USE_GPU,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
     secret=Secret.from_name("wandb"),
     timeout=2700,  # 45 minutes
 )
@@ -214,7 +222,7 @@ def train():
 
 @stub.cls(
     image=image,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
 )
 class ClassifierModel:
     def __enter__(self):
@@ -284,7 +292,7 @@ def create_demo_examples() -> List[str]:
 
 @stub.function(
     image=image,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @asgi_app()
