@@ -15,9 +15,9 @@
 # using the `pip_install` function.
 #
 
-from modal import Image, method, Stub, NetworkFileSystem, wsgi_app
-
 from pathlib import Path
+
+from modal import Image, NetworkFileSystem, Stub, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
 
@@ -48,8 +48,8 @@ output_vol = NetworkFileSystem.persisted("finetune-vol")
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     from datasets import load_dataset
     from transformers import (
-        AutoTokenizer,
         AutoModelForSeq2SeqLM,
+        AutoTokenizer,
         DataCollatorForSeq2Seq,
         Seq2SeqTrainer,
         Seq2SeqTrainingArguments,
@@ -180,7 +180,7 @@ def monitor():
 @stub.cls(network_file_systems={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
     def __enter__(self):
-        from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
         # Load saved tokenizer and finetuned from training run
         tokenizer = AutoTokenizer.from_pretrained(
