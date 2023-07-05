@@ -22,7 +22,7 @@ def download_model_locally(run_id: str) -> pathlib.Path:
     NOTE: These models were trained on GPU and require torch.distributed installed locally.
     """
     logger.info(f"Saving finetuning run {run_id} model locally")
-    vol = modal.SharedVolume.lookup(app_config.persistent_vol_name)
+    vol = modal.NetworkFileSystem.lookup(app_config.persistent_vol_name)
     for entry in vol.listdir(f"{run_id}/**"):
         p = pathlib.Path(f".{app_config.model_dir}", entry.path)
 

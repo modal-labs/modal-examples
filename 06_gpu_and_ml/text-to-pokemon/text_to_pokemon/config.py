@@ -1,6 +1,6 @@
 import pathlib
 import time
-from modal import Image, SharedVolume, Stub
+from modal import Image, NetworkFileSystem, Stub
 
 CACHE_DIR = "/cache"
 MODEL_CACHE = pathlib.Path("/models")
@@ -188,7 +188,7 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = SharedVolume.persisted("txt-to-pokemon-cache-vol")
+volume = NetworkFileSystem.persisted("txt-to-pokemon-cache-vol")
 image = (
     Image.debian_slim()
     .pip_install(

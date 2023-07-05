@@ -14,7 +14,7 @@ from modal import (
     Mount,
     Period,
     Secret,
-    SharedVolume,
+    NetworkFileSystem,
     Stub,
     asgi_app,
 )
@@ -22,7 +22,7 @@ from modal import (
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = SharedVolume.persisted("dataset-cache-vol")
+volume = NetworkFileSystem.persisted("dataset-cache-vol")
 
 app_image = (
     Image.debian_slim()
@@ -67,7 +67,7 @@ def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def populate_podcast_metadata(podcast_id: str):
     from gql import gql
 
@@ -96,7 +96,7 @@ def populate_podcast_metadata(podcast_id: str):
 
 @stub.function(
     mounts=[Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")],
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     keep_warm=2,
 )
 @asgi_app()
@@ -140,7 +140,7 @@ def search_podcast(name):
 @stub.function(
     image=search_image,
     schedule=Period(hours=4),
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=(100 * 60),
 )
 def refresh_index():
@@ -283,7 +283,7 @@ def split_silences(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     cpu=2,
 )
 def transcribe_segment(
@@ -330,7 +330,7 @@ def transcribe_segment(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
 )
 def transcribe_episode(
@@ -361,7 +361,7 @@ def transcribe_episode(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
 )
 def process_episode(podcast_id: str, episode_id: str):
@@ -417,7 +417,7 @@ def process_episode(podcast_id: str, episode_id: str):
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
 )
 def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     import hashlib

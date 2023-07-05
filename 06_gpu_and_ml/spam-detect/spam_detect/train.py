@@ -74,14 +74,14 @@ def fetch_git_commit_hash(allow_dirty: bool) -> str:
     return result.stdout.decode().strip()
 
 
-@stub.function(shared_volumes={config.VOLUME_DIR: volume})
+@stub.function(network_file_systems={config.VOLUME_DIR: volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @stub.function(
     timeout=int(timedelta(minutes=8).total_seconds()),
-    shared_volumes={config.VOLUME_DIR: volume},
+    network_file_systems={config.VOLUME_DIR: volume},
 )
 def prep_dataset():
     logger = config.get_logger()
@@ -91,7 +91,7 @@ def prep_dataset():
 
 
 @stub.function(
-    shared_volumes={config.VOLUME_DIR: volume},
+    network_file_systems={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
@@ -120,7 +120,7 @@ def train(
 
 
 @stub.function(
-    shared_volumes={config.VOLUME_DIR: volume},
+    network_file_systems={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=modal.gpu.T4(),
@@ -142,7 +142,7 @@ def train_gpu(
 
 
 @stub.function(
-    shared_volumes={config.VOLUME_DIR: volume},
+    network_file_systems={config.VOLUME_DIR: volume},
     secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )

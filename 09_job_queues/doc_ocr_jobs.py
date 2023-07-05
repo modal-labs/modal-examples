@@ -33,17 +33,17 @@ stub = modal.Stub("example-doc-ocr-jobs")
 #
 # `donut` downloads the weights for pre-trained models to a local directory, if those weights don't already exist.
 # To decrease start-up time, we want this download to happen just once, even across separate function invocations.
-# To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a writable volume that can be attached
+# To accomplish this, we use a [`NetworkFileSystem`](/docs/guide/shared-volumes), a writable volume that can be attached
 # to Modal functions and persisted across function runs.
 
-volume = modal.SharedVolume.persisted("doc_ocr_model_vol")
+volume = modal.NetworkFileSystem.persisted("doc_ocr_model_vol")
 CACHE_PATH = "/root/model_cache"
 
 # ## Handler function
 #
 # Now let's define our handler function. Using the [@stub.function()](https://modal.com/docs/reference/modal.Stub#function)
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
-# has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
+# has a [`NetworkFileSystem`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
 
 
@@ -52,7 +52,7 @@ CACHE_PATH = "/root/model_cache"
     image=modal.Image.debian_slim().pip_install(
         "donut-python==1.0.7", "transformers==4.21.3"
     ),
-    shared_volumes={CACHE_PATH: volume},
+    network_file_systems={CACHE_PATH: volume},
     retries=3,
 )
 def parse_receipt(image: bytes):

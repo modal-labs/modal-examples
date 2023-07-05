@@ -21,7 +21,7 @@ from .pokemon_naming import (
 )
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def reset_diskcache(dry_run=True) -> None:
     """
     Delete all Pokémon character samples and cards from disk cache.
@@ -95,7 +95,7 @@ def extract_colors(num=3) -> None:
 
 @stub.function(
     image=rnn_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=15 * 60,
 )
 def generate_pokemon_names():

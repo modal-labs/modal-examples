@@ -4,7 +4,7 @@ import subprocess
 import warnings
 from pathlib import Path
 
-from modal import Image, Mount, SharedVolume, Stub, create_package_mounts
+from modal import Image, Mount, NetworkFileSystem, Stub, create_package_mounts
 
 package_mounts = create_package_mounts(["kedro_modal"])
 
@@ -60,10 +60,14 @@ def main_stub(project_path, project_name, package_name) -> Stub:
         mounts=[kedro_proj_mount] + package_mounts,
     )
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = SharedVolume.persisted(volume_name)
+    data_volume = NetworkFileSystem.persisted(volume_name)
 
-    stub.function(shared_volumes={"/kedro-storage": data_volume})(run_kedro)
-    stub.function(shared_volumes={"/kedro-storage": data_volume})(sync_data)
+    stub.function(network_file_systems={"/kedro-storage": data_volume})(
+        run_kedro
+    )
+    stub.function(network_file_systems={"/kedro-storage": data_volume})(
+        sync_data
+    )
     remote_data_path = Path("/kedro-storage/data")
     return stub, remote_project_mount_point, remote_data_path
 
@@ -72,7 +76,7 @@ def sync_stub(project_path, project_name):
     # slimmer sync stub that only mounts the data dir in order to upload raw data
     stub = Stub(f"kedro-data-sync.{project_name}")
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = SharedVolume().persist(volume_name)
+    data_volume = NetworkFileSystem().persist(volume_name)
 
     remote_source_path = Path("/source-data")
     source_mount = Mount(
@@ -82,7 +86,7 @@ def sync_stub(project_path, project_name):
     )
     stub.function(
         mounts=[source_mount] + package_mounts,
-        shared_volumes={"/kedro-storage": data_volume},
+        network_file_systems={"/kedro-storage": data_volume},
     )(sync_data)
     remote_destination_path = Path("/kedro-storage/data")
     return stub, remote_source_path, remote_destination_path

@@ -26,7 +26,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 
-from modal import Image, Period, SharedVolume, Stub, asgi_app
+from modal import Image, Period, NetworkFileSystem, Stub, asgi_app
 
 stub = Stub("example-covid-datasette")
 datasette_image = (
@@ -43,10 +43,10 @@ datasette_image = (
 # ## Persistent dataset storage
 #
 # To separate database creation and maintenance from serving, we'll need the underlying
-# database file to be stored persistently. To achieve this we use a [`SharedVolume`](/docs/guide/shared-volumes),
+# database file to be stored persistently. To achieve this we use a [`NetworkFileSystem`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = SharedVolume.persisted("covid-dataset-cache-vol")
+volume = NetworkFileSystem.persisted("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
 LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))
@@ -64,7 +64,7 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
     retries=2,
 )
 def download_dataset(cache=True):
@@ -156,7 +156,7 @@ def chunks(it, size):
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
     timeout=900,
 )
 def prep_db():
@@ -212,7 +212,7 @@ def refresh_db():
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
 )
 @asgi_app()
 def app():

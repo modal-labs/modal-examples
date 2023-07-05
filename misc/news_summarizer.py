@@ -36,7 +36,7 @@ stub["scraping_image"] = modal.Image.debian_slim().pip_install(
     "requests", "beautifulsoup4", "lxml"
 )
 
-volume = modal.SharedVolume.persisted("pegasus-modal-vol")
+volume = modal.NetworkFileSystem.persisted("pegasus-modal-vol")
 
 # We will also instantiate the model and tokenizer globally so it’s available for all functions that use this image.
 if stub.is_inside(stub["deep_learning_image"]):
@@ -145,7 +145,7 @@ def scrape_nyc_article(url: str) -> str:
 @stub.function(
     image=stub["deep_learning_image"],
     gpu=False,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
     memory=4096,
 )
 def summarize_article(text: str) -> str:
