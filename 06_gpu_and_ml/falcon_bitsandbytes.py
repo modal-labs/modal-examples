@@ -45,12 +45,15 @@ image = (
         "peft @ git+https://github.com/huggingface/peft.git",
         "transformers @ git+https://github.com/huggingface/transformers.git",
         "accelerate @ git+https://github.com/huggingface/accelerate.git",
+        "hf-transfer~=0.1",
         "torch==2.0.0",
         "torchvision==0.15.1",
         "sentencepiece==0.1.97",
         "huggingface_hub==0.14.1",
         "einops==0.6.1",
     )
+    # Use huggingface's hi-perf hf-transfer library to download this large model.
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(download_falcon_40b)
 )
 
