@@ -26,12 +26,12 @@ class Example(BaseModel):
     filename: str  # absolute filepath to example file
     module: Optional[
         str
-    ]  # python import path, or none if file is not a py module.
+    ] = None  # python import path, or none if file is not a py module.
     # TODO(erikbern): don't think the module is used (by docs or monitors)?
-    metadata: Optional[dict]
+    metadata: Optional[dict] = None
     repo_filename: str  # git repo relative filepath
-    cli_args: Optional[list]  # Full command line args to run it
-    stem: Optional[str]  # stem of path
+    cli_args: Optional[list] = None  # Full command line args to run it
+    stem: Optional[str] = None  # stem of path
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
