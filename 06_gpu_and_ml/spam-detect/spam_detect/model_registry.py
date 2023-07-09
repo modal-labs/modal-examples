@@ -63,7 +63,7 @@ class ModelMetadata(NamedTuple):
         )
 
 
-@stub.function(network_file_systems={config.VOLUME_DIR: volume})
+@stub.function(volumes={config.VOLUME_DIR: volume})
 def _list_models() -> dict[str, ModelMetadata]:
     registry_filepath = config.MODEL_STORE_DIR / config.MODEL_REGISTRY_FILENAME
     with open(registry_filepath, "r") as f:
@@ -73,7 +73,7 @@ def _list_models() -> dict[str, ModelMetadata]:
     }
 
 
-@stub.function(network_file_systems={config.VOLUME_DIR: volume})
+@stub.function(volumes={config.VOLUME_DIR: volume})
 def delete_model(
     # sha256 hashtag of model. eg 'sha256.1234567890abcd'
     model_id: str,

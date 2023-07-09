@@ -69,7 +69,7 @@ async def handle_classification(
     )
 
 
-@stub.function(network_file_systems={config.VOLUME_DIR: volume})
+@stub.function(volumes={config.VOLUME_DIR: volume})
 @modal.asgi_app()
 def web():
     return web_app
