@@ -27,7 +27,7 @@ import modal
 from . import config
 from . import dataset
 from . import models
-from .app import stub, volume
+from .app import stub
 
 
 def fetch_git_commit_hash(allow_dirty: bool) -> str:
@@ -74,7 +74,7 @@ def fetch_git_commit_hash(allow_dirty: bool) -> str:
     return result.stdout.decode().strip()
 
 
-@stub.function(volumes={config.VOLUME_DIR: volume})
+@stub.function(volumes={config.VOLUME_DIR: stub.volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
     stub.app.volume.commit()  # Persist changes
@@ -82,7 +82,7 @@ def init_volume():
 
 @stub.function(
     timeout=int(timedelta(minutes=8).total_seconds()),
-    volumes={config.VOLUME_DIR: volume},
+    volumes={config.VOLUME_DIR: stub.volume},
 )
 def prep_dataset():
     logger = config.get_logger()
@@ -93,7 +93,7 @@ def prep_dataset():
 
 
 @stub.function(
-    volumes={config.VOLUME_DIR: volume},
+    volumes={config.VOLUME_DIR: stub.volume},
     secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
@@ -123,7 +123,7 @@ def train(
 
 
 @stub.function(
-    volumes={config.VOLUME_DIR: volume},
+    volumes={config.VOLUME_DIR: stub.volume},
     secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=modal.gpu.T4(),
