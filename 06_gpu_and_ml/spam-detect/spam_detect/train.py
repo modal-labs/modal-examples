@@ -94,7 +94,7 @@ def prep_dataset():
 
 @stub.function(
     volumes={config.VOLUME_DIR: volume},
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
 def train(
@@ -124,7 +124,7 @@ def train(
 
 @stub.function(
     volumes={config.VOLUME_DIR: volume},
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=modal.gpu.T4(),
 )
@@ -146,7 +146,7 @@ def train_gpu(
 
 
 @stub.function(
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
 def main(git_commit_hash: str, model_type=config.ModelType.BAD_WORDS):
