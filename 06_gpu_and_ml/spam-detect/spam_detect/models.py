@@ -51,7 +51,7 @@ def load_model(model_id: str):
         raise ValueError(f"Loading '{metadata.impl_name}' not yet supported.")
 
     classifier = m.load(
-        sha256_digest=config.SERVING_MODEL_ID,
+        sha256_digest=model_id,
         model_registry_root=config.MODEL_STORE_DIR,
     )
     return classifier, metadata

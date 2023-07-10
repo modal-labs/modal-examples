@@ -27,7 +27,7 @@ import modal
 from . import config
 from . import dataset
 from . import models
-from .app import stub, volume
+from .app import stub
 
 
 def fetch_git_commit_hash(allow_dirty: bool) -> str:
@@ -74,25 +74,27 @@ def fetch_git_commit_hash(allow_dirty: bool) -> str:
     return result.stdout.decode().strip()
 
 
-@stub.function(network_file_systems={config.VOLUME_DIR: volume})
+@stub.function(volumes={config.VOLUME_DIR: stub.volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
+    stub.app.volume.commit()  # Persist changes
 
 
 @stub.function(
     timeout=int(timedelta(minutes=8).total_seconds()),
-    network_file_systems={config.VOLUME_DIR: volume},
+    volumes={config.VOLUME_DIR: stub.volume},
 )
 def prep_dataset():
     logger = config.get_logger()
     datasets_path = config.DATA_DIR
     datasets_path.mkdir(parents=True, exist_ok=True)
     dataset.download(base=datasets_path, logger=logger)
+    stub.app.volume.commit()  # Persist changes
 
 
 @stub.function(
-    network_file_systems={config.VOLUME_DIR: volume},
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    volumes={config.VOLUME_DIR: stub.volume},
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
 def train(
@@ -108,6 +110,7 @@ def train(
         model_registry_root=config.MODEL_STORE_DIR,
         git_commit_hash=git_commit_hash,
     )
+    stub.app.volume.commit()  # Persist changes
     logger.info(f"saved model to model store. {model_id=}")
     # Reload the model
     logger.info("🔁 testing reload of model")
@@ -120,8 +123,8 @@ def train(
 
 
 @stub.function(
-    network_file_systems={config.VOLUME_DIR: volume},
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    volumes={config.VOLUME_DIR: stub.volume},
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
     gpu=modal.gpu.T4(),
 )
@@ -138,12 +141,12 @@ def train_gpu(
         model_registry_root=config.MODEL_STORE_DIR,
         git_commit_hash=git_commit_hash,
     )
+    stub.app.volume.commit()  # Persist changes
     logger.info(f"saved model to model store. {model_id=}")
 
 
 @stub.function(
-    network_file_systems={config.VOLUME_DIR: volume},
-    secrets=[modal.Secret({"PYTHONHASHSEED": "10"})],
+    secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
 def main(git_commit_hash: str, model_type=config.ModelType.BAD_WORDS):
