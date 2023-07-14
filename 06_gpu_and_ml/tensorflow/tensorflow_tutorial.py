@@ -1,5 +1,6 @@
 # ---
 # args: ["--just-run"]
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Tensorflow tutorial
 #

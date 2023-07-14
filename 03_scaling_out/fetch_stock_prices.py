@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/"
+# runtimes: ["runc", "gvisor`"]
 # ---
 # # Fetching stock prices in parallel
 #

@@ -1,6 +1,7 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
 # args: ["--prompt", "An 1600s oil painting of the New York City skyline"]
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Stable Diffusion CLI
 #

@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 import asyncio
 import io
 import logging
