@@ -21,8 +21,7 @@ image = (
     .pip_install(
         "https://github.com/openai/whisper/archive/v20230314.tar.gz",
         "ffmpeg-python",
-        # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
-        "pytube @ git+https://github.com/felipeucelli/pytube@03d72641191ced9d92f31f94f38cfb18c76cfb05",
+        "pytube @ git+https://github.com/felipeucelli/pytube",
     )
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
