@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 # # Batch inference using a model from Huggingface
 #
 # <center>

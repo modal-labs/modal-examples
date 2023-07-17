@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # output-directory: "/tmp"
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Face detection on YouTube videos
 #
