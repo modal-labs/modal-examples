@@ -179,7 +179,7 @@ image = (
             "RUN git clone --recursive https://github.com/facebookincubator/AITemplate.git",
             "WORKDIR /app/AITemplate/python",
             # Set hash for reproducibility
-            "RUN git checkout b041e0e",
+            "RUN git checkout 6305588af76eeec987762c5b5ee373a61f8a7fb3",
             # Build and install aitemplate library
             "RUN python setup.py bdist_wheel && pip install dist/aitemplate-*.whl && rm -rf dist",
             "WORKDIR /app/AITemplate/examples/05_stable_diffusion",
@@ -195,7 +195,7 @@ image = (
         "safetensors",
         "torch>=2.0",
         "triton",
-        "xformers==0.0.20.dev526",
+        "xformers==0.0.20",
     )
     .run_function(
         download_and_compile,
