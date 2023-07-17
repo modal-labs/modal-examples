@@ -52,8 +52,8 @@ GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
-        "accelerate",
-        "datasets",
+        "accelerate==0.19",
+        "datasets~=2.13",
         "ftfy",
         "gradio~=3.10",
         "smart_open",
@@ -232,27 +232,33 @@ def train(instance_example_urls):
     prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
 
     # run training -- see huggingface accelerate docs for details
-    subprocess.run(
-        [
-            "accelerate",
-            "launch",
-            "examples/dreambooth/train_dreambooth.py",
-            "--train_text_encoder",  # needs at least 16GB of GPU RAM.
-            f"--pretrained_model_name_or_path={config.model_name}",
-            f"--instance_data_dir={img_path}",
-            f"--output_dir={MODEL_DIR}",
-            f"--instance_prompt='{prompt}'",
-            f"--resolution={config.resolution}",
-            f"--train_batch_size={config.train_batch_size}",
-            f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-            f"--learning_rate={config.learning_rate}",
-            f"--lr_scheduler={config.lr_scheduler}",
-            f"--lr_warmup_steps={config.lr_warmup_steps}",
-            f"--max_train_steps={config.max_train_steps}",
-            f"--checkpointing_steps={config.checkpointing_steps}",
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "accelerate",
+                "launch",
+                "examples/dreambooth/train_dreambooth.py",
+                "--train_text_encoder",  # needs at least 16GB of GPU RAM.
+                f"--pretrained_model_name_or_path={config.model_name}",
+                f"--instance_data_dir={img_path}",
+                f"--output_dir={MODEL_DIR}",
+                f"--instance_prompt='{prompt}'",
+                f"--resolution={config.resolution}",
+                f"--train_batch_size={config.train_batch_size}",
+                f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
+                f"--learning_rate={config.learning_rate}",
+                f"--lr_scheduler={config.lr_scheduler}",
+                f"--lr_warmup_steps={config.lr_warmup_steps}",
+                f"--max_train_steps={config.max_train_steps}",
+                f"--checkpointing_steps={config.checkpointing_steps}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.stdout.decode())
+        print(exc.stderr.decode())
+        raise
 
 
 # ## The inference function.

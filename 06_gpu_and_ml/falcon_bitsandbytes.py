@@ -167,8 +167,11 @@ prompt_template = (
 
 
 @stub.local_entrypoint()
-def cli():
-    question = "What are the main differences between Python and JavaScript programming languages?"
+def cli(prompt: str = None):
+    question = (
+        prompt
+        or "What are the main differences between Python and JavaScript programming languages?"
+    )
     model = Falcon40B_4bit()
     for text in model.generate.call(prompt_template.format(question)):
         print(text, end="", flush=True)

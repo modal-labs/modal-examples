@@ -24,7 +24,7 @@ from modal import Image, Stub, gpu, method
 # the model weights will be saved and available for use when the container starts up next time.
 
 
-BASE_MODEL = "openlm-research/open_llama_7b_400bt_preview"
+BASE_MODEL = "openlm-research/open_llama_7b"
 
 
 def download_models():
