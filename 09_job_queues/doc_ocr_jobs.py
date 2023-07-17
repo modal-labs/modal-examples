@@ -50,7 +50,9 @@ CACHE_PATH = "/root/model_cache"
 @stub.function(
     gpu="any",
     image=modal.Image.debian_slim().pip_install(
-        "donut-python==1.0.7", "transformers==4.21.3", "timm==0.5.4",
+        "donut-python==1.0.7",
+        "transformers==4.21.3",
+        "timm==0.5.4",
     ),
     network_file_systems={CACHE_PATH: volume},
     retries=3,
@@ -65,7 +67,7 @@ def parse_receipt(image: bytes):
     # Use donut fine-tuned on an OCR dataset.
     task_prompt = "<s_cord-v2>"
     pretrained_model = DonutModel.from_pretrained(
-        "naver-clova-ix/donut-base-finetuned-cord-v2", 
+        "naver-clova-ix/donut-base-finetuned-cord-v2",
         cache_dir=CACHE_PATH,
     )
 
