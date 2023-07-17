@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Publish interactive datasets with Datasette
 #

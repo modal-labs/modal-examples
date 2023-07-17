@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/render"
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Render a video with Blender on GPUs
 #
