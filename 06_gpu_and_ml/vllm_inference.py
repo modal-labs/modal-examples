@@ -15,7 +15,8 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Stub, Image, method
+from modal import Stub, Image, Secret, method
+import os
 
 
 # ## Define a container image
@@ -25,26 +26,39 @@ from modal import Stub, Image, method
 # advantage of Modal's internal filesystem for faster cold starts.
 #
 # Since `vLLM` uses the default Huggingface cache location, we can use library functions to pre-download the model into our image.
-def download_model():
+# Note that the name of the model must be specified inside this function - do not rely on global variables for this directive.
+MODEL_DIR = "/model"
+def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
-    snapshot_download("lmsys/vicuna-13b-v1.3")
-    snapshot_download("hf-internal-testing/llama-tokenizer")
+    snapshot_download("meta-llama/Llama-2-13b-chat-hf", local_dir=MODEL_DIR, token=os.environ["HUGGINGFACE_TOKEN"])
 
 
 # Now, we define our image. We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
 # version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
 # Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
 # are saved within the container image.
+#
+# Since the weights are gated on HuggingFace, we must request access in two places:
+# - on the [model card page](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf).
+# - accept the license [on the Meta website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)
+#
+# Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
+# To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
+# Now the token will be available via the environment variable named HUGGINGFACE_TOKEN. Functions that inject this secret will have access to the environment variable.
 image = (
     Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
         "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
     )
+    # Pin vLLM to 07/19/2023
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@2b7d3aca2e1dd25fe26424f57c051af3b823cd71"
+        "vllm @ git+https://github.com/vllm-project/vllm.git@bda41c70ddb124134935a90a0d51304d2ac035e8"
     )
-    .run_function(download_model)
+    # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
+    .pip_install("hf-transfer~=0.1")
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .run_function(download_model_to_folder, secret=Secret.from_name("huggingface"))
 )
 
 stub = Stub(image=image)
@@ -57,13 +71,15 @@ stub = Stub(image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100")
+@stub.cls(gpu="A100", secret=Secret.from_name("huggingface"))
 class Model:
     def __enter__(self):
         from vllm import LLM
 
-        self.llm = LLM(model="lmsys/vicuna-13b-v1.3")  # Load the model
-        self.template = "You are a helpful assistant.\nUSER:\n{}\nASSISTANT:\n"
+        self.llm = LLM(MODEL_DIR)  # Load the model
+        self.template = """SYSTEM: You are a helpful assistant.
+USER: {}
+ASSISTANT: """
 
     @method()
     def generate(self, user_questions):
@@ -71,7 +87,7 @@ class Model:
 
         prompts = [self.template.format(q) for q in user_questions]
         sampling_params = SamplingParams(
-            temperature=0.8, top_p=0.95, max_tokens=800
+            temperature=0.75, top_p=1, max_tokens=800, presence_penalty=1.15,
         )
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
@@ -80,7 +96,7 @@ class Model:
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
+# sequentially for a list of inputs. You can run this locally with `modal run vllm_llama2_13b.py`.
 @stub.local_entrypoint()
 def main():
     model = Model()
@@ -89,5 +105,6 @@ def main():
         "Write a Rust function that performs fast exponentiation.",
         "How do I allocate memory in C?",
         "What is the fable involving a fox and grapes?",
+        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert."
     ]
     model.generate.call(questions)
