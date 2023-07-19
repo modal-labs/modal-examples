@@ -113,7 +113,7 @@ ASSISTANT: """
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. You can run this locally with `modal run vllm_llama2_13b.py`.
+# sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
 @stub.local_entrypoint()
 def main():
     model = Model()
