@@ -31,7 +31,6 @@ stub.chat_histories = Dict.new()
 
 
 def load_tokenizer_and_model():
-    import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-large")
