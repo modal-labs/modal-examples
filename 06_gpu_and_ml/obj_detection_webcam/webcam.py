@@ -69,7 +69,7 @@ image = (
 # * There's a container initialization step in the `__enter__` method, which
 #   runs on every container start. This lets us load the model only once per
 #   container, so that it's reused for subsequent function calls.
-# * We store the model on a shared volume. This lets us download the model only
+# * We store the model in a network file system. This lets us download the model only
 #   the first time the function is ever called.
 # * We're running it on multiple CPUs for extra performance
 #

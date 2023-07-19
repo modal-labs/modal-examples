@@ -16,7 +16,7 @@
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models
 # by using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [shared volumes](https://modal.com/docs/guide/shared-volumes#shared-volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
+# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [network file systems](/docs/guide/network-file-systems#network-file-systems) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
 #
 # And with some light customization, you can use it to generate images of your pet!
 #
@@ -75,7 +75,7 @@ image = (
     )
 )
 
-# A persistent shared volume will store model artefacts across Modal app runs.
+# A persisted network file system will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
 volume = NetworkFileSystem.persisted("dreambooth-finetuning-vol")
@@ -266,7 +266,7 @@ def train(instance_example_urls):
 # To generate images from prompts using our fine-tuned model, we define a function called `inference`.
 # In order to initialize the model just once on container startup, we use Modal's [container
 # lifecycle](https://modal.com/docs/guide/lifecycle-functions) feature, which requires the function to be part
-# of a class.  The shared volume is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
+# of a class.  The network file system is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
 
 
 @stub.cls(

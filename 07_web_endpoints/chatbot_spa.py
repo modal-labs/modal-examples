@@ -8,7 +8,7 @@ serverless web handlers and GPUs. The user visits a single-page application,
 written using Solid.js. This interface makes API requests that are handled by a
 Modal function running on the GPU.
 
-The weights of the model are cached in a shared volume, so they don't need to be
+The weights of the model are cached in a network file system, so they don't need to be
 downloaded again as long as the app is running.
 
 Chat history tensors are saved in a `modal.Dict` distributed dictionary.

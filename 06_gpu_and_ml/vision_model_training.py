@@ -11,7 +11,7 @@
 # and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
 # web interface framework.
 #
-# Combining GPU-accelerated Modal Functions, shared volumes for caching, and Modal
+# Combining GPU-accelerated Modal Functions, a network file system for caching, and Modal
 # webhooks for the model demo, we have a simple, productive, and cost-effective
 # pathway to building and deploying ML in the cloud!
 #
@@ -53,7 +53,7 @@ image = Image.debian_slim().pip_install(
     "wandb~=0.13.4",
 )
 
-# A persistent shared volume will store trained model artefacts across Modal app runs.
+# A persisted network file system will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
 volume = NetworkFileSystem.persisted("cifar10-training-vol")
@@ -89,7 +89,7 @@ class Config:
 #
 # The `fastai` framework famously requires very little code to get things done,
 # so our downloading function is very short and simple. The CIFAR-10 dataset is
-# also not large, about 150MB, so we don't bother persisting it in a shared volume
+# also not large, about 150MB, so we don't bother persisting it in a network file system
 # and just download and unpack it to ephemeral disk.
 
 
@@ -267,7 +267,7 @@ def classify_url(image_url: str) -> None:
 
 
 def create_demo_examples() -> List[str]:
-    # NB: Don't download these images to a shared volume as it doesn't play well with Gradio.
+    # NB: Don't download these images to a network FS as it doesn't play well with Gradio.
     import httpx
 
     example_imgs = {
