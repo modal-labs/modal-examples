@@ -9,7 +9,7 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# One can expect 30 second cold starts and 120 tokens/second during inference. The example generates around 1000 tokens in 8 seconds.
+# One can expect 30 second cold starts and 110 tokens/second during inference. The example generates around 1800 tokens in 16 seconds.
 #
 # ## Setup
 #
@@ -21,31 +21,35 @@ import os
 
 # ## Define a container image
 #
-# We want to create a Modal image which has the model weights pre-saved. The benefit of this
+# We want to create a Modal image which has the model weights pre-saved to a directory. The benefit of this
 # is that the container no longer has to re-download the model from Huggingface - instead, it will take
 # advantage of Modal's internal filesystem for faster cold starts.
 #
-# Since `vLLM` uses the default Huggingface cache location, we can use library functions to pre-download the model into our image.
-# Note that the name of the model must be specified inside this function - do not rely on global variables for this directive.
+# ### Download the weights
+#
+# Since the weights are gated on HuggingFace, we must request access in two places:
+# - on the [model card page](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf)
+# - accept the license [on the Meta website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
+#
+# Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
+# To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
+# Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
+#
+# We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 MODEL_DIR = "/model"
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
     snapshot_download("meta-llama/Llama-2-13b-chat-hf", local_dir=MODEL_DIR, token=os.environ["HUGGINGFACE_TOKEN"])
+#
+# Tip: avoid using global variables for these functions, as the download step re-runs based on function source code.
 
-
-# Now, we define our image. We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
+# ### Image definition
+# We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
 # version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
 # Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
 # are saved within the container image.
 #
-# Since the weights are gated on HuggingFace, we must request access in two places:
-# - on the [model card page](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf).
-# - accept the license [on the Meta website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)
-#
-# Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
-# To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
-# Now the token will be available via the environment variable named HUGGINGFACE_TOKEN. Functions that inject this secret will have access to the environment variable.
 image = (
     Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
@@ -102,7 +106,7 @@ def main():
     model = Model()
     questions = [
         "Implement a Python function to compute the Fibonacci numbers.",
-        "Write a Rust function that performs fast exponentiation.",
+        "Write a Rust function that performs binary exponentiation.",
         "How do I allocate memory in C?",
         "What is the fable involving a fox and grapes?",
         "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert."
