@@ -37,10 +37,18 @@ import os
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 MODEL_DIR = "/model"
+
+
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
-    snapshot_download("meta-llama/Llama-2-13b-chat-hf", local_dir=MODEL_DIR, token=os.environ["HUGGINGFACE_TOKEN"])
+    snapshot_download(
+        "meta-llama/Llama-2-13b-chat-hf",
+        local_dir=MODEL_DIR,
+        token=os.environ["HUGGINGFACE_TOKEN"],
+    )
+
+
 #
 # Tip: avoid using global variables for these functions, as the download step re-runs based on function source code.
 
@@ -62,7 +70,9 @@ image = (
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .pip_install("hf-transfer~=0.1")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-    .run_function(download_model_to_folder, secret=Secret.from_name("huggingface"))
+    .run_function(
+        download_model_to_folder, secret=Secret.from_name("huggingface")
+    )
 )
 
 stub = Stub(image=image)
@@ -91,7 +101,10 @@ ASSISTANT: """
 
         prompts = [self.template.format(q) for q in user_questions]
         sampling_params = SamplingParams(
-            temperature=0.75, top_p=1, max_tokens=800, presence_penalty=1.15,
+            temperature=0.75,
+            top_p=1,
+            max_tokens=800,
+            presence_penalty=1.15,
         )
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
@@ -109,6 +122,6 @@ def main():
         "Write a Rust function that performs binary exponentiation.",
         "How do I allocate memory in C?",
         "What is the fable involving a fox and grapes?",
-        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert."
+        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert.",
     ]
     model.generate.call(questions)
