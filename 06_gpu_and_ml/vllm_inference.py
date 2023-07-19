@@ -41,21 +41,19 @@ import os
 # Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
-MODEL_DIR = "/model"
-
-
+#
+# Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
     snapshot_download(
         "meta-llama/Llama-2-13b-chat-hf",
-        local_dir=MODEL_DIR,
+        local_dir="/model",
         token=os.environ["HUGGINGFACE_TOKEN"],
     )
 
 
-#
-# Tip: avoid using global variables for these functions, as the download step re-runs based on function source code.
+MODEL_DIR = "/model"
 
 # ### Image definition
 # We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
