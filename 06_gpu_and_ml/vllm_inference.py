@@ -9,42 +9,70 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# One can expect 30 second cold starts and 120 tokens/second during inference. The example generates around 1000 tokens in 8 seconds.
+# One can expect 30 second cold starts and 110 tokens/second during inference. The example generates around 1800 tokens in 16 seconds.
 #
 # ## Setup
 #
 # First we import the components we need from `modal`.
 
-from modal import Stub, Image, method
+from modal import Stub, Image, Secret, method
+import os
 
 
 # ## Define a container image
 #
-# We want to create a Modal image which has the model weights pre-saved. The benefit of this
+# We want to create a Modal image which has the model weights pre-saved to a directory. The benefit of this
 # is that the container no longer has to re-download the model from Huggingface - instead, it will take
 # advantage of Modal's internal filesystem for faster cold starts.
 #
-# Since `vLLM` uses the default Huggingface cache location, we can use library functions to pre-download the model into our image.
-def download_model():
+# ### Download the weights
+#
+# Since the weights are gated on HuggingFace, we must request access in two places:
+# - on the [model card page](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf)
+# - accept the license [on the Meta website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
+#
+# Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
+# To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
+# Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
+#
+# We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
+MODEL_DIR = "/model"
+
+
+def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
-    snapshot_download("lmsys/vicuna-13b-v1.3")
-    snapshot_download("hf-internal-testing/llama-tokenizer")
+    snapshot_download(
+        "meta-llama/Llama-2-13b-chat-hf",
+        local_dir=MODEL_DIR,
+        token=os.environ["HUGGINGFACE_TOKEN"],
+    )
 
 
-# Now, we define our image. We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
+#
+# Tip: avoid using global variables for these functions, as the download step re-runs based on function source code.
+
+# ### Image definition
+# We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
 # version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
 # Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
 # are saved within the container image.
+#
 image = (
     Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
         "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
     )
+    # Pin vLLM to 07/19/2023
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@2b7d3aca2e1dd25fe26424f57c051af3b823cd71"
+        "vllm @ git+https://github.com/vllm-project/vllm.git@bda41c70ddb124134935a90a0d51304d2ac035e8"
     )
-    .run_function(download_model)
+    # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
+    .pip_install("hf-transfer~=0.1")
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .run_function(
+        download_model_to_folder, secret=Secret.from_name("huggingface")
+    )
 )
 
 stub = Stub(image=image)
@@ -57,13 +85,15 @@ stub = Stub(image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100")
+@stub.cls(gpu="A100", secret=Secret.from_name("huggingface"))
 class Model:
     def __enter__(self):
         from vllm import LLM
 
-        self.llm = LLM(model="lmsys/vicuna-13b-v1.3")  # Load the model
-        self.template = "You are a helpful assistant.\nUSER:\n{}\nASSISTANT:\n"
+        self.llm = LLM(MODEL_DIR)  # Load the model
+        self.template = """SYSTEM: You are a helpful assistant.
+USER: {}
+ASSISTANT: """
 
     @method()
     def generate(self, user_questions):
@@ -71,7 +101,10 @@ class Model:
 
         prompts = [self.template.format(q) for q in user_questions]
         sampling_params = SamplingParams(
-            temperature=0.8, top_p=0.95, max_tokens=800
+            temperature=0.75,
+            top_p=1,
+            max_tokens=800,
+            presence_penalty=1.15,
         )
         result = self.llm.generate(prompts, sampling_params)
         for output in result:
@@ -86,8 +119,9 @@ def main():
     model = Model()
     questions = [
         "Implement a Python function to compute the Fibonacci numbers.",
-        "Write a Rust function that performs fast exponentiation.",
+        "Write a Rust function that performs binary exponentiation.",
         "How do I allocate memory in C?",
         "What is the fable involving a fox and grapes?",
+        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert.",
     ]
     model.generate.call(questions)
