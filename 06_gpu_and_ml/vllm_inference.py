@@ -1,7 +1,7 @@
 # ---
 # integration-test: false
 # ---
-# # Run inference with vLLM
+# # Fast inference with vLLM (Llama 2 13B)
 
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
@@ -9,7 +9,12 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# One can expect 30 second cold starts and 110 tokens/second during inference. The example generates around 1800 tokens in 16 seconds.
+# We are running the Llama 2 13B model here, and you can expect 30 second cold starts and 110 tokens/second during inference.
+# The example generates around 1800 tokens in 16 seconds.
+#
+# To run
+# [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
+# simply replace the model name in the download step. You may also need to enable `trust_remote_code` for MPT models (see comment below)..
 #
 # ## Setup
 #
@@ -75,7 +80,7 @@ image = (
     )
 )
 
-stub = Stub(image=image)
+stub = Stub("example-vllm-inference", image=image)
 
 
 # ## The model class
@@ -90,7 +95,8 @@ class Model:
     def __enter__(self):
         from vllm import LLM
 
-        self.llm = LLM(MODEL_DIR)  # Load the model
+        # Load the model. Tip: MPT models may require `trust_remote_code=true`.
+        self.llm = LLM(MODEL_DIR)
         self.template = """SYSTEM: You are a helpful assistant.
 USER: {}
 ASSISTANT: """
