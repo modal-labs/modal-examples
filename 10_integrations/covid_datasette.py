@@ -11,7 +11,7 @@
 # Try it out for yourself at [modal-labs-example-covid-datasette-app.modal.run/covid-19](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
 #
 # Some Modal features it uses:
-# * Shared volumes: a persisted volume lets us store and grow the published dataset over time
+# * Network file systems: a persisted volume lets us store and grow the published dataset over time
 # * Scheduled functions: the underlying dataset is refreshed daily, so we schedule a function to run daily
 # * Webhooks: exposes the Datasette application for web browser interaction and API requests.
 #
@@ -141,7 +141,7 @@ def load_report(filepath):
 # ## Inserting into SQLite
 #
 # With the CSV processing out of the way, we're ready to create an SQLite DB and feed data into it.
-# Importantly, the `prep_db` function mounts the same shared volume used by `download_dataset()`, and
+# Importantly, the `prep_db` function mounts the same network file system used by `download_dataset()`, and
 # rows are batch inserted with progress logged after each batch, as the full COVID-19 has millions
 # of rows and does take some time to be fully inserted.
 #
@@ -186,7 +186,7 @@ def prep_db():
         table.create_index(["province_or_state"], if_not_exists=True)
         table.create_index(["country_or_region"], if_not_exists=True)
 
-        print("Syncing DB with shared volume.")
+        print("Syncing DB with network volume.")
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(tmp.name, DB_PATH)
 

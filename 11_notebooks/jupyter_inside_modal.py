@@ -1,8 +1,9 @@
 # ---
 # args: ["--timeout", 10]
 # ---
+#
 # Quick snippet to connect to a Jupyter notebook server running inside a Modal container,
-# especially useful for exploring the contents of Modal shared volumes.
+# especially useful for exploring the contents of Modal network file systems.
 # This uses https://github.com/ekzhang/bore to expose the server to the public internet.
 
 import os
@@ -46,7 +47,7 @@ def seed_volume():
 
 # This is all that's needed to create a long-lived Jupyter server process in Modal
 # that you can access in your Browser through a secure network tunnel.
-# This can come in when you want to interactively engage with shared volume contents
+# This can be useful when you want to interactively engage with network file system contents
 # without having to download it to your host computer.
 
 

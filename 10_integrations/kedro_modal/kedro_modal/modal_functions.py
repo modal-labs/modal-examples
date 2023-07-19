@@ -17,7 +17,7 @@ def run_kedro(project_path: Path, data_path: Path):
 
 
 def sync_data(source: Path, destination: Path, reset: bool = False):
-    """Sync a local data directory *to* a shared volume"""
+    """Sync a local data directory *to* a network file system"""
 
     # TODO: only sync raw data - no intermediates etc?
     if destination.exists() and reset:

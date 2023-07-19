@@ -55,7 +55,7 @@ logdir = "/tensorboard"
 # This is basically the same code as the official example.
 # A few things are worth pointing out:
 #
-# * We set up the shared volume in the arguments to `stub.function`
+# * We set up the network file system in the arguments to `stub.function`
 # * We also annotate this function with `gpu="any"`
 # * We put all the Tensorflow imports inside the function body.
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.

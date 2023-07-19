@@ -45,8 +45,7 @@ image = (
         f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
     )
     .pip_install(
-        # Uses pytube fix from here: https://github.com/pytube/pytube/pull/1575
-        "pytube @ git+https://github.com/felipeucelli/pytube@03d72641191ced9d92f31f94f38cfb18c76cfb05",
+        "pytube @ git+https://github.com/felipeucelli/pytube",
         "opencv-python~=4.7.0.72",
         "moviepy~=1.0.3",
     )
@@ -58,7 +57,7 @@ if stub.is_inside():
     import moviepy.editor
     import pytube
 
-# For temporary storage of movie clips, we use a "shared volume"
+# For temporary storage and sharing of downloaded movie clips, we use a network file system.
 
 stub.sv = modal.NetworkFileSystem.new()
 
@@ -69,7 +68,7 @@ stub.sv = modal.NetworkFileSystem.new()
 # * A filename to the source clip
 # * A time slice denoted by start and a stop in seconds
 #
-# The function extracts the subclip from the movie file (which is stored on the shared volume),
+# The function extracts the subclip from the movie file (which is stored on the network file system),
 # runs face detection on every frame in its slice,
 # and stores the resulting video back to the shared storage.
 

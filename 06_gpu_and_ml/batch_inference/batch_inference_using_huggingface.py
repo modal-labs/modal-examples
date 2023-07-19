@@ -180,10 +180,7 @@ def main():
 # ## Further optimization notes
 #
 # Every container downloads the model when it starts, which is a bit inefficient.
-# In order to improve this, what you could do is to set up a shared volume that gets
-# mounted to each container.
-# See [shared volumes](/docs/guide/shared-volumes).
+# In order to improve this, what you could do is store the model in the image that
+# backs each container.
+# See [`Image.run_function`](/docs/guide/custom-container#running-a-function-as-a-build-step-beta).
 #
-# In order for Huggingface to use the shared volume, you need to set the value of
-# the `TRANSFORMERS_CACHE` environment variable to the path of the shared volume.
-# See [secrets](/docs/guide/secrets).

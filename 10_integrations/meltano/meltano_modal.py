@@ -58,7 +58,7 @@ stub = modal.Stub(
 
 
 def symlink_logs():
-    # symlink logs so that they end up in persisted shared volume
+    # symlink logs so that they end up in persisted network file system
     # we can get rid of this if meltano gets a way to configure
     # the logging directory
     if not REMOTE_LOGS_PATH.exists():

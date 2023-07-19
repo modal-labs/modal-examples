@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 # Test the `main.train` function by passing in test-specific configuration
 # that does only a minimal amount of training steps and saves the model
-# to the temporary (ie. ephemeral) shared volume disk.
+# to the temporary (ie. ephemeral) network file system disk.
 #
 # This remote function should take only ~1 min to run.
 
@@ -55,11 +55,11 @@ def test_finetune_one_step_and_save_to_vol(run_id: str):
 
 
 # Test model serialization and persistence by starting a new remote
-# function that reads back the model files from the temporary shared volume disk
+# function that reads back the model files from the temporary network file system disk
 # and does a single sentence of translation.
 #
 # When doing full training runs, the saved model will be loaded in the same way
-# but from a *persisted* shared volume, which keeps data around even after the Modal
+# but from a *persisted* network file system, which keeps data around even after the Modal
 # ephemeral app that ran the training has stopped.
 
 

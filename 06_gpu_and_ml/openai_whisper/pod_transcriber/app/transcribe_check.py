@@ -107,7 +107,7 @@ def test_transcribe_handles_dangling_segment():
         )
     except Exception:
         logger.info(
-            "Writing the problem segment to shared volume for further debugging."
+            "Writing the problem segment to the network file system for further debugging."
         )
         bad_segment_path = pathlib.Path(
             config.CACHE_DIR,
