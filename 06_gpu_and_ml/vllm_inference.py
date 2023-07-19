@@ -46,7 +46,12 @@ import os
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
-    snapshot_download("meta-llama/Llama-2-13b-chat-hf", local_dir="/model", token=os.environ["HUGGINGFACE_TOKEN"])
+    snapshot_download(
+        "meta-llama/Llama-2-13b-chat-hf",
+        local_dir="/model",
+        token=os.environ["HUGGINGFACE_TOKEN"],
+    )
+
 
 MODEL_DIR = "/model"
 
