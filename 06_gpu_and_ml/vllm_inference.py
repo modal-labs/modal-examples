@@ -10,7 +10,7 @@
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
 # We are running the Llama 2 13B model here, and you can expect 30 second cold starts and well over 100 tokens/second.
-# The larger the batch of prompts, the higher the throughput. For example, with [60 prompts](/docs/guide/ex/vllm_prompts.txt)
+# The larger the batch of prompts, the higher the throughput. For example, with the 60 prompts below,
 # we can produce 24k tokens in 39 seconds, which is around 600 tokens/second.
 #
 # To run
