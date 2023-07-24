@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "10_integrations.meltano.meltano_modal::extract_and_load"]
+# cmd: ["modal", "run", "code.py::extract_and_load"]
 # ---
 import os
 import shutil
