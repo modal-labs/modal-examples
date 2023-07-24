@@ -1,8 +1,5 @@
-# ---
-# integration-test: false
-# ---
 # # Fast inference with vLLM (Llama 2 13B)
-
+#
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
 #

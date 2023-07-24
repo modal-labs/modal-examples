@@ -1,9 +1,5 @@
-# ---
-# integration-test: false
-# output-directory: "/tmp/screenshots"
-# ---
 # # Screenshot with Chromium
-
+#
 # In this example, we use Modal functions and the `playwright` package to take screenshots
 # of websites from a list of URLs in parallel.
 #

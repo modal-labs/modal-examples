@@ -1,7 +1,5 @@
 # ---
-# cmd: ["modal", "run", "vision_model_training.py::stub.train"]
 # deploy: true
-# integration-test: false
 # lambda-test: false
 # ---
 #

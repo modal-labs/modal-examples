@@ -1,9 +1,8 @@
 # ---
-# integration-test: false
 # args: ["--prompt", "How do planes work?"]
 # ---
 # # Run Falcon-40B with bitsandbytes
-
+#
 # In this example, we download the full-precision weights of the Falcon-40B LLM but load it in 4-bit using
 # Tim Dettmer's [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
 # into a single GPU (A100 40GB).
