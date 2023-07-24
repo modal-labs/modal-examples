@@ -1,8 +1,5 @@
-# ---
-# integration-test: false
-# ---
 # # Run Falcon-40B with AutoGPTQ
-
+#
 # In this example, we run a quantized 4-bit version of Falcon-40B, the first open-source large language
 # model of its size, using HuggingFace's [transformers](https://huggingface.co/docs/transformers/index)
 # library and [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ).

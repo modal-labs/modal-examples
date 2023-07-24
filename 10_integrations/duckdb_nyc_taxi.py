@@ -1,7 +1,3 @@
-# ---
-# integration-test: false
-# output-directory: "/tmp/nyc"
-# ---
 # # Use DuckDB to analyze lots of datasets in parallel
 #
 # The Taxi and Limousine Commission of NYC posts

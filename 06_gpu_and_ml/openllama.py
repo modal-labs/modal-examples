@@ -1,8 +1,5 @@
-# ---
-# integration-test: false
-# ---
 # # Run OpenLLaMa on an A100 GPU
-
+#
 # In this example, we run [OpenLLaMa](https://github.com/openlm-research/open_llama),
 # an open-source large language model, using HuggingFace's [transformers](https://huggingface.co/docs/transformers/index)
 # library.

@@ -1,5 +1,4 @@
 # ---
-# integration-test: false
 # lambda-test: false
 # ---
 
