@@ -5,10 +5,10 @@ import modal
 
 stub = modal.Stub("example-gpt2")
 
-# volume = modal.NetworkFileSystem().persist("gpt2")
 CACHE_PATH = "/root/model_cache"
 
 
+# Run as a build function to save the model files into the custom `modal.Image`.
 def download_model():
     from transformers import pipeline
 
