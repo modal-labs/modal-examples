@@ -232,18 +232,11 @@ image = (
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,
     # so this `init` then `checkout` workaround is used.
     .run_commands(
-        [
-            "cd /root && git init .",
-            "cd /root && git remote add --fetch origin https://github.com/lllyasviel/ControlNet.git",
-            "cd /root && git checkout main",
-        ]
+        "cd /root && git init .",
+        "cd /root && git remote add --fetch origin https://github.com/lllyasviel/ControlNet.git",
+        "cd /root && git checkout main",
     )
-    .run_commands(
-        [
-            "apt-get update",
-            "apt-get install --yes ffmpeg libsm6 libxext6",
-        ]
-    )
+    .apt_install("ffmpeg", "libsm6", "libxext6")
     .run_function(
         download_demo_files, secret=Secret.from_dict({"DEMO_NAME": DEMO_NAME})
     )
