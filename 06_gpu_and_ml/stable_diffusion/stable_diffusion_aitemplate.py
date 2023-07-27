@@ -265,7 +265,7 @@ def inference_asgi():
 #      --header 'Content-Type: application/json' \
 #      --data-raw '{
 #         "prompt": "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field",
-#         "num_inference_steps": 10
+#         "num_inference_steps": 10,
 #         "guidance_scale": 10.0,
 #         "negative_prompt": "deformed, extra legs, no tail",
 #         "format": "webp"
