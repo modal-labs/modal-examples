@@ -1,19 +1,27 @@
 # ---
 # lambda-test: false
-# cmd: ["modal", "run", "10_integrations.dbt.modal_dbt::run"]
+# cmd: ["modal", "run", "10_integrations.dbt.dbt_sqlite::run"]
 # ---
 
-"""This is a simple demonstration of how to run a dbt-core project on Modal
+"""
+This is a simple demonstration of how to run a dbt-core project on Modal
+using the dbt-sqlite adapter.
 
 The underlying DBT data and models are from https://docs.getdbt.com/docs/get-started/getting-started-dbt-core
 To run this example, first run the meltano example in 10_integrations/meltano to load the required data
 into sqlite.
 
-To run this example:
-`modal run modal_dbt.py::stub.run`
+**Run this example:**
 
-To launch an interactive sqlite3 shell on the output database:
-`modal run modal_dbt.py::stub.explore`
+```
+modal run dbt_sqlite.py::stub.run
+```
+
+**Launch an interactive sqlite3 shell on the output database:**
+
+```
+modal run dbt_sqlite.py::stub.explore
+```
 """
 
 import os
@@ -23,7 +31,7 @@ from pathlib import Path
 
 import modal
 
-LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj"
+LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj_sqlite"
 REMOTE_DBT_PROJECT = "/sample_proj"
 RAW_SCHEMAS = "/raw"
 OUTPUT_SCHEMAS = "/db"
@@ -39,7 +47,7 @@ dbt_env = modal.Secret.from_dict(
 
 image = (
     modal.Image.debian_slim()
-    .pip_install("dbt-sqlite")
+    .pip_install("dbt-core~=1.3.0", "dbt-sqlite~=1.3.0")
     .run_commands("apt-get install -y git")
 )
 
@@ -59,7 +67,9 @@ stub = modal.Stub(image=image, mounts=[project_mount], secrets=[dbt_env])
 )
 def dbt_cli(subcommand: typing.List):
     os.chdir(REMOTE_DBT_PROJECT)
-    subprocess.check_call(["dbt"] + subcommand)
+    cmd = ["dbt"] + subcommand
+    print(f"Running {' '.join(cmd)} against {REMOTE_DBT_PROJECT}")
+    subprocess.check_call(cmd)
 
 
 @stub.local_entrypoint()
