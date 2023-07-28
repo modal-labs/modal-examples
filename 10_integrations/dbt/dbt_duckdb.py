@@ -58,7 +58,7 @@ dbt_profiles = modal.Mount.from_local_file(
     local_path=LOCAL_DBT_PROJECT / "profiles.yml",
     remote_path=Path(PROFILES_PATH, "profiles.yml"),
 )
-dbt_target = modal.SharedVolume().persist("dbt-target")
+dbt_target = modal.NetworkFileSystem.persisted("dbt-target")
 # Create this secret using the "AWS" template at https://modal.com/secrets/create.
 # Be sure that the AWS user you provide credentials for has permission to
 # create S3 buckets and read/write data from them.
@@ -126,7 +126,7 @@ def seed():
     schedule=modal.Period(days=1),
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
-    shared_volumes={TARGET_PATH: dbt_target},
+    network_file_systems={TARGET_PATH: dbt_target},
 )
 def daily_build() -> None:
     run("build")
@@ -164,7 +164,7 @@ def daily_build() -> None:
 @stub.function(
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
-    shared_volumes={TARGET_PATH: dbt_target},
+    network_file_systems={TARGET_PATH: dbt_target},
 )
 def run(command: str) -> None:
     from dbt.cli.main import dbtRunner
