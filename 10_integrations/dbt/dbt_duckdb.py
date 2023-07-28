@@ -15,7 +15,15 @@ from pathlib import Path
 
 import modal
 
-# this must match the bucket source in `sample_proj_duckdb_s3/models/sources.yml`
+# ## Bucket name configuration
+#
+# The only thing in the source code that you must update is the S3 bucket name.
+# AWS S3 bucket names are globally unique, and the one in this source is used by Modal.
+#
+# Update the `BUCKET_NAME` variable below and also any references to the original value
+# within `sample_proj_duckdb_s3/models/`. The AWS IAM policy below also includes the bucket
+# name and that must be updated.
+
 BUCKET_NAME = "modal-example-dbt-duckdb-s3"
 LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj_duckdb_s3"
 PROJ_PATH = "/root/dbt"
@@ -62,9 +70,11 @@ dbt_target = modal.NetworkFileSystem.persisted("dbt-target")
 # Create this secret using the "AWS" template at https://modal.com/secrets/create.
 # Be sure that the AWS user you provide credentials for has permission to
 # create S3 buckets and read/write data from them.
-# 
-# The policy required for this example is the following:
-# 
+#
+# The policy required for this example is the following.
+# Not that you *must* update the bucket name listed in the policy to your
+# own bucket name.
+#
 # ```json
 # {
 #     "Statement": [
