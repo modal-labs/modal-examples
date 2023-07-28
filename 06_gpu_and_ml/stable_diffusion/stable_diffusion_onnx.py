@@ -83,7 +83,7 @@ class StableDiffusion:
 @stub.local_entrypoint()
 def entrypoint(
     prompt: str = "martha stewart at burning man",
-    samples: int = 5,
+    samples: int = 3,
     steps: int = 20,
     batch_size: int = 3,
 ):
