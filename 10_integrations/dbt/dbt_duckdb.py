@@ -86,7 +86,7 @@ s3_secret = modal.Secret.from_name("modal-examples-aws-user")
 # ## Seed data
 #
 # In order to provide source data for DBT to ingest and transform,
-# we have this `seed` function which creates an AWS S3 bucket and
+# we have this `create_source_data` function which creates an AWS S3 bucket and
 # populates it with .parquet files based of CSV data in the seeds/ directory.
 #
 # This is not the typical way that seeds/ data is used, but it is fine for this
@@ -97,7 +97,7 @@ s3_secret = modal.Secret.from_name("modal-examples-aws-user")
     mounts=[dbt_project],
     secrets=[s3_secret],
 )
-def seed():
+def create_source_data():
     import boto3
     import pandas as pd
 
