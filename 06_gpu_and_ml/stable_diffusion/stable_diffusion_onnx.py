@@ -1,27 +1,20 @@
 # # Stable Diffusion inference using the ONNX Runtime
 #
 # This example is similar to the example [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
-# but running inference unsing the [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch. We still use the
-# [diffusers](https://github.com/huggingface/diffusers) package to load models and pipeline like we do in Stable Diffusion, using
-# the `OnnxStableDiffusionPipeline` instead of the `StableDiffusionPipeline`. More details
-# on how the ONNX runtime works in diffusers in [this article](https://huggingface.co/docs/diffusers/optimization/onnx).
+# but running inference unsing the [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch.
 #
 # Inference with ONNX is faster by about ~100ms, with throughput of ~950ms / image on a
 # A10G GPU. Cold boot times are higher, however; taking about ~18s for the models to
 # be loaded into memory.
-#
-# _Note:_ this is adapted from the article [Accelerating Stable Diffusion Inference with ONNX Runtime](https://medium.com/microsoftazure/accelerating-stable-diffusion-inference-with-onnx-runtime-203bd7728540) by [Tianlei Wu](https://medium.com/@tianlei.wu).
 
 
 # ## Basic setup
-from __future__ import annotations
 
 import io
-import os
 import time
 from pathlib import Path
 
-from modal import Image, Secret, Stub, method
+from modal import Image, Stub, method
 
 # Create a Stub representing a Modal app.
 
@@ -29,57 +22,39 @@ stub = Stub("stable-diffusion-onnx")
 
 # ## Model dependencies
 #
-# We will install diffusers and the ONNX runtime GPU dependencies.
+# We will install `optimum` and the ONNX runtime GPU package.
 
-model_id = "tlwu/stable-diffusion-v1-5"
+model_id = "runwayml/stable-diffusion-v1-5"
 cache_path = "/vol/cache"
 
 
 def download_models():
-    import diffusers
+    from optimum.onnxruntime import ORTStableDiffusionPipeline
 
-    hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
-
-    # Download models from the HunggingFace Hub and store
-    # in local image cache.
-    pipe = diffusers.OnnxStableDiffusionPipeline.from_pretrained(
-        model_id,
-        revision="fp16",
-        provider="CUDAExecutionProvider",
-        use_auth_token=hugging_face_token,
+    pipe = ORTStableDiffusionPipeline.from_pretrained(
+        model_id, revision="fp16", export=True
     )
     pipe.save_pretrained(cache_path, safe_serialization=True)
 
 
-image = (
-    Image.debian_slim(python_version="3.10")
-    .pip_install(
-        "diffusers[torch]>=0.15.1",
-        "transformers==4.26.0",
-        "safetensors",
-        "torch>=2.0",
-        "onnxruntime-gpu>=1.14",
-    )
-    .run_function(
-        download_models,
-        secrets=[Secret.from_name("huggingface-secret")],
-        gpu="A10G",
-    )
+stub.image = (
+    Image.debian_slim(python_version="3.11")
+    .pip_install("diffusers~=0.19.1", "optimum[onnxruntime-gpu]~=1.10.1")
+    .run_function(download_models)
 )
-stub.image = image
 
 # ## Load model and run inference
 #
-# We'll use the [container lifecycle `__enter__` method](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta) to load the model
-# pipeline and then run inference using the `run_inference` method.
+# The container lifecycle [`__enter__` function](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
+# loads the model at startup. Then, we evaluate it in the `run_inference` function.
 
 
 @stub.cls(gpu="A10G")
 class StableDiffusion:
     def __enter__(self):
-        import diffusers
+        from optimum.onnxruntime import ORTStableDiffusionPipeline
 
-        self.pipe = diffusers.OnnxStableDiffusionPipeline.from_pretrained(
+        self.pipe = ORTStableDiffusionPipeline.from_pretrained(
             cache_path,
             revision="fp16",
             provider="CUDAExecutionProvider",
@@ -106,7 +81,7 @@ class StableDiffusion:
         return image_output
 
 
-# Call this script with the Modal CLI: `modal run stable_diffusion_cli.py --prompt "a photo of a castle floating on clouds"`
+# Call this script with the Modal CLI: `modal run stable_diffusion_cli.py --prompt "a photo of a castle floating on clouds"`.
 
 
 @stub.local_entrypoint()
