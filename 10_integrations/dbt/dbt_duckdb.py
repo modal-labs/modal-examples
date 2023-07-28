@@ -1,3 +1,7 @@
+# ---
+# cmd: ["modal", "run", "dbt_duckdb.py::run", "--command", "run"]
+# ---
+#
 # This example contains a minimal but capable cloud data warehouse.
 # It's comprised of the following:
 #
@@ -58,10 +62,26 @@ dbt_target = modal.SharedVolume().persist("dbt-target")
 # Create this secret using the "AWS" template at https://modal.com/secrets/create.
 # Be sure that the AWS user you provide credentials for has permission to
 # create S3 buckets and read/write data from them.
+# 
+# The policy required for this example is the following:
+# 
+# ```json
+# {
+#     "Statement": [
+#         {
+#             "Action": "s3:*",
+#             "Effect": "Allow",
+#             "Resource": "arn:aws:s3:::example-dbt-duckdb-s3/*",
+#             "Sid": "duckdbs3access"
+#         }
+#     ],
+#     "Version": "2012-10-17"
+# }
+# ```
 #
-# Below we will use a Modal function to create an S3 bucket and populate it with
-# .parquet data.
-s3_secret = modal.Secret.from_name("personal-aws-user")
+# Below we will use this user in a Modal function to create an S3 bucket and
+# populate it with .parquet data.
+s3_secret = modal.Secret.from_name("modal-examples-aws-user")
 
 # ## Seed data
 #
