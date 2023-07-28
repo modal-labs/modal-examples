@@ -1,11 +1,7 @@
-# # Stable Diffusion inference using the ONNX Runtime
+# # Stable Diffusion with ONNX Runtime
 #
-# This example is similar to the example [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
-# but running inference unsing the [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch.
-#
-# Inference with ONNX is faster by about ~100ms, with throughput of ~950ms / image on a
-# A10G GPU. Cold boot times are higher, however; taking about ~18s for the models to
-# be loaded into memory.
+# This example is similar to the [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
+# example, but it runs inference unsing [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch.
 
 
 # ## Basic setup
@@ -63,7 +59,7 @@ class StableDiffusion:
 
     @method()
     def run_inference(
-        self, prompt: str, steps: int = 20, batch_size: int = 4
+        self, prompt: str, steps: int, batch_size: int
     ) -> list[bytes]:
         # Run pipeline
         images = self.pipe(
@@ -88,8 +84,8 @@ class StableDiffusion:
 def entrypoint(
     prompt: str = "martha stewart at burning man",
     samples: int = 5,
-    steps: int = 10,
-    batch_size: int = 1,
+    steps: int = 20,
+    batch_size: int = 3,
 ):
     print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"
@@ -108,7 +104,7 @@ def entrypoint(
             f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image)."
         )
         for j, image_bytes in enumerate(images):
-            output_path = dir / f"output_{j}_{i}.png"
+            output_path = dir / f"output_{i}_{j}.png"
             print(f"Saving it to {output_path}")
             with open(output_path, "wb") as f:
                 f.write(image_bytes)
