@@ -15,8 +15,8 @@ from pathlib import Path
 
 import modal
 
-# this must match the bucket source in `sample_proj_duckdb_s3/sources.yml`
-BUCKET_NAME = "example-dbt-duckdb-s3"
+# this must match the bucket source in `sample_proj_duckdb_s3/models/sources.yml`
+BUCKET_NAME = "modal-example-dbt-duckdb-s3"
 LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj_duckdb_s3"
 PROJ_PATH = "/root/dbt"
 PROFILES_PATH = "/root/dbt_profile"
@@ -71,7 +71,8 @@ dbt_target = modal.NetworkFileSystem.persisted("dbt-target")
 #         {
 #             "Action": "s3:*",
 #             "Effect": "Allow",
-#             "Resource": "arn:aws:s3:::example-dbt-duckdb-s3/*",
+#                "arn:aws:s3:::modal-example-dbt-duckdb-s3/*",
+#                "arn:aws:s3:::modal-example-dbt-duckdb-s3"
 #             "Sid": "duckdbs3access"
 #         }
 #     ],
