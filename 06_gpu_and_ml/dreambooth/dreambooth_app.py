@@ -34,8 +34,8 @@ from modal import (
     Image,
     Mount,
     Secret,
-    Volume,
     Stub,
+    Volume,
     asgi_app,
     method,
 )
@@ -282,6 +282,7 @@ class Model:
     def __enter__(self):
         import torch
         from diffusers import DDIMScheduler, StableDiffusionPipeline
+
         # Reload the modal.Volume to ensure the latest state is accessible.
         stub.app.volume.reload()
 
