@@ -4,7 +4,7 @@ import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
 import Footer from "./components/Footer";
 import Spinner from "./components/Spinner";
-import teckStackImgUrl from './whisper-app-tech-stack.png'
+import teckStackImgUrl from "./whisper-app-tech-stack.png";
 import { Search as SearchIcon } from "react-feather";
 
 function truncate(str: string, n: number) {
@@ -14,10 +14,12 @@ function truncate(str: string, n: number) {
 function NonEnglishLanguageWarning() {
   return (
     <div className="text-yellow-600">
-      <span className="mr-2" role="img" aria-label="warning sign">⚠️</span>
+      <span className="mr-2" role="img" aria-label="warning sign">
+        ⚠️
+      </span>
       Detected non-English podcast. Transcription may be garbage, but amusing.
     </div>
-  )
+  );
 }
 
 function PodcastCard({ podcast }) {
@@ -29,8 +31,9 @@ function PodcastCard({ podcast }) {
       <p className="text-gray-700 text-base py-4">
         {truncate(podcast.description, 200)}
       </p>
-      {podcast.language && !podcast.language.startsWith("en") ?
-        <NonEnglishLanguageWarning /> : null}
+      {podcast.language && !podcast.language.startsWith("en") ? (
+        <NonEnglishLanguageWarning />
+      ) : null}
     </Link>
   );
 }
@@ -62,11 +65,7 @@ function Form({ onSubmit, searching }) {
   return (
     <form className="flex flex-col space-y-5 items-center">
       <div>
-        <a
-          href="https://modal.com"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="https://modal.com" target="_blank" rel="noopener noreferrer">
           <img src={teckStackImgUrl} height="300px" />
         </a>
       </div>
@@ -80,14 +79,33 @@ function Form({ onSubmit, searching }) {
 
       <div className="text-gray-700">
         <p className="mb-4">
-          <strong>Enter a query below to search millions of podcasts. Click on a search result and then pick an episode to transcribe.</strong>
+          <strong>
+            Enter a query below to search millions of podcasts. Click on a
+            search result and then pick an episode to transcribe.
+          </strong>
         </p>
         <p className="mb-1">
-          Try searching for 'ReactJS', 'data science', or 'software engineer career' podcasts.
+          Try searching for 'ReactJS', 'data science', or 'software engineer
+          career' podcasts.
         </p>
         <p className="mb-1">
-          <span>If you just want to see some transcripts, we ❤️ these tech podcasts: </span>
-          <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/972209"><em>On The Metal</em></a> and <a className="text-indigo-500 no-underline hover:underline" href="/#/podcast/603405"><em>CoRecursive</em></a>.
+          <span>
+            If you just want to see some transcripts, we ❤️ these tech podcasts:{" "}
+          </span>
+          <a
+            className="text-indigo-500 no-underline hover:underline"
+            href="/#/podcast/972209"
+          >
+            <em>On The Metal</em>
+          </a>{" "}
+          and{" "}
+          <a
+            className="text-indigo-500 no-underline hover:underline"
+            href="/#/podcast/603405"
+          >
+            <em>CoRecursive</em>
+          </a>
+          .
         </p>
       </div>
 

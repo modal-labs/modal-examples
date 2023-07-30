@@ -2,10 +2,9 @@
 # lambda-test: false
 # ---
 import fastapi
-from starlette.responses import HTMLResponse, RedirectResponse
-
-from modal import Stub, Image, asgi_app
+from modal import Image, Stub, asgi_app
 from modal.functions import FunctionCall
+from starlette.responses import HTMLResponse, RedirectResponse
 
 stub = Stub("example-poll")
 

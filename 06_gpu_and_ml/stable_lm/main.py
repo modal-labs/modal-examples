@@ -4,10 +4,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Union
 
+import modal
 from pydantic import BaseModel
 from typing_extensions import Annotated, Literal
-
-import modal
 
 requirements_txt_path = Path(__file__).resolve().parent / "requirements.txt"
 requirements_data = base64.b64encode(

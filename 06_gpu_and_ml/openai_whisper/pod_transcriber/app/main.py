@@ -12,9 +12,9 @@ from modal import (
     Dict,
     Image,
     Mount,
+    NetworkFileSystem,
     Period,
     Secret,
-    NetworkFileSystem,
     Stub,
     asgi_app,
 )
@@ -367,7 +367,6 @@ def transcribe_episode(
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
     import whisper
-
     from modal import container_app
 
     try:

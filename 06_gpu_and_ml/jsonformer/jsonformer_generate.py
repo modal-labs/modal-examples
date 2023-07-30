@@ -8,9 +8,9 @@
 # great tool for developing, benchmarking, and testing applications.
 
 
-import modal
-
 from typing import Any
+
+import modal
 
 # We will be using one of [Databrick's Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)
 # models, choosing for the smallest version with 3B parameters. Feel free to use any of the other models

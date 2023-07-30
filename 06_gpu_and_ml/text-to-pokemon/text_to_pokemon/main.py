@@ -10,7 +10,8 @@ import urllib.request
 from datetime import timedelta
 
 from modal import Mount, asgi_app, method
-from . import config, inpaint, pokemon_naming, ops
+
+from . import config, inpaint, ops, pokemon_naming
 from .config import stub, volume
 
 

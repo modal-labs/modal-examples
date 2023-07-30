@@ -18,8 +18,9 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Stub, Image, Secret, method
 import os
+
+from modal import Image, Secret, Stub, method
 
 
 # ## Define a container image

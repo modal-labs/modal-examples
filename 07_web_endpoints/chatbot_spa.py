@@ -21,7 +21,6 @@ from typing import Optional, Tuple
 import fastapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-
 from modal import Dict, Image, Mount, Stub, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"

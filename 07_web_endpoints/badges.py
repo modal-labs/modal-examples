@@ -8,7 +8,7 @@
 #
 # First let's start off by creating a Modal stub, and defining an image with the Python packages we're going to be using:
 
-from modal import Stub, Image, web_endpoint
+from modal import Image, Stub, web_endpoint
 
 stub = Stub(
     "example-web-badges",

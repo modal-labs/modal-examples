@@ -27,7 +27,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 
-from modal import Image, Period, NetworkFileSystem, Stub, asgi_app
+from modal import Image, NetworkFileSystem, Period, Stub, asgi_app
 
 stub = Stub("example-covid-datasette")
 datasette_image = (

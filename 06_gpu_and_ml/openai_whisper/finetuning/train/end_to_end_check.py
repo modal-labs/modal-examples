@@ -11,8 +11,8 @@ import pathlib
 import modal
 from transformers import Seq2SeqTrainingArguments
 
-from .config import app_config, DataTrainingArguments, ModelArguments
 from .__main__ import stub, train
+from .config import DataTrainingArguments, ModelArguments, app_config
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
 

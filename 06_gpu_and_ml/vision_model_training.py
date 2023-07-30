@@ -27,12 +27,11 @@ import sys
 from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
-
 from modal import (
     Image,
     Mount,
-    Secret,
     NetworkFileSystem,
+    Secret,
     Stub,
     asgi_app,
     method,

@@ -81,9 +81,9 @@ class Falcon40B_4bit:
     def __enter__(self):
         import torch
         from transformers import (
+            AutoModelForCausalLM,
             AutoTokenizer,
             BitsAndBytesConfig,
-            AutoModelForCausalLM,
         )
 
         model_name = "tiiuae/falcon-40b-instruct"
@@ -118,8 +118,8 @@ class Falcon40B_4bit:
     @method()
     def generate(self, prompt: str):
         from threading import Thread
-        from transformers import TextIteratorStreamer
-        from transformers import GenerationConfig
+
+        from transformers import GenerationConfig, TextIteratorStreamer
 
         tokenized = self.tokenizer(prompt, return_tensors="pt")
         input_ids = tokenized.input_ids
@@ -184,8 +184,9 @@ def cli(prompt: str = None):
 @stub.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
-    from fastapi.responses import StreamingResponse
     from itertools import chain
+
+    from fastapi.responses import StreamingResponse
 
     model = Falcon40B_4bit()
     return StreamingResponse(

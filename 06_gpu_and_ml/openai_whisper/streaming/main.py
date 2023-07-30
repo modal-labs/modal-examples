@@ -10,10 +10,9 @@ import tempfile
 import time
 from typing import Iterator
 
+import modal
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-
-import modal
 
 image = (
     modal.Image.debian_slim()

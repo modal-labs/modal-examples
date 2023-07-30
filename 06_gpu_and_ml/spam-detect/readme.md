@@ -41,6 +41,7 @@ The demo application showcases how to do all the major machine learning engineer
 ## Developing
 
 > Run all these commands in the project's directory: `cd "$(git rev-parse --show-toplevel)/ml/spam_detect"`.
+
 ### Testing
 
 Unit-tests exist in `tests/` and can be run with:
@@ -48,6 +49,7 @@ Unit-tests exist in `tests/` and can be run with:
 ```bash
 python3 -m pytest
 ```
+
 ### Training
 
 Any of the models can be trained using the `train.py` module.
@@ -55,6 +57,7 @@ Any of the models can be trained using the `train.py` module.
 ```bash
 python3 -m spam_detect.train
 ```
+
 ### Serving
 
 ```bash

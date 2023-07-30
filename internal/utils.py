@@ -1,10 +1,11 @@
 import json
 import re
 import warnings
-from pydantic import BaseModel
 from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
+
+from pydantic import BaseModel
 
 DEFAULT_DIRECTORY = Path(__file__).parent.parent
 

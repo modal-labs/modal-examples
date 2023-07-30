@@ -206,17 +206,17 @@ class Summarizer:
 @stub.local_entrypoint()
 def main():
     input = """
-    The 14-time major champion, playing in his first full PGA Tour event for almost 18 months, 
-    carded a level-par second round of 72, but missed the cut by four shots after his first-round 76. 
-    World number one Jason Day and US Open champion Dustin Johnson also missed the cut at Torrey Pines in San Diego. 
-    Overnight leader Rose carded a one-under 71 to put him on eight under. Canada's 
-    Adam Hadwin and USA's Brandt Snedeker are tied in second on seven under, while US PGA champion 
-    Jimmy Walker missed the cut as he finished on three over. Woods is playing in just his 
-    second tournament since 15 months out with a back injury. "It's frustrating not being 
-    able to have a chance to win the tournament," said the 41-year-old, who won his last major, 
-    the US Open, at the same course in 2008. "Overall today was a lot better than yesterday. 
-    I hit it better, I putted well again. I hit a lot of beautiful putts that didn't go in, but 
-    I hit it much better today, which was nice." Scotland's Martin Laird and England's Paul Casey 
+    The 14-time major champion, playing in his first full PGA Tour event for almost 18 months,
+    carded a level-par second round of 72, but missed the cut by four shots after his first-round 76.
+    World number one Jason Day and US Open champion Dustin Johnson also missed the cut at Torrey Pines in San Diego.
+    Overnight leader Rose carded a one-under 71 to put him on eight under. Canada's
+    Adam Hadwin and USA's Brandt Snedeker are tied in second on seven under, while US PGA champion
+    Jimmy Walker missed the cut as he finished on three over. Woods is playing in just his
+    second tournament since 15 months out with a back injury. "It's frustrating not being
+    able to have a chance to win the tournament," said the 41-year-old, who won his last major,
+    the US Open, at the same course in 2008. "Overall today was a lot better than yesterday.
+    I hit it better, I putted well again. I hit a lot of beautiful putts that didn't go in, but
+    I hit it much better today, which was nice." Scotland's Martin Laird and England's Paul Casey
     are both on two under, while Ireland's Shane Lowry is on level par.
     """
     model = Summarizer()

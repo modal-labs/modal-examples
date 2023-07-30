@@ -12,7 +12,7 @@
 
 - [ ] Example is testable in synthetic monitoring system, or `lambda-test: false` is added to example frontmatter
 - [ ] Example does _not_ require third-party dependencies to be installed locally
-- [ ] Example is documented with comments throughout, in a [_Literate Programming_](https://en.wikipedia.org/wiki/Literate_programming) style. 
+- [ ] Example is documented with comments throughout, in a [_Literate Programming_](https://en.wikipedia.org/wiki/Literate_programming) style.
 
 ## Outside contributors
 

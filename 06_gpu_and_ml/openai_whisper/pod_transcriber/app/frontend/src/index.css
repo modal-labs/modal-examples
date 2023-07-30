@@ -17,25 +17,25 @@
   @apply border-b;
 }
 
-.modal-barloader{
+.modal-barloader {
   margin-top: 10px;
-	width:0;
-	height: 10px;
-	border-right: 20px solid #333;
-	border-left: 0px solid #bbffaa;
-	box-shadow: 0 0 0 1px #bbffaa;
-	animation: modal-barloader infinite 4s linear;
+  width: 0;
+  height: 10px;
+  border-right: 20px solid #333;
+  border-left: 0px solid #bbffaa;
+  box-shadow: 0 0 0 1px #bbffaa;
+  animation: modal-barloader infinite 4s linear;
   filter: brightness(95%);
 }
 
-@keyframes modal-barloader{
-	0%{
-		border-right: 20px solid #333;
-		border-left: 0px solid #bbffaa;
-	}
-  
-	50%{
-		border-left: 20px solid #bbffaa;
-		border-right: 0px solid #333;
-	}
+@keyframes modal-barloader {
+  0% {
+    border-right: 20px solid #333;
+    border-left: 0px solid #bbffaa;
+  }
+
+  50% {
+    border-left: 20px solid #bbffaa;
+    border-right: 0px solid #333;
+  }
 }

@@ -24,7 +24,6 @@ import pathlib
 from dataclasses import dataclass, field
 
 from fastapi import FastAPI
-
 from modal import Image, Secret, Stub, asgi_app
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.

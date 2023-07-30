@@ -11,7 +11,6 @@ import pickle
 import random
 import string
 import subprocess
-
 from typing import (
     Any,
     Callable,
@@ -20,9 +19,8 @@ from typing import (
     Optional,
 )
 
-from . import config
-from . import dataset
-from .model_registry import ModelMetadata, TrainMetrics, SpamClassifier
+from . import config, dataset
+from .model_registry import ModelMetadata, SpamClassifier, TrainMetrics
 
 logger = config.get_logger()
 
