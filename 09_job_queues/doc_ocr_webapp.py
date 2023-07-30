@@ -23,7 +23,6 @@ from pathlib import Path
 
 import fastapi
 import fastapi.staticfiles
-
 from modal import Function, Mount, Stub, asgi_app
 
 stub = Stub("example-doc-ocr-webapp")

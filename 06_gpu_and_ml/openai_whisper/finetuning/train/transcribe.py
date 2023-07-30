@@ -3,11 +3,11 @@ import pathlib
 import sys
 from typing import TYPE_CHECKING
 
-from .config import app_config
-from .logs import get_logger
-
 import modal
 from modal.cli.volume import FileType
+
+from .config import app_config
+from .logs import get_logger
 
 if TYPE_CHECKING:
     from numpy import ndarray
@@ -70,8 +70,8 @@ def whisper_transcribe_audio(
 ) -> str:
     """Transcribes a single audio sample with a Whisper model, for demonstration purposes."""
     from transformers import (
-        WhisperProcessor,
         WhisperForConditionalGeneration,
+        WhisperProcessor,
     )
 
     # load model and processor

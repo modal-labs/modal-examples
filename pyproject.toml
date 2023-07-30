@@ -36,3 +36,8 @@ exclude = [
     "venv",
     "__pycache__",
 ]
+select = ['E', 'F', 'W', 'I']
+
+[tool.ruff.isort]
+combine-as-imports = true
+known-third-party = ["modal"]

@@ -5,9 +5,8 @@
 from typing import Optional
 
 from fastapi import FastAPI, Header
-from pydantic import BaseModel
-
 from modal import Image, Stub, asgi_app, web_endpoint
+from pydantic import BaseModel
 
 web_app = FastAPI()
 stub = Stub("example-fastapi-app")

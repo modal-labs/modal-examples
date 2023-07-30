@@ -16,8 +16,8 @@ from .pokemon_naming import (
     fetch_pokemon_names,
     generate_names,
     rnn_image,
-    train_rnn,
     rnn_names_output_path,
+    train_rnn,
 )
 
 

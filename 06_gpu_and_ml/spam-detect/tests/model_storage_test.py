@@ -1,7 +1,5 @@
 import pytest
-
-from spam_detect import model_storage
-from spam_detect import models
+from spam_detect import model_storage, models
 
 
 def dummy_classifier(email: str) -> models.Prediction:

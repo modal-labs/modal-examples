@@ -52,7 +52,13 @@ function ProgressBar({
 /**
  * Displays a transcription segment's text with start-end links to the original audio.
  */
-function SegmentView({ segment, original_download_link }: { segment: Segment; original_download_link: string }) {
+function SegmentView({
+  segment,
+  original_download_link,
+}: {
+  segment: Segment;
+  original_download_link: string;
+}) {
   return (
     <li className="pb-3 sm:pb-4 px-6 py-2 border-b border-gray-200 w-full rounded-t-lg">
       <div className="flex items-center space-x-4">
@@ -63,9 +69,7 @@ function SegmentView({ segment, original_download_link }: { segment: Segment; or
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-l text-right">
             <a
               title="listen"
-              href={`${original_download_link}#t=${Math.floor(
-                segment.start
-              )}`}
+              href={`${original_download_link}#t=${Math.floor(segment.start)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -76,9 +80,7 @@ function SegmentView({ segment, original_download_link }: { segment: Segment; or
           <div className="hover:bg-gray-200 text-gray-800 py-1 px-1 rounded-r text-right">
             <a
               title="listen"
-              href={`${original_download_link}#t=${Math.floor(
-                segment.end
-              )}`}
+              href={`${original_download_link}#t=${Math.floor(segment.end)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -113,7 +115,10 @@ function SegmentViewPlaceholder() {
 
 function ErrorCallout({ msg }: { msg: string }) {
   return (
-    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+    <div
+      className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+      role="alert"
+    >
       <strong className="font-bold">Error: </strong>
       <span className="block sm:inline">{msg}</span>
     </div>
@@ -147,7 +152,7 @@ function TranscribeProgress({
   onProgress: (p: number) => void;
 }) {
   const [finished, setFinished] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [status, setStatus] = useState<Status>();
   const [intervalId, setIntervalId] = useState<number>();
 
@@ -191,7 +196,9 @@ function TranscribeProgress({
           <span className="modal-barloader -rotate-[60deg]"></span>
           <span className="modal-barloader rotate-[60deg]"></span>
         </div>
-        <span className="pt-1"><strong>{containerCount} Modal containers running…</strong></span>
+        <span className="pt-1">
+          <strong>{containerCount} Modal containers running…</strong>
+        </span>
       </div>
       <ProgressBar
         completed={status?.done_segments ?? 0}
@@ -223,7 +230,7 @@ function TranscribeNow({
 
     const resp = await fetch(
       "/api/transcribe?" +
-      new URLSearchParams({ podcast_id: podcastId, episode_id: episodeId }),
+        new URLSearchParams({ podcast_id: podcastId, episode_id: episodeId }),
       { method: "POST" }
     );
 
@@ -236,7 +243,13 @@ function TranscribeNow({
   }, [isTranscribing]);
 
   if (isTranscribing && callId) {
-    return <TranscribeProgress callId={callId} onFinished={onFinished} onProgress={onProgress} />;
+    return (
+      <TranscribeProgress
+        callId={callId}
+        onFinished={onFinished}
+        onProgress={onProgress}
+      />
+    );
   }
 
   return (
@@ -255,7 +268,13 @@ function TranscribeNow({
 /**
  * Displays a completed episode transcript.
  */
-function Transcript({ segments, original_download_link }: { segments: Segment[], original_download_link: string }) {
+function Transcript({
+  segments,
+  original_download_link,
+}: {
+  segments: Segment[];
+  original_download_link: string;
+}) {
   return (
     <div className="mx-auto sm:max-w-4xl max-w-full py-8">
       <ul className="bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
@@ -278,7 +297,9 @@ function TranscriptPlaceholder({ segmentCount }: { segmentCount: number }) {
   return (
     <div className="mx-auto sm:max-w-4xl max-w-full py-8">
       <ul className="sm:min-w-[56em] bg-white rounded-lg border border-gray-200 sm:w-384 text-gray-900">
-        {[...Array(segmentCount)].map((_, i) => <SegmentViewPlaceholder key={i} />)}
+        {[...Array(segmentCount)].map((_, i) => (
+          <SegmentViewPlaceholder key={i} />
+        ))}
       </ul>
     </div>
   );
@@ -339,13 +360,15 @@ export default function Podcast() {
         </div>
       </div>
 
-
-      {!data.segments && (numFinishedSegments > 0) && (
+      {!data.segments && numFinishedSegments > 0 && (
         <TranscriptPlaceholder segmentCount={numFinishedSegments} />
       )}
 
       {data.segments && (
-        <Transcript segments={data.segments} original_download_link={data.metadata.original_download_link} />
+        <Transcript
+          segments={data.segments}
+          original_download_link={data.metadata.original_download_link}
+        />
       )}
     </div>
   );

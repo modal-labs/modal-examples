@@ -4,9 +4,9 @@
 # ---
 import asyncio
 import time
+
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-
 from modal import Stub, asgi_app, web_endpoint
 
 stub = Stub("example-fastapi-streaming")

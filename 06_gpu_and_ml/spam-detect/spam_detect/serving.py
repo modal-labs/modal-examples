@@ -1,5 +1,5 @@
 """
-Defines a serverless web API to expose trained models 
+Defines a serverless web API to expose trained models
 """
 from typing import Optional
 
@@ -8,8 +8,7 @@ from fastapi import FastAPI, Header
 from modal.cls import ClsMixin
 from pydantic import BaseModel
 
-from . import config
-from . import models
+from . import config, models
 from .app import stub, volume
 
 web_app = FastAPI()
@@ -66,13 +65,13 @@ async def handle_list_models():
 async def handle_classification(
     input_: ModelInput, model_id: Optional[str] = Header(None)
 ):
-    """
+    r"""
     Classify a body of text as spam or ham.
 
-    eg. 
-    
+    eg.
+
     ```bash
-    curl -X POST https://modal-labs--example-spam-detect-llm-web.modal.run/api/v1/classify \ 
+    curl -X POST https://modal-labs--example-spam-detect-llm-web.modal.run/api/v1/classify \
     -H 'Content-Type: application/json' \
     -H 'Model-Id: sha256.12E5065BE4C3F7D2F79B7A0FD203380869F6E308DCBB4B8C9579FFAE6F32B837' \
     -d '{"text": "hello world"}'

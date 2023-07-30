@@ -34,15 +34,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-
 from modal import (
     Image,
     Mount,
     Stub,
-    method,
     asgi_app,
+    method,
 )
-
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -100,7 +98,7 @@ image = (
 )
 class ObjectDetection:
     def __enter__(self):
-        from transformers import DetrImageProcessor, DetrForObjectDetection
+        from transformers import DetrForObjectDetection, DetrImageProcessor
 
         self.feature_extractor = DetrImageProcessor.from_pretrained(
             model_repo_id,

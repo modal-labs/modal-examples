@@ -3,8 +3,8 @@
 #
 # Based on the work done in https://huggingface.co/blog/fine-tune-whisper.
 
-import pathlib
 import os
+import pathlib
 import sys
 from dataclasses import dataclass
 from typing import Any, Union
@@ -53,8 +53,7 @@ def train(
     import datasets
     import evaluate
     import torch
-    from datasets import load_dataset, DatasetDict
-    from transformers.trainer_utils import get_last_checkpoint, is_main_process
+    from datasets import DatasetDict, load_dataset
     from transformers import (
         AutoConfig,
         AutoFeatureExtractor,
@@ -63,6 +62,7 @@ def train(
         AutoTokenizer,
         Seq2SeqTrainer,
     )
+    from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
     @dataclass
     class DataCollatorSpeechSeq2SeqWithPadding:

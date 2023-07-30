@@ -74,8 +74,8 @@ stub = Stub(name="example-falcon-gptq", image=image)
 @stub.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
     def __enter__(self):
-        from transformers import AutoTokenizer
         from auto_gptq import AutoGPTQForCausalLM
+        from transformers import AutoTokenizer
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             IMAGE_MODEL_DIR, use_fast=True
@@ -95,6 +95,7 @@ class Falcon40BGPTQ:
     @method()
     def generate(self, prompt: str):
         from threading import Thread
+
         from transformers import TextIteratorStreamer
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
@@ -144,8 +145,9 @@ def cli():
 @stub.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
-    from fastapi.responses import StreamingResponse
     from itertools import chain
+
+    from fastapi.responses import StreamingResponse
 
     model = Falcon40BGPTQ()
     return StreamingResponse(

@@ -4,7 +4,6 @@ import pathlib
 import sys
 
 import pytest
-
 from utils import (
     DEFAULT_DIRECTORY,
     ExampleType,

@@ -1,11 +1,10 @@
 import pathlib
 
-from . import config
-from . import podcast
+from . import config, podcast
 from .main import (
-    stub,
     app_image,
     split_silences,
+    stub,
     transcribe_episode,
     transcribe_segment,
     volume,

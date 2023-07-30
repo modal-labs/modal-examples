@@ -14,21 +14,19 @@ import math
 import pathlib
 import re
 from collections import defaultdict
+from typing import (
+    Optional,
+    Protocol,
+    cast,
+)
 
-from . import config
-from . import model_storage
+from . import config, model_storage
 from .dataset import Example
 from .model_registry import (
     ModelMetadata,
-    TrainMetrics,
     Prediction,
     SpamClassifier,
-)
-
-from typing import (
-    cast,
-    Optional,
-    Protocol,
+    TrainMetrics,
 )
 
 Dataset = list[Example]
@@ -125,11 +123,14 @@ class LLMSpamClassifier:
 def train_llm_classifier(
     dataset: Dataset, dry_run: bool = False
 ) -> tuple[LLMSpamClassifier, TrainMetrics]:
-    import numpy as np
     import evaluate
-    from transformers import AutoModelForSequenceClassification
-    from transformers import AutoTokenizer
-    from transformers import TrainingArguments, Trainer
+    import numpy as np
+    from transformers import (
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+        Trainer,
+        TrainingArguments,
+    )
 
     logger = config.get_logger()
 
@@ -226,8 +227,10 @@ class LLM(SpamModel):
     def load(
         self, sha256_digest: str, model_registry_root: pathlib.Path
     ) -> SpamClassifier:
-        from transformers import AutoTokenizer
-        from transformers import AutoModelForSequenceClassification
+        from transformers import (
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+        )
 
         # TODO: refactor to use model_storage module for loading.
         model_path = model_registry_root / sha256_digest

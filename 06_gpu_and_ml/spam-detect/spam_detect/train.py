@@ -24,9 +24,7 @@ from datetime import timedelta
 
 import modal
 
-from . import config
-from . import dataset
-from . import models
+from . import config, dataset, models
 from .app import stub
 
 
