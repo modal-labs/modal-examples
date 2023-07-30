@@ -33,7 +33,7 @@ stub = modal.Stub("example-doc-ocr-jobs")
 #
 # `donut` downloads the weights for pre-trained models to a local directory, if those weights don't already exist.
 # To decrease start-up time, we want this download to happen just once, even across separate function invocations.
-# To accomplish this, we use the [`Image.run_function`](docs/reference/modal.Image#run_function) method, which allows
+# To accomplish this, we use the [`Image.run_function`](/docs/reference/modal.Image#run_function) method, which allows
 # us to run some code at image build time to save the model weights into the image.
 
 CACHE_PATH = "/root/model_cache"
