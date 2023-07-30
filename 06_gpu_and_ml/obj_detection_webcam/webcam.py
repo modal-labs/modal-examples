@@ -38,27 +38,41 @@ from fastapi.staticfiles import StaticFiles
 from modal import (
     Image,
     Mount,
-    Secret,
-    NetworkFileSystem,
     Stub,
     method,
     asgi_app,
 )
 
-# We mainly need to install [transformers](https://github.com/huggingface/transformers)
+
+# We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
+#
+# This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
+# one at image build time using the `download_model` function and saved into the image.
+# 'Baking' models into the `modal.Image` at build time provided the fastest cold start.
+
+model_repo_id = "facebook/detr-resnet-50"
+
+
+def download_model():
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
+
 
 stub = Stub("example-webcam-object-detection")
 image = (
     Image.debian_slim()
     .pip_install(
+        "huggingface-hub==0.16.4",
         "Pillow",
         "timm",
         "transformers",
     )
     .apt_install("fonts-freefont-ttf")
+    .run_function(download_model)
 )
 
 
@@ -69,8 +83,8 @@ image = (
 # * There's a container initialization step in the `__enter__` method, which
 #   runs on every container start. This lets us load the model only once per
 #   container, so that it's reused for subsequent function calls.
-# * We store the model in a network file system. This lets us download the model only
-#   the first time the function is ever called.
+# * Above we stored the model in the container image. This lets us download the model only
+#   when the image is (re)built, and not everytime the function is called.
 # * We're running it on multiple CPUs for extra performance
 #
 # Note that the function takes an image and returns a new image.
@@ -82,21 +96,19 @@ image = (
 
 @stub.cls(
     cpu=4,
-    network_file_systems={"/cache": NetworkFileSystem.new()},
     image=image,
-    secret=Secret.from_dict(
-        {"TORCH_HOME": "/cache", "TRANSFORMERS_CACHE": "/cache"}
-    ),
 )
 class ObjectDetection:
     def __enter__(self):
-        from transformers import DetrFeatureExtractor, DetrForObjectDetection
+        from transformers import DetrImageProcessor, DetrForObjectDetection
 
-        self.feature_extractor = DetrFeatureExtractor.from_pretrained(
-            "facebook/detr-resnet-50"
+        self.feature_extractor = DetrImageProcessor.from_pretrained(
+            model_repo_id,
+            cache_dir="/cache",
         )
         self.model = DetrForObjectDetection.from_pretrained(
-            "facebook/detr-resnet-50"
+            model_repo_id,
+            cache_dir="/cache",
         )
 
     @method()
@@ -113,8 +125,12 @@ class ObjectDetection:
         inputs = self.feature_extractor(image, return_tensors="pt")
         outputs = self.model(**inputs)
         img_size = torch.tensor([tuple(reversed(image.size))])
-        processed_outputs = self.feature_extractor.post_process(
-            outputs, img_size
+        processed_outputs = (
+            self.feature_extractor.post_process_object_detection(
+                outputs=outputs,
+                target_sizes=img_size,
+                threshold=0,
+            )
         )
         output_dict = processed_outputs[0]
 
@@ -131,7 +147,7 @@ class ObjectDetection:
         )
         output_image = Image.new("RGBA", (image.width, image.height))
         output_image_draw = ImageDraw.Draw(output_image)
-        for score, box, label in zip(scores, boxes, labels):
+        for _score, box, label in zip(scores, boxes, labels):
             color = colors[label % len(colors)]
             text = self.model.config.id2label[label]
             box = tuple(map(int, box))

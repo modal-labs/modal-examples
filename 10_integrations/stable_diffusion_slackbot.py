@@ -16,7 +16,7 @@ import io
 import os
 from typing import Optional
 
-from modal import Image, Secret, NetworkFileSystem, Stub, web_endpoint
+from modal import Image, Secret, Stub, web_endpoint
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -40,57 +40,68 @@ stub = Stub("example-stable-diff-bot")
 #
 # ![create a huggingface token](./huggingface_token.png)
 #
-# ### Model cache
+# ### Model caching
 #
 # The `diffusers` library downloads the weights for a pre-trained model to a local
 # directory, if those weights don't already exist. To decrease start-up time, we want
 # this download to happen just once, even across separate function invocations.
-# To accomplish this, we use a [`NetworkFileSystem`](/docs/guide/shared-volumes), a
-# writable volume that can be attached to Modal functions and persisted across function runs.
-
-volume = NetworkFileSystem.persisted("stable-diff-model-vol")
-
-# ### The actual function
-#
-# Now that we have our token and `NetworkFileSystem` set up, we can put everything together.
-#
-# Let's define a function that takes a text prompt and an optional channel name
-# (so we can post results to Slack if the value is set) and runs stable diffusion.
-# The `@stub.function()` decorator declares all the resources this function will
-# use: we configure it to use a GPU, run on an image that has all the packages we
-# need to run the model, mount the `NetworkFileSystem` to a path of our choice, and
-# also provide it the secret that contains the token we created above.
-#
-# By setting the `cache_dir` argument for the model to the mount path of our
-# `NetworkFileSystem`, we ensure that the model weights are downloaded only once.
+# To accomplish this, we use simple function that will run at image build time and save the model into
+# the image's filesystem.
 
 CACHE_PATH = "/root/model_cache"
 
 
-@stub.function(
-    gpu="A10G",
-    image=(
-        Image.debian_slim()
-        .run_commands(
-            "pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"
-        )
-        .pip_install("diffusers", "transformers", "scipy", "ftfy", "accelerate")
-    ),
-    network_file_systems={CACHE_PATH: volume},
-    secret=Secret.from_name("huggingface-secret"),
-)
-async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
+def fetch_model(local_files_only: bool = False):
     from diffusers import StableDiffusionPipeline
     from torch import float16
 
-    pipe = StableDiffusionPipeline.from_pretrained(
+    return StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
         use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
-        revision="fp16",
+        variant="fp16",
         torch_dtype=float16,
-        cache_dir=CACHE_PATH,
         device_map="auto",
+        cache_dir=CACHE_PATH,  # reads model saved in the modal.Image's filesystem.
+        local_files_only=local_files_only,
     )
+
+
+image = (
+    Image.debian_slim()
+    .run_commands(
+        "pip install torch --extra-index-url https://download.pytorch.org/whl/cu117"
+    )
+    .pip_install(
+        "diffusers",
+        "huggingface-hub",
+        "safetensors",
+        "transformers",
+        "scipy",
+        "ftfy",
+        "accelerate",
+    )
+    .run_function(fetch_model, secret=Secret.from_name("huggingface-secret"))
+)
+
+# ### The actual function
+#
+# Now that we have our token and `modal.Image` set up, we can put everything together.
+#
+# Let's define a function that takes a text prompt and an optional channel name
+# (so we can post results to Slack if the value is set) and runs stable diffusion.
+# The `@stub.function()` decorator declares all the resources this function will
+# use: we configure it to use a GPU, run on an image that has all the packages and files we
+# need to run the model, and
+# also provide it the secret that contains the token we created above.
+
+
+@stub.function(
+    gpu="A10G",
+    image=image,
+    secret=Secret.from_name("huggingface-secret"),
+)
+async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
+    pipe = fetch_model(local_files_only=True)
 
     image = pipe(prompt, num_inference_steps=100).images[0]
 
