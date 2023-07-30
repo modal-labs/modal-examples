@@ -38,7 +38,6 @@ from fastapi.staticfiles import StaticFiles
 from modal import (
     Image,
     Mount,
-    Secret,
     Stub,
     method,
     asgi_app,
