@@ -1,15 +1,9 @@
 repos:
-  - repo: https://github.com/hadialqattan/pycln
-    rev: v1.1.0
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: "v0.0.277"
     hooks:
-      - id: pycln
-        args: ["-a"]
-  - repo: https://github.com/pycqa/isort
-    rev: 5.11.5
-    hooks:
-      - id: isort
-        name: isort (python)
-        args: ["--filter-files"]
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
   - repo: https://github.com/ambv/black
     rev: 22.3.0
     hooks:
