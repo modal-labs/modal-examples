@@ -210,9 +210,8 @@ def entrypoint(
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `modal run stable_diffusion_cli.py --help`
-
-
-# # Performance
+#
+# ## Performance
 #
 # This example can generate pictures in about a second, with startup time of about 10s for the first picture.
 #

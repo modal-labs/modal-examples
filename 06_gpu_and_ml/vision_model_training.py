@@ -98,7 +98,7 @@ def download_dataset():
     return path
 
 
-# ## Training a vision model with FastAI.
+# ## Training a vision model with FastAI
 #
 # To address the CIFAR-10 image classification problem, we use the high-level fastAI framework
 # to train a Deep Residual Network (https://arxiv.org/pdf/1512.03385.pdf) with 18-layers, called `resnet18`.
