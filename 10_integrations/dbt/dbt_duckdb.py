@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "dbt_duckdb.py::run", "--command", "run"]
+# cmd: ["modal", "run", "10_integrations/dbt/dbt_duckdb.py::run", "--command", "run"]
 # ---
 #
 # This example contains a minimal but capable cloud data warehouse.
@@ -81,8 +81,10 @@ dbt_target = modal.NetworkFileSystem.persisted("dbt-target")
 #         {
 #             "Action": "s3:*",
 #             "Effect": "Allow",
-#                "arn:aws:s3:::modal-example-dbt-duckdb-s3/*",
-#                "arn:aws:s3:::modal-example-dbt-duckdb-s3"
+#             "Resource": [
+#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3/*",
+#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3"
+#             ],
 #             "Sid": "duckdbs3access"
 #         }
 #     ],
