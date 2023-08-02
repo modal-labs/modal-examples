@@ -80,8 +80,12 @@ def debug():
     dbt_cli.call(["debug"])
 
 
+# Only used in testing to disable interactivity.
+interactivity_enabled = os.environ.get("AWS_LAMBDA_RUNTIME_API") is None
+
+
 @stub.function(
-    interactive=True,
+    interactive=interactivity_enabled,
     network_file_systems={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),
