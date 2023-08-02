@@ -15,7 +15,7 @@
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models
 # by using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [network volumes](/docs/guide/network-volumes#network-volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
+# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [volumes](/docs/guide/volumes#volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
 #
 # And with some light customization, you can use it to generate images of your pet!
 #
