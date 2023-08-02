@@ -73,7 +73,9 @@ image = (
     .pip_install("hf-transfer~=0.1")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
-        download_model_to_folder, secret=Secret.from_name("huggingface")
+        download_model_to_folder,
+        secret=Secret.from_name("huggingface"),
+        timeout=60 * 20,
     )
 )
 
