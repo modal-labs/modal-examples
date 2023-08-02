@@ -24,6 +24,7 @@
 
 import os
 import subprocess
+import sys
 import typing
 from pathlib import Path
 
@@ -81,7 +82,7 @@ def debug():
 
 
 @stub.function(
-    interactive=True,
+    interactive=sys.stdout.isatty(),
     network_file_systems={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),
