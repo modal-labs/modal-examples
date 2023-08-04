@@ -1,6 +1,7 @@
 # Modal stub setup
-from modal import Image, Secret, Stub, method, asgi_app
 import os
+
+from modal import Image, Secret, Stub, asgi_app
 
 
 # Avoid using global variables in the download function
@@ -36,9 +37,6 @@ stub = Stub("vllm-openai", image=image)
 @stub.cls(gpu="A100", keep_warm=1, concurrency_limit=1)
 class Server:
     async def __aenter__(self):
-        import asyncio
-        import json
-
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
         from vllm.transformers_utils.tokenizer import get_tokenizer
@@ -66,29 +64,28 @@ class Server:
         # Modified from vLLM repo
         # https://github.com/vllm-project/vllm/blob/79af7e96a0e2fc9f340d1939192122c3ae38ff17/vllm/entrypoints/openai/api_server.py
 
-        from http import HTTPStatus
         import time
+        from http import HTTPStatus
         from typing import AsyncGenerator, Dict, List, Optional
-        from packaging import version
 
         import fastapi
         from fastapi import BackgroundTasks, Request
         from fastapi.exceptions import RequestValidationError
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import JSONResponse, StreamingResponse
-
+        from packaging import version
         from vllm.entrypoints.openai.protocol import (
-            CompletionRequest,
-            CompletionResponse,
-            CompletionResponseChoice,
-            CompletionResponseStreamChoice,
-            CompletionStreamResponse,
             ChatCompletionRequest,
             ChatCompletionResponse,
             ChatCompletionResponseChoice,
             ChatCompletionResponseStreamChoice,
             ChatCompletionStreamResponse,
             ChatMessage,
+            CompletionRequest,
+            CompletionResponse,
+            CompletionResponseChoice,
+            CompletionResponseStreamChoice,
+            CompletionStreamResponse,
             DeltaMessage,
             ErrorResponse,
             LogProbs,
