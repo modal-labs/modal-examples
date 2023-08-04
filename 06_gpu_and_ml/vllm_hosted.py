@@ -2,15 +2,33 @@ import time
 import os
 import json
 
-from modal import Stub, Mount, Image, Secret, Dict, asgi_app, web_endpoint, method, gpu
+from modal import (
+    Stub,
+    Mount,
+    Image,
+    Secret,
+    Dict,
+    asgi_app,
+    web_endpoint,
+    method,
+    gpu,
+)
 
 from pathlib import Path
 
 MODEL_DIR = "/model"
+
+
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
-    snapshot_download("meta-llama/Llama-2-13b-chat-hf", local_dir=MODEL_DIR, local_dir_use_symlinks=False, token=os.environ["HUGGINGFACE_TOKEN"])
+    snapshot_download(
+        "meta-llama/Llama-2-13b-chat-hf",
+        local_dir=MODEL_DIR,
+        local_dir_use_symlinks=False,
+        token=os.environ["HUGGINGFACE_TOKEN"],
+    )
+
 
 vllm_image = (
     Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
@@ -21,14 +39,23 @@ vllm_image = (
     .pip_install(
         "vllm @ git+https://github.com/vllm-project/vllm.git@d7a1c6d614756b3072df3e8b52c0998035fb453f"
     )
-    .run_function(download_model_to_folder, secret=Secret.from_name("huggingface"))
+    .run_function(
+        download_model_to_folder, secret=Secret.from_name("huggingface")
+    )
 )
 
 stub = Stub("llama-demo")
 stub.dict = Dict.new()
 
+
 # vLLM class
-@stub.cls(gpu=gpu.A100(), image=vllm_image, allow_concurrent_inputs=60, concurrency_limit=1, container_idle_timeout=600)
+@stub.cls(
+    gpu=gpu.A100(),
+    image=vllm_image,
+    allow_concurrent_inputs=60,
+    concurrency_limit=1,
+    container_idle_timeout=600,
+)
 class Engine:
     def __enter__(self):
         from vllm.engine.arg_utils import AsyncEngineArgs
@@ -40,7 +67,7 @@ class Engine:
         engine_args = AsyncEngineArgs(
             model=MODEL_DIR,
             # Only uses 90% of GPU memory by default
-            gpu_memory_utilization=0.95
+            gpu_memory_utilization=0.95,
         )
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -51,7 +78,7 @@ If a question does not make any sense, or is not factually coherent, explain why
 <</SYS>>
 
 {} [/INST] """
-    
+
     def generated(self, n: int):
         # Log that n tokens have been generated
         t = time.time()
@@ -60,10 +87,10 @@ If a question does not make any sense, or is not factually coherent, explain why
         if t - self.last_report > 1.0:
             stub.app.dict.update(
                 tps=self.generated_tokens / (t - self.last_report),
-                t=self.last_report
+                t=self.last_report,
             )
             self.last_report, self.generated_tokens = t, 0
-    
+
     @method()
     async def completion(self, question: str):
         if not question:
@@ -80,12 +107,14 @@ If a question does not make any sense, or is not factually coherent, explain why
             max_tokens=1024,
         )
         request_id = random_uuid()
-        results_generator = self.engine.generate(self.template.format(question), sampling_params, request_id)
+        results_generator = self.engine.generate(
+            self.template.format(question), sampling_params, request_id
+        )
 
         t0 = time.time()
         index, tokens = 0, 0
         async for request_output in results_generator:
-            if '\ufffd' == request_output.outputs[0].text[-1]:
+            if "\ufffd" == request_output.outputs[0].text[-1]:
                 continue
             yield request_output.outputs[0].text[index:]
             index = len(request_output.outputs[0].text)
@@ -102,6 +131,7 @@ If a question does not make any sense, or is not factually coherent, explain why
 
 # Front-end functionality
 frontend_path = Path(__file__).parent / "vllm-hosted"
+
 
 @stub.function(
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
@@ -142,9 +172,11 @@ def app():
         # FastAPI will run this in a separate thread
         def generate():
             for chunk in Engine().completion.call(unquote(question)):
-                yield f'data: {json.dumps(dict(text=chunk), ensure_ascii=False)}\n\n'
+                yield f"data: {json.dumps(dict(text=chunk), ensure_ascii=False)}\n\n"
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 
-    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
+    web_app.mount(
+        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+    )
     return web_app
