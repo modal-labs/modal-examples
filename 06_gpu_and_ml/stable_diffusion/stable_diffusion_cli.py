@@ -32,11 +32,10 @@
 from __future__ import annotations
 
 import io
-import os
 import time
 from pathlib import Path
 
-from modal import Image, Secret, Stub, method
+from modal import Image, Stub, method
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -59,14 +58,11 @@ def download_models():
     import diffusers
     import torch
 
-    hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
-
     # Download scheduler configuration. Experiment with different schedulers
     # to identify one that works best for your use-case.
     scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
         model_id,
         subfolder="scheduler",
-        use_auth_token=hugging_face_token,
         cache_dir=cache_path,
     )
     scheduler.save_pretrained(cache_path, safe_serialization=True)
@@ -74,7 +70,6 @@ def download_models():
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
         model_id,
-        use_auth_token=hugging_face_token,
         revision="fp16",
         torch_dtype=torch.float16,
         cache_dir=cache_path,
@@ -98,10 +93,7 @@ image = (
         find_links="https://download.pytorch.org/whl/torch_stable.html",
     )
     .pip_install("xformers", pre=True)
-    .run_function(
-        download_models,
-        secrets=[Secret.from_name("huggingface-secret")],
-    )
+    .run_function(download_models)
 )
 stub.image = image
 
