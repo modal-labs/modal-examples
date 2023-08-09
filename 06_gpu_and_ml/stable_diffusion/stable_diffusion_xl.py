@@ -111,9 +111,9 @@ class Model:
 
         import io
 
-        image_bytes = io.BytesIO()
-        image.save(image_bytes, format="PNG")
-        image_bytes = image_bytes.getvalue()
+        byte_stream = io.BytesIO()
+        image.save(byte_stream, format="PNG")
+        image_bytes = byte_stream.getvalue()
 
         return image_bytes
 
