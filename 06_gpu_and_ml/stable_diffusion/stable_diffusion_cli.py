@@ -9,6 +9,8 @@
 # that makes it run faster on Modal. The example takes about 10s to cold start
 # and about 1.0s per image generated.
 #
+# To use the new XL 1.0 model, see the example posted [here](/docs/guide/ex/stable_diffusion_xl).
+#
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
 #
