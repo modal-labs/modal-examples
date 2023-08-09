@@ -15,7 +15,10 @@
         Stable Diffusion XL 1.0 on Modal
       </h2>
 
-      <form @submit.prevent="submitPrompt" class="flex items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4">
+      <form
+        @submit.prevent="submitPrompt"
+        class="flex items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4"
+      >
         <input
           x-data
           x-model="prompt"
@@ -47,7 +50,11 @@
       </form>
 
       <div class="mx-auto w-full max-w-[768px] relative grid">
-        <div style="padding-top: 100%;" x-show="loading" class="absolute w-full h-full animate-pulse bg-neutral-100 rounded-md"></div>
+        <div
+          style="padding-top: 100%"
+          x-show="loading"
+          class="absolute w-full h-full animate-pulse bg-neutral-100 rounded-md"
+        ></div>
         <img
           x-show="imageURL"
           class="rounded-md self-center justify-self-center"
@@ -64,28 +71,30 @@
           submitted: "",
           submittedFeatures: [],
           loading: false,
-          imageURL: '',
+          imageURL: "",
           async submitPrompt() {
             if (!this.prompt) return;
             this.submitted = this.prompt;
-            this.submittedFeatures = [...this.features]; 
+            this.submittedFeatures = [...this.features];
             this.loading = true;
 
-            const queryString = new URLSearchParams(this.features.map((f) => ['features', f])).toString();
+            const queryString = new URLSearchParams(
+              this.features.map((f) => ["features", f])
+            ).toString();
             const res = await fetch(`/infer/${this.submitted}?${queryString}`);
-            
-            console.log("res returned ... but so slow?");
+
             const blob = await res.blob();
-            console.log("got blob")
             this.imageURL = URL.createObjectURL(blob);
             this.loading = false;
             console.log(this.imageURL);
           },
           toggleFeature(featureName) {
             let index = this.features.indexOf(featureName);
-            index == -1 ? this.features.push(featureName) : this.features.splice(index, 1);
-          }
-        }
+            index == -1
+              ? this.features.push(featureName)
+              : this.features.splice(index, 1);
+          },
+        };
       }
     </script>
   </body>
