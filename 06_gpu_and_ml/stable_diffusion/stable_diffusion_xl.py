@@ -139,7 +139,7 @@ def main(prompt: str):
 #
 # The Model class will serve multiple users from a its own shared pool of warm GPU containers automatically.
 #
-# We can deploy this with `modal deploy stable_diffusino_xl.py`.
+# We can deploy this with `modal deploy stable_diffusion_xl.py`.
 
 frontend_path = Path(__file__).parent / "frontend"
 
