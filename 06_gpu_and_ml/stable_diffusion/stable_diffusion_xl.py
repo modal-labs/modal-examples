@@ -131,7 +131,7 @@ class Model:
 def main(prompt: str):
     image_bytes = Model().inference.call(prompt)
 
-    dir = Path("/tmp/stable-diffusion")
+    dir = Path("/tmp/stable-diffusion-xl")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
 
