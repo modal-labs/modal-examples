@@ -61,7 +61,9 @@ logdir = "/tensorboard"
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
 
 
-@stub.function(network_file_systems={logdir: stub.volume}, gpu="any", timeout=600)
+@stub.function(
+    network_file_systems={logdir: stub.volume}, gpu="any", timeout=600
+)
 def train():
     import pathlib
 
