@@ -1,7 +1,8 @@
 # ---
+# output-directory: "/tmp/stable-diffusion-xl"
 # args: ["--prompt", "An astronaut riding a green horse"]
+# runtimes: ["runc", "gvisor"]
 # ---
-#
 # # Stable Diffusion XL 1.0
 #
 # This example is similar to the [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
@@ -130,7 +131,11 @@ class Model:
 def main(prompt: str):
     image_bytes = Model().inference.call(prompt)
 
-    output_path = "output.png"
+    dir = Path("/tmp/stable-diffusion-xl")
+    if not dir.exists():
+        dir.mkdir(exist_ok=True, parents=True)
+
+    output_path = dir / "output.png"
     print(f"Saving it to {output_path}")
     with open(output_path, "wb") as f:
         f.write(image_bytes)
