@@ -1,3 +1,7 @@
+# ---
+# args: ["--prompt", "An astronaut riding a green horse"]
+# ---
+#
 # # Stable Diffusion XL 1.0
 #
 # This example is similar to the [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
