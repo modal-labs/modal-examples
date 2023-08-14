@@ -49,9 +49,9 @@ async def many_consumers(q: modal.queue.QueueHandle):
 
 
 async def main():
-    with stub.run() as app:
-        await run_async.call.aio(app.q)
-        await many_consumers.call.aio(app.q)
+    with stub.run():
+        await run_async.call.aio(stub.q)
+        await many_consumers.call.aio(stub.q)
 
 
 if __name__ == "__main__":
