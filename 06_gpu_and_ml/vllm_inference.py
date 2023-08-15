@@ -67,8 +67,8 @@ image = (
     )
     # Pinned to 08/15/2023
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@805de738f618f8b47ab0d450423d23db1e636fa2", 
-        "typing-extensions==4.5.0", # >=4.6 causes typing issues
+        "vllm @ git+https://github.com/vllm-project/vllm.git@805de738f618f8b47ab0d450423d23db1e636fa2",
+        "typing-extensions==4.5.0",  # >=4.6 causes typing issues
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .pip_install("hf-transfer~=0.1")
@@ -97,17 +97,19 @@ class Model:
 
         # Load the model. Tip: MPT models may require `trust_remote_code=true`.
         self.llm = LLM(MODEL_DIR)
-        self.template = f"""<s>[INST] <<SYS>>
-{{system}}
+        self.template = """<s>[INST] <<SYS>>
+{system}
 <</SYS>>
 
-{{user}} [/INST] """
+{user} [/INST] """
 
     @method()
     def generate(self, user_questions):
         from vllm import SamplingParams
 
-        prompts = [self.template.format(system="", user=q) for q in user_questions]
+        prompts = [
+            self.template.format(system="", user=q) for q in user_questions
+        ]
         sampling_params = SamplingParams(
             temperature=0.75,
             top_p=1,
