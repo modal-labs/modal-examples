@@ -50,8 +50,8 @@ async def many_consumers(q: modal.queue.QueueHandle):
 
 async def main():
     with stub.run():
-        await run_async.call.aio(stub.q)
-        await many_consumers.call.aio(stub.q)
+        await run_async.remote.aio(stub.q)
+        await many_consumers.remote.aio(stub.q)
 
 
 if __name__ == "__main__":

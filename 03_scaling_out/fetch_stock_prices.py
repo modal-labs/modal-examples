@@ -103,7 +103,7 @@ def plot_stocks():
     fig, ax = pyplot.subplots(figsize=(8, 5))
 
     # Get data
-    tickers = list(get_stocks.call())
+    tickers = list(get_stocks.remote())
     if not tickers:
         raise RuntimeError("Retrieved zero stock tickers!")
     data = list(get_prices.map(tickers))
@@ -155,7 +155,7 @@ OUTPUT_DIR = "/tmp/"
 @stub.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    data = plot_stocks.call()
+    data = plot_stocks.remote()
     filename = os.path.join(OUTPUT_DIR, "stock_prices.png")
     print(f"saving data to {filename}")
     with open(filename, "wb") as f:

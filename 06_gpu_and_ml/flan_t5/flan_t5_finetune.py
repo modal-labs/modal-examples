@@ -234,7 +234,7 @@ def main():
     are both on two under, while Ireland's Shane Lowry is on level par.
     """
     model = Summarizer()
-    response = model.generate.call(input)
+    response = model.generate.remote(input)
     print(response)
 
 

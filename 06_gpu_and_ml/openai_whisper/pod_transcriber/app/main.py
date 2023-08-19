@@ -82,7 +82,7 @@ def populate_podcast_metadata(podcast_id: str):
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
 
-    episodes = fetch_episodes.call(
+    episodes = fetch_episodes.remote(
         show_name=pod_metadata.title, podcast_id=podcast_id
     )
 
@@ -403,7 +403,7 @@ def process_episode(podcast_id: str, episode_id: str):
             )
             logger.info("Skipping transcription.")
         else:
-            transcribe_episode.call(
+            transcribe_episode.remote(
                 audio_filepath=destination_path,
                 result_path=transcription_path,
                 model=model,
@@ -453,5 +453,5 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 def search_entrypoint(name: str):
     # To search for a podcast, run:
     # modal run app.main --name "search string"
-    for pod in search_podcast.call(name):
+    for pod in search_podcast.remote(name):
         print(pod)

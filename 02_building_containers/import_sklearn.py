@@ -50,6 +50,6 @@ def fit():
 if __name__ == "__main__":
     t0 = time.time()
     with stub.run():
-        t = fit.call()
+        t = fit.remote()
         print("Function time spent:", t)
     print("Full time spent:", time.time() - t0)

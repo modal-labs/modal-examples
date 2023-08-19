@@ -122,7 +122,7 @@ def roc_plot(labels, predictions):
 @stub.local_entrypoint()
 def main():
     print("Downloading data...")
-    data = get_data.call()
+    data = get_data.remote()
     print("Got", len(data), "reviews")
     reviews = [review for review, label in data]
     labels = [label for review, label in data]
@@ -130,7 +130,7 @@ def main():
     # Let's check that the model works by classifying the first 5 entries
     predictor = SentimentAnalysis()
     for review, label in data[:5]:
-        prediction = predictor.predict.call(review)
+        prediction = predictor.predict.remote(review)
         print(
             f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
         )
@@ -141,7 +141,7 @@ def main():
 
     # Generate a ROC plot
     print("Creating ROC plot...")
-    png_data = roc_plot.call(labels, predictions)
+    png_data = roc_plot.remote(labels, predictions)
     fn = "/tmp/roc.png"
     with open(fn, "wb") as f:
         f.write(png_data)

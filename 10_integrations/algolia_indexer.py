@@ -94,7 +94,7 @@ def crawl():
 @stub.function()
 @web_endpoint()
 def crawl_webhook():
-    crawl.call()
+    crawl.remote()
     return "Finished indexing docs"
 
 
@@ -122,4 +122,4 @@ def crawl_webhook():
 
 @stub.local_entrypoint()
 def run():
-    crawl.call()
+    crawl.remote()

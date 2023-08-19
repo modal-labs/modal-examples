@@ -93,7 +93,7 @@ def search_hackernews():
 
 @stub.function(schedule=modal.Period(days=1))
 def run_daily():
-    search_hackernews.call()
+    search_hackernews.remote()
 
 
 # In order to deploy this as a persistent cron job, you can run `modal deploy hackernews_alerts.py`,

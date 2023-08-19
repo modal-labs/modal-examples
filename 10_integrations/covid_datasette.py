@@ -200,8 +200,8 @@ def prep_db():
 @stub.function(schedule=Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
-    download_dataset.call(cache=False)
-    prep_db.call()
+    download_dataset.remote(cache=False)
+    prep_db.remote()
 
 
 # ## Webhook
@@ -238,9 +238,9 @@ def app():
 @stub.local_entrypoint()
 def run():
     print("Downloading COVID-19 dataset...")
-    download_dataset.call()
+    download_dataset.remote()
     print("Prepping SQLite DB...")
-    prep_db.call()
+    prep_db.remote()
 
 
 # You can go explore the data over at [modal-labs-covid-datasette-app.modal.run/covid-19/](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).

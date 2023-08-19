@@ -11,4 +11,4 @@ def square(x):
 
 @stub.local_entrypoint()
 def main():
-    print("the square is", square.call(42))
+    print("the square is", square.remote(42))

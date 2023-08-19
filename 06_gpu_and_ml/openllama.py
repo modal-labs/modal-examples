@@ -125,7 +125,7 @@ def main():
     ]
     model = OpenLlamaModel()
     for input in inputs:
-        model.generate.call(
+        model.generate.remote(
             input,
             top_p=0.75,
             top_k=40,

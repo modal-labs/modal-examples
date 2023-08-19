@@ -73,12 +73,12 @@ def dbt_cli(subcommand: typing.List):
 
 @stub.local_entrypoint()
 def run():
-    dbt_cli.call(["run"])
+    dbt_cli.remote(["run"])
 
 
 @stub.local_entrypoint()
 def debug():
-    dbt_cli.call(["debug"])
+    dbt_cli.remote(["debug"])
 
 
 @stub.function(

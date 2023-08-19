@@ -46,6 +46,6 @@ def flask_app():
         # This is less efficient, but demonstrates how web serving
         # containers can be separated from and cooperate with other
         # containers.
-        return generate_rows.call(), {"Content-Type": "text/csv"}
+        return generate_rows.remote(), {"Content-Type": "text/csv"}
 
     return web_app

@@ -128,7 +128,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     fn = os.path.join(output_dir, "nyc_taxi_chart.png")
-    png_data = create_plot.call()
+    png_data = create_plot.remote()
     with open(fn, "wb") as f:
         f.write(png_data)
     print(f"wrote output to {fn}")

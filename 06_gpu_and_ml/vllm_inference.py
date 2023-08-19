@@ -196,4 +196,4 @@ def main():
         "Who were the 'Dog-Headed Saint' and the 'Lion-Faced Saint' in medieval Christian traditions?",
         "What is the story of the 'Globsters', unidentified organic masses washed up on the shores?",
     ]
-    model.generate.call(questions)
+    model.generate.remote(questions)

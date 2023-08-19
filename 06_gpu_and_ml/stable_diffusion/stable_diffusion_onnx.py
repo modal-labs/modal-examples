@@ -98,7 +98,7 @@ def entrypoint(
     sd = StableDiffusion()
     for i in range(samples):
         t0 = time.time()
-        images = sd.run_inference.call(prompt, steps, batch_size)
+        images = sd.run_inference.remote(prompt, steps, batch_size)
         total_time = time.time() - t0
         print(
             f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image)."
