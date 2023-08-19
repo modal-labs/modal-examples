@@ -34,5 +34,5 @@ def generate_text(prompt: str):
 
 @stub.local_entrypoint()
 def main(prompt: str = ""):
-    generation = generate_text.call(prompt=prompt or "Show me the meaning of")
+    generation = generate_text.remote(prompt=prompt or "Show me the meaning of")
     print(generation)

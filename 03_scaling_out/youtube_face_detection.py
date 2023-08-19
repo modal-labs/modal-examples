@@ -148,7 +148,7 @@ def process_video(url):
 
 @stub.local_entrypoint()
 def main(youtube_url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
-    fn, movie_data = process_video.call(youtube_url)
+    fn, movie_data = process_video.remote(youtube_url)
     abs_fn = os.path.join(OUTPUT_DIR, fn)
     print(f"writing results to {abs_fn}")
     with open(abs_fn, "wb") as f:

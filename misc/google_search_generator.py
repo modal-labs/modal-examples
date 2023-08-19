@@ -33,5 +33,5 @@ def scrape(query):
 
 @stub.local_entrypoint()
 def main(query: str = "modal"):
-    for url in scrape.call(query):
+    for url in scrape.remote(query):
         print(url)

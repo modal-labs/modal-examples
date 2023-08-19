@@ -504,7 +504,7 @@ def main() -> int:
         ) = parser.parse_args_into_dataclasses(args)
 
         logger.info("Starting training")
-        result = train.call(model_args, data_args, training_args)
+        result = train.remote(model_args, data_args, training_args)
         logger.info(result)
     return 0
 

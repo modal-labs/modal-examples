@@ -88,7 +88,7 @@ def delete_model(
 def list_models() -> None:
     """Show all models in registry."""
     with stub.run():
-        models = _list_models.call()
+        models = _list_models.remote()
     newest_to_oldest = sorted(
         [(key, value) for key, value in models.items()],
         key=lambda item: item[1].save_date,

@@ -336,7 +336,7 @@ def fastapi_app():
 
     # Call to the GPU inference function on Modal.
     def go(text):
-        return Model().inference.call(text, config)
+        return Model().inference.remote(text, config)
 
     # set up AppConfig
     config = AppConfig()
@@ -397,4 +397,4 @@ def fastapi_app():
 def run():
     with open(TrainConfig().instance_example_urls_file) as f:
         instance_example_urls = [line.strip() for line in f.readlines()]
-    train.call(instance_example_urls)
+    train.remote(instance_example_urls)

@@ -97,5 +97,5 @@ def main():
         },
     }
 
-    result = generate.call(prompt, json_schema)
+    result = generate.remote(prompt, json_schema)
     print(result)

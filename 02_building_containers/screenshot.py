@@ -69,7 +69,7 @@ async def screenshot(url):
 @stub.local_entrypoint()
 def main(url: str = "https://modal.com"):
     filename = pathlib.Path("/tmp/screenshots/screenshot.png")
-    data = screenshot.call(url)
+    data = screenshot.remote(url)
     filename.parent.mkdir(exist_ok=True)
     with open(filename, "wb") as f:
         f.write(data)

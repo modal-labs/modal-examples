@@ -94,7 +94,7 @@ async def podcasts_endpoint(request: Request):
     form = await request.form()
     name = form["podcast"]
     podcasts_response = []
-    for pod in search_podcast.call(name):
+    for pod in search_podcast.remote(name):
         podcasts_response.append(dataclasses.asdict(pod))
     return podcasts_response
 

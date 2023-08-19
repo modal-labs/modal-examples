@@ -237,13 +237,13 @@ async def transcribe_cli(data: bytes, suffix: str):
 @stub.local_entrypoint()
 def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
     if path.startswith("https"):
-        data = download_mp3_from_youtube.call(path)
+        data = download_mp3_from_youtube.remote(path)
         suffix = ".mp3"
     else:
         filepath = pathlib.Path(path)
         data = filepath.read_bytes()
         suffix = filepath.suffix
-    transcribe_cli.call(
+    transcribe_cli.remote(
         data,
         suffix=suffix,
     )

@@ -59,7 +59,7 @@ def sync_fake_video_streamer():
 @web_endpoint()
 def hook():
     return StreamingResponse(
-        sync_fake_video_streamer.call(), media_type="text/event-stream"
+        sync_fake_video_streamer.remote(), media_type="text/event-stream"
     )
 
 

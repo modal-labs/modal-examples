@@ -60,7 +60,7 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
     with io.BytesIO() as buf:
         image.save(buf, format="PNG")
         if channel_name:
-            post_to_slack.call(prompt, channel_name, buf.getvalue())
+            post_to_slack.remote(prompt, channel_name, buf.getvalue())
         return buf.getvalue()
 
 
@@ -88,7 +88,7 @@ OUTPUT_DIR = "/tmp/render"
 def main(prompt: str = "martha stewart at burning man"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "output.png")
-    img_bytes = run_minidalle.call(prompt, None)
+    img_bytes = run_minidalle.remote(prompt, None)
     with open(output_path, "wb") as f:
         f.write(img_bytes)
     print(f"Done! Your DALL-E output image is at '{output_path}'")

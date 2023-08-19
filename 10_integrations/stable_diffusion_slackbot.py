@@ -112,7 +112,7 @@ async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
 
     if channel_name:
         # `post_image_to_slack` is implemented further below.
-        post_image_to_slack.call(prompt, channel_name, img_bytes)
+        post_image_to_slack.remote(prompt, channel_name, img_bytes)
 
     return img_bytes
 
@@ -207,7 +207,7 @@ def run(
     output_dir: str = "/tmp/stable-diffusion",
 ):
     os.makedirs(output_dir, exist_ok=True)
-    img_bytes = run_stable_diffusion.call(prompt)
+    img_bytes = run_stable_diffusion.remote(prompt)
     output_path = os.path.join(output_dir, "output.png")
     with open(output_path, "wb") as f:
         f.write(img_bytes)

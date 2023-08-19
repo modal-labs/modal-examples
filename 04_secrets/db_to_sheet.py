@@ -140,7 +140,7 @@ def main():
         "New York,NY,USA",
         "Tokyo,,Japan",
     ]
-    print(create_report.call(cities))
+    print(create_report.remote(cities))
 
 
 # Running the local entrypoint using `modal run db_to_sheet.py` should print something like:
@@ -189,9 +189,9 @@ def update_sheet_report(rows):
 
 @stub.function(schedule=modal.Cron("0 0 * * *"))
 def db_to_sheet():
-    rows = get_db_rows.call()
-    report = create_report.call(rows)
-    update_sheet_report.call(report)
+    rows = get_db_rows.remote()
+    report = create_report.remote(rows)
+    update_sheet_report.remote(report)
     print("Updated sheet with new weather distribution")
     for weather, count in report:
         print(f"{weather}: {count}")
