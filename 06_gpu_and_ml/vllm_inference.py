@@ -65,9 +65,10 @@ image = (
     .pip_install(
         "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
     )
-    # Pin vLLM to 07/19/2023
+    # Pinned to 08/15/2023
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@bda41c70ddb124134935a90a0d51304d2ac035e8"
+        "vllm @ git+https://github.com/vllm-project/vllm.git@805de738f618f8b47ab0d450423d23db1e636fa2",
+        "typing-extensions==4.5.0",  # >=4.6 causes typing issues
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .pip_install("hf-transfer~=0.1")
@@ -97,18 +98,18 @@ class Model:
         # Load the model. Tip: MPT models may require `trust_remote_code=true`.
         self.llm = LLM(MODEL_DIR)
         self.template = """<s>[INST] <<SYS>>
-You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
-
-If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.
+{system}
 <</SYS>>
 
-{} [/INST] """
+{user} [/INST] """
 
     @method()
     def generate(self, user_questions):
         from vllm import SamplingParams
 
-        prompts = [self.template.format(q) for q in user_questions]
+        prompts = [
+            self.template.format(system="", user=q) for q in user_questions
+        ]
         sampling_params = SamplingParams(
             temperature=0.75,
             top_p=1,
