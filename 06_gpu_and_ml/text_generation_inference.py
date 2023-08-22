@@ -165,7 +165,8 @@ def main():
 
 # ## Serve the model
 # Once we deploy this model with `modal deploy text_generation_inference.py`, we can serve it
-# behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available [here]().
+# behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available
+# [here](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/llm-frontend/index.html).
 #
 # You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
 
