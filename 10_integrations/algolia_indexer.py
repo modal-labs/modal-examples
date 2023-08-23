@@ -55,7 +55,7 @@ CONFIG = {
         "lvl2": "article h2",
         "lvl3": "article h3",
         "lvl4": "article h4",
-        "text": "article p,article ol,article ul",
+        "text": "article p,article ol,article ul,article pre",
     },
 }
 
@@ -117,7 +117,7 @@ def crawl_webhook():
 # ## Entrypoint for development
 #
 # To make it easier to test this, we also have an entrypoint for when you run
-# `python algolia_indexer.py`
+# `modal run algolia_indexer.py`
 
 
 @stub.local_entrypoint()
