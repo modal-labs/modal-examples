@@ -24,7 +24,7 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 
 N_GPUS = 4
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
-# Add ["--quantize", "gptq"] for TheBloke GPTQ models.
+# Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = ["--model-id", MODEL_ID]
 
 # ## Define a container image
@@ -85,11 +85,11 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 # container ready.
 #
 # Here, we also
-# - specify the secret so the `HUGGING_FACE_HUB_TOKEN` environment variable is set.
+# - specify the secret so the `HUGGING_FACE_HUB_TOKEN` environment variable is set
 # - specify how many A100s we need per container
 # - specify that each container is allowed to handle up to 10 inputs (i.e. requests) simultaneously
 # - keep idle containers for 10 minutes before spinning down
-# - lift the timeout of each request
+# - lift the timeout of each request.
 
 
 @stub.cls(
@@ -152,8 +152,8 @@ class Model:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to map over our remote function
-# sequentially for a list of inputs. You can run this locally with `modal run text_generation_inference.py`.
+# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
+# our remote function. You can run this script locally with `modal run text_generation_inference.py`.
 @stub.local_entrypoint()
 def main():
     print(
@@ -176,7 +176,7 @@ frontend_path = Path(__file__).parent / "llm-frontend"
 @stub.function(
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
-    allow_concurrent_inputs=25,
+    allow_concurrent_inputs=10,
     timeout=60 * 10,
 )
 @asgi_app(label="tgi-app")
@@ -217,7 +217,7 @@ def app():
 # Once the model is deployed, we can invoke inference from other apps, sharing the same pool
 # of GPU containers with all other apps we might need.
 #
-# ````
+# ```
 # $ python
 # >>> import modal
 # >>> f = modal.Function.lookup("example-tgi-Llama-2-70b-chat-hf", "Model.generate")
