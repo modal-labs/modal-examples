@@ -18,7 +18,7 @@ stub = modal.Stub("example-queue-simple", q=modal.Queue.new())
 
 
 @stub.function()
-async def run_async(q: modal.queue.QueueHandle):
+async def run_async(q: modal.Queue) -> None:
     print(q)
     print(q.put)
     await q.put.aio(42)
@@ -33,7 +33,7 @@ async def run_async(q: modal.queue.QueueHandle):
 
 
 @stub.function()
-async def many_consumers(q: modal.queue.QueueHandle):
+async def many_consumers(q: modal.Queue) -> None:
     print("Creating getters")
     tasks = [asyncio.create_task(q.get.aio()) for i in range(20)]
     print("Putting values")
