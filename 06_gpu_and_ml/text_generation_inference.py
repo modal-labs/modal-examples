@@ -202,7 +202,9 @@ def app():
         from urllib.parse import unquote
 
         async def generate():
-            async for text in Model().generate_stream.remote_gen.aio(unquote(question)):
+            async for text in Model().generate_stream.remote_gen.aio(
+                unquote(question)
+            ):
                 yield f"data: {json.dumps(dict(text=text), ensure_ascii=False)}\n\n"
 
         return StreamingResponse(generate(), media_type="text/event-stream")
