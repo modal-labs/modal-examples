@@ -61,7 +61,7 @@ MODEL_DIR = "/model"
 # are saved within the container image.
 #
 image = (
-    Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
+    Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
         "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
     )

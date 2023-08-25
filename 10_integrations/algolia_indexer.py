@@ -23,7 +23,7 @@ from modal import Image, Secret, Stub, web_endpoint
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.8 and symlink that as the `python` executable instead.
 
-algolia_image = Image.from_dockerhub(
+algolia_image = Image.from_registry(
     tag="algolia/docsearch-scraper",
     setup_dockerfile_commands=[
         "RUN apt-get update",
