@@ -8,7 +8,6 @@
 
 from modal import Image, Stub
 
-
 stub = Stub()
 
 stub.image = Image.from_dockerhub(
@@ -21,6 +20,7 @@ stub.image = Image.from_dockerhub(
 
 # Now, we can create a function with GPU capabilities. Run this file with
 # `modal run install_cuda.py`.
+
 
 @stub.function(gpu="T4")
 def f():
