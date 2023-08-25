@@ -22,7 +22,7 @@ import time
 
 from modal import Image, NetworkFileSystem, Stub, wsgi_app
 
-dockerhub_image = Image.from_dockerhub(
+dockerhub_image = Image.from_registry(
     "tensorflow/tensorflow:latest-gpu",
 ).pip_install("protobuf==3.20.*")
 

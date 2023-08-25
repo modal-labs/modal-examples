@@ -10,7 +10,7 @@ from modal import Image, Stub
 
 stub = Stub()
 
-stub.image = Image.from_dockerhub(
+stub.image = Image.from_registry(
     "nvidia/cuda:12.2.0-devel-ubuntu22.04",
     setup_dockerfile_commands=[
         "RUN apt-get update",
