@@ -1,6 +1,6 @@
 # # Create an image with CUDA
 #
-# This example shows how you can create use the Nvidia CUDA base image from DockerHub.
+# This example shows how you can use the Nvidia CUDA base image from DockerHub.
 #
 # We need to install Python 3 and pip in `setup_dockerfile_commands` because the
 # base image doesn't have them by default. The commands to do this are specific
