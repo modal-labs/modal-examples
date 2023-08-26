@@ -197,7 +197,7 @@ def download_demo_files() -> None:
 
 
 image = (
-    Image.debian_slim()
+    Image.debian_slim(python_version="3.10")
     .pip_install(
         "gradio==3.16.2",
         "albumentations==1.3.0",
