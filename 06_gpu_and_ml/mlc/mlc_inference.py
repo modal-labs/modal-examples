@@ -6,7 +6,7 @@ import queue
 import threading
 
 image = (
-    modal.Image.from_dockerhub(
+    modal.Image.from_registry(
         "nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04",
         setup_dockerfile_commands=[
             "RUN apt-get update",
