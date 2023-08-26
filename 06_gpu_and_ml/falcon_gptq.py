@@ -133,7 +133,7 @@ prompt_template = (
 def cli():
     question = "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40BGPTQ()
-    for text in model.generate.remote(prompt_template.format(question)):
+    for text in model.generate.remote_gen(prompt_template.format(question)):
         print(text, end="", flush=True)
 
 
@@ -153,7 +153,7 @@ def get(question: str):
     return StreamingResponse(
         chain(
             ("Loading model. This usually takes around 20s ...\n\n"),
-            model.generate.remote(prompt_template.format(question)),
+            model.generate.remote_gen(prompt_template.format(question)),
         ),
         media_type="text/event-stream",
     )

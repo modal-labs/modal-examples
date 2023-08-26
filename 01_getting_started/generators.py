@@ -11,7 +11,7 @@ def f(i):
 
 @stub.local_entrypoint()
 def main():
-    for r in f.remote(10):
+    for r in f.remote_gen(10):
         print(r)
 
     for r in f.map(range(5)):

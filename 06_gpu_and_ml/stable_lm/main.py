@@ -307,7 +307,7 @@ def main():
         print(f"{q_style}{q}{q_end}\n{a}\n\n")
 
     print("Running example streaming completion:\n")
-    for part in StabilityLM().generate_stream.remote(
+    for part in StabilityLM().generate_stream.remote_gen(
         CompletionRequest(
             prompt="Generate a list of ten sure-to-be unicorn AI startup names.",
             max_tokens=128,

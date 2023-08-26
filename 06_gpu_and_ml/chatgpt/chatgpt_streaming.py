@@ -96,5 +96,5 @@ default_prompt = (
 
 @stub.local_entrypoint()
 def main(prompt: str = default_prompt):
-    for part in stream_chat.remote(prompt=prompt):
+    for part in stream_chat.remote_gen(prompt=prompt):
         print(part, end="")
