@@ -27,7 +27,7 @@ image = (
         "cd dist/prebuilt && git clone https://huggingface.co/mlc-ai/mlc-chat-Llama-2-13b-chat-hf-q4f16_1"
     )
 )
-stub = modal.Stub("lamma2-to-speech", image=image)
+stub = modal.Stub("mlc-inference", image=image)
 
 
 
