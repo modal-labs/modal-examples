@@ -186,7 +186,7 @@ def tensorboard_app():
 
 @stub.local_entrypoint()
 def main(just_run: bool = False):
-    train.call()
+    train.remote()
     if not just_run:
         print("Training is done, but app is still running until you hit ctrl-c")
         try:

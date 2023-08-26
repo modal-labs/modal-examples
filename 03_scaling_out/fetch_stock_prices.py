@@ -103,7 +103,7 @@ def plot_stocks():
     fig, ax = pyplot.subplots(figsize=(8, 5))
 
     # Get data
-    tickers = list(get_stocks.remote())
+    tickers = list(get_stocks.remote_gen())
     if not tickers:
         raise RuntimeError("Retrieved zero stock tickers!")
     data = list(get_prices.map(tickers))

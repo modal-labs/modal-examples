@@ -172,7 +172,7 @@ def cli(prompt: str = None):
         or "What are the main differences between Python and JavaScript programming languages?"
     )
     model = Falcon40B_4bit()
-    for text in model.generate.remote(prompt_template.format(question)):
+    for text in model.generate.remote_gen(prompt_template.format(question)):
         print(text, end="", flush=True)
 
 

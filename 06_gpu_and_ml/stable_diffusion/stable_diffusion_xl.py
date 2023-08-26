@@ -168,7 +168,7 @@ def app():
     async def infer(prompt: str):
         from fastapi.responses import Response
 
-        image_bytes = Model().inference.call(prompt)
+        image_bytes = Model().inference.remote(prompt)
 
         return Response(image_bytes, media_type="image/png")
 
