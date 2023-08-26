@@ -63,7 +63,7 @@ def download_model():
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.1")
+    Image.from_dockerhub("ghcr.io/huggingface/text-generation-inference:sha-e605c2a")
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(download_model, secret=Secret.from_name("huggingface"))
     .pip_install("text-generation")

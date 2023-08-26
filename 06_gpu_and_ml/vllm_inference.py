@@ -61,13 +61,10 @@ MODEL_DIR = "/model"
 # are saved within the container image.
 #
 image = (
-    Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
+    Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
+    # Pinned to 08/26/2023
     .pip_install(
-        "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
-    )
-    # Pinned to 08/15/2023
-    .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@805de738f618f8b47ab0d450423d23db1e636fa2",
+        "vllm @ git+https://github.com/vllm-project/vllm.git@4b6f069b6fbb4f2ef7d4c6a62140229be61c5dd3",
         "typing-extensions==4.5.0",  # >=4.6 causes typing issues
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
