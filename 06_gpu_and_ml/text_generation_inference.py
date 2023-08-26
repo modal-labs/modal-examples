@@ -63,7 +63,7 @@ def download_model():
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.1")
+    Image.from_dockerhub("ghcr.io/huggingface/text-generation-inference:sha-e605c2a")
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(download_model, secret=Secret.from_name("huggingface"))
     .pip_install("text-generation")
@@ -168,7 +168,7 @@ def main():
 # behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available
 # [here](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/llm-frontend/index.html).
 #
-# You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
+# You can try our deployment [here](https://modal-labs--tgi-app.modal.run).
 
 frontend_path = Path(__file__).parent / "llm-frontend"
 
