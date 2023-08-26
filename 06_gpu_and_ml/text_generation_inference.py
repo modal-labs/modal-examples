@@ -16,13 +16,13 @@ from pathlib import Path
 
 from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 
-# Next, we set which model to serve, taking care to specify the number of GPUs required
+# Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
 # Note that quantization does degrade token generation performance significantly.
 #
 # Any model supported by TGI can be chosen here.
 
-N_GPUS = 4
+GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = ["--model-id", MODEL_ID]
@@ -63,7 +63,9 @@ def download_model():
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.1")
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:sha-e605c2a"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(download_model, secret=Secret.from_name("huggingface"))
     .pip_install("text-generation")
@@ -94,7 +96,7 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 
 @stub.cls(
     secret=Secret.from_name("huggingface"),
-    gpu=gpu.A100(count=N_GPUS),
+    gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
     timeout=60 * 60,
@@ -168,7 +170,7 @@ def main():
 # behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available
 # [here](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/llm-frontend/index.html).
 #
-# You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
+# You can try our deployment [here](https://modal-labs--tgi-app.modal.run).
 
 frontend_path = Path(__file__).parent / "llm-frontend"
 
@@ -190,19 +192,21 @@ def app():
     web_app = fastapi.FastAPI()
 
     @web_app.get("/stats")
-    def stats():
-        stats = Model().generate_stream.get_current_stats()
+    async def stats():
+        stats = await Model().generate_stream.get_current_stats.aio()
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
         }
 
     @web_app.get("/completion/{question}")
-    def completion(question: str):
+    async def completion(question: str):
         from urllib.parse import unquote
 
-        def generate():
-            for text in Model().generate_stream.remote(unquote(question)):
+        async def generate():
+            async for text in Model().generate_stream.remote_gen.aio(
+                unquote(question)
+            ):
                 yield f"data: {json.dumps(dict(text=text), ensure_ascii=False)}\n\n"
 
         return StreamingResponse(generate(), media_type="text/event-stream")
