@@ -129,7 +129,7 @@ class Model:
 
 @stub.local_entrypoint()
 def main(prompt: str):
-    image_bytes = Model().inference.call(prompt)
+    image_bytes = Model().inference.remote(prompt)
 
     dir = Path("/tmp/stable-diffusion-xl")
     if not dir.exists():
