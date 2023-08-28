@@ -1,8 +1,8 @@
 # # Llama 2 inference with MLC
 #
 # [Machine Learning Compilation (MLC)](https://mlc.ai/mlc-llm/) is high-performance tool for serving
-# LLMs including Llama 2. We will use the `mlc_chat` and the pre-compiled
-# Llama 2 binaries to run inference using a Modal GPU.
+# LLMs including Llama 2. We will use the [`mlc_chat`](https://mlc.ai/mlc-llm/docs/index.html) package
+# and the pre-compiled Llama 2 binaries to run inference using a Modal GPU.
 #
 # This example is adapted from this [MLC chat collab](https://colab.research.google.com/github/mlc-ai/notebooks/blob/main/mlc-llm/tutorial_chat_module_getting_started.ipynb#scrollTo=yYwjsCOK7Jij).
 import queue
@@ -12,6 +12,8 @@ from typing import Dict, Generator, List
 
 import modal
 
+# ## Imports and global settings
+#
 # Determine which [GPU](https://modal.com/docs/guide/gpu#gpu-acceleration) you want to use.
 GPU: str = "a10g"
 
@@ -68,6 +70,8 @@ LOADING_MESSAGE: str = f"""
 """
 
 
+# ## Define Modal function
+#
 # The `generate` function will load MLC chat and the compiled model into
 # memory and run inference on an input prompt. This is a generator, streaming
 # tokens back to the client as they are generated.
@@ -120,12 +124,13 @@ def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
         yield {"type": "output", "message": queue_callback.queue.get()}
 
 
-# ## Run the model
+# ## Run model
+#
 # Create a local Modal entrypoint that call sthe `generate` function.
 # This uses the `curses` to render tokens as they are streamed back
 # from Modal.
 #
-# Run this locally with `modal run -q mlc_inference.py`
+# Run this locally with `modal run -q mlc_inference.py --prompt "What is serverless computing?"`
 @stub.local_entrypoint()
 def main(prompt: str):
     import curses
