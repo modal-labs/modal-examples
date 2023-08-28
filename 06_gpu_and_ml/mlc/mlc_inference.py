@@ -101,7 +101,7 @@ def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
         model=f"/dist/prebuilt/mlc-chat-Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1",
         lib_path=f"/dist/prebuilt/lib/Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1-cuda.so",
     )
-    queue_callback = QueueCallback(callback_interval=0.1)
+    queue_callback = QueueCallback(callback_interval=1)
 
     # Generate tokens in a background thread so we can yield tokens
     # to caller as a generator.
