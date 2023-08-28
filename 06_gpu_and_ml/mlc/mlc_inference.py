@@ -86,7 +86,7 @@ def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
 
         def __init__(self, callback_interval: float):
             super().__init__()
-            self.queue:queue.Queue = queue.Queue()
+            self.queue: queue.Queue = queue.Queue()
             self.stopped = False
             self.callback_interval = callback_interval
 
@@ -131,7 +131,7 @@ def main(prompt: str):
     import curses
 
     def _generate(stdscr):
-        buffer:List[str] = []
+        buffer: List[str] = []
 
         def _buffered_message():
             return "".join(buffer) + ("\n" * 4)
