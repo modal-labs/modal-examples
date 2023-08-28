@@ -1,8 +1,8 @@
 # # Llama 2 inference with MLC
 #
 # [Machine Learning Compilation (MLC)](https://mlc.ai/mlc-llm/) is high-performance tool for serving
-# LLMs including Llama 2. We will use the `mlc_chat` and the pre-compiled
-# Llama 2 binaries to run inference using a Modal GPU.
+# LLMs including Llama 2. We will use the [`mlc_chat`](https://mlc.ai/mlc-llm/docs/index.html) package
+# and the pre-compiled Llama 2 binaries to run inference using a Modal GPU.
 #
 # This example is adapted from this [MLC chat collab](https://colab.research.google.com/github/mlc-ai/notebooks/blob/main/mlc-llm/tutorial_chat_module_getting_started.ipynb#scrollTo=yYwjsCOK7Jij).
 import queue
