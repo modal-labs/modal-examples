@@ -5,12 +5,12 @@
 # Llama 2 binaries to run inference using a Modal GPU.
 #
 # This example is adapted from this [MLC chat collab](https://colab.research.google.com/github/mlc-ai/notebooks/blob/main/mlc-llm/tutorial_chat_module_getting_started.ipynb#scrollTo=yYwjsCOK7Jij).
-import time
-import modal
 import queue
 import threading
+import time
+from typing import Dict, Generator, List
 
-from typing import Generator, List, Dict
+import modal
 
 # Determine which [GPU](https://modal.com/docs/guide/gpu#gpu-acceleration) you want to use.
 GPU: str = "a10g"
