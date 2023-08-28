@@ -10,7 +10,7 @@ import modal
 import queue
 import threading
 
-# Determine which [GPU](https://modal.com/docs/guide/gpu#gpu-acceleration) you want to use. 
+# Determine which [GPU](https://modal.com/docs/guide/gpu#gpu-acceleration) you want to use.
 GPU: str = "a10g"
 
 # Chose model size. At the time of writing MLC chat only
@@ -63,6 +63,7 @@ LOADING_MESSAGE: str = f"""
                                    
 """
 
+
 # The `generate` function will load MLC chat and the compiled model into
 # memory and run inference on an input prompt. This is a generator, streaming
 # tokens back to the client as they are generated.
@@ -112,10 +113,7 @@ def generate(prompt: str) -> dict[str, str]:
     # Yield as a generator to caller function and spawn
     # text-to-speech functions.
     while not queue_callback.stopped:
-        yield {
-            "type": "output",
-            "message": queue_callback.queue.get()
-        }
+        yield {"type": "output", "message": queue_callback.queue.get()}
 
 
 # ## Run the model
@@ -149,7 +147,9 @@ def main(prompt: str):
 
         n_tokens = len(buffer)
         elapsed = time.time() - start
-        print(f"[DONE] {n_tokens} tokens generated in {elapsed:.2f}s. Press any key to exit.")
+        print(
+            f"[DONE] {n_tokens} tokens generated in {elapsed:.2f}s. Press any key to exit."
+        )
         stdscr.getch()
 
     curses.wrapper(_generate)
