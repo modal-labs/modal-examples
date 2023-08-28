@@ -48,7 +48,7 @@ from modal import (
 # and a system font for drawing.
 #
 # This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# one at image build time using the `download_model` function and saved into the image.
+# once at image build time using the `download_model` function and saved into the image.
 # 'Baking' models into the `modal.Image` at build time provided the fastest cold start.
 
 model_repo_id = "facebook/detr-resnet-50"
