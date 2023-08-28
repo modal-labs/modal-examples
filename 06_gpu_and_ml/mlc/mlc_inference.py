@@ -69,6 +69,7 @@ LOADING_MESSAGE: str = f"""
 
 """
 
+
 # ## Define Modal function
 #
 # The `generate` function will load MLC chat and the compiled model into
