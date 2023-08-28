@@ -40,7 +40,7 @@ image = (
 
 stub = Stub("vllm-serving", image=image)
 
-@stub.cls(gpu=gpu.A100(), secret=Secret.from_name("huggingface"), allow_concurrent_inputs=12)
+@stub.cls(gpu=gpu.A100(), secret=Secret.from_name("huggingface"), allow_concurrent_inputs=12, container_idle_timeout=300)
 class Model:
     def __enter__(self):
         from vllm.engine.arg_utils import AsyncEngineArgs
@@ -100,7 +100,7 @@ class Model:
         print(f"Request completed: {throughput:.4f} tokens/s")
         # print(request_output.outputs[0].text)
 
-@stub.function(timeout=60 * 10, allow_concurrent_inputs=10)
+@stub.function(timeout=60 * 10, allow_concurrent_inputs=12)
 @web_endpoint()
 def get(question: str):
     from itertools import chain
