@@ -9,61 +9,10 @@ import time
 import urllib.request
 from datetime import timedelta
 
-from modal import Image, Mount, SharedVolume, Stub, asgi_app
+from modal import Mount, asgi_app, method
 
-from . import config, inpaint, pokemon_naming
-
-
-def load_stable_diffusion_pokemon_model():
-    import torch
-    from diffusers import StableDiffusionPipeline
-
-    model_id = "lambdalabs/sd-pokemon-diffusers"
-    cache_dir = config.MODEL_CACHE / model_id
-    if cache_dir.exists():
-        print(f"Using diskcached model for '{model_id}'")
-        local_files_only = True
-        load_action = "loading"
-    else:
-        print(f"No diskcached model found for '{model_id}'")
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        local_files_only = False
-        load_action = "downloading"
-    load_start_time = time.time()
-    pipe = StableDiffusionPipeline.from_pretrained(
-        model_id,
-        torch_dtype=torch.float16,
-        cache_dir=cache_dir,
-        local_files_only=local_files_only,
-    )
-    print(
-        f"finished {load_action} model, took {time.time()-load_start_time:.3f}s."
-    )
-
-    if config.DISABLE_SAFETY:
-
-        def null_safety(images, **kwargs):
-            return images, False
-
-        pipe.safety_checker = null_safety
-    return pipe
-
-
-volume = SharedVolume().persist("txt-to-pokemon-cache-vol")
-image = (
-    Image.debian_slim()
-    .pip_install(
-        "accelerate",
-        "colorgram.py",
-        "diffusers~=0.11.1",
-        "ftfy",
-        "torch",
-        "transformers",
-        "scipy",
-    )
-    .run_function(load_stable_diffusion_pokemon_model)
-)
-stub = Stub(name="example-text-to-pokemon", image=image)
+from . import config, inpaint, ops, pokemon_naming
+from .config import stub, volume
 
 
 @dataclasses.dataclass(frozen=True)
@@ -112,11 +61,18 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
+@stub.cls(
+    gpu="A10G", network_file_systems={config.CACHE_DIR: volume}, keep_warm=1
+)
 class Model:
     def __enter__(self):
-        self.pipe = load_stable_diffusion_pokemon_model().to("cuda")
+        import threading
 
-    @stub.function(gpu="A10G")
+        if not pokemon_naming.rnn_names_output_path.exists():
+            threading.Thread(target=ops.generate_pokemon_names.remote).start()
+        self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
+
+    @method()
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
@@ -133,7 +89,7 @@ def normalize_prompt(p: str) -> str:
     return re.sub("[^a-z0-9- ]", "", p.lower())
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     start_time = time.monotonic()
     cached = False
@@ -154,7 +110,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     else:
         # 1. Create images (expensive)
         model = Model()
-        samples_data = model.text_to_pokemon.call(prompt=norm_prompt)
+        samples_data = model.text_to_pokemon.remote(prompt=norm_prompt)
         # 2. Save them (for later run to be cached)
         # Allow prior existence of dir because multiple concurrent requests for same prompt
         # can race each other.
@@ -195,7 +151,7 @@ def fastapi_app():
 
 @stub.function(
     image=inpaint.cv_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     interactive=False,
 )
 def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
@@ -270,7 +226,7 @@ def composite_pokemon_card(
         )
 
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name.call(
+    return inpaint_new_pokemon_name.remote(
         card_image=image_to_byte_array(back_im), prompt=prompt
     )
 
@@ -292,7 +248,7 @@ def color_dist(
     return delta_e
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     """
     Takes a single Pokémon sample and creates a Pokémon card image for it.
@@ -319,7 +275,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     )
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")
@@ -337,7 +293,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.
-        samples_data = diskcached_text_to_pokemon.call(prompt)
+        samples_data = diskcached_text_to_pokemon.remote(prompt)
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
             create_composite_card.starmap(
@@ -396,7 +352,7 @@ def closest_pokecard_by_color(sample: bytes, cards):
 
 @stub.local_entrypoint()
 def run_local(prompt: str):
-    images_data = diskcached_text_to_pokemon.call(prompt)
+    images_data = diskcached_text_to_pokemon.remote(prompt)
 
     now = int(time.time())
     for i, image_bytes in enumerate(images_data):

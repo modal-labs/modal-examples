@@ -94,7 +94,7 @@ async def podcasts_endpoint(request: Request):
     form = await request.form()
     name = form["podcast"]
     podcasts_response = []
-    for pod in search_podcast.call(name):
+    for pod in search_podcast.remote(name):
         podcasts_response.append(dataclasses.asdict(pod))
     return podcasts_response
 
@@ -129,7 +129,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
 
 @web_app.get("/api/status/{call_id}")
 async def poll_status(call_id: str):
-    from modal._call_graph import InputInfo, InputStatus
+    from modal.call_graph import InputInfo, InputStatus
     from modal.functions import FunctionCall
 
     function_call = FunctionCall.from_id(call_id)

@@ -1,12 +1,13 @@
 import json
 import re
 import warnings
-from pydantic import BaseModel
 from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
 
-DEFAULT_DIRECTORY = Path(__file__).parent
+from pydantic import BaseModel
+
+DEFAULT_DIRECTORY = Path(__file__).parent.parent
 
 
 with warnings.catch_warnings():
@@ -26,12 +27,12 @@ class Example(BaseModel):
     filename: str  # absolute filepath to example file
     module: Optional[
         str
-    ]  # python import path, or none if file is not a py module.
+    ] = None  # python import path, or none if file is not a py module.
     # TODO(erikbern): don't think the module is used (by docs or monitors)?
-    metadata: Optional[dict]
+    metadata: Optional[dict] = None
     repo_filename: str  # git repo relative filepath
-    cli_args: Optional[list]  # Full command line args to run it
-    stem: Optional[str]  # stem of path
+    cli_args: Optional[list] = None  # Full command line args to run it
+    stem: Optional[str] = None  # stem of path
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -136,7 +137,9 @@ def get_examples(
     for subdir in sorted(
         p
         for p in directory.iterdir()
-        if p.is_dir() and not p.name.startswith(".")
+        if p.is_dir()
+        and not p.name.startswith(".")
+        and not p.name.startswith("internal")
     ):
         yield from gather_example_files(
             parents=[], subdir=subdir, ignored=ignored, recurse=True

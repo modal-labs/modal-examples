@@ -1,9 +1,5 @@
-# ---
-# integration-test: false
-# output-directory: "/tmp/screenshots"
-# ---
 # # Screenshot with Chromium
-
+#
 # In this example, we use Modal functions and the `playwright` package to take screenshots
 # of websites from a list of URLs in parallel.
 #
@@ -39,7 +35,7 @@ image = modal.Image.debian_slim().run_commands(
     "apt-add-repository non-free",
     "apt-add-repository contrib",
     "apt-get update",
-    "pip install playwright==1.20.0",
+    "pip install playwright==1.30.0",
     "playwright install-deps chromium",
     "playwright install chromium",
 )
@@ -73,7 +69,7 @@ async def screenshot(url):
 @stub.local_entrypoint()
 def main(url: str = "https://modal.com"):
     filename = pathlib.Path("/tmp/screenshots/screenshot.png")
-    data = screenshot.call(url)
+    data = screenshot.remote(url)
     filename.parent.mkdir(exist_ok=True)
     with open(filename, "wb") as f:
         f.write(data)

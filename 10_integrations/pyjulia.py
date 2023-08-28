@@ -39,5 +39,5 @@ def julia_matrix_determinant():
 
 @stub.local_entrypoint()
 def run():
-    julia_subprocess.call()
-    julia_matrix_determinant.call()
+    julia_subprocess.remote()
+    julia_matrix_determinant.remote()

@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 import asyncio
 import io
 import logging
@@ -7,10 +10,9 @@ import tempfile
 import time
 from typing import Iterator
 
+import modal
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-
-import modal
 
 image = (
     modal.Image.debian_slim()
@@ -18,7 +20,7 @@ image = (
     .pip_install(
         "https://github.com/openai/whisper/archive/v20230314.tar.gz",
         "ffmpeg-python",
-        "pytube~=12.1.2",
+        "pytube @ git+https://github.com/felipeucelli/pytube",
     )
 )
 stub = modal.Stub(name="example-whisper-streaming", image=image)
@@ -221,7 +223,7 @@ async def transcribe(url: str):
 
 
 @stub.function()
-@stub.asgi_app()
+@modal.asgi_app()
 def web():
     return web_app
 
@@ -235,13 +237,13 @@ async def transcribe_cli(data: bytes, suffix: str):
 @stub.local_entrypoint()
 def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
     if path.startswith("https"):
-        data = download_mp3_from_youtube.call(path)
+        data = download_mp3_from_youtube.remote(path)
         suffix = ".mp3"
     else:
         filepath = pathlib.Path(path)
         data = filepath.read_bytes()
         suffix = filepath.suffix
-    transcribe_cli.call(
+    transcribe_cli.remote(
         data,
         suffix=suffix,
     )

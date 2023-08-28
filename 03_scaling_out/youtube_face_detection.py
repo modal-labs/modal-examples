@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # output-directory: "/tmp"
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Face detection on YouTube videos
 #
@@ -10,9 +11,9 @@
 # [pytube](https://pytube.io/en/latest/)
 # and
 # [moviepy](https://zulko.github.io/moviepy/)
-# to work with video files.
+# to process video files in parallel.
 #
-# The face detection is a quite simple model built into OpenCV
+# The face detection is a pretty simple model built into OpenCV
 # and is not state of the art.
 #
 # ## The result
@@ -23,10 +24,6 @@
 # <track kind="captions" />
 # </video>
 # </center>
-#
-# If you watched this, we succeeded
-# [rickrolling](https://en.wikipedia.org/wiki/Rickrolling)
-# you! 🤣
 #
 #
 # ## The Python code
@@ -43,11 +40,15 @@ FACE_CASCADE_FN = "haarcascade_frontalface_default.xml"
 
 image = (
     modal.Image.debian_slim()
+    .apt_install("libgl1-mesa-glx", "libglib2.0-0", "wget", "git")
     .run_commands(
-        "apt-get install -y libgl1-mesa-glx libglib2.0-0 wget",
-        f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root",
+        f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
     )
-    .pip_install("pytube", "opencv-python", "moviepy")
+    .pip_install(
+        "pytube @ git+https://github.com/oncename/pytube",
+        "opencv-python~=4.7.0.72",
+        "moviepy~=1.0.3",
+    )
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 
@@ -56,9 +57,9 @@ if stub.is_inside():
     import moviepy.editor
     import pytube
 
-# For temporary storage of movie clips, we use a "shared volume"
+# For temporary storage and sharing of downloaded movie clips, we use a network file system.
 
-stub.sv = modal.SharedVolume()
+stub.net_file_system = modal.NetworkFileSystem.new()
 
 # ### Face detection function
 #
@@ -67,12 +68,14 @@ stub.sv = modal.SharedVolume()
 # * A filename to the source clip
 # * A time slice denoted by start and a stop in seconds
 #
-# The function extracts the subclip from the movie file (which is stored on the shared volume),
+# The function extracts the subclip from the movie file (which is stored on the network file system),
 # runs face detection on every frame in its slice,
 # and stores the resulting video back to the shared storage.
 
 
-@stub.function(shared_volumes={"/clips": stub.sv}, timeout=600)
+@stub.function(
+    network_file_systems={"/clips": stub.net_file_system}, timeout=600
+)
 def detect_faces(fn, start, stop):
     # Extract the subclip from the video
     clip = moviepy.editor.VideoFileClip(fn).subclip(start, stop)
@@ -105,12 +108,12 @@ def detect_faces(fn, start, stop):
 # 3. Stitch the results back into a new video
 
 
-@stub.function(shared_volumes={"/clips": stub.sv})
+@stub.function(network_file_systems={"/clips": stub.net_file_system}, retries=1)
 def process_video(url):
     print(f"Downloading video from '{url}'")
     yt = pytube.YouTube(url)
     stream = yt.streams.filter(file_extension="mp4").first()
-    fn = stream.download(output_path="/clips/")
+    fn = stream.download(output_path="/clips/", max_retries=5)
 
     # Get duration
     duration = moviepy.editor.VideoFileClip(fn).duration
@@ -145,7 +148,7 @@ def process_video(url):
 
 @stub.local_entrypoint()
 def main(youtube_url: str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
-    fn, movie_data = process_video.call(youtube_url)
+    fn, movie_data = process_video.remote(youtube_url)
     abs_fn = os.path.join(OUTPUT_DIR, fn)
     print(f"writing results to {abs_fn}")
     with open(abs_fn, "wb") as f:

@@ -1,5 +1,6 @@
 # ---
-# cmd: ["modal", "run", "10_integrations.meltano.meltano_modal::extract_and_load"]
+# lambda-test: false
+# cmd: ["modal", "run", "10_integrations/meltano/meltano_modal.py::extract_and_load"]
 # ---
 import os
 import shutil
@@ -21,9 +22,9 @@ meltano_source_mount = modal.Mount.from_local_dir(
     condition=lambda path: not any(p.startswith(".") for p in Path(path).parts),
 )
 
-storage = modal.SharedVolume().persist("meltano_volume")
+storage = modal.NetworkFileSystem.persisted("meltano_volume")
 
-meltano_conf = modal.Secret(
+meltano_conf = modal.Secret.from_dict(
     {
         "MELTANO_PROJECT_ROOT": REMOTE_PROJECT_ROOT,
         "MELTANO_DATABASE_URI": f"sqlite:///{REMOTE_DB_PATH}",
@@ -46,7 +47,7 @@ meltano_img = (
     modal.Image.debian_slim()
     .apt_install("git")
     .pip_install("meltano")
-    .copy(meltano_source_mount)
+    .copy_mount(meltano_source_mount)
     .run_function(install_project_deps, secret=meltano_conf)
 )
 
@@ -58,7 +59,7 @@ stub = modal.Stub(
 
 
 def symlink_logs():
-    # symlink logs so that they end up in persisted shared volume
+    # symlink logs so that they end up in persisted network file system
     # we can get rid of this if meltano gets a way to configure
     # the logging directory
     if not REMOTE_LOGS_PATH.exists():
@@ -68,7 +69,7 @@ def symlink_logs():
 
 # Run this example using `modal run meltano_modal.py::extract_and_load`
 @stub.function(
-    shared_volumes={PERSISTED_VOLUME_PATH: storage},
+    network_file_systems={PERSISTED_VOLUME_PATH: storage},
     schedule=modal.Period(days=1),
 )
 def extract_and_load():
@@ -81,7 +82,7 @@ def extract_and_load():
 # Interactive sqlite3 exploration using `modal run meltano_modal.py::explore`
 @stub.function(
     interactive=True,
-    shared_volumes={PERSISTED_VOLUME_PATH: storage},
+    network_file_systems={PERSISTED_VOLUME_PATH: storage},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),
     secrets=[meltano_conf],

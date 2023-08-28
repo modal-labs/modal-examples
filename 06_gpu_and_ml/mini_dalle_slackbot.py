@@ -3,17 +3,30 @@ import os
 from typing import Optional
 
 from fastapi import Request
+from modal import Image, Secret, Stub, web_endpoint
 
-from modal import Image, Secret, SharedVolume, Stub, web_endpoint
+CACHE_PATH = "/root/model_cache"
+
+
+def load_model(device=None):
+    import torch
+    from min_dalle import MinDalle
+
+    # Instantiate the model, which has the side-effect of persisting
+    # the model to disk if it does not already exist.
+    return MinDalle(
+        models_root=CACHE_PATH,
+        dtype=torch.float32,
+        device=device,
+        is_mega=True,
+        is_reusable=True,
+    )
+
 
 stub = Stub(
     "example-dalle-bot",
-    image=Image.debian_slim().pip_install("min-dalle"),
+    image=Image.debian_slim().pip_install("min-dalle").run_function(load_model),
 )
-
-volume = SharedVolume().persist("dalle-model-vol")
-
-CACHE_PATH = "/root/model_cache"
 
 
 @stub.function(
@@ -29,18 +42,9 @@ def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     )
 
 
-@stub.function(gpu="A10G", shared_volumes={CACHE_PATH: volume})
+@stub.function(gpu="A10G")
 async def run_minidalle(prompt: str, channel_name: Optional[str]):
-    import torch
-    from min_dalle import MinDalle
-
-    model = MinDalle(
-        models_root=CACHE_PATH,
-        dtype=torch.float32,
-        device="cuda",
-        is_mega=True,
-        is_reusable=True,
-    )
+    model = load_model(device="cuda")
 
     image = model.generate_image(
         text=prompt,
@@ -56,7 +60,7 @@ async def run_minidalle(prompt: str, channel_name: Optional[str]):
     with io.BytesIO() as buf:
         image.save(buf, format="PNG")
         if channel_name:
-            post_to_slack.call(prompt, channel_name, buf.getvalue())
+            post_to_slack.remote(prompt, channel_name, buf.getvalue())
         return buf.getvalue()
 
 
@@ -84,7 +88,7 @@ OUTPUT_DIR = "/tmp/render"
 def main(prompt: str = "martha stewart at burning man"):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "output.png")
-    img_bytes = run_minidalle.call(prompt, None)
+    img_bytes = run_minidalle.remote(prompt, None)
     with open(output_path, "wb") as f:
         f.write(img_bytes)
     print(f"Done! Your DALL-E output image is at '{output_path}'")

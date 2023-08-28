@@ -33,26 +33,41 @@ stub = modal.Stub("example-doc-ocr-jobs")
 #
 # `donut` downloads the weights for pre-trained models to a local directory, if those weights don't already exist.
 # To decrease start-up time, we want this download to happen just once, even across separate function invocations.
-# To accomplish this, we use a [`SharedVolume`](/docs/guide/shared-volumes), a writable volume that can be attached
-# to Modal functions and persisted across function runs.
+# To accomplish this, we use the [`Image.run_function`](/docs/reference/modal.Image#run_function) method, which allows
+# us to run some code at image build time to save the model weights into the image.
 
-volume = modal.SharedVolume().persist("doc_ocr_model_vol")
 CACHE_PATH = "/root/model_cache"
+MODEL_NAME = "naver-clova-ix/donut-base-finetuned-cord-v2"
+
+
+def download_model_weights() -> None:
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(repo_id=MODEL_NAME, cache_dir=CACHE_PATH)
+
+
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "donut-python==1.0.7",
+        "huggingface-hub==0.16.4",
+        "transformers==4.21.3",
+        "timm==0.5.4",
+    )
+    .run_function(download_model_weights)
+)
 
 # ## Handler function
 #
 # Now let's define our handler function. Using the [@stub.function()](https://modal.com/docs/reference/modal.Stub#function)
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
-# has a [`SharedVolume`](/docs/guide/shared-volumes) mount, runs on a [custom container image](/docs/guide/custom-container),
+# runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
 
 
 @stub.function(
     gpu="any",
-    image=modal.Image.debian_slim().pip_install(
-        "donut-python==1.0.7", "transformers==4.21.3"
-    ),
-    shared_volumes={CACHE_PATH: volume},
+    image=image,
     retries=3,
 )
 def parse_receipt(image: bytes):
@@ -65,7 +80,8 @@ def parse_receipt(image: bytes):
     # Use donut fine-tuned on an OCR dataset.
     task_prompt = "<s_cord-v2>"
     pretrained_model = DonutModel.from_pretrained(
-        "naver-clova-ix/donut-base-finetuned-cord-v2", cache_dir=CACHE_PATH
+        MODEL_NAME,
+        cache_dir=CACHE_PATH,
     )
 
     # Initialize model.
@@ -91,7 +107,7 @@ def parse_receipt(image: bytes):
 # modal deploy doc_ocr_jobs.py
 # ```
 #
-# Once it's published, we can [look up](/docs/guide/sharing-functions) this function from another
+# Once it's published, we can [look up](/docs/guide/trigger-deployed-functions) this function from another
 # Python process and submit tasks to it:
 #
 # ```python
@@ -124,4 +140,4 @@ def main():
         image = urllib.request.urlopen(
             "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
         ).read()
-    print(parse_receipt.call(image))
+    print(parse_receipt.remote(image))

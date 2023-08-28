@@ -8,7 +8,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      
+
       - uses: actions/setup-python@v4
         with:
           python-version: "3.9"
@@ -19,8 +19,8 @@ jobs:
       - name: Black
         run: black --check .
 
-  flake8:
-    name: Flake8
+  ruff:
+    name: Ruff
     runs-on: ubuntu-20.04
 
     steps:
@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Install flake8
-        run: pip install flake8
+      - name: Install ruff
+        run: pip install ruff
 
-      - name: Check flake8
-        run: flake8 .
+      - name: Check lint with Ruff
+        run: ruff check .
 
   isort:
     name: Isort
@@ -49,7 +49,7 @@ jobs:
         run: pip install isort
 
       - name: Check isort
-        run: isort . -c -v --profile black
+        run: isort . --check-only --verbose
 
   mypy:
     name: MyPy
@@ -66,7 +66,24 @@ jobs:
         run: pip install mypy==0.950
 
       - name: Run
-        run: python3 example_mypy.py
+        run: python3 internal/typecheck.py
+
+  nbconvert:
+    name: NbConvert
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install NbConvert
+        run: pip install jupyter nbconvert
+
+      - name: Check notebooks are cleaned
+        run: |
+          jupyter nbconvert --clear-output --inplace 11_notebooks/*.ipynb
+          git diff --quiet && git diff --cached --quiet || exit 1
 
   pytest:
     name: Pytest
@@ -80,7 +97,7 @@ jobs:
           python-version: "3.9"
 
       - name: Install dev dependencies
-        run: pip install pytest jupytext
+        run: pip install pytest jupytext pydantic~=1.10
 
       - name: Install the Modal client
         run: pip install modal-client

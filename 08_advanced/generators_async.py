@@ -1,6 +1,6 @@
-import modal.aio
+import modal
 
-stub = modal.aio.AioStub("example-generators-async")
+stub = modal.Stub("example-generators-async")
 
 
 @stub.function()
@@ -11,8 +11,8 @@ def f(i):
 
 @stub.local_entrypoint()
 async def run_async():
-    async for r in f.call(10):
+    async for r in f.remote_gen.aio(10):
         print(r)
 
-    async for r in f.map(range(5)):
+    async for r in f.map.aio(range(5)):
         print(r)

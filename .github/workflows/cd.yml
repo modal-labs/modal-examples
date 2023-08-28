@@ -21,8 +21,8 @@ jobs:
           python-version: "3.9"
 
       - name: Install Modal client package and jupytext
-        run: pip install modal-client jupytext pydantic
+        run: pip install modal-client jupytext pydantic~=1.10
 
       - name: Run deployment script
         run: |
-          python3 example_deploy.py --no-dry-run
+          python3 internal/deploy.py --no-dry-run

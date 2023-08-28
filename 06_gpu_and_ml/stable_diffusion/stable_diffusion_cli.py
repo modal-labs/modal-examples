@@ -1,12 +1,15 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
 # args: ["--prompt", "An 1600s oil painting of the New York City skyline"]
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Stable Diffusion CLI
 #
 # This example shows Stable Diffusion 1.5 with a number of optimizations
 # that makes it run faster on Modal. The example takes about 10s to cold start
 # and about 1.0s per image generated.
+#
+# To use the new XL 1.0 model, see the example posted [here](/docs/guide/ex/stable_diffusion_xl).
 #
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
@@ -31,22 +34,15 @@
 from __future__ import annotations
 
 import io
-import os
 import time
 from pathlib import Path
 
-from modal import Image, Secret, Stub, method
+from modal import Image, Stub, method
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
 stub = Stub("stable-diffusion-cli")
-
-# We will be using `typer` to create our CLI interface.
-
-import typer
-
-app = typer.Typer()
 
 # ## Model dependencies
 #
@@ -64,14 +60,11 @@ def download_models():
     import diffusers
     import torch
 
-    hugging_face_token = os.environ["HUGGINGFACE_TOKEN"]
-
     # Download scheduler configuration. Experiment with different schedulers
     # to identify one that works best for your use-case.
     scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
         model_id,
         subfolder="scheduler",
-        use_auth_token=hugging_face_token,
         cache_dir=cache_path,
     )
     scheduler.save_pretrained(cache_path, safe_serialization=True)
@@ -79,7 +72,6 @@ def download_models():
     # Downloads all other models.
     pipe = diffusers.StableDiffusionPipeline.from_pretrained(
         model_id,
-        use_auth_token=hugging_face_token,
         revision="fp16",
         torch_dtype=torch.float16,
         cache_dir=cache_path,
@@ -91,20 +83,19 @@ image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate",
-        "diffusers[torch]>=0.10",
+        "diffusers[torch]>=0.15.1",
         "ftfy",
-        "torch",
         "torchvision",
-        "transformers",
+        "transformers~=4.25.1",
         "triton",
         "safetensors",
-        "torch>=2.0",
+    )
+    .pip_install(
+        "torch==2.0.1+cu117",
+        find_links="https://download.pytorch.org/whl/torch_stable.html",
     )
     .pip_install("xformers", pre=True)
-    .run_function(
-        download_models,
-        secrets=[Secret.from_name("huggingface-secret")],
-    )
+    .run_function(download_models)
 )
 stub.image = image
 
@@ -135,21 +126,25 @@ class StableDiffusion:
 
         torch.backends.cuda.matmul.allow_tf32 = True
 
-        with torch.device("cuda"):
-            scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-                cache_path,
-                subfolder="scheduler",
-                solver_order=2,
-                prediction_type="epsilon",
-                thresholding=False,
-                algorithm_type="dpmsolver++",
-                solver_type="midpoint",
-                denoise_final=True,  # important if steps are <= 10
-            )
-            self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-                cache_path, scheduler=scheduler
-            ).to("cuda")
-            self.pipe.enable_xformers_memory_efficient_attention()
+        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
+            cache_path,
+            subfolder="scheduler",
+            solver_order=2,
+            prediction_type="epsilon",
+            thresholding=False,
+            algorithm_type="dpmsolver++",
+            solver_type="midpoint",
+            denoise_final=True,  # important if steps are <= 10
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            cache_path,
+            scheduler=scheduler,
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+        self.pipe.enable_xformers_memory_efficient_attention()
 
     @method()
     def run_inference(
@@ -184,7 +179,7 @@ class StableDiffusion:
 def entrypoint(
     prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
 ):
-    typer.echo(
+    print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"
     )
 
@@ -195,7 +190,7 @@ def entrypoint(
     sd = StableDiffusion()
     for i in range(samples):
         t0 = time.time()
-        images = sd.run_inference.call(prompt, steps, batch_size)
+        images = sd.run_inference.remote(prompt, steps, batch_size)
         total_time = time.time() - t0
         print(
             f"Sample {i} took {total_time:.3f}s ({(total_time)/len(images):.3f}s / image)."
@@ -209,9 +204,8 @@ def entrypoint(
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `modal run stable_diffusion_cli.py --help`
-
-
-# # Performance
+#
+# ## Performance
 #
 # This example can generate pictures in about a second, with startup time of about 10s for the first picture.
 #

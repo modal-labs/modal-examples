@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Publish interactive datasets with Datasette
 #
@@ -10,7 +11,7 @@
 # Try it out for yourself at [modal-labs-example-covid-datasette-app.modal.run/covid-19](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
 #
 # Some Modal features it uses:
-# * Shared volumes: a persisted volume lets us store and grow the published dataset over time
+# * Network file systems: a persisted volume lets us store and grow the published dataset over time
 # * Scheduled functions: the underlying dataset is refreshed daily, so we schedule a function to run daily
 # * Webhooks: exposes the Datasette application for web browser interaction and API requests.
 #
@@ -26,7 +27,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 
-from modal import Image, Period, SharedVolume, Stub, asgi_app
+from modal import Image, NetworkFileSystem, Period, Stub, asgi_app
 
 stub = Stub("example-covid-datasette")
 datasette_image = (
@@ -43,10 +44,10 @@ datasette_image = (
 # ## Persistent dataset storage
 #
 # To separate database creation and maintenance from serving, we'll need the underlying
-# database file to be stored persistently. To achieve this we use a [`SharedVolume`](/docs/guide/shared-volumes),
+# database file to be stored persistently. To achieve this we use a [`NetworkFileSystem`](/docs/guide/shared-volumes),
 # a writable volume that can be attached to Modal functions and persisted across function runs.
 
-volume = SharedVolume().persist("covid-dataset-cache-vol")
+volume = NetworkFileSystem.persisted("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
 LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))
@@ -64,7 +65,7 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
     retries=2,
 )
 def download_dataset(cache=True):
@@ -140,7 +141,7 @@ def load_report(filepath):
 # ## Inserting into SQLite
 #
 # With the CSV processing out of the way, we're ready to create an SQLite DB and feed data into it.
-# Importantly, the `prep_db` function mounts the same shared volume used by `download_dataset()`, and
+# Importantly, the `prep_db` function mounts the same network file system used by `download_dataset()`, and
 # rows are batch inserted with progress logged after each batch, as the full COVID-19 has millions
 # of rows and does take some time to be fully inserted.
 #
@@ -156,7 +157,7 @@ def chunks(it, size):
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
     timeout=900,
 )
 def prep_db():
@@ -185,7 +186,7 @@ def prep_db():
         table.create_index(["province_or_state"], if_not_exists=True)
         table.create_index(["country_or_region"], if_not_exists=True)
 
-        print("Syncing DB with shared volume.")
+        print("Syncing DB with network volume.")
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(tmp.name, DB_PATH)
 
@@ -199,8 +200,8 @@ def prep_db():
 @stub.function(schedule=Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
-    download_dataset.call(cache=False)
-    prep_db.call()
+    download_dataset.remote(cache=False)
+    prep_db.remote()
 
 
 # ## Webhook
@@ -212,7 +213,7 @@ def refresh_db():
 
 @stub.function(
     image=datasette_image,
-    shared_volumes={CACHE_DIR: volume},
+    network_file_systems={CACHE_DIR: volume},
 )
 @asgi_app()
 def app():
@@ -237,9 +238,9 @@ def app():
 @stub.local_entrypoint()
 def run():
     print("Downloading COVID-19 dataset...")
-    download_dataset.call()
+    download_dataset.remote()
     print("Prepping SQLite DB...")
-    prep_db.call()
+    prep_db.remote()
 
 
 # You can go explore the data over at [modal-labs-covid-datasette-app.modal.run/covid-19/](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).

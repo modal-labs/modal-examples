@@ -24,7 +24,6 @@ import pathlib
 from dataclasses import dataclass, field
 
 from fastapi import FastAPI
-
 from modal import Image, Secret, Stub, asgi_app
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.
@@ -198,7 +197,7 @@ def download_demo_files() -> None:
 
 
 image = (
-    Image.debian_slim()
+    Image.debian_slim(python_version="3.10")
     .pip_install(
         "gradio==3.16.2",
         "albumentations==1.3.0",
@@ -232,19 +231,14 @@ image = (
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,
     # so this `init` then `checkout` workaround is used.
     .run_commands(
-        [
-            "cd /root && git init .",
-            "cd /root && git remote add --fetch origin https://github.com/lllyasviel/ControlNet.git",
-            "cd /root && git checkout main",
-        ]
+        "cd /root && git init .",
+        "cd /root && git remote add --fetch origin https://github.com/lllyasviel/ControlNet.git",
+        "cd /root && git checkout main",
     )
-    .run_commands(
-        [
-            "apt-get update",
-            "apt-get install --yes ffmpeg libsm6 libxext6",
-        ]
+    .apt_install("ffmpeg", "libsm6", "libxext6")
+    .run_function(
+        download_demo_files, secret=Secret.from_dict({"DEMO_NAME": DEMO_NAME})
     )
-    .run_function(download_demo_files, secret=Secret({"DEMO_NAME": DEMO_NAME}))
 )
 stub = Stub(name="example-controlnet", image=image)
 

@@ -1,11 +1,10 @@
 import pathlib
 
-from . import config
-from . import podcast
+from . import config, podcast
 from .main import (
-    stub,
     app_image,
     split_silences,
+    stub,
     transcribe_episode,
     transcribe_segment,
     volume,
@@ -37,7 +36,9 @@ def _transcribe_serially(
 
 
 @stub.function(
-    image=app_image, shared_volumes={config.CACHE_DIR: volume}, timeout=1000
+    image=app_image,
+    network_file_systems={config.CACHE_DIR: volume},
+    timeout=1000,
 )
 def test_transcribe_handles_dangling_segment():
     """
@@ -105,7 +106,7 @@ def test_transcribe_handles_dangling_segment():
         )
     except Exception:
         logger.info(
-            "Writing the problem segment to shared volume for further debugging."
+            "Writing the problem segment to the network file system for further debugging."
         )
         bad_segment_path = pathlib.Path(
             config.CACHE_DIR,

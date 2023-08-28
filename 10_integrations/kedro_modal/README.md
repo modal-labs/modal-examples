@@ -4,7 +4,7 @@ kedro-modal is an experimental Modal plugin for Kedro (https://kedro.readthedocs
 
 The plugin lets you run Kedro Python pipelines on Modal in an effortless way.
 
-Data in your `<project-name>/data` directory will be synced to a persisted Modal [Shared Volume](https://modal.com/docs/guide/shared-volumes) and any datasets defined as local in your Kedro data catalog will be written to the same volume.
+Data in your `<project-name>/data` directory will be synced to a persisted Modal [Network File System](/docs/guide/network-file-systems) and any datasets defined as local in your Kedro data catalog will be written to the same volume.
 
 ## Installation instructions
 
@@ -60,7 +60,7 @@ At this point it only supports the basic use case of running a Kedro project (eq
 
 - It pushes the project source code to Modal
 - Installs requirements.txt of the project in a Modal image
-- Sets up a modal Shared Volume for syncing local input data from project/data and writing any output from the Modal runs.
+- Sets up a modal Network File System for syncing local input data from project/data and writing any output from the Modal runs.
 
 ### Notably missing features at this point (but should not be too tricky to handle):
 

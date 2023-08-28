@@ -23,7 +23,7 @@ from modal import Image, Secret, Stub, web_endpoint
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.8 and symlink that as the `python` executable instead.
 
-algolia_image = Image.from_dockerhub(
+algolia_image = Image.from_registry(
     tag="algolia/docsearch-scraper",
     setup_dockerfile_commands=[
         "RUN apt-get update",
@@ -55,7 +55,7 @@ CONFIG = {
         "lvl2": "article h2",
         "lvl3": "article h3",
         "lvl4": "article h4",
-        "text": "article p,article ol,article ul",
+        "text": "article p,article ol,article ul,article pre",
     },
 }
 
@@ -80,7 +80,6 @@ CONFIG = {
 @stub.function(
     image=algolia_image, secrets=[Secret.from_name("algolia-secret")]
 )
-@web_endpoint()
 def crawl():
     # Installed with a 3.6 venv; Python 3.6 is unsupported by Modal, so use a subprocess instead.
     subprocess.run(
@@ -95,7 +94,7 @@ def crawl():
 @stub.function()
 @web_endpoint()
 def crawl_webhook():
-    crawl.call()
+    crawl.remote()
     return "Finished indexing docs"
 
 
@@ -118,9 +117,9 @@ def crawl_webhook():
 # ## Entrypoint for development
 #
 # To make it easier to test this, we also have an entrypoint for when you run
-# `python algolia_indexer.py`
+# `modal run algolia_indexer.py`
 
 
 @stub.local_entrypoint()
 def run():
-    crawl.call()
+    crawl.remote()

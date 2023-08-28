@@ -5,11 +5,18 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest.*:",
 ]
 pythonpath = [
+    "06_gpu_and_ml/spam-detect",
     "06_gpu_and_ml/text-to-pokemon",
 ]
 
 [tool.black]
 line-length = 80
+
+[tool.isort]
+known_first_party="modal"
+extra_standard_library="pytest"
+profile="black"
+
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -20,3 +27,17 @@ no_strict_optional = true
 [[tool.mypy.overrides]]
 module = "requests"
 ignore_missing_imports = true
+
+[tool.ruff]
+# TODO: Add when available: "E266", "E203"
+ignore = ["E501","E741","E402"]
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+]
+select = ['E', 'F', 'W', 'I']
+
+[tool.ruff.isort]
+combine-as-imports = true
+known-third-party = ["modal"]

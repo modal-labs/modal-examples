@@ -8,8 +8,8 @@ serverless web handlers and GPUs. The user visits a single-page application,
 written using Solid.js. This interface makes API requests that are handled by a
 Modal function running on the GPU.
 
-The weights of the model are cached in a shared volume, so they don't need to be
-downloaded again as long as the app is running.
+The weights of the model are saved in the image, so they don't need to be
+downloaded again while the app is running.
 
 Chat history tensors are saved in a `modal.Dict` distributed dictionary.
 """
@@ -21,32 +21,37 @@ from typing import Optional, Tuple
 import fastapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-
-from modal import Dict, Image, Mount, SharedVolume, Stub, asgi_app
+from modal import Dict, Image, Mount, Stub, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-stub = Stub("example-web-spa")
+stub = Stub("example-chatbot-spa")
 
-stub.cache = SharedVolume()
-stub.chat_histories = Dict()
+stub.chat_histories = Dict.new()
 
-gpu_image = Image.debian_slim()
-gpu_image = gpu_image.pip_install(
-    "torch", find_links="https://download.pytorch.org/whl/cu116"
+
+def load_tokenizer_and_model():
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-large")
+    model = AutoModelForCausalLM.from_pretrained(
+        "microsoft/DialoGPT-large",
+        device_map="auto",
+    )
+    return tokenizer, model
+
+
+stub.gpu_image = (
+    Image.debian_slim()
+    .pip_install("torch", find_links="https://download.pytorch.org/whl/cu116")
+    .pip_install("transformers~=4.31", "accelerate")
+    .run_function(load_tokenizer_and_model)
 )
-gpu_image = gpu_image.pip_install("transformers")
-stub.gpu_image = gpu_image
+
 
 if stub.is_inside(stub.gpu_image):
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        "microsoft/DialoGPT-large", cache_dir="/cache"
-    )
-    model = AutoModelForCausalLM.from_pretrained(
-        "microsoft/DialoGPT-large", cache_dir="/cache"
-    )
+    tokenizer, model = load_tokenizer_and_model()
 
 
 @stub.function(
@@ -60,26 +65,22 @@ def transformer():
     def chat(body: dict = fastapi.Body(...)):
         message = body["message"]
         chat_id = body.get("id")
-        id, response = generate_response.call(message, chat_id)
+        id, response = generate_response.remote(message, chat_id)
         return JSONResponse({"id": id, "response": response})
 
     app.mount("/", StaticFiles(directory="/assets", html=True))
     return app
 
 
-@stub.function(
-    gpu="any", image=stub.gpu_image, shared_volumes={"/cache": stub.cache}
-)
+@stub.function(gpu="any", image=stub.gpu_image)
 def generate_response(
     message: str, id: Optional[str] = None
 ) -> Tuple[str, str]:
-    chat_histories = stub.app.chat_histories  # Load the queue object.
-
     new_input_ids = tokenizer.encode(
         message + tokenizer.eos_token, return_tensors="pt"
-    )
+    ).to("cuda")
     if id is not None:
-        chat_history = chat_histories[id]
+        chat_history = stub.chat_histories[id]
         bot_input_ids = torch.cat([chat_history, new_input_ids], dim=-1)
     else:
         id = str(uuid.uuid4())
@@ -92,11 +93,11 @@ def generate_response(
         chat_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True
     )
 
-    chat_histories[id] = chat_history
+    stub.chat_histories[id] = chat_history
     return id, response
 
 
 @stub.local_entrypoint()
 def test_response(message: str):
-    _, response = generate_response.call(message)
+    _, response = generate_response.remote(message)
     print(response)

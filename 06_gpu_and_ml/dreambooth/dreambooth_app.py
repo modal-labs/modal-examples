@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# integration-test: false
 # ---
 #
 # # Pet Art Dreambooth with Hugging Face and Gradio
@@ -16,7 +15,7 @@
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models
 # by using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [shared volumes](https://modal.com/docs/guide/shared-volumes#shared-volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
+# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [volumes](/docs/guide/volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
 #
 # And with some light customization, you can use it to generate images of your pet!
 #
@@ -31,8 +30,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI
-
-from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
+from modal import (
+    Image,
+    Mount,
+    Secret,
+    Stub,
+    Volume,
+    asgi_app,
+    method,
+)
 
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
@@ -44,8 +50,8 @@ GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
-        "accelerate",
-        "datasets",
+        "accelerate==0.19",
+        "datasets~=2.13",
         "ftfy",
         "gradio~=3.10",
         "smart_open",
@@ -67,11 +73,12 @@ image = (
     )
 )
 
-# A persistent shared volume will store model artefacts across Modal app runs.
+# A persisted `modal.Volume` will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
-volume = SharedVolume().persist("dreambooth-finetuning-vol")
+volume = Volume.persisted("dreambooth-finetuning-volume")
 MODEL_DIR = Path("/model")
+stub.volume = volume
 
 # ## Config
 #
@@ -183,7 +190,7 @@ def load_images(image_urls):
 @stub.function(
     image=image,
     gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
-    shared_volumes={
+    volumes={
         str(
             MODEL_DIR
         ): volume,  # fine-tuned model will be stored at `MODEL_DIR`
@@ -224,27 +231,38 @@ def train(instance_example_urls):
     prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
 
     # run training -- see huggingface accelerate docs for details
-    subprocess.run(
-        [
-            "accelerate",
-            "launch",
-            "examples/dreambooth/train_dreambooth.py",
-            "--train_text_encoder",  # needs at least 16GB of GPU RAM.
-            f"--pretrained_model_name_or_path={config.model_name}",
-            f"--instance_data_dir={img_path}",
-            f"--output_dir={MODEL_DIR}",
-            f"--instance_prompt='{prompt}'",
-            f"--resolution={config.resolution}",
-            f"--train_batch_size={config.train_batch_size}",
-            f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-            f"--learning_rate={config.learning_rate}",
-            f"--lr_scheduler={config.lr_scheduler}",
-            f"--lr_warmup_steps={config.lr_warmup_steps}",
-            f"--max_train_steps={config.max_train_steps}",
-            f"--checkpointing_steps={config.checkpointing_steps}",
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "accelerate",
+                "launch",
+                "examples/dreambooth/train_dreambooth.py",
+                "--train_text_encoder",  # needs at least 16GB of GPU RAM.
+                f"--pretrained_model_name_or_path={config.model_name}",
+                f"--instance_data_dir={img_path}",
+                f"--output_dir={MODEL_DIR}",
+                f"--instance_prompt='{prompt}'",
+                f"--resolution={config.resolution}",
+                f"--train_batch_size={config.train_batch_size}",
+                f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
+                f"--learning_rate={config.learning_rate}",
+                f"--lr_scheduler={config.lr_scheduler}",
+                f"--lr_warmup_steps={config.lr_warmup_steps}",
+                f"--max_train_steps={config.max_train_steps}",
+                f"--checkpointing_steps={config.checkpointing_steps}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.stdout.decode())
+        print(exc.stderr.decode())
+        raise
+
+    # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
+    # To persist these artefacts for use in future inference function calls, we 'commit' the changes
+    # to the volume.
+    stub.app.volume.commit()
 
 
 # ## The inference function.
@@ -252,18 +270,21 @@ def train(instance_example_urls):
 # To generate images from prompts using our fine-tuned model, we define a function called `inference`.
 # In order to initialize the model just once on container startup, we use Modal's [container
 # lifecycle](https://modal.com/docs/guide/lifecycle-functions) feature, which requires the function to be part
-# of a class.  The shared volume is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
+# of a class.  The `modal.Volume` is mounted at `MODEL_DIR`, so that the fine-tuned model created  by `train` is then available to `inference`.
 
 
 @stub.cls(
     image=image,
     gpu="A100",
-    shared_volumes={str(MODEL_DIR): volume},
+    volumes={str(MODEL_DIR): volume},
 )
 class Model:
     def __enter__(self):
         import torch
         from diffusers import DDIMScheduler, StableDiffusionPipeline
+
+        # Reload the modal.Volume to ensure the latest state is accessible.
+        stub.app.volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
@@ -315,7 +336,7 @@ def fastapi_app():
 
     # Call to the GPU inference function on Modal.
     def go(text):
-        return Model().inference.call(text, config)
+        return Model().inference.remote(text, config)
 
     # set up AppConfig
     config = AppConfig()
@@ -376,4 +397,4 @@ def fastapi_app():
 def run():
     with open(TrainConfig().instance_example_urls_file) as f:
         instance_example_urls = [line.strip() for line in f.readlines()]
-    train.call(instance_example_urls)
+    train.remote(instance_example_urls)

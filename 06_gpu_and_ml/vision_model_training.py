@@ -1,7 +1,5 @@
 # ---
-# cmd: ["modal", "run", "vision_model_training.py::stub.train"]
 # deploy: true
-# integration-test: false
 # lambda-test: false
 # ---
 #
@@ -11,7 +9,7 @@
 # and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
 # web interface framework.
 #
-# Combining GPU-accelerated Modal Functions, shared volumes for caching, and Modal
+# Combining GPU-accelerated Modal Functions, a network file system for caching, and Modal
 # webhooks for the model demo, we have a simple, productive, and cost-effective
 # pathway to building and deploying ML in the cloud!
 #
@@ -29,8 +27,15 @@ import sys
 from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
-
-from modal import Image, Mount, Secret, SharedVolume, Stub, asgi_app, method
+from modal import (
+    Image,
+    Mount,
+    NetworkFileSystem,
+    Secret,
+    Stub,
+    asgi_app,
+    method,
+)
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
@@ -45,10 +50,10 @@ image = Image.debian_slim().pip_install(
     "wandb~=0.13.4",
 )
 
-# A persistent shared volume will store trained model artefacts across Modal app runs.
+# A persisted network file system will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = SharedVolume().persist("cifar10-training-vol")
+volume = NetworkFileSystem.persisted("cifar10-training-vol")
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
@@ -81,7 +86,7 @@ class Config:
 #
 # The `fastai` framework famously requires very little code to get things done,
 # so our downloading function is very short and simple. The CIFAR-10 dataset is
-# also not large, about 150MB, so we don't bother persisting it in a shared volume
+# also not large, about 150MB, so we don't bother persisting it in a network file system
 # and just download and unpack it to ephemeral disk.
 
 
@@ -93,7 +98,7 @@ def download_dataset():
     return path
 
 
-# ## Training a vision model with FastAI.
+# ## Training a vision model with FastAI
 #
 # To address the CIFAR-10 image classification problem, we use the high-level fastAI framework
 # to train a Deep Residual Network (https://arxiv.org/pdf/1512.03385.pdf) with 18-layers, called `resnet18`.
@@ -113,8 +118,9 @@ def download_dataset():
 # lines of code and an account, we gain a dashboard will key metrics such as training loss, accuracy, and GPU
 # utilization.
 #
-# If you want to run this example without setting up Weights & Biases, just remove the `secret=modal.Secret(…)`
-# line from the Function decorator below; this will disable Weights & Biases functionality.
+# If you want to run this example without setting up Weights & Biases, just remove the
+# `secret=Secret.from_name("wandb")` line from the Function decorator below; this will disable Weights & Biases
+# functionality.
 #
 # ### Detaching our training run
 #
@@ -128,7 +134,7 @@ def download_dataset():
 @stub.function(
     image=image,
     gpu=USE_GPU,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
     secret=Secret.from_name("wandb"),
     timeout=2700,  # 45 minutes
 )
@@ -213,7 +219,7 @@ def train():
 
 @stub.cls(
     image=image,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
 )
 class ClassifierModel:
     def __enter__(self):
@@ -240,7 +246,7 @@ def classify_url(image_url: str) -> None:
         raise RuntimeError(f"Could not download '{image_url}'")
 
     classifier = ClassifierModel()
-    label = classifier.predict.call(image=r.content)
+    label = classifier.predict.remote(image=r.content)
     print(f"Classification: {label}")
 
 
@@ -258,7 +264,7 @@ def classify_url(image_url: str) -> None:
 
 
 def create_demo_examples() -> List[str]:
-    # NB: Don't download these images to a shared volume as it doesn't play well with Gradio.
+    # NB: Don't download these images to a network FS as it doesn't play well with Gradio.
     import httpx
 
     example_imgs = {
@@ -283,7 +289,7 @@ def create_demo_examples() -> List[str]:
 
 @stub.function(
     image=image,
-    shared_volumes={str(MODEL_CACHE): volume},
+    network_file_systems={str(MODEL_CACHE): volume},
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @asgi_app()
@@ -293,7 +299,7 @@ def fastapi_app():
 
     classifier = ClassifierModel()
     interface = gr.Interface(
-        fn=classifier.predict.call,
+        fn=classifier.predict.remote,
         inputs=gr.Image(shape=(224, 224)),
         outputs="label",
         examples=create_demo_examples(),

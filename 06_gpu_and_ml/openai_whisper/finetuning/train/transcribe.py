@@ -3,11 +3,11 @@ import pathlib
 import sys
 from typing import TYPE_CHECKING
 
-from .config import app_config
-from .logs import get_logger
-
 import modal
 from modal.cli.volume import FileType
+
+from .config import app_config
+from .logs import get_logger
 
 if TYPE_CHECKING:
     from numpy import ndarray
@@ -22,7 +22,7 @@ def download_model_locally(run_id: str) -> pathlib.Path:
     NOTE: These models were trained on GPU and require torch.distributed installed locally.
     """
     logger.info(f"Saving finetuning run {run_id} model locally")
-    vol = modal.SharedVolume.lookup(app_config.persistent_vol_name)
+    vol = modal.NetworkFileSystem.lookup(app_config.persistent_vol_name)
     for entry in vol.listdir(f"{run_id}/**"):
         p = pathlib.Path(f".{app_config.model_dir}", entry.path)
 
@@ -70,8 +70,8 @@ def whisper_transcribe_audio(
 ) -> str:
     """Transcribes a single audio sample with a Whisper model, for demonstration purposes."""
     from transformers import (
-        WhisperProcessor,
         WhisperForConditionalGeneration,
+        WhisperProcessor,
     )
 
     # load model and processor

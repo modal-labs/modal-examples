@@ -11,23 +11,23 @@ import pathlib
 import modal
 from transformers import Seq2SeqTrainingArguments
 
-from .config import app_config, DataTrainingArguments, ModelArguments
 from .__main__ import stub, train
+from .config import DataTrainingArguments, ModelArguments, app_config
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
 
-test_volume = modal.SharedVolume()
+test_volume = modal.NetworkFileSystem.new()
 
 logger = get_logger(__name__)
 
 # Test the `main.train` function by passing in test-specific configuration
 # that does only a minimal amount of training steps and saves the model
-# to the temporary (ie. ephemeral) shared volume disk.
+# to the temporary (ie. ephemeral) network file system disk.
 #
 # This remote function should take only ~1 min to run.
 
 
-@stub.function(shared_volumes={app_config.model_dir: test_volume})
+@stub.function(network_file_systems={app_config.model_dir: test_volume})
 def test_finetune_one_step_and_save_to_vol(run_id: str):
     output_dir = pathlib.Path(app_config.model_dir, run_id)
     test_model_args = ModelArguments(
@@ -55,15 +55,15 @@ def test_finetune_one_step_and_save_to_vol(run_id: str):
 
 
 # Test model serialization and persistence by starting a new remote
-# function that reads back the model files from the temporary shared volume disk
+# function that reads back the model files from the temporary network file system disk
 # and does a single sentence of translation.
 #
 # When doing full training runs, the saved model will be loaded in the same way
-# but from a *persisted* shared volume, which keeps data around even after the Modal
+# but from a *persisted* network file system, which keeps data around even after the Modal
 # ephemeral app that ran the training has stopped.
 
 
-@stub.function(shared_volumes={app_config.model_dir: test_volume})
+@stub.function(network_file_systems={app_config.model_dir: test_volume})
 def test_download_and_tryout_model(run_id: str):
     from datasets import Audio, load_dataset
     from evaluate import load
@@ -114,8 +114,8 @@ def test_download_and_tryout_model(run_id: str):
 
 def run_test() -> int:
     with stub.run() as app:
-        test_finetune_one_step_and_save_to_vol.call(run_id=app.app_id)
-        test_download_and_tryout_model.call(run_id=app.app_id)
+        test_finetune_one_step_and_save_to_vol.remote(run_id=app.app_id)
+        test_download_and_tryout_model.remote(run_id=app.app_id)
     return 0
 
 

@@ -3,8 +3,8 @@
 #
 # Based on the work done in https://huggingface.co/blog/fine-tune-whisper.
 
-import pathlib
 import os
+import pathlib
 import sys
 from dataclasses import dataclass
 from typing import Any, Union
@@ -22,7 +22,9 @@ except ModuleNotFoundError:
     )
 
 
-persistent_volume = modal.SharedVolume().persist(app_config.persistent_vol_name)
+persistent_volume = modal.NetworkFileSystem.persisted(
+    app_config.persistent_vol_name
+)
 image = modal.Image.debian_slim().pip_install_from_requirements(
     "requirements.txt"
 )
@@ -37,7 +39,7 @@ logger = get_logger(__name__)
 
 @stub.function(
     gpu="A10G",
-    shared_volumes={app_config.model_dir: persistent_volume},
+    network_file_systems={app_config.model_dir: persistent_volume},
     # 12hrs
     timeout=12 * 60 * 60,
     # For occasional connection error to 'cdn-lfs.huggingface.co'
@@ -51,8 +53,7 @@ def train(
     import datasets
     import evaluate
     import torch
-    from datasets import load_dataset, DatasetDict
-    from transformers.trainer_utils import get_last_checkpoint, is_main_process
+    from datasets import DatasetDict, load_dataset
     from transformers import (
         AutoConfig,
         AutoFeatureExtractor,
@@ -61,6 +62,7 @@ def train(
         AutoTokenizer,
         Seq2SeqTrainer,
     )
+    from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
     @dataclass
     class DataCollatorSpeechSeq2SeqWithPadding:
@@ -502,7 +504,7 @@ def main() -> int:
         ) = parser.parse_args_into_dataclasses(args)
 
         logger.info("Starting training")
-        result = train.call(model_args, data_args, training_args)
+        result = train.remote(model_args, data_args, training_args)
         logger.info(result)
     return 0
 

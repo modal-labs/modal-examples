@@ -13,21 +13,41 @@ from typing import List
 
 import modal
 
+stub = modal.Stub(name="example-news-summarizer")
+
 # ## Building Images and Downloading Pre-trained Model
 #
 # We start by defining our images. In Modal, each function can use a different
 # image. This is powerful because you add only the dependencies you need for
 # each function.
 
-stub = modal.Stub("example-news-summarizer")
-MODEL_NAME = "google/pegasus-xsum"
-CACHE_DIR = "/cache"
-
 # The first image contains dependencies for running our model. We also download the
-# pre-trained model into the image using the `huggingface` API. This caches the model so that
-# we don't have to download it on every function call.
-stub["deep_learning_image"] = modal.Image.debian_slim().pip_install(
-    "transformers==4.16.2", "torch", "sentencepiece"
+# pre-trained model into the image using the `from_pretrained` method.
+# This caches the model so that we don't have to download it on every function call.
+# The model will be saved at `/cache` when this function is called at image build time;
+# subsequent calls of this function at runtime will then load the model from `/cache`.
+
+
+def fetch_model(local_files_only: bool = False):
+    from transformers import PegasusForConditionalGeneration, PegasusTokenizer
+
+    tokenizer = PegasusTokenizer.from_pretrained(
+        "google/pegasus-xsum",
+        cache_dir="/cache",
+        local_files_only=local_files_only,
+    )
+    model = PegasusForConditionalGeneration.from_pretrained(
+        "google/pegasus-xsum",
+        cache_dir="/cache",
+        local_files_only=local_files_only,
+    )
+    return model, tokenizer
+
+
+stub["deep_learning_image"] = (
+    modal.Image.debian_slim()
+    .pip_install("transformers==4.16.2", "torch", "sentencepiece")
+    .run_function(fetch_model)
 )
 
 # Defining the scraping image is very similar. This image only contains the packages required
@@ -35,19 +55,6 @@ stub["deep_learning_image"] = modal.Image.debian_slim().pip_install(
 stub["scraping_image"] = modal.Image.debian_slim().pip_install(
     "requests", "beautifulsoup4", "lxml"
 )
-
-volume = modal.SharedVolume().persist("pegasus-modal-vol")
-
-# We will also instantiate the model and tokenizer globally so it’s available for all functions that use this image.
-if stub.is_inside(stub["deep_learning_image"]):
-    from transformers import PegasusForConditionalGeneration, PegasusTokenizer
-
-    TOKENIZER = PegasusTokenizer.from_pretrained(
-        MODEL_NAME, cache_dir=CACHE_DIR
-    )
-    MODEL = PegasusForConditionalGeneration.from_pretrained(
-        MODEL_NAME, cache_dir=CACHE_DIR
-    )
 
 
 if stub.is_inside(stub["scraping_image"]):
@@ -145,18 +152,21 @@ def scrape_nyc_article(url: str) -> str:
 @stub.function(
     image=stub["deep_learning_image"],
     gpu=False,
-    shared_volumes={CACHE_DIR: volume},
     memory=4096,
 )
 def summarize_article(text: str) -> str:
     print(f"Summarizing text with {len(text)} characters.")
 
+    # `local_files_only` is set to `True` because we expect to read the model
+    # files saved in the image.
+    model, tokenizer = fetch_model(local_files_only=True)
+
     # summarize text
-    batch = TOKENIZER(
+    batch = tokenizer(
         [text], truncation=True, padding="longest", return_tensors="pt"
     ).to("cpu")
-    translated = MODEL.generate(**batch)
-    summary = TOKENIZER.batch_decode(translated, skip_special_tokens=True)[0]
+    translated = model.generate(**batch)
+    summary = tokenizer.batch_decode(translated, skip_special_tokens=True)[0]
 
     return summary
 
@@ -169,7 +179,7 @@ def summarize_article(text: str) -> str:
 
 @stub.function(schedule=modal.Period(days=1))
 def trigger():
-    articles = latest_science_stories.call()
+    articles = latest_science_stories.remote()
 
     # parallelize article scraping
     for i, text in enumerate(scrape_nyc_article.map([a.url for a in articles])):
@@ -198,7 +208,7 @@ def trigger():
 
 @stub.local_entrypoint()
 def main():
-    trigger.call()
+    trigger.remote()
 
 
 # And that's it. You will now generate deep learning summaries from the latest

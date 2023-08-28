@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 # # Batch inference using a model from Huggingface
 #
 # <center>
@@ -46,6 +49,7 @@ stub = modal.Stub(
 # Every container that runs will have 8 CPUs set aside for it.
 
 
+@stub.cls(cpu=8, retries=3)
 class SentimentAnalysis:
     def __enter__(self):
         from transformers import pipeline
@@ -54,7 +58,7 @@ class SentimentAnalysis:
             model="distilbert-base-uncased-finetuned-sst-2-english"
         )
 
-    @stub.function(cpu=8, retries=3)
+    @modal.method()
     def predict(self, phrase: str):
         pred = self.sentiment_pipeline(
             phrase, truncation=True, max_length=512, top_k=2
@@ -118,7 +122,7 @@ def roc_plot(labels, predictions):
 @stub.local_entrypoint()
 def main():
     print("Downloading data...")
-    data = get_data.call()
+    data = get_data.remote()
     print("Got", len(data), "reviews")
     reviews = [review for review, label in data]
     labels = [label for review, label in data]
@@ -126,7 +130,7 @@ def main():
     # Let's check that the model works by classifying the first 5 entries
     predictor = SentimentAnalysis()
     for review, label in data[:5]:
-        prediction = predictor.predict.call(review)
+        prediction = predictor.predict.remote(review)
         print(
             f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
         )
@@ -137,7 +141,7 @@ def main():
 
     # Generate a ROC plot
     print("Creating ROC plot...")
-    png_data = roc_plot.call(labels, predictions)
+    png_data = roc_plot.remote(labels, predictions)
     fn = "/tmp/roc.png"
     with open(fn, "wb") as f:
         f.write(png_data)
@@ -176,10 +180,7 @@ def main():
 # ## Further optimization notes
 #
 # Every container downloads the model when it starts, which is a bit inefficient.
-# In order to improve this, what you could do is to set up a shared volume that gets
-# mounted to each container.
-# See [shared volumes](/docs/guide/shared-volumes).
+# In order to improve this, what you could do is store the model in the image that
+# backs each container.
+# See [`Image.run_function`](/docs/guide/custom-container#running-a-function-as-a-build-step-beta).
 #
-# In order for Huggingface to use the shared volume, you need to set the value of
-# the `TRANSFORMERS_CACHE` environment variable to the path of the shared volume.
-# See [secrets](/docs/guide/secrets).

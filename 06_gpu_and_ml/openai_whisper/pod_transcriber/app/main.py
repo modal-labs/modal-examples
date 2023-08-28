@@ -12,9 +12,9 @@ from modal import (
     Dict,
     Image,
     Mount,
+    NetworkFileSystem,
     Period,
     Secret,
-    SharedVolume,
     Stub,
     asgi_app,
 )
@@ -22,7 +22,7 @@ from modal import (
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = SharedVolume().persist("dataset-cache-vol")
+volume = NetworkFileSystem.persisted("dataset-cache-vol")
 
 app_image = (
     Image.debian_slim()
@@ -52,7 +52,7 @@ stub = Stub(
     secrets=[Secret.from_name("podchaser")],
 )
 
-stub.in_progress = Dict()
+stub.in_progress = Dict.new()
 
 
 def utc_now() -> datetime.datetime:
@@ -67,7 +67,7 @@ def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
-@stub.function(shared_volumes={config.CACHE_DIR: volume})
+@stub.function(network_file_systems={config.CACHE_DIR: volume})
 def populate_podcast_metadata(podcast_id: str):
     from gql import gql
 
@@ -82,7 +82,7 @@ def populate_podcast_metadata(podcast_id: str):
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
 
-    episodes = fetch_episodes.call(
+    episodes = fetch_episodes.remote(
         show_name=pod_metadata.title, podcast_id=podcast_id
     )
 
@@ -96,7 +96,7 @@ def populate_podcast_metadata(podcast_id: str):
 
 @stub.function(
     mounts=[Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")],
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     keep_warm=2,
 )
 @asgi_app()
@@ -140,8 +140,8 @@ def search_podcast(name):
 @stub.function(
     image=search_image,
     schedule=Period(hours=4),
-    shared_volumes={config.CACHE_DIR: volume},
-    timeout=(30 * 60),
+    network_file_systems={config.CACHE_DIR: volume},
+    timeout=(400 * 60),
 )
 def refresh_index():
     import dataclasses
@@ -283,7 +283,7 @@ def split_silences(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     cpu=2,
 )
 def transcribe_segment(
@@ -330,7 +330,7 @@ def transcribe_segment(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
 )
 def transcribe_episode(
@@ -361,13 +361,12 @@ def transcribe_episode(
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
 )
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
     import whisper
-
     from modal import container_app
 
     try:
@@ -404,7 +403,7 @@ def process_episode(podcast_id: str, episode_id: str):
             )
             logger.info("Skipping transcription.")
         else:
-            transcribe_episode.call(
+            transcribe_episode.remote(
                 audio_filepath=destination_path,
                 result_path=transcription_path,
                 model=model,
@@ -417,7 +416,7 @@ def process_episode(podcast_id: str, episode_id: str):
 
 @stub.function(
     image=app_image,
-    shared_volumes={config.CACHE_DIR: volume},
+    network_file_systems={config.CACHE_DIR: volume},
 )
 def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     import hashlib
@@ -454,5 +453,5 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
 def search_entrypoint(name: str):
     # To search for a podcast, run:
     # modal run app.main --name "search string"
-    for pod in search_podcast.call(name):
+    for pod in search_podcast.remote(name):
         print(pod)

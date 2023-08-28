@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/"
+# runtimes: ["runc", "gvisor"]
 # ---
 # # Fetching stock prices in parallel
 #
@@ -22,7 +23,7 @@
 #
 # For this image, we need
 #
-# - `requests` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
+# - `httpx` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
 # - `yfinance` to fetch stock prices from the Yahoo Finance API
 # - `matplotlib` to plot the result
 
@@ -34,10 +35,10 @@ import modal
 stub = modal.Stub(
     "example-fetch-stock-prices",
     image=modal.Image.debian_slim().pip_install(
-        "requests",
-        "yfinance",
-        "beautifulsoup4",
-        "matplotlib",
+        "httpx~=0.24.0",
+        "yfinance~=0.2.18",
+        "beautifulsoup4~=4.12.2",
+        "matplotlib~=3.7.1",
     ),
 )
 
@@ -51,14 +52,15 @@ stub = modal.Stub(
 @stub.function()
 def get_stocks():
     import bs4
-    import requests
+    import httpx
 
     headers = {
-        "user-agent": "curl/7.55.1",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36",
         "referer": "https://finance.yahoo.com/",
     }
-    url = "https://finance.yahoo.com/etfs/?count=100&offset=0"
-    res = requests.get(url, headers=headers)
+    url = "https://finance.yahoo.com/etfs?count=100&offset=0"
+    res = httpx.get(url, headers=headers)
+    res.raise_for_status()
     soup = bs4.BeautifulSoup(res.text, "html.parser")
     for td in soup.find_all("td", {"aria-label": "Symbol"}):
         for link in td.find_all("a", {"data-test": "quoteLink"}):
@@ -101,7 +103,9 @@ def plot_stocks():
     fig, ax = pyplot.subplots(figsize=(8, 5))
 
     # Get data
-    tickers = list(get_stocks.call())
+    tickers = list(get_stocks.remote_gen())
+    if not tickers:
+        raise RuntimeError("Retrieved zero stock tickers!")
     data = list(get_prices.map(tickers))
     first_date = min((min(prices.keys()) for symbol, prices in data if prices))
     last_date = max((max(prices.keys()) for symbol, prices in data if prices))
@@ -151,7 +155,7 @@ OUTPUT_DIR = "/tmp/"
 @stub.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    data = plot_stocks.call()
+    data = plot_stocks.remote()
     filename = os.path.join(OUTPUT_DIR, "stock_prices.png")
     print(f"saving data to {filename}")
     with open(filename, "wb") as f:

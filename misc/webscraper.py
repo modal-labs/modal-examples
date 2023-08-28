@@ -1,3 +1,6 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
 import os
 
 import modal
@@ -12,14 +15,14 @@ playwright_image = modal.Image.debian_slim(
     "apt-add-repository non-free",
     "apt-add-repository contrib",
     "apt-get update",
-    "pip install playwright==1.20.0",
+    "pip install playwright==1.30.0",
     "playwright install-deps chromium",
     "playwright install chromium",
 )
 
 
 @stub.function(image=playwright_image)
-async def get_links(url: str):
+async def get_links(url: str) -> set[str]:
     from playwright.async_api import async_playwright
 
     async with async_playwright() as p:
@@ -31,7 +34,7 @@ async def get_links(url: str):
         )
         await browser.close()
 
-    return links
+    return set(links)
 
 
 slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
@@ -54,14 +57,14 @@ def scrape():
 
     for links in get_links.map(links_of_interest):
         for link in links:
-            bot_token_msg.call("scraped-links", link)
+            bot_token_msg.remote("scraped-links", link)
 
 
 @stub.function(schedule=modal.Period(days=1))
 def daily_scrape():
-    scrape.call()
+    scrape.remote()
 
 
 @stub.local_entrypoint()
 def run():
-    scrape.call()
+    scrape.remote()

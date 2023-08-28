@@ -1,3 +1,7 @@
+# ---
+# runtimes: ["runc", "gvisor"]
+# ---
+#
 # # Use a generator to fetch search results
 #
 # This is a simple example which
@@ -29,5 +33,5 @@ def scrape(query):
 
 @stub.local_entrypoint()
 def main(query: str = "modal"):
-    for url in scrape.call(query):
+    for url in scrape.remote_gen(query):
         print(url)
