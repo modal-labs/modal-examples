@@ -145,27 +145,35 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         num_train_epochs=num_train_epochs,
         logging_strategy="steps",
         logging_steps=100,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        evaluation_strategy="steps",
+        save_strategy="steps",
         save_total_limit=2,
         load_best_model_at_end=True,
     )
 
+
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        callbacks=[CheckpointCallback(stub.app.volume)],
+        callbacks=[CheckpointCallback(stub.volume)],
         data_collator=data_collator,
         train_dataset=tokenized_xsum_train,
         eval_dataset=tokenized_xsum_test,
     )
 
-    trainer.train()
+    try:
+        trainer.train(resume_from_checkpoint=True)
+    except KeyboardInterrupt: # handle possible preemption
+        print("received interrupt; saving state and model")
+        trainer.save_state()
+        trainer.save_model()
+        raise
 
     # Save the trained model and tokenizer to the mounted volume
     model.save_pretrained(str(VOL_MOUNT_PATH / "model"))
     tokenizer.save_pretrained(str(VOL_MOUNT_PATH / "tokenizer"))
-    stub.app.volume.commit()
+    stub.volume.commit()
+    print("✅ done")
 
 
 # ## Monitoring Finetuning with Tensorboard
