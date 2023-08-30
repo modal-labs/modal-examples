@@ -51,6 +51,7 @@ stub.volume = output_vol
     volumes={VOL_MOUNT_PATH: output_vol},
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
+    print("🏁 (re)starting finetune run")
     from datasets import load_dataset
     from transformers import (
         AutoModelForSeq2SeqLM,
