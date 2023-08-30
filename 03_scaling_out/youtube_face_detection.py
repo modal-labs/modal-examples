@@ -45,7 +45,7 @@ image = (
         f"wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/{FACE_CASCADE_FN} -P /root"
     )
     .pip_install(
-        "pytube @ git+https://github.com/oncename/pytube",
+        "pytube @ git+https://github.com/modal-labs/pytube",
         "opencv-python~=4.7.0.72",
         "moviepy~=1.0.3",
     )
