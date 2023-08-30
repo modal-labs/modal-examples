@@ -1,3 +1,6 @@
+# ---
+# args: ["--prompt", "What is serverless computing?"]
+# ---
 # # Llama 2 inference with MLC
 #
 # [Machine Learning Compilation (MLC)](https://mlc.ai/mlc-llm/) is high-performance tool for serving
