@@ -21,6 +21,7 @@
 
 from pathlib import Path
 
+import modal
 from modal import Image, Stub, Volume, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
@@ -40,6 +41,27 @@ stub = Stub(name="example-news-summarizer", image=image)
 output_vol = Volume.persisted("finetune-volume")
 stub.volume = output_vol
 
+# ### Handling preemption
+#
+# As this finetuning job is long-running it's possible that it experiences a preemption.
+# The training code is robust to pre-emption events by periodically saving checkpoints and restoring
+# from checkpoint on restart. But it's also helpful to observe in logs when a preemption restart has occurred,
+# so we track restarts with a `modal.Dict`.
+#
+# See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
+
+stub.restart_tracker_dict = modal.Dict.new()
+
+def track_restarts(restart_tracker: modal.Dict):
+    if not restart_tracker.contains("count"):
+        preemption_count = 0
+        print(f"Starting first time. {preemption_count=}")
+        restart_tracker["count"] = preemption_count = 0
+    else:
+        preemption_count = restart_tracker.get("count") + 1
+        print(f"Restarting after pre-emption. {preemption_count=}")
+        restart_tracker["count"] = preemption_count
+
 # ## Finetuning Flan-T5 on XSum dataset
 #
 # Each row in the dataset has a `document` (input news article) and `summary` column.
@@ -51,7 +73,6 @@ stub.volume = output_vol
     volumes={VOL_MOUNT_PATH: output_vol},
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
-    print("🏁 (re)starting finetune run")
     from datasets import load_dataset
     from transformers import (
         AutoModelForSeq2SeqLM,
@@ -61,6 +82,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         Seq2SeqTrainingArguments,
         TrainerCallback,
     )
+    track_restarts(stub.restart_tracker_dict)
 
     # Use size percentage to retrieve subset of the dataset to iterate faster
     if size_percentage:
@@ -148,6 +170,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         logging_steps=100,
         evaluation_strategy="steps",
         save_strategy="steps",
+        save_steps=750,
         save_total_limit=2,
         load_best_model_at_end=True,
     )
