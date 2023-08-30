@@ -52,6 +52,7 @@ stub.volume = output_vol
 
 stub.restart_tracker_dict = modal.Dict.new()
 
+
 def track_restarts(restart_tracker: modal.Dict):
     if not restart_tracker.contains("count"):
         preemption_count = 0
@@ -61,6 +62,7 @@ def track_restarts(restart_tracker: modal.Dict):
         preemption_count = restart_tracker.get("count") + 1
         print(f"Restarting after pre-emption. {preemption_count=}")
         restart_tracker["count"] = preemption_count
+
 
 # ## Finetuning Flan-T5 on XSum dataset
 #
@@ -82,6 +84,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         Seq2SeqTrainingArguments,
         TrainerCallback,
     )
+
     track_restarts(stub.restart_tracker_dict)
 
     # Use size percentage to retrieve subset of the dataset to iterate faster
@@ -175,7 +178,6 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         load_best_model_at_end=True,
     )
 
-
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
@@ -187,7 +189,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 
     try:
         trainer.train(resume_from_checkpoint=True)
-    except KeyboardInterrupt: # handle possible preemption
+    except KeyboardInterrupt:  # handle possible preemption
         print("received interrupt; saving state and model")
         trainer.save_state()
         trainer.save_model()
