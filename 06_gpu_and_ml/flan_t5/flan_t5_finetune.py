@@ -21,6 +21,7 @@
 
 from pathlib import Path
 
+import modal
 from modal import Image, Stub, Volume, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
@@ -39,6 +40,29 @@ image = Image.debian_slim().pip_install(
 stub = Stub(name="example-news-summarizer", image=image)
 output_vol = Volume.persisted("finetune-volume")
 stub.volume = output_vol
+
+# ### Handling preemption
+#
+# As this finetuning job is long-running it's possible that it experiences a preemption.
+# The training code is robust to pre-emption events by periodically saving checkpoints and restoring
+# from checkpoint on restart. But it's also helpful to observe in logs when a preemption restart has occurred,
+# so we track restarts with a `modal.Dict`.
+#
+# See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
+
+stub.restart_tracker_dict = modal.Dict.new()
+
+
+def track_restarts(restart_tracker: modal.Dict):
+    if not restart_tracker.contains("count"):
+        preemption_count = 0
+        print(f"Starting first time. {preemption_count=}")
+        restart_tracker["count"] = preemption_count = 0
+    else:
+        preemption_count = restart_tracker.get("count") + 1
+        print(f"Restarting after pre-emption. {preemption_count=}")
+        restart_tracker["count"] = preemption_count
+
 
 # ## Finetuning Flan-T5 on XSum dataset
 #
@@ -60,6 +84,8 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         Seq2SeqTrainingArguments,
         TrainerCallback,
     )
+
+    track_restarts(stub.restart_tracker_dict)
 
     # Use size percentage to retrieve subset of the dataset to iterate faster
     if size_percentage:
@@ -145,8 +171,9 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         num_train_epochs=num_train_epochs,
         logging_strategy="steps",
         logging_steps=100,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        evaluation_strategy="steps",
+        save_strategy="steps",
+        save_steps=750,
         save_total_limit=2,
         load_best_model_at_end=True,
     )
@@ -154,18 +181,25 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        callbacks=[CheckpointCallback(stub.app.volume)],
+        callbacks=[CheckpointCallback(stub.volume)],
         data_collator=data_collator,
         train_dataset=tokenized_xsum_train,
         eval_dataset=tokenized_xsum_test,
     )
 
-    trainer.train()
+    try:
+        trainer.train(resume_from_checkpoint=True)
+    except KeyboardInterrupt:  # handle possible preemption
+        print("received interrupt; saving state and model")
+        trainer.save_state()
+        trainer.save_model()
+        raise
 
     # Save the trained model and tokenizer to the mounted volume
     model.save_pretrained(str(VOL_MOUNT_PATH / "model"))
     tokenizer.save_pretrained(str(VOL_MOUNT_PATH / "tokenizer"))
-    stub.app.volume.commit()
+    stub.volume.commit()
+    print("✅ done")
 
 
 # ## Monitoring Finetuning with Tensorboard
