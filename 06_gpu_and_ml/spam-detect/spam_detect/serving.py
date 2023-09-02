@@ -5,7 +5,6 @@ from typing import Optional
 
 import modal
 from fastapi import FastAPI, Header
-from modal.cls import ClsMixin
 from pydantic import BaseModel
 
 from . import config, models
@@ -32,7 +31,7 @@ class ModelOutput(BaseModel):
 # TODO(Jonathon): This will acquire a GPU even when `model_id` doesn't
 # require it, which is inefficient. Find an elegant way to make the GPU optional.
 @stub.cls(gpu="A10G", volumes={config.VOLUME_DIR: volume})
-class Model(ClsMixin):
+class Model:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
         classifier, metadata = models.load_model(model_id=self.model_id)
@@ -79,8 +78,8 @@ async def handle_classification(
     """
     model_id = model_id or config.SERVING_MODEL_ID
     print(model_id)
-    model = Model.remote(model_id)
-    return model.generate(input_.text)
+    model = Model(model_id)
+    return model.generate.remote(input_.text)
 
 
 @stub.function()
