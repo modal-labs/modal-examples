@@ -1,5 +1,5 @@
 # ---
-# args: ["--prompt", "What is serverless computing?"]
+# lambda-test: false
 # ---
 # # Llama 2 inference with MLC
 #
@@ -129,7 +129,7 @@ def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
 
 # ## Run model
 #
-# Create a local Modal entrypoint that call sthe `generate` function.
+# Create a local Modal entrypoint that calls the `generate` function.
 # This uses the `curses` to render tokens as they are streamed back
 # from Modal.
 #
