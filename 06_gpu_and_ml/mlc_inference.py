@@ -32,9 +32,10 @@ image = (
         "nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04",
         add_python="3.11",
     ).run_commands(
+        "apt-get update",
         "apt-get install -y curl git",
         # Install git lfs
-        "curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash",
+        "curl -sSf https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash",
         "apt-get install -y git-lfs",
         "pip3 install --pre --force-reinstall mlc-ai-nightly-cu121 mlc-chat-nightly-cu121 -f https://mlc.ai/wheels",
     )
