@@ -35,9 +35,8 @@ LAUNCH_FLAGS = ["--model-id", MODEL_ID]
 # the largest 70B model, the 135GB model can be loaded in as little as 70 seconds.
 #
 # ### Download the weights
-# Since TGI uses `snapshot_download` under the hood, running this function for our image build
-# will place the weights into the cache directly. There are no progress bars as this uses
-# the high-throughput `hf-transfer` library, but expect ~700MB/s for this step.
+# We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
+# as part of the image build.
 #
 
 
