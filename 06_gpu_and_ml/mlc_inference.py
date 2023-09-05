@@ -30,15 +30,13 @@ LLAMA_MODEL_SIZE: str = "13b"
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04",
-        setup_dockerfile_commands=[
-            "RUN apt-get update",
-            "RUN apt-get install -y python3 python3-pip python-is-python3 git curl",
-            # Install git lfs
-            "RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash",
-            "RUN apt install git-lfs -y",
-        ],
+        add_python="3.11",
     ).run_commands(
-        "pip3 install --pre --force-reinstall mlc-ai-nightly-cu121 mlc-chat-nightly-cu121 -f https://mlc.ai/wheels"
+        "apt-get install -y curl git",
+        # Install git lfs
+        "curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash",
+        "apt-get install -y git-lfs",
+        "pip3 install --pre --force-reinstall mlc-ai-nightly-cu121 mlc-chat-nightly-cu121 -f https://mlc.ai/wheels",
     )
     # "These commands will download many prebuilt libraries as well as the chat
     # configuration for Llama-2-7b that mlc_chat needs" [...]
