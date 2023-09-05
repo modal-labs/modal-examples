@@ -24,15 +24,9 @@ from modal import Image, Secret, Stub, web_endpoint
 # install Python 3.8 and symlink that as the `python` executable instead.
 
 algolia_image = Image.from_registry(
-    tag="algolia/docsearch-scraper",
-    setup_dockerfile_commands=[
-        "RUN apt-get update",
-        "RUN apt-get install -y python3.8 python3-distutils wget",
-        "RUN wget https://bootstrap.pypa.io/get-pip.py",
-        "RUN python3.8 get-pip.py",
-        "RUN ln --symbolic --force --no-dereference /usr/bin/python3.8 /usr/bin/python",
-        "ENTRYPOINT []",
-    ],
+    "algolia/docsearch-scraper",
+    add_python="3.8",
+    setup_dockerfile_commands=["ENTRYPOINT []"],
 )
 
 stub = Stub("example-algolia-indexer")
