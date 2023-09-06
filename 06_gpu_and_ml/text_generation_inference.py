@@ -25,7 +25,7 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
-LAUNCH_FLAGS = ["--model-id", MODEL_ID]
+LAUNCH_FLAGS = ["--model-id", MODEL_ID, "--port", "8000"]
 
 # ## Define a container image
 #
@@ -105,21 +105,21 @@ class Model:
         import time
 
         from text_generation import AsyncClient
-
+ 
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS
         )
-        self.client = AsyncClient("http://0.0.0.0:80", timeout=60)
+        self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<s>[INST] <<SYS>>
 {system}
 <</SYS>>
 
 {user} [/INST] """
 
-        # Poll until webserver at 0.0.0.0:80 accepts connections before running inputs.
+        # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
         def webserver_ready():
             try:
-                socket.create_connection(("0.0.0.0", 80), timeout=1).close()
+                socket.create_connection(("127.0.0.1", 8000), timeout=1).close()
                 return True
             except (socket.timeout, ConnectionRefusedError):
                 return False
