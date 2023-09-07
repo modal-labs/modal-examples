@@ -105,7 +105,7 @@ class Model:
         import time
 
         from text_generation import AsyncClient
- 
+
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS
         )
