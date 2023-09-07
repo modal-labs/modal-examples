@@ -367,7 +367,6 @@ def transcribe_episode(
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
     import whisper
-    from modal import container_app
 
     try:
         # pre-download the model to the cache path, because the _download fn is not
@@ -409,7 +408,7 @@ def process_episode(podcast_id: str, episode_id: str):
                 model=model,
             )
     finally:
-        del container_app.in_progress[episode_id]
+        del stub.in_progress[episode_id]
 
     return episode
 
