@@ -65,7 +65,7 @@ stub = Stub(name="example-open-llama", image=image)
 # from the `transformers` library. Refer to the documentation for more parameters and tuning.
 
 
-@stub.cls(gpu=gpu.A100(memory=20))
+@stub.cls(gpu=gpu.A100())
 class OpenLlamaModel:
     def __enter__(self):
         import torch
