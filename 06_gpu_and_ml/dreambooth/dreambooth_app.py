@@ -230,39 +230,47 @@ def train(instance_example_urls):
     instance_phrase = f"{config.instance_name} {config.class_name}"
     prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
 
-    # run training -- see huggingface accelerate docs for details
-    try:
-        subprocess.run(
-            [
-                "accelerate",
-                "launch",
-                "examples/dreambooth/train_dreambooth.py",
-                "--train_text_encoder",  # needs at least 16GB of GPU RAM.
-                f"--pretrained_model_name_or_path={config.model_name}",
-                f"--instance_data_dir={img_path}",
-                f"--output_dir={MODEL_DIR}",
-                f"--instance_prompt='{prompt}'",
-                f"--resolution={config.resolution}",
-                f"--train_batch_size={config.train_batch_size}",
-                f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-                f"--learning_rate={config.learning_rate}",
-                f"--lr_scheduler={config.lr_scheduler}",
-                f"--lr_warmup_steps={config.lr_warmup_steps}",
-                f"--max_train_steps={config.max_train_steps}",
-                f"--checkpointing_steps={config.checkpointing_steps}",
-            ],
-            check=True,
-            capture_output=True,
+    def _exec_subprocess(cmd: list[str]):
+        """Executes subprocess and prints log to terminal while subprocess is running."""
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
-    except subprocess.CalledProcessError as exc:
-        print(exc.stdout.decode())
-        print(exc.stderr.decode())
-        raise
+        with process.stdout as pipe:
+            for line in iter(pipe.readline, b""):
+                line = line.decode()
+                print(f"{line}", end="")
 
+        if exitcode := process.wait() != 0:
+            raise subprocess.CalledProcessError(exitcode, "\n".join(cmd))
+
+    # run training -- see huggingface accelerate docs for details
+    print("launching dreambooth training script")
+    _exec_subprocess(
+        [
+            "accelerate",
+            "launch",
+            "examples/dreambooth/train_dreambooth.py",
+            "--train_text_encoder",  # needs at least 16GB of GPU RAM.
+            f"--pretrained_model_name_or_path={config.model_name}",
+            f"--instance_data_dir={img_path}",
+            f"--output_dir={MODEL_DIR}",
+            f"--instance_prompt='{prompt}'",
+            f"--resolution={config.resolution}",
+            f"--train_batch_size={config.train_batch_size}",
+            f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
+            f"--learning_rate={config.learning_rate}",
+            f"--lr_scheduler={config.lr_scheduler}",
+            f"--lr_warmup_steps={config.lr_warmup_steps}",
+            f"--max_train_steps={config.max_train_steps}",
+            f"--checkpointing_steps={config.checkpointing_steps}",
+        ]
+    )
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
     # To persist these artefacts for use in future inference function calls, we 'commit' the changes
     # to the volume.
-    stub.app.volume.commit()
+    stub.volume.commit()
 
 
 # ## The inference function.
@@ -284,7 +292,7 @@ class Model:
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
         # Reload the modal.Volume to ensure the latest state is accessible.
-        stub.app.volume.reload()
+        stub.volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
