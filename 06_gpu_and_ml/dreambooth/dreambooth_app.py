@@ -239,8 +239,8 @@ def train(instance_example_urls):
         )
         with process.stdout as pipe:
             for line in iter(pipe.readline, b""):
-                line = line.decode()
-                print(f"{line}", end="")
+                line_str = line.decode()
+                print(f"{line_str}", end="")
 
         if exitcode := process.wait() != 0:
             raise subprocess.CalledProcessError(exitcode, "\n".join(cmd))
