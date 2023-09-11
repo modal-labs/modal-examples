@@ -160,7 +160,7 @@ def train():
     wandb_enabled = bool(os.environ.get("WANDB_API_KEY"))
     if wandb_enabled:
         wandb.init(
-            id=stub.app.app_id,
+            id=stub.app_id,
             project=config.wandb.project,
             entity=config.wandb.entity,
         )
