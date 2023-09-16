@@ -40,7 +40,7 @@ app_image = (
     .pip_install("ffmpeg-python")
 )
 search_image = Image.debian_slim().pip_install(
-    "scikit-learn~=0.24.2",
+    "scikit-learn~=1.3.0",
     "tqdm~=4.46.0",
     "numpy~=1.23.3",
     "dacite",
