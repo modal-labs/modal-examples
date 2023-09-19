@@ -1,6 +1,3 @@
-# ---
-# runtimes: ["runc"]
-# ---
 # # Run OpenLLaMa on an A100 GPU
 #
 # In this example, we run [OpenLLaMa](https://github.com/openlm-research/open_llama),

@@ -1,6 +1,5 @@
 # ---
 # args: ["--prompt", "How do planes work?"]
-# runtimes: ["runc"]
 # ---
 # # Run Falcon-40B with bitsandbytes
 #

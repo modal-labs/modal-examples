@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# runtimes: ["runc"]
 # ---
 #
 # # Pet Art Dreambooth with Hugging Face and Gradio

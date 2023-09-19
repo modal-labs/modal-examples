@@ -1,6 +1,3 @@
-# ---
-# runtimes: ["runc"]
-# ---
 # # Run Falcon-40B with AutoGPTQ
 #
 # In this example, we run a quantized 4-bit version of Falcon-40B, the first open-source large language
