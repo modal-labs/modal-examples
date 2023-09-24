@@ -22,6 +22,8 @@ import os
 
 from modal import Image, Secret, Stub, method
 
+MODEL_DIR = "/model"
+
 
 # ## Define a container image
 #
@@ -45,14 +47,14 @@ from modal import Image, Secret, Stub, method
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
     snapshot_download(
         "meta-llama/Llama-2-13b-chat-hf",
-        local_dir="/model",
+        local_dir=MODEL_DIR,
         token=os.environ["HUGGINGFACE_TOKEN"],
     )
 
-
-MODEL_DIR = "/model"
 
 # ### Image definition
 # We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
