@@ -126,7 +126,9 @@ class Model:
                 # If so, a connection can never be made.
                 retcode = self.launcher.poll()
                 if retcode is not None:
-                    raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
+                    raise RuntimeError(
+                        f"launcher exited unexpectedly with code {retcode}"
+                    )
                 return False
 
         while not webserver_ready():
