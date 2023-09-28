@@ -122,6 +122,13 @@ class Model:
                 socket.create_connection(("127.0.0.1", 8000), timeout=1).close()
                 return True
             except (socket.timeout, ConnectionRefusedError):
+                # Check if launcher webserving process has exited.
+                # If so, a connection can never be made.
+                retcode = self.launcher.poll()
+                if retcode is not None:
+                    raise RuntimeError(
+                        f"launcher exited unexpectedly with code {retcode}"
+                    )
                 return False
 
         while not webserver_ready():
