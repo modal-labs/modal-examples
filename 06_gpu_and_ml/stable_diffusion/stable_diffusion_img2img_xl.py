@@ -50,7 +50,7 @@ image = (
     .run_function(download_models)
 )
 
-stub = Stub("stable-diffusion-xl", image=image)
+stub = Stub("stable-diffusion-img2img-xl", image=image)
 
 # ## Load model and run inference
 #
@@ -87,10 +87,6 @@ class Model:
             **load_options,
         ).to(device)
 
-        # These suggested compile commands actually increase inference time, but may be mis-used.
-        # self.base.unet = torch.compile(self.base.unet, mode="reduce-overhead", fullgraph=True)
-        # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
-
     @method()
     def inference(self, prompt, input_image):
         from diffusers.utils import load_image
@@ -122,12 +118,12 @@ class Model:
 
 # ## A user interface
 #
-# Here we ship a simple web application that exposes a front-end (written in Alpine.js) for
+# Here we ship a simple web application that exposes a front-end for
 # our backend deployment.
 #
 # The Model class will serve multiple users from a its own shared pool of warm GPU containers automatically.
 #
-# We can deploy this with `modal deploy stable_diffusion_xl.py`.
+# We can deploy this with `modal deploy stable_diffusion_img2img__xl.py`.
 
 from fastapi import FastAPI
 from PIL import Image
