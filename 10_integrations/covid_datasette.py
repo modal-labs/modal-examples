@@ -25,7 +25,6 @@ import asyncio
 import pathlib
 import shutil
 import subprocess
-import tempfile
 from datetime import datetime
 from urllib.request import urlretrieve
 
