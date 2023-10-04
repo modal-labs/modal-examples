@@ -24,8 +24,10 @@
 import asyncio
 import pathlib
 import shutil
+import subprocess
 import tempfile
 from datetime import datetime, timedelta
+from urllib.request import urlretrieve
 
 from modal import Image, NetworkFileSystem, Period, Stub, asgi_app
 
@@ -35,10 +37,9 @@ datasette_image = (
     .pip_install(
         "datasette~=0.63.2",
         "flufl.lock",
-        "GitPython",
         "sqlite-utils",
     )
-    .apt_install("git")
+    .apt_install("unzip")
 )
 
 # ## Persistent dataset storage
@@ -51,7 +52,7 @@ volume = NetworkFileSystem.persisted("covid-dataset-cache-vol")
 
 CACHE_DIR = "/cache"
 LOCK_FILE = str(pathlib.Path(CACHE_DIR, "lock-reports"))
-REPO_DIR = pathlib.Path(CACHE_DIR, "COVID-19")
+REPORTS_DIR = pathlib.Path(CACHE_DIR, "COVID-19")
 DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
 
 # ## Getting a dataset
@@ -69,22 +70,28 @@ DB_PATH = pathlib.Path(CACHE_DIR, "covid-19.db")
     retries=2,
 )
 def download_dataset(cache=True):
-    import git
     from flufl.lock import Lock
 
-    if REPO_DIR.exists() and cache:
+    if REPORTS_DIR.exists() and cache:
         print(f"Dataset already present and {cache=}. Skipping download.")
         return
-    elif REPO_DIR.exists():
+    elif REPORTS_DIR.exists():
         print(
             "Acquiring lock before deleting dataset, which may be in use by other runs."
         )
         with Lock(LOCK_FILE, default_timeout=timedelta(hours=1)):
-            shutil.rmtree(REPO_DIR)
+            shutil.rmtree(REPORTS_DIR)
         print("Cleaned dataset before re-downloading.")
 
-    git_url = "https://github.com/CSSEGISandData/COVID-19"
-    git.Repo.clone_from(git_url, REPO_DIR, depth=1)
+    print("Downloading dataset...")
+    urlretrieve("https://github.com/CSSEGISandData/COVID-19/archive/refs/heads/master.zip", "/tmp/covid-19.zip")
+
+    print("Unpacking archive")
+    prefix = "COVID-19-master/csse_covid_19_data/csse_covid_19_daily_reports"
+    subprocess.run(f"unzip /tmp/covid-19.zip {prefix}/* -d {REPORTS_DIR}", shell=True)
+    subprocess.run(f"mv {REPORTS_DIR / prefix}/* {REPORTS_DIR}", shell=True)
+
+    print("Finished downloading dataset.")
 
 
 # ## Data munging
@@ -96,11 +103,9 @@ def download_dataset(cache=True):
 
 
 def load_daily_reports():
-    jhu_csse_base = REPO_DIR
-    reports_path = (
-        jhu_csse_base / "csse_covid_19_data" / "csse_covid_19_daily_reports"
-    )
-    daily_reports = list(reports_path.glob("*.csv"))
+    daily_reports = list(REPORTS_DIR.glob("*.csv"))
+    if not daily_reports:
+        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
     for filepath in daily_reports:
         yield from load_report(filepath)
 
