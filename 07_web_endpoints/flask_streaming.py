@@ -35,7 +35,7 @@ def flask_app():
     @web_app.route("/")
     def generate_large_csv():
         # Run the function locally in the web app's container.
-        return generate_rows(), {"Content-Type": "text/csv"}
+        return generate_rows.local(), {"Content-Type": "text/csv"}
 
     @web_app.route("/remote")
     def generate_large_csv_in_container():
