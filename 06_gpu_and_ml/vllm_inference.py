@@ -58,18 +58,23 @@ def download_model_to_folder():
 
 # ### Image definition
 # We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
-# version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
-# Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
-# are saved within the container image.
-#
+# version of `torch` (from 1.14) to a new one specifically built for CUDA 11.8.
+# Next, we install `vLLM` from source to get the latest updates. Finally, we’ll
+# use run_function to run the function defined above to ensure the weights of
+# the model are saved within the container image.
 image = (
     Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
-        "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
+        "torch==2.0.1+cu118", index_url="https://download.pytorch.org/whl/cu118"
     )
-    # Pinned to 08/15/2023
+    # Pinned to 10/10/2023.
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@805de738f618f8b47ab0d450423d23db1e636fa2",
+        # TODO: Point back upstream once
+        # https://github.com/vllm-project/vllm/pull/1239 is merged. We need it
+        # when installing from a SHA directly. We also need to install from a
+        # SHA directly to pick up https://github.com/vllm-project/vllm/pull/1290,
+        # which locks torch==2.0.1 (torch==2.1.0 is built using CUDA 12.1).
+        "vllm @ git+https://github.com/modal-labs/vllm.git@eed12117603bcece41d7ac0f10bcf7ece0fde2fc",
         "typing-extensions==4.5.0",  # >=4.6 causes typing issues
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
