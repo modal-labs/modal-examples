@@ -23,6 +23,7 @@ import os
 from modal import Image, Secret, Stub, method
 
 MODEL_DIR = "/model"
+BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
 
 # ## Define a container image
@@ -46,13 +47,9 @@ def download_model_to_folder():
 
     snapshot_download(
         BASE_MODEL,
-        local_dir="/model",
+        local_dir=MODEL_DIR,
         token=os.environ["HUGGINGFACE_TOKEN"],
     )
-
-
-MODEL_DIR = "/model"
-BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
 
 # ### Image definition
