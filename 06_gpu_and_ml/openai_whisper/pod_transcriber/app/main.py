@@ -27,14 +27,14 @@ volume = NetworkFileSystem.persisted("dataset-cache-vol")
 app_image = (
     Image.debian_slim()
     .pip_install(
-        "https://github.com/openai/whisper/archive/9f70a352f9f8630ab3aa0d06af5cb9532bd8c21d.tar.gz",
+        "git+https://github.com/openai/whisper.git",
         "dacite",
         "jiwer",
         "ffmpeg-python",
         "gql[all]~=3.0.0a5",
         "pandas",
         "loguru==0.6.0",
-        "torchaudio==0.12.1",
+        "torchaudio==2.1.0",
     )
     .apt_install("ffmpeg")
     .pip_install("ffmpeg-python")
