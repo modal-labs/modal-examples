@@ -96,7 +96,7 @@ class Model:
 
         # Load the model. Tip: MPT models may require `trust_remote_code=true`.
         self.llm = LLM(MODEL_DIR)
-        self.template = """"<s>[INST] <<SYS>>
+        self.template = """<s>[INST] <<SYS>>
 {system}
 <</SYS>>
 
