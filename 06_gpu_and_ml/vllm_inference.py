@@ -57,8 +57,10 @@ BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 # are saved within the container image.
 #
 image = (
-    Image.from_dockerhub("nvcr.io/nvidia/pytorch:22.12-py3")
-    .pip_install("torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118")
+    Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
+    .pip_install(
+        "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
+    )
     .apt_install("git")
     # Download latest version of vLLM
     .run_commands(
@@ -102,7 +104,9 @@ class Model:
     def generate(self, user_questions):
         from vllm import SamplingParams
 
-        prompts = [self.template.format(system="", user=q) for q in user_questions]
+        prompts = [
+            self.template.format(system="", user=q) for q in user_questions
+        ]
 
         sampling_params = SamplingParams(
             temperature=0.75,
