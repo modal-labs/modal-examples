@@ -87,9 +87,9 @@ def run_jupyter(timeout: int):
 @stub.local_entrypoint()
 def main(timeout: int = 10_000):
     # Write some images to a volume, for demonstration purposes.
-    seed_volume.call()
+    seed_volume.remote()
     # Run the Jupyter Notebook server
-    run_jupyter.call(timeout=timeout)
+    run_jupyter.remote(timeout=timeout)
 
 
 # Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts

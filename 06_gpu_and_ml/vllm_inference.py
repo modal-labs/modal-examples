@@ -22,6 +22,8 @@ import os
 
 from modal import Image, Secret, Stub, method
 
+MODEL_DIR = "/model"
+
 
 # ## Define a container image
 #
@@ -40,6 +42,8 @@ from modal import Image, Secret, Stub, method
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
 
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
     snapshot_download(
         BASE_MODEL,
         local_dir="/model",
@@ -50,16 +54,17 @@ def download_model_to_folder():
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
+
 # ### Image definition
 # We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
-# version of `torch` to a new one specifically built for CUDA 11.8. Next, we install `vLLM` from source to get the latest updates.
-# Finally, we’ll use run_function to run the function defined above to ensure the weights of the model
-# are saved within the container image.
-#
+# version of `torch` (from 1.14) to a new one specifically built for CUDA 11.8.
+# Next, we install `vLLM` from source to get the latest updates. Finally, we’ll
+# use run_function to run the function defined above to ensure the weights of
+# the model are saved within the container image.
 image = (
     Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
     .pip_install(
-        "torch==2.0.1", index_url="https://download.pytorch.org/whl/cu118"
+        "torch==2.0.1+cu118", index_url="https://download.pytorch.org/whl/cu118"
     )
     .apt_install("git")
     # Download latest version of vLLM

@@ -109,7 +109,7 @@ if stub.is_inside():
 # Note the `gpu="any"` argument which tells Modal to use GPU workers.
 
 
-@stub.function(gpu="any")
+@stub.function(gpu="t4")
 def render_frame(i):
     print(f"Using frame {i}")
 

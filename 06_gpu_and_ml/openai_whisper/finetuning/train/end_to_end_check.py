@@ -114,8 +114,8 @@ def test_download_and_tryout_model(run_id: str):
 
 def run_test() -> int:
     with stub.run() as app:
-        test_finetune_one_step_and_save_to_vol.call(run_id=app.app_id)
-        test_download_and_tryout_model.call(run_id=app.app_id)
+        test_finetune_one_step_and_save_to_vol.remote(run_id=app.app_id)
+        test_download_and_tryout_model.remote(run_id=app.app_id)
     return 0
 
 

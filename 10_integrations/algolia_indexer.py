@@ -23,16 +23,10 @@ from modal import Image, Secret, Stub, web_endpoint
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.8 and symlink that as the `python` executable instead.
 
-algolia_image = Image.from_dockerhub(
-    tag="algolia/docsearch-scraper",
-    setup_dockerfile_commands=[
-        "RUN apt-get update",
-        "RUN apt-get install -y python3.8 python3-distutils wget",
-        "RUN wget https://bootstrap.pypa.io/get-pip.py",
-        "RUN python3.8 get-pip.py",
-        "RUN ln --symbolic --force --no-dereference /usr/bin/python3.8 /usr/bin/python",
-        "ENTRYPOINT []",
-    ],
+algolia_image = Image.from_registry(
+    "algolia/docsearch-scraper",
+    add_python="3.8",
+    setup_dockerfile_commands=["ENTRYPOINT []"],
 )
 
 stub = Stub("example-algolia-indexer")
@@ -55,7 +49,7 @@ CONFIG = {
         "lvl2": "article h2",
         "lvl3": "article h3",
         "lvl4": "article h4",
-        "text": "article p,article ol,article ul",
+        "text": "article p,article ol,article ul,article pre",
     },
 }
 
@@ -94,7 +88,7 @@ def crawl():
 @stub.function()
 @web_endpoint()
 def crawl_webhook():
-    crawl.call()
+    crawl.remote()
     return "Finished indexing docs"
 
 
@@ -117,9 +111,9 @@ def crawl_webhook():
 # ## Entrypoint for development
 #
 # To make it easier to test this, we also have an entrypoint for when you run
-# `python algolia_indexer.py`
+# `modal run algolia_indexer.py`
 
 
 @stub.local_entrypoint()
 def run():
-    crawl.call()
+    crawl.remote()

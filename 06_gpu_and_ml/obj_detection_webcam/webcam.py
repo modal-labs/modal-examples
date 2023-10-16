@@ -48,7 +48,7 @@ from modal import (
 # and a system font for drawing.
 #
 # This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# one at image build time using the `download_model` function and saved into the image.
+# once at image build time using the `download_model` function and saved into the image.
 # 'Baking' models into the `modal.Image` at build time provided the fastest cold start.
 
 model_repo_id = "facebook/detr-resnet-50"
@@ -185,7 +185,7 @@ async def predict(request: Request):
     # Takes a webcam image as a datauri, returns a bounding box image as a datauri
     body = await request.body()
     img_data_in = base64.b64decode(body.split(b",")[1])  # read data-uri
-    img_data_out = ObjectDetection().detect.call(img_data_in)
+    img_data_out = ObjectDetection().detect.remote(img_data_in)
     output_data = b"data:image/png;base64," + base64.b64encode(img_data_out)
     return Response(content=output_data)
 

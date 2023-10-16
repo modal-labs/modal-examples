@@ -1,12 +1,12 @@
 # ---
-# cmd: ["modal", "run", "10_integrations.dbt.dbt_sqlite::run"]
+# cmd: ["modal", "run", "10_integrations/dbt/dbt_sqlite.py::run"]
 # ---
 #
 # This is a simple demonstration of how to run a dbt-core project on Modal
 # using the dbt-sqlite adapter.
 #
 # The underlying DBT data and models are from https://docs.getdbt.com/docs/get-started/getting-started-dbt-core
-# To run this example, first run the meltano example in 10_integrations/meltano to load the required data
+# To run this example, first run the meltano example in `10_integrations/meltano/` to load the required data
 # into sqlite.
 #
 # **Run this example:**
@@ -24,6 +24,7 @@
 
 import os
 import subprocess
+import sys
 import typing
 from pathlib import Path
 
@@ -72,16 +73,16 @@ def dbt_cli(subcommand: typing.List):
 
 @stub.local_entrypoint()
 def run():
-    dbt_cli.call(["run"])
+    dbt_cli.remote(["run"])
 
 
 @stub.local_entrypoint()
 def debug():
-    dbt_cli.call(["debug"])
+    dbt_cli.remote(["debug"])
 
 
 @stub.function(
-    interactive=True,
+    interactive=sys.stdout.isatty(),
     network_file_systems={RAW_SCHEMAS: raw_volume, OUTPUT_SCHEMAS: db_volume},
     timeout=86400,
     image=modal.Image.debian_slim().apt_install("sqlite3"),

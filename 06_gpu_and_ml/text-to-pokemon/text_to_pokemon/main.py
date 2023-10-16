@@ -69,7 +69,7 @@ class Model:
         import threading
 
         if not pokemon_naming.rnn_names_output_path.exists():
-            threading.Thread(target=ops.generate_pokemon_names.call).start()
+            threading.Thread(target=ops.generate_pokemon_names.remote).start()
         self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
 
     @method()
@@ -110,7 +110,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     else:
         # 1. Create images (expensive)
         model = Model()
-        samples_data = model.text_to_pokemon.call(prompt=norm_prompt)
+        samples_data = model.text_to_pokemon.remote(prompt=norm_prompt)
         # 2. Save them (for later run to be cached)
         # Allow prior existence of dir because multiple concurrent requests for same prompt
         # can race each other.
@@ -226,7 +226,7 @@ def composite_pokemon_card(
         )
 
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name.call(
+    return inpaint_new_pokemon_name.remote(
         card_image=image_to_byte_array(back_im), prompt=prompt
     )
 
@@ -293,7 +293,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.
-        samples_data = diskcached_text_to_pokemon.call(prompt)
+        samples_data = diskcached_text_to_pokemon.remote(prompt)
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
             create_composite_card.starmap(
@@ -352,7 +352,7 @@ def closest_pokecard_by_color(sample: bytes, cards):
 
 @stub.local_entrypoint()
 def run_local(prompt: str):
-    images_data = diskcached_text_to_pokemon.call(prompt)
+    images_data = diskcached_text_to_pokemon.remote(prompt)
 
     now = int(time.time())
     for i, image_bytes in enumerate(images_data):

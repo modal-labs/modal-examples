@@ -30,5 +30,5 @@ def gpu_function():
 if __name__ == "__main__":
     t0 = time.time()
     with stub.run():
-        gpu_function.call()
+        gpu_function.remote()
     print("Full time spent:", time.time() - t0)

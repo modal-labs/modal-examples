@@ -22,7 +22,7 @@ import time
 
 from modal import Image, NetworkFileSystem, Stub, wsgi_app
 
-dockerhub_image = Image.from_dockerhub(
+dockerhub_image = Image.from_registry(
     "tensorflow/tensorflow:latest-gpu",
 ).pip_install("protobuf==3.20.*")
 
@@ -61,7 +61,9 @@ logdir = "/tensorboard"
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
 
 
-@stub.function(network_file_systems={logdir: stub.volume}, gpu="any")
+@stub.function(
+    network_file_systems={logdir: stub.volume}, gpu="any", timeout=600
+)
 def train():
     import pathlib
 
@@ -184,7 +186,7 @@ def tensorboard_app():
 
 @stub.local_entrypoint()
 def main(just_run: bool = False):
-    train.call()
+    train.remote()
     if not just_run:
         print("Training is done, but app is still running until you hit ctrl-c")
         try:

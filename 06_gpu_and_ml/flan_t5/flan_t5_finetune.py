@@ -21,7 +21,8 @@
 
 from pathlib import Path
 
-from modal import Image, NetworkFileSystem, Stub, method, wsgi_app
+import modal
+from modal import Image, Stub, Volume, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
 
@@ -37,7 +38,31 @@ image = Image.debian_slim().pip_install(
 )
 
 stub = Stub(name="example-news-summarizer", image=image)
-output_vol = NetworkFileSystem.persisted("finetune-vol")
+output_vol = Volume.persisted("finetune-volume")
+stub.volume = output_vol
+
+# ### Handling preemption
+#
+# As this finetuning job is long-running it's possible that it experiences a preemption.
+# The training code is robust to pre-emption events by periodically saving checkpoints and restoring
+# from checkpoint on restart. But it's also helpful to observe in logs when a preemption restart has occurred,
+# so we track restarts with a `modal.Dict`.
+#
+# See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
+
+stub.restart_tracker_dict = modal.Dict.new()
+
+
+def track_restarts(restart_tracker: modal.Dict):
+    if not restart_tracker.contains("count"):
+        preemption_count = 0
+        print(f"Starting first time. {preemption_count=}")
+        restart_tracker["count"] = preemption_count = 0
+    else:
+        preemption_count = restart_tracker.get("count") + 1
+        print(f"Restarting after pre-emption. {preemption_count=}")
+        restart_tracker["count"] = preemption_count
+
 
 # ## Finetuning Flan-T5 on XSum dataset
 #
@@ -47,7 +72,7 @@ output_vol = NetworkFileSystem.persisted("finetune-vol")
 @stub.function(
     gpu="A10g",
     timeout=7200,
-    network_file_systems={VOL_MOUNT_PATH: output_vol},
+    volumes={VOL_MOUNT_PATH: output_vol},
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     from datasets import load_dataset
@@ -57,7 +82,10 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         DataCollatorForSeq2Seq,
         Seq2SeqTrainer,
         Seq2SeqTrainingArguments,
+        TrainerCallback,
     )
+
+    track_restarts(stub.restart_tracker_dict)
 
     # Use size percentage to retrieve subset of the dataset to iterate faster
     if size_percentage:
@@ -121,6 +149,18 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         pad_to_multiple_of=batch_size,
     )
 
+    class CheckpointCallback(TrainerCallback):
+        def __init__(self, volume):
+            self.volume = volume
+
+        def on_save(self, args, state, control, **kwargs):
+            """
+            Event called after a checkpoint save.
+            """
+            if state.is_world_process_zero:
+                print("running commit on modal.Volume after model checkpoint")
+                self.volume.commit()
+
     training_args = Seq2SeqTrainingArguments(
         # Save checkpoints to the mounted volume
         output_dir=str(VOL_MOUNT_PATH / "model"),
@@ -129,12 +169,11 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         predict_with_generate=True,
         learning_rate=3e-5,
         num_train_epochs=num_train_epochs,
-        # Save logs to the mounted volume
-        logging_dir=str(VOL_MOUNT_PATH / "logs"),
         logging_strategy="steps",
         logging_steps=100,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        evaluation_strategy="steps",
+        save_strategy="steps",
+        save_steps=750,
         save_total_limit=2,
         load_best_model_at_end=True,
     )
@@ -142,16 +181,25 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
+        callbacks=[CheckpointCallback(stub.volume)],
         data_collator=data_collator,
         train_dataset=tokenized_xsum_train,
         eval_dataset=tokenized_xsum_test,
     )
 
-    trainer.train()
+    try:
+        trainer.train(resume_from_checkpoint=True)
+    except KeyboardInterrupt:  # handle possible preemption
+        print("received interrupt; saving state and model")
+        trainer.save_state()
+        trainer.save_model()
+        raise
 
     # Save the trained model and tokenizer to the mounted volume
     model.save_pretrained(str(VOL_MOUNT_PATH / "model"))
     tokenizer.save_pretrained(str(VOL_MOUNT_PATH / "tokenizer"))
+    stub.volume.commit()
+    print("✅ done")
 
 
 # ## Monitoring Finetuning with Tensorboard
@@ -159,7 +207,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 # Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
 #
-@stub.function(network_file_systems={VOL_MOUNT_PATH: output_vol})
+@stub.function(volumes={VOL_MOUNT_PATH: output_vol})
 @wsgi_app()
 def monitor():
     import tensorboard
@@ -181,7 +229,7 @@ def monitor():
 #
 
 
-@stub.cls(network_file_systems={VOL_MOUNT_PATH: output_vol})
+@stub.cls(volumes={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
     def __enter__(self):
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
@@ -220,7 +268,7 @@ def main():
     are both on two under, while Ireland's Shane Lowry is on level par.
     """
     model = Summarizer()
-    response = model.generate.call(input)
+    response = model.generate.remote(input)
     print(response)
 
 
@@ -228,14 +276,14 @@ def main():
 # Invoke model finetuning use the provided command below
 #
 # ```bash
-# modal run --detach finetune.py::finetune --num-train-epochs=1 --size-percentage=10
+# modal run --detach flan_t5_finetune.py::finetune --num-train-epochs=1 --size-percentage=10
 # View the tensorboard logs at https://<username>--example-news-summarizer-monitor-dev.modal.run
 # ```
 #
 # Invoke finetuned model inference via local entrypoint
 #
 # ```bash
-# modal run finetune.py
+# modal run flan_t5_finetune.py
 # World number one Tiger Woods missed the cut at the US Open as he failed to qualify for the final round of the event in Los Angeles.
 # ```
 #

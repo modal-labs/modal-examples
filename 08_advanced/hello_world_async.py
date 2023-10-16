@@ -37,8 +37,8 @@ def f(i):
 
 @stub.local_entrypoint()
 async def run_async():
-    # Call the function using .call.aio() in order to run it asynchronously
-    print(await f.call.aio(1000))
+    # Call the function using .remote.aio() in order to run it asynchronously
+    print(await f.remote.aio(1000))
 
     # Parallel map.
     total = 0

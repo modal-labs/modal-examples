@@ -171,8 +171,8 @@ def _inference(
 # which include all required drivers.
 
 image = (
-    modal.Image.from_dockerhub(
-        "nvidia/cuda:12.1.1-devel-ubuntu22.04",
+    modal.Image.from_registry(
+        "nvidia/cuda:12.2.0-devel-ubuntu22.04",
         setup_dockerfile_commands=[
             "RUN apt-get update && apt-get install -y git python3-pip",
             "RUN ln -s /usr/bin/python3 /usr/bin/python",

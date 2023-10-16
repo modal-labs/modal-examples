@@ -12,6 +12,7 @@ from .main import (
     populate_podcast_metadata,
     process_episode,
     search_podcast,
+    stub,
 )
 from .podcast import coalesce_short_transcript_segments
 
@@ -94,18 +95,16 @@ async def podcasts_endpoint(request: Request):
     form = await request.form()
     name = form["podcast"]
     podcasts_response = []
-    for pod in search_podcast.call(name):
+    for pod in search_podcast.remote(name):
         podcasts_response.append(dataclasses.asdict(pod))
     return podcasts_response
 
 
 @web_app.post("/api/transcribe")
 async def transcribe_job(podcast_id: str, episode_id: str):
-    from modal import container_app
-
     now = int(time.time())
     try:
-        inprogress_job = container_app.in_progress[episode_id]
+        inprogress_job = stub.in_progress[episode_id]
         # NB: runtime type check is to handle present of old `str` values that didn't expire.
         if (
             isinstance(inprogress_job, InProgressJob)
@@ -120,7 +119,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
         pass
 
     call = process_episode.spawn(podcast_id, episode_id)
-    container_app.in_progress[episode_id] = InProgressJob(
+    stub.in_progress[episode_id] = InProgressJob(
         call_id=call.object_id, start_time=now
     )
 

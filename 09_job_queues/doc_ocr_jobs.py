@@ -140,4 +140,4 @@ def main():
         image = urllib.request.urlopen(
             "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
         ).read()
-    print(parse_receipt.call(image))
+    print(parse_receipt.remote(image))

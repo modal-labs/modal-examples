@@ -179,7 +179,7 @@ def summarize_article(text: str) -> str:
 
 @stub.function(schedule=modal.Period(days=1))
 def trigger():
-    articles = latest_science_stories.call()
+    articles = latest_science_stories.remote()
 
     # parallelize article scraping
     for i, text in enumerate(scrape_nyc_article.map([a.url for a in articles])):
@@ -208,7 +208,7 @@ def trigger():
 
 @stub.local_entrypoint()
 def main():
-    trigger.call()
+    trigger.remote()
 
 
 # And that's it. You will now generate deep learning summaries from the latest

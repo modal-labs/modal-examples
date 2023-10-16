@@ -58,7 +58,7 @@ def stream_chat(prompt: str):
 # This works because the function is a generator and is thus compatible with streaming.
 #
 # We use the standard Python calling convention `stream_chat(...)` and not the
-# Modal-specific calling convention `stream_chat.call(...)`. The latter would still work,
+# Modal-specific calling convention `stream_chat.remote(...)`. The latter would still work,
 # but it would create a remote function invocation which would unnecessarily involve `stream_chat`
 # running in a separate container, sending its results back to the caller over the network.
 
@@ -96,5 +96,5 @@ default_prompt = (
 
 @stub.local_entrypoint()
 def main(prompt: str = default_prompt):
-    for part in stream_chat.call(prompt=prompt):
+    for part in stream_chat.remote_gen(prompt=prompt):
         print(part, end="")

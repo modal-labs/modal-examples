@@ -202,4 +202,4 @@ def main():
         "Count up from 1 to 500.",
     ]
     model = AlpacaLoRAModel()
-    model.generate.call(instructions)
+    model.generate.remote(instructions)

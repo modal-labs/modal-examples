@@ -18,4 +18,4 @@ def f():
 
 if __name__ == "__main__":
     with stub.run():
-        f.call()
+        f.remote()
