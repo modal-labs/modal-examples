@@ -92,7 +92,8 @@ class Model:
             **load_options,
         )
 
-        # These suggested compile commands actually increase inference time, but may be mis-used.
+        # Compiling the model graph is JIT so this will increase inference time for the first run
+        # but speed up subsequent runs. Uncomment to enable.
         # self.base.unet = torch.compile(self.base.unet, mode="reduce-overhead", fullgraph=True)
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
