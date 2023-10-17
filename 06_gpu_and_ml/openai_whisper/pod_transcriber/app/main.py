@@ -26,6 +26,7 @@ volume = NetworkFileSystem.persisted("dataset-cache-vol")
 
 app_image = (
     Image.debian_slim()
+    .apt_install("git")
     .pip_install(
         "git+https://github.com/openai/whisper.git",
         "dacite",
