@@ -1,4 +1,4 @@
-# # Fast inference with vLLM (Llama 2 13B)
+# # Fast inference with vLLM (Mistral 7B)
 #
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
@@ -6,9 +6,9 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# We are running the Llama 2 13B model here, and you can expect 30 second cold starts and well over 100 tokens/second.
-# The larger the batch of prompts, the higher the throughput. For example, with the 60 prompts below,
-# we can produce 24k tokens in 39 seconds, which is around 600 tokens/second.
+# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) model here, which is an instruct fine-tuned version of Mistral's 7B model best fit for conversation.
+# You can expect 20 second cold starts and well over 100 tokens/second. The larger the batch of prompts, the higher the throughput.
+# For example, with the 60 prompts below, we can produce 19k tokens in 15 seconds, which is around 1.25k tokens/second.
 #
 # To run
 # [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
@@ -23,6 +23,7 @@ import os
 from modal import Image, Secret, Stub, method
 
 MODEL_DIR = "/model"
+BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
 
 # ## Define a container image
@@ -32,12 +33,7 @@ MODEL_DIR = "/model"
 # advantage of Modal's internal filesystem for faster cold starts.
 #
 # ### Download the weights
-#
-# Since the weights are gated on HuggingFace, we must request access in two places:
-# - on the [model card page](https://huggingface.co/meta-llama/Llama-2-13b-chat-hf)
-# - accept the license [on the Meta website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
-#
-# Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
+# Make sure you have created a [HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
 # Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
 #
@@ -50,7 +46,7 @@ def download_model_to_folder():
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     snapshot_download(
-        "meta-llama/Llama-2-13b-chat-hf",
+        BASE_MODEL,
         local_dir=MODEL_DIR,
         token=os.environ["HUGGINGFACE_TOKEN"],
     )
@@ -67,15 +63,9 @@ image = (
     .pip_install(
         "torch==2.0.1+cu118", index_url="https://download.pytorch.org/whl/cu118"
     )
-    # Pinned to 10/10/2023.
+    # Pinned to 10/16/23
     .pip_install(
-        # TODO: Point back upstream once
-        # https://github.com/vllm-project/vllm/pull/1239 is merged. We need it
-        # when installing from a SHA directly. We also need to install from a
-        # SHA directly to pick up https://github.com/vllm-project/vllm/pull/1290,
-        # which locks torch==2.0.1 (torch==2.1.0 is built using CUDA 12.1).
-        "vllm @ git+https://github.com/modal-labs/vllm.git@eed12117603bcece41d7ac0f10bcf7ece0fde2fc",
-        "typing-extensions==4.5.0",  # >=4.6 causes typing issues
+        "vllm @ git+https://github.com/vllm-project/vllm.git@651c614aa43e497a2e2aab473493ba295201ab20"
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .pip_install("hf-transfer~=0.1")
@@ -117,6 +107,7 @@ class Model:
         prompts = [
             self.template.format(system="", user=q) for q in user_questions
         ]
+
         sampling_params = SamplingParams(
             temperature=0.75,
             top_p=1,
