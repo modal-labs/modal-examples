@@ -64,7 +64,9 @@ image = (
         "torch==2.0.1+cu118", index_url="https://download.pytorch.org/whl/cu118"
     )
     # Pinned to 10/16/23
-    .pip_install("vllm @ git+https://github.com/vllm-project/vllm.git@651c614aa43e497a2e2aab473493ba295201ab20")
+    .pip_install(
+        "vllm @ git+https://github.com/vllm-project/vllm.git@651c614aa43e497a2e2aab473493ba295201ab20"
+    )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .pip_install("hf-transfer~=0.1")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
