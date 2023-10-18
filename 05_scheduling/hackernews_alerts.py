@@ -73,13 +73,12 @@ def search_hackernews():
         "numericFilters": f"created_at_i>{threshold.timestamp()}",
     }
 
-    response = requests.get(url, params).json()
-    urls = [item["url"] for item in response["hits"] if item["url"]]
+    response = requests.get(url, params, timeout=10).json()
+    urls = [item["url"] for item in response["hits"] if item.get("url")]
 
     print(f"Query returned {len(urls)} items.")
 
-    for _ in post_to_slack.map(urls):
-        pass
+    post_to_slack.for_each(urls)
 
 
 # ## Test running
