@@ -24,8 +24,16 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 
 GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
+REVISION = "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
-LAUNCH_FLAGS = ["--model-id", MODEL_ID, "--port", "8000"]
+LAUNCH_FLAGS = [
+    "--model-id",
+    MODEL_ID,
+    "--port",
+    "8000",
+    "--revision",
+    REVISION,
+]
 
 # ## Define a container image
 #
@@ -43,7 +51,15 @@ LAUNCH_FLAGS = ["--model-id", MODEL_ID, "--port", "8000"]
 def download_model():
     import subprocess
 
-    subprocess.run(["text-generation-server", "download-weights", MODEL_ID])
+    subprocess.run(
+        [
+            "text-generation-server",
+            "download-weights",
+            MODEL_ID,
+            "--revision",
+            REVISION,
+        ]
+    )
 
 
 # ### Image definition
