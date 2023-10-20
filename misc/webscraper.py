@@ -11,10 +11,10 @@ stub = modal.Stub("example-linkscraper")
 playwright_image = modal.Image.debian_slim(
     python_version="3.10"
 ).run_commands(  # Doesn't work with 3.11 yet
+    "apt-get update",
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
-    "apt-get update",
     "pip install playwright==1.30.0",
     "playwright install-deps chromium",
     "playwright install chromium",
