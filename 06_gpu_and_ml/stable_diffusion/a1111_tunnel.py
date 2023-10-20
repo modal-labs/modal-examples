@@ -1,11 +1,13 @@
+# ---
+# lambda-test: false
+# ---
+
 import os
 import socket
 import subprocess
-import sys
 import time
 
 from modal import Dict, Image, Secret, Stub, asgi_app, forward
-
 
 stub = Stub("example-a1111")
 stub.urls = Dict.new()  # TODO: Hack because spawn() doesn't support generators.
@@ -129,7 +131,7 @@ def launcher():
         key = str(uuid.uuid4())  # for Dict polling
         start_web_ui.spawn(key, timeout)
 
-        while not key in stub.urls:
+        while key not in stub.urls:
             time.sleep(0.1)
 
         return RedirectResponse(stub.urls[key], status_code=303)
