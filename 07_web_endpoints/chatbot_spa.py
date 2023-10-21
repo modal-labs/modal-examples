@@ -48,7 +48,7 @@ stub.gpu_image = (
 )
 
 
-if stub.is_inside(stub.gpu_image):
+with stub.gpu_image.run_inside():
     import torch
 
     tokenizer, model = load_tokenizer_and_model()

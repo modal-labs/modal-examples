@@ -215,7 +215,7 @@ def format_prompt(instruction: str) -> str:
     return f"<|USER|>{instruction}<|ASSISTANT|>"
 
 
-if stub.is_inside():
+with stub.image.run_inside():
     import uuid
 
     import msgspec
