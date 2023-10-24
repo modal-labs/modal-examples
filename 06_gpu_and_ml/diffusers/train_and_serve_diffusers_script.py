@@ -16,7 +16,7 @@
 
 # You can put all of the sample code on this page in a single file, for example, `training_and_inference.py`.
 
-# Start by specifying the Python modules that the training will depend on, including the Diffusers library, which contains the actual training script. 
+# Start by specifying the Python modules that the training will depend on, including the Diffusers library, which contains the actual training script.
 
 import os
 import sys
@@ -32,6 +32,7 @@ from modal import (
     asgi_app,
     method,
 )
+
 GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 
 image = (
@@ -81,17 +82,17 @@ VOLUME_CONFIG = {
 
 # Each Diffusers example script takes a different set of hyperparameters, so you will need to customize the config depending on the hyperparameters of the script. The code below shows some example parameters.
 
+
 @dataclass
-class TrainConfig():
+class TrainConfig:
     """Configuration for the finetuning training."""
 
-     # identifier for pretrained model on Hugging Face
+    # identifier for pretrained model on Hugging Face
     model_name: str = "runwayml/stable-diffusion-v1-5"
-    
+
     resume_from_checkpoint: str = "latest"
     # HuggingFace Hub dataset
-    dataset_name="yirenlu/heroicons"
-
+    dataset_name = "yirenlu/heroicons"
 
     # Hyperparameters/constants from some of the Diffusers examples
     # You should modify these to match the hyperparameters of the script you are using.
@@ -103,18 +104,19 @@ class TrainConfig():
     lr_warmup_steps: int = 0
     max_train_steps: int = 100
     checkpointing_steps: int = 2000
-    mixed_precision: int = "fp16"
+    mixed_precision: str = "fp16"
     caption_column: str = "text"
     max_grad_norm: int = 1
     validation_prompt: str = "an icon of a dragon creature"
 
 
 @dataclass
-class AppConfig():
+class AppConfig:
     """Configuration information for inference."""
 
     num_inference_steps: int = 50
     guidance_scale: float = 7.5
+
 
 # ## Set up finetuning dataset
 
@@ -186,38 +188,40 @@ def train():
     def launch_training():
 
         sys.argv = [
-                "examples/text_to_image/train_text_to_image.py", # potentially modify
-                f"--pretrained_model_name_or_path={config.model_name}",
-                f"--dataset_name={config.dataset_name}", 
-                f"--use_ema",
-                f"--output_dir={MODEL_DIR}",
-                f"--resolution={config.resolution}",
-                f"--center_crop",
-                f"--random_flip",
-                f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-                f"--gradient_checkpointing",
-                f"--train_batch_size={config.train_batch_size}",
-                f"--learning_rate={config.learning_rate}",
-                f"--lr_scheduler={config.lr_scheduler}",
-                f"--max_train_steps={config.max_train_steps}",
-                f"--lr_warmup_steps={config.lr_warmup_steps}",
-                f"--checkpointing_steps={config.checkpointing_steps}",
-            ]
-        
+            "examples/text_to_image/train_text_to_image.py",  # potentially modify
+            f"--pretrained_model_name_or_path={config.model_name}",
+            f"--dataset_name={config.dataset_name}",
+            "--use_ema",
+            f"--output_dir={MODEL_DIR}",
+            f"--resolution={config.resolution}",
+            "--center_crop",
+            "--random_flip",
+            f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
+            "--gradient_checkpointing",
+            f"--train_batch_size={config.train_batch_size}",
+            f"--learning_rate={config.learning_rate}",
+            f"--lr_scheduler={config.lr_scheduler}",
+            f"--max_train_steps={config.max_train_steps}",
+            f"--lr_warmup_steps={config.lr_warmup_steps}",
+            f"--checkpointing_steps={config.checkpointing_steps}",
+        ]
+
         main()
 
     # run training -- see huggingface accelerate docs for details
     print("launching fine-tuning training script")
-    
+
     notebook_launcher(launch_training, num_processes=1)
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
     # To persist these artefacts for use in future inference function calls, we 'commit' the changes
     # to the volume.
     stub.model_volume.commit()
 
+
 @stub.local_entrypoint()
 def run():
     train.remote()
+
 
 # ## Run training function
 
@@ -231,10 +235,11 @@ def run():
 
 # Depending on which Diffusers training script you are using, you may need to use an alternative pipeline to `StableDiffusionPipeline`. The READMEs of the example training scripts will generally provide instructions for which inference pipeline to use. For example, if you are fine-tuning Kandinsky, it tells you to use [`AutoPipelineForText2Image`](https://huggingface.co/docs/diffusers/main/en/api/pipelines/kandinsky#diffusers.AutoPipelineForText2Image) instead of `StableDiffusionPipeline`.
 
+
 @stub.cls(
     image=image,
-    gpu="A100", 
-    volumes=VOLUME_CONFIG, # mount the location where your model weights were saved to
+    gpu="A100",
+    volumes=VOLUME_CONFIG,  # mount the location where your model weights were saved to
 )
 class Model:
     def __enter__(self):
@@ -266,9 +271,11 @@ class Model:
 
         return image
 
+
 # ## Set up Gradio app
 
 # Finally, we set up a Gradio app that will allow you to interact with your model. This Gradio app will be mounted to the Modal container, and will be accessible at the URL of your Modal deployment. You can refer to the [Gradio docs](https://www.gradio.app/docs/interface) for more information on how to customize a Gradio app.
+
 
 @stub.function(
     image=image,
@@ -286,7 +293,7 @@ def fastapi_app():
     # set up AppConfig
     config = AppConfig()
 
-    HCON_prefix = f"In the HCON style, an icon of"
+    HCON_prefix = "In the HCON style, an icon of"
 
     example_prompts = [
         f"{HCON_prefix} a movie ticket",
@@ -308,7 +315,7 @@ def fastapi_app():
         fn=go,
         inputs="text",
         outputs=gr.Image(shape=(512, 512)),
-        title=f"Generate custom heroicons",
+        title="Generate custom heroicons",
         examples=example_prompts,
         description=description,
         css="/assets/index.css",
@@ -321,6 +328,7 @@ def fastapi_app():
         blocks=interface,
         path="/",
     )
+
 
 # ## Run Gradio app
 
