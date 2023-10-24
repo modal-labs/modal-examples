@@ -1,3 +1,0 @@
-https://modal-public-assets.s3.amazonaws.com/example-dreambooth-app/fkRYgv6.png
-https://modal-public-assets.s3.amazonaws.com/example-dreambooth-app/98k9yDg.jpg
-https://modal-public-assets.s3.amazonaws.com/example-dreambooth-app/gHlW8Kw.jpg

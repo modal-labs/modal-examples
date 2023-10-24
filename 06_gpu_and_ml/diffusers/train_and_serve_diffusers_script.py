@@ -26,7 +26,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from modal import (
     Image,
-    Mount,
     Secret,
     Stub,
     Volume,
@@ -157,14 +156,12 @@ class AppConfig():
 # ## Define the training function
 # Now, finally, we define the training function itself. This training function does a bunch of preparatory things, but the core of it is the `_exec_subprocess` call to `accelerate launch` that launches the actual Diffusers training script. Depending on which Diffusers script you are using, you will want to modify the script name, and the arguments that are passed to it.
 def train():
-    import subprocess
 
     import huggingface_hub
     from accelerate import notebook_launcher
     from accelerate.utils import write_basic_config
     from examples.text_to_image.train_text_to_image import main
     from transformers import CLIPTokenizer
-    from torch.distributed.run import elastic_launch, parse_args, config_from_args
 
     # set up TrainConfig
     config = TrainConfig()
