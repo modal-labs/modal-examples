@@ -14,7 +14,7 @@
 
 # ## Set up the dependencies
 
-# You can put all of the sample code on this page in a single file, for example, `training_and_inference.py`.
+# You can put all of the sample code on this page in a single file, for example, `train_and_serve_diffusers_script.py`. In all the code below, we will be using the [`train_text_to_image.py`](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script as an example, but you should modify depending on which Diffusers script you are using.
 
 # Start by specifying the Python modules that the training will depend on, including the Diffusers library, which contains the actual training script.
 
