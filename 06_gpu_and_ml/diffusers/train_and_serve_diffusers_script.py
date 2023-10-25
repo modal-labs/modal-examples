@@ -128,10 +128,10 @@ class AppConfig:
 # You can follow the instructions [here](https://huggingface.co/docs/datasets/upload_dataset#upload-with-python) to upload your dataset to the HuggingFace Hub.
 
 # ### Push dataset to `PersistentVolume`
-# To push your dataset to the `/training_data` volume you set up above, you can use [`modal volume push`]() command to push an entire local directory to a location in the volume.
+# To push your dataset to the `/training_data` volume you set up above, you can use [`modal volume put`](https://modal.com/docs/reference/cli/volume) command to push an entire local directory to a location in the volume.
 # For example, if your dataset is located at `/path/to/dataset`, you can push it to the volume with the following command:
 # ```bash
-# modal volume push <volume-name> /path/to/dataset /training_data
+# modal volume put <volume-name> /path/to/dataset /training_data
 # ```
 # You can double check that the training data was properly uploaded to the volume by using `modal volume ls`:
 # ```bash
