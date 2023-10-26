@@ -6,7 +6,7 @@
 # Example by [@maxscheel](https://github.com/maxscheel)
 #
 # This example shows the Stable Diffusion 2.1 compiled with [AITemplate](https://github.com/facebookincubator/AITemplate) to run faster on Modal.
-# There is also a [Stable Diffusion CLI example](/docs/guide/ex/stable_diffusion_cli).
+# There is also a [Stable Diffusion CLI example](/docs/examples/stable_diffusion_cli).
 #
 # #### Upsides
 #  - Image generation improves over the CLI example to about 550ms per image generated (A10G, 10 steps, 512x512, png).

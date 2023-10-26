@@ -9,7 +9,7 @@
 # [React](https://reactjs.org/) + [FastAPI](https://fastapi.tiangolo.com/) application.
 # We're going to build a simple "Receipt Parser" web app that submits OCR transcription
 # tasks to a separate Modal app defined in the [Job Queue
-# tutorial](/docs/guide/ex/doc_ocr_jobs), polls until the task is completed, and displays
+# tutorial](/docs/examples/doc_ocr_jobs), polls until the task is completed, and displays
 # the results. Try it out for yourself
 # [here](https://modal-labs-example-doc-ocr-webapp-wrapper.modal.run/).
 #
@@ -38,7 +38,7 @@ web_app = fastapi.FastAPI()
 # and another to poll for the results of the job.
 #
 # In `parse`, we're going to submit tasks to the function defined in the [Job
-# Queue tutorial](/docs/guide/ex/doc_ocr_jobs), so we import it first using
+# Queue tutorial](/docs/examples/doc_ocr_jobs), so we import it first using
 # [`Function.lookup`](/docs/reference/modal.Function#lookup).
 #
 # We call [`.spawn()`](/docs/reference/modal.Function#spawn) on the function handle
