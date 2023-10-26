@@ -36,7 +36,7 @@ stub = modal.Stub(
     "example-fetch-stock-prices",
     image=modal.Image.debian_slim().pip_install(
         "httpx~=0.24.0",
-        "yfinance~=0.2.18",
+        "yfinance~=0.2.31",
         "beautifulsoup4~=4.12.2",
         "matplotlib~=3.7.1",
     ),
