@@ -11,7 +11,7 @@
 # to the sheer size of the model, the cold start time on Modal is around 2 minutes.
 #
 # For faster cold start at the expense of inference speed, check out
-# [Running Falcon-40B with AutoGPTQ](/docs/guide/ex/falcon_gptq).
+# [Running Falcon-40B with AutoGPTQ](/docs/examples/falcon_gptq).
 #
 # ## Setup
 #

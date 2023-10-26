@@ -8,8 +8,8 @@
 # cold start time on Modal is around 25s.
 #
 # For faster inference at the expense of a slower cold start, check out
-# [Running Falcon-40B with `bitsandbytes` quantization](/docs/guide/ex/falcon_bitsandbytes). You can also
-# run a smaller, 7-billion-parameter model with the [OpenLLaMa example](/docs/guide/ex/openllama).
+# [Running Falcon-40B with `bitsandbytes` quantization](/docs/examples/falcon_bitsandbytes). You can also
+# run a smaller, 7-billion-parameter model with the [OpenLLaMa example](/docs/examples/openllama).
 #
 # ## Setup
 #

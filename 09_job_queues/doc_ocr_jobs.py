@@ -6,7 +6,7 @@
 #
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
-# we've also built a [React + FastAPI web app on Modal](/docs/guide/ex/doc_ocr_webapp)
+# we've also built a [React + FastAPI web app on Modal](/docs/examples/doc_ocr_webapp)
 # that works together with it, but note that you don't need a web app running on Modal
 # to use this pattern. You can submit async tasks to Modal from any Python
 # application (for example, a regular Django app running on Kubernetes).
@@ -117,7 +117,7 @@ def parse_receipt(image: bytes):
 #
 # Modal will auto-scale to handle all the tasks queued, and
 # then scale back down to 0 when there's no work left. To see how you could use this from a Python web
-# app, take a look at the [receipt parser frontend](/docs/guide/ex/doc_ocr_webapp)
+# app, take a look at the [receipt parser frontend](/docs/examples/doc_ocr_webapp)
 # tutorial.
 
 # ## Run manually

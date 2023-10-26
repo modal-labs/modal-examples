@@ -9,14 +9,14 @@
 # that makes it run faster on Modal. The example takes about 10s to cold start
 # and about 1.0s per image generated.
 #
-# To use the new XL 1.0 model, see the example posted [here](/docs/guide/ex/stable_diffusion_xl).
+# To use the new XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
 # For instance, here are 9 images produced by the prompt
 # `An 1600s oil painting of the New York City skyline`
 #
 # ![stable diffusion slackbot](./stable_diffusion_montage.png)
 #
-# There is also a [Stable Diffusion Slack bot example](/docs/guide/ex/stable_diffusion_slackbot)
+# There is also a [Stable Diffusion Slack bot example](/docs/examples/stable_diffusion_slackbot)
 # which does not have all the optimizations, but shows how you can set up a Slack command to
 # trigger Stable Diffusion.
 #

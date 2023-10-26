@@ -5,7 +5,7 @@
 # ---
 # # Stable Diffusion XL 1.0
 #
-# This example is similar to the [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
+# This example is similar to the [Stable Diffusion CLI](/docs/examples/stable_diffusion_cli)
 # example, but it generates images from the larger XL 1.0 model. Specifically, it runs the
 # first set of steps with the base model, followed by the refiner model.
 #

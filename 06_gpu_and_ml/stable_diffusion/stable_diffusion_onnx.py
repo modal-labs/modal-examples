@@ -1,6 +1,6 @@
 # # Stable Diffusion with ONNX Runtime
 #
-# This example is similar to the [Stable Diffusion CLI](/docs/guide/ex/stable_diffusion_cli)
+# This example is similar to the [Stable Diffusion CLI](/docs/examples/stable_diffusion_cli)
 # example, but it runs inference unsing [ONNX Runtime](https://onnxruntime.ai/) instead of PyTorch.
 
 

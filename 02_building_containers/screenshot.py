@@ -76,5 +76,5 @@ def main(url: str = "https://modal.com"):
     print(f"wrote {len(data)} bytes to {filename}")
 
 
-# And we're done! Please also see our [introductory guide](/docs/guide/web-scraper) for another
+# And we're done! Please also see our [introductory guide](/docs/examples/web-scraper) for another
 # example of a web scraper, with more in-depth logic.
