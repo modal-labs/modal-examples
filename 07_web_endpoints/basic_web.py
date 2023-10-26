@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve", "07_web_endpoints/basic_web.py"]
+# ---
 import modal
 from modal import web_endpoint
 
