@@ -40,14 +40,14 @@ image = (
     .pip_install(
         "accelerate==0.19",
         "datasets~=2.13",
-        "ftfy",
+        "ftfy~=6.1.1",
         "gradio~=3.10",
-        "smart_open",
+        "smart_open~=6.4.0",
         "transformers==4.26.0",
         "safetensors==0.2.8",
-        "torch",
-        "torchvision",
-        "triton",
+        "torch~=2.1.0",
+        "torchvision~=0.16.0",
+        "triton~=2.1.0",
     )
     .pip_install("xformers", pre=True)
     .apt_install("git")
@@ -162,6 +162,8 @@ def train():
     import huggingface_hub
     from accelerate import notebook_launcher
     from accelerate.utils import write_basic_config
+
+    # change this line to import the training script you want to use
     from examples.text_to_image.train_text_to_image import main
     from transformers import CLIPTokenizer
 
@@ -274,7 +276,7 @@ class Model:
 
 # ## Set up Gradio app
 
-# Finally, we set up a Gradio app that will allow you to interact with your model. This Gradio app will be mounted to the Modal container, and will be accessible at the URL of your Modal deployment. You can refer to the [Gradio docs](https://www.gradio.app/docs/interface) for more information on how to customize a Gradio app.
+# Finally, we set up a Gradio app that will allow you to interact with your model. This will be mounted to the Modal container, and will be accessible at the URL of your Modal deployment. You can refer to the [Gradio docs](https://www.gradio.app/docs/interface) for more information on how to customize the app.
 
 
 @stub.function(
@@ -337,3 +339,11 @@ def fastapi_app():
 # ```bash
 # modal serve train_and_serve_diffusers_script.py
 # ```
+
+# ## Fine-tuning results
+
+# In the default example above, we fine-tuned Stable Diffusion using text-to-image on a small dataset of [Heroicon](https://heroicons.com/) icons. Here are some of the results:
+
+# ![fine-tuned results](./heroicon_camera.png)
+# ![fine-tuned results](./heroicon_golden_retriever.png)
+# ![fine-tuned results](./heroicon_piano.png)
