@@ -90,7 +90,7 @@
 #     return
 # ```
 
-# The Celery queue was working fine, but it still took on the order of ~30 seconds to process a 2-3 minute video. I was hoping to be able to speed this up, and decided to turn to Modal.
+# The Celery queue was working fine, but it still took on the order of ~1-2 minutes to process a 2-3 minute video. I was hoping to be able to speed this up, and decided to turn to Modal.
 # Some addition requirements: I wanted to minimize the amount of refactoring, and wanted to continue to host the Flask app on Render. All I wanted was to be able to offload the video processing work to a job somewhere, and for that work to complete faster.
 
 # ## The Modal application
