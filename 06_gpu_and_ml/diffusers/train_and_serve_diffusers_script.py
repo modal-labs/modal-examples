@@ -1,21 +1,21 @@
 # # Running Diffusers example scripts on Modal
-
+#
 # The [Diffusers library](https://github.com/huggingface/diffusers) by HuggingFace provides a set of example training scripts that make it easy to experiment with various image fine-tuning techniques. This tutorial will show you how to run a Diffusers example script on Modal.
-
+#
 # ## Select training script
-
+#
 # You can see an up-to-date list of all the available examples in the [examples subdirectory](https://github.com/huggingface/diffusers/tree/main/examples). It includes, among others, examples for:
-
+#
 # - Dreambooth
 # - Lora
 # - Text-to-image
 # - Fine-tuning Controlnet
 # - Fine-tuning Kandinsky
-
+#
 # ## Set up the dependencies
-
+#
 # You can put all of the sample code on this page in a single file, for example, `train_and_serve_diffusers_script.py`. In all the code below, we will be using the [`train_text_to_image.py`](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script as an example, but you should modify depending on which Diffusers script you are using.
-
+#
 # Start by specifying the Python modules that the training will depend on, including the Diffusers library, which contains the actual training script.
 
 import os
@@ -63,7 +63,7 @@ image = (
 )
 
 # ## Set up `Volume`s for training data and model output
-
+#
 # Modal can't access your local filesystem, so you should set up a `Volume` to eventually save the model once training is finished.
 
 web_app = FastAPI()
@@ -79,7 +79,7 @@ VOLUME_CONFIG = {
 }
 
 # ## Set up config
-
+#
 # Each Diffusers example script takes a different set of hyperparameters, so you will need to customize the config depending on the hyperparameters of the script. The code below shows some example parameters.
 
 
@@ -119,14 +119,14 @@ class AppConfig:
 
 
 # ## Set up finetuning dataset
-
+#
 # Each of the diffusers training scripts will utilize different argnames to refer to your input finetuning dataset. For example, it might be `--instance_data_dir` or `--dataset_name`. You will need to modify the code below to match the argname used by the training script you are using.
 # Generally speaking, these argnames will correspond to either the name of a HuggingFace Hub dataset, or the path of a local directory containing your training dataset.
 # This means that you should either upload your dataset to HuggingFace Hub, or push the dataset to a `Volume` and then attach that volume to the training function.
-
+#
 # ### Upload to HuggingFace Hub
 # You can follow the instructions [here](https://huggingface.co/docs/datasets/upload_dataset#upload-with-python) to upload your dataset to the HuggingFace Hub.
-
+#
 # ### Push dataset to `Volume`
 # To push your dataset to the `/training_data` volume you set up above, you can use [`modal volume put`](https://modal.com/docs/reference/cli/volume) command to push an entire local directory to a location in the volume.
 # For example, if your dataset is located at `/path/to/dataset`, you can push it to the volume with the following command:
@@ -138,7 +138,7 @@ class AppConfig:
 # modal volume ls <volume-name> /training_data
 # ```
 # You should see the contents of your dataset listed in the output.
-
+#
 # ## Set up `stub.function` decorator on the training function.
 # Next, let's write the `stub.function` decorator that will be used to launch the training function on Modal.
 # The `@stub.function` decorator takes several arguments, including:
@@ -158,7 +158,6 @@ class AppConfig:
 # ## Define the training function
 # Now, finally, we define the training function itself. This training function does a bunch of preparatory things, but the core of it is the `_exec_subprocess` call to `accelerate launch` that launches the actual Diffusers training script. Depending on which Diffusers script you are using, you will want to modify the script name, and the arguments that are passed to it.
 def train():
-
     import huggingface_hub
     from accelerate import notebook_launcher
     from accelerate.utils import write_basic_config
@@ -188,7 +187,6 @@ def train():
         raise Exception(license_error_msg) from e
 
     def launch_training():
-
         sys.argv = [
             "examples/text_to_image/train_text_to_image.py",  # potentially modify
             f"--pretrained_model_name_or_path={config.model_name}",
@@ -226,15 +224,15 @@ def run():
 
 
 # ## Run training function
-
+#
 # To run this training function:
-
+#
 # ```bash
 # modal run train_and_serve_diffusers_script.py
 # ```
-
+#
 # ## Set up inference function
-
+#
 # Depending on which Diffusers training script you are using, you may need to use an alternative pipeline to `StableDiffusionPipeline`. The READMEs of the example training scripts will generally provide instructions for which inference pipeline to use. For example, if you are fine-tuning Kandinsky, it tells you to use [`AutoPipelineForText2Image`](https://huggingface.co/docs/diffusers/main/en/api/pipelines/kandinsky#diffusers.AutoPipelineForText2Image) instead of `StableDiffusionPipeline`.
 
 
@@ -275,7 +273,7 @@ class Model:
 
 
 # ## Set up Gradio app
-
+#
 # Finally, we set up a Gradio app that will allow you to interact with your model. This will be mounted to the Modal container, and will be accessible at the URL of your Modal deployment. You can refer to the [Gradio docs](https://www.gradio.app/docs/interface) for more information on how to customize the app.
 
 
@@ -333,17 +331,17 @@ def fastapi_app():
 
 
 # ## Run Gradio app
-
+#
 # Finally, we run the Gradio app. This will launch the Gradio app on Modal.
-
+#
 # ```bash
 # modal serve train_and_serve_diffusers_script.py
 # ```
 
 # ## Fine-tuning results
-
+#
 # In the default example above, we fine-tuned Stable Diffusion using text-to-image on a small dataset of [Heroicon](https://heroicons.com/) icons. Here are some of the results:
-
+#
 # ![fine-tuned results](./heroicon_camera.png)
 # ![fine-tuned results](./heroicon_golden_retriever.png)
 # ![fine-tuned results](./heroicon_piano.png)
