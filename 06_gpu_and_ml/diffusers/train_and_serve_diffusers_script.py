@@ -62,9 +62,9 @@ image = (
     )
 )
 
-# ## Set up `PersistentVolume`s for training data and model output
+# ## Set up `Volume`s for training data and model output
 
-# Modal can't access your local filesystem, so you should set up a `PersistentVolume` to eventually save the model once training is finished.
+# Modal can't access your local filesystem, so you should set up a `Volume` to eventually save the model once training is finished.
 
 web_app = FastAPI()
 stub = Stub(name="example-diffusers-app")
@@ -122,12 +122,12 @@ class AppConfig:
 
 # Each of the diffusers training scripts will utilize different argnames to refer to your input finetuning dataset. For example, it might be `--instance_data_dir` or `--dataset_name`. You will need to modify the code below to match the argname used by the training script you are using.
 # Generally speaking, these argnames will correspond to either the name of a HuggingFace Hub dataset, or the path of a local directory containing your training dataset.
-# This means that you should either upload your dataset to HuggingFace Hub, or push the dataset to a `PersistentVolume` and then attach that volume to the training function.
+# This means that you should either upload your dataset to HuggingFace Hub, or push the dataset to a `Volume` and then attach that volume to the training function.
 
 # ### Upload to HuggingFace Hub
 # You can follow the instructions [here](https://huggingface.co/docs/datasets/upload_dataset#upload-with-python) to upload your dataset to the HuggingFace Hub.
 
-# ### Push dataset to `PersistentVolume`
+# ### Push dataset to `Volume`
 # To push your dataset to the `/training_data` volume you set up above, you can use [`modal volume put`](https://modal.com/docs/reference/cli/volume) command to push an entire local directory to a location in the volume.
 # For example, if your dataset is located at `/path/to/dataset`, you can push it to the volume with the following command:
 # ```bash
@@ -145,7 +145,7 @@ class AppConfig:
 # - `image` - the Docker image that you want to use for training. In this case, we are using the `image` object that we defined above.
 # - `gpu` - the type of GPU you want to use for training. This argument is optional, but if you don't specify a GPU, Modal will use a CPU.
 # - `mounts` - the local directories that you want to mount to the Modal container. In this case, we are mounting the local directory where the training images reside.
-# - `volumes` - the Modal volumes that you want to mount to the Modal container. In this case, we are mounting the `PersistentVolume` that we defined above.
+# - `volumes` - the Modal volumes that you want to mount to the Modal container. In this case, we are mounting the `Volume` that we defined above.
 # - `timeout` argument - an integer representing the number of seconds that the training job should run for. This argument is optional, but if you don't specify a timeout, Modal will use a default timeout of 300 seconds, or 5 minutes. The timeout argument has an upper limit of 24 hours.
 # - `secrets` - the Modal secrets that you want to mount to the Modal container. In this case, we are mounting the HuggingFace API token secret.
 @stub.function(
