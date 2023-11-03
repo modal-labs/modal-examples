@@ -16,6 +16,7 @@
 #
 # In this tutorial, we'll cover fine-tuning Stable Diffusion on the [Heroicons](https://heroicons.com/) dataset to stylize icons, using the Diffusers [text-to-image](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script. Heroicons are website icons developed by the maker of TailwindCSS. They are open source, but there are only ~300 of them representing common concepts. What if you want icons depicting other concepts not covered by the original 300? Generative AI makes this possible - by using text-to-image models, you can just input your target concept and get a Heroicon of it back!
 
+# | | | |
 # | --- | --- | --- |
 # | ![film.png](./film.png) | ![users.png](./users.png) | ![calendar-days.png](./calendar-days.png) |
 
@@ -25,12 +26,18 @@
 # But it's very cool that the model is able to visualize even abstract concepts like "international monetary system" in the Heroicon style, and come up with an icon that actually makes sense.
 # You can play around with the fine-tuned model yourself [here](https://yirenlu92--example-text-to-image-no-lora-app-fastapi-app.modal.run/).
 
+# | | | | |
 # | --- | --- | --- | --- |
-# | ![fine-tuned results](./heroicon_camera.png) \ *In the HCON style, an icon of a camera* | ![fine-tuned results](./heroicon_golden_retriever.png) \ *In the HCON style, an icon of a golden retriever* | ![fine-tuned results](./heroicon_piano.png) \ *In the HCON style, an icon of a baby grand piano* | ![fine-tuned results](./heroicon_ebike.png)  \ *In the HCON style, an icon of a single ebike* |
-# | ![fine-tuned results](./heroicon_barack_obama.png) \ *In the HCON style, an icon of barack obama's head* | ![fine-tuned results](./heroicon_bmw.png) \ *In the HCON style, an icon of a BMW X5, from the front. Please show the entire car.* | ![fine-tuned results](./heroicon_castle.png) \ *In the HCON style, an icon of a castle* | ![fine-tuned results](./heroicon_fountain_pen.png) \ *In the HCON style, an icon of a single fountain pen* |
-# | ![fine-tuned results](./heroicon_apple_computer.png) \ *In the HCON style, an icon of a macbook pro computer* | ![fine-tuned results](./heroicon_library.png) \ *In the HCON style, an icon of the interior of a library* | ![fine-tuned results](./heroicon_snowflake.png) \ *In the HCON style, an icon of a snowflake* | ![fine-tuned results](./heroicon_snowman.png) \ *In the HCON style, an icon of a snowman* |
-# | ![fine-tuned results](./heroicon_german_shepherd.png) \ *In the HCON style, an icon of a german shepherd* | ![fine-tuned results](./heroicon_water_bottle.png) \ *In the HCON style, an icon of a water bottle* | ![fine-tuned results](./heroicon_jail_cell.png) \ *In the HCON style, an icon representing a jail cell* | ![fine-tuned results](./heroicon_travel.png) \ *In the HCON style, an icon representing travel* |
-# | ![fine-tuned results](./heroicon_future_of_AI.png) \ *In the HCON style, an icon that represents the future of AI* | ![fine-tuned results](./heroicon_skiing.png) \ *In the HCON style, an icon representing skiing* | ![fine-tuned results](./heroicon_international_monetary_system.png) \ *In the HCON style, an icon representing the international monetary system* | ![fine-tuned results](./heroicon_chemistry.png) \ *In the HCON style, an icon representing chemistry* |
+# | ![fine-tuned results](./heroicon_camera.png) | ![fine-tuned results](./heroicon_golden_retriever.png)  | ![fine-tuned results](./heroicon_piano.png) | ![fine-tuned results](./heroicon_ebike.png) |
+# | *In the HCON style, an icon of a camera* | *In the HCON style, an icon of a golden retriever* | *In the HCON style, an icon of a baby grand piano* | *In the HCON style, an icon of a single ebike* |
+# | ![fine-tuned results](./heroicon_barack_obama.png)  | ![fine-tuned results](./heroicon_bmw.png) | ![fine-tuned results](./heroicon_castle.png)  | ![fine-tuned results](./heroicon_fountain_pen.png) |
+# | *In the HCON style, an icon of barack obama's head* | *In the HCON style, an icon of a BMW X5, from the front. Please show the entire car.* | *In the HCON style, an icon of a castle* | *In the HCON style, an icon of a single fountain pen* |
+# | ![fine-tuned results](./heroicon_apple_computer.png)  | ![fine-tuned results](./heroicon_library.png)  | ![fine-tuned results](./heroicon_snowflake.png)  | ![fine-tuned results](./heroicon_snowman.png)  |
+# | *In the HCON style, an icon of a macbook pro computer* | *In the HCON style, an icon of the interior of a library* | *In the HCON style, an icon of a snowflake* | *In the HCON style, an icon of a snowman* |
+# | ![fine-tuned results](./heroicon_german_shepherd.png)  | ![fine-tuned results](./heroicon_water_bottle.png)  | ![fine-tuned results](./heroicon_jail_cell.png)  | ![fine-tuned results](./heroicon_travel.png)  |
+# | *In the HCON style, an icon of a german shepherd* | *In the HCON style, an icon of a water bottle* | *In the HCON style, an icon representing a jail cell* | *In the HCON style, an icon representing travel* |
+# | ![fine-tuned results](./heroicon_future_of_AI.png) | ![fine-tuned results](./heroicon_skiing.png) | ![fine-tuned results](./heroicon_international_monetary_system.png) | ![fine-tuned results](./heroicon_chemistry.png)  |
+# | *In the HCON style, an icon that represents the future of AI* | *In the HCON style, an icon representing skiing* | *In the HCON style, an icon representing the international monetary system* | *In the HCON style, an icon representing chemistry* |
 
 # ## Creating the dataset
 
