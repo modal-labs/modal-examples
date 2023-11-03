@@ -11,10 +11,112 @@
 # - Text-to-image
 # - Fine-tuning Controlnet
 # - Fine-tuning Kandinsky
+
+# ## Fine-tuning on Heroicons
 #
-# ## Set up the dependencies
+# In this tutorial, we'll cover fine-tuning Stable Diffusion on the [Heroicons](https://heroicons.com/) dataset to stylize icons, using the Diffusers [text-to-image](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script. Heroicons are website icons developed by the maker of TailwindCSS. They are open source, but there are only ~300 of them representing common concepts. What if you want icons depicting other concepts not covered by the original 300? Generative AI makes this possible - by using text-to-image models, you can just input your target concept and get a Heroicon of it back!
+
+# | --- | --- | --- |
+# | ![film.png](./film.png) | ![users.png](./users.png) | ![calendar-days.png](./calendar-days.png) |
+
+# ## Fine-tuning results
+
+# Here are some of the results of the fine-tuning. As you can see, it's not perfect - the model sometimes outputs multiple objects when prompted for one, and the outputs aren't always sufficiently abstract/simple.
+# But it's very cool that the model is able to visualize even abstract concepts like "international monetary system" in the Heroicon style, and come up with an icon that actually makes sense.
+# You can play around with the fine-tuned model yourself [here](https://yirenlu92--example-text-to-image-no-lora-app-fastapi-app.modal.run/).
+
+# | --- | --- | --- | --- |
+# | ![fine-tuned results](./heroicon_camera.png) \ *In the HCON style, an icon of a camera* | ![fine-tuned results](./heroicon_golden_retriever.png) \ *In the HCON style, an icon of a golden retriever* | ![fine-tuned results](./heroicon_piano.png) \ *In the HCON style, an icon of a baby grand piano* | ![fine-tuned results](./heroicon_ebike.png)  \ *In the HCON style, an icon of a single ebike* |
+# | ![fine-tuned results](./heroicon_barack_obama.png) \ *In the HCON style, an icon of barack obama's head* | ![fine-tuned results](./heroicon_bmw.png) \ *In the HCON style, an icon of a BMW X5, from the front. Please show the entire car.* | ![fine-tuned results](./heroicon_castle.png) \ *In the HCON style, an icon of a castle* | ![fine-tuned results](./heroicon_fountain_pen.png) \ *In the HCON style, an icon of a single fountain pen* |
+# | ![fine-tuned results](./heroicon_apple_computer.png) \ *In the HCON style, an icon of a macbook pro computer* | ![fine-tuned results](./heroicon_library.png) \ *In the HCON style, an icon of the interior of a library* | ![fine-tuned results](./heroicon_snowflake.png) \ *In the HCON style, an icon of a snowflake* | ![fine-tuned results](./heroicon_snowman.png) \ *In the HCON style, an icon of a snowman* |
+# | ![fine-tuned results](./heroicon_german_shepherd.png) \ *In the HCON style, an icon of a german shepherd* | ![fine-tuned results](./heroicon_water_bottle.png) \ *In the HCON style, an icon of a water bottle* | ![fine-tuned results](./heroicon_jail_cell.png) \ *In the HCON style, an icon representing a jail cell* | ![fine-tuned results](./heroicon_travel.png) \ *In the HCON style, an icon representing travel* |
+# | ![fine-tuned results](./heroicon_future_of_AI.png) \ *In the HCON style, an icon that represents the future of AI* | ![fine-tuned results](./heroicon_skiing.png) \ *In the HCON style, an icon representing skiing* | ![fine-tuned results](./heroicon_international_monetary_system.png) \ *In the HCON style, an icon representing the international monetary system* | ![fine-tuned results](./heroicon_chemistry.png) \ *In the HCON style, an icon representing chemistry* |
+
+# ## Creating the dataset
+
+# Most tutorials skip over dataset creation, but since we're training on a novel dataset, we'll cover the full process.
+
+# 1. Download all the Heroicons from the Heroicons [Github repo](https://github.com/tailwindlabs/heroicons)
+
+# ```bash
+# git clone git@github.com:tailwindlabs/heroicons.git
+# cd optimized/24/outline # we are using the optimized, outline icons. You can also try using the solid icons
+# ```
+
+# 2. Postprocess the SVGs
+
+# *Convert SVGs to PNGs*
+
+# Most training models are unable to process SVGs, so we convert them first to PNGs.
+
+# *Add white backgrounds to the PNGs*
+
+# We also need to add white backgrounds to the PNGs. This is important - transparent backgrounds really confuse the model.
+
+# ```python
+# def add_white_background(input_path, output_path):
+#     # Open the image
+#     img = Image.open(input_path)
+
+#     # Ensure the image has an alpha channel for transparency
+#     img = img.convert('RGBA')
+
+#     # Create a white background image
+#     bg = Image.new('RGBA', img.size, (255, 255, 255))
+
+#     # Combine the images
+#     combined = Image.alpha_composite(bg, img)
+
+#     # Save the result
+#     combined.save(output_path, "PNG")
+# ```
+
+# 3. Add captions to create a `metadata.csv` file.
+
+# Since the Heroicon filenames match the concept they represent, we can parse them into captions. We also add a prefix to each caption: `“In the HCON style, an icon of an <object>.”` The purpose of this prefix is to associate a rare keyword, `HCON`to the particular Heroicon style.
+
+# We then create a `metadata.csv` file, where each row is an image file name with the associated caption. The `metadata.csv` file should be placed in the same directory as all the training images images, and contain a header row with the string `file_name,text`
+
+# ```python
+
+# heroicons_training_dir/
+# 		arrow.png
+# 		bike.png
+# 		cruiseShip.png
+# 		metadata.csv
+# ```
+
+# ```
+# file_name,text
+# arrow.png,"In the HCON style, an icon of an arrow"
+# bike.png,"In the HCON style, an icon of an arrow"
+# cruiseShip.png,"In the HCON style, an icon of an arrow"
+# ```
+
+# 4. Upload the dataset to HuggingFace Hub.
+
+# This converts the dataset into an optimized Parquet file.
+
+# ```python
+# import os
+# from datasets import load_dataset
+# import huggingface_hub
+
+# # login to huggingface
+# hf_key = os.environ["HUGGINGFACE_TOKEN"]
+# huggingface_hub.login(hf_key)
+
+# dataset = load_dataset("imagefolder", data_dir="/lg_white_bg_heroicon_png_img", split="train")
+
+# dataset.push_to_hub("yirenlu/heroicons", private=True)
+# ```
+
+# The final Heroicons dataset on HuggingFace Hub is [here](https://huggingface.co/datasets/yirenlu/heroicons).
+
 #
-# You can put all of the sample code on this page in a single file, for example, `train_and_serve_diffusers_script.py`. In all the code below, we will be using the [`train_text_to_image.py`](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script as an example, but you should modify depending on which Diffusers script you are using.
+# ## Set up the dependencies for fine-tuning on Modal
+#
+# You can put all of the sample code that follows in a single file, for example, `train_and_serve_diffusers_script.py`. In all the code below, we will be using the [`train_text_to_image.py`](https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py) script as an example, but you should modify depending on which Diffusers script that makes sense for your use case.
 #
 # Start by specifying the Python modules that the training will depend on, including the Diffusers library, which contains the actual training script.
 
@@ -337,11 +439,3 @@ def fastapi_app():
 # ```bash
 # modal serve train_and_serve_diffusers_script.py
 # ```
-
-# ## Fine-tuning results
-#
-# In the default example above, we fine-tuned Stable Diffusion using text-to-image on a small dataset of [Heroicon](https://heroicons.com/) icons. Here are some of the results:
-#
-# ![fine-tuned results](./heroicon_camera.png)
-# ![fine-tuned results](./heroicon_golden_retriever.png)
-# ![fine-tuned results](./heroicon_piano.png)
