@@ -25,11 +25,11 @@ GPU: str = "a10g"
 LLAMA_MODEL_SIZE: str = "13b"
 
 # Define the image and [Modal Stub](https://modal.com/docs/reference/modal.Stub#modalstub).
-# We use an [official NVIDIA CUDA 12.1 image](https://hub.docker.com/r/nvidia/cuda)
+# We use an [official NVIDIA CUDA 12.2 image](https://hub.docker.com/r/nvidia/cuda)
 # to match MLC CUDA requirements.
 image = (
     modal.Image.from_registry(
-        "nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04",
+        "nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04",
         add_python="3.11",
     ).run_commands(
         "apt-get update",
@@ -37,7 +37,7 @@ image = (
         # Install git lfs
         "curl -sSf https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash",
         "apt-get install -y git-lfs",
-        "pip3 install --pre --force-reinstall mlc-ai-nightly-cu121 mlc-chat-nightly-cu121 -f https://mlc.ai/wheels",
+        "pip3 install --pre --force-reinstall mlc-ai-nightly-cu122 mlc-chat-nightly-cu122 -f https://mlc.ai/wheels",
     )
     # "These commands will download many prebuilt libraries as well as the chat
     # configuration for Llama-2-7b that mlc_chat needs" [...]
@@ -105,7 +105,7 @@ def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
 
     cm = ChatModule(
         model=f"/dist/prebuilt/mlc-chat-Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1",
-        lib_path=f"/dist/prebuilt/lib/Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1-cuda.so",
+        model_lib_path=f"/dist/prebuilt/lib/Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1-cuda.so",
     )
     queue_callback = QueueCallback(callback_interval=1)
 
