@@ -46,7 +46,7 @@ dbt_env = modal.Secret.from_dict(
 
 image = (
     modal.Image.debian_slim()
-    .pip_install("dbt-core~=1.3.0", "dbt-sqlite~=1.3.0")
+    .pip_install("dbt-core~=1.4.0", "dbt-sqlite~=1.4.0")
     .run_commands("apt-get install -y git")
 )
 
