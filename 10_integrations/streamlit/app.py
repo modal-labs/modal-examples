@@ -6,6 +6,13 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+# ## Demo Streamlit application.
+#
+# This application is the example from https://docs.streamlit.io/library/get-started/create-an-app
+# with a minor modification to show the session timeout time to users.
+#
+# Streamlit is designed to run its apps as Python scripts, not functions, so we separate the Streamlit
+# code into this module, away from the Modal application code.
 
 def main():
     parser = argparse.ArgumentParser()
