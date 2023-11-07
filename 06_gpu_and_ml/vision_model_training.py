@@ -7,7 +7,7 @@
 #
 # This example trains a vision model to 98-99% accuracy on the CIFAR-10 dataset,
 # and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
-# web interface framework.
+# web interface framework (Huggingface's competitor to Streamlit).
 #
 # Combining GPU-accelerated Modal Functions, a network file system for caching, and Modal
 # webhooks for the model demo, we have a simple, productive, and cost-effective
