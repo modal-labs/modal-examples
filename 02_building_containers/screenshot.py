@@ -31,10 +31,10 @@ stub = modal.Stub("example-screenshot")
 
 
 image = modal.Image.debian_slim().run_commands(
+    "apt-get update",
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
-    "apt-get update",
     "pip install playwright==1.30.0",
     "playwright install-deps chromium",
     "playwright install chromium",

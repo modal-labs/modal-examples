@@ -47,7 +47,7 @@ def download_model_weights() -> None:
 
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.9")
     .pip_install(
         "donut-python==1.0.7",
         "huggingface-hub==0.16.4",

@@ -5,7 +5,7 @@ from modal import Image, Stub, method
 # Define a function for downloading the models, that will run once on image build.
 # This allows the weights to be present inside the image for faster startup.
 
-base_model = "decapoda-research/llama-7b-hf"
+base_model = "luodian/llama-7b-hf"
 lora_weights = "tloen/alpaca-lora-7b"
 
 
@@ -45,7 +45,7 @@ image = (
     # dependencies listed by `tloen/alpaca-lora` but that are irrelevant within Modal,
     # e.g. `black` code formatting library.
     .pip_install(
-        "accelerate==0.18.0",
+        "accelerate~=0.18.0",
         "appdirs==1.4.4",
         "bitsandbytes==0.37.0",
         "bitsandbytes-cuda117==0.26.0.post2",
@@ -54,9 +54,9 @@ image = (
         "gradio==3.23.0",
         "peft @ git+https://github.com/huggingface/peft.git@d8c3b6bca49e4aa6e0498b416ed9adc50cc1a5fd",
         "transformers @ git+https://github.com/huggingface/transformers.git@a92e0ad2e20ef4ce28410b5e05c5d63a5a304e65",
-        "torch==2.0.0",
-        "torchvision==0.15.1",
-        "sentencepiece==0.1.97",
+        "torch~=2.1.0",
+        "torchvision~=0.16",
+        "sentencepiece==0.1.99",
     )
     .run_function(download_models)
 )
