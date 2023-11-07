@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+#
 # # Run and share Streamlit apps
 #
 # This example supports running the Streamlit app ephemerally with `modal run`, and
