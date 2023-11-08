@@ -40,7 +40,7 @@ def load_tokenizer_and_model():
     return tokenizer, model
 
 
-stub.gpu_image = (
+gpu_image = (
     Image.debian_slim()
     .pip_install("torch", find_links="https://download.pytorch.org/whl/cu116")
     .pip_install("transformers~=4.31", "accelerate")
@@ -48,7 +48,7 @@ stub.gpu_image = (
 )
 
 
-if stub.is_inside(stub.gpu_image):
+with gpu_image.run_inside():
     import torch
 
     tokenizer, model = load_tokenizer_and_model()
@@ -72,7 +72,7 @@ def transformer():
     return app
 
 
-@stub.function(gpu="any", image=stub.gpu_image)
+@stub.function(gpu="any", image=gpu_image)
 def generate_response(
     message: str, id: Optional[str] = None
 ) -> Tuple[str, str]:

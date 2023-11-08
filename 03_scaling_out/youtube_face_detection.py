@@ -52,7 +52,7 @@ image = (
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 
-if stub.is_inside():
+with stub.image.run_inside():
     import cv2
     import moviepy.editor
     import pytube
