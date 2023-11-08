@@ -8,6 +8,8 @@
 # deploying a web endpoint from which others can spin up isolated instances of the Streamlit
 # app, each accessible in the browser via URL!
 #
+# ![example streamlit app](./streamlit.png)
+#
 # The example is structured as two files:
 #
 # 1. This module, which defines the Modal objects.
