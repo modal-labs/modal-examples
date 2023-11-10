@@ -47,7 +47,7 @@ stub = Stub(
 # We want to run the web server for Tensorboard at the same time as we are training the Tensorflow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-stub.volume = NetworkFileSystem.new()
+volume = NetworkFileSystem.new()
 logdir = "/tensorboard"
 
 # ## Training function
@@ -61,9 +61,7 @@ logdir = "/tensorboard"
 #   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
 
 
-@stub.function(
-    network_file_systems={logdir: stub.volume}, gpu="any", timeout=600
-)
+@stub.function(network_file_systems={logdir: volume}, gpu="any", timeout=600)
 def train():
     import pathlib
 
@@ -155,7 +153,7 @@ def train():
 # Note that this server will be exposed to the public internet!
 
 
-@stub.function(network_file_systems={logdir: stub.volume})
+@stub.function(network_file_systems={logdir: volume})
 @wsgi_app()
 def tensorboard_app():
     import tensorboard

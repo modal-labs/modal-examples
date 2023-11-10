@@ -42,7 +42,7 @@ datasette_image = (
 # To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To achieve this we use a [`Volume`](/docs/guide/volumes).
 
-stub.volume = Volume.persisted("example-covid-datasette-cache-vol")
+volume = Volume.persisted("example-covid-datasette-cache-vol")
 
 VOLUME_DIR = "/cache-vol"
 REPORTS_DIR = pathlib.Path(VOLUME_DIR, "COVID-19")
@@ -59,7 +59,7 @@ DB_PATH = pathlib.Path(VOLUME_DIR, "covid-19.db")
 
 @stub.function(
     image=datasette_image,
-    volumes={VOLUME_DIR: stub.volume},
+    volumes={VOLUME_DIR: volume},
     retries=2,
 )
 def download_dataset(cache=True):
@@ -84,7 +84,7 @@ def download_dataset(cache=True):
     subprocess.run(f"mv {REPORTS_DIR / prefix}/* {REPORTS_DIR}", shell=True)
 
     print("Committing the volume...")
-    stub.volume.commit()
+    volume.commit()
 
     print("Finished downloading dataset.")
 
@@ -97,7 +97,7 @@ def download_dataset(cache=True):
 
 
 def load_daily_reports():
-    stub.volume.reload()
+    volume.reload()
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
         raise RuntimeError(
@@ -159,7 +159,7 @@ def chunks(it, size):
 
 @stub.function(
     image=datasette_image,
-    volumes={VOLUME_DIR: stub.volume},
+    volumes={VOLUME_DIR: volume},
     timeout=900,
 )
 def prep_db():
@@ -185,7 +185,7 @@ def prep_db():
     db.close()
 
     print("Syncing DB with volume.")
-    stub.volume.commit()
+    volume.commit()
 
 
 # ## Keep it fresh
@@ -211,7 +211,7 @@ def refresh_db():
 
 @stub.function(
     image=datasette_image,
-    volumes={VOLUME_DIR: stub.volume},
+    volumes={VOLUME_DIR: volume},
 )
 @asgi_app()
 def app():

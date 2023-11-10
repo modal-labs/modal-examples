@@ -78,7 +78,6 @@ image = (
 
 volume = Volume.persisted("dreambooth-finetuning-volume")
 MODEL_DIR = Path("/model")
-stub.volume = volume
 
 # ## Config
 #
@@ -270,7 +269,7 @@ def train(instance_example_urls):
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
     # To persist these artefacts for use in future inference function calls, we 'commit' the changes
     # to the volume.
-    stub.volume.commit()
+    volume.commit()
 
 
 # ## The inference function.
@@ -292,7 +291,7 @@ class Model:
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
         # Reload the modal.Volume to ensure the latest state is accessible.
-        stub.volume.reload()
+        volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")

@@ -39,7 +39,6 @@ image = Image.debian_slim().pip_install(
 
 stub = Stub(name="example-news-summarizer", image=image)
 output_vol = Volume.persisted("finetune-volume")
-stub.volume = output_vol
 
 # ### Handling preemption
 #
@@ -181,7 +180,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        callbacks=[CheckpointCallback(stub.volume)],
+        callbacks=[CheckpointCallback(output_vol)],
         data_collator=data_collator,
         train_dataset=tokenized_xsum_train,
         eval_dataset=tokenized_xsum_test,
@@ -198,7 +197,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     # Save the trained model and tokenizer to the mounted volume
     model.save_pretrained(str(VOL_MOUNT_PATH / "model"))
     tokenizer.save_pretrained(str(VOL_MOUNT_PATH / "tokenizer"))
-    stub.volume.commit()
+    output_vol.commit()
     print("✅ done")
 
 
