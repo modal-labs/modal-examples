@@ -36,21 +36,6 @@ jobs:
       - name: Check lint with Ruff
         run: ruff check .
 
-  isort:
-    name: Isort
-    runs-on: ubuntu-20.04
-
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-
-      - name: Install isort
-        run: pip install isort
-
-      - name: Check isort
-        run: isort . --check-only --verbose
-
   mypy:
     name: MyPy
     runs-on: ubuntu-20.04
