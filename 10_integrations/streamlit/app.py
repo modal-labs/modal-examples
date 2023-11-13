@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import argparse
 from datetime import datetime, timedelta
 
