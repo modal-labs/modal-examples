@@ -79,7 +79,7 @@ class Config:
     epochs: int = 10
     img_dims: Tuple[int, int] = (32, 224)
     gpu: str = USE_GPU
-    wandb: WandBConfig = WandBConfig()
+    wandb: WandBConfig = dataclasses.field(default_factory=WandBConfig)
 
 
 # ## Get CIFAR-10 dataset
