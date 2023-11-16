@@ -58,7 +58,8 @@ def download_model():
             MODEL_ID,
             "--revision",
             REVISION,
-        ]
+        ],
+        check=True,
     )
 
 
