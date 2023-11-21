@@ -48,7 +48,12 @@ def download_model():
     spawn_server()
 
 
-image = (
+volume = Volume.persisted("tei-hn-data")
+
+stub = Stub("example-tei")
+
+
+tei_image = (
     Image.from_registry(
         "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
         add_python="3.10",
@@ -58,15 +63,12 @@ image = (
     .pip_install("httpx")
 )
 
-volume = Volume.persisted("tei-hn-data")
-
-stub = Stub("example-tei", image=image)
-
 
 @stub.cls(
     secret=Secret.from_name("huggingface"),
     gpu=GPU_CONFIG,
-    allow_concurrent_inputs=10,
+    image=tei_image,
+    # allow_concurrent_inputs=10,
     concurrency_limit=10,
 )
 class TextEmbeddingsInference:
@@ -80,12 +82,13 @@ class TextEmbeddingsInference:
         self.process.terminate()
 
     @method()
-    async def embed(self, id: str, input: str):
-        resp = self.client.post("/embed", json={"inputs": [input]})
+    async def embed(self, inputs_with_ids: list[tuple[int, str]]):
+        ids, inputs = zip(*inputs_with_ids)
+        resp = self.client.post("/embed", json={"inputs": inputs})
         resp = await resp
         resp.raise_for_status()
         outputs = resp.json()
-        return id, outputs[0]
+        return list(zip(ids, outputs))
 
 
 def download_data():
@@ -132,14 +135,23 @@ def embed_dataset():
     model = TextEmbeddingsInference()
 
     if not DATA_PATH.exists():
-        print("Downloading data...")
+        print("Downloading data. This takes a while...")
         download_data()
 
     with open(DATA_PATH) as f:
         data = json.loads(f.read())
 
+    def generate_batches():
+        batch = []
+        for item in data:
+            batch.append(item)
+
+            if len(batch) == BATCH_SIZE:
+                yield batch
+                batch = []
+
     # data is of type list[tuple[str, str]].
     # starmap spreads the tuples into positional arguments.
-    output = list(model.embed.starmap(data))
-
-    print(len(output))
+    for output_batch in model.embed.map(generate_batches()):
+        # Do something with the outputs.
+        pass
