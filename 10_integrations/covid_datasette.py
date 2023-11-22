@@ -212,6 +212,7 @@ def refresh_db():
 @stub.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
+    allow_concurrent_inputs=16,
 )
 @asgi_app()
 def app():
