@@ -64,12 +64,18 @@ tei_image = (
 )
 
 
+with tei_image.run_inside():
+    import numpy as np
+
+
 @stub.cls(
     secret=Secret.from_name("huggingface"),
     gpu=GPU_CONFIG,
     image=tei_image,
-    # allow_concurrent_inputs=10,
-    concurrency_limit=10,
+    # Use up to 20 GPU containers at once.
+    concurrency_limit=20,
+    # Allow each container to process up to 10 batches at once.
+    allow_concurrent_inputs=10,
 )
 class TextEmbeddingsInference:
     def __enter__(self):
@@ -88,7 +94,10 @@ class TextEmbeddingsInference:
         resp = await resp
         resp.raise_for_status()
         outputs = resp.json()
-        return list(zip(ids, outputs))
+
+        # Returning a list is slower because of additional Modal-specific overhead,
+        # to be fixed shortly.
+        return np.array(zip(ids, outputs))
 
 
 def download_data():
@@ -152,6 +161,8 @@ def embed_dataset():
 
     # data is of type list[tuple[str, str]].
     # starmap spreads the tuples into positional arguments.
-    for output_batch in model.embed.map(generate_batches()):
+    for output_batch in model.embed.map(
+        generate_batches(), order_outputs=False
+    ):
         # Do something with the outputs.
         pass
