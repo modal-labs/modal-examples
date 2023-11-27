@@ -52,7 +52,7 @@ def seed_volume():
 
 
 @stub.function(
-    concurrency_limit=1, network_file_systems={CACHE_DIR: volume}, timeout=1_500
+    concurrency_limit=1, network_file_systems={CACHE_DIR: volume}, timeout=1500
 )
 def run_jupyter(timeout: int):
     jupyter_process = subprocess.Popen(
