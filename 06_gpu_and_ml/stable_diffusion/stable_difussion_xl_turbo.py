@@ -18,7 +18,8 @@ image = (
         "transformers~=4.35",
         "accelerate~=0.25",
         "safetensors~=0.4",
-    ).run_function(download_models)
+    )
+    .run_function(download_models)
 )
 
 stub = Stub("stable-diffusion-xl-turbo", image=image)
