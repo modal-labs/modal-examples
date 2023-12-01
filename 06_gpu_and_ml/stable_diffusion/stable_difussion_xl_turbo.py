@@ -12,7 +12,6 @@ def download_models():
 
 image = (
     Image.debian_slim()
-    # update to recent versions
     .pip_install(
         "Pillow~=10.1.0",
         "diffusers~=0.24",
