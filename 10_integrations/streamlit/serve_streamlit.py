@@ -25,8 +25,8 @@ import modal
 
 image = (
     modal.Image.debian_slim()
-        .apt_install("git")
-        .pip_install("streamlit", "numpy", "pandas")
+    .apt_install("git")
+    .pip_install("streamlit", "numpy", "pandas")
 )
 stub = modal.Stub(name="example-modal-streamlit", image=image)
 stub.q = modal.Queue.new()
