@@ -53,8 +53,6 @@ stub = Stub("stable-diffusion-cli")
 # already inside the image.
 
 model_id = "runwayml/stable-diffusion-v1-5"
-cache_path = "/vol/cache"
-
 
 image = (
     Image.debian_slim(python_version="3.10")
@@ -100,28 +98,9 @@ with image.run_inside():
 
 @stub.cls(image=image, gpu="A10G")
 class StableDiffusion:
-    def _download_models(self):
-        # Download scheduler configuration. Experiment with different schedulers
-        # to identify one that works best for your use-case.
+    def __enter__(self):
         scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
             model_id,
-            subfolder="scheduler",
-            cache_dir=cache_path,
-        )
-        scheduler.save_pretrained(cache_path, safe_serialization=True)
-
-        # Downloads all other models.
-        pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            model_id,
-            revision="fp16",
-            torch_dtype=torch.float16,
-            cache_dir=cache_path,
-        )
-        pipe.save_pretrained(cache_path, safe_serialization=True)
-
-    def _initialize(self):
-        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-            cache_path,
             subfolder="scheduler",
             solver_order=2,
             prediction_type="epsilon",
@@ -133,19 +112,14 @@ class StableDiffusion:
             device_map="auto",
         )
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            cache_path,
+            model_id,
             scheduler=scheduler,
             low_cpu_mem_usage=True,
             device_map="auto",
         )
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    def __build__(self):
-        self._download_models()
-        self._initialize()
-
-    def __enter__(self):
-        self._initialize()
+    __build__ = __enter__
 
     @method()
     def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4):
