@@ -13,7 +13,7 @@
 # The example is structured as two files:
 #
 # 1. This module, which defines the Modal objects (name the script `serve_streamlit.py` locally).
-# 2. `app.py`, which is a Streamlit script and is mounted into a Modal function ([download script](./app.py)).
+# 2. `app.py`, which is a Streamlit script and is mounted into a Modal function ([download script](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/streamlit/app.py)).
 import pathlib
 
 import modal
