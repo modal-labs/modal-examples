@@ -12,8 +12,8 @@
 #
 # The example is structured as two files:
 #
-# 1. This module, which defines the Modal objects.
-# 2. `app.py`, which is a Streamlit script and is mounted into a Modal function.
+# 1. This module, which defines the Modal objects (name the script `serve_streamlit.py` locally).
+# 2. `app.py`, which is a Streamlit script and is mounted into a Modal function (![download script](./app.py)).
 import pathlib
 
 import modal
@@ -23,7 +23,11 @@ import modal
 # The `app.py` script imports three third-party packages, so we include these in the example's
 # image definition.
 
-image = modal.Image.debian_slim().pip_install("streamlit", "numpy", "pandas")
+image = (
+    modal.Image.debian_slim()
+        .apt_install("git")
+        .pip_install("streamlit", "numpy", "pandas")
+)
 stub = modal.Stub(name="example-modal-streamlit", image=image)
 stub.q = modal.Queue.new()
 
