@@ -122,7 +122,9 @@ class StableDiffusion:
     __build__ = __enter__
 
     @method()
-    def run_inference(self, prompt: str, steps: int = 20, batch_size: int = 4):
+    def run_inference(
+        self, prompt: str, steps: int = 20, batch_size: int = 4
+    ) -> list[bytes]:
         with torch.inference_mode():
             with torch.autocast("cuda"):
                 images = self.pipe(
