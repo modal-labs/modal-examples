@@ -60,7 +60,7 @@ stub = Stub("stable-diffusion-xl", image=image)
 # ## Load model and run inference
 #
 # The container lifecycle [`__enter__` function](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
-# loads the model at startup. Then, we evaluate it in the `run_inference` function.
+# loads the model at startup. Then, we evaluate it in the `inference` function.
 #
 # To avoid excessive cold-starts, we set the idle timeout to 240 seconds, meaning once a GPU has loaded the model it will stay
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
