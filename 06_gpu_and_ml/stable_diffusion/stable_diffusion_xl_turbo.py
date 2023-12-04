@@ -3,10 +3,10 @@
 # args: []
 # runtimes: ["runc", "gvisor"]
 # ---
-# # Stable Diffusion XL Turbo
+# # Stable Diffusion XL Turbo Image-to-image
 #
 # This example is similar to the [Stable Diffusion XL](/docs/examples/stable_diffusion_xl)
-# example, but it's a distilled model trained for real-time synthesis. Learn more about it [here](https://stability.ai/news/stability-ai-sdxl-turbo)
+# example, but it's a distilled model trained for real-time synthesis and is image-to-image. Learn more about it [here](https://stability.ai/news/stability-ai-sdxl-turbo).
 #
 # Input prompt:
 # `dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k`
@@ -121,3 +121,11 @@ def main(
     print(f"Saving it to {output_path}")
     with open(output_path, "wb") as f:
         f.write(output_image_bytes)
+
+
+# ## Running the model
+#
+# We can run the model with different parameters using the following command,
+# ```
+# modal run stable_diffusion_xl_turbo.py --prompt="harry potter, glasses, wizard" --image-path="dog.png"
+# ```
