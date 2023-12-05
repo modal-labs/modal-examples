@@ -36,10 +36,9 @@
           </svg>
         </a>
       </div>
-      <div class="text-4xl mt-4 mb-4 font-semibold tracking-tighter text-center">
-        LLaMA 2 70B
+      <div x-init="getModelMeta()" class="text-4xl mt-4 mb-4 font-semibold tracking-tighter text-center">
+        <span x-text="modelMeta.name"></span>
       </div>
-
       <div class="flex flex-wrap justify-center items-center mt-8 mb-6">
         <div
           x-init="setInterval(() => refreshInfo(), 1000)"
@@ -153,6 +152,7 @@
             nextPrompt: "",
             items: [],
             info: { backlog: 0, num_total_runners: 0 },
+            modelMeta: { name: ".." },
             callApi() {
               console.log(this.nextPrompt);
               if (!this.nextPrompt) return;
@@ -195,6 +195,14 @@
                 .then((response) => response.json())
                 .then((data) => {
                   this.info = { ...data, loaded: true };
+                })
+                .catch((error) => console.log(error));
+            },
+            getModelMeta() {
+              fetch("/model")
+                .then((response) => response.json())
+                .then((data) => {
+                  this.modelMeta = { ...data, loaded: true };
                 })
                 .catch((error) => console.log(error));
             },

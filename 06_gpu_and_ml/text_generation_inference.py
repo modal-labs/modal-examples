@@ -212,6 +212,10 @@ def app():
 
     web_app = fastapi.FastAPI()
 
+    @web_app.get("/model")
+    async def model():
+        return {"name": "Llama-2-70b-chat"}
+
     @web_app.get("/stats")
     async def stats():
         stats = await Model().generate_stream.get_current_stats.aio()

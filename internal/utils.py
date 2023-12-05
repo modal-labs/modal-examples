@@ -117,6 +117,13 @@ def gather_example_files(
                 )
                 cmd = metadata.get("cmd", ["modal", "run", repo_filename])
                 args = metadata.get("args", [])
+
+                if "gpt-fast" in module and filename.stem != "modal":
+                    # These files were pulled in from
+                    # github.com/pytorch-labs/gpt-fast as is -- ignore.
+                    ignored.append(str(filename))
+                    continue
+
                 yield Example(
                     type=ExampleType.MODULE,
                     filename=filename_abs,
