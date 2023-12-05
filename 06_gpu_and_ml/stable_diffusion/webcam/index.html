@@ -1,0 +1,134 @@
+<h1>SDXL Turbo Image-to-image</h1>
+<input type="file" id="imageLoader" name="imageLoader" />
+<input type="text" id="textInput" name="textInput" value="wizard, gandalf, lord of the rings, disney, cute, 8k" />
+<canvas id="canvas" style="display: none"> </canvas>
+<div style="position: relative">
+    <img id="outputImg" style="position: absolute; top: 0; left: 0" />
+</div>
+
+<canvas id="drawingCanvas"></canvas>
+
+<script>
+    var imageLoader = document.getElementById('imageLoader');
+    var textInput = document.getElementById('textInput');
+    imageLoader.addEventListener('change', handleImage, false);
+
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+
+    var drawingCanvas = document.getElementById("drawingCanvas");
+    var drawingCtx = drawingCanvas.getContext("2d");
+
+    var isImageUploaded = false;
+    canvas.height = 512;
+    canvas.width = 512;
+    drawingCanvas.height = canvas.height;
+    drawingCanvas.width = canvas.width;
+
+    var painting = false;
+
+    function startPosition(e) {
+        painting = true;
+        draw(e);
+    }
+
+    function endPosition() {
+        painting = false;
+        drawingCtx.beginPath(); // Begin a new path to start a new stroke
+    }
+
+    function draw(e) {
+        if (!painting) return;
+        drawingCtx.lineWidth = 5; // Width of the stroke
+        drawingCtx.lineCap = 'round'; // Rounded end of the stroke
+
+        drawingCtx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop); // Position of the mouse
+        drawingCtx.stroke(); // Make the line visible
+        drawingCtx.beginPath(); // Begin a new path
+        drawingCtx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop); // Move to a new position
+    }
+
+    // Event Listeners
+    canvas.addEventListener('mousedown', startPosition);
+    canvas.addEventListener('mouseup', endPosition);
+    canvas.addEventListener('mousemove', draw);
+
+    function getCombinedImageData() {
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        var tempCtx = tempCanvas.getContext('2d');
+
+        // Draw the image canvas first
+        tempCtx.drawImage(canvas, 0, 0);
+
+        // Then draw the drawing canvas
+        tempCtx.drawImage(drawingCanvas, 0, 0);
+
+        // Get the combined image data
+        return tempCanvas.toDataURL("image/png");
+    }
+
+    function handleImage(e) {
+        var reader = new FileReader();
+        reader.onload = function (event) {
+            var img = new Image();
+            img.onload = function () {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                var aspectRatio = img.width / img.height;
+        
+                // Calculate new dimensions
+                var newWidth, newHeight;
+
+                if (img.width > img.height) {
+                    // Image is wider than it is tall
+                    newWidth = 512;
+                    newHeight = 512 / aspectRatio;
+                } else {
+                    // Image is taller than it is wide
+                    newHeight = 512;
+                    newWidth = 512 * aspectRatio;
+                }
+
+
+                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+                canvas.style.display = 'block';
+                isImageUploaded = true;
+                getNextFrameLoop();
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(e.target.files[0]);
+        }
+
+    const getNextFrameLoop = () => {
+        const context = canvas.getContext("2d");
+        if (!isImageUploaded) {
+            setTimeout(getNextFrameLoop, 5000);
+            return;
+        }
+
+        const data = getCombinedImageData();
+        fetch("/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                image: data,
+                prompt: textInput.value,
+            }),
+        })
+            .then((res) => res.text())
+            .then((text) => {
+                var img = new Image();
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };                
+                img.src = text;
+                setTimeout(getNextFrameLoop, 10);
+            })
+            .catch((e) => {
+                setTimeout(getNextFrameLoop, 1000);
+            });
+    };
+</script>
