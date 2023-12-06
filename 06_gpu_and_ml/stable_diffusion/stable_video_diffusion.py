@@ -46,7 +46,6 @@ svd_image = (
         "torchaudio==2.0.2+cu118",
         extra_index_url="https://download.pytorch.org/whl/cu118",
     )
-    .run_commands("pip debug --verbose")
     .run_commands("pip install -r requirements/pt2.txt")
     .apt_install("ffmpeg", "libsm6", "libxext6")  # for CV2
     .pip_install("safetensors")
