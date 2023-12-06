@@ -33,14 +33,17 @@ class InstructorModel:
         self.model = INSTRUCTOR(MODEL_DIR, device="cuda")
 
     @method()
-    def encode(self, item):
-        return self.model.encode(item)
+    def compare(self, sentences_a, sentences_b):
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        embeddings_a = self.model.encode(sentences_a)
+        embeddings_b = self.model.encode(sentences_b)
+        similarities = cosine_similarity(embeddings_a, embeddings_b)
+        return similarities
 
 
 @stub.local_entrypoint()
 def run():
-    from sklearn.metrics.pairwise import cosine_similarity
-
     sentences_a = [
         [
             "Represent the Science sentence: ",
@@ -63,7 +66,5 @@ def run():
     ]
 
     model = InstructorModel()
-    embeddings_a = model.encode.remote(sentences_a)
-    embeddings_b = model.encode.remote(sentences_b)
-    similarities = cosine_similarity(embeddings_a, embeddings_b)
+    similarities = model.compare.remote(sentences_a, sentences_b)
     print(similarities)
