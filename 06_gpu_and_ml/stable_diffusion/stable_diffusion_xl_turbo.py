@@ -104,9 +104,12 @@ class Model:
         return image_bytes
 
 
+DEFAULT_IMAGE_PATH = Path(__file__).parent / "demo_images/dog.png"
+
+
 @stub.local_entrypoint()
 def main(
-    image_path="demo_images/dog.png",
+    image_path=DEFAULT_IMAGE_PATH,
     prompt="dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k",
 ):
     with open(image_path, "rb") as image_file:
