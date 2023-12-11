@@ -126,7 +126,7 @@
   const debouncedGetNextFrameLoop = debounce(
     100,
     () => {
-      getNextFrameLoop;
+      getNextFrameLoop();
     },
     { atBegin: false },
   );
@@ -195,7 +195,7 @@
       <input
         class="rounded-lg border border-white/20 bg-white/10 py-4 px-6 outline-none w-full"
         bind:value
-        on:change={debouncedGetNextFrameLoop}
+        on:input={debouncedGetNextFrameLoop}
       />
     </div>
 
