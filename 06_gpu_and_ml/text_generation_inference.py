@@ -218,6 +218,7 @@ def app():
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
+            "model": MODEL_ID,
         }
 
     @web_app.get("/completion/{question}")

@@ -13,7 +13,7 @@
   </head>
   <body>
     <section x-data="state()" class="max-w-2xl mx-auto pt-16 px-4">
-      <div class="text-xs font-semibold tracking-wide uppercase text-center text-white">
+      <div class="text-xs font-semibold tracking-wide uppercase text-center text-black">
         <a
           href="https://modal.com/docs/examples/text_generation_inference"
           class="inline-flex gap-x-1 items-center bg-lime-400 py-0.5 px-3 rounded-full hover:text-lime-400 hover:ring hover:ring-lime-400 hover:bg-white focus:outline-neutral-400"
@@ -37,7 +37,9 @@
         </a>
       </div>
       <div class="text-4xl mt-4 mb-4 font-semibold tracking-tighter text-center">
-        LLaMA 2 70B
+        Modal LLM Engine
+      </div>
+      <div x-show="info.loaded && info.model" x-text="info.model" class="text-2xl mt-4 mb-4 font-medium tracking-tighter text-center">
       </div>
 
       <div class="flex flex-wrap justify-center items-center mt-8 mb-6">
