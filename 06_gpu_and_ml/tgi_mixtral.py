@@ -12,10 +12,10 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Mount, Stub, asgi_app, gpu, method
-
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
+from modal import Image, Mount, Stub, asgi_app, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
