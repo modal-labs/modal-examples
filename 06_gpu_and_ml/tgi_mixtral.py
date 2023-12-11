@@ -125,7 +125,6 @@ class Model:
                     raise RuntimeError(f"launcher exited with code {retcode}")
                 time.sleep(1.0)
 
-
     def __exit__(self, _exc_type, _exc_value, _traceback):
         self.launcher.terminate()
 
@@ -157,7 +156,6 @@ def main():
             "Implement a Python function to compute the Fibonacci numbers."
         )
     )
-
 
 
 # ## Serve the model
