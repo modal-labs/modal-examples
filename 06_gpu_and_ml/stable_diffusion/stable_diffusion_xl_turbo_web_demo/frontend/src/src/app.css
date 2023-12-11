@@ -1,0 +1,228 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  @font-face {
+    font-family: "Tosh Modal";
+    src: url("/fonts/tosh/ToshModal-[wght].ttf") format("truetype");
+    font-display: swap;
+  }
+
+  body {
+    @apply bg-ground text-gray-200;
+    color-scheme: dark;
+    text-rendering: optimizelegibility;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  mark {
+    @apply bg-primary;
+  }
+
+  * {
+    @apply outline-transparent;
+  }
+}
+
+@layer components {
+  /**
+   * Button component (`.btn`):
+   * - Two styles: default style or `.btn-outlined`.
+   * - Three colors: default secondary, `btn-red`, `btn-primary`.
+   * - Two sizes: default or `btn-lg`.
+   * - Temporary style: `btn-new` for dashboard re-theme. Will be re-consolidated once re-theme is done.
+   */
+
+  /* TODO(gongy): deprecate */
+  .btn {
+    @apply rounded-sm px-3.5 py-1 inline-flex justify-center items-center type-button text-sm whitespace-nowrap outline-none disabled:opacity-50 focus:ring ring-primary/50 transition-colors text-white hover:bg-white/10 active:bg-white/20;
+  }
+
+  .btn-new {
+    @apply rounded px-4 py-1.5 inline-flex justify-center items-center text-sm font-normal whitespace-nowrap outline-none disabled:opacity-50 focus:ring ring-primary/50 transition-colors text-white hover:bg-white/10 active:bg-white/20 disabled:active:bg-white/10;
+  }
+
+  .btn-new.btn-uppercase {
+    @apply font-medium tracking-wider uppercase rounded-sm;
+  }
+
+  .btn-new.btn-new-tight {
+    @apply px-1.5 py-0.5;
+  }
+
+  .btn-outlined {
+    @apply border border-white/20 hover:bg-white/10 active:bg-white/20;
+  }
+
+  .btn-primary {
+    @apply text-primary hover:bg-primary/10 active:bg-primary/20;
+  }
+
+  .btn-primary.btn-outlined {
+    @apply border-primary bg-primary/10 hover:bg-primary/20 active:bg-primary/25;
+  }
+
+  .btn-red {
+    @apply text-red-400 hover:bg-red-400/20 active:bg-red-400/25 bg-red-400/5 ring-red-400/50;
+  }
+
+  .btn-red.btn-outlined {
+    @apply border-red-400 hover:bg-red-400/20 active:bg-red-400/25;
+  }
+
+  /* TODO(gongy): deprecate */
+  .btn.btn-lg {
+    @apply py-2.5 px-5 text-base;
+  }
+
+  .btn-new.btn-lg {
+    @apply py-2.5 px-5 text-lg font-tosh font-medium tracking-wider rounded;
+  }
+
+  .btn-new.btn-lg.btn-extra-rounding {
+    @apply rounded-xl;
+  }
+
+  .btn-new.btn-extra-rounding {
+    @apply rounded-lg;
+  }
+
+  /** Typography components **/
+  /* Below medium screens, fonts are smaller across the board. */
+  .type-heading-lg {
+    @apply text-5xl md:text-6xl leading-[1.2] tracking-tight font-tosh font-medium;
+  }
+
+  .type-heading-md {
+    @apply text-4xl md:text-5xl leading-[1.2] font-tosh font-medium;
+  }
+
+  .type-title-lg {
+    @apply text-3xl md:text-4xl leading-[1.2] font-tosh font-medium;
+  }
+
+  .type-title-md {
+    @apply text-xl md:text-2xl leading-[1.2] font-tosh font-medium;
+  }
+
+  .type-title-sm {
+    @apply text-lg md:text-xl leading-[1.2] font-tosh font-medium;
+  }
+
+  .type-subtitle-lg {
+    @apply text-lg md:text-xl leading-[1.6];
+  }
+
+  .type-subtitle-md {
+    @apply text-base md:text-lg leading-[1.5];
+  }
+
+  .type-content {
+    @apply text-sm md:text-base leading-[1.5];
+  }
+
+  .type-navigation {
+    @apply text-sm leading-[1.5] tracking-wider font-medium uppercase;
+  }
+
+  .type-button {
+    @apply leading-[1.5] tracking-wider font-medium uppercase;
+  }
+
+  /** Navigation link components */
+  .nav-link {
+    @apply h-full flex items-center border-b border-transparent translate-y-[1px] transition-colors;
+  }
+
+  .nav-link.active {
+    @apply text-primary border-primary;
+  }
+
+  .nav-link:hover:not(.active) {
+    @apply text-white border-white;
+  }
+
+  /* These will replace .nav-link */
+  .nav-link-new {
+    @apply py-1 px-3 rounded-lg relative inline-flex justify-center items-center text-base text-white font-inter font-medium capitalize whitespace-nowrap outline-none hover:bg-white/10 active:bg-white/20 focus:ring-2 ring-white/50 transition;
+  }
+}
+
+@layer utilities {
+  em,
+  .italic {
+    font-style: normal;
+    font-variation-settings: "slnt" -10;
+  }
+
+  .not-italic {
+    font-style: normal;
+    font-variation-settings: "slnt" 0;
+  }
+}
+
+/* Overriding @tailwindcss/forms default input colors for dark mode. */
+[type="text"],
+[type="email"],
+[type="url"],
+[type="password"],
+[type="number"],
+[type="date"],
+[type="datetime-local"],
+[type="month"],
+[type="search"],
+[type="tel"],
+[type="time"],
+[type="week"],
+[multiple],
+textarea,
+select {
+  @apply border-white/10 bg-white/5 placeholder-zinc-400 focus:ring-1 focus:border-primary/50 focus:ring-primary/50;
+}
+
+.popper-tooltip {
+  @apply max-w-[28ch] pointer-events-none opacity-0 transition-opacity duration-300;
+  @apply text-xs text-center text-white rounded-md px-2 py-1.5 bg-zinc-700;
+  @apply z-30;
+  white-space: normal;
+}
+
+.popper-tooltip[data-show] {
+  @apply opacity-100;
+}
+
+.popper-arrow,
+.popper-arrow::before {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+}
+
+.popper-arrow {
+  visibility: hidden;
+}
+
+.popper-arrow::before {
+  visibility: visible;
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.popper-tooltip[data-popper-placement^="top"] > .popper-arrow {
+  bottom: -4px;
+}
+
+.popper-tooltip[data-popper-placement^="bottom"] > .popper-arrow {
+  top: -4px;
+}
+
+.popper-tooltip[data-popper-placement^="left"] > .popper-arrow {
+  right: -4px;
+}
+
+.popper-tooltip[data-popper-placement^="right"] > .popper-arrow {
+  left: -4px;
+}
