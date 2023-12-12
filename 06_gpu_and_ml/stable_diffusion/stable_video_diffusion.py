@@ -31,7 +31,9 @@ def download_model():
 
 
 svd_image = (
-    modal.Image.debian_slim()
+    # The generative-models repo hardcodes `tokenizers==0.12.1`, for which there is no
+    # pre-built python 3.11 wheel.
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .run_commands(
         "git clone https://github.com/Stability-AI/generative-models.git /sgm"

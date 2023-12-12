@@ -1,20 +1,21 @@
-# # Hosting any LLaMA 2 model with Text Generation Inference (TGI)
+# # Hosting Mixtral 8x7B with Text Generation Inference (TGI)
 #
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)
 # with performance advantages over standard text generation pipelines including:
 # - continuous batching, so multiple generations can take place at the same time on a single container
 # - PagedAttention, an optimization that increases throughput.
 #
-# This example deployment, [accessible here](https://modal-labs--tgi-app.modal.run), can serve LLaMA 2 70B with
-# 70 second cold starts, up to 200 tokens/s of throughput and per-token latency of 55ms.
+# This example deployment, [accessible here](https://modal-labs--tgi-mixtral.modal.run), can serve Mixtral 8x7B on two 80GB A100s, with
+# up to 500 tokens/s of throughput and per-token latency of 78ms.
 
 # ## Setup
 #
 # First we import the components we need from `modal`.
 
+import subprocess
 from pathlib import Path
 
-from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
+from modal import Image, Mount, Stub, asgi_app, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -23,24 +24,21 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 # Any model supported by TGI can be chosen here.
 
 GPU_CONFIG = gpu.A100(memory=80, count=2)
-MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
-REVISION = "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
+MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
     MODEL_ID,
     "--port",
     "8000",
-    "--revision",
-    REVISION,
 ]
 
 # ## Define a container image
 #
 # We want to create a Modal image which has the Huggingface model cache pre-populated.
 # The benefit of this is that the container no longer has to re-download the model from Huggingface -
-# instead, it will take advantage of Modal's internal filesystem for faster cold starts. On
-# the largest 70B model, the 135GB model can be loaded in as little as 70 seconds.
+# instead, it will take advantage of Modal's internal filesystem for faster cold starts.
+# The 95GB model can be loaded in as little as 70 seconds.
 #
 # ### Download the weights
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
@@ -49,17 +47,12 @@ LAUNCH_FLAGS = [
 
 
 def download_model():
-    import subprocess
-
     subprocess.run(
         [
             "text-generation-server",
             "download-weights",
             MODEL_ID,
-            "--revision",
-            REVISION,
-        ],
-        check=True,
+        ]
     )
 
 
@@ -69,23 +62,16 @@ def download_model():
 #
 # Next we run the download step to pre-populate the image with our model weights.
 #
-# For this step to work on a gated model such as LLaMA 2, the HUGGING_FACE_HUB_TOKEN environment
-# variable must be set ([reference](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)).
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens),
-# head to the [secrets page](https://modal.com/secrets) to create a Modal secret.
-#
-# The key should be `HUGGING_FACE_HUB_TOKEN` and the value should be your access token.
-#
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.3")
+    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.3.1")
     .dockerfile_commands("ENTRYPOINT []")
-    .run_function(download_model, secret=Secret.from_name("huggingface"))
+    .run_function(download_model, timeout=60 * 20)
     .pip_install("text-generation")
 )
 
-stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
+stub = Stub("example-tgi-mixtral", image=image)
 
 
 # ## The model class
@@ -101,7 +87,6 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 # container ready.
 #
 # Here, we also
-# - specify the secret so the `HUGGING_FACE_HUB_TOKEN` environment variable is set
 # - specify how many A100s we need per container
 # - specify that each container is allowed to handle up to 10 inputs (i.e. requests) simultaneously
 # - keep idle containers for 10 minutes before spinning down
@@ -109,7 +94,6 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 
 
 @stub.cls(
-    secret=Secret.from_name("huggingface"),
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
@@ -118,7 +102,6 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 class Model:
     def __enter__(self):
         import socket
-        import subprocess
         import time
 
         from text_generation import AsyncClient
@@ -127,45 +110,34 @@ class Model:
             ["text-generation-launcher"] + LAUNCH_FLAGS
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
-        self.template = """<s>[INST] <<SYS>>
-{system}
-<</SYS>>
-
-{user} [/INST] """
+        self.template = "[INST] {user} [/INST]"
 
         # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
-        def webserver_ready():
+        webserver_ready = False
+        while not webserver_ready:
             try:
                 socket.create_connection(("127.0.0.1", 8000), timeout=1).close()
-                return True
+                webserver_ready = True
+                print("Webserver ready!")
             except (socket.timeout, ConnectionRefusedError):
-                # Check if launcher webserving process has exited.
-                # If so, a connection can never be made.
-                retcode = self.launcher.poll()
-                if retcode is not None:
-                    raise RuntimeError(
-                        f"launcher exited unexpectedly with code {retcode}"
-                    )
-                return False
-
-        while not webserver_ready():
-            time.sleep(1.0)
-
-        print("Webserver ready!")
+                # If launcher process exited, a connection can never be made.
+                if retcode := self.launcher.poll():
+                    raise RuntimeError(f"launcher exited with code {retcode}")
+                time.sleep(1.0)
 
     def __exit__(self, _exc_type, _exc_value, _traceback):
         self.launcher.terminate()
 
     @method()
     async def generate(self, question: str):
-        prompt = self.template.format(system="", user=question)
+        prompt = self.template.format(user=question)
         result = await self.client.generate(prompt, max_new_tokens=1024)
 
         return result.generated_text
 
     @method()
     async def generate_stream(self, question: str):
-        prompt = self.template.format(system="", user=question)
+        prompt = self.template.format(user=question)
 
         async for response in self.client.generate_stream(
             prompt, max_new_tokens=1024
@@ -191,7 +163,7 @@ def main():
 # behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available
 # [here](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/llm-frontend/index.html).
 #
-# You can try our deployment [here](https://modal-labs--tgi-app.modal.run).
+# You can try our deployment [here](https://modal-labs--tgi-mixtral.modal.run).
 
 frontend_path = Path(__file__).parent / "llm-frontend"
 
@@ -199,10 +171,10 @@ frontend_path = Path(__file__).parent / "llm-frontend"
 @stub.function(
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
-    allow_concurrent_inputs=10,
+    allow_concurrent_inputs=20,
     timeout=60 * 10,
 )
-@asgi_app(label="tgi-app")
+@asgi_app(label="tgi-mixtral")
 def app():
     import json
 
@@ -246,7 +218,7 @@ def app():
 # ```
 # $ python
 # >>> import modal
-# >>> f = modal.Function.lookup("example-tgi-Llama-2-70b-chat-hf", "Model.generate")
+# >>> f = modal.Function.lookup("example-tgi-Mixtral-8x7B-Instruct-v0.1", "Model.generate")
 # >>> f.remote("What is the story about the fox and grapes?")
 # 'The story about the fox and grapes ...
 # ```
