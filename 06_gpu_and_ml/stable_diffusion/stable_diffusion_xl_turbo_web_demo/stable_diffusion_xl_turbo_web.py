@@ -21,6 +21,8 @@ def download_models():
 
     snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
 
+    # https://huggingface.co/docs/diffusers/main/en/using-diffusers/sdxl_turbo#speed-up-sdxl-turbo-even-more
+    # vae is used for a inference speedup
     snapshot_download("madebyollin/sdxl-vae-fp16-fix", ignore_patterns=ignore)
 
 
