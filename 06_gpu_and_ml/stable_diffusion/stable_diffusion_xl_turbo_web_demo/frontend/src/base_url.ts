@@ -1,1 +1,0 @@
-export const INFERENCE_BASE_URL = "{{ inference_url }}";
