@@ -2,7 +2,6 @@ import base64
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
@@ -93,7 +92,9 @@ class Model:
         )  # read data-uri
         prompt = body_json["prompt"]
 
-        init_image = load_image(Image.open(BytesIO(img_data_in))).resize((512, 512))
+        init_image = load_image(Image.open(BytesIO(img_data_in))).resize(
+            (512, 512)
+        )
         num_inference_steps = 2
         # note: anything under 0.5 strength gives blurry results
         strength = 0.7
@@ -117,7 +118,9 @@ class Model:
 
         print("total time:", time.time() - t0)
 
-        output_data = b"data:image/jpeg;base64," + base64.b64encode(img_data_out)
+        output_data = b"data:image/jpeg;base64," + base64.b64encode(
+            img_data_out
+        )
 
         return Response(content=output_data)
 
