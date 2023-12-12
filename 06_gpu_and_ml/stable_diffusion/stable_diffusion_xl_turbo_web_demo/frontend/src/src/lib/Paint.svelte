@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { Eraser } from "lucide-svelte";
+
     import smallPaintIcon from "$lib/assets/sm-paint-icon.svg";
     import extraSmallPaintIcon from "$lib/assets/xs-paint-icon.svg";
     import mediumPaintIcon from "$lib/assets/md-paint-icon.svg";
@@ -26,8 +28,11 @@
 <div class="flex flex-col">
     <div class="container">
         <div class="flex justify-between w-full">
-            <button style="font-size:10px" on:click={() => handleClearCanvas()}>
-                Clear paint
+            <button
+                class="flex items-center gap-2.5 w-full text-sm"
+                on:click={() => handleClearCanvas()}
+            >
+                <Eraser size={12} /> Clear
             </button>
         </div>
     </div>
@@ -86,18 +91,38 @@
             class="flex border-white/10 border-t pt-2.5 justify-between w-full"
         >
             <button on:click={() => handleSetBrushSize("xs")}>
-                <img class="brush" class:brush-active={brushSize === "xs"} src={extraSmallPaintIcon} alt="extrasmall paint icon" />
+                <img
+                    class="brush"
+                    class:brush-active={brushSize === "xs"}
+                    src={extraSmallPaintIcon}
+                    alt="extrasmall paint icon"
+                />
             </button>
             <button on:click={() => handleSetBrushSize("sm")}>
-                <img class="brush" class:brush-active={brushSize === "sm"} src={smallPaintIcon} alt="small paint icon" />
+                <img
+                    class="brush"
+                    class:brush-active={brushSize === "sm"}
+                    src={smallPaintIcon}
+                    alt="small paint icon"
+                />
             </button>
         </div>
         <div class="flex justify-between w-full">
             <button on:click={() => handleSetBrushSize("md")}>
-                <img class="brush" class:brush-active={brushSize === "md"} src={mediumPaintIcon} alt="medium paint icon" />
+                <img
+                    class="brush"
+                    class:brush-active={brushSize === "md"}
+                    src={mediumPaintIcon}
+                    alt="medium paint icon"
+                />
             </button>
             <button on:click={() => handleSetBrushSize("lg")}>
-                <img class="brush" class:brush-active={brushSize === "lg"} src={largePaintIcon} alt="large paint icon" />
+                <img
+                    class="brush"
+                    class:brush-active={brushSize === "lg"}
+                    src={largePaintIcon}
+                    alt="large paint icon"
+                />
             </button>
         </div>
     </div>
@@ -105,7 +130,7 @@
 
 <style lang="postcss">
     .container {
-        @apply flex flex-col items-center gap-2.5 py-3 px-4 border rounded-[10px] border-white/5 bg-white/10;
+        @apply flex flex-col items-center gap-2.5 py-2 px-3 border rounded-[10px] border-white/5 bg-white/10;
         width: 88px;
     }
 
@@ -118,10 +143,12 @@
     }
 
     .brush {
-        filter: invert(100%) sepia(6%) saturate(7487%) hue-rotate(293deg) brightness(103%) contrast(118%);
+        filter: invert(100%) sepia(6%) saturate(7487%) hue-rotate(293deg)
+            brightness(103%) contrast(118%);
     }
 
     .brush-active {
-        filter: invert(84%) sepia(34%) saturate(768%) hue-rotate(51deg) brightness(97%) contrast(92%);
+        filter: invert(84%) sepia(34%) saturate(768%) hue-rotate(51deg)
+            brightness(97%) contrast(92%);
     }
 </style>

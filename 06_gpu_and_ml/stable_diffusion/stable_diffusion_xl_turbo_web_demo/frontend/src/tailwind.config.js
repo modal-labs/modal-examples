@@ -27,12 +27,6 @@ export default {
 
       // Global font modifications
       fontSize: {
-        xs: [
-          "0.8125rem",
-          {
-            lineHeight: "1rem",
-          },
-        ],
         sm: [
           "0.875rem",
           {
