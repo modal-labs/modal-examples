@@ -20,6 +20,8 @@ def download_models():
 
     snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
 
+    snapshot_download("madebyollin/sdxl-vae-fp16-fix", ignore_patterns=ignore)
+
 
 stub = Stub("stable-diffusion-xl-turbo")
 
@@ -41,13 +43,16 @@ with inference_image.run_inside():
     from io import BytesIO
 
     import torch
-    from diffusers import AutoPipelineForImage2Image
+    from diffusers import AutoencoderKL, AutoPipelineForImage2Image
     from diffusers.utils import load_image
-    from PIL import Image, ImageChops
+    from PIL import Image
 
 
 @stub.cls(
-    gpu=gpu.A100(memory=40), container_idle_timeout=240, image=inference_image, keep_warm=1
+    gpu=gpu.A100(memory=40),
+    image=inference_image,
+    keep_warm=1,
+    cloud="oci",  # remove this later
 )
 class Model:
     def __enter__(self):
@@ -55,25 +60,34 @@ class Model:
             "stabilityai/sdxl-turbo",
             torch_dtype=torch.float16,
             device_map="auto",
-            variant="fp16"
+            variant="fp16",
+            vae=AutoencoderKL.from_pretrained(
+                "madebyollin/sdxl-vae-fp16-fix",
+                torch_dtype=torch.float16,
+                device_map="auto",
+            ),
         )
 
     @web_endpoint(method="POST")
     async def inference(self, request: Request):
-        t0 = time.time()
+        t00 = time.time()
         body = await request.body()
+        print("loading time:", time.time() - t00)
         body_json = json.loads(body)
         img_data_in = base64.b64decode(
             body_json["image"].split(",")[1]
         )  # read data-uri
         prompt = body_json["prompt"]
 
-        init_image = load_image(Image.open(BytesIO(img_data_in))).resize((512,512))
+        init_image = load_image(Image.open(BytesIO(img_data_in))).resize(
+            (512, 512)
+        )
         num_inference_steps = 2
         # note: anything under 0.5 strength gives blurry results
-        strength = 0.5
+        strength = 0.7
         assert num_inference_steps * strength >= 1
 
+        t0 = time.time()
         image = self.pipe(
             prompt,
             image=init_image,
@@ -106,6 +120,7 @@ static_path = base_path.joinpath("frontend", "src", "dist")
     mounts=[Mount.from_local_dir(static_path, remote_path="/assets")],
     image=web_image,
     keep_warm=1,
+    allow_concurrent_inputs=10,
 )
 @asgi_app()
 def fastapi_app():
@@ -118,9 +133,7 @@ def fastapi_app():
     template = Template(template_html)
 
     with open("/assets/index.html", "w") as f:
-        html = template.render(
-            inference_url=Model.inference.web_url
-        )
+        html = template.render(inference_url=Model.inference.web_url)
         f.write(html)
 
     web_app.mount("/", StaticFiles(directory="/assets", html=True))
