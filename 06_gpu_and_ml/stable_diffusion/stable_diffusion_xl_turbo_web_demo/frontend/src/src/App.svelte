@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { Github, Loader, Upload, Undo, Redo, ArrowDownToLine, ArrowLeftSquare } from "lucide-svelte";
+  import {
+    Github,
+    Loader,
+    Upload,
+    Undo,
+    Redo,
+    ArrowDownToLine,
+    ArrowLeftSquare,
+  } from "lucide-svelte";
   import { onMount } from "svelte";
   import paper from "paper";
   import { throttle, debounce } from "throttle-debounce";
@@ -9,7 +17,7 @@
   import Paint from "$lib/Paint.svelte";
   import defaultInputImage from "$lib/assets/mocha_outside.png";
 
-  let value: string = "star wars, 8k, disney";
+  let value: string = "studio ghibli, 8k, wolf";
   let imgInput: HTMLImageElement;
   let imgOutput: HTMLImageElement;
   let canvasDrawLayer: HTMLCanvasElement;
@@ -18,6 +26,8 @@
   let firstImageGenerated = false;
   let isDrawing = false;
   let lastUpdatedAt = 0;
+  let outputImageHistory: string[] = [];
+  $: currentOutputImageIndex = -1;
   $: isLoading = false;
 
   $: brushSize = "sm";
@@ -61,6 +71,14 @@
     imgInput.onload = () => {
       resizeImage(imgInput);
       isImageUploaded = true;
+      if (!firstImageGenerated) {
+        getNextFrameLoop();
+        firstImageGenerated = true;
+      }
+    };
+
+    imgOutput.onload = () => {
+      resizeImage(imgOutput);
     };
     imgInput.src = defaultInputImage;
   });
@@ -133,20 +151,30 @@
 
   const movetoCanvas = () => {
     imgInput.src = imgOutput.src;
-  }
+  };
 
   const downloadImage = () => {
     let a = document.createElement("a");
     a.href = imgOutput.src;
     a.download = "modal-generated-image.jpeg";
     a.click();
-  }
+  };
+
+  const redoOutputImage = () => {
+    if (currentOutputImageIndex > 0 && outputImageHistory.length > 1) {
+      currentOutputImageIndex -= 1;
+      imgOutput.src = outputImageHistory[currentOutputImageIndex];
+    }
+  };
+
+  const undoOutputImage = () => {
+    if (currentOutputImageIndex < outputImageHistory.length - 1) {
+      currentOutputImageIndex += 1;
+      imgOutput.src = outputImageHistory[currentOutputImageIndex];
+    }
+  };
 
   const getNextFrameLoop = () => {
-    if (!isDrawing && firstImageGenerated) {
-      return;
-    }
-
     isLoading = true;
     const data = getCombinedImageData();
     const sentAt = new Date().getTime();
@@ -161,8 +189,11 @@
       .then((res) => res.text())
       .then((text) => {
         if (sentAt > lastUpdatedAt) {
+          outputImageHistory = [text, ...outputImageHistory];
+          if (outputImageHistory.length > 10) {
+            outputImageHistory = outputImageHistory.slice(0, 10);
+          }
           imgOutput.src = text;
-          resizeImage(imgOutput);
           lastUpdatedAt = sentAt;
         }
 
@@ -258,13 +289,16 @@
           <div class="flex justify-between">
             <div>Generated Image</div>
             <div class="flex">
-              <button on:click={movetoCanvas}><ArrowLeftSquare size={16}/>Move to Canvas</button>
-              <button><Undo size={16} /></button>
-              <button><Redo size={16} /></button>
-              <button on:click={downloadImage}><ArrowDownToLine size={16} /></button>
+              <button on:click={movetoCanvas}
+                ><ArrowLeftSquare size={16} />Move to Canvas</button
+              >
+              <button on:click={undoOutputImage}><Undo size={16} /></button>
+              <button on:click={redoOutputImage}><Redo size={16} /></button>
+              <button on:click={downloadImage}
+                ><ArrowDownToLine size={16} /></button
+              >
             </div>
           </div>
-
         </div>
 
         <img
