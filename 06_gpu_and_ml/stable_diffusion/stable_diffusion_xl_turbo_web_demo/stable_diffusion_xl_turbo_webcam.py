@@ -69,6 +69,17 @@ class Model:
             ),
         )
 
+        # We execute a blank inference since there are objects that are lazily loaded that
+        # we want to start loading before an actual user query
+        self.pipe(
+            "blank",
+            image=Image.new("RGB", (800, 1280), (255, 255, 255)),
+            num_inference_steps=1,
+            strength=1,
+            guidance_scale=0.0,
+            seed=42,
+        )
+
     @web_endpoint(method="POST")
     async def inference(self, request: Request):
         t00 = time.time()
