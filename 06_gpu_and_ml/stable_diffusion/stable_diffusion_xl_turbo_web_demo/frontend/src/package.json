@@ -27,6 +27,7 @@
     "lucide-svelte": "^0.294.0",
     "postprocessing": "^6.33.4",
     "three": "^0.159.0",
-    "throttle-debounce": "^5.0.0"
+    "throttle-debounce": "^5.0.0",
+    "paper": "^0.12.17"
   }
 }
