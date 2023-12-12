@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Github, Loader, Upload } from "lucide-svelte";
+  import { Github, Loader, Upload, Undo, Redo, ArrowDownToLine, ArrowLeftSquare } from "lucide-svelte";
   import { onMount } from "svelte";
   import paper from "paper";
   import { throttle, debounce } from "throttle-debounce";
@@ -112,7 +112,7 @@
 
     tempCtx.drawImage(imgInput, 0, 0, 320, 320);
     tempCtx.drawImage(canvasDrawLayer, 0, 0, 320, 320);
-    return tempCanvas.toDataURL("image/png");
+    return tempCanvas.toDataURL("image/jpeg");
   }
 
   const throttledGetNextFrameLoop = throttle(
@@ -130,6 +130,17 @@
     },
     { atBegin: false },
   );
+
+  const movetoCanvas = () => {
+    imgInput.src = imgOutput.src;
+  }
+
+  const downloadImage = () => {
+    let a = document.createElement("a");
+    a.href = imgOutput.src;
+    a.download = "modal-generated-image.jpeg";
+    a.click();
+  }
 
   const getNextFrameLoop = () => {
     if (!isDrawing && firstImageGenerated) {
@@ -244,7 +255,16 @@
               <Loader size={14} class="animate-spin" />
             {/if}
           </div>
-          <div>Generated Image</div>
+          <div class="flex justify-between">
+            <div>Generated Image</div>
+            <div class="flex">
+              <button on:click={movetoCanvas}><ArrowLeftSquare size={16}/>Move to Canvas</button>
+              <button><Undo size={16} /></button>
+              <button><Redo size={16} /></button>
+              <button on:click={downloadImage}><ArrowDownToLine size={16} /></button>
+            </div>
+          </div>
+
         </div>
 
         <img

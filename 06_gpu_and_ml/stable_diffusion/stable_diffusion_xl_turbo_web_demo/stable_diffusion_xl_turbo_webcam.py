@@ -86,12 +86,12 @@ class Model:
         print("infer time:", time.time() - t0)
 
         byte_stream = BytesIO()
-        image.save(byte_stream, format="png")
+        image.save(byte_stream, format="jpeg")
         img_data_out = byte_stream.getvalue()
 
         print("total time:", time.time() - t0)
 
-        output_data = b"data:image/png;base64," + base64.b64encode(
+        output_data = b"data:image/jpeg;base64," + base64.b64encode(
             img_data_out
         )
 
