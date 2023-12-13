@@ -136,16 +136,17 @@ class Model:
             sampling_params,
             request_id,
         )
-        index = 0
+        index, num_tokens = 0, 0
         async for output in result_generator:
             if "\ufffd" == output.outputs[0].text[-1]:
                 continue
             text_delta = output.outputs[0].text[index:]
             index = len(output.outputs[0].text)
+            num_tokens = len(output.outputs[0].token_ids)
 
             yield text_delta
 
-        print(f"Generated {index} tokens in {time.time() - t0:.2f}s")
+        print(f"Generated {num_tokens} tokens in {time.time() - t0:.2f}s")
 
 
 # ## Run the model
