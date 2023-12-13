@@ -97,7 +97,7 @@ class Model:
         )
         num_inference_steps = 2
         # note: anything under 0.5 strength gives blurry results
-        strength = 0.7
+        strength = 0.55
         assert num_inference_steps * strength >= 1
 
         t0 = time.time()

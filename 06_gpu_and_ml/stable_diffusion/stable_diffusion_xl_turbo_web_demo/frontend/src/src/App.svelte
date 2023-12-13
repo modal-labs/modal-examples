@@ -18,7 +18,8 @@
   import Paint from "$lib/Paint.svelte";
   import defaultInputImage from "$lib/assets/mocha_outside.png";
 
-  let value: string = "studio ghibli, 8k, wolf";
+  let value: string;
+  let promptPlaceholder: string = "studio ghibli, 8k, wolf ..."
   let imgInput: HTMLImageElement;
   let imgOutput: HTMLImageElement;
   let canvasDrawLayer: HTMLCanvasElement;
@@ -31,7 +32,7 @@
 
   // used for undo/redo functionality 
   let outputImageHistory: string[] = [];
-  $: currentOutputImageIndex = -1;
+  $: currentOutputImageIndex = 0;
 
   $: isLoading = false;
 
@@ -66,13 +67,13 @@
       path.strokeWidth = radiusByBrushSize[brushSize] * 4;
       path.add(event.point);
 
-      throttledGenerateOutputImage();
+      throttledgenerateOutputImage();
     };
 
     tool.onMouseDrag = (event: paper.ToolEvent) => {
       path.add(event.point);
 
-      throttledGenerateOutputImage();
+      throttledgenerateOutputImage();
     };
 
     imgInput.onload = () => {
@@ -82,7 +83,7 @@
       // kick off an inference on first image load so output image is populated as well
       // otherwise it will be empty
       if (!firstImageGenerated) {
-        GenerateOutputImage();
+        generateOutputImage();
         firstImageGenerated = true;
       }
     };
@@ -130,7 +131,7 @@
 
       reader.readAsDataURL(file);
 
-      GenerateOutputImage();
+      generateOutputImage();
     }
   }
 
@@ -148,18 +149,18 @@
     return tempCanvas.toDataURL("image/jpeg");
   }
 
-  const throttledGenerateOutputImage = throttle(
+  const throttledgenerateOutputImage = throttle(
     250,
     () => {
-      GenerateOutputImage();
+      generateOutputImage();
     },
     { noLoading: false, noTrailing: false },
   );
 
-  const debouncedGenerateOutputImage = debounce(
+  const debouncedgenerateOutputImage = debounce(
     100,
     () => {
-      GenerateOutputImage();
+      generateOutputImage();
     },
     { atBegin: false },
   );
@@ -179,6 +180,8 @@
     if (currentOutputImageIndex > 0 && outputImageHistory.length > 1) {
       currentOutputImageIndex -= 1;
       imgOutput.src = outputImageHistory[currentOutputImageIndex];
+    } else {
+      generateOutputImage();
     }
   };
 
@@ -189,7 +192,7 @@
     }
   };
 
-  const GenerateOutputImage = () => {
+  const generateOutputImage = () => {
     isLoading = true;
     const data = getCombinedImageData();
     const sentAt = new Date().getTime();
@@ -198,7 +201,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         image: data,
-        prompt: value,
+        prompt: value || promptPlaceholder,
       }),
     })
       .then((res) => res.text())
@@ -254,7 +257,8 @@
       <input
         class="rounded-lg border border-white/20 bg-white/10 py-4 px-6 outline-none w-full"
         bind:value
-        on:input={debouncedGenerateOutputImage}
+        placeholder={promptPlaceholder}
+        on:input={debouncedgenerateOutputImage}
       />
     </div>
 
@@ -287,7 +291,7 @@
             on:clearCanvas={() => {
               paper.project.activeLayer.removeChildren();
               paper.view.update();
-              GenerateOutputImage();
+              generateOutputImage();
             }}
             on:setPaint={setPaint}
             on:setBrushSize={setBrushSize}
