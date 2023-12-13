@@ -16,8 +16,8 @@
 #
 # First we import the components we need from `modal`.
 
-import time
 import os
+import time
 
 from modal import Image, Stub, gpu, method
 
@@ -88,7 +88,7 @@ stub = Stub("example-vllm-inference", image=image)
     gpu=GPU_CONFIG,
     timeout=60 * 10,
     container_idle_timeout=60 * 10,
-    allow_concurrent_inputs=10
+    allow_concurrent_inputs=10,
 )
 class Model:
     def __enter__(self):
@@ -168,6 +168,7 @@ def main():
         for text in model.completion_stream.remote_gen(question):
             print(text, end="", flush=True)
 
+
 # ## Deploy and invoke the model
 # Once we deploy this model with `modal deploy text_generation_inference.py`,
 # we can invoke inference from other apps, sharing the same pool
@@ -184,11 +185,12 @@ def main():
 # ## Coupling a frontend web application
 #
 # We can stream inference from a FastAPI backend, also deployed on Modal.
-# 
+#
 # You can try our deployment [here](https://modal-labs--vllm-mixtral.modal.run).
 
-from modal import Mount, asgi_app
 from pathlib import Path
+
+from modal import Mount, asgi_app
 
 frontend_path = Path(__file__).parent / "llm-frontend"
 
