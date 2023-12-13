@@ -213,7 +213,7 @@ def app():
 
     @web_app.get("/stats")
     async def stats():
-        stats = await Model().generate_stream.get_current_stats.aio()
+        stats = await Model().completion_stream.get_current_stats.aio()
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
