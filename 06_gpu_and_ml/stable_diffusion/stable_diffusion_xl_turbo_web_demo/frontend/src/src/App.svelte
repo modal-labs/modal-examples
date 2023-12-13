@@ -20,7 +20,8 @@
   import { rejects } from "assert";
 
   let value: string;
-  let promptPlaceholder: string = "studio ghibli, 8k, wolf ...";
+  let promptPlaceholder: string = "studio ghibli, 8k, wolf etc....";
+  let promptPlaceholderValue: string = "studio ghibli, 8k, wolf";
   let imgInput: HTMLImageElement;
   let imgOutput: HTMLImageElement;
   let canvasDrawLayer: HTMLCanvasElement;
@@ -211,7 +212,7 @@
 
     const formData = new FormData();
     formData.append("image", data, "image.jpg");
-    formData.append("prompt", value || promptPlaceholder);
+    formData.append("prompt", value || promptPlaceholderValue);
 
     const sentAt = new Date().getTime();
     fetch(window.INFERENCE_BASE_URL, {

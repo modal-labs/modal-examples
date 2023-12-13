@@ -1,5 +1,3 @@
-import base64
-import json
 import time
 from pathlib import Path
 
@@ -82,13 +80,17 @@ class Model:
         )
 
     @web_endpoint(method="POST")
-    async def inference(self, image: UploadFile = File(...), prompt: str = Form(...)):
+    async def inference(
+        self, image: UploadFile = File(...), prompt: str = Form(...)
+    ):
         t00 = time.time()
         img_data_in = await image.read()
         print("loading time:", time.time() - t00)
 
-        init_image = load_image(Image.open(BytesIO(img_data_in))).resize((512, 512))
-        num_inference_steps = 2
+        init_image = load_image(Image.open(BytesIO(img_data_in))).resize(
+            (512, 512)
+        )
+        num_inference_steps = 3
         # note: anything under 0.5 strength gives blurry results
         strength = 0.55
         assert num_inference_steps * strength >= 1
