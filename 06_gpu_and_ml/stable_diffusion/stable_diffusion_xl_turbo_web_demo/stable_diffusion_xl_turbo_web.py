@@ -3,7 +3,7 @@ import json
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, File, Form, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 from modal import Image, Mount, Stub, asgi_app, gpu, web_endpoint
 
@@ -82,19 +82,12 @@ class Model:
         )
 
     @web_endpoint(method="POST")
-    async def inference(self, request: Request):
+    async def inference(self, image: UploadFile = File(...), prompt: str = Form(...)):
         t00 = time.time()
-        body = await request.body()
+        img_data_in = await image.read()
         print("loading time:", time.time() - t00)
-        body_json = json.loads(body)
-        img_data_in = base64.b64decode(
-            body_json["image"].split(",")[1]
-        )  # read data-uri
-        prompt = body_json["prompt"]
 
-        init_image = load_image(Image.open(BytesIO(img_data_in))).resize(
-            (512, 512)
-        )
+        init_image = load_image(Image.open(BytesIO(img_data_in))).resize((512, 512))
         num_inference_steps = 2
         # note: anything under 0.5 strength gives blurry results
         strength = 0.55
@@ -117,12 +110,7 @@ class Model:
         img_data_out = byte_stream.getvalue()
 
         print("total time:", time.time() - t0)
-
-        output_data = b"data:image/jpeg;base64," + base64.b64encode(
-            img_data_out
-        )
-
-        return Response(content=output_data)
+        return Response(content=img_data_out, media_type="image/jpeg")
 
 
 base_path = Path(__file__).parent

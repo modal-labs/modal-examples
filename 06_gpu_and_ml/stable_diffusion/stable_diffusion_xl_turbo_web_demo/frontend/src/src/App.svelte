@@ -17,20 +17,21 @@
   import modalLogoWithText from "$lib/assets/logotype.svg";
   import Paint from "$lib/Paint.svelte";
   import defaultInputImage from "$lib/assets/mocha_outside.png";
+  import { rejects } from "assert";
 
   let value: string;
-  let promptPlaceholder: string = "studio ghibli, 8k, wolf ..."
+  let promptPlaceholder: string = "studio ghibli, 8k, wolf ...";
   let imgInput: HTMLImageElement;
   let imgOutput: HTMLImageElement;
   let canvasDrawLayer: HTMLCanvasElement;
 
   let isImageUploaded = false;
   let firstImageGenerated = false;
-  
+
   // we track lastUpdatedAt so that expired requests don't overwrite the latest
   let lastUpdatedAt = 0;
 
-  // used for undo/redo functionality 
+  // used for undo/redo functionality
   let outputImageHistory: string[] = [];
   $: currentOutputImageIndex = 0;
 
@@ -135,18 +136,30 @@
     }
   }
 
-  // combines the canvas with the input image so that the 
+  // combines the canvas with the input image so that the
   // generated image contains edits made by paint brush
-  function getCombinedImageData() {
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = 320;
-    tempCanvas.height = 320;
-    const tempCtx = tempCanvas.getContext("2d");
-    if (!tempCtx) return;
+  function getCombinedImageData(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = 320;
+      tempCanvas.height = 320;
+      const tempCtx = tempCanvas.getContext("2d");
+      if (!tempCtx) {
+        reject("no context");
+        return;
+      }
 
-    tempCtx.drawImage(imgInput, 0, 0, 320, 320);
-    tempCtx.drawImage(canvasDrawLayer, 0, 0, 320, 320);
-    return tempCanvas.toDataURL("image/jpeg");
+      tempCtx.drawImage(imgInput, 0, 0, 320, 320);
+      tempCtx.drawImage(canvasDrawLayer, 0, 0, 320, 320);
+
+      tempCanvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject("blob creation failed");
+        }
+      }, "image/jpeg");
+    });
   }
 
   const throttledgenerateOutputImage = throttle(
@@ -192,26 +205,28 @@
     }
   };
 
-  const generateOutputImage = () => {
+  const generateOutputImage = async () => {
     isLoading = true;
-    const data = getCombinedImageData();
+    const data = await getCombinedImageData();
+
+    const formData = new FormData();
+    formData.append("image", data, "image.jpg");
+    formData.append("prompt", value || promptPlaceholder);
+
     const sentAt = new Date().getTime();
     fetch(window.INFERENCE_BASE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: data,
-        prompt: value || promptPlaceholder,
-      }),
+      body: formData,
     })
-      .then((res) => res.text())
-      .then((text) => {
+      .then((res) => res.blob())
+      .then((blob) => {
         if (sentAt > lastUpdatedAt) {
-          outputImageHistory = [text, ...outputImageHistory];
+          const imageURL = URL.createObjectURL(blob);
+          outputImageHistory = [imageURL, ...outputImageHistory];
           if (outputImageHistory.length > 10) {
             outputImageHistory = outputImageHistory.slice(0, 10);
           }
-          imgOutput.src = text;
+          imgOutput.src = imageURL;
           lastUpdatedAt = sentAt;
         }
 
