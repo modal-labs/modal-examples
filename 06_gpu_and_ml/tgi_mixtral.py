@@ -23,7 +23,7 @@ from modal import Image, Mount, Stub, asgi_app, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(memory=80, count=2)
+GPU_CONFIG = gpu.A100(memory=40, count=4)
 MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
@@ -190,7 +190,7 @@ def app():
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
-            "model": MODEL_ID,
+            "model": MODEL_ID + " (TGI)",
         }
 
     @web_app.get("/completion/{question}")
