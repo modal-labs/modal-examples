@@ -1,9 +1,7 @@
 # ---
 # lambda-test: false
 # ---
-import argparse
-from datetime import datetime, timedelta
-
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # ## Demo Streamlit application.
@@ -20,18 +18,17 @@ def main():
     import pandas as pd
     import streamlit as st
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--timeout", type=int, default=300)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--timeout", type=int, default=300)
+    # args = parser.parse_args()
 
     st.title("Uber pickups in NYC!")
-    now = datetime.now(ZoneInfo("UTC"))
-    dt_format = "%B %d, %Y, %I:%M %p (%Z)"
-    end_of_session = now + timedelta(seconds=args.timeout)
-    st.markdown(
-        f"⌛️ Streamlit session will time out at **:orange[{end_of_session.strftime(dt_format)}]**. "
-        f"Session start time was {now.strftime(dt_format)}."
-    )
+    datetime.now(ZoneInfo("UTC"))
+    # end_of_session = now + timedelta(seconds=args.timeout)
+    # st.markdown(
+    #     f"⌛️ Streamlit session will time out at **:orange[{end_of_session.strftime(dt_format)}]**. "
+    #     f"Session start time was {now.strftime(dt_format)}."
+    # )
 
     DATE_COLUMN = "date/time"
     DATA_URL = (
@@ -70,6 +67,8 @@ def main():
 
     st.subheader("Map of all pickups at %s:00" % hour_to_filter)
     st.map(filtered_data)
+
+    return st
 
 
 if __name__ == "__main__":
