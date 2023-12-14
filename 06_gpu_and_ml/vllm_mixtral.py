@@ -46,7 +46,7 @@ def download_model_to_folder():
     snapshot_download(
         BASE_MODEL,
         local_dir=MODEL_DIR,
-        ignore_patterns="*.safetensors",  # vLLM doesn't support Mixtral safetensors anyway.
+        ignore_patterns="*.pt", # Using safetensors
     )
     move_cache()
 
@@ -59,15 +59,8 @@ def download_model_to_folder():
 VLLM_HASH = "89523c8293bc02a4dfaaa80079a5347dc3952464a33a501d5de329921eea7ec7"
 
 image = (
-    Image.from_registry(
-        f"vllm/vllm-openai@sha256:{VLLM_HASH}",
-        setup_dockerfile_commands=[
-            "RUN apt-get install python-is-python3",
-            "RUN mv /workspace/* /root",
-        ],
-    )
-    .dockerfile_commands("ENTRYPOINT []")
-    .pip_install("huggingface_hub==0.19.4", "hf-transfer==0.1.4")
+    Image.from_registry("nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10")
+    .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(download_model_to_folder, timeout=60 * 20)
 )
