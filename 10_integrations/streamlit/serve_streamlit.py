@@ -4,16 +4,16 @@
 #
 # # Run and share Streamlit apps
 #
-# This example supports running the Streamlit app ephemerally with `modal run`, and
-# deploying a web endpoint from which others can spin up isolated instances of the Streamlit
-# app, each accessible in the browser via URL!
+# This example shows you how to run a Streamlit app with `modal serve`, and then deploy it as a serverless web app.
 #
 # ![example streamlit app](./streamlit.png)
 #
-# The example is structured as two files:
+# This example is structured as two files:
 #
 # 1. This module, which defines the Modal objects (name the script `serve_streamlit.py` locally).
-# 2. `app.py`, which is a Streamlit script and is mounted into a Modal function ([download script](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/streamlit/app.py)).
+# 2. `app.py`, which is any Streamlit script to be mounted into the Modal
+# function ([download script](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/streamlit/app.py)).
+
 import pathlib
 
 import modal
@@ -21,78 +21,130 @@ import modal
 # ## Define container dependencies
 #
 # The `app.py` script imports three third-party packages, so we include these in the example's
-# image definition.
+# image definition. We also install `asgiproxy` to proxy the Streamlit server.
 
 image = (
     modal.Image.debian_slim()
     .apt_install("git")
     .pip_install("streamlit", "numpy", "pandas")
+    # Use fork until https://github.com/valohai/asgiproxy/pull/11 is merged.
+    .pip_install("git+https://github.com/modal-labs/asgiproxy.git")
 )
+
 stub = modal.Stub(name="example-modal-streamlit", image=image)
-stub.q = modal.Queue.new()
-
-# ## Sessions
-#
-# The Streamlit app is executed within Modal using the `run_streamlit` Modal function.
-# Every Modal function has a configurable timeout, and we set this function's timeout to
-# 15 minutes. If your Streamlit app users want to spend longer in a single session, you can
-# extend the function's timeout [up to 24 hours](/docs/guide/timeouts#timeouts).
-
-session_timeout = 15 * 60
-streamlit_script_local_path = pathlib.Path(__file__).parent / "app.py"
-streamlit_script_remote_path = pathlib.Path("/root/app.py")
 
 # ## Mounting the `app.py` script
 #
-# As the Modal code and Streamlit code are isolated, we can just mount the latter into the container
-# at a configured path, and pass that path to the Streamlit server.
+# We can just mount the `app.py` script inside the container at a pre-defined path using a Modal
+# [`Mount`](https://modal.com/docs/guide/local-data#mounting-directories).
+
+streamlit_script_local_path = pathlib.Path(__file__).parent / "app.py"
+streamlit_script_remote_path = pathlib.Path("/root/app.py")
+
+if not streamlit_script_local_path.exists():
+    raise RuntimeError(
+        "app.py not found! Place the script with your streamlit app in the same directory."
+    )
+
+streamlit_script_mount = modal.Mount.from_local_file(
+    streamlit_script_local_path,
+    streamlit_script_remote_path,
+)
+
+# ## Spawning the Streamlit server
 #
-# We could also import the module, and then pass `app.__path__` to Streamlit.
+# Inside the container, we will run the Streamlit server in a background subprocess using
+# `subprocess.Popen`. Here we define `spawn_server()` to do this and then poll until the server
+# is ready to accept connections.
+
+HOST = "127.0.0.1"
+PORT = "8000"
+
+
+def spawn_server():
+    import socket
+    import subprocess
+
+    process = subprocess.Popen(
+        [
+            "streamlit",
+            "run",
+            str(streamlit_script_remote_path),
+            "--browser.serverAddress",
+            HOST,
+            "--server.port",
+            PORT,
+            "--browser.serverPort",
+            PORT,
+            "--server.enableCORS",
+            "false",
+        ]
+    )
+
+    # Poll until webserver accepts connections before running inputs.
+    while True:
+        try:
+            socket.create_connection((HOST, int(PORT)), timeout=1).close()
+            print("Webserver ready!")
+            return process
+        except (socket.timeout, ConnectionRefusedError):
+            # Check if launcher webserving process has exited.
+            # If so, a connection can never be made.
+            retcode = process.poll()
+            if retcode is not None:
+                raise RuntimeError(
+                    f"launcher exited unexpectedly with code {retcode}"
+                )
+
+
+# ## Wrap it in an ASGI app
+#
+# Finally, Modal can only serve apps that speak the [ASGI](https://modal.com/docs/guide/webhooks#asgi) or
+# [WSGI](https://modal.com/docs/guide/webhooks#wsgi) protocols. Since the Streamlit server is neither,
+# we run a separate ASGI app that proxies requests to the Streamlit server using the `asgiproxy` package.
+# Note that at this point `asgiproxy` has a bug with websocket handling, so we are using a
+# [fork](https://github.com/modal-labs/asgiproxy) with the fix for this.
 
 
 @stub.function(
-    mounts=[
-        modal.Mount.from_local_file(
-            streamlit_script_local_path,
-            remote_path=streamlit_script_remote_path,
-        )
-    ],
-    timeout=session_timeout,
+    # Allows 100 concurrent requests per container.
+    allow_concurrent_inputs=100,
+    mounts=[streamlit_script_mount],
 )
-def run_streamlit(publish_url: bool = False):
-    from streamlit.web.bootstrap import load_config_options, run
+@modal.asgi_app()
+def run():
+    from asgiproxy.config import BaseURLProxyConfigMixin, ProxyConfig
+    from asgiproxy.context import ProxyContext
+    from asgiproxy.simple_proxy import make_simple_proxy_app
 
-    # Run the server. This function will not return until the server is shut down.
-    with modal.forward(8501) as tunnel:
-        # Reload Streamlit config with information about Modal tunnel address.
-        if publish_url:
-            stub.q.put(tunnel.url)
-        load_config_options(
-            {"browser.serverAddress": tunnel.host, "browser.serverPort": 443}
-        )
-        run(
-            main_script_path=str(streamlit_script_remote_path),
-            command_line=None,
-            args=["--timeout", str(session_timeout)],
-            flag_options={},
-        )
+    spawn_server()
+
+    config = type(
+        "Config",
+        (BaseURLProxyConfigMixin, ProxyConfig),
+        {
+            "upstream_base_url": f"http://{HOST}:{PORT}",
+            "rewrite_host_header": f"{HOST}:{PORT}",
+        },
+    )()
+    proxy_context = ProxyContext(config)
+    return make_simple_proxy_app(proxy_context)
 
 
-# ## Sharing
+# ## Iterate and Deploy
 #
-# Deploy this Modal app and you get a web endpoint URL that users can hit in their browser
-# to get their very own instance of the Streamlit app.
+# While you're iterating on your screamlit app, you can run it "ephemerally" with `modal serve`. This will
+# run a local process that watches your files and updates the app if anything changes.
 #
-# The shareable URL for this app is https://modal-labs--example-modal-streamlit-share.modal.run.
+# ```shell
+# modal serve serve_streamlit.py
+# ```
 #
-# This technique is very similar to what is shown in the [Tunnels guide](/docs/guide/tunnels).
-
-
-@stub.function()
-@modal.web_endpoint(method="GET")
-def share():
-    from fastapi.responses import RedirectResponse
-
-    run_streamlit.spawn(publish_url=True)
-    url = stub.q.get()
-    return RedirectResponse(url, status_code=303)
+# Once you're happy with your changes, you can deploy your application with
+#
+# ```shell
+# modal deploy serve_streamlit.py
+# ```
+#
+# If successful, this will print a URL for your app, that you can navigate to from
+# your browser 🎉 .
