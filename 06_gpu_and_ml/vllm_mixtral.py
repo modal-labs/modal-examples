@@ -46,7 +46,7 @@ def download_model_to_folder():
     snapshot_download(
         BASE_MODEL,
         local_dir=MODEL_DIR,
-        ignore_patterns="*.pt", # Using safetensors
+        ignore_patterns="*.pt",  # Using safetensors
     )
     move_cache()
 
@@ -57,7 +57,9 @@ def download_model_to_folder():
 # the model are saved within the container image.
 
 image = (
-    Image.from_registry("nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10")
+    Image.from_registry(
+        "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
+    )
     .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(download_model_to_folder, timeout=60 * 20)
@@ -129,7 +131,10 @@ class Model:
         )
         index, num_tokens = 0, 0
         async for output in result_generator:
-            if output.outputs[0].text and "\ufffd" == output.outputs[0].text[-1]:
+            if (
+                output.outputs[0].text
+                and "\ufffd" == output.outputs[0].text[-1]
+            ):
                 continue
             text_delta = output.outputs[0].text[index:]
             index = len(output.outputs[0].text)
