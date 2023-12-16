@@ -1,3 +1,6 @@
+import json
+import os
+import socket
 import subprocess
 from pathlib import Path
 
@@ -23,8 +26,6 @@ LAUNCH_FLAGS = [
 
 
 def spawn_server() -> subprocess.Popen:
-    import socket
-
     process = subprocess.Popen(["text-embeddings-router"] + LAUNCH_FLAGS)
 
     # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
@@ -64,8 +65,9 @@ tei_image = (
 )
 
 
-with tei_image.run_inside():
+with tei_image.imports():
     import numpy as np
+    from httpx import AsyncClient
 
 
 @stub.cls(
@@ -79,8 +81,6 @@ with tei_image.run_inside():
 )
 class TextEmbeddingsInference:
     def __enter__(self):
-        from httpx import AsyncClient
-
         self.process = spawn_server()
         self.client = AsyncClient(base_url="http://127.0.0.1:8000")
 
@@ -101,12 +101,6 @@ class TextEmbeddingsInference:
 
 
 def download_data():
-    import json
-    import os
-
-    from google.cloud import bigquery
-    from google.oauth2 import service_account
-
     service_account_info = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
     credentials = service_account.Credentials.from_service_account_info(
         service_account_info
@@ -131,16 +125,21 @@ def download_data():
     volume.commit()
 
 
+image = Image.debian_slim().pip_install(
+    "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
+)
+
+with image.imports():
+    from google.cloud import bigquery
+    from google.oauth2 import service_account
+
+
 @stub.function(
-    image=Image.debian_slim().pip_install(
-        "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
-    ),
+    image=image,
     secrets=[Secret.from_name("bigquery")],
     volumes={DATA_PATH.parent: volume},
 )
 def embed_dataset():
-    import json
-
     model = TextEmbeddingsInference()
 
     if not DATA_PATH.exists():

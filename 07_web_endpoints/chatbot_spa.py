@@ -48,7 +48,7 @@ gpu_image = (
 )
 
 
-with gpu_image.run_inside():
+with gpu_image.imports():
     import torch
 
     tokenizer, model = load_tokenizer_and_model()
