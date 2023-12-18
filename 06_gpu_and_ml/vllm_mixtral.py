@@ -56,7 +56,7 @@ def download_model_to_folder():
 # run_function to run the function defined above to ensure the weights of
 # the model are saved within the container image.
 
-image = (
+vllm_image = (
     Image.from_registry(
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
@@ -65,7 +65,7 @@ image = (
     .run_function(download_model_to_folder, timeout=60 * 20)
 )
 
-stub = Stub("example-vllm-mixtral", image=image)
+stub = Stub("example-vllm-mixtral")
 
 
 # ## The model class
@@ -82,6 +82,7 @@ stub = Stub("example-vllm-mixtral", image=image)
     timeout=60 * 10,
     container_idle_timeout=60 * 10,
     allow_concurrent_inputs=10,
+    image=vllm_image,
 )
 class Model:
     def __enter__(self):

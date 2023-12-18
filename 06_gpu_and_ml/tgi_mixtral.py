@@ -64,14 +64,14 @@ def download_model():
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-image = (
+tgi_image = (
     Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.3.1")
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(download_model, timeout=60 * 20)
     .pip_install("text-generation")
 )
 
-stub = Stub("example-tgi-mixtral", image=image)
+stub = Stub("example-tgi-mixtral")
 
 
 # ## The model class
@@ -98,6 +98,7 @@ stub = Stub("example-tgi-mixtral", image=image)
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
     timeout=60 * 60,
+    image=tgi_image,
 )
 class Model:
     def __enter__(self):
