@@ -27,7 +27,7 @@ LLAMA_MODEL_SIZE: str = "13b"
 # Define the image and [Modal Stub](https://modal.com/docs/reference/modal.Stub#modalstub).
 # We use an [official NVIDIA CUDA 12.2 image](https://hub.docker.com/r/nvidia/cuda)
 # to match MLC CUDA requirements.
-image = (
+mlc_image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04",
         add_python="3.11",
@@ -47,7 +47,7 @@ image = (
         f"cd dist/prebuilt && git clone https://huggingface.co/mlc-ai/mlc-chat-Llama-2-{LLAMA_MODEL_SIZE}-chat-hf-q4f16_1",
     )
 )
-stub = modal.Stub("mlc-inference", image=image)
+stub = modal.Stub("mlc-inference")
 
 
 LOADING_MESSAGE: str = f"""
@@ -77,7 +77,7 @@ LOADING_MESSAGE: str = f"""
 # The `generate` function will load MLC chat and the compiled model into
 # memory and run inference on an input prompt. This is a generator, streaming
 # tokens back to the client as they are generated.
-@stub.function(gpu=GPU)
+@stub.function(gpu=GPU, image=mlc_image)
 def generate(prompt: str) -> Generator[Dict[str, str], None, None]:
     from mlc_chat import ChatModule
     from mlc_chat.callback import DeltaCallback

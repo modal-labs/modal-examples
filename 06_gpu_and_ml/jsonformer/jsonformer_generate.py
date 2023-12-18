@@ -50,7 +50,7 @@ image = (
     )
     .run_function(download_model)
 )
-stub = modal.Stub("example-jsonformer", image=image)
+stub = modal.Stub("example-jsonformer")
 
 
 # ## Generate examples
@@ -58,7 +58,7 @@ stub = modal.Stub("example-jsonformer", image=image)
 # The generate function takes two arguments `prompt` and `json_schema`, where
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
-@stub.function(gpu=modal.gpu.A10G())
+@stub.function(gpu=modal.gpu.A10G(), image=image)
 def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
     from jsonformer import Jsonformer
     from transformers import AutoModelForCausalLM, AutoTokenizer

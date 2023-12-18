@@ -40,7 +40,7 @@ def download_models():
     )
 
 
-image = (
+sdxl_image = (
     Image.debian_slim()
     .apt_install(
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
@@ -55,7 +55,7 @@ image = (
     .run_function(download_models)
 )
 
-stub = Stub("stable-diffusion-xl", image=image)
+stub = Stub("stable-diffusion-xl")
 
 # ## Load model and run inference
 #
@@ -66,7 +66,7 @@ stub = Stub("stable-diffusion-xl", image=image)
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
     def __enter__(self):
         import torch
