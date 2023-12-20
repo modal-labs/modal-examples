@@ -18,7 +18,7 @@
 import io
 from pathlib import Path
 
-from modal import Image, Mount, Stub, asgi_app, gpu, method
+from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, method
 
 # ## Define a container image
 #
@@ -64,7 +64,8 @@ with sdxl_image.imports():
 
 @stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
-    def __build__(self):
+    @build()
+    def build(self):
         ignore = [
             "*.bin",
             "*.onnx_data",
@@ -78,7 +79,8 @@ class Model:
             ignore_patterns=ignore,
         )
 
-    def __enter__(self):
+    @enter()
+    def enter(self):
         load_options = dict(
             torch_dtype=torch.float16,
             use_safetensors=True,

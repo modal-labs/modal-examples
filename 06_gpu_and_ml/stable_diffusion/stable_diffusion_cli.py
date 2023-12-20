@@ -37,7 +37,7 @@ import io
 import time
 from pathlib import Path
 
-from modal import Image, Stub, method
+from modal import Image, Stub, build, enter, method
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -72,7 +72,7 @@ image = (
     .pip_install("xformers", pre=True)
 )
 
-with image.run_inside():
+with image.imports():
     import diffusers
     import torch
 
@@ -98,7 +98,9 @@ with image.run_inside():
 
 @stub.cls(image=image, gpu="A10G")
 class StableDiffusion:
-    def __enter__(self):
+    @build()
+    @enter()
+    def initialize(self):
         scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
             model_id,
             subfolder="scheduler",
@@ -118,8 +120,6 @@ class StableDiffusion:
             device_map="auto",
         )
         self.pipe.enable_xformers_memory_efficient_attention()
-
-    __build__ = __enter__
 
     @method()
     def run_inference(
