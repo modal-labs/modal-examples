@@ -1,24 +1,12 @@
 import sys
 
-from modal import Image, Stub, method
+from modal import Image, Stub, build, enter, method
 
 # Define a function for downloading the models, that will run once on image build.
 # This allows the weights to be present inside the image for faster startup.
 
 base_model = "luodian/llama-7b-hf"
 lora_weights = "tloen/alpaca-lora-7b"
-
-
-def download_models():
-    from peft import PeftModel
-    from transformers import LlamaForCausalLM, LlamaTokenizer
-
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-    )
-    PeftModel.from_pretrained(model, lora_weights)
-    LlamaTokenizer.from_pretrained(base_model)
-
 
 # Alpaca-LoRA is distributed as a public Github repository and the repository is not
 # installable by `pip`, so instead we install the repository by cloning it into our Modal
@@ -28,8 +16,7 @@ def download_models():
 repo_url = "https://github.com/tloen/alpaca-lora"
 commit_hash = "fcbc45e4c0db8948743bd1227b46a796c1effcd0"
 image = (
-    Image.debian_slim()
-    .apt_install("git")
+    Image.debian_slim().apt_install("git")
     # Here we place the latest repository code into /root.
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,
     # so this `init` then `checkout` workaround is used.
@@ -58,8 +45,14 @@ image = (
         "torchvision~=0.16",
         "sentencepiece==0.1.99",
     )
-    .run_function(download_models)
 )
+
+with image.imports():
+    import torch
+    from generate import generate_prompt
+    from peft import PeftModel
+    from transformers import GenerationConfig, LlamaForCausalLM, LlamaTokenizer
+
 stub = Stub(name="example-alpaca-lora", image=image)
 
 # The Alpaca-LoRA model is integrated into model as a Python class with an __enter__
@@ -73,16 +66,21 @@ stub = Stub(name="example-alpaca-lora", image=image)
 
 @stub.cls(gpu="A10G")
 class AlpacaLoRAModel:
-    def __enter__(self):
+    @build()
+    def download_models(self):
+        model = LlamaForCausalLM.from_pretrained(
+            base_model,
+        )
+        PeftModel.from_pretrained(model, lora_weights)
+        LlamaTokenizer.from_pretrained(base_model)
+
+    @enter()
+    def enter(self):
         """
         Container-lifeycle method for model setup. Code is taken from
         https://github.com/tloen/alpaca-lora/blob/main/generate.py and minor
         modifications are made to support usage in a Python class.
         """
-        import torch
-        from peft import PeftModel
-        from transformers import LlamaForCausalLM, LlamaTokenizer
-
         load_8bit = False
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -146,10 +144,6 @@ class AlpacaLoRAModel:
         max_new_tokens=128,
         **kwargs,
     ):
-        import torch
-        from generate import generate_prompt
-        from transformers import GenerationConfig
-
         prompt = generate_prompt(instruction, input)
         inputs = self.tokenizer(prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(self.device)
