@@ -57,7 +57,7 @@ scraping_image = modal.Image.debian_slim().pip_install(
 )
 
 
-with scraping_image.run_inside():
+with scraping_image.imports():
     import requests
     from bs4 import BeautifulSoup
 

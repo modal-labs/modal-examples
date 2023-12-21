@@ -68,7 +68,7 @@ stub = modal.Stub(
 # enabling the GPU device.
 # To do this, we use the `stub.image.run.inside()` context manager.
 
-with stub.image.run_inside():
+with stub.image.imports():
     import bpy
 
     # NOTE: Blender segfaults if you try to do this after the other imports.
