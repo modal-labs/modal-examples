@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve", "06_gpu_and_ml/stable_diffusion/stable_video_diffusion.py"]
+# ---
 import os
 import sys
 
