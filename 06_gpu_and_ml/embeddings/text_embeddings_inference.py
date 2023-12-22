@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/text_embeddings_inference.py::embed_dataset"]
+# ---
 import json
 import os
 import socket
