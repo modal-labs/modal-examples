@@ -14,8 +14,9 @@ import time
 import modal
 
 stub = modal.Stub(
-    image=modal.Image.debian_slim()
-    .pip_install("jupyter", "bing-image-downloader~=1.1.2")
+    image=modal.Image.debian_slim().pip_install(
+        "jupyter", "bing-image-downloader~=1.1.2"
+    )
 )
 # This volume is not persisted, so the data will be deleted when this demo app is stopped.
 volume = modal.NetworkFileSystem.new()
