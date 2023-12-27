@@ -4,7 +4,8 @@
 #
 # Quick snippet to connect to a Jupyter notebook server running inside a Modal container,
 # especially useful for exploring the contents of Modal network file systems.
-# This uses https://github.com/ekzhang/bore to expose the server to the public internet.
+# This uses [Modal Tunnels](https://modal.com/docs/guide/tunnels#tunnels-beta)
+# to create a tunnel between the running Jupyter instance and the internet.
 
 import os
 import subprocess
@@ -15,9 +16,6 @@ import modal
 stub = modal.Stub(
     image=modal.Image.debian_slim()
     .pip_install("jupyter", "bing-image-downloader~=1.1.2")
-    .apt_install("curl")
-    .run_commands("curl https://sh.rustup.rs -sSf | bash -s -- -y")
-    .run_commands(". $HOME/.cargo/env && cargo install bore-cli")
 )
 # This volume is not persisted, so the data will be deleted when this demo app is stopped.
 volume = modal.NetworkFileSystem.new()
@@ -55,33 +53,33 @@ def seed_volume():
     concurrency_limit=1, network_file_systems={CACHE_DIR: volume}, timeout=1_500
 )
 def run_jupyter(timeout: int):
-    jupyter_process = subprocess.Popen(
-        [
-            "jupyter",
-            "notebook",
-            "--no-browser",
-            "--allow-root",
-            "--port=8888",
-            "--NotebookApp.allow_origin='*'",
-            "--NotebookApp.allow_remote_access=1",
-        ],
-        env={**os.environ, "JUPYTER_TOKEN": JUPYTER_TOKEN},
-    )
+    jupyter_port = 8888
+    with modal.forward(jupyter_port) as tunnel:
+        jupyter_process = subprocess.Popen(
+            [
+                "jupyter",
+                "notebook",
+                "--no-browser",
+                "--allow-root",
+                "--ip=0.0.0.0",
+                f"--port={jupyter_port}",
+                "--NotebookApp.allow_origin='*'",
+                "--NotebookApp.allow_remote_access=1",
+            ],
+            env={**os.environ, "JUPYTER_TOKEN": JUPYTER_TOKEN},
+        )
 
-    bore_process = subprocess.Popen(
-        ["/root/.cargo/bin/bore", "local", "8888", "--to", "bore.pub"],
-    )
+        print(f"Jupyter available at => {tunnel.url}")
 
-    try:
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            time.sleep(5)
-        print(f"Reached end of {timeout} second timeout period. Exiting...")
-    except KeyboardInterrupt:
-        print("Exiting...")
-    finally:
-        bore_process.kill()
-        jupyter_process.kill()
+        try:
+            end_time = time.time() + timeout
+            while time.time() < end_time:
+                time.sleep(5)
+            print(f"Reached end of {timeout} second timeout period. Exiting...")
+        except KeyboardInterrupt:
+            print("Exiting...")
+        finally:
+            jupyter_process.kill()
 
 
 @stub.local_entrypoint()
@@ -93,5 +91,6 @@ def main(timeout: int = 10_000):
 
 
 # Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts
-# the Juypter server at an address like http://bore.pub:$PORT/. Visit this address
-# in your browser, and enter the security token you set for `JUPYTER_TOKEN`.
+# the Juypter server at an address like https://u35iiiyqp5klbs.r3.modal.host.
+# Visit this address in your browser, and enter the security token
+# you set for `JUPYTER_TOKEN`.
