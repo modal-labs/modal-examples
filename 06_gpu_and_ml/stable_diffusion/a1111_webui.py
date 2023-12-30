@@ -48,7 +48,7 @@ def wait_for_port(port: int):
     )
     .env({"LD_PRELOAD": "/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4"})
     .run_commands(
-        "git clone --depth 1 --branch v1.6.0 https://github.com/AUTOMATIC1111/stable-diffusion-webui /webui",
+        "git clone --depth 1 --branch v1.7.0 https://github.com/AUTOMATIC1111/stable-diffusion-webui /webui",
         "python -m venv /webui/venv",
         "cd /webui && . venv/bin/activate && "
         + "python -c 'from modules import launch_utils; launch_utils.prepare_environment()' --xformers",
