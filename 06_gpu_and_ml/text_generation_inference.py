@@ -61,7 +61,7 @@ def download_model():
         ],
         env={
             **os.environ,
-            "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
         },
         check=True,
     )
@@ -73,7 +73,7 @@ def download_model():
 #
 # Next we run the download step to pre-populate the image with our model weights.
 #
-# For this step to work on a gated model such as LLaMA 2, the HUGGINGFACE_TOKEN environment
+# For this step to work on a gated model such as LLaMA 2, the HF_TOKEN environment
 # variable must be set ([reference](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)).
 #
 # After [creating a HuggingFace access token](https://huggingface.co/settings/tokens),
@@ -130,7 +130,7 @@ class Model:
             ["text-generation-launcher"] + LAUNCH_FLAGS,
             env={
                 **os.environ,
-                "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
             },
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)

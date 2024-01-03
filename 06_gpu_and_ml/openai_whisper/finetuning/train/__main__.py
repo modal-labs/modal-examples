@@ -171,13 +171,13 @@ def train(
         "mozilla-foundation/common_voice_11_0",
         "hi",
         split="train+validation",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
     )
     raw_datasets["eval"] = load_dataset(
         "mozilla-foundation/common_voice_11_0",
         "hi",
         split="test",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
     )
 
     # Most ASR datasets only provide input audio samples (audio) and
@@ -211,7 +211,7 @@ def train(
         else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
     )
 
     config.update(

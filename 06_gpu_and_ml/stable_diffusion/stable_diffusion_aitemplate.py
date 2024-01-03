@@ -58,7 +58,7 @@ def download_and_compile():
         MODEL_ID,
         revision="fp16",
         torch_dtype=torch.float16,
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
     ).save_pretrained(MODEL_PATH, safe_serialization=True)
 
     diffusers.EulerDiscreteScheduler.from_pretrained(

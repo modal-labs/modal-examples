@@ -35,7 +35,7 @@ BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 # ### Download the weights
 # Make sure you have created a [HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
-# Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
+# Now the token will be available via the environment variable named `HF_TOKEN`. Functions that inject this secret will have access to the environment variable.
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
@@ -49,7 +49,7 @@ def download_model_to_folder():
     snapshot_download(
         BASE_MODEL,
         local_dir=MODEL_DIR,
-        token=os.environ["HUGGINGFACE_TOKEN"],
+        token=os.environ["HF_TOKEN"],
     )
     move_cache()
 
