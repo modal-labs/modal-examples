@@ -100,7 +100,7 @@ requests_image = modal.Image.debian_slim().pip_install("requests")
 
 @stub.function(
     image=requests_image,
-    secret=modal.Secret.from_name("weather-secret", environment_name="main"),
+    secret=modal.Secret.from_name("weather-secret"),
 )
 def city_weather(city):
     import requests
@@ -169,7 +169,7 @@ pygsheets_image = modal.Image.debian_slim().pip_install("pygsheets")
 
 @stub.function(
     image=pygsheets_image,
-    secret=modal.Secret.from_name("gsheets-secret", environment_name="main"),
+    secret=modal.Secret.from_name("gsheets-secret"),
 )
 def update_sheet_report(rows):
     import pygsheets
