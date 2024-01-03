@@ -29,7 +29,13 @@ LAUNCH_FLAGS = [
 
 
 def spawn_server() -> subprocess.Popen:
-    process = subprocess.Popen(["text-embeddings-router"] + LAUNCH_FLAGS)
+    process = subprocess.Popen(
+        ["text-embeddings-router"] + LAUNCH_FLAGS,
+        env={
+            **os.environ,
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+        },
+    )
 
     # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
     while True:
