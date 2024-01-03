@@ -31,7 +31,7 @@ stub = Stub(
 
 @stub.function(
     image=Image.debian_slim().pip_install("slack-sdk"),
-    secret=Secret.from_name("dalle-bot-slack-secret"),
+    secret=Secret.from_name("dalle-bot-slack-secret", environment_name="main"),
 )
 def post_to_slack(prompt: str, channel_name: str, image_bytes: bytes):
     import slack_sdk
