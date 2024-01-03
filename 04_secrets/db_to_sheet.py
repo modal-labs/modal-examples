@@ -100,7 +100,7 @@ requests_image = modal.Image.debian_slim().pip_install("requests")
 
 @stub.function(
     image=requests_image,
-    secret=modal.Secret.from_name("weather-secret"),
+    secret=modal.Secret.from_name("weather-secret", environment_name="main"),
 )
 def city_weather(city):
     import requests
