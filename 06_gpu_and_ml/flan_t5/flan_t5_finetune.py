@@ -76,9 +76,6 @@ def track_restarts(restart_tracker: modal.Dict) -> int:
     _allow_background_volume_commits=True,
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
-    from modal.exception import simulate_preemption
-
-    simulate_preemption(300)
     from datasets import load_dataset
     from transformers import (
         AutoModelForSeq2SeqLM,
