@@ -169,7 +169,7 @@ pygsheets_image = modal.Image.debian_slim().pip_install("pygsheets")
 
 @stub.function(
     image=pygsheets_image,
-    secret=modal.Secret.from_name("gsheets-secret"),
+    secret=modal.Secret.from_name("gsheets-secret", environment_name="main"),
 )
 def update_sheet_report(rows):
     import pygsheets
