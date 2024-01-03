@@ -33,7 +33,6 @@ from fastapi import FastAPI
 from modal import (
     Image,
     Mount,
-    Secret,
     Stub,
     Volume,
     asgi_app,
