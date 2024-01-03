@@ -12,6 +12,8 @@
 #
 # First we import the components we need from `modal`.
 
+import os
+import subprocess
 from pathlib import Path
 
 from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
@@ -49,8 +51,6 @@ LAUNCH_FLAGS = [
 
 
 def download_model():
-    import subprocess
-
     subprocess.run(
         [
             "text-generation-server",
@@ -59,6 +59,10 @@ def download_model():
             "--revision",
             REVISION,
         ],
+        env={
+            **os.environ,
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+        },
         check=True,
     )
 
@@ -69,12 +73,11 @@ def download_model():
 #
 # Next we run the download step to pre-populate the image with our model weights.
 #
-# For this step to work on a gated model such as LLaMA 2, the HUGGING_FACE_HUB_TOKEN environment
+# For this step to work on a gated model such as LLaMA 2, the HUGGINGFACE_TOKEN environment
 # variable must be set ([reference](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)).
+#
 # After [creating a HuggingFace access token](https://huggingface.co/settings/tokens),
 # head to the [secrets page](https://modal.com/secrets) to create a Modal secret.
-#
-# The key should be `HUGGING_FACE_HUB_TOKEN` and the value should be your access token.
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
@@ -119,13 +122,16 @@ tgi_image = (
 class Model:
     def __enter__(self):
         import socket
-        import subprocess
         import time
 
         from text_generation import AsyncClient
 
         self.launcher = subprocess.Popen(
-            ["text-generation-launcher"] + LAUNCH_FLAGS
+            ["text-generation-launcher"] + LAUNCH_FLAGS,
+            env={
+                **os.environ,
+                "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+            },
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<s>[INST] <<SYS>>
