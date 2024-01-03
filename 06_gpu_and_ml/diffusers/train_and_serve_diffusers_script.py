@@ -262,7 +262,7 @@ class AppConfig:
     gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
     volumes=VOLUME_CONFIG,
     timeout=3600 * 2,  # multiple hours
-    secrets=[Secret.from_name("huggingface")],
+    secrets=[Secret.from_name("huggingface-secret")],
 )
 # ## Define the training function
 # Now, finally, we define the training function itself. This training function does a bunch of preparatory things, but the core of it is the `_exec_subprocess` call to `accelerate launch` that launches the actual Diffusers training script. Depending on which Diffusers script you are using, you will want to modify the script name, and the arguments that are passed to it.

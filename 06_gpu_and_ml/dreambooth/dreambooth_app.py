@@ -173,14 +173,7 @@ def load_images(image_urls: list[str]) -> Path:
 #
 # The model weights, libraries, and training script are all provided by [🤗 Hugging Face](https://huggingface.co).
 #
-# To access the model weights, you'll need a [Hugging Face account](https://huggingface.co/join)
-# and from that account you'll need to accept the model license [here](https://huggingface.co/runwayml/stable-diffusion-v1-5).
-#
-# Lastly, you'll need to create a token from that account and share it with Modal
-# under the name `"huggingface"`. Follow the instructions [here](https://modal.com/secrets).
-#
-# Then, you can kick off a training job with the command
-# `modal run dreambooth_app.py::stub.train`.
+# You can kick off a training job with the command `modal run dreambooth_app.py::stub.train`.
 # It should take about ten minutes.
 #
 # Tip: if the results you're seeing don't match the prompt too well, and instead produce an image

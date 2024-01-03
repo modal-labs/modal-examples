@@ -67,7 +67,7 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_folder,
-        secret=Secret.from_name("huggingface"),
+        secret=Secret.from_name("huggingface-secret"),
         timeout=60 * 20,
     )
 )
@@ -82,7 +82,7 @@ stub = Stub("example-vllm-inference", image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100", secret=Secret.from_name("huggingface"))
+@stub.cls(gpu="A100", secret=Secret.from_name("huggingface-secret"))
 class Model:
     def __enter__(self):
         from vllm import LLM
