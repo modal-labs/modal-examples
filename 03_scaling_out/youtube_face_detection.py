@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # output-directory: "/tmp"
 # runtimes: ["runc", "gvisor"]
 # ---
