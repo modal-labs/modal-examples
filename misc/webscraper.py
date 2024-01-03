@@ -41,7 +41,10 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 
 @stub.function(
-    image=slack_sdk_image, secret=modal.Secret.from_name("scraper-slack-secret")
+    image=slack_sdk_image,
+    secret=modal.Secret.from_name(
+        "scraper-slack-secret", environment_name="main"
+    ),
 )
 def bot_token_msg(channel, message):
     import slack_sdk
