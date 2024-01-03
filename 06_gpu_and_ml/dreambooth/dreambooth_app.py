@@ -52,13 +52,13 @@ image = (
     .pip_install(
         "accelerate==0.19",
         "datasets~=2.13",
-        "ftfy",
+        "ftfy~=6.1",
         "gradio~=3.10",
-        "smart_open",
-        "transformers",
-        "torch",
-        "torchvision",
-        "triton",
+        "smart_open~=6.4",
+        "transformers==4.28",
+        "torch~=2.1",
+        "torchvision~=0.16",
+        "triton~=2.1",
     )
     .pip_install("xformers", pre=True)
     .apt_install("git")
