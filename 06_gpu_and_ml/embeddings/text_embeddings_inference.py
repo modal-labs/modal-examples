@@ -29,7 +29,13 @@ LAUNCH_FLAGS = [
 
 
 def spawn_server() -> subprocess.Popen:
-    process = subprocess.Popen(["text-embeddings-router"] + LAUNCH_FLAGS)
+    process = subprocess.Popen(
+        ["text-embeddings-router"] + LAUNCH_FLAGS,
+        env={
+            **os.environ,
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+        },
+    )
 
     # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
     while True:
@@ -74,7 +80,7 @@ with tei_image.imports():
 
 
 @stub.cls(
-    secret=Secret.from_name("huggingface"),
+    secret=Secret.from_name("huggingface-secret"),
     gpu=GPU_CONFIG,
     image=tei_image,
     # Use up to 20 GPU containers at once.
