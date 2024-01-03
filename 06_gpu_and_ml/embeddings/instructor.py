@@ -39,7 +39,7 @@ class InstructorModel:
         embeddings_a = self.model.encode(sentences_a)
         embeddings_b = self.model.encode(sentences_b)
         similarities = cosine_similarity(embeddings_a, embeddings_b)
-        return similarities
+        return similarities.tolist()
 
 
 @stub.local_entrypoint()
