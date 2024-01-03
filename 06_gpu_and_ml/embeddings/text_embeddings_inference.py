@@ -33,7 +33,7 @@ def spawn_server() -> subprocess.Popen:
         ["text-embeddings-router"] + LAUNCH_FLAGS,
         env={
             **os.environ,
-            "HUGGING_FACE_HUB_TOKEN": os.environ["HUGGINGFACE_TOKEN"],
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
         },
     )
 

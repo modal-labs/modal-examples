@@ -3,13 +3,13 @@ import modal
 stub = modal.Stub("example-pyjulia")
 stub.image = (
     modal.Image.debian_slim()
-    # Install Julia 1.7
+    # Install Julia 1.10
     .apt_install("wget", "ca-certificates")
     .run_commands(
-        "wget -nv https://julialang-s3.julialang.org/bin/linux/x64/1.7/julia-1.7.2-linux-x86_64.tar.gz",
-        "tar -xf julia-1.7.2-linux-x86_64.tar.gz",
-        "cp -r julia-1.7.2 /opt/",
-        "ln -s /opt/julia-1.7.2/bin/julia /usr/local/bin/julia",
+        "wget -nv https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-1.10.0-linux-x86_64.tar.gz",
+        "tar -xf julia-1.10.0-linux-x86_64.tar.gz",
+        "cp -r julia-1.10.0 /opt/",
+        "ln -s /opt/julia-1.10.0/bin/julia /usr/local/bin/julia",
     )
     # Install PyJulia bindings
     .pip_install("julia")

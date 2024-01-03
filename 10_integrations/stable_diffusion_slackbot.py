@@ -35,7 +35,7 @@ stub = Stub("example-stable-diff-bot")
 # Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the
 # [secrets page](https://modal.com/secrets). Let's use the environment variable
-# named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access
+# named `HF_TOKEN`. Functions that inject this secret will have access
 # to the environment variable.
 #
 # ![create a huggingface token](./huggingface_token.png)
@@ -57,7 +57,7 @@ def fetch_model(local_files_only: bool = False):
 
     return StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
         variant="fp16",
         torch_dtype=float16,
         device_map="auto",

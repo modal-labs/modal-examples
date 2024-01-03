@@ -110,7 +110,7 @@
 # import huggingface_hub
 
 # # login to huggingface
-# hf_key = os.environ["HUGGINGFACE_TOKEN"]
+# hf_key = os.environ["HF_TOKEN"]
 # huggingface_hub.login(hf_key)
 
 # dataset = load_dataset("imagefolder", data_dir="/lg_white_bg_heroicon_png_img", split="train")
@@ -285,7 +285,7 @@ def train():
     write_basic_config(mixed_precision="fp16")
 
     # authenticate to hugging face so we can download the model weights
-    hf_key = os.environ["HUGGINGFACE_TOKEN"]
+    hf_key = os.environ["HF_TOKEN"]
     huggingface_hub.login(hf_key)
 
     # check whether we can access the model repo
