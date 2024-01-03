@@ -83,7 +83,10 @@ class NYArticle:
 # Create an environment variable called `NYTIMES_API_KEY` with your API key.
 
 
-@stub.function(secret=modal.Secret.from_name("nytimes"), image=scraping_image)
+@stub.function(
+    secret=modal.Secret.from_name("nytimes", environment_name="main"),
+    image=scraping_image,
+)
 def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
     # query api for latest science articles
     params = {
