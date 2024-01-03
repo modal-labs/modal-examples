@@ -94,7 +94,9 @@ dbt_target = modal.NetworkFileSystem.persisted("dbt-target")
 #
 # Below we will use this user in a Modal function to create an S3 bucket and
 # populate it with .parquet data.
-s3_secret = modal.Secret.from_name("modal-examples-aws-user")
+s3_secret = modal.Secret.from_name(
+    "modal-examples-aws-user", environment_name="main"
+)
 
 # ## Seed data
 #
