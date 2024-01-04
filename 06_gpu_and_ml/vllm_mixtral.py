@@ -22,7 +22,8 @@ import time
 from modal import Image, Stub, gpu, method
 
 MODEL_DIR = "/model"
-BASE_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+# BASE_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+BASE_MODEL = "cognitivecomputations/dolphin-2.6-mixtral-8x7b"
 GPU_CONFIG = gpu.A100(memory=80, count=2)
 
 
@@ -60,7 +61,7 @@ vllm_image = (
     Image.from_registry(
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
-    .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
+    .pip_install("vllm==0.2.6", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(download_model_to_folder, timeout=60 * 20)
 )
@@ -94,23 +95,16 @@ class Model:
             import ray
 
             ray.shutdown()
-            ray.init(num_gpus=GPU_CONFIG.count)
+            ray.init(num_gpus=GPU_CONFIG.count, ignore_reinit_error=True)
 
         engine_args = AsyncEngineArgs(
             model=MODEL_DIR,
             tensor_parallel_size=GPU_CONFIG.count,
-            gpu_memory_utilization=0.90,
+            gpu_memory_utilization=0.95,
         )
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
         self.template = "<s> [INST] {user} [/INST] "
-
-        # Performance improvement from https://github.com/vllm-project/vllm/issues/2073#issuecomment-1853422529
-        if GPU_CONFIG.count > 1:
-            import subprocess
-
-            RAY_CORE_PIN_OVERRIDE = "cpuid=0 ; for pid in $(ps xo '%p %c' | grep ray:: | awk '{print $1;}') ; do taskset -cp $cpuid $pid ; cpuid=$(($cpuid + 1)) ; done"
-            subprocess.call(RAY_CORE_PIN_OVERRIDE, shell=True)
 
     @method()
     async def completion_stream(self, user_question):
@@ -161,10 +155,18 @@ def main():
         "What is the product of 9 and 8?",
         "Who was Emperor Norton I, and what was his significance in San Francisco's history?",
     ]
-    for question in questions:
+
+    import asyncio
+
+    async def ask(question):
         print("Sending new request:", question)
-        for text in model.completion_stream.remote_gen(question):
+        async for text in model.completion_stream.remote_gen.aio(question):
             print(text, end="", flush=True)
+
+    async def ask_all():
+        await asyncio.gather(*[ask(question * 500) for question in questions])
+
+    asyncio.run(ask_all())
 
 
 # ## Deploy and invoke the model
