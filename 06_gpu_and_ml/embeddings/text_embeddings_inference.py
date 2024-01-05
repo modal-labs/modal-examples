@@ -55,7 +55,7 @@ def spawn_server() -> subprocess.Popen:
 
 def download_model():
     # Wait for server to start. This downloads the model weights when not present.
-    spawn_server()
+    spawn_server().terminate()
 
 
 volume = Volume.persisted("tei-hn-data")
@@ -69,7 +69,11 @@ tei_image = (
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
-    .run_function(download_model, gpu=GPU_CONFIG)
+    .run_function(
+        download_model,
+        gpu=GPU_CONFIG,
+        secret=Secret.from_name("huggingface-secret"),
+    )
     .pip_install("httpx")
 )
 
