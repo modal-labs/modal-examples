@@ -12,10 +12,11 @@
 # ![example comfyui workspace](./comfyui-hero.png)
 
 import pathlib
+
 import modal
 
 # Define container image
-# 
+#
 # Fun with ComfyUI begins with pre-trained model checkpoints.
 # The checkpoint downloaded below is [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0), but others can be used.
 # The ComfyUI repository has other recommendations listed in this file:
@@ -24,23 +25,29 @@ import modal
 # This download function is run as the final image building step, and takes around 10 seconds to download
 # the ~2.0 GiB model checkpoint.
 
+
 def download_checkpoint():
     import httpx
     from tqdm import tqdm
+
     url = "https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/resolve/main/dreamlike-photoreal-2.0.safetensors"
-    checkpoints_directory = '/root/models/checkpoints'
-    local_filename = url.split('/')[-1]
+    checkpoints_directory = "/root/models/checkpoints"
+    local_filename = url.split("/")[-1]
     local_filepath = pathlib.Path(checkpoints_directory, local_filename)
     local_filepath.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"downloading {url} ...")
     with httpx.stream("GET", url, follow_redirects=True) as stream:
         total = int(stream.headers["Content-Length"])
-        with open(local_filepath, 'wb') as f, tqdm(total=total, unit_scale=True, unit_divisor=1024, unit="B") as progress:
+        with open(local_filepath, "wb") as f, tqdm(
+            total=total, unit_scale=True, unit_divisor=1024, unit="B"
+        ) as progress:
             num_bytes_downloaded = stream.num_bytes_downloaded
             for data in stream.iter_bytes():
                 f.write(data)
-                progress.update(stream.num_bytes_downloaded - num_bytes_downloaded)
+                progress.update(
+                    stream.num_bytes_downloaded - num_bytes_downloaded
+                )
                 num_bytes_downloaded = stream.num_bytes_downloaded
 
 
@@ -58,7 +65,9 @@ image = (
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
     # Use fork until https://github.com/valohai/asgiproxy/pull/11 is merged.
-    .pip_install("git+https://github.com/modal-labs/asgiproxy.git", "httpx", "tqdm")
+    .pip_install(
+        "git+https://github.com/modal-labs/asgiproxy.git", "httpx", "tqdm"
+    )
     .run_function(download_checkpoint)
 )
 stub = modal.Stub(name="example-comfy-ui", image=image)
@@ -71,6 +80,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
 
 HOST = "127.0.0.1"
 PORT = "8188"
+
 
 def spawn_comfyui_in_background():
     import socket
@@ -101,12 +111,14 @@ def spawn_comfyui_in_background():
                     f"comfyui main.py exited unexpectedly with code {retcode}"
                 )
 
+
 # ## Wrap it in an ASGI app
 #
 # Finally, Modal can only serve apps that speak the [ASGI](https://modal.com/docs/guide/webhooks#asgi) or
 # [WSGI](https://modal.com/docs/guide/webhooks#wsgi) protocols. Since the ComfyUI server uses `aiohttp`,
-# which [does not support either](https://github.com/aio-libs/aiohttp/issues/2902), we run a separate ASGI 
+# which [does not support either](https://github.com/aio-libs/aiohttp/issues/2902), we run a separate ASGI
 # app using the `asgiproxy` package that proxies requests to the ComfyUI server.
+
 
 @stub.function(
     gpu="any",
@@ -115,7 +127,7 @@ def spawn_comfyui_in_background():
     # Restrict to 1 container because we want to our ComfyUI session state
     # to be on a single container.
     concurrency_limit=1,
-    timeout=10*60,
+    timeout=10 * 60,
 )
 @modal.asgi_app()
 def web():
