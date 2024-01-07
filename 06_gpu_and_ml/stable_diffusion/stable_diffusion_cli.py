@@ -37,7 +37,7 @@ import io
 import time
 from pathlib import Path
 
-from modal import Image, Stub, method
+from modal import Image, Stub, build, enter, method
 
 # All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
@@ -53,31 +53,6 @@ stub = Stub("stable-diffusion-cli")
 # already inside the image.
 
 model_id = "runwayml/stable-diffusion-v1-5"
-cache_path = "/vol/cache"
-
-
-def download_models():
-    import diffusers
-    import torch
-
-    # Download scheduler configuration. Experiment with different schedulers
-    # to identify one that works best for your use-case.
-    scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-        model_id,
-        subfolder="scheduler",
-        cache_dir=cache_path,
-    )
-    scheduler.save_pretrained(cache_path, safe_serialization=True)
-
-    # Downloads all other models.
-    pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-        model_id,
-        revision="fp16",
-        torch_dtype=torch.float16,
-        cache_dir=cache_path,
-    )
-    pipe.save_pretrained(cache_path, safe_serialization=True)
-
 
 image = (
     Image.debian_slim(python_version="3.10")
@@ -95,9 +70,12 @@ image = (
         find_links="https://download.pytorch.org/whl/torch_stable.html",
     )
     .pip_install("xformers", pre=True)
-    .run_function(download_models)
 )
-stub.image = image
+
+with image.imports():
+    import diffusers
+    import torch
+
 
 # ## Using container lifecycle methods
 #
@@ -118,16 +96,13 @@ stub.image = image
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@stub.cls(gpu="A10G")
+@stub.cls(image=image, gpu="A10G")
 class StableDiffusion:
-    def __enter__(self):
-        import diffusers
-        import torch
-
-        torch.backends.cuda.matmul.allow_tf32 = True
-
+    @build()
+    @enter()
+    def initialize(self):
         scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-            cache_path,
+            model_id,
             subfolder="scheduler",
             solver_order=2,
             prediction_type="epsilon",
@@ -139,7 +114,7 @@ class StableDiffusion:
             device_map="auto",
         )
         self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            cache_path,
+            model_id,
             scheduler=scheduler,
             low_cpu_mem_usage=True,
             device_map="auto",
@@ -150,8 +125,6 @@ class StableDiffusion:
     def run_inference(
         self, prompt: str, steps: int = 20, batch_size: int = 4
     ) -> list[bytes]:
-        import torch
-
         with torch.inference_mode():
             with torch.autocast("cuda"):
                 images = self.pipe(

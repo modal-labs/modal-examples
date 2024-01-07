@@ -34,13 +34,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from modal import (
-    Image,
-    Mount,
-    Stub,
-    asgi_app,
-    method,
-)
+from modal import Image, Mount, Stub, asgi_app, build, method
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -48,16 +42,10 @@ from modal import (
 # and a system font for drawing.
 #
 # This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# once at image build time using the `download_model` function and saved into the image.
-# 'Baking' models into the `modal.Image` at build time provided the fastest cold start.
+# once at image build time using the `@build` hook and saved into the image. 'Baking'
+# models into the `modal.Image` at build time provided the fastest cold start.
 
 model_repo_id = "facebook/detr-resnet-50"
-
-
-def download_model():
-    from huggingface_hub import snapshot_download
-
-    snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
 
 
 stub = Stub("example-webcam-object-detection")
@@ -70,7 +58,6 @@ image = (
         "transformers",
     )
     .apt_install("fonts-freefont-ttf")
-    .run_function(download_model)
 )
 
 
@@ -92,14 +79,23 @@ image = (
 # web interface can render it on top of the webcam view.
 
 
+with image.imports():
+    import torch
+    from huggingface_hub import snapshot_download
+    from PIL import Image, ImageColor, ImageDraw, ImageFont
+    from transformers import DetrForObjectDetection, DetrImageProcessor
+
+
 @stub.cls(
     cpu=4,
     image=image,
 )
 class ObjectDetection:
-    def __enter__(self):
-        from transformers import DetrForObjectDetection, DetrImageProcessor
+    @build()
+    def download_model(self):
+        snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
 
+    def __enter__(self):
         self.feature_extractor = DetrImageProcessor.from_pretrained(
             model_repo_id,
             cache_dir="/cache",
@@ -112,14 +108,10 @@ class ObjectDetection:
     @method()
     def detect(self, img_data_in):
         # Based on https://huggingface.co/spaces/nateraw/detr-object-detection/blob/main/app.py
-        from PIL import Image, ImageColor, ImageDraw, ImageFont
-
         # Read png from input
         image = Image.open(io.BytesIO(img_data_in)).convert("RGB")
 
         # Make prediction
-        import torch
-
         inputs = self.feature_extractor(image, return_tensors="pt")
         outputs = self.model(**inputs)
         img_size = torch.tensor([tuple(reversed(image.size))])

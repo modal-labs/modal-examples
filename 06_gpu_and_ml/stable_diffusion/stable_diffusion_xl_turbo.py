@@ -17,39 +17,31 @@
 
 # ## Basic setup
 
+from io import BytesIO
 from pathlib import Path
 
-from modal import Image, Stub, gpu, method
+from modal import Image, Stub, build, enter, gpu, method
 
 # ## Define a container image
 
 
-def download_models():
-    from huggingface_hub import snapshot_download
-
-    # Ignore files that we don't need to speed up download time.
-    ignore = [
-        "*.bin",
-        "*.onnx_data",
-        "*/diffusion_pytorch_model.safetensors",
-    ]
-
-    snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
-
-
-image = (
-    Image.debian_slim()
-    .pip_install(
-        "Pillow~=10.1.0",
-        "diffusers~=0.24",
-        "transformers~=4.35",  # This is needed for `import torch`
-        "accelerate~=0.25",  # Allows `device_map="auto"``, which allows computation of optimized device_map
-        "safetensors~=0.4",  # Enables safetensor format as opposed to using unsafe pickle format
-    )
-    .run_function(download_models)
+image = Image.debian_slim().pip_install(
+    "Pillow~=10.1.0",
+    "diffusers~=0.24",
+    "transformers~=4.35",  # This is needed for `import torch`
+    "accelerate~=0.25",  # Allows `device_map="auto"``, which allows computation of optimized device_map
+    "safetensors~=0.4",  # Enables safetensor format as opposed to using unsafe pickle format
 )
 
 stub = Stub("stable-diffusion-xl-turbo", image=image)
+
+with image.imports():
+    import torch
+    from diffusers import AutoPipelineForImage2Image
+    from diffusers.utils import load_image
+    from huggingface_hub import snapshot_download
+    from PIL import Image
+
 
 # ## Load model and run inference
 #
@@ -62,10 +54,19 @@ stub = Stub("stable-diffusion-xl-turbo", image=image)
 
 @stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
 class Model:
-    def __enter__(self):
-        import torch
-        from diffusers import AutoPipelineForImage2Image
+    @build()
+    def download_models(self):
+        # Ignore files that we don't need to speed up download time.
+        ignore = [
+            "*.bin",
+            "*.onnx_data",
+            "*/diffusion_pytorch_model.safetensors",
+        ]
 
+        snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
+
+    @enter()
+    def enter(self):
         self.pipe = AutoPipelineForImage2Image.from_pretrained(
             "stabilityai/sdxl-turbo",
             torch_dtype=torch.float16,
@@ -75,11 +76,6 @@ class Model:
 
     @method()
     def inference(self, image_bytes, prompt):
-        from io import BytesIO
-
-        from diffusers.utils import load_image
-        from PIL import Image
-
         init_image = load_image(Image.open(BytesIO(image_bytes))).resize(
             (512, 512)
         )

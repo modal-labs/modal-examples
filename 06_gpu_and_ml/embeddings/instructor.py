@@ -1,13 +1,6 @@
-from modal import Image, Stub, method
+from modal import Image, Stub, build, enter, method
 
 MODEL_DIR = "/model"
-
-
-def download_model():
-    from InstructorEmbedding import INSTRUCTOR
-
-    model = INSTRUCTOR("hkunlp/instructor-large")
-    model.save(MODEL_DIR)
 
 
 image = (
@@ -19,17 +12,23 @@ image = (
         "cd instructor-embedding && pip install -r requirements.txt",
     )
     .pip_install("InstructorEmbedding")
-    .run_function(download_model)
 )
 
 stub = Stub("instructor", image=image)
 
+with image.imports():
+    from InstructorEmbedding import INSTRUCTOR
+
 
 @stub.cls(gpu="any")
 class InstructorModel:
-    def __enter__(self):
-        from InstructorEmbedding import INSTRUCTOR
+    @build()
+    def download_model(self):
+        model = INSTRUCTOR("hkunlp/instructor-large")
+        model.save(MODEL_DIR)
 
+    @enter()
+    def enter(self):
         self.model = INSTRUCTOR(MODEL_DIR, device="cuda")
 
     @method()
