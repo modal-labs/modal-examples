@@ -51,6 +51,10 @@ def download_checkpoint():
                 num_bytes_downloaded = stream.num_bytes_downloaded
 
 
+# Pin to a specific commit from https://github.com/comfyanonymous/ComfyUI/commits/master/
+# for stability. To update to a later ComfyUI version change this commit identifier.
+comfyui_commit_sha = "b3b5ddb07a23b3d070df292c7a7fd6f83dc8fd50"
+
 image = (
     modal.Image.debian_slim()
     .apt_install("git")
@@ -61,7 +65,7 @@ image = (
     .run_commands(
         "cd /root && git init .",
         "cd /root && git remote add --fetch origin https://github.com/comfyanonymous/ComfyUI",
-        "cd /root && git checkout master",
+        f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
     # Use fork until https://github.com/valohai/asgiproxy/pull/11 is merged.
