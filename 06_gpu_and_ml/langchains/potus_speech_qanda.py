@@ -145,7 +145,8 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
     docs = docsearch.similarity_search(query)
 
     chain = load_qa_with_sources_chain(
-        OpenAI(temperature=0), chain_type="stuff"
+        OpenAI(model_name="gpt-3.5-turbo-instruct", temperature=0),
+        chain_type="stuff",
     )
     print("running query against Q&A chain.\n")
     result = chain(
