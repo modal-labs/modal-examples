@@ -4,8 +4,7 @@
 
 import time
 
-from modal import Image, Stub, method, Secret
-
+from modal import Image, Stub, method
 
 vllm_image = (
     Image.from_registry(
@@ -25,9 +24,9 @@ stub = Stub("example-vllm-generic", image=vllm_image)
 )
 class Model:
     def __init__(self, model_name: str):
+        import torch
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
-        import torch
 
         n_gpus = torch.cuda.device_count()
 

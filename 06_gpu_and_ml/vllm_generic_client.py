@@ -15,14 +15,12 @@ Model_40GB = Model.with_options(
     secrets=[hf_secret],
     gpu=modal.gpu.A100(memory=40),
     volumes={"/hf-cache": model_vol},
-    allow_background_volume_commits=True,
 )
 
 Model_80GB = Model.with_options(
     secrets=[hf_secret],
     gpu=modal.gpu.A100(memory=80),
     volumes={"/hf-cache": model_vol},
-    allow_background_volume_commits=True,
 )
 
 mistral7b = Model_40GB(model_name="mistralai/Mistral-7B-Instruct-v0.2")
