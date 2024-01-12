@@ -1,7 +1,7 @@
 # # Generic model inference with vLLM
+# Usage: modal deploy vllm_generic.py --public
 
 
-import os
 import time
 
 from modal import Image, Stub, method, Secret

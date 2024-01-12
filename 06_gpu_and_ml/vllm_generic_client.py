@@ -1,6 +1,9 @@
+# Usage:
+# 1. `modal volume create my-hf-cache`
+# 2. `python vllm_generic.py`
+
 import modal
 
-# First run `modal volume create my-hf-cache` in CLI first.
 model_vol = modal.Volume.lookup("my-hf-cache")
 hf_secret = modal.Secret.lookup("huggingface")
 
