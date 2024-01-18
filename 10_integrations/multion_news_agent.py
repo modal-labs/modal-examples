@@ -33,6 +33,7 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 
 # To get started, first create an account with [MultiOn](https://app.multion.ai/), install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm) and login to your Twitter account in your browser.
 # To use the API create a [MultiOn API Key](https://app.multion.ai/api-keys) and store it as a modal secret on [the dashboard](https://modal.com/div99/secrets)
+
 @stub.function(image=multion_image, secret=modal.Secret.from_name("MULTION_API_KEY"))
 def news_tweet_agent():
     # Import MultiOn
