@@ -19,16 +19,19 @@ stub = modal.Stub("ai-news-tweet-agent")
 # ## Searching for AI News
 #
 
-QUERY = "serverless"
-WINDOW_SIZE_DAYS = 1
 
-# Let's also define an image that has the `requests` package installed, so we can query the API.
+# Let's also define an image that has the `multion` package installed, so we can query the API.
 
 multion_image = modal.Image.debian_slim().pip_install("multion")
 
-# We can now define our main entrypoint, that use MultiOn to scrape AI news everyday and post it on my twitter account. We specify a [schedule](/docs/guide/cron) in the function decorator, which
+# We can now define our main entrypoint, that uses [MultiOn](https://www.multion.ai/) to scrape AI news everyday and post it on our twitter account. We specify a [schedule](/docs/guide/cron) in the function decorator, which  
 # means that our function will run automatically at the given interval.
 
+# ## Setup MultiOn
+# MultiOn is a nex-gen Web Action Agent that can take actions on behalf of the user. You can watch it in action here: [Youtube demo](https://www.youtube.com/watch?v=Rm67ry6bogw)
+# The MultiOn API enables building the next level of web automation & custom AI agents capable of performing complex actions on the internet with just a few lines of code.
+
+# To get started, first created an account with [MultiOn](https://app.www.multion.ai/), install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm) and login to your Twitter account in your browser.
 
 @stub.function(image=multion_image, secret=modal.Secret.from_name("MULTION_API_KEY"))
 def news_tweet_agent():
