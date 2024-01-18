@@ -28,10 +28,10 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 # means that our function will run automatically at the given interval.
 
 # ## Setup MultiOn
-# MultiOn is a nex-gen Web Action Agent that can take actions on behalf of the user. You can watch it in action here: [Youtube demo](https://www.youtube.com/watch?v=Rm67ry6bogw)
+# MultiOn is a next-gen Web Action Agent that can take actions on behalf of the user. You can watch it in action here: [Youtube demo](https://www.youtube.com/watch?v=Rm67ry6bogw)
 # The MultiOn API enables building the next level of web automation & custom AI agents capable of performing complex actions on the internet with just a few lines of code.
 
-# To get started, first created an account with [MultiOn](https://app.www.multion.ai/), install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm) and login to your Twitter account in your browser.
+# To get started, first create an account with [MultiOn](https://app.www.multion.ai/), install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm) and login to your Twitter account in your browser.
 
 @stub.function(image=multion_image, secret=modal.Secret.from_name("MULTION_API_KEY"))
 def news_tweet_agent():
