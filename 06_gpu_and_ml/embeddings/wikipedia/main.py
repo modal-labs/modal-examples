@@ -5,7 +5,7 @@ from modal import Image, Secret, Stub, Volume, gpu, method
 
 # We first set out configuration variables for our script.
 ## Embedding Containers Configuration
-N_GPU = 100
+GPU_CONCURRENCY = 100
 GPU_CONFIG = gpu.A10G()
 MODEL_ID = "BAAI/bge-small-en-v1.5"
 MODEL_SLUG = MODEL_ID.split("/")[-1]
@@ -42,7 +42,7 @@ LAUNCH_FLAGS = [
 ]
 
 
-stub = Stub("embeddings")
+stub = Stub("example-embeddings")
 
 
 def spawn_server() -> subprocess.Popen:
@@ -121,7 +121,8 @@ def generate_batches(xs, batch_size):
 @stub.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
-    concurrency_limit=N_GPU,
+    concurrency_limit=GPU_CONCURRENCY,
+    allow_concurrent_inputs=True,
     retries=3,
 )
 class TextEmbeddingsInference:
@@ -304,7 +305,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     resp = {
         "downscale": down_scale,
         "batch_size": batch_size,
-        "n_gpu": N_GPU,
+        "n_gpu": GPU_CONCURRENCY,
         "duration_mins": duration / 60,
         "characters_per_sec": characters_per_sec,
         "extrapolated_duration": extrapolated_duration_cps_fmt,

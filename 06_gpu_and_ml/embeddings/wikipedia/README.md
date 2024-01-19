@@ -17,7 +17,7 @@ You'll need a few packages to get started - we recommend using a virtual environ
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip3 install -r requirements
+pip3 install modal
 ```
 
 Once you've done so, you'll need to authenticate with Modal. To do so, run the command `modal token new`.
