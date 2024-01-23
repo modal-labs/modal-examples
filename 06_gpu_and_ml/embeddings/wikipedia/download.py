@@ -1,4 +1,4 @@
-from modal import Image, Volume, Stub
+from modal import Image, Stub, Volume
 
 # We first set out configuration variables for our script.
 DATASET_DIR = "/data"
@@ -19,6 +19,7 @@ stub = Stub(image=image)
 def download_dataset():
     # Redownload the dataset
     import time
+
     from datasets import load_dataset
 
     start = time.time()
