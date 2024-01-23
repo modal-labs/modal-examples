@@ -1,6 +1,7 @@
 import asyncio
 import json
 import subprocess
+
 from modal import Image, Secret, Stub, Volume, gpu, method
 
 # We first set out configuration variables for our script.
@@ -60,7 +61,9 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
+                raise RuntimeError(
+                    f"launcher exited unexpectedly with code {retcode}"
+                )
 
 
 def download_model():
@@ -164,6 +167,7 @@ def load_dataset_from_disk(down_scale: float = 0.01):
         Dataset: A subset of the training data.
     """
     import time
+
     from datasets import load_from_disk
 
     start = time.perf_counter()
@@ -220,6 +224,7 @@ def upload_result_to_hf(batch_size: int) -> None:
     """
     import os
     import time
+
     from huggingface_hub import HfApi
 
     path_parent_folder = f"{CHECKPOINT_DIR}/{MODEL_SLUG}-{batch_size}"
@@ -284,7 +289,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     start = time.perf_counter()
     acc_chunks = []
     embeddings = []
-    for resp in model.embed.map(batches, order_outputs=False, return_exceptions=True):
+    for resp in model.embed.map(
+        batches, order_outputs=False, return_exceptions=True
+    ):
         if isinstance(resp, Exception):
             print(f"Exception: {resp}")
             continue
@@ -312,7 +319,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     }
 
     if SAVE_TO_DISK:
-        save_dataset_to_intermediate_checkpoint(acc_chunks, embeddings, batch_size)
+        save_dataset_to_intermediate_checkpoint(
+            acc_chunks, embeddings, batch_size
+        )
 
     if UPLOAD_TO_HF:
         upload_result_to_hf(batch_size)
