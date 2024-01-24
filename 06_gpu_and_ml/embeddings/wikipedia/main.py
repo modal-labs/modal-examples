@@ -2,7 +2,7 @@ import asyncio
 import json
 import subprocess
 
-from modal import Image, Secret, Stub, Volume, gpu, method, build, enter, exit
+from modal import Image, Secret, Stub, Volume, build, enter, exit, gpu, method
 
 # We first set out configuration variables for our script.
 ## Embedding Containers Configuration
@@ -127,7 +127,7 @@ class TextEmbeddingsInference:
     @build()
     def download_model(self):
         spawn_server()
-    
+
     @enter()
     def open_connection(self):
         # If the process is running for a long time, the client does not seem to close the connections, results in a pool timeout
