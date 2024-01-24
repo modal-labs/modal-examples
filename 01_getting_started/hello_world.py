@@ -48,7 +48,7 @@ def f(i):
 #
 # Inside the `main()` function body, we are calling the function `f` in three ways:
 #
-# 1  As a simple local call, `f(1000)`
+# 1  As a simple local call, `f.local(1000)`
 # 2. As a simple *remote* call `f.remote(1000)`
 # 3. By mapping over the integers `0..19`
 
