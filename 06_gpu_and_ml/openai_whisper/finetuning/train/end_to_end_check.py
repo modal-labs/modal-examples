@@ -6,6 +6,7 @@ This module contains an end-to-end test that runs only 1 step of training,
 before testing that the partially trained model can be serialized, saved to
 persistent storage, and then downloaded locally for inference.
 """
+
 import pathlib
 
 import modal

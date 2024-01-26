@@ -2,6 +2,7 @@
 Contains only definitions of Modal objects, to be imported
 from other modules.
 """
+
 import modal
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
