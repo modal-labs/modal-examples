@@ -52,7 +52,7 @@ def download_checkpoint():
 
 
 # Pin to a specific commit from https://github.com/comfyanonymous/ComfyUI/commits/master/
-# for stability. To update to a later ComfyUI version change this commit identifier.
+# for stability. To update to a later ComfyUI version, change this commit identifier.
 comfyui_commit_sha = "b3b5ddb07a23b3d070df292c7a7fd6f83dc8fd50"
 
 image = (
