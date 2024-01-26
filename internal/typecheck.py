@@ -2,6 +2,7 @@
 MyPy type-checking script.
 Unvalidated, incorrect type-hints are worse than no type-hints!
 """
+
 import pathlib
 import subprocess
 import sys

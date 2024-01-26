@@ -18,7 +18,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install black
-        run: pip install black
+        run: pip install black==23.11.0
 
       - name: Black
         run: black --check .

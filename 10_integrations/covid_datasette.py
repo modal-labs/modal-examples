@@ -124,12 +124,12 @@ def load_report(filepath):
             )
             yield {
                 "day": f"{yyyy}-{mm}-{dd}",
-                "country_or_region": country_or_region.strip()
-                if country_or_region
-                else None,
-                "province_or_state": province_or_state.strip()
-                if province_or_state
-                else None,
+                "country_or_region": (
+                    country_or_region.strip() if country_or_region else None
+                ),
+                "province_or_state": (
+                    province_or_state.strip() if province_or_state else None
+                ),
                 "confirmed": int(float(row["Confirmed"] or 0)),
                 "deaths": int(float(row["Deaths"] or 0)),
                 "recovered": int(float(row["Recovered"] or 0)),
