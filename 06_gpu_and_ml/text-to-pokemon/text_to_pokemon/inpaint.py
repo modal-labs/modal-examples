@@ -6,6 +6,7 @@ Pokémon character.
 
 This code is partly based on code from github.com/Sanster/lama-cleaner/.
 """
+
 import io
 
 import modal

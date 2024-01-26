@@ -1,6 +1,7 @@
 """
 Defines a serverless web API to expose trained models
 """
+
 from typing import Optional
 
 import modal

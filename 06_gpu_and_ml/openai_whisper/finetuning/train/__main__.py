@@ -206,9 +206,11 @@ def train(
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     config = AutoConfig.from_pretrained(
-        model_args.config_name
-        if model_args.config_name
-        else model_args.model_name_or_path,
+        (
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=os.environ["HF_TOKEN"],
@@ -224,17 +226,21 @@ def train(
     config.update({"apply_spec_augment": model_args.apply_spec_augment})
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(
-        model_args.feature_extractor_name
-        if model_args.feature_extractor_name
-        else model_args.model_name_or_path,
+        (
+            model_args.feature_extractor_name
+            if model_args.feature_extractor_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else model_args.model_name_or_path,
+        (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
@@ -404,17 +410,17 @@ def train(
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=vectorized_datasets["train"]
-        if training_args.do_train
-        else None,
-        eval_dataset=vectorized_datasets["eval"]
-        if training_args.do_eval
-        else None,
+        train_dataset=(
+            vectorized_datasets["train"] if training_args.do_train else None
+        ),
+        eval_dataset=(
+            vectorized_datasets["eval"] if training_args.do_eval else None
+        ),
         tokenizer=feature_extractor,
         data_collator=data_collator,
-        compute_metrics=compute_metrics
-        if training_args.predict_with_generate
-        else None,
+        compute_metrics=(
+            compute_metrics if training_args.predict_with_generate else None
+        ),
     )
 
     logger.info("12. Running training")
