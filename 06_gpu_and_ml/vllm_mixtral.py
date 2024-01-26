@@ -7,7 +7,7 @@
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
 # We are running the [Mixtral 8x7B Instruct](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1) model here, which is a mixture-of-experts model finetuned for conversation.
-# You can expect 3 minute second cold starts
+# You can expect 3 minute cold starts.
 # For a single request, the throughput is about 11 tokens/second, but there are upcoming `vLLM` optimizations to improve this.
 # The larger the batch of prompts, the higher the throughput (up to about 300 tokens/second).
 # For example, with the 60 prompts below, we can produce 30k tokens in 100 seconds.
