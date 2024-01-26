@@ -15,7 +15,7 @@ import pathlib
 
 import modal
 
-# Define container image
+# ## Define container image
 #
 # Fun with ComfyUI begins with pre-trained model checkpoints.
 # The checkpoint downloaded below is [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0), but others can be used.
