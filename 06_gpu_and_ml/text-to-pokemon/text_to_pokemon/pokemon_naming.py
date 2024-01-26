@@ -1,6 +1,7 @@
 """
 Our AI-generated Pokémon characters need their own names!
 """
+
 import dataclasses
 import json
 import time
