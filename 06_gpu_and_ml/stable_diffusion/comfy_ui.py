@@ -15,7 +15,7 @@ import pathlib
 
 import modal
 
-# Define container image
+# ## Define container image
 #
 # Fun with ComfyUI begins with pre-trained model checkpoints.
 # The checkpoint downloaded below is [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0), but others can be used.
@@ -52,7 +52,7 @@ def download_checkpoint():
 
 
 # Pin to a specific commit from https://github.com/comfyanonymous/ComfyUI/commits/master/
-# for stability. To update to a later ComfyUI version change this commit identifier.
+# for stability. To update to a later ComfyUI version, change this commit identifier.
 comfyui_commit_sha = "b3b5ddb07a23b3d070df292c7a7fd6f83dc8fd50"
 
 image = (
