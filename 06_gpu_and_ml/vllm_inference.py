@@ -68,7 +68,7 @@ image = (
         "hf-transfer==0.1.4",
         "torch==2.1.2",
         "torchvision==0.16.2",
-        "torchaudio==2.1.2"
+        "torchaudio==2.1.2",
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
