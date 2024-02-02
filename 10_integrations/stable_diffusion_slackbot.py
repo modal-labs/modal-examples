@@ -80,7 +80,7 @@ image = (
         "ftfy",
         "accelerate",
     )
-    .run_function(fetch_model, secret=Secret.from_name("huggingface-secret"))
+    .run_function(fetch_model, secrets=[Secret.from_name("huggingface-secret")])
 )
 
 # ### The actual function
@@ -98,7 +98,7 @@ image = (
 @stub.function(
     gpu="A10G",
     image=image,
-    secret=Secret.from_name("huggingface-secret"),
+    secrets=[Secret.from_name("huggingface-secret")],
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     pipe = fetch_model(local_files_only=True)
@@ -165,7 +165,7 @@ async def entrypoint(request: Request):
 
 @stub.function(
     image=Image.debian_slim().pip_install("slack-sdk"),
-    secret=Secret.from_name("stable-diff-slackbot-secret"),
+    secrets=[Secret.from_name("stable-diff-slackbot-secret")],
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
     import slack_sdk

@@ -72,7 +72,7 @@ tei_image = (
     .run_function(
         download_model,
         gpu=GPU_CONFIG,
-        secret=Secret.from_name("huggingface-secret"),
+        secrets=[Secret.from_name("huggingface-secret")],
     )
     .pip_install("httpx")
 )
@@ -84,7 +84,7 @@ with tei_image.imports():
 
 
 @stub.cls(
-    secret=Secret.from_name("huggingface-secret"),
+    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     image=tei_image,
     # Use up to 20 GPU containers at once.

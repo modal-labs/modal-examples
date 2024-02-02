@@ -260,7 +260,7 @@ def upload_result_to_hf(batch_size: int) -> None:
         CHECKPOINT_DIR: EMBEDDING_CHECKPOINT_VOLUME,
     },
     timeout=86400,
-    secret=Secret.from_name("huggingface-secret"),
+    secrets=[Secret.from_name("huggingface-secret")],
 )
 def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     """

@@ -86,7 +86,9 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
 tgi_image = (
     Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.3")
     .dockerfile_commands("ENTRYPOINT []")
-    .run_function(download_model, secret=Secret.from_name("huggingface-secret"))
+    .run_function(
+        download_model, secrets=[Secret.from_name("huggingface-secret")]
+    )
     .pip_install("text-generation")
 )
 
@@ -112,7 +114,7 @@ tgi_image = (
 
 
 @stub.cls(
-    secret=Secret.from_name("huggingface-secret"),
+    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,

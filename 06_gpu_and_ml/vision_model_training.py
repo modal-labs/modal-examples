@@ -59,9 +59,9 @@ FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
 USE_GPU = os.environ.get("MODAL_GPU")
 MODEL_EXPORT_PATH = pathlib.Path(MODEL_CACHE, "model-exports", "inference.pkl")
-os.environ[
-    "FASTAI_HOME"
-] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
+os.environ["FASTAI_HOME"] = (
+    FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
+)
 
 # ## Config
 #
@@ -119,7 +119,7 @@ def download_dataset():
 # utilization.
 #
 # If you want to run this example without setting up Weights & Biases, just remove the
-# `secret=Secret.from_name("wandb")` line from the Function decorator below; this will disable Weights & Biases
+# `secrets=[Secret.from_name("wandb")]` line from the Function decorator below; this will disable Weights & Biases
 # functionality.
 #
 # ### Detaching our training run
@@ -135,7 +135,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     network_file_systems={str(MODEL_CACHE): volume},
-    secret=Secret.from_name("wandb"),
+    secrets=[Secret.from_name("wandb")],
     timeout=2700,  # 45 minutes
 )
 def train():
