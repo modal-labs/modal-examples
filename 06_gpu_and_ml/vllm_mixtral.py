@@ -60,7 +60,14 @@ vllm_image = (
     Image.from_registry(
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
-    .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
+    .pip_install(
+        "vllm==0.2.5",
+        "huggingface_hub==0.19.4",
+        "hf-transfer==0.1.4",
+        "torch==2.1.2",
+        "torchvision==0.16.2",
+        "torchaudio==2.1.2"
+    )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(download_model_to_folder, timeout=60 * 20)
 )
