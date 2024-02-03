@@ -224,9 +224,7 @@ stub = modal.Stub("example-stable-diffusion-aitemplate")
 
 
 class InferenceRequest(BaseModel):
-    prompt: str = (
-        "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field"
-    )
+    prompt: str = "photo of a wolf in the snow, blue eyes, highly detailed, 8k, 200mm canon lens, shallow depth of field"
     num_inference_steps: int = 10
     guidance_scale: float = 7.5
     negative_prompt: str = "deformed, extra legs, no tail"
