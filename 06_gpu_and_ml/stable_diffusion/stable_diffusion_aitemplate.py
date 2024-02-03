@@ -200,7 +200,7 @@ image = (
     )
     .run_function(
         download_and_compile,
-        secret=modal.Secret.from_name("huggingface-secret"),
+        secrets=[modal.Secret.from_name("huggingface-secret")],
         timeout=60 * 30,
         gpu=GPU_TYPE,
     )

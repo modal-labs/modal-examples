@@ -37,7 +37,7 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 
 
 @stub.function(
-    image=multion_image, secret=modal.Secret.from_name("MULTION_API_KEY")
+    image=multion_image, secrets=[modal.Secret.from_name("MULTION_API_KEY")]
 )
 def news_tweet_agent():
     # Import MultiOn

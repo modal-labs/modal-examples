@@ -49,7 +49,7 @@ import modal
 stub = modal.Stub("example-db-to-sheet")
 
 
-@stub.function(secret=modal.Secret.from_name("postgres-secret"))
+@stub.function(secrets=[modal.Secret.from_name("postgres-secret")])
 def my_func():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
@@ -73,7 +73,7 @@ pg_image = (
 
 @stub.function(
     image=pg_image,
-    secret=modal.Secret.from_name("postgres-secret"),
+    secrets=[modal.Secret.from_name("postgres-secret")],
 )
 def get_db_rows():
     import psycopg2
@@ -100,7 +100,7 @@ requests_image = modal.Image.debian_slim().pip_install("requests")
 
 @stub.function(
     image=requests_image,
-    secret=modal.Secret.from_name("weather-secret"),
+    secrets=[modal.Secret.from_name("weather-secret")],
 )
 def city_weather(city):
     import requests
@@ -169,7 +169,7 @@ pygsheets_image = modal.Image.debian_slim().pip_install("pygsheets")
 
 @stub.function(
     image=pygsheets_image,
-    secret=modal.Secret.from_name("gsheets-secret"),
+    secrets=[modal.Secret.from_name("gsheets-secret")],
 )
 def update_sheet_report(rows):
     import pygsheets

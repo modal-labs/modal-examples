@@ -237,7 +237,8 @@ image = (
     )
     .apt_install("ffmpeg", "libsm6", "libxext6")
     .run_function(
-        download_demo_files, secret=Secret.from_dict({"DEMO_NAME": DEMO_NAME})
+        download_demo_files,
+        secrets=[Secret.from_dict({"DEMO_NAME": DEMO_NAME})],
     )
 )
 stub = Stub(name="example-controlnet", image=image)
