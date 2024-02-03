@@ -62,7 +62,12 @@ image = (
     Image.from_registry(
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
-    .pip_install("vllm==0.2.5", "huggingface_hub==0.19.4", "hf-transfer==0.1.4")
+    .pip_install(
+        "vllm==0.2.5",
+        "huggingface_hub==0.19.4",
+        "hf-transfer==0.1.4",
+        "torch==2.1.2",
+    )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
