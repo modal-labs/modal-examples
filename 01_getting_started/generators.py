@@ -13,6 +13,3 @@ def f(i):
 def main():
     for r in f.remote_gen(10):
         print(r)
-
-    for r in f.map(range(5)):
-        print(r)
