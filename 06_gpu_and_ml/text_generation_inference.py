@@ -84,7 +84,9 @@ def download_model():
 stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.4", add_python="3.10")
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4", add_python="3.10"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model, secrets=[Secret.from_name("huggingface-secret")]
