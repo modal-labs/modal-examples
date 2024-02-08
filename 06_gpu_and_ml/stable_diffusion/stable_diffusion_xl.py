@@ -46,11 +46,8 @@ sdxl_image = (
 stub = Stub("stable-diffusion-xl")
 
 with sdxl_image.imports():
-    import fastapi.staticfiles
     import torch
     from diffusers import DiffusionPipeline
-    from fastapi import FastAPI
-    from fastapi.responses import Response
     from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
@@ -167,6 +164,10 @@ frontend_path = Path(__file__).parent / "frontend"
 )
 @asgi_app()
 def app():
+    import fastapi.staticfiles
+    from fastapi import FastAPI
+    from fastapi.responses import Response
+
     web_app = FastAPI()
 
     @web_app.get("/infer/{prompt}")
