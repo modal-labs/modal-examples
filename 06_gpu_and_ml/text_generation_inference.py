@@ -26,7 +26,7 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 
 GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
-REVISION = "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
+REVISION = "e1ce257bd76895e0864f3b4d6c7ed3c4cdec93e2"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -84,7 +84,9 @@ def download_model():
 stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.3")
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4", add_python="3.10"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model, secrets=[Secret.from_name("huggingface-secret")]
