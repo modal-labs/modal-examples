@@ -30,7 +30,7 @@ from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, method
 
 
 sdxl_image = (
-    Image.debian_slim()
+    Image.debian_slim(python_version="3.10")
     .apt_install(
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
     )
