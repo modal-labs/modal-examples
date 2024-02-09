@@ -156,8 +156,6 @@ def get_examples(
         yield from gather_example_files(
             parents=[], subdir=subdir, ignored=ignored, recurse=True
         )
-    if not silent:
-        print(f"Ignoring examples files: {ignored}")
 
 
 def get_examples_json():
