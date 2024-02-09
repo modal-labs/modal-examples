@@ -26,7 +26,7 @@ logger = config.get_logger(__name__)
 volume = NetworkFileSystem.persisted("dataset-cache-vol")
 
 app_image = (
-    Image.debian_slim()
+    Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .pip_install(
         "git+https://github.com/openai/whisper.git",
@@ -41,7 +41,7 @@ app_image = (
     .apt_install("ffmpeg")
     .pip_install("ffmpeg-python")
 )
-search_image = Image.debian_slim().pip_install(
+search_image = Image.debian_slim(python_version="3.10").pip_install(
     "scikit-learn~=1.3.0",
     "tqdm~=4.46.0",
     "numpy~=1.23.3",
@@ -277,7 +277,7 @@ def split_silences(
 
     # silencedetect can place the silence end *after* the end of the full audio segment.
     # Such segments definitions are negative length and invalid.
-    if duration > cur_start and (duration - cur_start) > min_segment_length:
+    if duration > cur_start:
         yield cur_start, duration
         num_segments += 1
     logger.info(f"Split {path} into {num_segments} segments")
