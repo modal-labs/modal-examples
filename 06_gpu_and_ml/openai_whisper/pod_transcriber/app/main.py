@@ -277,7 +277,7 @@ def split_silences(
 
     # silencedetect can place the silence end *after* the end of the full audio segment.
     # Such segments definitions are negative length and invalid.
-    if duration > cur_start and (duration - cur_start) > min_segment_length:
+    if duration > cur_start:
         yield cur_start, duration
         num_segments += 1
     logger.info(f"Split {path} into {num_segments} segments")
