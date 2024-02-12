@@ -5,7 +5,9 @@ from other modules.
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(
+    python_version="3.10"
+).pip_install(
     "datasets~=2.7.1",
     "dill==0.3.4",  # pinned b/c of https://github.com/uqfoundation/dill/issues/481
     "evaluate~=0.3.0",
