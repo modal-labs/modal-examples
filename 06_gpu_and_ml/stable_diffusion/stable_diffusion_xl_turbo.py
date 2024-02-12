@@ -27,10 +27,10 @@ from modal import Image, Stub, build, enter, gpu, method
 
 image = Image.debian_slim().pip_install(
     "Pillow~=10.1.0",
-    "diffusers~=0.24",
-    "transformers~=4.35",  # This is needed for `import torch`
-    "accelerate~=0.25",  # Allows `device_map="auto"``, which allows computation of optimized device_map
-    "safetensors~=0.4",  # Enables safetensor format as opposed to using unsafe pickle format
+    "diffusers~=0.24.0",
+    "transformers~=4.35.2",  # This is needed for `import torch`
+    "accelerate~=0.25.0",  # Allows `device_map="auto"``, which allows computation of optimized device_map
+    "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
 )
 
 stub = Stub("stable-diffusion-xl-turbo", image=image)
