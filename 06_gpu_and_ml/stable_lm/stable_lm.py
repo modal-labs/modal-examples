@@ -274,14 +274,17 @@ async def completions(completion_request: CompletionRequest):
         for new_text in StabilityLM().generate_stream.remote(
             completion_request=completion_request
         ):
-            yield msgspec.json.encode(
-                CompletionResponse(
-                    id=response_id,
-                    created=response_utc,
-                    model=completion_request.model,
-                    choices=[Choice(index=0, text=new_text)],
+            yield (
+                msgspec.json.encode(
+                    CompletionResponse(
+                        id=response_id,
+                        created=response_utc,
+                        model=completion_request.model,
+                        choices=[Choice(index=0, text=new_text)],
+                    )
                 )
-            ) + b"\n\n"
+                + b"\n\n"
+            )
 
     return StreamingResponse(
         content=wrapped_stream(),
