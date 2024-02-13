@@ -16,28 +16,31 @@ import modal
 # executable.
 image = (
     modal.Image.debian_slim()
-        .apt_install("curl")
-        .run_commands(
-            "curl -fsSL https://tailscale.com/install.sh | sh"
-        )
-        .pip_install("requests[socks]")
-        .copy_local_file("./entrypoint.sh", "/root/entrypoint.sh")
-        .dockerfile_commands(
-            "RUN chmod a+x /root/entrypoint.sh",
-            'ENTRYPOINT ["/root/entrypoint.sh"]',
-        )
+    .apt_install("curl")
+    .run_commands("curl -fsSL https://tailscale.com/install.sh | sh")
+    .pip_install("requests[socks]")
+    .copy_local_file("./entrypoint.sh", "/root/entrypoint.sh")
+    .dockerfile_commands(
+        "RUN chmod a+x /root/entrypoint.sh",
+        'ENTRYPOINT ["/root/entrypoint.sh"]',
+    )
 )
 stub = modal.Stub(image=image)
 
+
 # Run your function adding a Tailscale secret. It expects an environment variable
 # named `TAILSCALE_AUTHKEY`. We suggest creating a [reusable and ephemeral key](https://tailscale.com/kb/1111/ephemeral-nodes).
-@stub.function(secrets=[
-    modal.Secret.from_name("tailscale-auth"),
-    modal.Secret.from_dict({
-        "ALL_PROXY": "socks5://localhost:1080/",
-        "HTTP_PROXY": "http://localhost:1080/",
-        "http_proxy": "http://localhost:1080/",
-    })],
+@stub.function(
+    secrets=[
+        modal.Secret.from_name("tailscale-auth"),
+        modal.Secret.from_dict(
+            {
+                "ALL_PROXY": "socks5://localhost:1080/",
+                "HTTP_PROXY": "http://localhost:1080/",
+                "http_proxy": "http://localhost:1080/",
+            }
+        ),
+    ],
 )
 def connect_to_raspberrypi():
     import requests
@@ -45,6 +48,7 @@ def connect_to_raspberrypi():
     # Connect to other machines in your tailnet.
     resp = requests.get("http://raspberrypi:5000")
     print(resp.content)
+
 
 # Run this script with `modal run modal_tailscale.py`. You will see Tailscale logs
 # when the container start indicating that you were able to login successfully and
