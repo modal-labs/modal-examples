@@ -11,7 +11,7 @@ additional applications within the same tailnet.
 """
 import modal
 
-# Install Tailscale and copy custom entrypoint script. The script must be
+# Install Tailscale and copy custom entrypoint script (./entrypoint.sh). The script must be
 # executable.
 image = (
     modal.Image.debian_slim()
