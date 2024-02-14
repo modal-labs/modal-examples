@@ -1,16 +1,15 @@
 # # Hello, world!
 #
-# This is a trivial example of a Modal function, but it illustrates a few features:
+# This tutorial demonstrates some core features of Modal `Function`s:
 #
-# * You can print things to stdout and stderr.
-# * You can return data.
-# * You can map over a function.
+# * You can run a `Function` locally or remotely in the cloud.
+# * You can immediately see a `Function`'s logs, even if it's remote.
+# * You can map a `Function` over many inputs to run it in parallel.
 #
-# ## Import Modal and define the app
+# ## Importing Modal and defining the app
 #
-# Let's start with the top level imports.
-# You need to import Modal and define the app.
-# A stub is an object that defines everything that will be run.
+# We start by importing `modal` and creating a `Stub`.
+# We build up from our `Stub` to define our application.
 
 import sys
 
@@ -20,10 +19,14 @@ stub = modal.Stub("example-hello-world")
 
 # ## Defining a function
 #
-# Here we define a Modal function using the `modal.function` decorator.
-# The body of the function will automatically be run remotely.
-# This particular function is pretty silly: it just prints "hello"
-# and "world" alternatingly to standard out and standard error.
+# Modal takes your code and runs it in the cloud.
+#
+# So first we've got to write some code.
+#
+# Let's do a simple, silly function:
+# logging `"hello"` to standard out if the input is even
+# or `"world"`` to standard error if it's not,
+# then returning the input times itself.
 
 
 @stub.function()
@@ -38,66 +41,65 @@ def f(i):
 
 # ## Running it
 #
-# Finally, let's actually invoke it.
-# We put this invocation code inside a `@stub.local_entrypoint()`.
-# This is because this module will be imported in the cloud, and we don't want
-# this code to be executed a second time in the cloud.
+# Now let's see three different ways we can call that function in Modal:
 #
-# Run `modal run hello_world.py` and the `@stub.local_entrypoint()` decorator will handle
-# starting the Modal app and then executing the wrapped function body.
+# 1. As a regular `local` call on your computer, with `f.local`
 #
-# Inside the `main()` function body, we are calling the function `f` in three ways:
+# 2. As a `remote` call that runs on the cloud, with `f.remote`
 #
-# 1  As a simple local call, `f.local(1000)`
-# 2. As a simple *remote* call `f.remote(1000)`
-# 3. By mapping over the integers `0..19`
+# 3. By `map`ping many copies of `f` in the cloud over many inputs, with `f.map`
+#
+# We call `f` in each of these ways inside a `main` function below.
 
 
 @stub.local_entrypoint()
 def main():
-    # Call the function locally.
+    # call the function locally
     print(f.local(1000))
 
-    # Call the function remotely.
+    # call the function remotely
     print(f.remote(1000))
 
-    # Parallel map.
+    # run the function in parallel and remotely
     total = 0
     for ret in f.map(range(20)):
         total += ret
 
     print(total)
 
-
-# ## What happens?
+# Enter `modal run hello_world.py` in a shell and you'll see
+# a Modal app start up, and then you'll see the `print`ed logs of
+# the `main` function and, mixed in with them, all the logs of `f` as it is run
+# locally, then remotely, and then remotely and in parallel.
 #
-# When you do `.remote` on function `f`, Modal will execute `f` **in the cloud,**
-# not locally on your computer. It will take the code, put it inside a
-# container, run it, and stream all the output back to your local
-# computer.
+# That's all triggered by the `@stub.local_entrypoint()` decorator on `main`,
+# which defines it as the function we start from locally when we invoke `modal run`.
 #
-# Try doing one of these things next.
+# ## Why?
+#
+# Try doing one of these things next to start seeing the power of Modal!
 #
 # ### Change the code and run again
 #
-# For instance, change the `print` statement in the function `f`.
-# You can see that the latest code is always run.
+# For instance, change the `print` statement in the function `f`
+# and run the app again.
+# You will see that that your new code is run with no extra work from you.
 #
 # Modal's goal is to make running code in the cloud feel like you're
-# running code locally. You don't need to run any commands to rebuild,
-# push containers, or go to a web UI to download logs.
+# running code locally. That means no running rebuild commands,
+# no fiddling with container pushes, and no context-switching to a web UI to inspect logs.
 #
-# ### Map over a larger dataset
+# ### Map over more data
 #
-# Change the map range from 20 to some large number. You can see that
-# Modal will create and run more containers in parallel.
+# Change the `map` range from `20` to some large number, like `1170`. You'll see
+# Modal create and run even more containers in parallel.
 #
-# The function `f` is obviously silly and doesn't do much, but you could
+# The function `f` is obviously silly and doesn't do much, but in its place
 # imagine something more significant, like:
 #
-# * Training a machine learning model
-# * Transcoding media
-# * Backtesting a trading algorithm.
+# * Running [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune)
+# * Manipulating [audio](/docs/examples/discord-musicgen) or [images](stable_diffusion_xl_turbo)
+# * [Collecting financial data](/docs/examples/fetch_stock_prices) to backtest a trading algorithm.
 #
 # Modal lets you parallelize that operation trivially by running hundreds or
 # thousands of containers in the cloud.
