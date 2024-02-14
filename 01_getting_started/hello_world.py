@@ -2,14 +2,14 @@
 #
 # This tutorial demonstrates some core features of Modal:
 #
-# * You can run functions just as easily locally on your infrastructure as you can remotely on Modal's cloud infrastructure.
-# * Logs to `stdout` and `stderr` show up immediately, even for remote functions.
+# * You can run functions on Modal just as easily as you run them locally.
 # * Running functions in parallel on Modal is simple and fast.
+# * Logs and errors show up immediately, even for functions running on Modal.
 #
 # ## Importing Modal and setting up
 #
 # We start by importing `modal` and creating a `Stub`.
-# We build up from our `Stub` to define our application.
+# We build up from our `Stub` to [define our application](/docs/guide/apps).
 
 import sys
 
@@ -17,19 +17,20 @@ import modal
 
 stub = modal.Stub("example-hello-world")
 
-# ## Writing some code
+# ## Defining a function
 #
 # Modal takes code and runs it in the cloud.
 #
 # So first we've got to write some code.
 #
-# Let's do something simple and silly:
-# logging `"hello"` to standard out if the input is even
+# Let's write a simple function:
+# log `"hello"` to standard out if the input is even
 # or `"world"` to standard error if it's not,
-# then returning the input times itself.
+# then return the input times itself.
 #
-# To make it work with Modal, we just wrap it in a decorator
-# from our application `stub`, `@stub.function`.
+# To make this function work with Modal, we just wrap it in a decorator
+# from our application `stub`,
+# [`@stub.function`](docs/reference/modal.Stub#function).
 
 
 @stub.function()
@@ -42,7 +43,7 @@ def f(i):
     return i * i
 
 
-# ## Running our code locally, remotely, and in parallel
+# ## Running our function locally, remotely, and in parallel
 #
 # Now let's see three different ways we can call that function:
 #
@@ -57,13 +58,13 @@ def f(i):
 
 @stub.local_entrypoint()
 def main():
-    # call the function locally
+    # run the function locally
     print(f.local(1000))
 
-    # call the function remotely
+    # run the function remotely on Modal
     print(f.remote(1000))
 
-    # run the function in parallel and remotely
+    # run the function in parallel and remotely on Modal
     total = 0
     for ret in f.map(range(20)):
         total += ret
@@ -72,18 +73,25 @@ def main():
 
 
 # Enter `modal run hello_world.py` in a shell and you'll see
-# a Modal app start up. Modal runs functions in _containers_,
-# so you'll see some container initialization info.
-# Then you'll see the `print`ed logs of
+# a Modal app initialize.
+# You'll then see the `print`ed logs of
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
-# locally, then remotely, and then remotely and in parallel across many containers.
+# locally, then remotely, and then remotely and in parallel.
 #
-# That's all triggered by adding the `@stub.local_entrypoint()` decorator on `main`,
-# which defines it as the function we start from locally when we invoke `modal run`.
+# That's all triggered by adding the [`@stub.local_entrypoint`](docs/reference/modal.Stub#local_entrypoint) decorator on `main`,
+# which defines it as the function to start from locally when we invoke `modal run`.
+#
+# ## What just happened?
+#
+# When we called `.remote` on `f`, the function was executed
+# **in the cloud**, on Modal's infrastructure, not locally on our computer.
+#
+# In short, we took the function `f`, put it inside a container,
+# sent it the inputs, and streamed back the logs and outputs.
 #
 # ## But why does this matter?
 #
-# Try doing one of these things next to start seeing the power of Modal!
+# Try doing one of these things next to start seeing the full power of Modal!
 #
 # ### You can change the code and run it again
 #
@@ -100,6 +108,10 @@ def main():
 #
 # Change the `map` range from `20` to some large number, like `1170`. You'll see
 # Modal create and run even more containers in parallel this time.
+#
+# And it'll happen lightning fast!
+#
+# ### You can run a more interesting function
 #
 # The function `f` is obviously silly and doesn't do much, but in its place
 # imagine something that matters to you, like:
