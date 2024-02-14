@@ -6,7 +6,7 @@
 # * Logs to `stdout` and `stderr` show up immediately, even for remote functions.
 # * Running functions in parallel on Modal is simple and fast.
 #
-# ## Importing Modal and defining the app
+# ## Importing Modal and setting up
 #
 # We start by importing `modal` and creating a `Stub`.
 # We build up from our `Stub` to define our application.
@@ -17,9 +17,9 @@ import modal
 
 stub = modal.Stub("example-hello-world")
 
-# ## Defining a function
+# ## Writing some code
 #
-# Modal takes your code and runs it in the cloud.
+# Modal takes code and runs it in the cloud.
 #
 # So first we've got to write some code.
 #
@@ -39,9 +39,9 @@ def f(i):
     return i * i
 
 
-# ## Running it
+# ## Running our code locally, remotely, and in parallel
 #
-# Now let's see three different ways we can call that function in Modal:
+# Now let's see three different ways we can call that function:
 #
 # 1. As a regular `local` call on your computer, with `f.local`
 #
@@ -67,32 +67,33 @@ def main():
 
     print(total)
 
+
 # Enter `modal run hello_world.py` in a shell and you'll see
 # a Modal app start up. Modal runs functions in _containers_,
-# so you'll see .
+# so you'll see some container initialization info.
 # Then you'll see the `print`ed logs of
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
-# locally, then remotely, and then remotely and in parallel.
+# locally, then remotely, and then remotely and in parallel across many containers.
 #
 # That's all triggered by adding the `@stub.local_entrypoint()` decorator on `main`,
 # which defines it as the function we start from locally when we invoke `modal run`.
 #
-# ## But why?
+# ## But why does this matter?
 #
 # Try doing one of these things next to start seeing the power of Modal!
 #
-# ### Change the code and run it again
+# ### You can change the code and run it again
 #
 # For instance, change the `print` statement in the function `f`
 # to print `"spam"` and `"eggs"` instead and run the app again.
 # You'll see that that your new code is run with no extra work from you --
-# and it even runs faster!
+# and it should even run faster!
 #
 # Modal's goal is to make running code in the cloud feel like you're
 # running code locally. That means no waiting for long image builds when you've just moved a comma,
 # no fiddling with container image pushes, and no context-switching to a web UI to inspect logs.
 #
-# ### Map over more data
+# ### You can map over more data
 #
 # Change the `map` range from `20` to some large number, like `1170`. You'll see
 # Modal create and run even more containers in parallel this time.
