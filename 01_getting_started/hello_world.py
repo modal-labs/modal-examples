@@ -30,7 +30,7 @@ stub = modal.Stub("example-hello-world")
 #
 # To make this function work with Modal, we just wrap it in a decorator
 # from our application `stub`,
-# [`@stub.function`](docs/reference/modal.Stub#function).
+# [`@stub.function`](/docs/reference/modal.Stub#function).
 
 
 @stub.function()
@@ -78,7 +78,7 @@ def main():
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
 # locally, then remotely, and then remotely and in parallel.
 #
-# That's all triggered by adding the [`@stub.local_entrypoint`](docs/reference/modal.Stub#local_entrypoint) decorator on `main`,
+# That's all triggered by adding the [`@stub.local_entrypoint`](/docs/reference/modal.Stub#local_entrypoint) decorator on `main`,
 # which defines it as the function to start from locally when we invoke `modal run`.
 #
 # ## What just happened?
