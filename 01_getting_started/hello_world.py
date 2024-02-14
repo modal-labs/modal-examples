@@ -27,6 +27,9 @@ stub = modal.Stub("example-hello-world")
 # logging `"hello"` to standard out if the input is even
 # or `"world"` to standard error if it's not,
 # then returning the input times itself.
+#
+# To make it work with Modal, we just wrap it in a decorator
+# from our application `stub`, `@stub.function`.
 
 
 @stub.function()
