@@ -7,7 +7,7 @@
 #
 # This example trains a vision model to 98-99% accuracy on the CIFAR-10 dataset,
 # and then makes this trained model shareable with others using the [Gradio.app](https://gradio.app/)
-# web interface framework.
+# web interface framework (Huggingface's competitor to Streamlit).
 #
 # Combining GPU-accelerated Modal Functions, a network file system for caching, and Modal
 # webhooks for the model demo, we have a simple, productive, and cost-effective
@@ -79,7 +79,7 @@ class Config:
     epochs: int = 10
     img_dims: Tuple[int, int] = (32, 224)
     gpu: str = USE_GPU
-    wandb: WandBConfig = WandBConfig()
+    wandb: WandBConfig = dataclasses.field(default_factory=WandBConfig)
 
 
 # ## Get CIFAR-10 dataset
@@ -119,7 +119,7 @@ def download_dataset():
 # utilization.
 #
 # If you want to run this example without setting up Weights & Biases, just remove the
-# `secret=Secret.from_name("wandb")` line from the Function decorator below; this will disable Weights & Biases
+# `secrets=[Secret.from_name("wandb")]` line from the Function decorator below; this will disable Weights & Biases
 # functionality.
 #
 # ### Detaching our training run
@@ -135,7 +135,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     network_file_systems={str(MODEL_CACHE): volume},
-    secret=Secret.from_name("wandb"),
+    secrets=[Secret.from_name("wandb")],
     timeout=2700,  # 45 minutes
 )
 def train():

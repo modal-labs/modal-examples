@@ -35,7 +35,7 @@ stub = Stub("example-stable-diff-bot")
 # Next, [create a HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the
 # [secrets page](https://modal.com/secrets). Let's use the environment variable
-# named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access
+# named `HF_TOKEN`. Functions that inject this secret will have access
 # to the environment variable.
 #
 # ![create a huggingface token](./huggingface_token.png)
@@ -57,7 +57,7 @@ def fetch_model(local_files_only: bool = False):
 
     return StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
-        use_auth_token=os.environ["HUGGINGFACE_TOKEN"],
+        use_auth_token=os.environ["HF_TOKEN"],
         variant="fp16",
         torch_dtype=float16,
         device_map="auto",
@@ -80,7 +80,7 @@ image = (
         "ftfy",
         "accelerate",
     )
-    .run_function(fetch_model, secret=Secret.from_name("huggingface-secret"))
+    .run_function(fetch_model, secrets=[Secret.from_name("huggingface-secret")])
 )
 
 # ### The actual function
@@ -98,7 +98,7 @@ image = (
 @stub.function(
     gpu="A10G",
     image=image,
-    secret=Secret.from_name("huggingface-secret"),
+    secrets=[Secret.from_name("huggingface-secret")],
 )
 async def run_stable_diffusion(prompt: str, channel_name: Optional[str] = None):
     pipe = fetch_model(local_files_only=True)
@@ -165,7 +165,7 @@ async def entrypoint(request: Request):
 
 @stub.function(
     image=Image.debian_slim().pip_install("slack-sdk"),
-    secret=Secret.from_name("stable-diff-slackbot-secret"),
+    secrets=[Secret.from_name("stable-diff-slackbot-secret")],
 )
 def post_image_to_slack(title: str, channel_name: str, image_bytes: bytes):
     import slack_sdk

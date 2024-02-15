@@ -35,44 +35,44 @@ BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 # ### Download the weights
 # Make sure you have created a [HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
-# Now the token will be available via the environment variable named `HUGGINGFACE_TOKEN`. Functions that inject this secret will have access to the environment variable.
+# Now the token will be available via the environment variable named `HF_TOKEN`. Functions that inject this secret will have access to the environment variable.
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
 # Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
 def download_model_to_folder():
     from huggingface_hub import snapshot_download
+    from transformers.utils import move_cache
 
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     snapshot_download(
         BASE_MODEL,
         local_dir=MODEL_DIR,
-        token=os.environ["HUGGINGFACE_TOKEN"],
+        token=os.environ["HF_TOKEN"],
     )
+    move_cache()
 
 
 # ### Image definition
-# We’ll start from a Dockerhub image recommended by `vLLM`, upgrade the older
-# version of `torch` (from 1.14) to a new one specifically built for CUDA 11.8.
-# Next, we install `vLLM` from source to get the latest updates. Finally, we’ll
-# use run_function to run the function defined above to ensure the weights of
+# We’ll start from a recommended Dockerhub image and install `vLLM`.
+# Then we’ll use run_function to run the function defined above to ensure the weights of
 # the model are saved within the container image.
 image = (
-    Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
-    .pip_install(
-        "torch==2.0.1+cu118", index_url="https://download.pytorch.org/whl/cu118"
+    Image.from_registry(
+        "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
-    # Pinned to 10/16/23
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@651c614aa43e497a2e2aab473493ba295201ab20"
+        "vllm==0.2.5",
+        "huggingface_hub==0.19.4",
+        "hf-transfer==0.1.4",
+        "torch==2.1.2",
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
-    .pip_install("hf-transfer~=0.1")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_folder,
-        secret=Secret.from_name("huggingface"),
+        secrets=[Secret.from_name("huggingface-secret")],
         timeout=60 * 20,
     )
 )
@@ -87,7 +87,7 @@ stub = Stub("example-vllm-inference", image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100", secret=Secret.from_name("huggingface"))
+@stub.cls(gpu="A100", secrets=[Secret.from_name("huggingface-secret")])
 class Model:
     def __enter__(self):
         from vllm import LLM

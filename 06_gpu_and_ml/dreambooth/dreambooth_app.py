@@ -33,7 +33,6 @@ from fastapi import FastAPI
 from modal import (
     Image,
     Mount,
-    Secret,
     Stub,
     Volume,
     asgi_app,
@@ -52,13 +51,13 @@ image = (
     .pip_install(
         "accelerate==0.19",
         "datasets~=2.13",
-        "ftfy",
+        "ftfy~=6.1",
         "gradio~=3.10",
-        "smart_open",
-        "transformers",
-        "torch",
-        "torchvision",
-        "triton",
+        "smart_open~=6.4",
+        "transformers==4.28",
+        "torch~=2.1",
+        "torchvision~=0.16",
+        "triton~=2.1",
     )
     .pip_install("xformers", pre=True)
     .apt_install("git")
@@ -77,8 +76,7 @@ image = (
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
 volume = Volume.persisted("dreambooth-finetuning-volume")
-MODEL_DIR = Path("/model")
-stub.volume = volume
+MODEL_DIR = "/model"
 
 # ## Config
 #
@@ -139,21 +137,21 @@ class AppConfig(SharedConfig):
 # So we can fetch just a few images, stored on consumer platforms like Imgur or Google Drive
 # -- no need for expensive data collection or data engineering.
 
-IMG_PATH = Path("/img")
 
-
-def load_images(image_urls):
+def load_images(image_urls: list[str]) -> Path:
     import PIL.Image
     from smart_open import open
 
-    os.makedirs(IMG_PATH, exist_ok=True)
+    img_path = Path("/img")
+
+    img_path.mkdir(parents=True, exist_ok=True)
     for ii, url in enumerate(image_urls):
         with open(url, "rb") as f:
             image = PIL.Image.open(f)
-            image.save(IMG_PATH / f"{ii}.png")
+            image.save(img_path / f"{ii}.png")
     print("Images loaded.")
 
-    return IMG_PATH
+    return img_path
 
 
 # ## Finetuning a text-to-image model
@@ -174,34 +172,24 @@ def load_images(image_urls):
 #
 # The model weights, libraries, and training script are all provided by [🤗 Hugging Face](https://huggingface.co).
 #
-# To access the model weights, you'll need a [Hugging Face account](https://huggingface.co/join)
-# and from that account you'll need to accept the model license [here](https://huggingface.co/runwayml/stable-diffusion-v1-5).
-#
-# Lastly, you'll need to create a token from that account and share it with Modal
-# under the name `"huggingface"`. Follow the instructions [here](https://modal.com/secrets).
-#
-# Then, you can kick off a training job with the command
-# `modal run dreambooth_app.py::stub.train`.
+# You can kick off a training job with the command `modal run dreambooth_app.py::stub.train`.
 # It should take about ten minutes.
 #
-# Tip: if the results you're seeing don't match the prompt too well, and instead produce an image of your subject again, the model has likely overfit. In this case, repeat training with a lower # of max_train_steps. On the other hand, if the results don't look like your subject, you might need to increase # of max_train_steps.
+# Tip: if the results you're seeing don't match the prompt too well, and instead produce an image
+# of your subject again, the model has likely overfit. In this case, repeat training with a lower
+# value of `max_train_steps`. On the other hand, if the results don't look like your subject, you
+# might need to increase `max_train_steps`.
 
 
 @stub.function(
     image=image,
-    gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
-    volumes={
-        str(
-            MODEL_DIR
-        ): volume,  # fine-tuned model will be stored at `MODEL_DIR`
-    },
+    gpu="A100",  # fine-tuning is VRAM-heavy and requires an A100 GPU
+    volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
-    secrets=[Secret.from_name("huggingface")],
 )
 def train(instance_example_urls):
     import subprocess
 
-    import huggingface_hub
     from accelerate.utils import write_basic_config
     from transformers import CLIPTokenizer
 
@@ -214,10 +202,6 @@ def train(instance_example_urls):
 
     # set up hugging face accelerate library for fast training
     write_basic_config(mixed_precision="fp16")
-
-    # authenticate to hugging face so we can download the model weights
-    hf_key = os.environ["HUGGINGFACE_TOKEN"]
-    huggingface_hub.login(hf_key)
 
     # check whether we can access to model repo
     try:
@@ -270,7 +254,7 @@ def train(instance_example_urls):
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
     # To persist these artefacts for use in future inference function calls, we 'commit' the changes
     # to the volume.
-    stub.volume.commit()
+    volume.commit()
 
 
 # ## The inference function.
@@ -284,7 +268,7 @@ def train(instance_example_urls):
 @stub.cls(
     image=image,
     gpu="A100",
-    volumes={str(MODEL_DIR): volume},
+    volumes={MODEL_DIR: volume},
 )
 class Model:
     def __enter__(self):
@@ -292,7 +276,7 @@ class Model:
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
         # Reload the modal.Volume to ensure the latest state is accessible.
-        stub.volume.reload()
+        volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")

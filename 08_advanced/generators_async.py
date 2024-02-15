@@ -13,6 +13,3 @@ def f(i):
 async def run_async():
     async for r in f.remote_gen.aio(10):
         print(r)
-
-    async for r in f.map.aio(range(5)):
-        print(r)

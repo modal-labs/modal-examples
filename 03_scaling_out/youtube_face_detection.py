@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # output-directory: "/tmp"
 # runtimes: ["runc", "gvisor"]
 # ---
@@ -52,14 +51,14 @@ image = (
 )
 stub = modal.Stub("example-youtube-face-detection", image=image)
 
-if stub.is_inside():
+with image.imports():
     import cv2
     import moviepy.editor
     import pytube
 
 # For temporary storage and sharing of downloaded movie clips, we use a network file system.
 
-stub.net_file_system = modal.NetworkFileSystem.new()
+net_file_system = modal.NetworkFileSystem.new()
 
 # ### Face detection function
 #
@@ -73,9 +72,7 @@ stub.net_file_system = modal.NetworkFileSystem.new()
 # and stores the resulting video back to the shared storage.
 
 
-@stub.function(
-    network_file_systems={"/clips": stub.net_file_system}, timeout=600
-)
+@stub.function(network_file_systems={"/clips": net_file_system}, timeout=600)
 def detect_faces(fn, start, stop):
     # Extract the subclip from the video
     clip = moviepy.editor.VideoFileClip(fn).subclip(start, stop)
@@ -108,7 +105,7 @@ def detect_faces(fn, start, stop):
 # 3. Stitch the results back into a new video
 
 
-@stub.function(network_file_systems={"/clips": stub.net_file_system}, retries=1)
+@stub.function(network_file_systems={"/clips": net_file_system}, retries=1)
 def process_video(url):
     print(f"Downloading video from '{url}'")
     yt = pytube.YouTube(url)

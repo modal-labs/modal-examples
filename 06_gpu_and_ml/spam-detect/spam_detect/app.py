@@ -2,9 +2,12 @@
 Contains only definitions of Modal objects, to be imported
 from other modules.
 """
+
 import modal
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(
+    python_version="3.10"
+).pip_install(
     "datasets~=2.7.1",
     "dill==0.3.4",  # pinned b/c of https://github.com/uqfoundation/dill/issues/481
     "evaluate~=0.3.0",
@@ -18,4 +21,3 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
 stub = modal.Stub(name="example-spam-detect-llm", image=image)
 # Used to store datasets, trained models, model metadata, config.
 volume = modal.Volume.persisted("example-spam-detect-vol")
-stub.volume = volume

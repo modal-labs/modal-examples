@@ -44,7 +44,7 @@ def fetch_model(local_files_only: bool = False):
     return model, tokenizer
 
 
-stub["deep_learning_image"] = (
+deep_learning_image = (
     modal.Image.debian_slim()
     .pip_install("transformers==4.16.2", "torch", "sentencepiece")
     .run_function(fetch_model)
@@ -52,12 +52,12 @@ stub["deep_learning_image"] = (
 
 # Defining the scraping image is very similar. This image only contains the packages required
 # to scrape the New York Times website, though; so it's much smaller.
-stub["scraping_image"] = modal.Image.debian_slim().pip_install(
+scraping_image = modal.Image.debian_slim().pip_install(
     "requests", "beautifulsoup4", "lxml"
 )
 
 
-if stub.is_inside(stub["scraping_image"]):
+with scraping_image.imports():
     import requests
     from bs4 import BeautifulSoup
 
@@ -84,7 +84,8 @@ class NYArticle:
 
 
 @stub.function(
-    secret=modal.Secret.from_name("nytimes"), image=stub["scraping_image"]
+    secrets=[modal.Secret.from_name("nytimes")],
+    image=scraping_image,
 )
 def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
     # query api for latest science articles
@@ -100,9 +101,9 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
     articles = [
         NYArticle(
             title=u["title"],
-            image_url=u.get("multimedia")[0]["url"]
-            if u.get("multimedia")
-            else "",
+            image_url=(
+                u.get("multimedia")[0]["url"] if u.get("multimedia") else ""
+            ),
             url=u.get("url"),
         )
         for u in results["results"]
@@ -120,7 +121,7 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
 # [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) for that.
 
 
-@stub.function(image=stub["scraping_image"])
+@stub.function(image=scraping_image)
 def scrape_nyc_article(url: str) -> str:
     print(f"Scraping article => {url}")
 
@@ -150,7 +151,7 @@ def scrape_nyc_article(url: str) -> str:
 
 
 @stub.function(
-    image=stub["deep_learning_image"],
+    image=deep_learning_image,
     gpu=False,
     memory=4096,
 )

@@ -12,6 +12,8 @@
 #
 # First we import the components we need from `modal`.
 
+import os
+import subprocess
 from pathlib import Path
 
 from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
@@ -24,7 +26,7 @@ from modal import Image, Mount, Secret, Stub, asgi_app, gpu, method
 
 GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
-REVISION = "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
+REVISION = "e1ce257bd76895e0864f3b4d6c7ed3c4cdec93e2"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -49,8 +51,6 @@ LAUNCH_FLAGS = [
 
 
 def download_model():
-    import subprocess
-
     subprocess.run(
         [
             "text-generation-server",
@@ -58,7 +58,12 @@ def download_model():
             MODEL_ID,
             "--revision",
             REVISION,
-        ]
+        ],
+        env={
+            **os.environ,
+            "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
+        },
+        check=True,
     )
 
 
@@ -68,23 +73,26 @@ def download_model():
 #
 # Next we run the download step to pre-populate the image with our model weights.
 #
-# For this step to work on a gated model such as LLaMA 2, the HUGGING_FACE_HUB_TOKEN environment
+# For this step to work on a gated model such as LLaMA 2, the HF_TOKEN environment
 # variable must be set ([reference](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)).
+#
 # After [creating a HuggingFace access token](https://huggingface.co/settings/tokens),
 # head to the [secrets page](https://modal.com/secrets) to create a Modal secret.
 #
-# The key should be `HUGGING_FACE_HUB_TOKEN` and the value should be your access token.
-#
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.3")
+stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
+
+tgi_image = (
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4", add_python="3.10"
+    )
     .dockerfile_commands("ENTRYPOINT []")
-    .run_function(download_model, secret=Secret.from_name("huggingface"))
+    .run_function(
+        download_model, secrets=[Secret.from_name("huggingface-secret")]
+    )
     .pip_install("text-generation")
 )
-
-stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 
 
 # ## The model class
@@ -108,22 +116,26 @@ stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1], image=image)
 
 
 @stub.cls(
-    secret=Secret.from_name("huggingface"),
+    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
     timeout=60 * 60,
+    image=tgi_image,
 )
 class Model:
     def __enter__(self):
         import socket
-        import subprocess
         import time
 
         from text_generation import AsyncClient
 
         self.launcher = subprocess.Popen(
-            ["text-generation-launcher"] + LAUNCH_FLAGS
+            ["text-generation-launcher"] + LAUNCH_FLAGS,
+            env={
+                **os.environ,
+                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
+            },
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<s>[INST] <<SYS>>
@@ -217,6 +229,7 @@ def app():
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
+            "model": MODEL_ID,
         }
 
     @web_app.get("/completion/{question}")

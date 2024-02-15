@@ -15,9 +15,10 @@
 
 # ## Basic setup
 
+import io
 from pathlib import Path
 
-from modal import Image, Mount, Stub, asgi_app, gpu, method
+from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, method
 
 # ## Define a container image
 #
@@ -28,20 +29,8 @@ from modal import Image, Mount, Stub, asgi_app, gpu, method
 # triggers a rebuild.
 
 
-def download_models():
-    from huggingface_hub import snapshot_download
-
-    ignore = ["*.bin", "*.onnx_data", "*/diffusion_pytorch_model.safetensors"]
-    snapshot_download(
-        "stabilityai/stable-diffusion-xl-base-1.0", ignore_patterns=ignore
-    )
-    snapshot_download(
-        "stabilityai/stable-diffusion-xl-refiner-1.0", ignore_patterns=ignore
-    )
-
-
-image = (
-    Image.debian_slim()
+sdxl_image = (
+    Image.debian_slim(python_version="3.10")
     .apt_install(
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
     )
@@ -52,10 +41,14 @@ image = (
         "accelerate~=0.21",
         "safetensors~=0.3",
     )
-    .run_function(download_models)
 )
 
-stub = Stub("stable-diffusion-xl", image=image)
+stub = Stub("stable-diffusion-xl")
+
+with sdxl_image.imports():
+    import torch
+    from diffusers import DiffusionPipeline
+    from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
 #
@@ -66,12 +59,25 @@ stub = Stub("stable-diffusion-xl", image=image)
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
-    def __enter__(self):
-        import torch
-        from diffusers import DiffusionPipeline
+    @build()
+    def build(self):
+        ignore = [
+            "*.bin",
+            "*.onnx_data",
+            "*/diffusion_pytorch_model.safetensors",
+        ]
+        snapshot_download(
+            "stabilityai/stable-diffusion-xl-base-1.0", ignore_patterns=ignore
+        )
+        snapshot_download(
+            "stabilityai/stable-diffusion-xl-refiner-1.0",
+            ignore_patterns=ignore,
+        )
 
+    @enter()
+    def enter(self):
         load_options = dict(
             torch_dtype=torch.float16,
             use_safetensors=True,
@@ -114,8 +120,6 @@ class Model:
             denoising_start=high_noise_frac,
             image=image,
         ).images[0]
-
-        import io
 
         byte_stream = io.BytesIO()
         image.save(byte_stream, format="PNG")
@@ -162,13 +166,12 @@ frontend_path = Path(__file__).parent / "frontend"
 def app():
     import fastapi.staticfiles
     from fastapi import FastAPI
+    from fastapi.responses import Response
 
     web_app = FastAPI()
 
     @web_app.get("/infer/{prompt}")
     async def infer(prompt: str):
-        from fastapi.responses import Response
-
         image_bytes = Model().inference.remote(prompt)
 
         return Response(image_bytes, media_type="image/png")

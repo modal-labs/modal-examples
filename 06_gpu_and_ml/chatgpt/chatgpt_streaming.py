@@ -38,12 +38,13 @@ stub = Stub(
 def stream_chat(prompt: str):
     import openai
 
-    for chunk in openai.ChatCompletion.create(
+    client = openai.OpenAI()
+    for chunk in client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         stream=True,
     ):
-        content = chunk["choices"][0].get("delta", {}).get("content")
+        content = chunk.choices[0].delta.content
         if content is not None:
             yield content
 
