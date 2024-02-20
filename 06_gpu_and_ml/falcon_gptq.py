@@ -15,7 +15,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Stub, gpu, method, web_endpoint
+from modal import Image, Stub, enter, gpu, method, web_endpoint
 
 # ## Define a container image
 #
@@ -59,7 +59,7 @@ stub = Stub(name="example-falcon-gptq", image=image)
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the `__enter__` method.
+# so we use [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
 # Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU](/pricing). We also allow each call 10 mintues to complete,
@@ -73,7 +73,8 @@ stub = Stub(name="example-falcon-gptq", image=image)
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
 @stub.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         from auto_gptq import AutoGPTQForCausalLM
         from transformers import AutoTokenizer
 

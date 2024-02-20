@@ -8,7 +8,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Stub, gpu, method
+from modal import Image, Stub, enter, gpu, method
 
 # ## Define a container image
 #
@@ -56,7 +56,7 @@ stub = Stub(name="example-open-llama", image=image)
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the `__enter__` method.
+# so we use [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
 # Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU with 20 GB of VRAM](/pricing).
@@ -67,7 +67,8 @@ stub = Stub(name="example-open-llama", image=image)
 
 @stub.cls(gpu=gpu.A100())
 class OpenLlamaModel:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         import torch
         from transformers import LlamaForCausalLM, LlamaTokenizer
 

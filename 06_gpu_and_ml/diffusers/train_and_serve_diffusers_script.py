@@ -139,6 +139,7 @@ from modal import (
     Stub,
     Volume,
     asgi_app,
+    enter,
     gpu,
     method,
 )
@@ -364,7 +365,8 @@ def run():
     volumes=VOLUME_CONFIG,  # mount the location where your model weights were saved to
 )
 class Model:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         import torch
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 

@@ -45,7 +45,7 @@ with image.imports():
 
 # ## Load model and run inference
 #
-# The container lifecycle [`__enter__` function](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
+# The container lifecycle [`@enter` decorator](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
 # loads the model at startup. Then, we evaluate it in the `inference` function.
 #
 # To avoid excessive cold-starts, we set the idle timeout to 240 seconds, meaning once a GPU has loaded the model it will stay

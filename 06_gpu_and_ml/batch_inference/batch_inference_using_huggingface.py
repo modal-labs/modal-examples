@@ -39,19 +39,21 @@ stub = modal.Stub(
 # ## Defining the prediction function
 #
 # Instead of a using `@stub.function()` in the global scope,
-# we put the method on a class, and define an `__enter__` method on that class.
+# we put the method on a class, and define a setup method that we
+# decorate with `@modal.enter()`.
+#
 # Modal reuses containers for successive calls to the same function, so
 # we want to take advantage of this and avoid setting up the same model
 # for every function call.
 #
 # Since the transformer model is very CPU-hungry, we allocate 8 CPUs
-# to the model.
-# Every container that runs will have 8 CPUs set aside for it.
+# to the model. Every container that runs will have 8 CPUs set aside for it.
 
 
 @stub.cls(cpu=8, retries=3)
 class SentimentAnalysis:
-    def __enter__(self):
+    @modal.enter()
+    def setup_pipeline(self):
         from transformers import pipeline
 
         self.sentiment_pipeline = pipeline(

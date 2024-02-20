@@ -84,8 +84,7 @@ with image.imports():
 # since Modal reuses the same containers when possible.
 #
 # The way to implement this is to turn the Modal function into a method on a
-# class that also implement the Python context manager interface, meaning it
-# has the `__enter__` method (the `__exit__` method is optional).
+# class that also has lifecycle methods (decorated with `@enter()` and/or `@exit()`).
 #
 # We have also have applied a few model optimizations to make the model run
 # faster. On an A10G, the model takes about 6.5s to load into memory, and then

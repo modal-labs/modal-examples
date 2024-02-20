@@ -34,6 +34,7 @@ from modal import (
     Secret,
     Stub,
     asgi_app,
+    enter,
     method,
 )
 
@@ -222,7 +223,8 @@ def train():
     network_file_systems={str(MODEL_CACHE): volume},
 )
 class ClassifierModel:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         from fastai.learner import load_learner
 
         self.model = load_learner(MODEL_EXPORT_PATH)

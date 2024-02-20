@@ -22,7 +22,7 @@
 from pathlib import Path
 
 import modal
-from modal import Image, Stub, Volume, method, wsgi_app
+from modal import Image, Stub, Volume, enter, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
 
@@ -221,7 +221,8 @@ def monitor():
 
 @stub.cls(volumes={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
         # Load saved tokenizer and finetuned from training run

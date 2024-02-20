@@ -10,7 +10,7 @@ import io
 import time
 from pathlib import Path
 
-from modal import Image, Stub, method
+from modal import Image, Stub, enter, method
 
 # Create a Stub representing a Modal app.
 
@@ -41,13 +41,14 @@ stub.image = (
 
 # ## Load model and run inference
 #
-# The container lifecycle [`__enter__` function](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
+# The container lifecycle [`@enter` decorator](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
 # loads the model at startup. Then, we evaluate it in the `run_inference` function.
 
 
 @stub.cls(gpu="A10G")
 class StableDiffusion:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         from optimum.onnxruntime import ORTStableDiffusionPipeline
 
         self.pipe = ORTStableDiffusionPipeline.from_pretrained(

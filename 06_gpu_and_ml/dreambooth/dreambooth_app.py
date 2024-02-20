@@ -36,6 +36,7 @@ from modal import (
     Stub,
     Volume,
     asgi_app,
+    enter,
     method,
 )
 
@@ -271,7 +272,8 @@ def train(instance_example_urls):
     volumes={MODEL_DIR: volume},
 )
 class Model:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         import torch
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
