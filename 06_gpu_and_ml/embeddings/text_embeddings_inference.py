@@ -99,14 +99,13 @@ class TextEmbeddingsInference:
         self.client = AsyncClient(base_url="http://127.0.0.1:8000")
 
     @exit()
-    def teardown_server(self):
+    def teardown_server(self, exc_type, exc_value, traceback):
         self.process.terminate()
 
     @method()
     async def embed(self, inputs_with_ids: list[tuple[int, str]]):
         ids, inputs = zip(*inputs_with_ids)
-        resp = self.client.post("/embed", json={"inputs": inputs})
-        resp = await resp
+        resp = await self.client.post("/embed", json={"inputs": inputs})
         resp.raise_for_status()
         outputs = resp.json()
 
