@@ -41,11 +41,11 @@ image = (
     Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .pip_install(
-        "auto-gptq @ git+https://github.com/PanQiWei/AutoGPTQ.git@b5db750c00e5f3f195382068433a3408ec3e8f3c",
+        "auto-gptq==0.7.0",
         "einops==0.6.1",
-        "hf-transfer~=0.1",
+        "hf-transfer==0.1.5",
         "huggingface_hub==0.14.1",
-        "transformers @ git+https://github.com/huggingface/transformers.git@f49a3453caa6fe606bb31c571423f72264152fce",
+        "transformers==4.31.0"
     )
     # Use huggingface's hi-perf hf-transfer library to download this large model.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
