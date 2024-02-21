@@ -14,7 +14,9 @@
 # it is a model of an assistant that can understand and follow instructions.
 #
 # You can expect cold starts in under 30 seconds and well over 100 tokens/second throughput. The larger the batch of prompts, the higher the throughput.
-# For example, with the 60 prompts below, we can produce 15k tokens in 10 seconds, for a throughput of 1.5k tokens/second.
+# For example, with the 64 prompts below, we can produce nearly 15k tokens with a latency just over 5 seconds, for a throughput of >2.5k tokens/second.
+# That's a lot of text!
+#
 #
 # To run
 # [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
@@ -26,11 +28,11 @@
 
 import os
 
-import modal
 from modal import Image, Secret, Stub, enter, method
 
 MODEL_DIR = "/model"
 BASE_MODEL = "google/gemma-7b-it"
+GPU_TYPE = "H100"
 
 
 # ## Define a container image
@@ -73,15 +75,15 @@ image = (
     Image.from_registry(
         "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
     )
-    .apt_install("git", "clang")  # required when buiilding vLLM from source
     .pip_install(
-        "vllm @ git+https://github.com/vllm-project/vllm.git@a9c821289582747c57f149017678a282f5e788e4",
+        "vllm==0.3.2",
         "huggingface_hub==0.19.4",
         "hf-transfer==0.1.4",
         "torch==2.1.2",
-        gpu=modal.gpu.A100(),  # required when building vLLM from source
     )
-    # Use the barebones hf-transfer package for maximum download speeds. Varies from 100MB/s to 1.5 GB/s.
+    # Use the barebones hf-transfer package for maximum download speeds. Varies from 100MB/s to 1.5 GB/s,
+    # so download times can vary from under a minute to tens of minutes.
+    # If your download slows down or times out, try interrupting and restarting.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_folder,
@@ -100,7 +102,7 @@ stub = Stub(f"example-vllm-{BASE_MODEL}", image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean!
-@stub.cls(gpu="A100", secrets=[Secret.from_name("huggingface-secret")])
+@stub.cls(gpu=GPU_TYPE, secrets=[Secret.from_name("huggingface-secret")])
 class Model:
     @enter()
     def load(self):
@@ -151,7 +153,7 @@ class Model:
                 sep=COLOR["ENDC"],
             )
         print(
-            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.0f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second.{COLOR['ENDC']}"
+            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on GPU={GPU_TYPE}.{COLOR['ENDC']}"
         )
 
 
@@ -209,6 +211,7 @@ def main():
         "In a dystopian future where water is the most valuable commodity, how would society function?",
         "If a scientist discovers immortality, how could this impact society, economy, and the environment?",
         "What could be the potential implications of contact with an advanced alien civilization?",
+        "Describe how you would mediate a conflict between two roommates about doing the dishes using techniques of non-violent communication.",
         # Math
         "What is the product of 9 and 8?",
         "If a train travels 120 kilometers in 2 hours, what is its average speed?",
@@ -227,5 +230,9 @@ def main():
         "What are 'zombie stars' in the context of astronomy?",
         "Who were the 'Dog-Headed Saint' and the 'Lion-Faced Saint' in medieval Christian traditions?",
         "What is the story of the 'Globsters', unidentified organic masses washed up on the shores?",
+        # Multilingual
+        "战国时期最重要的人物是谁?",
+        "Tuende hatua kwa hatua. Hesabu jumla ya mfululizo wa kihesabu wenye neno la kwanza 2, neno la mwisho 42, na jumla ya maneno 21.",
+        "Kannst du die wichtigsten Eigenschaften und Funktionen des NMDA-Rezeptors beschreiben?",
     ]
     model.generate.remote(questions)
