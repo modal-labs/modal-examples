@@ -45,7 +45,7 @@ frontend_path = Path(__file__).parent / "frontend"
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
-@modal.asgi_app(custom_domains=["potatoes.ai"])
+@modal.asgi_app()
 def app():
     import fastapi.staticfiles
     from fastapi import FastAPI
