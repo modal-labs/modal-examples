@@ -20,7 +20,7 @@
 
 import os
 
-from modal import Image, Secret, Stub, method
+from modal import Image, Secret, Stub, enter, method
 
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
@@ -82,14 +82,15 @@ stub = Stub("example-vllm-inference", image=image)
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `__enter__` method.
+# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
 # This enables us to load the model into memory just once every time a container starts up, and keep it cached
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
 @stub.cls(gpu="A100", secrets=[Secret.from_name("huggingface-secret")])
 class Model:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         from vllm import LLM
 
         # Load the model. Tip: MPT models may require `trust_remote_code=true`.

@@ -17,7 +17,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Stub, gpu, method, web_endpoint
+from modal import Image, Stub, enter, gpu, method, web_endpoint
 
 
 # Spec for an image where falcon-40b-instruct is cached locally
@@ -62,7 +62,7 @@ stub = Stub(image=image, name="example-falcon-bnb")
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the __enter__` method.
+# so we use [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
 # Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU](/pricing). We also allow each call 10 mintues to complete,
@@ -78,7 +78,8 @@ stub = Stub(image=image, name="example-falcon-bnb")
     container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
 )
 class Falcon40B_4bit:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         import torch
         from transformers import (
             AutoModelForCausalLM,

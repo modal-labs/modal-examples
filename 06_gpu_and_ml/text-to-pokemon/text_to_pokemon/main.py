@@ -9,7 +9,7 @@ import time
 import urllib.request
 from datetime import timedelta
 
-from modal import Mount, asgi_app, method
+from modal import Mount, asgi_app, enter, method
 
 from . import config, inpaint, ops, pokemon_naming
 from .config import stub, volume
@@ -65,7 +65,8 @@ def image_to_byte_array(image) -> bytes:
     gpu="A10G", network_file_systems={config.CACHE_DIR: volume}, keep_warm=1
 )
 class Model:
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         import threading
 
         if not pokemon_naming.rnn_names_output_path.exists():

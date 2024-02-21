@@ -15,7 +15,7 @@
 import subprocess
 from pathlib import Path
 
-from modal import Image, Mount, Stub, asgi_app, gpu, method
+from modal import Image, Mount, Stub, asgi_app, enter, exit, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -83,7 +83,7 @@ stub = Stub("example-tgi-mixtral")
 #
 # The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions).
 # The class syntax is a special representation for a Modal function which splits logic into two parts:
-# 1. the `__enter__` method, which runs once per container when it starts up, and
+# 1. the `@enter()` function, which runs once per container when it starts up, and
 # 2. the `@method()` function, which runs per inference request.
 #
 # This means the model is loaded into the GPUs, and the backend for TGI is launched just once when each
@@ -106,7 +106,8 @@ stub = Stub("example-tgi-mixtral")
     image=tgi_image,
 )
 class Model:
-    def __enter__(self):
+    @enter()
+    def start_server(self):
         import socket
         import time
 
@@ -131,7 +132,8 @@ class Model:
                     raise RuntimeError(f"launcher exited with code {retcode}")
                 time.sleep(1.0)
 
-    def __exit__(self, _exc_type, _exc_value, _traceback):
+    @exit()
+    def terminate_server(self, exc_type, exc_value, traceback):
         self.launcher.terminate()
 
     @method()
