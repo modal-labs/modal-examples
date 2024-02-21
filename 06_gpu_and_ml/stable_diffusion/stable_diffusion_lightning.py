@@ -1,5 +1,6 @@
-import modal
 from pathlib import Path
+
+import modal
 
 stub = modal.Stub("sd-demo")
 
@@ -11,11 +12,11 @@ ckpt = "sdxl_lightning_4step_unet.pth" # Use the correct ckpt for your step sett
 
 
 with image.imports():
-    import torch
-    from diffusers import StableDiffusionXLPipeline, EulerDiscreteScheduler
-    from huggingface_hub import hf_hub_download
-
     import io
+
+    import torch
+    from diffusers import EulerDiscreteScheduler, StableDiffusionXLPipeline
+    from huggingface_hub import hf_hub_download
 
 
 @stub.cls(image=image, gpu="a100")
