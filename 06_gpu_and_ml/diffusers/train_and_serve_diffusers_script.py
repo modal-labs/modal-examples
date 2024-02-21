@@ -139,6 +139,7 @@ from modal import (
     Stub,
     Volume,
     asgi_app,
+    gpu,
     method,
 )
 
@@ -147,27 +148,27 @@ GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
 image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
-        "accelerate==0.19",
-        "datasets~=2.13",
+        "accelerate~=0.19.0",
+        "datasets~=2.17.1",
+        "diffusers~=0.12.0",
         "ftfy~=6.1.1",
-        "gradio~=3.10",
+        "gradio~=3.50.2",
         "smart_open~=6.4.0",
         "transformers==4.26.0",
         "safetensors==0.2.8",
-        "torch~=2.1.0",
-        "torchvision~=0.16.0",
-        "triton~=2.1.0",
+        "torch~=2.2.0",
+        "torchvision",
+        "triton~=2.2.0",
+        "xformers==0.0.25.dev746",
+        pre=True
     )
-    .pip_install("xformers", pre=True)
     .apt_install("git")
     # Perform a shallow fetch of just the target `diffusers` commit, checking out
-    # the commit in the container's current working directory, /root. Then install
-    # the `diffusers` package.
+    # the commit in the container's current working directory, /root.
     .run_commands(
         "cd /root && git init .",
         "cd /root && git remote add origin https://github.com/huggingface/diffusers",
         f"cd /root && git fetch --depth=1 origin {GIT_SHA} && git checkout {GIT_SHA}",
-        "cd /root && pip install -e .",
     )
 )
 
@@ -179,8 +180,8 @@ web_app = FastAPI()
 stub = Stub(name="example-diffusers-app")
 
 MODEL_DIR = Path("/model")
-stub.training_data_volume = Volume.persisted("training-data-volume")
-stub.model_volume = Volume.persisted("output-model-volume")
+stub.training_data_volume = Volume.persisted("diffusers-training-data-volume")
+stub.model_volume = Volume.persisted("diffusers-model-volume")
 
 VOLUME_CONFIG = {
     "/training_data": stub.training_data_volume,
@@ -205,17 +206,17 @@ class TrainConfig:
 
     # Hyperparameters/constants from some of the Diffusers examples
     # You should modify these to match the hyperparameters of the script you are using.
-    resolution: int = 512
-    train_batch_size: int = 1
-    gradient_accumulation_steps: int = 4
-    learning_rate: float = 1e-05
-    lr_scheduler: str = "constant"
-    lr_warmup_steps: int = 0
-    max_train_steps: int = 100
-    checkpointing_steps: int = 2000
-    mixed_precision: str = "fp16"
-    caption_column: str = "text"
-    max_grad_norm: int = 1
+    mixed_precision: str = "fp16"  # set the precision of floats during training, fp16 or less needs to be mixed with fp32 under the hood
+    resolution: int = 512 # how big should the generated images be?
+    max_train_steps: int = 25  # number of times to apply a gradient update during training
+    checkpointing_steps: int = 2000  # number of steps between model checkpoints, for resuming training
+    train_batch_size: int = 64 # how many images to process at once, limited by GPU VRAM
+    gradient_accumulation_steps: int = 1  # how many batches to process before updating the model, stabilizes training with large batch sizes
+    learning_rate: float = 4e-05  # scaling factor on gradient updates, make this proportional to the batch size * accumulation steps
+    lr_scheduler: str = "constant"  # dynamic schedule for changes to the base learning_rate
+    lr_warmup_steps: int = 0  # for non-constant lr schedules, how many steps to spend increasing the learning_rate from a small initial value
+    max_grad_norm: int = 1  # value above which to clip gradients, stabilizes training
+    caption_column: str = "text"  # name of the column in the dataset that contains the captions of the images
     validation_prompt: str = "an icon of a dragon creature"
 
 
@@ -259,7 +260,7 @@ class AppConfig:
 # - `secrets` - the Modal secrets that you want to mount to the Modal container. In this case, we are mounting the HuggingFace API token secret.
 @stub.function(
     image=image,
-    gpu="A100",  # finetuning is VRAM hungry, so this should be an A100
+    gpu=gpu.A100(size="80GB"),  # finetuning is VRAM hungry, so this should be an A100 or H100
     volumes=VOLUME_CONFIG,
     timeout=3600 * 2,  # multiple hours
     secrets=[Secret.from_name("huggingface-secret")],
@@ -347,7 +348,7 @@ def run():
 
 @stub.cls(
     image=image,
-    gpu="A100",
+    gpu="A10G",  # inference requires less VRAM than training, so we can use a cheaper GPU
     volumes=VOLUME_CONFIG,  # mount the location where your model weights were saved to
 )
 class Model:
@@ -356,7 +357,7 @@ class Model:
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
         # Reload the modal.Volume to ensure the latest state is accessible.
-        stub.volume.reload()
+        stub.model_volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
@@ -406,15 +407,15 @@ def fastapi_app():
 
     example_prompts = [
         f"{HCON_prefix} a movie ticket",
-        f"{HCON_prefix} barack obama",
+        f"{HCON_prefix} Barack Obama",
         f"{HCON_prefix} a castle",
-        f"{HCON_prefix} a german shepherd",
+        f"{HCON_prefix} a German Shepherd",
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
-    modal_example_url = f"{modal_docs_url}/ex/diffusers"
+    modal_example_url = f"{modal_docs_url}/examples/train_and_serve_diffusers_script"
 
-    description = f"""Describe a concept that you would like drawn as a Heroicon icon. Try the examples below for inspiration.
+    description = f"""Describe a concept that you would like drawn as a [Heroicon](https://heroicons.com/). Try the examples below for inspiration.
 
 ### Learn how to make your own [here]({modal_example_url}).
     """
