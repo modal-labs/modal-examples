@@ -45,7 +45,7 @@ image = (
         "einops==0.6.1",
         "hf-transfer==0.1.5",
         "huggingface_hub==0.14.1",
-        "transformers==4.31.0"
+        "transformers==4.31.0",
     )
     # Use huggingface's hi-perf hf-transfer library to download this large model.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})

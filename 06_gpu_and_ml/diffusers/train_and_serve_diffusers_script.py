@@ -160,7 +160,7 @@ image = (
         "torchvision",
         "triton~=2.2.0",
         "xformers==0.0.25.dev746",
-        pre=True
+        pre=True,
     )
     .apt_install("git")
     # Perform a shallow fetch of just the target `diffusers` commit, checking out
@@ -207,15 +207,25 @@ class TrainConfig:
     # Hyperparameters/constants from some of the Diffusers examples
     # You should modify these to match the hyperparameters of the script you are using.
     mixed_precision: str = "fp16"  # set the precision of floats during training, fp16 or less needs to be mixed with fp32 under the hood
-    resolution: int = 512 # how big should the generated images be?
-    max_train_steps: int = 25  # number of times to apply a gradient update during training
-    checkpointing_steps: int = 2000  # number of steps between model checkpoints, for resuming training
-    train_batch_size: int = 64 # how many images to process at once, limited by GPU VRAM
+    resolution: int = 512  # how big should the generated images be?
+    max_train_steps: int = (
+        25  # number of times to apply a gradient update during training
+    )
+    checkpointing_steps: int = (
+        2000  # number of steps between model checkpoints, for resuming training
+    )
+    train_batch_size: int = (
+        64  # how many images to process at once, limited by GPU VRAM
+    )
     gradient_accumulation_steps: int = 1  # how many batches to process before updating the model, stabilizes training with large batch sizes
     learning_rate: float = 4e-05  # scaling factor on gradient updates, make this proportional to the batch size * accumulation steps
-    lr_scheduler: str = "constant"  # dynamic schedule for changes to the base learning_rate
+    lr_scheduler: str = (
+        "constant"  # dynamic schedule for changes to the base learning_rate
+    )
     lr_warmup_steps: int = 0  # for non-constant lr schedules, how many steps to spend increasing the learning_rate from a small initial value
-    max_grad_norm: int = 1  # value above which to clip gradients, stabilizes training
+    max_grad_norm: int = (
+        1  # value above which to clip gradients, stabilizes training
+    )
     caption_column: str = "text"  # name of the column in the dataset that contains the captions of the images
     validation_prompt: str = "an icon of a dragon creature"
 
@@ -260,7 +270,9 @@ class AppConfig:
 # - `secrets` - the Modal secrets that you want to mount to the Modal container. In this case, we are mounting the HuggingFace API token secret.
 @stub.function(
     image=image,
-    gpu=gpu.A100(size="80GB"),  # finetuning is VRAM hungry, so this should be an A100 or H100
+    gpu=gpu.A100(
+        size="80GB"
+    ),  # finetuning is VRAM hungry, so this should be an A100 or H100
     volumes=VOLUME_CONFIG,
     timeout=3600 * 2,  # multiple hours
     secrets=[Secret.from_name("huggingface-secret")],
@@ -413,7 +425,9 @@ def fastapi_app():
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
-    modal_example_url = f"{modal_docs_url}/examples/train_and_serve_diffusers_script"
+    modal_example_url = (
+        f"{modal_docs_url}/examples/train_and_serve_diffusers_script"
+    )
 
     description = f"""Describe a concept that you would like drawn as a [Heroicon](https://heroicons.com/). Try the examples below for inspiration.
 
