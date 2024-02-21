@@ -4,11 +4,13 @@ import modal
 
 stub = modal.Stub("sd-demo")
 
-image = modal.Image.debian_slim().pip_install("diffusers", "transformers", "accelerate")
+image = modal.Image.debian_slim().pip_install(
+    "diffusers", "transformers", "accelerate"
+)
 
 base = "stabilityai/stable-diffusion-xl-base-1.0"
 repo = "ByteDance/SDXL-Lightning"
-ckpt = "sdxl_lightning_4step_unet.pth" # Use the correct ckpt for your step setting!
+ckpt = "sdxl_lightning_4step_unet.pth"  # Use the correct ckpt for your step setting!
 
 
 with image.imports():
@@ -24,23 +26,33 @@ class Model:
     @modal.build()
     @modal.enter()
     def load_weights(self):
-        self.pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=torch.float16, variant="fp16").to("cuda")
-        self.pipe.unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location="cuda"))
-        self.pipe.scheduler = EulerDiscreteScheduler.from_config(self.pipe.scheduler.config, timestep_spacing="trailing")
+        self.pipe = StableDiffusionXLPipeline.from_pretrained(
+            base, torch_dtype=torch.float16, variant="fp16"
+        ).to("cuda")
+        self.pipe.unet.load_state_dict(
+            torch.load(hf_hub_download(repo, ckpt), map_location="cuda")
+        )
+        self.pipe.scheduler = EulerDiscreteScheduler.from_config(
+            self.pipe.scheduler.config, timestep_spacing="trailing"
+        )
 
     @modal.method()
     def generate(
         self,
         prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
     ):
-        image = self.pipe(prompt, num_inference_steps=4, guidance_scale=0).images[0]
+        image = self.pipe(
+            prompt, num_inference_steps=4, guidance_scale=0
+        ).images[0]
 
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG")
 
         return buffer.getvalue()
 
+
 frontend_path = Path(__file__).parent / "frontend"
+
 
 @stub.function(
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
