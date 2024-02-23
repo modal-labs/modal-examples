@@ -166,7 +166,7 @@ class Model:
         print("Webserver ready!")
 
     @exit()
-    def terminate_server(self, exc_type, exc_value, traceback):
+    def terminate_server(self):
         self.launcher.terminate()
 
     @method()

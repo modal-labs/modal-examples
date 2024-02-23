@@ -137,7 +137,7 @@ class TextEmbeddingsInference:
         self.client = AsyncClient(base_url="http://127.0.0.1:8000", timeout=30)
 
     @exit()
-    def terminate_connection(self, exc_type, exc_value, traceback):
+    def terminate_connection(self):
         self.process.terminate()
 
     async def _embed(self, chunk_batch):
