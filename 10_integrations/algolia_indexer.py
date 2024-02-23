@@ -18,7 +18,7 @@ import subprocess
 
 from modal import Image, Secret, Stub, web_endpoint
 
-# Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#using-existing-docker-hub-images),
+# Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#use-an-existing-container-image-with-from_registry),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.8 and symlink that as the `python` executable instead.
