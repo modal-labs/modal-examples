@@ -184,5 +184,5 @@ def main():
 # Every container downloads the model when it starts, which is a bit inefficient.
 # In order to improve this, what you could do is store the model in the image that
 # backs each container.
-# See [`Image.run_function`](/docs/guide/custom-container#running-a-function-as-a-build-step-beta).
+# See [`Image.run_function`](/docs/guide/custom-container#run-a-modal-function-during-your-build-with-run_function-beta).
 #

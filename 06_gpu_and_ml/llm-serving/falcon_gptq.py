@@ -34,7 +34,7 @@ def download_model():
 
 # Now, we define our image. We'll use the `debian-slim` base image, and install the dependencies we need
 # using [`pip_install`](/docs/reference/modal.Image#pip_install). At the end, we'll use
-# [`run_function`](/docs/guide/custom-container#running-a-function-as-a-build-step-beta) to run the
+# [`run_function`](/docs/guide/custom-container#run-a-modal-function-during-your-build-with-run_function-beta) to run the
 # function defined above as part of the image build.
 
 image = (
