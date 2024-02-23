@@ -133,7 +133,7 @@ class Model:
                 time.sleep(1.0)
 
     @exit()
-    def terminate_server(self, exc_type, exc_value, traceback):
+    def terminate_server(self):
         self.launcher.terminate()
 
     @method()

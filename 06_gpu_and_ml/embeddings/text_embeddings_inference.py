@@ -99,7 +99,7 @@ class TextEmbeddingsInference:
         self.client = AsyncClient(base_url="http://127.0.0.1:8000")
 
     @exit()
-    def teardown_server(self, exc_type, exc_value, traceback):
+    def teardown_server(self):
         self.process.terminate()
 
     @method()
