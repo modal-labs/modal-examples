@@ -6,9 +6,11 @@
 #
 # We'll run the [Gemma 7B Instruct](https://huggingface.co/google/gemma-7b-it) large language model.
 # Gemma is the weights-available version of Google's Gemini model series.
-# The "7B" refers to the number of parameters (floating point numbers used to control inference)
+#
+# The "7B" in the name refers to the number of parameters (floating point numbers used to control inference)
 # in the model. Applying those 7,000,000,000 numbers onto an input is a lot of work,
-# so we'll use a GPU to speed up the process.
+# so we'll use a GPU to speed up the process -- specifically, a top-of-the-line [NVIDIA H100](/blog/introducing-h100).
+#
 # "Instruct" means that this version of Gemma is not simply a statistical model of language,
 # but has been fine-tuned to follow instructions -- like ChatGPT or Claude,
 # it is a model of an assistant that can understand and follow instructions.
@@ -66,11 +68,10 @@ def download_model_to_folder():
 
 
 # ### Image definition
-# We’ll start from an NVIDIA Docker Hub image and install `vLLM`.
-# Support for the Gemma series is only available in the bleeding edge version,
-# so we need to install from source.
+# We’ll start from a Docker Hub image by NVIDIA and install `vLLM`.
 # Then we’ll use `run_function` to execute `download_model_to_folder`
-# and save the results to the container image.
+# and save the resulting files to the container image -- that way we don't need
+# to redownload the weights every time we change the server's code or start up more instances of the server.
 image = (
     Image.from_registry(
         "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
@@ -159,7 +160,10 @@ class Model:
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
+# sequentially for a list of inputs. Run it by executing the command `modal run vllm_inference.py`.
+#
+# The examples below are meant to put the model through its paces, with a variety of questions and prompts.
+# We also calculate the throughput and latency we achieve.
 @stub.local_entrypoint()
 def main():
     model = Model()

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import modal
 
-stub = modal.Stub("sd-demo")
+stub = modal.Stub("stable-diffusion-xl-lightning")
 
 image = modal.Image.debian_slim().pip_install(
     "diffusers", "transformers", "accelerate"
