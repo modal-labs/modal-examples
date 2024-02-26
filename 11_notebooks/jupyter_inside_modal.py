@@ -1,11 +1,15 @@
 # ---
 # args: ["--timeout", 10]
 # ---
+
+# ## Overview
 #
-# Quick snippet to connect to a Jupyter notebook server running inside a Modal container,
+# Quick snippet showing how to connect to a Jupyter notebook server running inside a Modal container,
 # especially useful for exploring the contents of Modal network file systems.
 # This uses [Modal Tunnels](https://modal.com/docs/guide/tunnels#tunnels-beta)
 # to create a tunnel between the running Jupyter instance and the internet.
+#
+# If you want to your Jupyter notebook to run _locally_ and execute remote Modal Functions in certain cells, see the `basic.ipynb` example :)
 
 import os
 import subprocess
