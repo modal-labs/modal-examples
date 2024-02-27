@@ -24,9 +24,9 @@ from modal import Image, Mount, Secret, Stub, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(memory=80, count=1)
-MODEL_ID = "tiiuae/falcon-7b-instruct"
-REVISION = "main"
+GPU_CONFIG = gpu.A100(memory=80, count=2)
+MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
+REVISION = "e1ce257bd76895e0864f3b4d6c7ed3c4cdec93e2"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -84,7 +84,9 @@ def download_model():
 stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.0.3")
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4", add_python="3.10"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model, secrets=[Secret.from_name("huggingface-secret")]
@@ -125,37 +127,9 @@ class Model:
     @enter()
     def start_server(self):
         import socket
-        import subprocess
         import time
 
-        from peft import PeftConfig, PeftModel
         from text_generation import AsyncClient
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        peft_model_id = "daios/daios-demo-courage"
-        config = PeftConfig.from_pretrained(peft_model_id)
-
-        print("config.base_model_name_or_path", config.base_model_name_or_path)
-        model = AutoModelForCausalLM.from_pretrained(
-            config.base_model_name_or_path,
-            return_dict=True,
-            # load_in_8bit=True,
-            device_map={"": 0},
-            trust_remote_code=True,
-        )
-        tokenizer = AutoTokenizer.from_pretrained(
-            config.base_model_name_or_path
-        )
-        tokenizer.pad_token = tokenizer.eos_token
-
-        # add in adapter
-        # model.load_adapter(peft_model_id)
-        model = PeftModel.from_pretrained(model, peft_model_id)
-        print("model_loaded")
-
-        self.tokenizer = tokenizer
-        self.model = model
-        self.device = "cuda"
 
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS,
@@ -198,13 +172,7 @@ class Model:
     @method()
     async def generate(self, question: str):
         prompt = self.template.format(system="", user=question)
-        result = await self.client.generate(
-            prompt,
-            max_new_tokens=1024,
-            temperature=0.7,
-            top_p=0.7,
-            do_sample=True,
-        )
+        result = await self.client.generate(prompt, max_new_tokens=1024)
 
         return result.generated_text
 
@@ -213,11 +181,7 @@ class Model:
         prompt = self.template.format(system="", user=question)
 
         async for response in self.client.generate_stream(
-            prompt,
-            max_new_tokens=1024,
-            temperature=0.7,
-            top_p=0.7,
-            do_sample=True,
+            prompt, max_new_tokens=1024
         ):
             if not response.token.special:
                 yield response.token.text
@@ -229,7 +193,7 @@ class Model:
 @stub.local_entrypoint()
 def main():
     print(
-        Model().generate_stream.remote(
+        Model().generate.remote(
             "Implement a Python function to compute the Fibonacci numbers."
         )
     )
@@ -242,7 +206,7 @@ def main():
 #
 # You can try our deployment [here](https://modal-labs--tgi-app.modal.run).
 
-frontend_path = Path(__file__).parent.parent / "llm-frontend"
+frontend_path = Path(__file__).parent / "llm-frontend"
 
 
 @stub.function(
@@ -251,7 +215,7 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
     allow_concurrent_inputs=10,
     timeout=60 * 10,
 )
-@asgi_app(label="ren-andrew-brozek-tgi-app")
+@asgi_app(label="tgi-app")
 def app():
     import json
 
