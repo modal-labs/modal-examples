@@ -206,7 +206,7 @@ def main():
 #
 # You can try our deployment [here](https://modal-labs--tgi-app.modal.run).
 
-frontend_path = Path(__file__).parent / "llm-frontend"
+frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @stub.function(
