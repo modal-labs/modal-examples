@@ -196,7 +196,7 @@ from pathlib import Path
 
 from modal import Mount, asgi_app
 
-frontend_path = Path(__file__).parent / "llm-frontend"
+frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @stub.function(
