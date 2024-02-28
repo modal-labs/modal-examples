@@ -88,6 +88,7 @@ def app():
         html = template.render(
             inference_url=Model.inference.web_url,
             model_name="SDXL Lightning",
+            default_prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
         )
         f.write(html)
 
