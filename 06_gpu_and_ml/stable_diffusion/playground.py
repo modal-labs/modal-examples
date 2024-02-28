@@ -81,6 +81,7 @@ def app():
         html = template.render(
             inference_url=Model.inference.web_url,
             model_name="Playground 2.5",
+            default_prompt="Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
         )
         f.write(html)
 
