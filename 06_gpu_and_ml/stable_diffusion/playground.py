@@ -21,6 +21,7 @@ with image.imports():
 
     import torch
     from diffusers import DiffusionPipeline
+    from fastapi import Response
 
 
 @stub.cls(image=image, gpu="a100")
@@ -38,8 +39,8 @@ class Model:
         # from diffusers import EDMDPMSolverMultistepScheduler
         # pipe.scheduler = EDMDPMSolverMultistepScheduler()
 
-    @modal.method()
-    def generate(
+    @modal.web_endpoint()
+    def inference(
         self,
         prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
     ):
@@ -50,13 +51,16 @@ class Model:
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG")
 
-        return buffer.getvalue()
+        return Response(buffer.getvalue(), media_type="image/jpeg")
 
 
 frontend_path = Path(__file__).parent / "frontend"
 
+web_image = modal.Image.debian_slim().pip_install("jinja2")
+
 
 @stub.function(
+    image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
@@ -64,15 +68,21 @@ frontend_path = Path(__file__).parent / "frontend"
 def app():
     import fastapi.staticfiles
     from fastapi import FastAPI
-    from fastapi.responses import Response
+    from jinja2 import Template
 
     web_app = FastAPI()
 
-    @web_app.get("/infer/{prompt}")
-    async def infer(prompt: str):
-        image_bytes = Model().generate.remote(prompt)
+    with open("/assets/index.html", "r") as f:
+        template_html = f.read()
 
-        return Response(image_bytes, media_type="image/jpeg")
+    template = Template(template_html)
+
+    with open("/assets/index.html", "w") as f:
+        html = template.render(
+            inference_url=Model.inference.web_url,
+            model_name="Playground 2.5",
+        )
+        f.write(html)
 
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
