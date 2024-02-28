@@ -2,7 +2,7 @@
 # cmd: ["modal", "serve", "07_web_endpoints/basic_web.py"]
 # ---
 import modal
-from modal import web_endpoint
+from modal import enter, web_endpoint
 
 stub = modal.Stub(name="example-lifecycle-web")
 
@@ -27,7 +27,8 @@ def hello():
 
 @stub.cls()
 class WebApp:
-    def __enter__(self):
+    @enter()
+    def startup(self):
         print("🏁 Startup up!")
         self.val = "Hello world"
 

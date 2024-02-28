@@ -34,7 +34,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from modal import Image, Mount, Stub, asgi_app, build, method
+from modal import Image, Mount, Stub, asgi_app, build, enter, method
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -65,8 +65,8 @@ image = (
 #
 # The object detection function has a few different features worth mentioning:
 #
-# * There's a container initialization step in the `__enter__` method, which
-#   runs on every container start. This lets us load the model only once per
+# * There's a container initialization step in the method decorated with `@enter()`,
+#   which runs on every container start. This lets us load the model only once per
 #   container, so that it's reused for subsequent function calls.
 # * Above we stored the model in the container image. This lets us download the model only
 #   when the image is (re)built, and not everytime the function is called.
@@ -95,7 +95,8 @@ class ObjectDetection:
     def download_model(self):
         snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
 
-    def __enter__(self):
+    @enter()
+    def load_model(self):
         self.feature_extractor = DetrImageProcessor.from_pretrained(
             model_repo_id,
             cache_dir="/cache",

@@ -19,7 +19,7 @@
 import os
 import time
 
-from modal import Image, Stub, gpu, method
+from modal import Image, Stub, enter, gpu, method
 
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
@@ -75,7 +75,7 @@ stub = Stub("example-vllm-mixtral")
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `__enter__` method.
+# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
 # This enables us to load the model into memory just once every time a container starts up, and keep it cached
 # on the GPU for each subsequent invocation of the function.
 #
@@ -90,7 +90,8 @@ stub = Stub("example-vllm-mixtral")
     image=vllm_image,
 )
 class Model:
-    def __enter__(self):
+    @enter()
+    def start_engine(self):
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
 
@@ -195,7 +196,7 @@ from pathlib import Path
 
 from modal import Mount, asgi_app
 
-frontend_path = Path(__file__).parent / "llm-frontend"
+frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @stub.function(

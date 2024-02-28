@@ -128,7 +128,8 @@ class StabilityLM:
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-    def __enter__(self):
+    @modal.enter()
+    def setup_model(self):
         """
         Container-lifeycle method for model setup.
         """

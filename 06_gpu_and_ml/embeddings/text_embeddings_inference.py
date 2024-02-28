@@ -7,7 +7,7 @@ import socket
 import subprocess
 from pathlib import Path
 
-from modal import Image, Secret, Stub, Volume, gpu, method
+from modal import Image, Secret, Stub, Volume, enter, exit, gpu, method
 
 GPU_CONFIG = gpu.A10G()
 MODEL_ID = "BAAI/bge-base-en-v1.5"
@@ -93,18 +93,19 @@ with tei_image.imports():
     allow_concurrent_inputs=10,
 )
 class TextEmbeddingsInference:
-    def __enter__(self):
+    @enter()
+    def setup_server(self):
         self.process = spawn_server()
         self.client = AsyncClient(base_url="http://127.0.0.1:8000")
 
-    def __exit__(self, _exc_type, _exc_value, _traceback):
+    @exit()
+    def teardown_server(self):
         self.process.terminate()
 
     @method()
     async def embed(self, inputs_with_ids: list[tuple[int, str]]):
         ids, inputs = zip(*inputs_with_ids)
-        resp = self.client.post("/embed", json={"inputs": inputs})
-        resp = await resp
+        resp = await self.client.post("/embed", json={"inputs": inputs})
         resp.raise_for_status()
         outputs = resp.json()
 

@@ -56,8 +56,8 @@ with image.imports():
 
 stub = Stub(name="example-alpaca-lora", image=image)
 
-# The Alpaca-LoRA model is integrated into model as a Python class with an __enter__
-# method to take advantage of Modal's container lifecycle functionality.
+# The Alpaca-LoRA model is integrated as a Python class with a method decorated
+# using `@enter()` to take advantage of Modal's container lifecycle functionality.
 #
 # https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta
 #
@@ -76,7 +76,7 @@ class AlpacaLoRAModel:
         LlamaTokenizer.from_pretrained(base_model)
 
     @enter()
-    def enter(self):
+    def setup_model(self):
         """
         Container-lifeycle method for model setup. Code is taken from
         https://github.com/tloen/alpaca-lora/blob/main/generate.py and minor

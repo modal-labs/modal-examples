@@ -18,7 +18,7 @@
 import io
 from pathlib import Path
 
-from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, method
+from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, web_endpoint
 
 # ## Define a container image
 #
@@ -48,11 +48,12 @@ stub = Stub("stable-diffusion-xl")
 with sdxl_image.imports():
     import torch
     from diffusers import DiffusionPipeline
+    from fastapi import Response
     from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
 #
-# The container lifecycle [`__enter__` function](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
+# The container lifecycle [`@enter` decorator](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta)
 # loads the model at startup. Then, we evaluate it in the `run_inference` function.
 #
 # To avoid excessive cold-starts, we set the idle timeout to 240 seconds, meaning once a GPU has loaded the model it will stay
@@ -103,7 +104,7 @@ class Model:
         # self.base.unet = torch.compile(self.base.unet, mode="reduce-overhead", fullgraph=True)
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
-    @method()
+    @web_endpoint()
     def inference(self, prompt, n_steps=24, high_noise_frac=0.8):
         negative_prompt = "disfigured, ugly, deformed"
         image = self.base(
@@ -122,10 +123,9 @@ class Model:
         ).images[0]
 
         byte_stream = io.BytesIO()
-        image.save(byte_stream, format="PNG")
-        image_bytes = byte_stream.getvalue()
+        image.save(byte_stream, format="JPEG")
 
-        return image_bytes
+        return Response(content=byte_stream.getvalue(), media_type="image/jpeg")
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
@@ -157,8 +157,11 @@ def main(prompt: str):
 
 frontend_path = Path(__file__).parent / "frontend"
 
+web_image = Image.debian_slim().pip_install("jinja2")
+
 
 @stub.function(
+    image=web_image,
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
@@ -166,15 +169,22 @@ frontend_path = Path(__file__).parent / "frontend"
 def app():
     import fastapi.staticfiles
     from fastapi import FastAPI
-    from fastapi.responses import Response
+    from jinja2 import Template
 
     web_app = FastAPI()
 
-    @web_app.get("/infer/{prompt}")
-    async def infer(prompt: str):
-        image_bytes = Model().inference.remote(prompt)
+    with open("/assets/index.html", "r") as f:
+        template_html = f.read()
 
-        return Response(image_bytes, media_type="image/png")
+    template = Template(template_html)
+
+    with open("/assets/index.html", "w") as f:
+        html = template.render(
+            inference_url=Model.inference.web_url,
+            model_name="Stable Diffusion XL",
+            default_prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
+        )
+        f.write(html)
 
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
