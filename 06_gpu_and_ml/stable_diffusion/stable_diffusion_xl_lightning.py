@@ -10,15 +10,21 @@ image = modal.Image.debian_slim().pip_install(
 
 base = "stabilityai/stable-diffusion-xl-base-1.0"
 repo = "ByteDance/SDXL-Lightning"
-ckpt = "sdxl_lightning_4step_unet.pth"  # Use the correct ckpt for your step setting!
+ckpt = "sdxl_lightning_4step_unet.safetensors"
 
 
 with image.imports():
     import io
 
     import torch
-    from diffusers import EulerDiscreteScheduler, StableDiffusionXLPipeline
+    from diffusers import (
+        EulerDiscreteScheduler,
+        StableDiffusionXLPipeline,
+        UNet2DConditionModel,
+    )
+    from fastapi import Response
     from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
 
 
 @stub.cls(image=image, gpu="a100")
@@ -26,18 +32,22 @@ class Model:
     @modal.build()
     @modal.enter()
     def load_weights(self):
-        self.pipe = StableDiffusionXLPipeline.from_pretrained(
-            base, torch_dtype=torch.float16, variant="fp16"
-        ).to("cuda")
-        self.pipe.unet.load_state_dict(
-            torch.load(hf_hub_download(repo, ckpt), map_location="cuda")
+        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(
+            "cuda", torch.float16
         )
+        unet.load_state_dict(
+            load_file(hf_hub_download(repo, ckpt), device="cuda")
+        )
+        self.pipe = StableDiffusionXLPipeline.from_pretrained(
+            base, unet=unet, torch_dtype=torch.float16, variant="fp16"
+        ).to("cuda")
+
         self.pipe.scheduler = EulerDiscreteScheduler.from_config(
             self.pipe.scheduler.config, timestep_spacing="trailing"
         )
 
-    @modal.method()
-    def generate(
+    @modal.web_endpoint()
+    def inference(
         self,
         prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
     ):
@@ -48,13 +58,16 @@ class Model:
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG")
 
-        return buffer.getvalue()
+        return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
 
 frontend_path = Path(__file__).parent / "frontend"
 
+web_image = modal.Image.debian_slim().pip_install("jinja2")
+
 
 @stub.function(
+    image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
@@ -62,15 +75,21 @@ frontend_path = Path(__file__).parent / "frontend"
 def app():
     import fastapi.staticfiles
     from fastapi import FastAPI
-    from fastapi.responses import Response
+    from jinja2 import Template
 
     web_app = FastAPI()
 
-    @web_app.get("/infer/{prompt}")
-    async def infer(prompt: str):
-        image_bytes = Model().generate.remote(prompt)
+    with open("/assets/index.html", "r") as f:
+        template_html = f.read()
 
-        return Response(image_bytes, media_type="image/jpeg")
+    template = Template(template_html)
+
+    with open("/assets/index.html", "w") as f:
+        html = template.render(
+            inference_url=Model.inference.web_url,
+            model_name="SDXL Lightning",
+        )
+        f.write(html)
 
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
