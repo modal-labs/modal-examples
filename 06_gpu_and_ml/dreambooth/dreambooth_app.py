@@ -388,11 +388,11 @@ def fastapi_app():
     async def background():
         return FileResponse("/assets/static-gradient.svg")
 
-    # add a gradio UI around inference
     with open("/assets/index.css") as f:
         css = f.read()
 
     theme = gr.themes.Default(primary_hue="green", secondary_hue="emerald", neutral_hue="neutral")
+    # add a gradio UI around inference
     with gr.Blocks(theme=theme, css=css, title="Pet Dreambooth on Modal") as interface:
         gr.Markdown(
             f"# Dream up images of {instance_phrase}.\n\n{description}",
