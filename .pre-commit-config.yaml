@@ -1,5 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
+    # keep version here in sync with CI/CD
     rev: "v0.3.0"
     hooks:
       - id: ruff
