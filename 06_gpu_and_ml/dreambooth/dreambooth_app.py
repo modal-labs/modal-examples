@@ -15,7 +15,7 @@
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models
 # by using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu#using-a100-gpus-alpha) Modal Functions, [volumes](/docs/guide/volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
+# [GPU-accelerated](https://modal.com/docs/guide/gpu) Modal Functions, [volumes](/docs/guide/volumes) for caching, and [Modal webhooks](https://modal.com/docs/guide/webhooks#webhook).
 #
 # And with some light customization, you can use it to generate images of your pet!
 #
@@ -30,9 +30,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from modal import (
     Image,
     Mount,
+    Secret,
     Stub,
     Volume,
     asgi_app,
@@ -44,23 +46,24 @@ web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
 stub = Stub(name="example-dreambooth-app")
 
-# Commit in `diffusers` to checkout `train_dreambooth.py` from.
-GIT_SHA = "ed616bd8a8740927770eebe017aedb6204c6105f"
+# Commit in `diffusers` to checkout the training script from.
+GIT_SHA = "abd922bd0c43a504e47eca2ed354c3634bd00834"
 
 image = (
     Image.debian_slim(python_version="3.10")
     .pip_install(
-        "accelerate==0.19",
-        "datasets~=2.13",
-        "ftfy~=6.1",
-        "gradio~=3.10",
-        "smart_open~=6.4",
-        "transformers==4.28",
-        "torch~=2.1",
+        "accelerate==0.27.2",
+        "datasets~=2.13.0",
+        "ftfy~=6.1.0",
+        "gradio~=3.50.2",
+        "smart_open~=6.4.0",
+        "transformers~=4.38.1",
+        "torch~=2.2.0",
         "torchvision~=0.16",
-        "triton~=2.1",
+        "triton~=2.2.0",
+        "peft==0.7.0",
+        "wandb==0.16.3"
     )
-    .pip_install("xformers", pre=True)
     .apt_install("git")
     # Perform a shallow fetch of just the target `diffusers` commit, checking out
     # the commit in the container's current working directory, /root. Then install
@@ -73,11 +76,28 @@ image = (
     )
 )
 
+def download_models():
+    import torch
+    from diffusers import AutoencoderKL, DiffusionPipeline
+    from transformers.utils import move_cache
+
+    DiffusionPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        vae=AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16),
+        torch_dtype=torch.float16
+    )
+    move_cache()
+
+# ## TODO: Explain this
+
+image = image.run_function(download_models)
+
+
 # A persisted `modal.Volume` will store model artefacts across Modal app runs.
 # This is crucial as finetuning runs are separate from the Gradio app we run as a webhook.
 
 volume = Volume.persisted("dreambooth-finetuning-volume")
-MODEL_DIR = "/model"
+MODEL_DIR = "/model"  # TODO: loras dir?
 
 # ## Config
 #
@@ -95,6 +115,9 @@ class SharedConfig:
     # That proper noun is usually a member of some class (person, bird),
     # and sharing that information with the model helps it generalize better.
     class_name: str = "Golden Retriever"
+    # identifier for pretrained model on Hugging Face
+    model_name: str = "stabilityai/stable-diffusion-xl-base-1.0"
+    vae_name: str = "madebyollin/sdxl-vae-fp16-fix"
 
 
 @dataclass
@@ -110,18 +133,16 @@ class TrainConfig(SharedConfig):
         Path(__file__).parent / "instance_example_urls.txt"
     )
 
-    # identifier for pretrained model on Hugging Face
-    model_name: str = "runwayml/stable-diffusion-v1-5"
-
     # Hyperparameters/constants from the huggingface training example
-    resolution: int = 512
-    train_batch_size: int = 1
+    resolution: int = 1024
+    train_batch_size: int = 4
     gradient_accumulation_steps: int = 1
-    learning_rate: float = 2e-6
+    learning_rate: float = 1e-4
     lr_scheduler: str = "constant"
     lr_warmup_steps: int = 0
-    max_train_steps: int = 600
+    max_train_steps: int = 100
     checkpointing_steps: int = 1000
+    seed: int = 117
 
 
 @dataclass
@@ -134,7 +155,7 @@ class AppConfig(SharedConfig):
 
 # ## Get finetuning dataset
 #
-# Part of the magic of Dreambooth is that we only need 4-10 images for finetuning.
+# Part of the magic of Dreambooth is that we only need 3-10 images for finetuning.
 # So we can fetch just a few images, stored on consumer platforms like Imgur or Google Drive
 # -- no need for expensive data collection or data engineering.
 
@@ -150,7 +171,7 @@ def load_images(image_urls: list[str]) -> Path:
         with open(url, "rb") as f:
             image = PIL.Image.open(f)
             image.save(img_path / f"{ii}.png")
-    print("Images loaded.")
+    print(f"{ii + 1} images loaded")
 
     return img_path
 
@@ -187,12 +208,12 @@ def load_images(image_urls: list[str]) -> Path:
     gpu="A100",  # fine-tuning is VRAM-heavy and requires an A100 GPU
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
+    secrets=[Secret.from_name("my-wandb-secret")]  # TODO: optional wandb secret
 )
 def train(instance_example_urls):
     import subprocess
 
     from accelerate.utils import write_basic_config
-    from transformers import CLIPTokenizer
 
     # set up TrainConfig
     config = TrainConfig()
@@ -204,15 +225,8 @@ def train(instance_example_urls):
     # set up hugging face accelerate library for fast training
     write_basic_config(mixed_precision="fp16")
 
-    # check whether we can access to model repo
-    try:
-        CLIPTokenizer.from_pretrained(config.model_name, subfolder="tokenizer")
-    except OSError as e:  # handle error raised when license is not accepted
-        license_error_msg = f"Unable to load tokenizer. Access to this model requires acceptance of the license on Hugging Face here: https://huggingface.co/{config.model_name}."
-        raise Exception(license_error_msg) from e
-
     # define the training prompt
-    instance_phrase = f"{config.instance_name} {config.class_name}"
+    instance_phrase = f"{config.instance_name} the {config.class_name}"
     prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
 
     def _exec_subprocess(cmd: list[str]):
@@ -236,12 +250,16 @@ def train(instance_example_urls):
         [
             "accelerate",
             "launch",
-            "examples/dreambooth/train_dreambooth.py",
-            "--train_text_encoder",  # needs at least 16GB of GPU RAM.
+            "examples/dreambooth/train_dreambooth_lora_sdxl.py",
+            # "--train_text_encoder",  # needs at least 16GB of GPU RAM.
+            "--mixed_precision=fp16",
             f"--pretrained_model_name_or_path={config.model_name}",
             f"--instance_data_dir={img_path}",
+            f"--pretrained_vae_model_name_or_path={config.vae_name}",  # required for numerical stability in fp16
             f"--output_dir={MODEL_DIR}",
-            f"--instance_prompt='{prompt}'",
+            f"--instance_prompt={prompt}",
+            f"--validation_prompt={prompt} in space",
+            f"--validation_epochs={config.max_train_steps // 5}",
             f"--resolution={config.resolution}",
             f"--train_batch_size={config.train_batch_size}",
             f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
@@ -250,6 +268,8 @@ def train(instance_example_urls):
             f"--lr_warmup_steps={config.lr_warmup_steps}",
             f"--max_train_steps={config.max_train_steps}",
             f"--checkpointing_steps={config.checkpointing_steps}",
+            f"--seed={config.seed}",
+            "--report_to=wandb",
         ]
     )
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
@@ -268,27 +288,32 @@ def train(instance_example_urls):
 
 @stub.cls(
     image=image,
-    gpu="A100",
+    gpu="A10G",
     volumes={MODEL_DIR: volume},
 )
 class Model:
     @enter()
     def load_model(self):
         import torch
-        from diffusers import DDIMScheduler, StableDiffusionPipeline
+        from diffusers import AutoencoderKL, DiffusionPipeline
+
+        config = TrainConfig()
 
         # Reload the modal.Volume to ensure the latest state is accessible.
         volume.reload()
 
         # set up a hugging face inference pipeline using our model
-        ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
-        pipe = StableDiffusionPipeline.from_pretrained(
-            MODEL_DIR,
-            scheduler=ddim,
-            torch_dtype=torch.float16,
-            safety_checker=None,
+        # dpm = DPMSolverMultistepScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")
+
+        # TODO: load the pretrained models in the container image with run_function
+        pipe = DiffusionPipeline.from_pretrained(
+            config.model_name,
+            vae=AutoencoderKL.from_pretrained(config.vae_name, torch_dtype=torch.float16),
+            # scheduler=dpm,  # TODO: investigate schedulers
+            torch_dtype=torch.float16
         ).to("cuda")
-        pipe.enable_xformers_memory_efficient_attention()
+        pipe.load_lora_weights(MODEL_DIR)
+        # pipe.enable_xformers_memory_efficient_attention()
         self.pipe = pipe
 
     @method()
@@ -329,7 +354,9 @@ def fastapi_app():
     from gradio.routes import mount_gradio_app
 
     # Call to the GPU inference function on Modal.
-    def go(text):
+    def go(text=""):
+        if not text:
+            text = example_prompts[0]
         return Model().inference.remote(text, config)
 
     # set up AppConfig
@@ -346,24 +373,48 @@ def fastapi_app():
     ]
 
     modal_docs_url = "https://modal.com/docs/guide"
-    modal_example_url = f"{modal_docs_url}/ex/dreambooth_app"
+    modal_example_url = f"{modal_docs_url}/examples/dreambooth_app"
 
     description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.
 
-### Learn how to make your own [here]({modal_example_url}).
+### Learn how to make a "Dreambooth" for your own pet [here]({modal_example_url}).
     """
 
+    @web_app.get('/favicon.ico', include_in_schema=False)
+    async def favicon():
+        return FileResponse("/assets/favicon.svg")
+
+    @web_app.get("/assets/static-gradient.svg", include_in_schema=False)
+    async def background():
+        return FileResponse("/assets/static-gradient.svg")
+
     # add a gradio UI around inference
-    interface = gr.Interface(
-        fn=go,
-        inputs="text",
-        outputs=gr.Image(shape=(512, 512)),
-        title=f"Generate images of {instance_phrase}.",
-        description=description,
-        examples=example_prompts,
-        css="/assets/index.css",
-        allow_flagging="never",
-    )
+    with open("/assets/index.css") as f:
+        css = f.read()
+
+    theme = gr.themes.Default(primary_hue="green", secondary_hue="emerald", neutral_hue="neutral")
+    with gr.Blocks(theme=theme, css=css, title="Pet Dreambooth on Modal") as interface:
+        gr.Markdown(
+            f"# Dream up images of {instance_phrase}.\n\n{description}",
+        )
+        with gr.Row():
+            inp = gr.Textbox(
+                label="",
+                placeholder=f"Describe the version of {instance_phrase} you'd like to see",
+                # placeholder=example_prompts[0],
+                lines=10,
+            )
+            out = gr.Image(height=512, width=512, label="", min_width=512, elem_id="output")
+        with gr.Row():
+            btn = gr.Button("Dream", variant="primary", scale=2)
+            btn.click(fn=go, inputs=inp, outputs=out)
+
+            gr.Button("⚡️ Powered by Modal", variant="secondary", link="https://modal.com")
+
+        with gr.Column(variant="compact"):
+            for ii, prompt in enumerate(example_prompts):
+                    btn = gr.Button(prompt, variant="secondary")
+                    btn.click(fn=lambda idx=ii: example_prompts[idx], outputs=inp)
 
     # mount for execution on Modal
     return mount_gradio_app(
