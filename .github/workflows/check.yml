@@ -17,7 +17,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install ruff
+      # keep version here in sync with .pre-commit-config.yaml
+      - run: pip install ruff==0.3.0
 
       - run: ruff check
 
