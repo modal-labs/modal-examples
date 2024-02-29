@@ -65,13 +65,13 @@ def tokenize(text: str) -> set[str]:
 class SpamModel(Protocol):
     """The training and storage interface that all spam-classification models must implement."""
 
-    def train(self, dataset: Dataset) -> tuple[SpamClassifier, TrainMetrics]:
-        ...
+    def train(
+        self, dataset: Dataset
+    ) -> tuple[SpamClassifier, TrainMetrics]: ...
 
     def load(
         self, sha256_digest: str, model_registry_root: pathlib.Path
-    ) -> SpamClassifier:
-        ...
+    ) -> SpamClassifier: ...
 
     def save(
         self,
@@ -79,8 +79,7 @@ class SpamModel(Protocol):
         metrics: TrainMetrics,
         model_registry_root: pathlib.Path,
         git_commit_hash: str,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 def construct_huggingface_dataset(dataset: Dataset, label2id: dict[str, int]):
