@@ -1,19 +1,13 @@
 /* Bit of Modal Labs color scheming for the Gradio.app UI
 
 from https://github.com/modal-labs/modal-examples */
-/* #output {
-  min-width: 512px;
-  max-width: 512px;
-  min-height: 512px;
-  max-height: 512px;
-} */
 
 a {
   text-decoration: inherit !important;
 }
 
 gradio-app {
-  background-image: url(/assets/static-gradient.svg) !important;
+  background-image: url(/assets/background.svg) !important;
   background-repeat: no-repeat !important;
   background-size 100% auto;
   padding-top: 3%;
