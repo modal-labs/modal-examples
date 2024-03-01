@@ -61,7 +61,7 @@ vllm_image = (
         "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
     )
     .pip_install(
-        "vllm==0.2.5",
+        "vllm==0.2.6",
         "huggingface_hub==0.19.4",
         "hf-transfer==0.1.4",
         "torch==2.1.2",
@@ -79,9 +79,7 @@ stub = Stub("example-vllm-mixtral")
 # This enables us to load the model into memory just once every time a container starts up, and keep it cached
 # on the GPU for each subsequent invocation of the function.
 #
-# The `vLLM` library allows the code to remain quite clean. There are, however, some
-# outstanding issues and performance improvements that we patch here, such as multi-GPU setup and
-# suboptimal Ray CPU pinning.
+# The `vLLM` library allows the code to remain quite clean. We do have to patch the multi-GPU setup due to issues with Ray.
 @stub.cls(
     gpu=GPU_CONFIG,
     timeout=60 * 10,
@@ -110,13 +108,6 @@ class Model:
 
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
         self.template = "<s> [INST] {user} [/INST] "
-
-        # Performance improvement from https://github.com/vllm-project/vllm/issues/2073#issuecomment-1853422529
-        if GPU_CONFIG.count > 1:
-            import subprocess
-
-            RAY_CORE_PIN_OVERRIDE = "cpuid=0 ; for pid in $(ps xo '%p %c' | grep ray:: | awk '{print $1;}') ; do taskset -cp $cpuid $pid ; cpuid=$(($cpuid + 1)) ; done"
-            subprocess.call(RAY_CORE_PIN_OVERRIDE, shell=True)
 
     @method()
     async def completion_stream(self, user_question):
