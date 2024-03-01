@@ -41,9 +41,9 @@ from modal import (
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
 stub = Stub(name="example-fastai-wandb-gradio-cifar10-demo")
-image = Image.debian_slim().pip_install(
+image = Image.debian_slim(python_version="3.10").pip_install(
     "fastai~=2.7.9",
-    "gradio~=3.6",
+    "gradio~=3.6.0",
     "httpx~=0.23.0",
     # When using pip PyTorch is not automatically installed by fastai.
     "torch~=1.12.1",
@@ -136,7 +136,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     network_file_systems={str(MODEL_CACHE): volume},
-    secrets=[Secret.from_name("wandb")],
+    secrets=[Secret.from_name("my-wandb-secret")],
     timeout=2700,  # 45 minutes
 )
 def train():
