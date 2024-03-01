@@ -26,7 +26,7 @@ image = (
     .apt_install("ffmpeg", "libsm6", "libxext6")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
-stub = modal.Stub("sdxl-2", image=image)
+stub = modal.Stub("sdxl", image=image)
 
 ## Create a modal class with memory snapshots enabled
 # 
@@ -64,7 +64,6 @@ class SDXL:
     def setup(self):
         self.pipe.to("cuda")
 
-
     @modal.method()
     def run(self) -> str:
         prompt = "blocks made of steel floating in the clouds, 8k, cinematic, glass, Unreal Engine"
@@ -73,7 +72,7 @@ class SDXL:
 
 
 if __name__ == "__main__":
-    sdxl = modal.Cls.lookup("sdxl-2", "SDXL")
+    sdxl = modal.Cls.lookup("sdxl", "SDXL")
 
     start = time.time()
     sdxl().run.remote()
