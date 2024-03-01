@@ -1,16 +1,15 @@
-/* Bit of Modal Labs color scheming for the Gradio.app UI */
-/*  from https://github.com/modal-labs/modal-examples */
-.dark .gr-button-primary {
-  --tw-border-opacity: 1;
-  border-color: rgb(187 255 170 / var(--tw-border-opacity));
-  --tw-gradient-from: rgb(187 255 170 / 0.7);
-  --tw-gradient-to: rgb(187 255 170 / 0);
-  --tw-gradient-stops: rgb(187 255 170), #5eff00;
-  --tw-gradient-to: rgb(187 255 170 / 0.8);
-  --tw-text-opacity: 1;
-  color: rgb(17 17 17 / var(--tw-text-opacity));
+/* Bit of Modal Labs color scheming for the Gradio.app UI
+
+from https://github.com/modal-labs/modal-examples */
+
+a {
+  text-decoration: inherit !important;
 }
 
-.dark .gr-button-primary:hover {
-  opacity: 0.9;
+gradio-app {
+  background-image: url(/assets/background.svg) !important;
+  background-repeat: no-repeat !important;
+  background-size 100% auto;
+  padding-top: 3%;
+  background-color: black;
 }
