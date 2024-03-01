@@ -4,7 +4,7 @@
 # # Run Falcon-40B with bitsandbytes
 #
 # In this example, we download the full-precision weights of the Falcon-40B LLM but load it in 4-bit using
-# Tim Dettmer's [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
+# Tim Dettmers' [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
 # into a single GPU (A100 40GB).
 #
 # Due to the current limitations of the library, the inference speed is a little over 2 tokens/second and due
