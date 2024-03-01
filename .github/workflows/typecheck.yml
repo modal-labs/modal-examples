@@ -1,6 +1,9 @@
 name: Typecheck
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 16 * * *"
+    # Run on main every day at 16:17 UTC
 
 jobs:
   mypy:
