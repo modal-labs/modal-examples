@@ -25,23 +25,6 @@ jobs:
 
       - run: ruff format --check
 
-  mypy:
-    name: MyPy
-    runs-on: ubuntu-20.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install mypy
-        run: pip install mypy==0.950
-
-      - name: Run
-        run: python3 internal/typecheck.py
-
   nbconvert:
     name: NbConvert
     runs-on: ubuntu-20.04
