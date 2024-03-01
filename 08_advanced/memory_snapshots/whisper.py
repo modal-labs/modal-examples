@@ -1,3 +1,9 @@
+# # Memory snapshots for Whisper Tiny
+#
+# This program runs inference using OpenAI's [`whisper-tiny`](https://huggingface.co/openai/whisper-tiny).
+# We improve cold boot times by loading the memory into CPU and creating
+# a memory snapshot, then moving weights to a GPU during startup.
+
 import modal
 
 image = (
@@ -8,11 +14,16 @@ image = (
 stub = modal.Stub("whisper", image=image)
 
 
+## Create a modal class with memory snapshots enabled
+# 
+# `checkpointing_enabled=True` creates a Modal class with memory snapshots enabled.
+# When this is set to `True` only imports are snapshotted. Use it in combination with
+# `@enter(checkpoint=True)` to add load model weights in CPU memory and the snapshot.
+# You can transfer weights to a GPU in `@enter(checkpoint=False)`. All methods decorated
+# with `@enter(checkpoint=True)` are only executed during the snapshotting stage.
+
 @stub.cls(
     gpu=modal.gpu.A10G(),
-    timeout=60 * 10,
-    container_idle_timeout=2,
-    retries=0, 
     checkpointing_enabled=True,
 )
 class Whisper():
