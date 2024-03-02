@@ -16,7 +16,7 @@ from modal import Image, Stub, enter, gpu, method
 # inside our container image.
 #
 # To do this, we have to define a function that loads both the model and tokenizer using
-# [from_pretrained](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+# [`from_pretrained`](https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
 # Since HuggingFace stores this model into a local cache, when Modal snapshots the image after running this function,
 # the model weights will be saved and available for use when the container starts up next time.
 
@@ -37,7 +37,7 @@ def download_models():
 # function defined above as part of the image build.
 
 image = (
-    # Python 3.11+ not yet supported for torch.compile
+    # Python 3.11+ not yet supported for `torch.compile`
     Image.debian_slim(python_version="3.10")
     .pip_install(
         "accelerate~=0.18.0",
@@ -48,7 +48,7 @@ image = (
     .run_function(download_models)
 )
 
-# Let's instantiate and name our [Stub](/docs/guide/apps).
+# Let's instantiate and name our [`Stub`](https://modal.com/docs/guide/apps).
 
 stub = Stub(name="example-open-llama", image=image)
 
@@ -61,7 +61,7 @@ stub = Stub(name="example-open-llama", image=image)
 # Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU with 20 GB of VRAM](/pricing).
 #
-# The rest is just using the [generate](https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationMixin.generate) function
+# The rest is just using the [`generate`](https://huggingface.co/docs/transformers/en/main_classes/text_generation#transformers.GenerationMixin.generate) function
 # from the `transformers` library. Refer to the documentation for more parameters and tuning.
 
 
@@ -115,7 +115,7 @@ class OpenLlamaModel:
 
 
 # ## Run the model
-# Finally, we define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run openllama.py`.
 
 
@@ -139,9 +139,8 @@ def main():
 # ## Next steps
 # The above is a simple example of how to run a basic model. Note that OpenLLaMa has not been fine-tuned on an instruction-following dataset,
 # so the results aren't amazing out of the box. Refer to [DoppelBot, our Slack fine-tuning demo](https://github.com/modal-labs/doppel-bot) for how
-# you could use OpenLLaMa to perform a more useful downstream task.
+# you could use finetuning to make an LLM more useful for downstream tasks.
 #
-# If you're looking for useful responses out-of-the-box like ChatGPT, you could try Vicuna-13B, which is larger and has been instruction-tuned.
-# However, note that this model is not permissively licensed due to the dataset it was trained on. Refer to our [LLM voice chat](/docs/examples/llm-voice-chat)
-# post for how to build a complete voice chat app using Vicuna, or go straight to the [file](https://github.com/modal-labs/quillman/blob/main/src/llm_vicuna.py)
-# if you want to run it by itself.
+# If you're looking for responses more in the style of ChatGPT, you could try [Gemma 7B](https://modal.com/docs/examples/vllm_gemma), which has been trained to follow instructions.
+# However, note that this model is not permissively licensed due to the dataset it was trained on. Refer to our [LLM voice chat](https://modal.com/docs/examples/llm-voice-chat)
+# post for how to build a complete voice chat app using LLMs.

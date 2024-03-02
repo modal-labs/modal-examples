@@ -6,9 +6,9 @@
 # `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) model here, which is an instruct fine-tuned version of Mistral's 7B model best fit for conversation.
+# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) model here, which is fine-tuned version of Mistral's 7B model trained to follow instructions.
 # You can expect 20 second cold starts and well over 100 tokens/second. The larger the batch of prompts, the higher the throughput.
-# For example, with the 60 prompts below, we can produce 19k tokens in 15 seconds, which is around 1.25k tokens/second.
+# For example, with the 64 prompts below, we can produce 15k tokens in less than 7 seconds, a throughput of over 2k tokens/second.
 #
 # To run
 # [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
@@ -20,7 +20,7 @@
 
 import os
 
-from modal import Image, Secret, Stub, enter, method
+from modal import Image, Secret, Stub, enter, gpu, method
 
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
@@ -33,10 +33,6 @@ BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 # advantage of Modal's internal filesystem for faster cold starts.
 #
 # ### Download the weights
-# Make sure you have created a [HuggingFace access token](https://huggingface.co/settings/tokens).
-# To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
-# Now the token will be available via the environment variable named `HF_TOKEN`. Functions that inject this secret will have access to the environment variable.
-#
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
 # Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
@@ -49,18 +45,18 @@ def download_model_to_folder():
     snapshot_download(
         BASE_MODEL,
         local_dir=MODEL_DIR,
-        token=os.environ["HF_TOKEN"],
+        ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
     )
     move_cache()
 
 
 # ### Image definition
-# We’ll start from a recommended Dockerhub image and install `vLLM`.
-# Then we’ll use run_function to run the function defined above to ensure the weights of
+# We’ll start from a recommended Docker Hub image and install `vLLM`.
+# Then we’ll use `run_function` to run the function defined above to ensure the weights of
 # the model are saved within the container image.
 image = (
     Image.from_registry(
-        "nvidia/cuda:12.1.0-base-ubuntu22.04", add_python="3.10"
+        "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
     )
     .pip_install(
         "vllm==0.2.5",
@@ -82,19 +78,31 @@ stub = Stub("example-vllm-inference", image=image)
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
+# The inference function is best represented with Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
 # This enables us to load the model into memory just once every time a container starts up, and keep it cached
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
-@stub.cls(gpu="A100", secrets=[Secret.from_name("huggingface-secret")])
+
+# try out an H100 if you've got a large model or big batches!
+GPU_CONFIG = gpu.A100(count=1)  # 40GB A100 by default
+
+
+@stub.cls(gpu=GPU_CONFIG, secrets=[Secret.from_name("huggingface-secret")])
 class Model:
     @enter()
     def load_model(self):
         from vllm import LLM
 
+        if GPU_CONFIG.count > 1:
+            # Patch issue from https://github.com/vllm-project/vllm/issues/1116
+            import ray
+
+            ray.shutdown()
+            ray.init(num_gpus=GPU_CONFIG.count)
+
         # Load the model. Tip: MPT models may require `trust_remote_code=true`.
-        self.llm = LLM(MODEL_DIR)
+        self.llm = LLM(MODEL_DIR, tensor_parallel_size=GPU_CONFIG.count)
         self.template = """<s>[INST] <<SYS>>
 {system}
 <</SYS>>
@@ -103,6 +111,8 @@ class Model:
 
     @method()
     def generate(self, user_questions):
+        import time
+
         from vllm import SamplingParams
 
         prompts = [
@@ -112,19 +122,38 @@ class Model:
         sampling_params = SamplingParams(
             temperature=0.75,
             top_p=1,
-            max_tokens=800,
+            max_tokens=256,
             presence_penalty=1.15,
         )
+        start = time.monotonic_ns()
         result = self.llm.generate(prompts, sampling_params)
+        duration_s = (time.monotonic_ns() - start) / 1e9
         num_tokens = 0
+
+        COLOR = {
+            "HEADER": "\033[95m",
+            "BLUE": "\033[94m",
+            "GREEN": "\033[92m",
+            "RED": "\033[91m",
+            "ENDC": "\033[0m",
+        }
+
         for output in result:
             num_tokens += len(output.outputs[0].token_ids)
-            print(output.prompt, output.outputs[0].text, "\n\n", sep="")
-        print(f"Generated {num_tokens} tokens")
+            print(
+                f"{COLOR['HEADER']}{COLOR['GREEN']}{output.prompt}",
+                f"\n{COLOR['BLUE']}{output.outputs[0].text}",
+                "\n\n",
+                sep=COLOR["ENDC"],
+            )
+            time.sleep(0.01)
+        print(
+            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
+        )
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
 @stub.local_entrypoint()
 def main():
@@ -177,6 +206,7 @@ def main():
         "In a dystopian future where water is the most valuable commodity, how would society function?",
         "If a scientist discovers immortality, how could this impact society, economy, and the environment?",
         "What could be the potential implications of contact with an advanced alien civilization?",
+        "Describe how you would mediate a conflict between two roommates about doing the dishes using techniques of non-violent communication.",
         # Math
         "What is the product of 9 and 8?",
         "If a train travels 120 kilometers in 2 hours, what is its average speed?",
@@ -195,5 +225,9 @@ def main():
         "What are 'zombie stars' in the context of astronomy?",
         "Who were the 'Dog-Headed Saint' and the 'Lion-Faced Saint' in medieval Christian traditions?",
         "What is the story of the 'Globsters', unidentified organic masses washed up on the shores?",
+        # Multilingual
+        "战国时期最重要的人物是谁?",
+        "Tuende hatua kwa hatua. Hesabu jumla ya mfululizo wa kihesabu wenye neno la kwanza 2, neno la mwisho 42, na jumla ya maneno 21.",
+        "Kannst du die wichtigsten Eigenschaften und Funktionen des NMDA-Rezeptors beschreiben?",
     ]
     model.generate.remote(questions)

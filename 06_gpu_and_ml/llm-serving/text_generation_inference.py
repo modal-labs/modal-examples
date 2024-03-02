@@ -3,10 +3,10 @@
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)
 # with performance advantages over standard text generation pipelines including:
 # - continuous batching, so multiple generations can take place at the same time on a single container
-# - PagedAttention, an optimization that increases throughput.
+# - PagedAttention, which applies memory paging to the attention mechanism's key-value cache, increasing throughput
 #
 # This example deployment, [accessible here](https://modal-labs--tgi-app.modal.run), can serve LLaMA 2 70B with
-# 70 second cold starts, up to 200 tokens/s of throughput and per-token latency of 55ms.
+# 70 second cold starts, up to 200 tokens/s of throughput, and a per-token latency of 55ms.
 
 # ## Setup
 #
@@ -24,7 +24,6 @@ from modal import Image, Mount, Secret, Stub, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(memory=80, count=2)
 MODEL_ID = "meta-llama/Llama-2-70b-chat-hf"
 REVISION = "e1ce257bd76895e0864f3b4d6c7ed3c4cdec93e2"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
@@ -68,16 +67,17 @@ def download_model():
 
 
 # ### Image definition
-# We’ll start from a Dockerhub image recommended by TGI, and override the default `ENTRYPOINT` for
+# We’ll start from a Docker Hub image recommended by TGI, and override the default `ENTRYPOINT` for
 # Modal to run its own which enables seamless serverless deployments.
 #
 # Next we run the download step to pre-populate the image with our model weights.
 #
-# For this step to work on a gated model such as LLaMA 2, the HF_TOKEN environment
-# variable must be set ([reference](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)).
+# For this step to work on a [gated model](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)
+# such as LLaMA 2, the `HF_TOKEN` environment variable must be set.
 #
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens),
-# head to the [secrets page](https://modal.com/secrets) to create a Modal secret.
+# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
+# and accepting the [LLaMA 2 license](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf),
+# head to the [secrets page](https://modal.com/secrets) to share it with Modal
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
@@ -97,7 +97,7 @@ tgi_image = (
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions).
+# The inference function is best represented with Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
 # The class syntax is a special representation for a Modal function which splits logic into two parts:
 # 1. the `@enter()` function, which runs once per container when it starts up, and
 # 2. the `@method()` function, which runs per inference request.
@@ -108,11 +108,14 @@ tgi_image = (
 # container ready.
 #
 # Here, we also
-# - specify the secret so the `HUGGING_FACE_HUB_TOKEN` environment variable is set
+# - specify the secret so the `HUGGING_FACE_HUB_TOKEN` environment variable can be set
 # - specify how many A100s we need per container
 # - specify that each container is allowed to handle up to 10 inputs (i.e. requests) simultaneously
 # - keep idle containers for 10 minutes before spinning down
-# - lift the timeout of each request.
+# - increase the timeout limit
+
+
+GPU_CONFIG = gpu.A100(memory=80, count=2)  # 2 A100s for LLaMA 2 70B
 
 
 @stub.cls(
@@ -188,7 +191,7 @@ class Model:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
+# We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
 @stub.local_entrypoint()
 def main():

@@ -3,7 +3,7 @@
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)
 # with performance advantages over standard text generation pipelines including:
 # - continuous batching, so multiple generations can take place at the same time on a single container
-# - PagedAttention, an optimization that increases throughput.
+# - PagedAttention, which applies memory paging to the attention mechanism's key-value cache, increasing throughput
 #
 # This example deployment, [accessible here](https://modal-labs--tgi-mixtral.modal.run), can serve Mixtral 8x7B on two 80GB A100s, with
 # up to 500 tokens/s of throughput and per-token latency of 78ms.
@@ -38,7 +38,7 @@ LAUNCH_FLAGS = [
 
 # ## Define a container image
 #
-# We want to create a Modal image which has the Huggingface model cache pre-populated.
+# We want to create a Modal image which has the Hugging Face model cache pre-populated.
 # The benefit of this is that the container no longer has to re-download the model from Huggingface -
 # instead, it will take advantage of Modal's internal filesystem for faster cold starts.
 # The 95GB model can be loaded in as little as 70 seconds.
@@ -62,7 +62,7 @@ def download_model():
 
 
 # ### Image definition
-# We’ll start from a Dockerhub image recommended by TGI, and override the default `ENTRYPOINT` for
+# We’ll start from a Docker Hub image recommended by TGI, and override the default `ENTRYPOINT` for
 # Modal to run its own which enables seamless serverless deployments.
 #
 # Next we run the download step to pre-populate the image with our model weights.
@@ -81,7 +81,7 @@ stub = Stub("example-tgi-mixtral")
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](/docs/guide/lifecycle-functions).
+# The inference function is best represented with Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
 # The class syntax is a special representation for a Modal function which splits logic into two parts:
 # 1. the `@enter()` function, which runs once per container when it starts up, and
 # 2. the `@method()` function, which runs per inference request.
@@ -155,7 +155,7 @@ class Model:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
+# We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
 @stub.local_entrypoint()
 def main():
