@@ -151,7 +151,7 @@ image = (
     .pip_install(
         "accelerate~=0.19.0",
         "datasets~=2.17.1",
-        "diffusers~=0.12.0",
+        "diffusers~=0.12.1",
         "ftfy~=6.1.1",
         "gradio~=3.50.2",
         "smart_open~=6.4.0",
@@ -160,8 +160,7 @@ image = (
         "torch~=2.2.0",
         "torchvision",
         "triton~=2.2.0",
-        "xformers==0.0.25.dev746",
-        pre=True,
+        "xformers==0.0.24",
     )
     .apt_install("git")
     # Perform a shallow fetch of just the target `diffusers` commit, checking out
@@ -209,14 +208,12 @@ class TrainConfig:
     # You should modify these to match the hyperparameters of the script you are using.
     mixed_precision: str = "fp16"  # set the precision of floats during training, fp16 or less needs to be mixed with fp32 under the hood
     resolution: int = 512  # how big should the generated images be?
-    max_train_steps: int = (
-        25  # number of times to apply a gradient update during training
-    )
+    max_train_steps: int = 25  # number of times to apply a gradient update during training -- increase for better results on the heroicon dataset
     checkpointing_steps: int = (
         2000  # number of steps between model checkpoints, for resuming training
     )
     train_batch_size: int = (
-        64  # how many images to process at once, limited by GPU VRAM
+        16  # how many images to process at once, limited by GPU VRAM
     )
     gradient_accumulation_steps: int = 1  # how many batches to process before updating the model, stabilizes training with large batch sizes
     learning_rate: float = 4e-05  # scaling factor on gradient updates, make this proportional to the batch size * accumulation steps
@@ -275,11 +272,14 @@ class AppConfig:
         size="80GB"
     ),  # finetuning is VRAM hungry, so this should be an A100 or H100
     volumes=VOLUME_CONFIG,
-    timeout=3600 * 2,  # multiple hours
+    _allow_background_volume_commits=True,  # enables saving of larger files on Modal Volumes
+    timeout=60 * 60 * 2,  # two hours, for longer training jobs
     secrets=[Secret.from_name("huggingface-secret")],
 )
 # ## Define the training function
-# Now, finally, we define the training function itself. This training function does a bunch of preparatory things, but the core of it is the `_exec_subprocess` call to `accelerate launch` that launches the actual Diffusers training script. Depending on which Diffusers script you are using, you will want to modify the script name, and the arguments that are passed to it.
+# Now, finally, we define the training function itself.
+# This training function does a bunch of preparatory things, but the core of the work is in the training script.
+# Depending on which Diffusers script you are using, you will want to modify the script name, and the arguments that are passed to it.
 def train():
     import huggingface_hub
     from accelerate import notebook_launcher
@@ -312,13 +312,12 @@ def train():
     def launch_training():
         sys.argv = [
             "examples/text_to_image/train_text_to_image.py",  # potentially modify
+            f"--mixed_precision={config.mixed_precision}",
             f"--pretrained_model_name_or_path={config.model_name}",
             f"--dataset_name={config.dataset_name}",
             "--use_ema",
             f"--output_dir={MODEL_DIR}",
             f"--resolution={config.resolution}",
-            "--center_crop",
-            "--random_flip",
             f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
             "--gradient_checkpointing",
             f"--train_batch_size={config.train_batch_size}",
