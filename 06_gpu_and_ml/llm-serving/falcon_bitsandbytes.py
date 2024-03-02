@@ -4,14 +4,14 @@
 # # Run Falcon-40B with bitsandbytes
 #
 # In this example, we download the full-precision weights of the Falcon-40B LLM but load it in 4-bit using
-# Tim Dettmer's [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
+# Tim Dettmers' [`bitsandbytes`](https://github.com/TimDettmers/bitsandbytes) library. This enables it to fit
 # into a single GPU (A100 40GB).
 #
 # Due to the current limitations of the library, the inference speed is a little over 2 tokens/second and due
 # to the sheer size of the model, the cold start time on Modal is around 2 minutes.
 #
 # For faster cold start at the expense of inference speed, check out
-# [Running Falcon-40B with AutoGPTQ](/docs/examples/falcon_gptq).
+# [Running Falcon-40B with AutoGPTQ](https://modal.com/docs/examples/falcon_gptq).
 #
 # ## Setup
 #
@@ -43,7 +43,7 @@ image = (
         "bitsandbytes-cuda117==0.26.0.post2",
         "peft==0.6.2",
         "transformers==4.31.0",
-        "accelerate==0.26.2",
+        "accelerate==0.26.1",
         "hf-transfer==0.1.5",
         "torch==2.0.0",
         "torchvision==0.15.1",
@@ -62,15 +62,15 @@ stub = Stub(image=image, name="example-falcon-bnb")
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
+# so we use [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
-# Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
-# to specify that we want to run our function on an [A100 GPU](/pricing). We also allow each call 10 mintues to complete,
+# Within the [@stub.cls](https://modal.com/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
+# to specify that we want to run our function on an [A100 GPU](https://modal.com/docs/guide/gpu). We also allow each call 10 mintues to complete,
 # and request the runner to stay live for 5 minutes after its last request.
 #
 # We load the model in 4-bit using the `bitsandbytes` library.
 #
-# The rest is just using the [pipeline()](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
+# The rest is just using the [`pipeline`](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
 # abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
 @stub.cls(
     gpu=gpu.A100(),  # Use A100s
@@ -157,7 +157,7 @@ class Falcon40B_4bit:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# We define a [`local_entrypoint`](https:modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run -q falcon_bitsandbytes.py`. The `-q` flag
 # enables streaming to work in the terminal output.
 prompt_template = (
