@@ -19,7 +19,7 @@
 
 from modal import Image, Secret, Stub, web_endpoint
 
-image = Image.debian_slim().pip_install("openai==1.8.0")
+image = Image.debian_slim(python_version="3.11").pip_install("openai==1.8.0")
 stub = Stub(
     name="example-chatgpt-stream",
     image=image,
