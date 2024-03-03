@@ -19,7 +19,7 @@
 
 from modal import Image, Secret, Stub, web_endpoint
 
-image = Image.debian_slim().pip_install("openai")
+image = Image.debian_slim().pip_install("openai==1.8.0")
 stub = Stub(
     name="example-chatgpt-stream",
     image=image,
@@ -34,7 +34,6 @@ stub = Stub(
 # regular Python function, which becomes important below.
 
 
-@stub.function()
 def stream_chat(prompt: str):
     import openai
 
@@ -45,6 +44,7 @@ def stream_chat(prompt: str):
         stream=True,
     ):
         content = chunk.choices[0].delta.content
+        print(content)
         if content is not None:
             yield content
 
@@ -69,7 +69,7 @@ def stream_chat(prompt: str):
 def web(prompt: str):
     from fastapi.responses import StreamingResponse
 
-    return StreamingResponse(stream_chat(prompt), media_type="text/html")
+    return StreamingResponse(stream_chat(prompt), media_type="text/event-stream")
 
 
 # ## Try out the web endpoint
