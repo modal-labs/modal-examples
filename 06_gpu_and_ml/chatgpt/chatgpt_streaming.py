@@ -69,7 +69,9 @@ def stream_chat(prompt: str):
 def web(prompt: str):
     from fastapi.responses import StreamingResponse
 
-    return StreamingResponse(stream_chat(prompt), media_type="text/event-stream")
+    return StreamingResponse(
+        stream_chat(prompt), media_type="text/event-stream"
+    )
 
 
 # ## Try out the web endpoint
