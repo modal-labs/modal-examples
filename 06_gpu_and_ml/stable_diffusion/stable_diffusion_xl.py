@@ -203,9 +203,9 @@ def app():
 
     with open("/assets/index.html", "w") as f:
         html = template.render(
-            inference_url=Model.inference.web_url,
+            inference_url=Model.web_inference.web_url,
             model_name="Stable Diffusion XL",
-            default_prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
+            default_prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
         )
         f.write(html)
 
