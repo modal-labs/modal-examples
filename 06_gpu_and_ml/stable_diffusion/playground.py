@@ -1,3 +1,8 @@
+# ---
+# output-directory: "/tmp/playground-2-5"
+# args: ["--prompt", "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe."]
+# ---
+
 from pathlib import Path
 
 import modal
@@ -24,7 +29,7 @@ with image.imports():
     from fastapi import Response
 
 
-@stub.cls(image=image, gpu="a100")
+@stub.cls(image=image, gpu="H100")
 class Model:
     @modal.build()
     @modal.enter()
@@ -39,19 +44,33 @@ class Model:
         # from diffusers import EDMDPMSolverMultistepScheduler
         # pipe.scheduler = EDMDPMSolverMultistepScheduler()
 
-    @modal.web_endpoint()
-    def inference(
-        self,
-        prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
-    ):
+    def _inference(self, prompt, n_steps=24, high_noise_frac=0.8):
         image = self.pipe(
-            prompt, num_inference_steps=50, guidance_scale=3
+            prompt,
+            negative_prompt="disfigured, ugly, deformed",
+            num_inference_steps=50,
+            guidance_scale=3,
         ).images[0]
 
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG")
 
-        return Response(buffer.getvalue(), media_type="image/jpeg")
+        return buffer
+
+    @modal.method()
+    def inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+        return self._inference(
+            prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
+        ).getvalue()
+
+    @modal.web_endpoint()
+    def web_inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+        return Response(
+            content=self._inference(
+                prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
+            ).getvalue(),
+            media_type="image/jpeg",
+        )
 
 
 frontend_path = Path(__file__).parent / "frontend"
@@ -79,9 +98,9 @@ def app():
 
     with open("/assets/index.html", "w") as f:
         html = template.render(
-            inference_url=Model.inference.web_url,
+            inference_url=Model.web_inference.web_url,
             model_name="Playground 2.5",
-            default_prompt="Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
+            default_prompt="Astronaut in the ocean, cold color palette, muted colors, detailed, 8k",
         )
         f.write(html)
 
@@ -90,3 +109,17 @@ def app():
     )
 
     return web_app
+
+
+@stub.local_entrypoint()
+def main(prompt: str):
+    image_bytes = Model().inference.remote(prompt)
+
+    dir = Path("/tmp/playground-2-5")
+    if not dir.exists():
+        dir.mkdir(exist_ok=True, parents=True)
+
+    output_path = dir / "output.png"
+    print(f"Saving it to {output_path}")
+    with open(output_path, "wb") as f:
+        f.write(image_bytes)
