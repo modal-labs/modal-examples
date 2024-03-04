@@ -9,14 +9,16 @@ import modal
 
 stub = modal.Stub("playground-2-5")
 
+DIFFUSERS_GIT_SHA = "2e31a759b5bd8ca2b288b5c61709636a96c4bae9"
+
 image = (
     modal.Image.debian_slim()
     .apt_install("git")
     .pip_install(
-        "git+https://github.com/huggingface/diffusers.git",
-        "transformers",
-        "accelerate",
-        "safetensors",
+        f"git+https://github.com/huggingface/diffusers.git@{DIFFUSERS_GIT_SHA}",
+        "transformers~=4.38.1",
+        "accelerate==0.27.2",
+        "safetensors==0.4.2",
     )
 )
 
