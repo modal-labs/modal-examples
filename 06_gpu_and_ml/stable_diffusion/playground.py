@@ -12,7 +12,7 @@ stub = modal.Stub("playground-2-5")
 DIFFUSERS_GIT_SHA = "2e31a759b5bd8ca2b288b5c61709636a96c4bae9"
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .pip_install(
         f"git+https://github.com/huggingface/diffusers.git@{DIFFUSERS_GIT_SHA}",
