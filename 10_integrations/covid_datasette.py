@@ -42,7 +42,7 @@ datasette_image = (
 # To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To achieve this we use a [`Volume`](/docs/guide/volumes).
 
-volume = Volume.persisted("example-covid-datasette-cache-vol")
+volume = Volume.from_name("example-covid-datasette-cache-vol", create_if_missing=True)
 
 VOLUME_DIR = "/cache-vol"
 REPORTS_DIR = pathlib.Path(VOLUME_DIR, "COVID-19")

@@ -38,7 +38,7 @@ image = Image.debian_slim().pip_install(
 )
 
 stub = Stub(name="example-news-summarizer", image=image)
-output_vol = Volume.persisted("finetune-volume")
+output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
 #

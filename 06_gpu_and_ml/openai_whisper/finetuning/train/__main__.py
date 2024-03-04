@@ -22,8 +22,9 @@ except ModuleNotFoundError:
     )
 
 
-persistent_volume = modal.NetworkFileSystem.persisted(
-    app_config.persistent_vol_name
+persistent_volume = modal.Volume.from_name(
+    app_config.persistent_vol_name,
+    create_if_missing=True,
 )
 image = modal.Image.debian_slim().pip_install_from_requirements(
     "requirements.txt"
@@ -39,7 +40,7 @@ logger = get_logger(__name__)
 
 @stub.function(
     gpu="A10G",
-    network_file_systems={app_config.model_dir: persistent_volume},
+    volumes={app_config.model_dir: persistent_volume},
     # 12hrs
     timeout=12 * 60 * 60,
     # For occasional connection error to 'cdn-lfs.huggingface.co'
@@ -447,6 +448,7 @@ def train(
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
+        persistent_volume.commit()
 
     logger.info("13. Running evaluation")
     results = {}  # type: ignore

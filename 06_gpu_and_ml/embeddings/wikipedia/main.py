@@ -19,8 +19,8 @@ DOCKER_IMAGE = (
 
 ## Dataset-Specific Configuration
 DATASET_NAME = "wikipedia"
-DATASET_READ_VOLUME = Volume.persisted("embedding-wikipedia")
-EMBEDDING_CHECKPOINT_VOLUME = Volume.persisted("checkpoint")
+DATASET_READ_VOLUME = Volume.from_name("embedding-wikipedia", create_if_missing=True)
+EMBEDDING_CHECKPOINT_VOLUME = Volume.from_name("checkpoint", create_if_missing=True)
 DATASET_DIR = "/data"
 CHECKPOINT_DIR = "/checkpoint"
 SAVE_TO_DISK = True

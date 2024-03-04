@@ -20,4 +20,4 @@ image = modal.Image.debian_slim(
 
 stub = modal.Stub(name="example-spam-detect-llm", image=image)
 # Used to store datasets, trained models, model metadata, config.
-volume = modal.Volume.persisted("example-spam-detect-vol")
+volume = modal.Volume.from_name("example-spam-detect-vol", create_if_missing=True)
