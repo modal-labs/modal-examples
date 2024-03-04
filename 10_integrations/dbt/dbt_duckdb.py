@@ -66,7 +66,9 @@ dbt_profiles = modal.Mount.from_local_file(
     local_path=LOCAL_DBT_PROJECT / "profiles.yml",
     remote_path=Path(PROFILES_PATH, "profiles.yml"),
 )
-dbt_target = modal.NetworkFileSystem.from_name("dbt-target", create_if_missing=True)
+dbt_target = modal.NetworkFileSystem.from_name(
+    "dbt-target", create_if_missing=True
+)
 # Create this secret using the "AWS" template at https://modal.com/secrets/create.
 # Be sure that the AWS user you provide credentials for has permission to
 # create S3 buckets and read/write data from them.

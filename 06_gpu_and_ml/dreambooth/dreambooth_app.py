@@ -153,7 +153,9 @@ image = image.run_function(download_models)
 # We'll use one to store the fine-tuned weights we create during training
 # and then load them back in for inference.
 
-volume = Volume.from_name("dreambooth-finetuning-volume", create_if_missing=True)
+volume = Volume.from_name(
+    "dreambooth-finetuning-volume", create_if_missing=True
+)
 MODEL_DIR = "/model"
 
 

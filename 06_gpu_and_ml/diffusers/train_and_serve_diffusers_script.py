@@ -180,8 +180,12 @@ web_app = FastAPI()
 stub = Stub(name="example-diffusers-app")
 
 MODEL_DIR = Path("/model")
-training_data_volume = Volume.from_name("diffusers-training-data-volume", create_if_missing=True)
-model_volume = Volume.from_name("diffusers-model-volume", create_if_missing=True)
+training_data_volume = Volume.from_name(
+    "diffusers-training-data-volume", create_if_missing=True
+)
+model_volume = Volume.from_name(
+    "diffusers-model-volume", create_if_missing=True
+)
 
 VOLUME_CONFIG = {
     "/training_data": training_data_volume,
