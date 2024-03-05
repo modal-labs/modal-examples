@@ -21,13 +21,35 @@
 
 # ## Build image
 #
-#  First, you'll want to build an image, and install the relevant Python dependency, which is just `outlines`.
+#  First, you'll want to build an image and install the relevant Python dependencies:
+# `outlines` and a Hugging Face inference stack.
 
-from modal import Image, Stub
+from modal import Image, Stub, gpu
 
 stub = Stub(name="outlines-app")
 
-outlines_image = Image.debian_slim().pip_install("outlines")
+outlines_image = Image.debian_slim(python_version="3.11").pip_install(
+    "outlines==0.0.34",
+    "transformers==4.38.2",
+    "datasets==2.18.0",
+    "accelerate==0.27.2",
+)
+
+# ## Download the model
+#
+# Next, we download the Mistral-7B model from Hugging Face.
+# We do this as part of the definition of our Modal image so that
+# we don't need to download it every time our inference function is run.
+
+
+def import_model():
+    import outlines
+
+    outlines.models.transformers("mistralai/Mistral-7B-v0.1")
+
+
+outlines_image = outlines_image.run_function(import_model)
+
 
 # ## Define the schema
 
@@ -79,15 +101,19 @@ schema = """{
 # We specify that we want to use the Mistral-7B model, and then ask for a character in the correct schema.
 
 
-@stub.function(image=outlines_image, timeout=60 * 20)
-def generate():
+@stub.function(image=outlines_image, gpu=gpu.A100(memory=80))
+def generate(
+    prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
+):
     import outlines
 
-    model = outlines.models.transformers("mistralai/Mistral-7B-v0.1")
+    model = outlines.models.transformers(
+        "mistralai/Mistral-7B-v0.1", device="cuda"
+    )
 
     generator = outlines.generate.json(model, schema)
     character = generator(
-        "Give me a character description for Alice, a 53-year-old woman with a sword, shield, and a strength of 10."
+        f"Give me a character description. Describe {prompt}."
     )
 
     print(character)
@@ -95,14 +121,14 @@ def generate():
 
 # ## Define the entrypoint
 
-# Finally, we define the entrypoint that will call the function above, and we are done!
+# Finally, we define the entrypoint that will connect our local computer
+# to the functions above, that run on Modal, and we are done!
+#
+# When you run this script with `modal run`, you should see something like this printed out:
+#
+#  `{'name': 'Amiri', 'age': 53, 'armor': 'leather', 'weapon': 'sword', 'strength': 10}`
 
 
 @stub.local_entrypoint()
 def main():
     generate.remote()
-
-
-# When you run this script with `modal run`, you should see something like this printed out:
-
-#  `{'name': 'Alice', 'age': 53, 'armor': 'leather', 'weapon': 'sword', 'strength': 10}`
