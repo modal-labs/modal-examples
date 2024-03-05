@@ -180,12 +180,16 @@ web_app = FastAPI()
 stub = Stub(name="example-diffusers-app")
 
 MODEL_DIR = Path("/model")
-stub.training_data_volume = Volume.persisted("diffusers-training-data-volume")
-stub.model_volume = Volume.persisted("diffusers-model-volume")
+training_data_volume = Volume.from_name(
+    "diffusers-training-data-volume", create_if_missing=True
+)
+model_volume = Volume.from_name(
+    "diffusers-model-volume", create_if_missing=True
+)
 
 VOLUME_CONFIG = {
-    "/training_data": stub.training_data_volume,
-    "/model": stub.model_volume,
+    "/training_data": training_data_volume,
+    "/model": model_volume,
 }
 
 # ## Set up config
@@ -337,7 +341,7 @@ def train():
     # The trained model artefacts have been output to the volume mounted at `MODEL_DIR`.
     # To persist these artefacts for use in future inference function calls, we 'commit' the changes
     # to the volume.
-    stub.model_volume.commit()
+    model_volume.commit()
 
 
 @stub.local_entrypoint()
@@ -370,7 +374,7 @@ class Model:
         from diffusers import DDIMScheduler, StableDiffusionPipeline
 
         # Reload the modal.Volume to ensure the latest state is accessible.
-        stub.model_volume.reload()
+        model_volume.reload()
 
         # set up a hugging face inference pipeline using our model
         ddim = DDIMScheduler.from_pretrained(MODEL_DIR, subfolder="scheduler")

@@ -30,9 +30,9 @@ from fastapi import FastAPI
 from modal import (
     Image,
     Mount,
-    NetworkFileSystem,
     Secret,
     Stub,
+    Volume,
     asgi_app,
     enter,
     method,
@@ -51,10 +51,10 @@ image = Image.debian_slim(python_version="3.10").pip_install(
     "wandb~=0.13.4",
 )
 
-# A persisted network file system will store trained model artefacts across Modal app runs.
+# A persisted volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = NetworkFileSystem.persisted("cifar10-training-vol")
+volume = Volume.from_name("cifar10-training-vol", create_if_missing=True)
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
@@ -135,7 +135,7 @@ def download_dataset():
 @stub.function(
     image=image,
     gpu=USE_GPU,
-    network_file_systems={str(MODEL_CACHE): volume},
+    volumes={str(MODEL_CACHE): volume},
     secrets=[Secret.from_name("my-wandb-secret")],
     timeout=2700,  # 45 minutes
 )
@@ -207,6 +207,7 @@ def train():
         WandbCallback
     )  # Added W&B callback is not compatible with inference.
     learn.export(MODEL_EXPORT_PATH)
+    volume.commit()
 
 
 # ## Trained model plumbing
@@ -220,7 +221,7 @@ def train():
 
 @stub.cls(
     image=image,
-    network_file_systems={str(MODEL_CACHE): volume},
+    volumes={str(MODEL_CACHE): volume},
 )
 class ClassifierModel:
     @enter()
@@ -291,7 +292,7 @@ def create_demo_examples() -> List[str]:
 
 @stub.function(
     image=image,
-    network_file_systems={str(MODEL_CACHE): volume},
+    volumes={str(MODEL_CACHE): volume},
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @asgi_app()

@@ -60,7 +60,7 @@ def main_stub(project_path, project_name, package_name) -> Stub:
         mounts=[kedro_proj_mount] + package_mounts,
     )
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = NetworkFileSystem.persisted(volume_name)
+    data_volume = NetworkFileSystem.from_name(volume_name, create_if_true=True)
 
     stub.function(network_file_systems={"/kedro-storage": data_volume})(
         run_kedro
