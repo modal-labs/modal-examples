@@ -12,11 +12,8 @@ import os
 import pathlib
 import urllib
 import uuid
-from typing import Optional
 
 import modal
-
-from comfy_ui import stub as comfyui_stub
 
 stub = modal.Stub(name="example-comfy-api")
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
@@ -39,14 +36,6 @@ def fetch_image(
         "https://{}/view?{}".format(server_address, url_values)
     ) as response:
         return response.read()
-
-
-def fetch_history(prompt_id: str, server_address: str) -> Optional[dict]:
-    with urllib.request.urlopen(
-        f"https://{server_address}/history/{prompt_id}"
-    ) as response:
-        output = json.loads(response.read())
-    return output[prompt_id].get("outputs") if prompt_id in output else None
 
 
 def run_workflow(
@@ -77,17 +66,27 @@ def run_workflow(
                     break  # Execution is done!
         else:
             continue  # previews are binary data
-    history = fetch_history(prompt_id, server_address)
+
+    # Fetch workflow execution history, which contains references to our completed images.
+    with urllib.request.urlopen(
+        f"https://{server_address}/history/{prompt_id}"
+    ) as response:
+        output = json.loads(response.read())
+    history = output[prompt_id].get("outputs") if prompt_id in output else None
+    if not history:
+        raise RuntimeError(
+            f"Unexpected missing ComfyUI history for {prompt_id}"
+        )
     for node_id in history:
         node_output = history[node_id]
         if "images" in node_output:
             images_output = []
             for image in node_output["images"]:
                 image_data = fetch_image(
-                    image["filename"],
-                    image["subfolder"],
-                    image["type"],
-                    server_address,
+                    filename=image["filename"],
+                    subfolder=image["subfolder"],
+                    folder_type=image["type"],
+                    server_address=server_address,
                 )
                 images_output.append(image_data)
         output_images[node_id] = images_output
@@ -96,14 +95,16 @@ def run_workflow(
 
 
 @stub.function(image=image)
-def query_comfy_via_api(
-    workflow_data: dict, prompt: str, server_address: str, client_id: str
-):
+def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     import websocket
 
     # Modify workflow to use requested prompt.
     workflow_data["2"]["inputs"]["text"] = prompt
+
+    # Make a websocket connection to the ComfyUI server. The server will
+    # will stream workflow execution updates over this websocket.
     ws = websocket.WebSocket()
+    client_id = str(uuid.uuid4())
     ws_address = f"wss://{server_address}/ws?clientId={client_id}"
     print(f"Connecting to websocket at {ws_address} ...")
     ws.connect(ws_address)
@@ -117,12 +118,13 @@ def query_comfy_via_api(
 
 
 @stub.local_entrypoint()
-def main() -> None:
+def main(prompt: str = "bag of wooden blocks") -> None:
     workflow_data = json.loads(comfyui_workflow_data_path.read_text())
-    prompt = "bag of wooden blocks"
 
     # Run the ComfyUI server app and make an API call to it.
     # The ComfyUI server app will shutdown on exit of this context manager.
+    from comfy_ui import stub as comfyui_stub
+
     with comfyui_stub.run(
         show_progress=False,  # hide server app's modal progress logs
         stdout=open(os.devnull, "w"),  # hide server app's application logs
@@ -136,7 +138,6 @@ def main() -> None:
             workflow_data=workflow_data,
             prompt=prompt,
             server_address=server_address,
-            client_id=str(uuid.uuid4()),
         )
 
     for i, img_bytes in enumerate(image_list):
