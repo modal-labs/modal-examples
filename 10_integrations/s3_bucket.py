@@ -43,7 +43,7 @@ with image.imports():
 # The bucket will be mounted in `MOUNT_PATH`. 
 @stub.function(
     volumes={
-        MOUNT_PATH: modal.S3Mount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
             secret=modal.Secret.lookup("s3-bucket-secret"),
         )
@@ -76,7 +76,7 @@ def download_data(year:int, month:int) -> str:
 # This will allow for parallelism using Modal's `map`.
 @stub.function(
     volumes={
-        MOUNT_PATH: modal.S3Mount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
             secret=modal.Secret.lookup("s3-bucket-secret"),
         )
