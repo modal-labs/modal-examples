@@ -98,7 +98,7 @@ schema = """{
 # We use the `@stub.function` decorator to tell Modal to run this function on the stub we defined above.
 # Note that we import `outlines` from inside the Modal function. This is because the `outlines` package exists in the container, but not necessarily locally.
 
-# We specify that we want to use the Mistral-7B model, and then ask for a character in the correct schema.
+# We specify that we want to use the Mistral-7B model, and then ask for a character, and we'll receive structured data with the right schema.
 
 
 @stub.function(image=outlines_image, gpu=gpu.A100(memory=80))
@@ -130,5 +130,7 @@ def generate(
 
 
 @stub.local_entrypoint()
-def main():
-    generate.remote()
+def main(
+    prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
+):
+    generate.remote(prompt)
