@@ -1,20 +1,22 @@
 # # Mount S3 buckets
 #
-# This example shows how to mount an S3 bucket in a Modal app. We will both
-# write and read from that bucket in parallel using `map`.
+# This example shows how to mount an S3 bucket in a Modal app with [`CloudBucketMount`](/docs/reference/modal.CloudBucketMount).
+# We will both write and read from that bucket in parallel using [`map`](/docs/reference/modal.Function#map) and [`starmap`](/docs/reference/modal.Function#starmap).
 #
 # ## Basic setup
 #
-# You will need to have a S3 bucket and AWS credentials. Refer to the documentation
-# for detailed IAM permissions your credentials will need.
+# You will need to have a S3 bucket and AWS credentials to run this example. Refer to the documentation
+# for detailed [IAM permissions](/docs/guide/cloud-bucket-mounts#iam-permissions) your credentials will need.
 #
-# You will now need to create a Modal Secret. Navigate to the Secrets tab and
-# click on the AWS card, then fill in the fields with the key and secret created
-# previously. Name the secret `s3-bucket-secret`.
+# After you are done creating a bucket and configuring IAM settings, 
+# you now need to create a [Modal Secret](/docs/guide/secrets). Navigate to the "Secrets" tab and
+# click on the AWS card, then fill in the fields with the AWS key and secret created
+# previously. Name the Secret `s3-bucket-secret`.
 
+from datetime import datetime
 from pathlib import Path
 
-from modal import CloudBucketMount, Secret, Image, Stub,
+from modal import CloudBucketMount, Secret, Image, Stub
 
 image = (
     Image.debian_slim()
@@ -38,12 +40,15 @@ with image.imports():
 
 # ## Download New York City's taxi data
 #
-# NYC makes data about taxi rides publicly available. The city's Taxi & Limousine Commission (TLC)
+# NYC makes data about taxi rides publicly available. The city's [Taxi & Limousine Commission (TLC)](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
 # publishes files in the Parquet format. Files are organized by year and month.
 #
 # We are going to download all available files and store them in an S3 bucket. We do this by
 # mounting a `modal.CloudBucketMount` with the S3 bucket name and its respective credentials.
 # The bucket will be mounted in `MOUNT_PATH`.
+#
+# This function takes two parameters: year and month. This allows us to use Modal's [`starmap`](/docs/reference/modal.Function#starmap)
+# to paralellize this function, downloading files in parallel into our S3 bucket.
 @stub.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
@@ -73,10 +78,10 @@ def download_data(year:int, month:int) -> str:
 
 # ## Analyze data with DuckDB
 #
-# DuckDB is a tool for X. It is fast and [nativelly supports Parquet files](https://duckdb.org/docs/data/parquet/overview.html).
-# We will write a Modal Function that aggregates the number of yellow taxi trips
+# [DuckDB](https://duckdb.org/) is an analytical database with rich support for Parquet files.
+# It is also very fast. We will write a Modal Function that aggregates the number of yellow taxi trips
 # per Parquet file in our S3 bucket (files are organized by year and month combination).
-# This will allow for parallelism using Modal's `map`.
+# This will allow for parallelism using Modal's [`map`](/docs/reference/modal.Function#map).
 @stub.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
@@ -85,7 +90,7 @@ def download_data(year:int, month:int) -> str:
         )
     },
 )
-def aggregate_data(path:str):
+def aggregate_data(path:str) -> tuple[datetime, int]:
     print(f"processing => {path}")
 
     # Parse file.
@@ -110,9 +115,10 @@ def aggregate_data(path:str):
 
 # ## Plot daily taxi rides
 #
-# Create a plot that shows the number of yellow taxi rides per day in NYC.
-# This will create an image in `./nyc_yellow_taxi_trips.png`.
-def plot(dataset):
+# Here we write a function to create a plot withour results.
+# The plot shows the number of yellow taxi rides per day in NYC.
+# This function will run locally and store the resulting plot image in `./nyc_yellow_taxi_trips.png`.
+def plot(dataset) -> None:
     import matplotlib.pyplot as plt
 
     # Sorting data by date
@@ -132,14 +138,16 @@ def plot(dataset):
 
 # ## Run everything
 #
-# Create an entrypoint for your Modal program. We call both our Modal functions
+# Create a `@stub.local_entrypoint()` for your Modal program. This allows you to
+# run your program with the CLI by calling `modal run s3_bucket_mount.py`. We call both our Modal Functions
 # in parallel. We first call `download_data()` with `starmap`. `starmap` will map
 # a tuple of inputs (year, month) to the function's parameters. This will download
 # all yellow taxi data files into our locally mounted S3 bucket. Then, we call
 # `aggregate_data()` with `map` on a list of Parquet file paths. These files are
-# also read from our S3 bucket.
+# also read from our S3 bucket. One function writes files to S3 and the other
+# reads files from S3 in; both run in parallel.
 #
-# Finally, we call `plot()` generating the following image:
+# Finally, we call `plot()` locally generating the following image:
 #
 # ![Number of NYC yellow taxi trips by weekday, 2018-2023](./10_integrations/nyc_yellow_taxi_trips_s3_mount.png)
 #
