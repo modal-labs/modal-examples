@@ -8,7 +8,7 @@
 # You will need to have a S3 bucket and AWS credentials to run this example. Refer to the documentation
 # for detailed [IAM permissions](/docs/guide/cloud-bucket-mounts#iam-permissions) your credentials will need.
 #
-# After you are done creating a bucket and configuring IAM settings, 
+# After you are done creating a bucket and configuring IAM settings,
 # you now need to create a [Modal Secret](/docs/guide/secrets). Navigate to the "Secrets" tab and
 # click on the AWS card, then fill in the fields with the AWS key and secret created
 # previously. Name the Secret `s3-bucket-secret`.
@@ -16,7 +16,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from modal import CloudBucketMount, Secret, Image, Stub
+from modal import CloudBucketMount, Image, Secret, Stub
 
 image = (
     Image.debian_slim()
