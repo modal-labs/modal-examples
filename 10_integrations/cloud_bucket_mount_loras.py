@@ -110,7 +110,7 @@ def download_lora(repository_id: str) -> str:
 # The `StableDiffusionLoRA` loads Stable Diffusion XL 1.0 as a base model. When doing inference,
 # it will also load whichever LoRA you specify. It will load these adapters from the same
 # S3 bucket you used to download weights into.
-@stub.cls(gpu="a10")
+@stub.cls(gpu="a10g")
 class StableDiffusionLoRA:
     pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
 
