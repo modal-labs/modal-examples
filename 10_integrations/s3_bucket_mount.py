@@ -18,13 +18,7 @@ from pathlib import Path
 
 from modal import CloudBucketMount, Image, Secret, Stub
 
-image = (
-    Image.debian_slim()
-        .pip_install(
-            "requests==2.31.0",
-            "duckdb==0.10.0"
-        )
-)
+image = Image.debian_slim().pip_install("requests==2.31.0", "duckdb==0.10.0")
 stub = Stub(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
@@ -57,7 +51,7 @@ with image.imports():
         )
     },
 )
-def download_data(year:int, month:int) -> str:
+def download_data(year: int, month: int) -> str:
     filename = f"yellow_tripdata_{year}-{month:02d}.parquet"
     url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/{filename}"
     with requests.get(url, stream=True) as r:
@@ -76,6 +70,7 @@ def download_data(year:int, month:int) -> str:
 
     return s3_path.as_posix()
 
+
 # ## Analyze data with DuckDB
 #
 # [DuckDB](https://duckdb.org/) is an analytical database with rich support for Parquet files.
@@ -90,7 +85,7 @@ def download_data(year:int, month:int) -> str:
         )
     },
 )
-def aggregate_data(path:str) -> tuple[datetime, int]:
+def aggregate_data(path: str) -> tuple[datetime, int]:
     print(f"processing => {path}")
 
     # Parse file.
@@ -112,6 +107,7 @@ def aggregate_data(path:str) -> tuple[datetime, int]:
     """
     con.execute(q, (path, year, month))
     return list(con.fetchall())
+
 
 # ## Plot daily taxi rides
 #
@@ -136,6 +132,7 @@ def plot(dataset) -> None:
     plt.tight_layout()
     plt.savefig("./nyc_yellow_taxi_trips_s3_mount.png")
 
+
 # ## Run everything
 #
 # Create a `@stub.local_entrypoint()` for your Modal program. This allows you to
@@ -154,16 +151,13 @@ def plot(dataset) -> None:
 # This program shoulld run in less than 30 seconds.
 @stub.local_entrypoint()
 def main():
-
     # List of tuples[year, month].
     inputs = [
-        (year, month)
-        for year in range(2018, 2023)
-        for month in range(1, 13)
+        (year, month) for year in range(2018, 2023) for month in range(1, 13)
     ]
 
     # List of file paths in S3.
-    parquet_files:list[str] = []
+    parquet_files: list[str] = []
     for path in download_data.starmap(inputs):
         print(f"done => {path}")
         parquet_files.append(path)
