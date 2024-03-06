@@ -18,7 +18,7 @@ import io
 import os
 from pathlib import Path
 
-from modal import Stub, Image, CloudBucketMount, Secret, build, enter, method
+from modal import CloudBucketMount, Image, Secret, Stub, build, enter, method
 
 MOUNT_PATH: Path = Path("/mnt/bucket")
 LORAS_PATH: Path = MOUNT_PATH / "loras/v0"
