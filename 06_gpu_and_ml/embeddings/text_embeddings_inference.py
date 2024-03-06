@@ -58,7 +58,7 @@ def download_model():
     spawn_server().terminate()
 
 
-volume = Volume.persisted("tei-hn-data")
+volume = Volume.from_name("tei-hn-data", create_if_missing=True)
 
 stub = Stub("example-tei")
 

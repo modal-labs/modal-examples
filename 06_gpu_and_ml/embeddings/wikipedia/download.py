@@ -7,7 +7,7 @@ DATASET_CONFIG = "20220301.en"
 
 
 # We define our Modal Resources that we'll need
-volume = Volume.persisted("embedding-wikipedia")
+volume = Volume.from_name("embedding-wikipedia", create_if_missing=True)
 image = Image.debian_slim(python_version="3.9").pip_install(
     "datasets==2.16.1", "apache_beam==2.53.0"
 )

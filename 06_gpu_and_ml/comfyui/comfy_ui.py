@@ -68,9 +68,11 @@ image = (
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
-    # Use fork until https://github.com/valohai/asgiproxy/pull/11 is merged.
+    # Use fork of https://github.com/valohai/asgiproxy with bugfixes.
     .pip_install(
-        "git+https://github.com/modal-labs/asgiproxy.git", "httpx", "tqdm"
+        "git+https://github.com/modal-labs/asgiproxy.git@ef25fe52cf226f9a635e87616e7c049e451e2bd8",
+        "httpx",
+        "tqdm",
     )
     .run_function(download_checkpoint)
 )
@@ -95,6 +97,7 @@ def spawn_comfyui_in_background():
             "python",
             "main.py",
             "--dont-print-server",
+            "--multi-user",
             "--port",
             PORT,
         ]

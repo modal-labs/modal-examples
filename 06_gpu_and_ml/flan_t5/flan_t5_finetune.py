@@ -38,7 +38,7 @@ image = Image.debian_slim().pip_install(
 )
 
 stub = Stub(name="example-news-summarizer", image=image)
-output_vol = Volume.persisted("finetune-volume")
+output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
 #
@@ -49,7 +49,9 @@ output_vol = Volume.persisted("finetune-volume")
 #
 # See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
 
-stub.restart_tracker_dict = modal.Dict.new()
+restart_tracker_dict = modal.Dict.from_name(
+    "finetune-restart-tracker", create_if_missing=True
+)
 
 
 def track_restarts(restart_tracker: modal.Dict) -> int:
@@ -85,7 +87,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         Seq2SeqTrainingArguments,
     )
 
-    restarts = track_restarts(stub.restart_tracker_dict)
+    restarts = track_restarts(restart_tracker_dict)
 
     # Use size percentage to retrieve subset of the dataset to iterate faster
     if size_percentage:

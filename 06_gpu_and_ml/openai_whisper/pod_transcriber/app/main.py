@@ -23,7 +23,9 @@ from modal import (
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = NetworkFileSystem.persisted("dataset-cache-vol")
+volume = NetworkFileSystem.from_name(
+    "dataset-cache-vol", create_if_missing=True
+)
 
 app_image = (
     Image.debian_slim(python_version="3.10")

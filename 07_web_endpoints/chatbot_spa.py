@@ -25,8 +25,9 @@ from modal import Dict, Image, Mount, Stub, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
 stub = Stub("example-chatbot-spa")
-
-stub.chat_histories = Dict.new()
+chat_histories = Dict.from_name(
+    "example-chatbot-spa-history", create_if_missing=True
+)
 
 
 def load_tokenizer_and_model():
@@ -80,7 +81,7 @@ def generate_response(
         message + tokenizer.eos_token, return_tensors="pt"
     ).to("cuda")
     if id is not None:
-        chat_history = stub.chat_histories[id]
+        chat_history = chat_histories[id]
         bot_input_ids = torch.cat([chat_history, new_input_ids], dim=-1)
     else:
         id = str(uuid.uuid4())
@@ -93,7 +94,7 @@ def generate_response(
         chat_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True
     )
 
-    stub.chat_histories[id] = chat_history
+    chat_histories[id] = chat_history
     return id, response
 
 
