@@ -34,6 +34,7 @@ stub = Stub(
 # regular Python function, which becomes important below.
 
 
+@stub.function()
 def stream_chat(prompt: str):
     import openai
 
@@ -44,7 +45,6 @@ def stream_chat(prompt: str):
         stream=True,
     ):
         content = chunk.choices[0].delta.content
-        print(content)
         if content is not None:
             yield content
 
@@ -90,7 +90,7 @@ def web(prompt: str):
 #
 # ## CLI interface
 #
-# Doing `modal run chatgpt_streaming.py --prompt="Generate a list of the world's most famous people"` also works, and uses the `local_entrypoint` defined below.
+# Doing `modal run -q chatgpt_streaming.py --prompt="Generate a list of the world's most famous people"` also works, and uses the `local_entrypoint` defined below.
 
 default_prompt = (
     "Generate a list of 20 great names for sentient cheesecakes that teach SQL"
@@ -99,5 +99,7 @@ default_prompt = (
 
 @stub.local_entrypoint()
 def main(prompt: str = default_prompt):
+    print("Prompt:", prompt)
     for part in stream_chat.remote_gen(prompt=prompt):
-        print(part, end="")
+        print(part, end="", flush=True)
+    print()
