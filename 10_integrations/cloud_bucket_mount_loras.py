@@ -146,11 +146,11 @@ class StableDiffusionLoRA:
 
         return buffer.getvalue()
 
+
 # Finally, create a Modal entrypoint for your program. This allows you to run your
 # program using `modal run cloud_bucket_mount_loras.py`
 @stub.local_entrypoint()
 def main(limit: int = 10):
-
     # Download LoRAs in parallel.
     example_lora = "ashwin-mahadevan/sd-pokemon-model-lora-sdxl"
     lora_model_ids = [example_lora]
@@ -165,7 +165,9 @@ def main(limit: int = 10):
 
     # Run inference using one of the downloaded LoRAs.
     example_lora = "ashwin-mahadevan/sd-pokemon-model-lora-sdxl"
-    byte_stream = StableDiffusionLoRA().run_inference_with_lora.remote(example_lora)
+    byte_stream = StableDiffusionLoRA().run_inference_with_lora.remote(
+        example_lora
+    )
     dir = Path("/tmp/stable-diffusion-xl")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
