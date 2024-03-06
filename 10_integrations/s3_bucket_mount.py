@@ -47,7 +47,7 @@ with image.imports():
     volumes={
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=Secret.lookup("s3-bucket-secret"),
+            secret=Secret.from_name("s3-bucket-secret"),
         )
     },
 )
@@ -81,7 +81,7 @@ def download_data(year: int, month: int) -> str:
     volumes={
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=Secret.lookup("s3-bucket-secret"),
+            secret=Secret.from_name("s3-bucket-secret"),
         )
     },
 )
