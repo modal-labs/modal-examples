@@ -14,14 +14,16 @@
 
 from pathlib import Path
 
-import modal
+from modal import CloudBucketMount, Secret, Image, Stub,
 
-# XXX: install duckdb to make queries against the data.
 image = (
-    modal.Image.debian_slim()
-        .pip_install("requests", "duckdb")
+    Image.debian_slim()
+        .pip_install(
+            "requests==2.31.0",
+            "duckdb==0.10.0"
+        )
 )
-stub = modal.Stub(image=image)
+stub = Stub(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
@@ -44,9 +46,9 @@ with image.imports():
 # The bucket will be mounted in `MOUNT_PATH`.
 @stub.function(
     volumes={
-        MOUNT_PATH: modal.CloudBucketMount(
+        MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=modal.Secret.lookup("s3-bucket-secret"),
+            secret=Secret.lookup("s3-bucket-secret"),
         )
     },
 )
@@ -77,9 +79,9 @@ def download_data(year:int, month:int) -> str:
 # This will allow for parallelism using Modal's `map`.
 @stub.function(
     volumes={
-        MOUNT_PATH: modal.CloudBucketMount(
+        MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=modal.Secret.lookup("s3-bucket-secret"),
+            secret=Secret.lookup("s3-bucket-secret"),
         )
     },
 )
