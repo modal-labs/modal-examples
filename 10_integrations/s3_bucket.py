@@ -12,8 +12,9 @@
 # click on the AWS card, then fill in the fields with the key and secret created
 # previously. Name the secret `s3-bucket-secret`.
 
-import modal
 from pathlib import Path
+
+import modal
 
 # XXX: install duckdb to make queries against the data.
 image = (
@@ -27,10 +28,10 @@ YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
 
 
 # Dependencies are not available locally. The following block instructs Modal
-# to only make imports inside the container. 
+# to only make imports inside the container.
 with image.imports():
-    import requests
     import duckdb
+    import requests
 
 
 # ## Download New York City's taxi data
@@ -40,7 +41,7 @@ with image.imports():
 #
 # We are going to download all available files and store them in an S3 bucket. We do this by
 # mounting a `modal.CloudBucketMount` with the S3 bucket name and its respective credentials.
-# The bucket will be mounted in `MOUNT_PATH`. 
+# The bucket will be mounted in `MOUNT_PATH`.
 @stub.function(
     volumes={
         MOUNT_PATH: modal.CloudBucketMount(
@@ -158,7 +159,7 @@ def main():
         parquet_files.append(path)
 
     # List of datetimes and number of yellow taxi trips.
-    dataset = []            
+    dataset = []
     for r in aggregate_data.map(parquet_files):
         dataset += r
 

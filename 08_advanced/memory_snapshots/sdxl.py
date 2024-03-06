@@ -4,8 +4,8 @@
 # to improve cold boot times.
 
 import time
-import modal
 
+import modal
 
 MODEL_ID: str = "stabilityai/stable-diffusion-xl-base-1.0"
 CACHE_PATH: str = "/vol/cache"
@@ -29,7 +29,7 @@ image = (
 stub = modal.Stub("sdxl", image=image)
 
 ## Create a modal class with memory snapshots enabled
-# 
+#
 # `checkpointing_enabled=True` creates a Modal class with memory snapshots enabled.
 # When this is set to `True` only imports are snapshotted. Use it in combination with
 # `@enter(checkpoint=True)` to add load model weights in CPU memory and the snapshot.
