@@ -137,7 +137,7 @@ def spawn_comfyui_in_background():
     concurrency_limit=1,
     timeout=10 * 60,
     # Consider uncommenting the line below so that the server stays up for a longer session (default is 60s)
-    container_idle_timeout=300,
+    # container_idle_timeout=300,
 )
 @modal.asgi_app()
 def web():
