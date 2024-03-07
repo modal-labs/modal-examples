@@ -13,7 +13,7 @@
 #
 # First we will enter our database credentials. The easiest way to do this is to click **New
 # secret** and select the **Postgres compatible** secret preset and fill in the requested
-# information. Then we press **Next** and name our secret "analytics-database" and click **Create**.
+# information. Then we press **Next** and name our secret "example-postgres-secret" and click **Create**.
 #
 # ### Google Sheets/GCP
 #
@@ -37,7 +37,7 @@
 # 8. A json key file should be downloaded to your computer at this point. Copy the contents of that
 #    file and use it as the value for the **SERVICE_ACCOUNT_JSON** field in your new secret.
 #
-# We'll name this other secret "gsheets".
+# We'll name this other secret "gsheets-secret".
 #
 # Now you can access the values of your secrets from modal functions that you annotate with the
 # corresponding EnvDict includes, e.g.:
@@ -49,7 +49,7 @@ import modal
 stub = modal.Stub("example-db-to-sheet")
 
 
-@stub.function(secrets=[modal.Secret.from_name("postgres-secret")])
+@stub.function(secrets=[modal.Secret.from_name("example-postgres-secret")])
 def my_func():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
@@ -62,7 +62,9 @@ def my_func():
 # the psycopg2 package itself:
 
 pg_image = (
-    modal.Image.debian_slim().apt_install("libpq-dev").pip_install("psycopg2")
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libpq-dev")
+    .pip_install("psycopg2~=2.9.9")
 )
 
 # Since the default keynames for a **Postgres compatible** secret correspond to the environment
@@ -73,7 +75,7 @@ pg_image = (
 
 @stub.function(
     image=pg_image,
-    secrets=[modal.Secret.from_name("postgres-secret")],
+    secrets=[modal.Secret.from_name("example-postgres-secret")],
 )
 def get_db_rows():
     import psycopg2
@@ -92,10 +94,12 @@ def get_db_rows():
 #
 # For each city in our source data we'll make an online lookup of the current weather using the
 # [http://openweathermap.org](http://openweathermap.org) API. To do this, we'll add the API key to
-# another modal secret. We'll use a custom secret called "weather" with the key
+# another modal secret. We'll use a custom secret called "weather-secret" with the key
 # `OPENWEATHER_API_KEY` containing our API key for OpenWeatherMap.
 
-requests_image = modal.Image.debian_slim().pip_install("requests")
+requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "requests~=2.31.0"
+)
 
 
 @stub.function(
@@ -164,7 +168,9 @@ def main():
 # we'll refer to in our code. We'll make use of the `pygsheets` python package to authenticate with
 # Google Sheets and then update the spreadsheet with information from the report we just created:
 
-pygsheets_image = modal.Image.debian_slim().pip_install("pygsheets")
+pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "pygsheets~=2.0.6"
+)
 
 
 @stub.function(
