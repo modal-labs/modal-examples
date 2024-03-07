@@ -48,7 +48,9 @@ def download_checkpoint():
                 num_bytes_downloaded = stream.num_bytes_downloaded
                 for data in stream.iter_bytes():
                     f.write(data)
-                    progress.update(stream.num_bytes_downloaded - num_bytes_downloaded)
+                    progress.update(
+                        stream.num_bytes_downloaded - num_bytes_downloaded
+                    )
                     num_bytes_downloaded = stream.num_bytes_downloaded
 
 
@@ -73,7 +75,9 @@ image = (
         "cd /root/custom_nodes/ComfyUI-Manager && pip install -r requirements.txt",
     )
     # Use fork until https://github.com/valohai/asgiproxy/pull/11 is merged.
-    .pip_install("git+https://github.com/modal-labs/asgiproxy.git", "httpx", "tqdm")
+    .pip_install(
+        "git+https://github.com/modal-labs/asgiproxy.git", "httpx", "tqdm"
+    )
     .copy_local_file("checkpoints.txt")
     .run_function(download_checkpoint)
 )
