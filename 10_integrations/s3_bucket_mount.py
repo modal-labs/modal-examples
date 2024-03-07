@@ -20,7 +20,9 @@ from pathlib import Path
 
 from modal import CloudBucketMount, Image, Secret, Stub
 
-image = Image.debian_slim().pip_install("requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3")
+image = Image.debian_slim().pip_install(
+    "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
+)
 stub = Stub(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
@@ -64,7 +66,8 @@ def download_data(year: int, month: int) -> str:
             with requests.get(url, stream=True) as r:
                 r.raise_for_status()
                 print(f"downloading => {s3_path}")
-                with open(s3_path, "wb") as file:  # it looks local, but this is actually writing to S3!
+                # It looks like we writing locally, but this is actually writing to S3!
+                with open(s3_path, "wb") as file:
                     for chunk in r.iter_content(chunk_size=8192):
                         file.write(chunk)
 
@@ -138,7 +141,7 @@ def plot(dataset) -> bytes:
     # Saving plot as raw bytes to send back
     buf = io.BytesIO()
 
-    plt.savefig(buf, format='png')
+    plt.savefig(buf, format="png")
 
     buf.seek(0)
 
@@ -180,5 +183,7 @@ def main():
         dataset += r
 
     figure = plot.remote(dataset)
-    with open(Path(__file__).parent / "nyc_yellow_taxi_trips_s3_mount.png", "wb") as file:
+    with open(
+        Path(__file__).parent / "nyc_yellow_taxi_trips_s3_mount.png", "wb"
+    ) as file:
         file.write(figure)
