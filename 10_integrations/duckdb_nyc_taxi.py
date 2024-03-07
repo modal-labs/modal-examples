@@ -13,7 +13,7 @@
 # Running this script should generate a plot like this in just 10-20 seconds,
 # processing a few gigabytes of data:
 #
-# ![nyc taxi chart](./nyc_taxi_chart.png)
+# ![nyc taxi chart](./nyc_yellow_taxi_trips_s3_mount.png)
 #
 # ## Basic setup
 #
