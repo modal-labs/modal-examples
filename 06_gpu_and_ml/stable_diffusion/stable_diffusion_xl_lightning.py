@@ -79,7 +79,7 @@ class Model:
 
 
 # And this is our entrypoint; where the CLI is invoked. Run this example
-# with: `modal run stable_diffusion_xl_lightning.py --prompt 'An astronaut riding a green horse'`
+# with: `modal run stable_diffusion_xl_lightning.py --prompt "An astronaut riding a green horse"`
 
 
 @stub.local_entrypoint()
