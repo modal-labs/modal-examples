@@ -161,7 +161,7 @@ def plot(dataset) -> bytes:
 #
 # Finally, we call `plot` to generate the following figure:
 #
-# ![Number of NYC yellow taxi trips by weekday, 2018-2023](./10_integrations/nyc_yellow_taxi_trips_s3_mount.png)
+# ![Number of NYC yellow taxi trips by weekday, 2018-2023](./nyc_yellow_taxi_trips_s3_mount.png)
 #
 # This program shoulld run in less than 30 seconds.
 @stub.local_entrypoint()
