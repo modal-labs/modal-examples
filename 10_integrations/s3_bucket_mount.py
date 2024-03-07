@@ -54,19 +54,17 @@ with image.imports():
 def download_data(year: int, month: int) -> str:
     filename = f"yellow_tripdata_{year}-{month:02d}.parquet"
     url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/{filename}"
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-
+    s3_path = MOUNT_PATH / filename
+    # Skip downloading if file exists.
+    if not s3_path.exists():
         if not YELLOW_TAXI_DATA_PATH.exists():
             YELLOW_TAXI_DATA_PATH.mkdir(parents=True, exist_ok=True)
-
-        # Skip downloading if file exists.
-        s3_path = MOUNT_PATH / filename
-        if not s3_path.exists():
-            print(f"downloading => {s3_path}")
-            with open(s3_path, "wb") as file:
-                for chunk in r.iter_content(chunk_size=8192):
-                    file.write(chunk)
+            with requests.get(url, stream=True) as r:
+                r.raise_for_status()
+                print(f"downloading => {s3_path}")
+                with open(s3_path, "wb") as file:  # it looks local, but this is actually writing to S3!
+                    for chunk in r.iter_content(chunk_size=8192):
+                        file.write(chunk)
 
     return s3_path.as_posix()
 
