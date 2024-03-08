@@ -10,15 +10,14 @@
 # and allows for the ingestion of unstructured data into structured databases.
 #
 # The unstructured data in this example is the code from the examples in the Modal examples repository --
-# including this one. We'll extract the libraries and Modal features used in each example,
+# including this one! We'll extract the libraries and Modal features used in each example.
 #
 # We use this exact code to monitor the coverage of the examples
 # and to make decisions about which examples to write next!
 #
 # The output includes a JSONL file containing, on each line, the metadata extracted from the code in one example.
-# This  can be consumed downstream by other software systems, like a database,
-# and some
-#
+# This can be consumed downstream by other software systems, like a database or a dashboard.
+# As a basic proof-of-concept, we use it to generate two `matplotlib` visualzations.
 #
 # ## Environment setup
 #
