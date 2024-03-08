@@ -1,3 +1,6 @@
+# ---
+# output-directory: "/tmp/s3_bucket_mount"
+# ---
 # # Mount S3 buckets
 #
 # This example shows how to mount an S3 bucket in a Modal app with [`CloudBucketMount`](https://modal.com/docs/reference/modal.CloudBucketMount).
@@ -182,8 +185,12 @@ def main():
     for r in aggregate_data.map(parquet_files):
         dataset += r
 
+    dir = Path("/tmp") / "s3_bucket_mount"
+    if not dir.exists():
+        dir.mkdir(exist_ok=True, parents=True)
+
     figure = plot.remote(dataset)
-    with open(
-        Path(__file__).parent / "nyc_yellow_taxi_trips_s3_mount.png", "wb"
-    ) as file:
+    path = dir / "nyc_yellow_taxi_trips_s3_mount.png"
+    with open(path, "wb") as file:
+        print(f"Saving figure to {path}")
         file.write(figure)
