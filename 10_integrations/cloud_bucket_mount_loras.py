@@ -1,3 +1,8 @@
+# ---
+# output-directory: "/tmp/stable-diffusion-xl"
+# args: []
+# runtimes: ["runc", "gvisor"]
+# ---
 # # Mount S3 bucket and use it for LoRAs
 #
 # This example shows how to mount an S3 bucket in a Modal app using [`CloudBucketMount`](/docs/reference/modal.CloudBucketMount).
