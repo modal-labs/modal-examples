@@ -17,7 +17,9 @@ from .config import DataTrainingArguments, ModelArguments, app_config
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
 
-test_volume = modal.NetworkFileSystem.new()
+test_volume = modal.NetworkFileSystem.from_name(
+    "example-whisper-fine-tune-test-vol", create_if_missing=True
+)
 
 logger = get_logger(__name__)
 

@@ -8,7 +8,8 @@ import modal
 
 image = (
     modal.Image.debian_slim()
-        .pip_install("transformers", "datasets", "hf_transfer", "torch", "librosa", "soundfile")
+        .apt_install("python3-pyaudio")
+        .pip_install("transformers", "datasets", "hf_transfer", "torch", "librosa", "soundfile", "pyaudio")
         .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
 stub = modal.Stub("whisper", image=image)

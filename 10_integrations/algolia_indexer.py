@@ -40,12 +40,16 @@ stub = Stub("example-algolia-indexer")
 CONFIG = {
     "index_name": "modal_docs",
     "start_urls": [
-        {"url": "https://modal.com/docs/guide", "page_rank": 5},
-        {"url": "https://modal.com/docs/examples", "page_rank": 3},
+        {"url": "https://modal.com/docs/guide", "page_rank": 2},
+        {"url": "https://modal.com/docs/examples", "page_rank": 1},
         {"url": "https://modal.com/docs/reference", "page_rank": 1},
     ],
     "selectors": {
-        "lvl0": "article h1",
+        "lvl0": {
+            "selector": ".sidebar .active",
+            "default_value": "Documentation",
+            "global": True,
+        },
         "lvl1": "article h1",
         "lvl2": "article h2",
         "lvl3": "article h3",

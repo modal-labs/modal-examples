@@ -1,7 +1,7 @@
 # # Fast inference with vLLM (Gemma 7B)
 #
 # In this example, we show how to run basic LLM inference, using [`vLLM`](https://github.com/vllm-project/vllm)
-# to take advantage of [PagedAttention](https://arxiv.org/abs/2309.06180), which speeds up sequential inferences with optimized key-value caching.
+# to take advantage of [PagedAttention](https://arxiv.org/abs/2309.06180), which speeds up inference on longer sequences with optimized key-value caching.
 # You can read more about PagedAttention [here](https://charlesfrye.github.io/programming/2023/11/10/llms-systems.html).
 #
 # We'll run the [Gemma 7B Instruct](https://huggingface.co/google/gemma-7b-it) large language model.
@@ -9,7 +9,7 @@
 #
 # The "7B" in the name refers to the number of parameters (floating point numbers used to control inference)
 # in the model. Applying those 7,000,000,000 numbers onto an input is a lot of work,
-# so we'll use a GPU to speed up the process -- specifically, a top-of-the-line [NVIDIA H100](/blog/introducing-h100).
+# so we'll use a GPU to speed up the process -- specifically, a top-of-the-line [NVIDIA H100](https://modal.com/blog/introducing-h100).
 #
 # "Instruct" means that this version of Gemma is not simply a statistical model of language,
 # but has been fine-tuned to follow instructions -- like ChatGPT or Claude,
@@ -22,7 +22,8 @@
 #
 # To run
 # [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
-# just change the model name. You may also need to enable `trust_remote_code` for some models (see comment below).
+# just change the model name. You may also need to change engine configuration, like `trust_remote_code`,
+# or GPU configuration, in order to run some models.
 #
 # ## Setup
 #
@@ -30,11 +31,10 @@
 
 import os
 
-from modal import Image, Secret, Stub, enter, method
+from modal import Image, Secret, Stub, enter, exit, gpu, method
 
 MODEL_DIR = "/model"
 BASE_MODEL = "google/gemma-7b-it"
-GPU_TYPE = "H100"
 
 
 # ## Define a container image
@@ -103,20 +103,33 @@ stub = Stub(f"example-vllm-{BASE_MODEL}", image=image)
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean!
-@stub.cls(gpu=GPU_TYPE, secrets=[Secret.from_name("huggingface-secret")])
+
+GPU_CONFIG = gpu.H100(count=1)
+
+
+@stub.cls(gpu=GPU_CONFIG, secrets=[Secret.from_name("huggingface-secret")])
 class Model:
     @enter()
     def load(self):
         from vllm import LLM
 
+        if GPU_CONFIG.count > 1:
+            # Patch issue from https://github.com/vllm-project/vllm/issues/1116
+            import ray
+
+            ray.shutdown()
+            ray.init(num_gpus=GPU_CONFIG.count)
+
+        self.template = (
+            "start_of_turn>user\n{user}<end_of_turn>\n<start_of_turn>model"
+        )
+
         # Load the model. Tip: Some models, like MPT, may require `trust_remote_code=true`.
         self.llm = LLM(
             MODEL_DIR,
             enforce_eager=True,  # skip graph capturing for faster cold starts
+            tensor_parallel_size=GPU_CONFIG.count,
         )
-        self.template = """<start_of_turn>user
-{user}<end_of_turn>
-<start_of_turn>model"""
 
     @method()
     def generate(self, user_questions):
@@ -153,9 +166,17 @@ class Model:
                 "\n\n",
                 sep=COLOR["ENDC"],
             )
+            time.sleep(0.01)
         print(
-            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on GPU={GPU_TYPE}.{COLOR['ENDC']}"
+            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
         )
+
+    @exit()
+    def stop_engine(self):
+        if GPU_CONFIG.count > 1:
+            import ray
+
+            ray.shutdown()
 
 
 # ## Run the model

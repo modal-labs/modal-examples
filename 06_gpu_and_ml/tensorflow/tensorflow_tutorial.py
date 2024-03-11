@@ -2,66 +2,63 @@
 # args: ["--just-run"]
 # runtimes: ["runc", "gvisor"]
 # ---
-# # Tensorflow tutorial
+# # TensorFlow tutorial
 #
 # This is essentially a version of the
-# [image classification example in the Tensorflow documention](https://www.tensorflow.org/tutorials/images/classification)
+# [image classification example in the TensorFlow documentation](https://www.tensorflow.org/tutorials/images/classification)
 # running inside Modal on a GPU.
-# If you run this script, it will also create an Tensorboard URL you can go to:
+# If you run this script, it will also create an TensorBoard URL you can go to to watch the model train and review the results:
 #
 # ![tensorboard](./tensorboard.png)
 #
 # ## Setting up the dependencies
 #
-# Installing Tensorflow in Modal is quite straightforward.
-# If you want it to run on a GPU, you need the container image to have CUDA libraries available
-# to the Tensorflow package. You can use Conda to install these libraries before `pip` installing `tensorflow`, or you
-# can use Tensorflow's official GPU base image which comes with the CUDA libraries and `tensorflow` already installed.
+# Configuring a system to properly run GPU-accelerated TensorFlow can be challenging.
+# Luckily, Modal makes it easy to stand on the shoulders of giants and
+# [use a pre-built Docker container image](https://modal.com/docs/guide/custom-containers#use-an-existing-container-image-with-from_registry) from a registry like Docker Hub.
+# We recommend TensorFlow's [official base Docker container images](https://hub.docker.com/r/tensorflow/tensorflow), which come with `tensorflow` and its matching CUDA libraries already installed.
+#
+# If you want to install TensorFlow some other way, check out [their docs](https://www.tensorflow.org/install) for options and instructions.
+# GPU-enabled containers on Modal will always have NVIDIA drivers available, but you will need to add higher-level tools like CUDA and cuDNN yourself.
+# See the [Modal guide on customizing environments](https://modal.com/docs/guide/custom-container) for options we support.
 
 import time
 
 from modal import Image, NetworkFileSystem, Stub, wsgi_app
 
 dockerhub_image = Image.from_registry(
-    "tensorflow/tensorflow:latest-gpu",
+    "tensorflow/tensorflow:2.12.0-gpu",
 ).pip_install("protobuf==3.20.*")
 
-conda_image = (
-    Image.conda()
-    .conda_install(
-        "cudatoolkit=11.2",
-        "cudnn=8.1.0",
-        "cuda-nvcc",
-        channels=["conda-forge", "nvidia"],
-    )
-    .pip_install("tensorflow~=2.9.1")
-)
+stub = Stub("example-tensorflow-tutorial", image=dockerhub_image)
 
-stub = Stub(
-    "example-tensorflow-tutorial",
-    image=conda_image or dockerhub_image,  # pick one and remove the other.
-)
-
-# ## Logging data for Tensorboard
+# ## Logging data to TensorBoard
 #
-# We want to run the web server for Tensorboard at the same time as we are training the Tensorflow model.
+# Training ML models takes time. Just as we need to monitor long-running systems like databases or web servers for issues,
+# we also need to monitor the training process of our ML models. TensorBoard is a tool that comes with TensorFlow that helps you visualize
+# the state of your ML model training. It is packaged as a web server.
+#
+# We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-volume = NetworkFileSystem.new()
+fs = NetworkFileSystem.new()
 logdir = "/tensorboard"
 
 # ## Training function
 #
-# This is basically the same code as the official example.
-# A few things are worth pointing out:
+# This is basically the same code as [the official example](https://www.tensorflow.org/tutorials/images/classification) from the TensorFlow docs.
+# A few Modal-specific things are worth pointing out:
 #
-# * We set up the network file system in the arguments to `stub.function`
-# * We also annotate this function with `gpu="any"`
-# * We put all the Tensorflow imports inside the function body.
-#   This makes it a bit easier to run this example even if you don't have Tensorflow installed on you local computer.
+# * We set up the shared storage with TensorBoard in the arguments to `stub.function`
+# * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU
+# * We put all the TensorFlow imports inside the function body.
+#   This makes it possible to run this example even if you don't have TensorFlow installed on your local computer -- a key benefit of Modal!
+#
+# You may notice some warnings in the logs about certain CPU performance optimizations (NUMA awareness and AVX/SSE instruction set support) not being available.
+# While these optimizations can be important for some workloads, especially if you are running ML models on a CPU, they are not critical for most cases.
 
 
-@stub.function(network_file_systems={logdir: volume}, gpu="any", timeout=600)
+@stub.function(network_file_systems={logdir: fs}, gpu="T4", timeout=600)
 def train():
     import pathlib
 
@@ -69,15 +66,16 @@ def train():
     from tensorflow.keras import layers
     from tensorflow.keras.models import Sequential
 
+    # load raw data from storage
     dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
     data_dir = tf.keras.utils.get_file(
-        "flower_photos", origin=dataset_url, untar=True
+        "flower_photos.tar", origin=dataset_url, extract=True
     )
-    data_dir = pathlib.Path(data_dir)
+    data_dir = pathlib.Path(data_dir).with_suffix("")
 
+    # construct Keras datasets from raw data
     batch_size = 32
-    img_height = 180
-    img_width = 180
+    img_height = img_width = 180
 
     train_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
@@ -140,20 +138,23 @@ def train():
     )
 
 
-# ## Running Tensorboard
+# ## Running TensorBoard
 #
-# Tensorboard is a WSGI-compatible web server, so it's easy to expose it in Modal.
-# The app isn't exposed directly through the Tensorboard library, but it gets
-# [created in the source code](https://github.com/tensorflow/tensorboard/blob/master/tensorboard/program.py#L467)
-# in a way where we can do the same thing quite easily too.
+# TensorBoard is compatible with a Python web server standard called [WSGI](https://www.fullstackpython.com/wsgi-servers.html),
+# the same standard used by [Flask](https://flask.palletsprojects.com/).
+# Modal [speaks WSGI too](https://modal.com/docs/guide/webhooks#wsgi), so it's straightforward to run TensorBoard in a Modal app.
 #
-# Note that the Tensorboard server runs in a different container.
+# The WSGI app isn't exposed directly through the TensorBoard library, but we can build it
+# the same way it's built internally --
+# [see the TensorBoard source code for details](https://github.com/tensorflow/tensorboard/blob/0c5523f4b27046e1ca7064dd75347a5ee6cc7f79/tensorboard/program.py#L466-L476).
+#
+# Note that the TensorBoard server runs in a different container.
 # This container shares the same log directory containing the logs from the training.
 # The server does not need GPU support.
 # Note that this server will be exposed to the public internet!
 
 
-@stub.function(network_file_systems={logdir: volume})
+@stub.function(network_file_systems={logdir: fs})
 @wsgi_app()
 def tensorboard_app():
     import tensorboard
@@ -175,7 +176,7 @@ def tensorboard_app():
 #
 # Let's kick everything off.
 # Everything runs in an ephemeral "app" that gets destroyed once it's done.
-# In order to keep the Tensorboard web server running, we sleep in an infinite loop
+# In order to keep the TensorBoard web server running, we sleep in an infinite loop
 # until the user hits ctrl-c.
 #
 # The script will take a few minutes to run, although each epoch is quite fast since it runs on a GPU.
@@ -186,7 +187,9 @@ def tensorboard_app():
 def main(just_run: bool = False):
     train.remote()
     if not just_run:
-        print("Training is done, but app is still running until you hit ctrl-c")
+        print(
+            "Training is done, but the app is still running TensorBoard until you hit ctrl-c."
+        )
         try:
             while True:
                 time.sleep(1)

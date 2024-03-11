@@ -19,7 +19,7 @@
 
 from modal import Image, Secret, Stub, web_endpoint
 
-image = Image.debian_slim().pip_install("openai")
+image = Image.debian_slim(python_version="3.11").pip_install("openai==1.8.0")
 stub = Stub(
     name="example-chatgpt-stream",
     image=image,
@@ -69,7 +69,9 @@ def stream_chat(prompt: str):
 def web(prompt: str):
     from fastapi.responses import StreamingResponse
 
-    return StreamingResponse(stream_chat(prompt), media_type="text/html")
+    return StreamingResponse(
+        stream_chat(prompt), media_type="text/event-stream"
+    )
 
 
 # ## Try out the web endpoint
@@ -88,7 +90,7 @@ def web(prompt: str):
 #
 # ## CLI interface
 #
-# Doing `modal run chatgpt_streaming.py --prompt="Generate a list of the world's most famous people"` also works, and uses the `local_entrypoint` defined below.
+# Doing `modal run -q chatgpt_streaming.py --prompt="Generate a list of the world's most famous people"` also works, and uses the `local_entrypoint` defined below.
 
 default_prompt = (
     "Generate a list of 20 great names for sentient cheesecakes that teach SQL"
@@ -97,5 +99,7 @@ default_prompt = (
 
 @stub.local_entrypoint()
 def main(prompt: str = default_prompt):
+    print("Prompt:", prompt)
     for part in stream_chat.remote_gen(prompt=prompt):
-        print(part, end="")
+        print(part, end="", flush=True)
+    print()

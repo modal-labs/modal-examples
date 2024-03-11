@@ -18,7 +18,17 @@
 import io
 from pathlib import Path
 
-from modal import Image, Mount, Stub, asgi_app, build, enter, gpu, web_endpoint
+from modal import (
+    Image,
+    Mount,
+    Stub,
+    asgi_app,
+    build,
+    enter,
+    gpu,
+    method,
+    web_endpoint,
+)
 
 # ## Define a container image
 #
@@ -35,11 +45,11 @@ sdxl_image = (
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
     )
     .pip_install(
-        "diffusers~=0.19",
-        "invisible_watermark~=0.1",
-        "transformers~=4.31",
-        "accelerate~=0.21",
-        "safetensors~=0.3",
+        "diffusers==0.26.3",
+        "invisible_watermark==0.2.0",
+        "transformers~=4.38.2",
+        "accelerate==0.27.2",
+        "safetensors==0.4.2",
     )
 )
 
@@ -104,8 +114,7 @@ class Model:
         # self.base.unet = torch.compile(self.base.unet, mode="reduce-overhead", fullgraph=True)
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
-    @web_endpoint()
-    def inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+    def _inference(self, prompt, n_steps=24, high_noise_frac=0.8):
         negative_prompt = "disfigured, ugly, deformed"
         image = self.base(
             prompt=prompt,
@@ -125,11 +134,26 @@ class Model:
         byte_stream = io.BytesIO()
         image.save(byte_stream, format="JPEG")
 
-        return Response(content=byte_stream.getvalue(), media_type="image/jpeg")
+        return byte_stream
+
+    @method()
+    def inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+        return self._inference(
+            prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
+        ).getvalue()
+
+    @web_endpoint()
+    def web_inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+        return Response(
+            content=self._inference(
+                prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
+            ).getvalue(),
+            media_type="image/jpeg",
+        )
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
-# with: `modal run stable_diffusion_xl.py --prompt 'An astronaut riding a green horse'`
+# with: `modal run stable_diffusion_xl.py --prompt "An astronaut riding a green horse"`
 
 
 @stub.local_entrypoint()
@@ -180,9 +204,9 @@ def app():
 
     with open("/assets/index.html", "w") as f:
         html = template.render(
-            inference_url=Model.inference.web_url,
+            inference_url=Model.web_inference.web_url,
             model_name="Stable Diffusion XL",
-            default_prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
+            default_prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
         )
         f.write(html)
 

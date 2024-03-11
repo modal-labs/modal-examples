@@ -9,6 +9,7 @@ We use a custom entrypoint to automatically add containers to a Tailscale networ
 This configuration enables the containers to interact with one another and with
 additional applications within the same tailnet.
 """
+
 import modal
 
 # Install Tailscale and copy custom entrypoint script (./entrypoint.sh). The script must be

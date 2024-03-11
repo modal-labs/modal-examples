@@ -8,8 +8,8 @@
 # cold start time on Modal is around 25s.
 #
 # For faster inference at the expense of a slower cold start, check out
-# [Running Falcon-40B with `bitsandbytes` quantization](/docs/examples/falcon_bitsandbytes). You can also
-# run a smaller, 7-billion-parameter model with the [OpenLLaMa example](/docs/examples/openllama).
+# [Running Falcon-40B with `bitsandbytes` quantization](https://modal.com/docs/examples/falcon_bitsandbytes). You can also
+# run a smaller model via the [Gemma 7B example](https://modal.com/docs/examples/vllm_gemma).
 #
 # ## Setup
 #
@@ -33,8 +33,8 @@ def download_model():
 
 
 # Now, we define our image. We'll use the `debian-slim` base image, and install the dependencies we need
-# using [`pip_install`](/docs/reference/modal.Image#pip_install). At the end, we'll use
-# [`run_function`](/docs/guide/custom-container#run-a-modal-function-during-your-build-with-run_function-beta) to run the
+# using [`pip_install`](https://modal.com/docs/reference/modal.Image#pip_install). At the end, we'll use
+# [`run_function`](https://modal.com/docs/guide/custom-container#run-a-modal-function-during-your-build-with-run_function-beta) to run the
 # function defined above as part of the image build.
 
 image = (
@@ -52,21 +52,21 @@ image = (
     .run_function(download_model)
 )
 
-# Let's instantiate and name our [Stub](/docs/guide/apps).
+# Let's instantiate and name our [`Stub`](https://modal.com/docs/guide/apps).
 stub = Stub(name="example-falcon-gptq", image=image)
 
 
 # ## The model class
 #
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
-# so we use [class syntax](/docs/guide/lifecycle-functions) and the `@enter` decorator.
+# so we use [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
-# Within the [@stub.cls](/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
-# to specify that we want to run our function on an [A100 GPU](/pricing). We also allow each call 10 mintues to complete,
+# Within the [`@stub.cls`](https://modal.com/docs/reference/modal.Stub#cls) decorator, we use the [`gpu` parameter](https://modal.com/docs/guide/gpu)
+# to specify that we want to run our function on an [A100 GPU](https://modal.com/docs/guide/gpu#a100-gpus). We also allow each call 10 mintues to complete,
 # and request the runner to stay live for 5 minutes after its last request.
 #
 # The rest is just using the `transformers` library to run the model. Refer to the
-# [documentation](https://huggingface.co/docs/transformers/v4.29.1/en/main_classes/text_generation#transformers.GenerationMixin.generate)
+# [documentation](https://huggingface.co/docs/transformers/v4.31.0/en/main_classes/text_generation#transformers.GenerationMixin.generate)
 # for more parameters and tuning.
 #
 # Note that we need to create a separate thread to call the `generate` function because we need to
@@ -121,7 +121,7 @@ class Falcon40BGPTQ:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run -q falcon_gptq.py`. The `-q` flag
 # enables streaming to work in the terminal output.
 prompt_template = (
