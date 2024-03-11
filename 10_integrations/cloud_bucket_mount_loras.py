@@ -21,7 +21,7 @@ from pathlib import Path
 from modal import CloudBucketMount, Image, Secret, Stub, build, enter, method
 
 MOUNT_PATH: Path = Path("/mnt/bucket")
-LORAS_PATH: Path = MOUNT_PATH / "loras/v0"
+LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
 
 image = Image.debian_slim().pip_install(
     "huggingface_hub==0.21.4",
@@ -127,12 +127,11 @@ class StableDiffusionLoRA:
         ).to("cuda")
 
     @method()
-    def run_inference_with_lora(self, lora_id: str = "CiroN2022/toy-face"):
+    def run_inference_with_lora(self, lora_id: str, prompt:str):
         for file in (LORAS_PATH / lora_id).rglob("*.safetensors"):
             self.pipe.load_lora_weights(lora_id, weight_name=file.name)
             break
 
-        prompt = "toy_face of a hacker with a hoodie"
         lora_scale = 0.9
         image = self.pipe(
             prompt,
@@ -150,9 +149,9 @@ class StableDiffusionLoRA:
 # Finally, create a Modal entrypoint for your program. This allows you to run your
 # program using `modal run cloud_bucket_mount_loras.py`
 @stub.local_entrypoint()
-def main(limit: int = 10):
+def main(limit: int = 10, prompt:str = "space robot with astronaut suit, cables coming out"):
     # Download LoRAs in parallel.
-    example_lora = "ashwin-mahadevan/sd-pokemon-model-lora-sdxl"
+    example_lora = "ostris/ikea-instructions-lora-sdxl"
     lora_model_ids = [example_lora]
     lora_model_ids += search_loras.remote(limit)
 
@@ -164,9 +163,9 @@ def main(limit: int = 10):
     print(f"downloaded {len(downloaded_loras)} loras => {downloaded_loras}")
 
     # Run inference using one of the downloaded LoRAs.
-    example_lora = "ashwin-mahadevan/sd-pokemon-model-lora-sdxl"
     byte_stream = StableDiffusionLoRA().run_inference_with_lora.remote(
-        example_lora
+        example_lora,
+        prompt,
     )
     dir = Path("/tmp/stable-diffusion-xl")
     if not dir.exists():
