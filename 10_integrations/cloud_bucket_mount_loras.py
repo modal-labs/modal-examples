@@ -51,8 +51,8 @@ with image.imports():
 
 # `search_loras()` will use the Hub API to search for LoRAs. We limit LoRAs
 # to a maximum size to prevent downloading very large model weights. Feel
-# free to adapt to what works best for you. This function is expected
-# to run locally.
+# free to adapt to what works best for you.
+@stub.function()
 def search_loras(limit: int, max_model_size: int = 800 * 1024 * 1024):
     api = huggingface_hub.HfApi()
 
@@ -154,7 +154,7 @@ def main(limit: int = 10):
     # Download LoRAs in parallel.
     example_lora = "ashwin-mahadevan/sd-pokemon-model-lora-sdxl"
     lora_model_ids = [example_lora]
-    lora_model_ids += search_loras(limit)
+    lora_model_ids += search_loras.remote(limit)
 
     downloaded_loras = []
     for model in download_lora.map(lora_model_ids):
