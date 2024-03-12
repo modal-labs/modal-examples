@@ -57,7 +57,7 @@ streamlit_script_mount = modal.Mount.from_local_file(
     allow_concurrent_inputs=100,
     mounts=[streamlit_script_mount],
 )
-@modal.web_server(port=8000)
+@modal.web_server(8000)
 def run():
     target = shlex.quote(str(streamlit_script_remote_path))
     cmd = f"streamlit run {target} --server.port 8000 --server.enableCORS=false --server.enableXsrfProtection=false"

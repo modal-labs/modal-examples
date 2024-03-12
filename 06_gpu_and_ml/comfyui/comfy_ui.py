@@ -96,7 +96,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
     concurrency_limit=1,
     timeout=10 * 60,
 )
-@modal.web_server(port=8188)
+@modal.web_server(8188)
 def web():
     cmd = "python main.py --dont-print-server --multi-user --port 8188"
     subprocess.Popen(cmd, shell=True)
