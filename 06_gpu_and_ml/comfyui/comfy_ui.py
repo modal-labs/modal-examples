@@ -12,6 +12,7 @@
 # ![example comfyui workspace](./comfyui-hero.png)
 
 import pathlib
+import subprocess
 
 import modal
 
@@ -78,53 +79,12 @@ image = (
 )
 stub = modal.Stub(name="example-comfy-ui", image=image)
 
-# ## Spawning ComfyUI in the background
+# ## Start the ComfyUI server
 #
-# Inside the container, we will run the ComfyUI server and execution queue in a background subprocess using
-# `subprocess.Popen`. Here we define `spawn_comfyui_in_background()` to do this and then poll until the server
-# is ready to accept connections.
-
-HOST = "127.0.0.1"
-PORT = "8188"
-
-
-def spawn_comfyui_in_background():
-    import socket
-    import subprocess
-
-    process = subprocess.Popen(
-        [
-            "python",
-            "main.py",
-            "--dont-print-server",
-            "--multi-user",
-            "--port",
-            PORT,
-        ]
-    )
-
-    # Poll until webserver accepts connections before running inputs.
-    while True:
-        try:
-            socket.create_connection((HOST, int(PORT)), timeout=1).close()
-            print("ComfyUI webserver ready!")
-            break
-        except (socket.timeout, ConnectionRefusedError):
-            # Check if launcher webserving process has exited.
-            # If so, a connection can never be made.
-            retcode = process.poll()
-            if retcode is not None:
-                raise RuntimeError(
-                    f"comfyui main.py exited unexpectedly with code {retcode}"
-                )
-
-
-# ## Wrap it in an ASGI app
+# Inside the container, we will run the ComfyUI server and execution queue on port 8188. Then, we
+# wrap this function in the `@web_server` decorator to expose the server as a web endpoint.
 #
-# Finally, Modal can only serve apps that speak the [ASGI](https://modal.com/docs/guide/webhooks#asgi) or
-# [WSGI](https://modal.com/docs/guide/webhooks#wsgi) protocols. Since the ComfyUI server uses `aiohttp`,
-# which [does not support either](https://github.com/aio-libs/aiohttp/issues/2902), we run a separate ASGI
-# app using the `asgiproxy` package that proxies requests to the ComfyUI server.
+# For ASGI-copmatible frameworks, you can also use Modal's `@asgi_app` decorator.
 
 
 @stub.function(
@@ -136,20 +96,7 @@ def spawn_comfyui_in_background():
     concurrency_limit=1,
     timeout=10 * 60,
 )
-@modal.asgi_app()
+@modal.web_server(port=8188)
 def web():
-    from asgiproxy.config import BaseURLProxyConfigMixin, ProxyConfig
-    from asgiproxy.context import ProxyContext
-    from asgiproxy.simple_proxy import make_simple_proxy_app
-
-    spawn_comfyui_in_background()
-
-    config = type(
-        "Config",
-        (BaseURLProxyConfigMixin, ProxyConfig),
-        {
-            "upstream_base_url": f"http://{HOST}:{PORT}",
-            "rewrite_host_header": f"{HOST}:{PORT}",
-        },
-    )()
-    return make_simple_proxy_app(ProxyContext(config))
+    cmd = "python main.py --dont-print-server --multi-user --port 8188"
+    subprocess.Popen(cmd, shell=True)
