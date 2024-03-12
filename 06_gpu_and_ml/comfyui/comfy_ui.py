@@ -84,7 +84,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
 # Inside the container, we will run the ComfyUI server and execution queue on port 8188. Then, we
 # wrap this function in the `@web_server` decorator to expose the server as a web endpoint.
 #
-# For ASGI-copmatible frameworks, you can also use Modal's `@asgi_app` decorator.
+# For ASGI-compatible frameworks, you can also use Modal's `@asgi_app` decorator.
 
 
 @stub.function(
