@@ -55,8 +55,8 @@ def download_checkpoints():
 
 
 def download_plugins():
-    import subprocess
     import json
+    import subprocess
 
     with open("/plugins.json") as f:
         plugins = json.load(f)
