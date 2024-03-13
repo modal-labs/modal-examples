@@ -61,15 +61,15 @@ def download_plugins():
     with open("/plugins.json") as f:
         plugins = json.load(f)
         for plugin in plugins:
-            url = plugin['url']
-            name = url.split('/')[-1]
+            url = plugin["url"]
+            name = url.split("/")[-1]
             command = f"cd /root/custom_nodes && git clone {url}"
             try:
                 subprocess.run(command, shell=True, check=True)
                 print(f"Repository {url} cloned successfully")
             except subprocess.CalledProcessError as e:
                 print(f"Error cloning repository: {e.stderr}")
-            if plugin.get('requirements'):
+            if plugin.get("requirements"):
                 pip_command = f"cd /root/custom_nodes/{name} && pip install -r {plugin['requirements']}"
             try:
                 subprocess.run(pip_command, shell=True, check=True)
