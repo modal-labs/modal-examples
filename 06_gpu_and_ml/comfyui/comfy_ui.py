@@ -22,6 +22,7 @@ import modal
 # The ComfyUI repository has other recommendations listed in this file:
 # [notebooks/comfyui_colab.ipynb](https://github.com/comfyanonymous/ComfyUI/blob/master/notebooks/comfyui_colab.ipynb).
 
+
 def download_checkpoints():
     import httpx
     from tqdm import tqdm
@@ -49,10 +50,12 @@ def download_checkpoints():
                     )
                     num_bytes_downloaded = stream.num_bytes_downloaded
 
+
 # You can specify ComfyUI plugins to load into the image in `plugins.json`, which is a list of dictionaries with two keys:
 # `url` for the github url and an optional `requirements`` for the name of a requirements.txt to pip install (remove this key if there is none for the plugin).
 # For recommended plugins, see this list:
 # [WASasquatch/comfyui-plugins](https://github.com/WASasquatch/comfyui-plugins).
+
 
 def download_plugins():
     import json
