@@ -134,7 +134,11 @@ def spawn_comfyui_in_background():
     # Restrict to 1 container because we want to our ComfyUI session state
     # to be on a single container.
     concurrency_limit=1,
-    timeout=10 * 60,
+    # Extend idle timeout of container so that you can switch tabs, read a
+    # quick article, and come back to resume work on same container.
+    container_idle_timeout=10 * 5,
+    # Timeout requests after 60s
+    timeout=60,
 )
 @modal.asgi_app()
 def web():
