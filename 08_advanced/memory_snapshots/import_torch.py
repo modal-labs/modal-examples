@@ -2,19 +2,20 @@
 #
 # This program enables memory snapshotting for imports. We will create
 # a memory snapshot for this program after the import sequence is completed.
-# The program will start from the snapshot from there onwards.
 
-import modal
+import modal  # this import in global scope will be included in the snapshot
 
 image = modal.Image.debian_slim().pip_install("torch==2.2.1")
-stub = modal.Stub("import-torch", image=image)
+stub = modal.Stub("example-import-torch-memory-snapshot", image=image)
 
-# All imports made up to this point will be included in the snapshot.
+# All imports made globally and inside the `with image.imports()` block will
+# be included in the memory snapshot.
 
 with image.imports():
-    import torch
+    import torch  # this import inside the container image will also be included
 
-@stub.function(checkpointing_enabled=True)
+# The program will start from the snapshot from there onwards, skipping all imports.
+@stub.function(enable_memory_snapshot=True)
 def run():
     print(torch.__version__)
 
