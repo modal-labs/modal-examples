@@ -97,6 +97,8 @@ image = (
         "cd /root && git remote add --fetch origin https://github.com/comfyanonymous/ComfyUI",
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
+        "cd /root && git clone https://github.com/pydn/ComfyUI-to-Python-Extension.git",
+        "cd /root/ComfyUI-to-Python-Extension && pip install -r requirements.txt",
     )
     # Use fork of https://github.com/valohai/asgiproxy with bugfixes.
     .pip_install(
@@ -108,6 +110,7 @@ image = (
     .run_function(download_checkpoints)
     .copy_local_file("plugins.json")
     .run_function(download_plugins)
+    .copy_local_file("workflow_api.json", "/root/")
 )
 stub = modal.Stub(name="example-comfy-ui", image=image)
 
