@@ -185,7 +185,7 @@ class StableDiffusionLoRA:
         lora_scale = 0.9
         image = self.pipe(
             prompt,
-            num_inference_steps=30,
+            num_inference_steps=10,
             cross_attention_kwargs={"scale": lora_scale},
             generator=torch.manual_seed(seed),
         ).images[0]
@@ -250,7 +250,7 @@ web_app = FastAPI()
 web_image = Image.debian_slim().pip_install("gradio~=3.50.2", "pillow~=10.2.0")
 
 
-@stub.function(image=web_image)
+@stub.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
 @asgi_app()
 def app():
     """A simple Gradio interface around our LoRA inference."""
