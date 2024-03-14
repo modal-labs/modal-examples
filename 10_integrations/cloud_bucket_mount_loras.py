@@ -118,8 +118,11 @@ def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
     return model_ids
 
 
-# Download LoRA weights to the S3 mount. Downloading files in this mount will automatically
-# upload files to S3. We will run this function in parallel using Modal's [`map`](https://modal.com/docs/reference/modal.Function#map).
+# We want to take the LoRA weights we found and move them from Hugging Face onto S3,
+# where they'll be accessible, at short latency and high throughput, for our Modal functions.
+# Downloading files in this mount will automatically upload files to S3.
+# To speed things up, we will run this function in parallel using Modal's
+# [`map`](https://modal.com/docs/reference/modal.Function#map).
 @stub.function()
 def download_lora(repository_id: str) -> str:
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -148,9 +151,12 @@ def download_lora(repository_id: str) -> str:
         return repository_id
 
 
-# The `StableDiffusionLoRA` class loads Stable Diffusion XL 1.0 as a base model. When doing inference,
-# it will also load whichever LoRA you specify from the S3 bucket.
-# For more on the decorators we use below to speed up building and booting,
+# ## Inference with LoRAs
+#
+# We define a `StableDiffusionLoRA` class to organize our inference code.
+# We load Stable Diffusion XL 1.0 as a base model, then, when doing inference,
+# we load whichever LoRA the user specifies from the S3 bucket.
+# For more on the decorators we use on the methods below to speed up building and booting,
 # check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-hooks).
 @stub.cls(gpu="a10g")  # A10G GPUs are great for inference
 class StableDiffusionLoRA:
@@ -190,9 +196,13 @@ class StableDiffusionLoRA:
         return buffer.getvalue()
 
 
-# To try out our program locally, we add a `local_entrypoint`.
+# ## Try it locally!
+#
+# To use our inference code from our local command line, we add a `local_entrypoint` to our `stub`.
 # Run it using `modal run cloud_bucket_mount_loras.py`, and pass `--help`
 # to see the available options.
+#
+# The inference code will run on our machines, but the results will be available on yours.
 @stub.local_entrypoint()
 def main(
     limit: int = 100,
@@ -225,11 +235,14 @@ def main(
         f.write(byte_stream)
 
 
-# ## Trying out LoRAs
+# ## LoRA Exploradora: A hosted Gradio interface
 #
 # Command line tools are cool, but we can do better!
 # With the Gradio library by Hugging Face, we can create a simple web interface
 # around our Python inference function, then use Modal to host it for anyone to try out.
+#
+# To set up your own, run `modal deploy cloud_bucket_mount_loras.py` and navigate to the URL it prints out.
+# If you're playing with the code, use `modal serve` instead to see changes live.
 
 from fastapi import FastAPI
 
@@ -286,8 +299,9 @@ def app():
         ],
         outputs=gr.Image(label="Generated Image"),
         # some extra bits to make it look nicer
-        title="Try out some of the top custom SDXL models!",
-        description="Pick a LoRA finetune of SDXL from the dropdown, then prompt it to generate an image."
+        title="LoRAs Galore",
+        description="# Try out some of the top custom SDXL models!"
+        "\n\nPick a LoRA finetune of SDXL from the dropdown, then prompt it to generate an image."
         "\n\nCheck out [the code on GitHub](https://github.com/modal-labs/examples/blob/main/10_integrations/cloud_bucket_mount_loras.py)"
         " if you want to create your own version or just see how it works."
         "\n\nPowered by [Modal](https://modal.com) 🚀",
