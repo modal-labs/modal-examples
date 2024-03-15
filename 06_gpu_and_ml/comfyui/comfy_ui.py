@@ -94,6 +94,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
     # Restrict to 1 container because we want to our ComfyUI session state
     # to be on a single container.
     concurrency_limit=1,
+    keep_warm=1,
     timeout=1800,
 )
 @modal.web_server(8188, startup_timeout=30)
