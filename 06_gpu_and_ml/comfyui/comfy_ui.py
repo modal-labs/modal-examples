@@ -94,9 +94,9 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
     # Restrict to 1 container because we want to our ComfyUI session state
     # to be on a single container.
     concurrency_limit=1,
-    timeout=10 * 60,
+    timeout=600,
 )
-@modal.web_server(8188)
+@modal.web_server(8188, startup_timeout=30)
 def web():
-    cmd = "python main.py --dont-print-server --multi-user --port 8188"
+    cmd = "python main.py --dont-print-server --multi-user --listen --port 8188"
     subprocess.Popen(cmd, shell=True)
