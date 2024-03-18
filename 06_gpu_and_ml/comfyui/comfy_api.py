@@ -15,16 +15,16 @@ import uuid
 
 import modal
 
-stub = modal.Stub(name="example-comfy-api")
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    "websocket-client==1.6.4"
-)
+comfyui_commit_sha = "a38b9b3ac152fb5679dad03813a93c09e0a4d15e"
 
 # This workflow JSON has been exported by running `comfy_ui.py` and downloading the JSON
 # using the web UI.
 comfyui_workflow_data_path = assets_path = (
-    pathlib.Path(__file__).parent / "comfy_ui_workflow.json"
+    pathlib.Path(__file__).parent / "workflow_api.json"
 )
+
+stub = modal.Stub(name="example-comfy-api")
+from .comfy_ui import image
 
 
 def fetch_image(
@@ -115,6 +115,38 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
         for image_data in images[node_id]:
             image_list.append(image_data)
     return image_list
+
+
+@stub.function(image=image, gpu="any")
+def convert_workflow_to_python():
+    import subprocess
+
+    process = subprocess.Popen(
+        ["python", "./ComfyUI-to-Python-Extension/comfyui_to_python.py"]
+    )
+    process.wait()
+    retcode = process.returncode
+
+    if retcode != 0:
+        raise RuntimeError(
+            f"comfy_api.py exited unexpectedly with code {retcode}"
+        )
+    else:
+        try:
+            with open("workflow_api.py", "rb") as f:
+                return f.read()
+        except FileNotFoundError:
+            print("Error: File workflow_api.py not found.")
+
+
+@stub.local_entrypoint()
+def get_python_workflow():
+    workflow_bytes = convert_workflow_to_python.remote()
+    filename = "workflow_api.py"
+    with open(filename, "wb") as f:
+        f.write(workflow_bytes)
+        f.close()
+    print(f"saved '{filename}'")
 
 
 @stub.local_entrypoint()

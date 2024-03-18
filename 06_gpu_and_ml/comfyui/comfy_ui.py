@@ -98,6 +98,8 @@ image = (
         "cd /root && git remote add --fetch origin https://github.com/comfyanonymous/ComfyUI",
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
+        "cd /root && git clone https://github.com/pydn/ComfyUI-to-Python-Extension.git",
+        "cd /root/ComfyUI-to-Python-Extension && pip install -r requirements.txt",
     )
     .pip_install(
         "httpx",
