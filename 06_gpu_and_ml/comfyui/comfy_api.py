@@ -24,7 +24,7 @@ comfyui_workflow_data_path = assets_path = (
 )
 
 stub = modal.Stub(name="example-comfy-api")
-from .comfy_ui import image
+from comfy_ui import image
 
 
 def fetch_image(
@@ -94,6 +94,10 @@ def run_workflow(
     return output_images
 
 
+# Execute a run of a JSON-defined workflow on a remote ComfyUI server
+# This is adapted from the ComfyUI script examples: https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example.py
+# A better way to execute a workflow programmatically is to convert the JSON to Python code using convert_workflow_to_python
+# Then importing that generated code into a Modal endpoint; see serve_workflow.py
 @stub.function(image=image)
 def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     import websocket
@@ -117,7 +121,7 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     return image_list
 
 
-@stub.function(image=image, gpu="any")
+@stub.function(image=image, gpu="any", mounts=[modal.Mount.from_local_file(comfyui_workflow_data_path, "/root/workflow_api.json")])
 def convert_workflow_to_python():
     import subprocess
 
@@ -133,19 +137,18 @@ def convert_workflow_to_python():
         )
     else:
         try:
-            with open("workflow_api.py", "rb") as f:
-                return f.read()
+            return pathlib.Path("workflow_api.py").read_text()
         except FileNotFoundError:
             print("Error: File workflow_api.py not found.")
 
 
+# Generate a Python representation of workflow_api.json using this extension: https://github.com/pydn/ComfyUI-to-Python-Extension
+# Generated version is saved at _generated_workflow_api.py
 @stub.local_entrypoint()
 def get_python_workflow():
-    workflow_bytes = convert_workflow_to_python.remote()
-    filename = "workflow_api.py"
-    with open(filename, "wb") as f:
-        f.write(workflow_bytes)
-        f.close()
+    workflow_text = convert_workflow_to_python.remote()
+    filename = "_generated_workflow_api.py"
+    pathlib.Path(filename).write_text(workflow_text)
     print(f"saved '{filename}'")
 
 
