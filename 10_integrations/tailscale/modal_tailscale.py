@@ -2,17 +2,19 @@
 # lambda-test: false
 # ---
 
-"""This example demonstrates how to integrate Modal with Tailscale (https://tailscale.com).
-It outlines the steps to configure Modal containers so that they join the Tailscale network.
+# # Add Modal Apps to Tailscale
+#
+# This example demonstrates how to integrate Modal with Tailscale (https://tailscale.com).
+# It outlines the steps to configure Modal containers so that they join the Tailscale network.
 
-We use a custom entrypoint to automatically add containers to a Tailscale network (tailnet).
-This configuration enables the containers to interact with one another and with
-additional applications within the same tailnet.
-"""
+# We use a custom entrypoint to automatically add containers to a Tailscale network (tailnet).
+# This configuration enables the containers to interact with one another and with
+# additional applications within the same tailnet.
+
 
 import modal
 
-# Install Tailscale and copy custom entrypoint script (./entrypoint.sh). The script must be
+# Install Tailscale and copy custom entrypoint script ([entrypoint.sh](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/tailscale/entrypoint.sh)). The script must be
 # executable.
 image = (
     modal.Image.debian_slim()
