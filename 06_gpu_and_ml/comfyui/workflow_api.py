@@ -1,8 +1,9 @@
 import random
 from typing import Any, Mapping, Sequence, Union
 
-from comfy_ui import image
 from modal import Stub
+
+from .comfy_ui import image
 
 stub = Stub(name="example-comfy-python-api")
 

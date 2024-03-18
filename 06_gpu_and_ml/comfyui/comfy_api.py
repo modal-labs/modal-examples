@@ -24,7 +24,7 @@ comfyui_workflow_data_path = assets_path = (
 )
 
 stub = modal.Stub(name="example-comfy-api")
-from comfy_ui import image
+from .comfy_ui import image
 
 
 def fetch_image(
