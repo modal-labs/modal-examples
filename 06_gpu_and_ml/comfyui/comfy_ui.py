@@ -19,42 +19,72 @@ import modal
 # ## Define container image
 #
 # Fun with ComfyUI begins with pre-trained model checkpoints.
-# The checkpoint downloaded below is [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0), but others can be used.
+# Add downloadable checkpoint urls to checkpoints.txt e.g. [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0).
 # The ComfyUI repository has other recommendations listed in this file:
 # [notebooks/comfyui_colab.ipynb](https://github.com/comfyanonymous/ComfyUI/blob/master/notebooks/comfyui_colab.ipynb).
-#
-# This download function is run as the final image building step, and takes around 10 seconds to download
-# the ~2.0 GiB model checkpoint.
 
 
-def download_checkpoint():
+def download_checkpoints():
     import httpx
     from tqdm import tqdm
 
-    url = "https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/resolve/main/dreamlike-photoreal-2.0.safetensors"
-    checkpoints_directory = "/root/models/checkpoints"
-    local_filename = url.split("/")[-1]
-    local_filepath = pathlib.Path(checkpoints_directory, local_filename)
-    local_filepath.parent.mkdir(parents=True, exist_ok=True)
+    with open("/checkpoints.txt") as f:
+        checkpoints = [line.strip() for line in f.readlines()]
 
-    print(f"downloading {url} ...")
-    with httpx.stream("GET", url, follow_redirects=True) as stream:
-        total = int(stream.headers["Content-Length"])
-        with open(local_filepath, "wb") as f, tqdm(
-            total=total, unit_scale=True, unit_divisor=1024, unit="B"
-        ) as progress:
-            num_bytes_downloaded = stream.num_bytes_downloaded
-            for data in stream.iter_bytes():
-                f.write(data)
-                progress.update(
-                    stream.num_bytes_downloaded - num_bytes_downloaded
-                )
+    for url in checkpoints:
+        checkpoints_directory = "/root/models/checkpoints"
+        local_filename = url.split("/")[-1]
+        local_filepath = pathlib.Path(checkpoints_directory, local_filename)
+        local_filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        print(f"downloading {url} ...")
+        with httpx.stream("GET", url, follow_redirects=True) as stream:
+            total = int(stream.headers["Content-Length"])
+            with open(local_filepath, "wb") as f, tqdm(
+                total=total, unit_scale=True, unit_divisor=1024, unit="B"
+            ) as progress:
                 num_bytes_downloaded = stream.num_bytes_downloaded
+                for data in stream.iter_bytes():
+                    f.write(data)
+                    progress.update(
+                        stream.num_bytes_downloaded - num_bytes_downloaded
+                    )
+                    num_bytes_downloaded = stream.num_bytes_downloaded
+
+
+# You can specify ComfyUI plugins to load into the image in `plugins.json`, which is a list of dictionaries with two keys:
+# `url` for the github url and an optional `requirements`` for the name of a requirements.txt to pip install (remove this key if there is none for the plugin).
+# For recommended plugins, see this list:
+# [WASasquatch/comfyui-plugins](https://github.com/WASasquatch/comfyui-plugins).
+
+
+def download_plugins():
+    import json
+    import subprocess
+
+    with open("/plugins.json") as f:
+        plugins = json.load(f)
+        for plugin in plugins:
+            url = plugin["url"]
+            name = url.split("/")[-1]
+            command = f"cd /root/custom_nodes && git clone {url}"
+            try:
+                subprocess.run(command, shell=True, check=True)
+                print(f"Repository {url} cloned successfully")
+            except subprocess.CalledProcessError as e:
+                print(f"Error cloning repository: {e.stderr}")
+            if plugin.get("requirements"):
+                pip_command = f"cd /root/custom_nodes/{name} && pip install -r {plugin['requirements']}"
+            try:
+                subprocess.run(pip_command, shell=True, check=True)
+                print(f"Requirements for {url} installed successfully")
+            except subprocess.CalledProcessError as e:
+                print(f"Error installing requirements: {e.stderr}")
 
 
 # Pin to a specific commit from https://github.com/comfyanonymous/ComfyUI/commits/master/
 # for stability. To update to a later ComfyUI version, change this commit identifier.
-comfyui_commit_sha = "b3b5ddb07a23b3d070df292c7a7fd6f83dc8fd50"
+comfyui_commit_sha = "a38b9b3ac152fb5679dad03813a93c09e0a4d15e"
 
 image = (
     modal.Image.debian_slim()
@@ -69,8 +99,14 @@ image = (
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
-    .pip_install("httpx", "tqdm")
-    .run_function(download_checkpoint)
+    .pip_install(
+        "httpx",
+        "tqdm",
+    )
+    .copy_local_file("checkpoints.txt")
+    .run_function(download_checkpoints)
+    .copy_local_file("plugins.json")
+    .run_function(download_plugins)
 )
 stub = modal.Stub(name="example-comfy-ui", image=image)
 
