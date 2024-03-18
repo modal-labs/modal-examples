@@ -143,7 +143,8 @@ def convert_workflow_to_python():
 
 
 # Generate a Python representation of workflow_api.json using this extension: https://github.com/pydn/ComfyUI-to-Python-Extension
-# Generated version is saved at _generated_workflow_api.py
+# First, you need to download your workflow_api.json from ComfyUI and save it to this directory.
+# Then, this function will generate a Python version to _generated_workflow_api.py, which you'll reference in workflow_api.py.
 @stub.local_entrypoint()
 def get_python_workflow():
     workflow_text = convert_workflow_to_python.remote()
