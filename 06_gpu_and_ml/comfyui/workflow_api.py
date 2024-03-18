@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse
 from modal import Stub, Volume, web_endpoint
 
 stub = Stub(name="example-comfy-python-api")
-vol_name = 'comfyui-images'
+vol_name = "comfyui-images"
 vol = Volume.from_name(vol_name, create_if_missing=True)
 
 
@@ -68,12 +68,12 @@ def run_python_workflow(item: Dict):
         cliptextencode = CLIPTextEncode()
         # parameterize the prompt based on user input
         cliptextencode_2 = cliptextencode.encode(
-            text=item['pos_prompt'],
+            text=item["pos_prompt"],
             clip=get_value_at_index(checkpointloadersimple_1, 1),
         )
 
         cliptextencode_3 = cliptextencode.encode(
-            text=item['neg_prompt'],
+            text=item["neg_prompt"],
             clip=get_value_at_index(checkpointloadersimple_1, 1),
         )
 
@@ -169,7 +169,7 @@ def run_workflow(item: Dict):
 def main() -> None:
     values = {
         "pos_prompt": "astronaut riding a unicorn in space",
-        "neg_prompt": "blurry, low quality"
+        "neg_prompt": "blurry, low quality",
     }
     image_list = run_workflow.remote(values)
     for i, img_bytes in enumerate(image_list):

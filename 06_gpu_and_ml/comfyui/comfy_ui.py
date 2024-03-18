@@ -29,10 +29,9 @@ CHECKPOINTS = [
 PLUGINS = [
     {
         "url": "https://github.com/coreyryanhanson/ComfyQR",
-        "requirements": "requirements.txt"
+        "requirements": "requirements.txt",
     }
 ]
-
 
 
 def download_checkpoints():

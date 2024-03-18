@@ -121,7 +121,15 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     return image_list
 
 
-@stub.function(image=image, gpu="any", mounts=[modal.Mount.from_local_file(comfyui_workflow_data_path, "/root/workflow_api.json")])
+@stub.function(
+    image=image,
+    gpu="any",
+    mounts=[
+        modal.Mount.from_local_file(
+            comfyui_workflow_data_path, "/root/workflow_api.json"
+        )
+    ],
+)
 def convert_workflow_to_python():
     import subprocess
 
