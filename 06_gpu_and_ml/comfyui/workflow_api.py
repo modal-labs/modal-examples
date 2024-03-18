@@ -1,3 +1,12 @@
+# ---
+# lambda-test: false
+# ---
+#
+# # Run a ComfyUI workflow in Python
+#
+# This example shows you how to run a ComfyUI workflow as a Modal web endpoint or function.
+# This is based on the output file generated from `get_python_workflow` in `comfy_api.py`.
+# ![example comfyui workspace](./comfyui-hero.png)
 import pathlib
 import random
 from typing import Any, Dict, Mapping, Sequence, Union
@@ -127,7 +136,7 @@ def run_python_workflow(item: Dict):
 
 
 # Serves the python workflow behind a web endpoint
-# Generated images get mounted as a Volume
+# Generated images are written to a Volume
 @stub.function(image=image, gpu="any", volumes={"/data": vol})
 @web_endpoint(method="POST")
 def serve_workflow(item: Dict):

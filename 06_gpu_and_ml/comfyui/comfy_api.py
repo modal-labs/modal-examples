@@ -4,8 +4,8 @@
 #
 # # Make API calls to a ComfyUI server
 #
-# This example shows you how to execute ComfyUI workflows via ComfyUI's API.
-#
+# This example shows you how to execute ComfyUI JSON-defined workflows via ComfyUI's API.
+# It also provides a helper function `get_python_workflow`` that maps a JSON-defined workflow into Python objects.
 # ![example comfyui workspace](./comfyui-hero.png)
 import json
 import os
