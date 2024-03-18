@@ -1,12 +1,10 @@
-from pydantic import BaseModel
-import random
 import pathlib
-from fastapi.responses import HTMLResponse
+import random
 from typing import Any, Dict, Mapping, Sequence, Union
 
-from modal import Stub, Volume, web_endpoint
-
 from comfy_ui import image
+from fastapi.responses import HTMLResponse
+from modal import Stub, Volume, web_endpoint
 
 stub = Stub(name="example-comfy-python-api")
 vol_name = 'comfyui-images'
@@ -126,10 +124,10 @@ def run_python_workflow(item: Dict):
         )
 
         return saveimage_19
-    
+
 
 # Serves the python workflow behind a web endpoint
-# Generated images get mounted as a Volume    
+# Generated images get mounted as a Volume
 @stub.function(image=image, gpu="any", volumes={"/data": vol})
 @web_endpoint(method="POST")
 def serve_workflow(item: Dict):
@@ -141,7 +139,7 @@ def serve_workflow(item: Dict):
         with open(f'/data/{i["filename"]}', "wb") as f:
             f.write(pathlib.Path(filename).read_bytes())
         vol.commit()
-    
+
     return HTMLResponse(f"<html>Image saved at volume {vol_name}! </html>")
 
 

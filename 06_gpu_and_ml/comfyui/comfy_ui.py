@@ -67,7 +67,6 @@ def download_checkpoints():
 
 
 def download_plugins():
-    import json
     import subprocess
 
     for plugin in PLUGINS:
