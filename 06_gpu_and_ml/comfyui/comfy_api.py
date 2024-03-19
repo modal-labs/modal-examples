@@ -152,7 +152,9 @@ def convert_workflow_to_python(workflow: str):
 # Then, this function will generate a Python version to _generated_workflow_api.py, which you'll reference in workflow_api.py.
 @stub.local_entrypoint()
 def get_python_workflow():
-    workflow_text = convert_workflow_to_python.remote(pathlib.Path(comfyui_workflow_data_path).read_text())
+    workflow_text = convert_workflow_to_python.remote(
+        pathlib.Path(comfyui_workflow_data_path).read_text()
+    )
     filename = "_generated_workflow_api.py"
     pathlib.Path(filename).write_text(workflow_text)
     print(f"saved '{filename}'")
