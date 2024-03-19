@@ -91,7 +91,7 @@ def download_plugins():
 comfyui_commit_sha = "a38b9b3ac152fb5679dad03813a93c09e0a4d15e"
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
     # Here we place the latest ComfyUI repository code into /root.
     # Because /root is almost empty, but not entirely empty
