@@ -1,11 +1,24 @@
+# ---
+# lambda-test: false
+# ---
+#
+# # Run a ComfyUI workflow in Python
+#
+# This example shows you how to run a ComfyUI workflow as a Modal web endpoint or function.
+# This is based on the output file generated from `get_python_workflow` in `comfy_api.py`.
+# ![example comfyui workspace](./comfyui-hero.png)
+import pathlib
 import random
-from typing import Any, Mapping, Sequence, Union
+from typing import Any, Dict, Mapping, Sequence, Union
 
-from modal import Stub
+from fastapi.responses import HTMLResponse
+from modal import Stub, Volume, web_endpoint
 
 from .comfy_ui import image
 
 stub = Stub(name="example-comfy-python-api")
+vol_name = "comfyui-images"
+vol = Volume.from_name(vol_name, create_if_missing=True)
 
 
 def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
@@ -32,8 +45,9 @@ def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
         return obj["result"][index]
 
 
-@stub.function(image=image, gpu="any")
-def run_python_workflow(pos_prompt: str):
+# Adapt this from main() in `_generated_workflow_api.py`
+def run_python_workflow(item: Dict):
+    # In the generated version, these are in the global scope, but for Modal we move into the function scope
     import torch
     from nodes import (
         CheckpointLoaderSimple,
@@ -53,13 +67,14 @@ def run_python_workflow(pos_prompt: str):
         )
 
         cliptextencode = CLIPTextEncode()
+        # parameterize the prompt based on user input
         cliptextencode_2 = cliptextencode.encode(
-            text=pos_prompt,
+            text=item["pos_prompt"],
             clip=get_value_at_index(checkpointloadersimple_1, 1),
         )
 
         cliptextencode_3 = cliptextencode.encode(
-            text="bag of noodles",
+            text=item["neg_prompt"],
             clip=get_value_at_index(checkpointloadersimple_1, 1),
         )
 
@@ -118,19 +133,46 @@ def run_python_workflow(pos_prompt: str):
             filename_prefix="ComfyUI", images=vaedecode_6[0]
         )
 
-        images = saveimage_19["ui"]["images"]
-        image_list = []
+        return saveimage_19
 
-        for i in images:
-            filename = "output/" + i["filename"]
-            with open(filename, "rb") as f:
-                image_list.append(f.read())
-        return image_list
+
+# Serves the python workflow behind a web endpoint
+# Generated images are written to a Volume
+@stub.function(image=image, gpu="any", volumes={"/data": vol})
+@web_endpoint(method="POST")
+def serve_workflow(item: Dict):
+    saved_image = run_python_workflow(item)
+    images = saved_image["ui"]["images"]
+
+    for i in images:
+        filename = "output/" + i["filename"]
+        with open(f'/data/{i["filename"]}', "wb") as f:
+            f.write(pathlib.Path(filename).read_bytes())
+        vol.commit()
+
+    return HTMLResponse(f"<html>Image saved at volume {vol_name}! </html>")
+
+
+# Run the workflow as a function rather than an endpoint (for easier local testing)
+@stub.function(image=image, gpu="any")
+def run_workflow(item: Dict):
+    saved_image = run_python_workflow(item)
+    images = saved_image["ui"]["images"]
+    image_list = []
+
+    for i in images:
+        filename = "output/" + i["filename"]
+        image_list.append(pathlib.Path(filename).read_bytes())
+    return image_list
 
 
 @stub.local_entrypoint()
-def main(pos_prompt: str = "astronaut riding a unicorn in space") -> None:
-    image_list = run_python_workflow.remote(pos_prompt)
+def main() -> None:
+    values = {
+        "pos_prompt": "astronaut riding a unicorn in space",
+        "neg_prompt": "blurry, low quality",
+    }
+    image_list = run_workflow.remote(values)
     for i, img_bytes in enumerate(image_list):
         filename = f"comfyui_{i}.png"
         with open(filename, "wb") as f:

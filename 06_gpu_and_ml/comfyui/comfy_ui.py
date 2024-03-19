@@ -22,16 +22,23 @@ import modal
 # Add downloadable checkpoint urls to checkpoints.txt e.g. [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0).
 # The ComfyUI repository has other recommendations listed in this file:
 # [notebooks/comfyui_colab.ipynb](https://github.com/comfyanonymous/ComfyUI/blob/master/notebooks/comfyui_colab.ipynb).
+CHECKPOINTS = [
+    "https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/resolve/main/dreamlike-photoreal-2.0.safetensors"
+]
+
+PLUGINS = [
+    {
+        "url": "https://github.com/coreyryanhanson/ComfyQR",
+        "requirements": "requirements.txt",
+    }
+]
 
 
 def download_checkpoints():
     import httpx
     from tqdm import tqdm
 
-    with open("/checkpoints.txt") as f:
-        checkpoints = [line.strip() for line in f.readlines()]
-
-    for url in checkpoints:
+    for url in CHECKPOINTS:
         checkpoints_directory = "/root/models/checkpoints"
         local_filename = url.split("/")[-1]
         local_filepath = pathlib.Path(checkpoints_directory, local_filename)
@@ -59,27 +66,24 @@ def download_checkpoints():
 
 
 def download_plugins():
-    import json
     import subprocess
 
-    with open("/plugins.json") as f:
-        plugins = json.load(f)
-        for plugin in plugins:
-            url = plugin["url"]
-            name = url.split("/")[-1]
-            command = f"cd /root/custom_nodes && git clone {url}"
-            try:
-                subprocess.run(command, shell=True, check=True)
-                print(f"Repository {url} cloned successfully")
-            except subprocess.CalledProcessError as e:
-                print(f"Error cloning repository: {e.stderr}")
-            if plugin.get("requirements"):
-                pip_command = f"cd /root/custom_nodes/{name} && pip install -r {plugin['requirements']}"
-            try:
-                subprocess.run(pip_command, shell=True, check=True)
-                print(f"Requirements for {url} installed successfully")
-            except subprocess.CalledProcessError as e:
-                print(f"Error installing requirements: {e.stderr}")
+    for plugin in PLUGINS:
+        url = plugin["url"]
+        name = url.split("/")[-1]
+        command = f"cd /root/custom_nodes && git clone {url}"
+        try:
+            subprocess.run(command, shell=True, check=True)
+            print(f"Repository {url} cloned successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"Error cloning repository: {e.stderr}")
+        if plugin.get("requirements"):
+            pip_command = f"cd /root/custom_nodes/{name} && pip install -r {plugin['requirements']}"
+        try:
+            subprocess.run(pip_command, shell=True, check=True)
+            print(f"Requirements for {url} installed successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"Error installing requirements: {e.stderr}")
 
 
 # Pin to a specific commit from https://github.com/comfyanonymous/ComfyUI/commits/master/
@@ -87,7 +91,7 @@ def download_plugins():
 comfyui_commit_sha = "a38b9b3ac152fb5679dad03813a93c09e0a4d15e"
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
     # Here we place the latest ComfyUI repository code into /root.
     # Because /root is almost empty, but not entirely empty
@@ -105,9 +109,7 @@ image = (
         "httpx",
         "tqdm",
     )
-    .copy_local_file("checkpoints.txt")
     .run_function(download_checkpoints)
-    .copy_local_file("plugins.json")
     .run_function(download_plugins)
 )
 stub = modal.Stub(name="example-comfy-ui", image=image)

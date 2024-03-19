@@ -4,8 +4,8 @@
 #
 # # Make API calls to a ComfyUI server
 #
-# This example shows you how to execute ComfyUI workflows via ComfyUI's API.
-#
+# This example shows you how to execute ComfyUI JSON-defined workflows via ComfyUI's API.
+# It also provides a helper function `get_python_workflow`` that maps a JSON-defined workflow into Python objects.
 # ![example comfyui workspace](./comfyui-hero.png)
 import json
 import os
@@ -94,6 +94,10 @@ def run_workflow(
     return output_images
 
 
+# Execute a run of a JSON-defined workflow on a remote ComfyUI server
+# This is adapted from the ComfyUI script examples: https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example.py
+# A better way to execute a workflow programmatically is to convert the JSON to Python code using convert_workflow_to_python
+# Then importing that generated code into a Modal endpoint; see serve_workflow.py
 @stub.function(image=image)
 def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     import websocket
@@ -117,8 +121,13 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     return image_list
 
 
-@stub.function(image=image, gpu="any")
-def convert_workflow_to_python():
+@stub.function(
+    image=image,
+    gpu="any",
+)
+def convert_workflow_to_python(workflow: str):
+    pathlib.Path("/root/workflow_api.json").write_text(workflow)
+
     import subprocess
 
     process = subprocess.Popen(
@@ -133,19 +142,21 @@ def convert_workflow_to_python():
         )
     else:
         try:
-            with open("workflow_api.py", "rb") as f:
-                return f.read()
+            return pathlib.Path("workflow_api.py").read_text()
         except FileNotFoundError:
             print("Error: File workflow_api.py not found.")
 
 
+# Generate a Python representation of workflow_api.json using this extension: https://github.com/pydn/ComfyUI-to-Python-Extension
+# First, you need to download your workflow_api.json from ComfyUI and save it to this directory.
+# Then, this function will generate a Python version to _generated_workflow_api.py, which you'll reference in workflow_api.py.
 @stub.local_entrypoint()
 def get_python_workflow():
-    workflow_bytes = convert_workflow_to_python.remote()
-    filename = "workflow_api.py"
-    with open(filename, "wb") as f:
-        f.write(workflow_bytes)
-        f.close()
+    workflow_text = convert_workflow_to_python.remote(
+        pathlib.Path(comfyui_workflow_data_path).read_text()
+    )
+    filename = "_generated_workflow_api.py"
+    pathlib.Path(filename).write_text(workflow_text)
     print(f"saved '{filename}'")
 
 
