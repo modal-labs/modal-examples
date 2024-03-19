@@ -4,8 +4,7 @@
 #
 # # Run a ComfyUI workflow in Python
 #
-# This example shows you how to run a ComfyUI workflow as a Modal web endpoint or function.
-# This is based on the output file generated from `get_python_workflow` in `comfy_api.py`.
+# This example serves a ComfyUI [inpainting workflow](https://github.com/comfyanonymous/ComfyUI_examples/tree/master/inpaint) as an endpoint.
 # ![example comfyui workspace](./comfyui-hero.png)
 import pathlib
 import random
@@ -58,7 +57,7 @@ def download_image(url, image_name, save_path='/root/input/'):
         print(f"Error downloading {url} image: {e}")
 
 
-# Adapt this from main() in `_generated_workflow_api.py`
+# Adapted from main() in `_generated_workflow_api.py` after running modal run comfyui.comfy_api::get_python_workflow
 def run_python_workflow(item: Dict):
     # In the generated version, these are in the global scope, but for Modal we move into the function scope
     import torch
