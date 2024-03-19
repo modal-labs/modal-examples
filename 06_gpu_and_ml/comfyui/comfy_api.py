@@ -24,7 +24,7 @@ comfyui_workflow_data_path = assets_path = (
 )
 
 generated_workflow_path = (
-    pathlib.Path(__file__).parent/ "_generated_workflow_api.py"
+    pathlib.Path(__file__).parent / "_generated_workflow_api.py"
 )
 
 stub = modal.Stub(name="example-comfy-api")

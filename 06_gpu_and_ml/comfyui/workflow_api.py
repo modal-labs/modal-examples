@@ -45,8 +45,9 @@ def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
 
 
 # ComfyUI images expect input images to be saved in the /input directory
-def download_image(url, image_name, save_path='/root/input/'):
+def download_image(url, image_name, save_path="/root/input/"):
     import requests
+
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -62,18 +63,17 @@ def run_python_workflow(item: Dict):
     # In the generated version, these are in the global scope, but for Modal we move into the function scope
     import torch
     from nodes import (
-        LoadImage,
-        VAEEncodeForInpaint,
-        KSampler,
         CheckpointLoaderSimple,
         CLIPTextEncode,
+        KSampler,
+        LoadImage,
         SaveImage,
         VAEDecode,
-        NODE_CLASS_MAPPINGS,
+        VAEEncodeForInpaint,
     )
 
-    image_name = 'yosemite.png'
-    download_image(item['image'], image_name)
+    image_name = "yosemite.png"
+    download_image(item["image"], image_name)
     with torch.inference_mode():
         loadimage = LoadImage()
         loadimage_1 = loadimage.load_image(image=image_name)
@@ -90,7 +90,8 @@ def run_python_workflow(item: Dict):
         )
 
         cliptextencode_5 = cliptextencode.encode(
-            text="watermark, text", clip=get_value_at_index(checkpointloadersimple_2, 1)
+            text="watermark, text",
+            clip=get_value_at_index(checkpointloadersimple_2, 1),
         )
 
         vaeencodeforinpaint = VAEEncodeForInpaint()
@@ -125,7 +126,8 @@ def run_python_workflow(item: Dict):
             )
 
             saveimage_8 = saveimage.save_images(
-                filename_prefix="ComfyUI", images=get_value_at_index(vaedecode_7, 0)
+                filename_prefix="ComfyUI",
+                images=get_value_at_index(vaedecode_7, 0),
             )
 
         return saveimage_8
@@ -165,7 +167,7 @@ def run_workflow(item: Dict):
 def main() -> None:
     values = {
         "prompt": "white heron",
-        "image": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png"
+        "image": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png",
     }
     image_list = run_workflow.remote(values)
     for i, img_bytes in enumerate(image_list):
