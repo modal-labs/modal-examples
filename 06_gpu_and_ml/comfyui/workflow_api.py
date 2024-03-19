@@ -11,9 +11,10 @@ import pathlib
 import random
 from typing import Any, Dict, Mapping, Sequence, Union
 
-from .comfy_ui import image
 from fastapi.responses import HTMLResponse
 from modal import Stub, Volume, web_endpoint
+
+from .comfy_ui import image
 
 stub = Stub(name="example-comfy-python-api")
 vol_name = "comfyui-images"
