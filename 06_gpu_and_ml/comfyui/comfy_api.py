@@ -124,13 +124,10 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
 @stub.function(
     image=image,
     gpu="any",
-    mounts=[
-        modal.Mount.from_local_file(
-            comfyui_workflow_data_path, "/root/workflow_api.json"
-        )
-    ],
 )
-def convert_workflow_to_python():
+def convert_workflow_to_python(workflow: str):
+    pathlib.Path("/root/workflow_api.json").write_text(workflow)
+
     import subprocess
 
     process = subprocess.Popen(
@@ -155,7 +152,7 @@ def convert_workflow_to_python():
 # Then, this function will generate a Python version to _generated_workflow_api.py, which you'll reference in workflow_api.py.
 @stub.local_entrypoint()
 def get_python_workflow():
-    workflow_text = convert_workflow_to_python.remote()
+    workflow_text = convert_workflow_to_python.remote(pathlib.Path(comfyui_workflow_data_path).read_text())
     filename = "_generated_workflow_api.py"
     pathlib.Path(filename).write_text(workflow_text)
     print(f"saved '{filename}'")
