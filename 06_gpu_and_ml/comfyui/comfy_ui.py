@@ -19,18 +19,11 @@ import modal
 # ## Define container image
 #
 # Fun with ComfyUI begins with pre-trained model checkpoints.
-# Add downloadable checkpoint urls to checkpoints.txt e.g. [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0).
+# Add downloadable checkpoints to CHECKPOINTS e.g. [huggingface.co/dreamlike-art/dreamlike-photoreal-2.0](https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0).
 # The ComfyUI repository has other recommendations listed in this file:
 # [notebooks/comfyui_colab.ipynb](https://github.com/comfyanonymous/ComfyUI/blob/master/notebooks/comfyui_colab.ipynb).
 CHECKPOINTS = [
     "https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/resolve/main/dreamlike-photoreal-2.0.safetensors"
-]
-
-PLUGINS = [
-    {
-        "url": "https://github.com/coreyryanhanson/ComfyQR",
-        "requirements": "requirements.txt",
-    }
 ]
 
 
@@ -59,10 +52,16 @@ def download_checkpoints():
                     num_bytes_downloaded = stream.num_bytes_downloaded
 
 
-# You can specify ComfyUI plugins to load into the image in `plugins.json`, which is a list of dictionaries with two keys:
+# Add plugins to PLUGINS, a list of dictionaries with two keys:
 # `url` for the github url and an optional `requirements`` for the name of a requirements.txt to pip install (remove this key if there is none for the plugin).
 # For recommended plugins, see this list:
 # [WASasquatch/comfyui-plugins](https://github.com/WASasquatch/comfyui-plugins).
+PLUGINS = [
+    {
+        "url": "https://github.com/coreyryanhanson/ComfyQR",
+        "requirements": "requirements.txt",
+    }
+]
 
 
 def download_plugins():
