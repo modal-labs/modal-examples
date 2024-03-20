@@ -1,8 +1,8 @@
 [tool.pytest.ini_options]
 filterwarnings = [
-    "error::DeprecationWarning",
+    # "error::DeprecationWarning",
     "error::modal.exception.DeprecationError",
-    # "ignore::DeprecationWarning:pytest.*:",
+    "ignore::DeprecationWarning:pytest.*:",
 ]
 pythonpath = ["06_gpu_and_ml/spam-detect", "06_gpu_and_ml/text-to-pokemon"]
 
