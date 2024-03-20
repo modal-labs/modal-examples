@@ -81,7 +81,6 @@ def decide_to_finish(state: GraphState) -> str:
     iter = state_dict["iterations"]
 
     if error == "None" or iter >= 3:
-        # give up :<
         print("---DECISION: FINISH---")
         return "finish"
     else:

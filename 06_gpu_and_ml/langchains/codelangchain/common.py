@@ -4,7 +4,7 @@ from typing import Dict, TypedDict
 import modal
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "beautifulsoup4~=4.12.3",  # TODO: move to a "retrieval_image"
+    "beautifulsoup4~=4.12.3",
     "langchain==0.1.11",
     "langgraph==0.0.26",
     "langchain_community==0.0.27",

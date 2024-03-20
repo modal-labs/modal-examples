@@ -283,12 +283,27 @@ class Nodes:
         """
 
         print("---FINISHING---")
-        state_dict = state["keys"]
-        code_solution = state_dict["generation"]
-        prefix = code_solution[0].prefix
-        imports = code_solution[0].imports
-        code = code_solution[0].code
 
-        response = "\n".join([prefix, imports, code])
+        response = extract_response(state)
 
         return {"keys": {"response": response}}
+
+
+def extract_response(state: GraphState) -> str:
+    """
+    Extract the response from the graph state
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        str: The response
+    """
+
+    state_dict = state["keys"]
+    code_solution = state_dict["generation"][0]
+    prefix = code_solution.prefix
+    imports = code_solution.imports
+    code = code_solution.code
+
+    return "\n".join([prefix, imports, code])
