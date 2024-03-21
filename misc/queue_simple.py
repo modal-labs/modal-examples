@@ -14,14 +14,8 @@ import asyncio
 import modal
 import modal.queue
 
-stub = modal.Stub("example-queue-simple")
-q = modal.Queue.ephemeral()
 
-
-@stub.function()
 async def run_async(q: modal.Queue) -> None:
-    print(q)
-    print(q.put)
     await q.put.aio(42)
     r = await q.get.aio()
     assert r == 42
@@ -33,7 +27,6 @@ async def run_async(q: modal.Queue) -> None:
     assert r == [45, 46, 47, 48, 49, 50, 51]
 
 
-@stub.function()
 async def many_consumers(q: modal.Queue) -> None:
     print("Creating getters")
     tasks = [asyncio.create_task(q.get.aio()) for i in range(20)]
@@ -50,9 +43,9 @@ async def many_consumers(q: modal.Queue) -> None:
 
 
 async def main():
-    with stub.run():
-        await run_async.remote.aio(q)
-        await many_consumers.remote.aio(q)
+    with modal.Queue.ephemeral() as q:
+        await run_async(q)
+        await many_consumers(q)
 
 
 if __name__ == "__main__":
