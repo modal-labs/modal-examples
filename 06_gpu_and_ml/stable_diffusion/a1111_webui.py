@@ -15,7 +15,9 @@ import webbrowser
 from modal import Image, Queue, Stub, forward
 
 stub = Stub("example-a1111-webui")
-stub.urls = Queue.new()  # TODO: FunctionCall.get() doesn't support generators.
+stub.urls = Queue.from_name(
+    "a1111-webui-example", create_if_missing=True
+)  # TODO: FunctionCall.get() doesn't support generators.
 
 
 def wait_for_port(port: int):
@@ -57,6 +59,7 @@ def wait_for_port(port: int):
     .run_commands(
         "cd /webui && . venv/bin/activate && "
         + "python -c 'from modules import shared_init, initialize; shared_init.initialize(); initialize.initialize()'",
+        gpu="a10g",
     ),
     gpu="a10g",
     cpu=2,

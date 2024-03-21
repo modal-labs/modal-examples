@@ -15,7 +15,7 @@ import modal
 import modal.queue
 
 stub = modal.Stub("example-queue-simple")
-stub.q = modal.Queue.new()
+q = modal.Queue.ephemeral()
 
 
 @stub.function()
@@ -51,8 +51,8 @@ async def many_consumers(q: modal.Queue) -> None:
 
 async def main():
     with stub.run():
-        await run_async.remote.aio(stub.q)
-        await many_consumers.remote.aio(stub.q)
+        await run_async.remote.aio(q)
+        await many_consumers.remote.aio(q)
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ stub = modal.Stub(
     )
 )
 # This volume is not persisted, so the data will be deleted when this demo app is stopped.
-volume = modal.NetworkFileSystem.new()
+volume = modal.NetworkFileSystem.ephemeral()
 
 CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!

@@ -7,7 +7,9 @@ import sys
 import modal
 
 stub = modal.Stub(name="example-stable-video-diffusion-streamlit")
-stub.q = modal.Queue.new()
+q = modal.Queue.from_name(
+    "stable-video-diffusion-streamlit", create_if_missing=True
+)
 
 session_timeout = 15 * 60
 
@@ -68,13 +70,13 @@ def run_streamlit(publish_url: bool = False):
     with modal.forward(8501) as tunnel:
         # Reload Streamlit config with information about Modal tunnel address.
         if publish_url:
-            stub.q.put(tunnel.url)
+            q.put(tunnel.url)
         load_config_options(
             {"browser.serverAddress": tunnel.host, "browser.serverPort": 443}
         )
         run(
             main_script_path="/sgm/scripts/demo/video_sampling.py",
-            command_line=None,
+            is_hello=False,
             args=["--timeout", str(session_timeout)],
             flag_options={},
         )
@@ -86,5 +88,5 @@ def share():
     from fastapi.responses import RedirectResponse
 
     run_streamlit.spawn(publish_url=True)
-    url = stub.q.get()
+    url = q.get()
     return RedirectResponse(url, status_code=303)
