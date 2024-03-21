@@ -41,7 +41,7 @@ stub = Stub("example-tensorflow-tutorial", image=dockerhub_image)
 # We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-fs = NetworkFileSystem.new()
+fs = NetworkFileSystem.from_name("tensorflow-tutorial", create_if_missing=True)
 logdir = "/tensorboard"
 
 # ## Training function
