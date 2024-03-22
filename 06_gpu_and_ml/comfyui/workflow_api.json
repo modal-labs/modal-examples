@@ -1,181 +1,144 @@
 {
-    "1": {
-      "inputs": {
-        "ckpt_name": "dreamlike-photoreal-2.0.safetensors"
-      },
-      "class_type": "CheckpointLoaderSimple",
-      "_meta": {
-        "title": "Load Checkpoint"
-      }
+  "1": {
+    "inputs": {
+      "image": "yosemite_inpaint_example.png",
+      "upload": "image"
     },
-    "2": {
-      "inputs": {
-        "text": "a bag of wooden blocks",
-        "clip": [
-          "1",
-          1
-        ]
-      },
-      "class_type": "CLIPTextEncode",
-      "_meta": {
-        "title": "CLIP Text Encode (Positive)"
-      }
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "2": {
+    "inputs": {
+      "ckpt_name": "512-inpainting-ema.ckpt"
     },
-    "3": {
-      "inputs": {
-        "text": "bag of noodles",
-        "clip": [
-          "1",
-          1
-        ]
-      },
-      "class_type": "CLIPTextEncode",
-      "_meta": {
-        "title": "CLIP Text Encode (Negative)"
-      }
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": "closeup photograph of a white heron in the yosemite national park mountains nature",
+      "clip": [
+        "2",
+        1
+      ]
     },
-    "4": {
-      "inputs": {
-        "seed": 350088449706888,
-        "steps": 12,
-        "cfg": 8,
-        "sampler_name": "euler",
-        "scheduler": "normal",
-        "denoise": 1,
-        "model": [
-          "1",
-          0
-        ],
-        "positive": [
-          "2",
-          0
-        ],
-        "negative": [
-          "3",
-          0
-        ],
-        "latent_image": [
-          "5",
-          0
-        ]
-      },
-      "class_type": "KSampler",
-      "_meta": {
-        "title": "KSampler"
-      }
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "text": "watermark, text",
+      "clip": [
+        "2",
+        1
+      ]
     },
-    "5": {
-      "inputs": {
-        "width": 512,
-        "height": 512,
-        "batch_size": 1
-      },
-      "class_type": "EmptyLatentImage",
-      "_meta": {
-        "title": "Empty Latent Image"
-      }
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "seed": 268543777559866,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "uni_pc_bh2",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "2",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
     },
-    "6": {
-      "inputs": {
-        "samples": [
-          "8",
-          0
-        ],
-        "vae": [
-          "1",
-          2
-        ]
-      },
-      "class_type": "VAEDecode",
-      "_meta": {
-        "title": "VAE Decode"
-      }
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "7": {
+    "inputs": {
+      "samples": [
+        "6",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ]
     },
-    "7": {
-      "inputs": {
-        "images": [
-          "6",
-          0
-        ]
-      },
-      "class_type": "PreviewImage",
-      "_meta": {
-        "title": "Preview Image"
-      }
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "8": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "7",
+        0
+      ]
     },
-    "8": {
-      "inputs": {
-        "add_noise": "enable",
-        "noise_seed": 350088449706888,
-        "steps": 30,
-        "cfg": 8,
-        "sampler_name": "euler",
-        "scheduler": "karras",
-        "start_at_step": 12,
-        "end_at_step": 10000,
-        "return_with_leftover_noise": "disable",
-        "model": [
-          "1",
-          0
-        ],
-        "positive": [
-          "2",
-          0
-        ],
-        "negative": [
-          "3",
-          0
-        ],
-        "latent_image": [
-          "10",
-          0
-        ]
-      },
-      "class_type": "KSamplerAdvanced",
-      "_meta": {
-        "title": "KSampler (Advanced)"
-      }
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "9": {
+    "inputs": {
+      "grow_mask_by": 6,
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ],
+      "mask": [
+        "1",
+        1
+      ]
     },
-    "10": {
-      "inputs": {
-        "upscale_method": "nearest-exact",
-        "scale_by": 2,
-        "samples": [
-          "4",
-          0
-        ]
-      },
-      "class_type": "LatentUpscaleBy",
-      "_meta": {
-        "title": "Upscale Latent By"
-      }
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "protocol": "Https",
+      "text": "",
+      "module_size": 16,
+      "max_image_size": 512,
+      "fill_hexcolor": "#000000",
+      "back_hexcolor": "#FFFFFF",
+      "error_correction": "High",
+      "border": 1,
+      "module_drawer": "Square"
     },
-    "11": {
-      "inputs": {
-        "samples": [
-          "4",
-          0
-        ],
-        "vae": [
-          "1",
-          2
-        ]
-      },
-      "class_type": "VAEDecode",
-      "_meta": {
-        "title": "VAE Decode"
-      }
-    },
-    "12": {
-      "inputs": {
-        "images": [
-          "11",
-          0
-        ]
-      },
-      "class_type": "PreviewImage",
-      "_meta": {
-        "title": "Preview Image"
-      }
+    "class_type": "comfy-qr-by-module-size",
+    "_meta": {
+      "title": "QR Code"
     }
   }
+}

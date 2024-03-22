@@ -23,6 +23,10 @@ comfyui_workflow_data_path = assets_path = (
     pathlib.Path(__file__).parent / "workflow_api.json"
 )
 
+generated_workflow_path = (
+    pathlib.Path(__file__).parent / "_generated_workflow_api.py"
+)
+
 stub = modal.Stub(name="example-comfy-api")
 from .comfy_ui import image
 
@@ -155,9 +159,8 @@ def get_python_workflow():
     workflow_text = convert_workflow_to_python.remote(
         pathlib.Path(comfyui_workflow_data_path).read_text()
     )
-    filename = "_generated_workflow_api.py"
-    pathlib.Path(filename).write_text(workflow_text)
-    print(f"saved '{filename}'")
+    pathlib.Path(generated_workflow_path).write_text(workflow_text)
+    print(f"saved '{generated_workflow_path}'")
 
 
 @stub.local_entrypoint()

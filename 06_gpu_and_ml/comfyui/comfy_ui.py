@@ -23,7 +23,7 @@ import modal
 # The ComfyUI repository has other recommendations listed in this file:
 # [notebooks/comfyui_colab.ipynb](https://github.com/comfyanonymous/ComfyUI/blob/master/notebooks/comfyui_colab.ipynb).
 CHECKPOINTS = [
-    "https://huggingface.co/dreamlike-art/dreamlike-photoreal-2.0/resolve/main/dreamlike-photoreal-2.0.safetensors"
+    "https://huggingface.co/stabilityai/stable-diffusion-2-inpainting/resolve/main/512-inpainting-ema.ckpt"
 ]
 
 
@@ -106,6 +106,7 @@ image = (
     )
     .pip_install(
         "httpx",
+        "requests",
         "tqdm",
     )
     .run_function(download_checkpoints)
