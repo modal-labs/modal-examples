@@ -4,43 +4,23 @@
 # # Stable Diffusion (A1111)
 #
 # This example runs the popular [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-# project on Modal, without modification. We start a Modal container with an A10G GPU, run the server as a
-# subprocess, and forward the port using a [tunnel](/docs/guide/tunnels).
+# project on Modal, without modification. We just port the environment setup to a Modal container image
+# and wrap the launch script with a `@web_server` decorator, and we're ready to go.
+#
+# You can run a temporary A1111 server with `modal serve a1111_webui.py` or deploy it permanently with `modal deploy a1111_webui.py`.
 
-import socket
 import subprocess
-import time
-import webbrowser
 
-from modal import Image, Queue, Stub, forward
+from modal import Image, Stub, web_server
 
-stub = Stub("example-a1111-webui")
-url_queue = Queue.from_name(
-    "a1111-webui-example-queue", create_if_missing=True
-)  # TODO: FunctionCall.get() doesn't support generators.
+PORT = 8000
 
+# First, we define the image A1111 will run in.
+# This takes a few steps because A1111 usually install its dependencies on launch via a script.
+# The process may take a few minutes the first time, but subsequent image builds should only take a few seconds.
 
-def wait_for_port(port: int):
-    while True:
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=5.0):
-                break
-        except OSError:
-            time.sleep(0.1)
-
-
-# The following function starts the web UI container. Notice that it requires a few steps to
-# install dependencies, since `stable-diffusion-webui` doesn't come with a prepackaged script
-# to do this. (It usually installs dependencies on first launch.)
-#
-# After defining the custom container image, we start the server with `accelerate launch`. This
-# function is also where you would configure hardware resources, CPU/memory, and timeouts.
-#
-# If you want to run it with an A100 GPU, just change `gpu="a10g"` to `gpu="a100"`.
-
-
-@stub.function(
-    image=Image.debian_slim()
+a1111_image = (
+    Image.debian_slim(python_version="3.11")
     .apt_install(
         "wget",
         "git",
@@ -60,14 +40,33 @@ def wait_for_port(port: int):
         "cd /webui && . venv/bin/activate && "
         + "python -c 'from modules import shared_init, initialize; shared_init.initialize(); initialize.initialize()'",
         gpu="a10g",
-    ),
+    )
+)
+
+stub = Stub("example-a1111-webui", image=a1111_image)
+
+# After defining the custom container image, we start the server with `accelerate launch`. This
+# function is also where you would configure hardware resources, CPU/memory, and timeouts.
+#
+# If you want to run it with an A100 or H100 GPU, just change `gpu="a10g"` to `gpu="a100"` or `gpu="h100"`.
+#
+# Startup of the web server should finish in under one to three minutes.
+
+
+@stub.function(
     gpu="a10g",
     cpu=2,
     memory=1024,
     timeout=3600,
+    # Allows 100 concurrent requests per container.
+    allow_concurrent_inputs=100,
+    # Restrict ourselves to run on a single container because we want to our ComfyUI session state
+    # to stay consistent, which means keeping all the work on the same machine.
+    concurrency_limit=1,
 )
-def start_web_ui():
-    START_COMMAND = r"""
+@web_server(port=PORT, startup_timeout=0)
+def run():
+    START_COMMAND = f"""
 cd /webui && \
 . venv/bin/activate && \
 accelerate launch \
@@ -79,25 +78,6 @@ accelerate launch \
     /webui/launch.py \
         --skip-prepare-environment \
         --listen \
-        --port 8000
+        --port {PORT}
 """
-    with forward(8000) as tunnel:
-        p = subprocess.Popen(START_COMMAND, shell=True)
-        wait_for_port(8000)
-        print("[MODAL] ==> Accepting connections at", tunnel.url)
-        url_queue.put(tunnel.url)
-        p.wait(3600)
-
-
-# The first run may take a few minutes to build the image. When the container starts, it will open
-# the page in your browser.
-
-
-@stub.local_entrypoint()
-def main(no_browser: bool = False):
-    start_web_ui.spawn()
-    url = url_queue.get()
-    if not no_browser:
-        webbrowser.open(url)
-    while True:  # TODO: FunctionCall.get() doesn't support generators.
-        time.sleep(1)
+    subprocess.Popen(START_COMMAND, shell=True)
