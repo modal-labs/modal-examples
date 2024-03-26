@@ -5,7 +5,7 @@
 # ## Overview
 #
 # Quick snippet showing how to connect to a Jupyter notebook server running inside a Modal container,
-# especially useful for exploring the contents of Modal network file systems.
+# especially useful for exploring the contents of Modal Volumes.
 # This uses [Modal Tunnels](https://modal.com/docs/guide/tunnels#tunnels-beta)
 # to create a tunnel between the running Jupyter instance and the internet.
 #
@@ -22,22 +22,21 @@ stub = modal.Stub(
         "jupyter", "bing-image-downloader~=1.1.2"
     )
 )
-# This volume is not persisted, so the data will be deleted when this demo app is stopped.
-volume = modal.NetworkFileSystem.ephemeral()
+volume = modal.Volume.from_name(
+    "modal-examples-jupyter-inside-modal-data", create_if_missing=True
+)
 
 CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
 
 
-@stub.function(
-    network_file_systems={CACHE_DIR: volume},
-)
+@stub.function(volumes={CACHE_DIR: volume})
 def seed_volume():
     # Bing it!
     from bing_image_downloader import downloader
 
     # This will save into the Modal volume and allow you view the images
-    # from within Jupyter at a path like `/cache/modal labs/Image_1.png`.
+    # from within Jupyter at a path like `/root/cache/modal labs/Image_1.png`.
     downloader.download(
         query="modal labs",
         limit=10,
@@ -46,17 +45,16 @@ def seed_volume():
         timeout=60,
         verbose=True,
     )
+    volume.commit()
 
 
 # This is all that's needed to create a long-lived Jupyter server process in Modal
 # that you can access in your Browser through a secure network tunnel.
-# This can be useful when you want to interactively engage with network file system contents
+# This can be useful when you want to interactively engage with Volume contents
 # without having to download it to your host computer.
 
 
-@stub.function(
-    concurrency_limit=1, network_file_systems={CACHE_DIR: volume}, timeout=1_500
-)
+@stub.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=1_500)
 def run_jupyter(timeout: int):
     jupyter_port = 8888
     with modal.forward(jupyter_port) as tunnel:
