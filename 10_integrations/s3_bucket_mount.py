@@ -92,7 +92,7 @@ def download_data(year: int, month: int) -> str:
         )
     },
 )
-def aggregate_data(path: str) -> tuple[datetime, int]:
+def aggregate_data(path: str) -> list[tuple[datetime, int]]:
     print(f"processing => {path}")
 
     # Parse file.
