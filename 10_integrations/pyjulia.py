@@ -1,7 +1,6 @@
 import modal
 
-stub = modal.Stub("example-pyjulia")
-stub.image = (
+image = image = (
     modal.Image.debian_slim()
     # Install Julia 1.10
     .apt_install("wget", "ca-certificates")
@@ -15,6 +14,7 @@ stub.image = (
     .pip_install("julia")
     .run_commands('python -c "import julia; julia.install()"')
 )
+stub = modal.Stub("example-pyjulia", image=image)
 
 
 @stub.function()

@@ -9,10 +9,10 @@ from . import config
 from .main import (
     get_episode_metadata_path,
     get_transcript_path,
+    in_progress,
     populate_podcast_metadata,
     process_episode,
     search_podcast,
-    stub,
 )
 from .podcast import coalesce_short_transcript_segments
 
@@ -104,7 +104,7 @@ async def podcasts_endpoint(request: Request):
 async def transcribe_job(podcast_id: str, episode_id: str):
     now = int(time.time())
     try:
-        inprogress_job = stub.in_progress[episode_id]
+        inprogress_job = in_progress[episode_id]
         # NB: runtime type check is to handle present of old `str` values that didn't expire.
         if (
             isinstance(inprogress_job, InProgressJob)
@@ -119,7 +119,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
         pass
 
     call = process_episode.spawn(podcast_id, episode_id)
-    stub.in_progress[episode_id] = InProgressJob(
+    in_progress[episode_id] = InProgressJob(
         call_id=call.object_id, start_time=now
     )
 

@@ -15,8 +15,8 @@ import webbrowser
 from modal import Image, Queue, Stub, forward
 
 stub = Stub("example-a1111-webui")
-stub.urls = Queue.from_name(
-    "a1111-webui-example", create_if_missing=True
+url_queue = Queue.from_name(
+    "a1111-webui-example-queue", create_if_missing=True
 )  # TODO: FunctionCall.get() doesn't support generators.
 
 
@@ -85,7 +85,7 @@ accelerate launch \
         p = subprocess.Popen(START_COMMAND, shell=True)
         wait_for_port(8000)
         print("[MODAL] ==> Accepting connections at", tunnel.url)
-        stub.urls.put(tunnel.url)
+        url_queue.put(tunnel.url)
         p.wait(3600)
 
 
@@ -96,7 +96,7 @@ accelerate launch \
 @stub.local_entrypoint()
 def main(no_browser: bool = False):
     start_web_ui.spawn()
-    url = stub.urls.get()
+    url = url_queue.get()
     if not no_browser:
         webbrowser.open(url)
     while True:  # TODO: FunctionCall.get() doesn't support generators.
