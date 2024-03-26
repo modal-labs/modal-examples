@@ -3,9 +3,12 @@ MyPy type-checking script.
 Unvalidated, incorrect type-hints are worse than no type-hints!
 """
 
+import concurrent
+import os
 import pathlib
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 import mypy.api
 
@@ -42,48 +45,53 @@ def main() -> int:
     config_file = repo_root / "pyproject.toml"
     errors = []
 
-    # Type-check scripts:
-    # (Only finds numbered folders up until '99_*')
+    # Type-check scripts
     topic_dirs = sorted(
         [d for d in repo_root.iterdir() if d.name[:2].isdigit()]
     )
-    for topic_dir in topic_dirs:
-        # Most topic directories have only independent .py module files.
-        # But in some places topic directories have subdirectory packages, which
-        # are independent examples and should be type-checked independently.
-        #
-        # Ignore any non-Python files.
-        #
-        # TODO: parallelize type-checking across packages.
-        for pth in topic_dir.iterdir():
-            if (
-                pth.is_file() and not pth.name.endswith(".py")
-            ) or pth.name == "__pycache__":
-                continue
-            print(
-                f"⌛️ running mypy on '{topic_dir.name}/{pth.name}'",
-                file=sys.stderr,
-            )
-            topic_errors = extract_errors(
-                run_mypy(
-                    pkg=str(pth),
-                    config_file=config_file,
-                )
-            )
-            if topic_errors:
-                print("\n".join(topic_errors))
-                errors.extend(topic_errors)
 
-    # Type-check packages:
+    with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        future_to_path = {}
+        for topic_dir in topic_dirs:
+            for pth in topic_dir.iterdir():
+                if not (pth.is_file() and pth.name.endswith(".py")):
+                    continue
+                elif "__pycache__" in pth.parts:
+                    continue
+                else:
+                    print(f"⌛️ spawning mypy on '{pth}'", file=sys.stderr)
+                    future = executor.submit(
+                        run_mypy, pkg=str(pth), config_file=config_file
+                    )
+                    future_to_path[future] = pth
+
+        for future in concurrent.futures.as_completed(
+            future_to_path, timeout=60
+        ):
+            pth = future_to_path[future]
+            try:
+                output = future.result()
+                topic_errors = extract_errors(output)
+                if topic_errors:
+                    print(f"\nfound {len(topic_errors)} errors in '{pth}'")
+                    print("\n".join(topic_errors))
+                    errors.extend(topic_errors)
+            except Exception as exc:
+                print(f"Error on file {pth}: {exc}")
+                errors.append(exc)
+
+    # Type-check packages
     # Getting mypy running successfully with a monorepo of heterogenous packaging structures
     # is a bit fiddly, so we expect top-level packages to opt-in to type-checking by placing a
     # `py.typed` file inside themselves. https://peps.python.org/pep-0561/
     for py_typed in repo_root.glob("**/py.typed"):
+        if "site-packages" in py_typed.parts:
+            continue
         toplevel_pkg = py_typed.parent
         print(f"⌛️ running mypy on '{toplevel_pkg}'", file=sys.stderr)
         package_errors = extract_errors(
             run_mypy(
-                toplevel_pkg=str(toplevel_pkg),
+                pkg=str(toplevel_pkg),
                 config_file=config_file,
             )
         )

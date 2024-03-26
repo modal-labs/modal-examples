@@ -23,6 +23,7 @@
 import io
 import os
 from pathlib import Path
+from typing import Optional
 
 from modal import (
     CloudBucketMount,  # the star of the show
@@ -124,7 +125,7 @@ def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
 # To speed things up, we will run this function in parallel using Modal's
 # [`map`](https://modal.com/docs/reference/modal.Function#map).
 @stub.function()
-def download_lora(repository_id: str) -> str:
+def download_lora(repository_id: str) -> Optional[str]:
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
     # CloudBucketMounts will report 0 bytes of available space leading to many
@@ -149,6 +150,8 @@ def download_lora(repository_id: str) -> str:
         downloaded_lora = False
     if downloaded_lora:
         return repository_id
+    else:
+        return None
 
 
 # ## Inference with LoRAs
