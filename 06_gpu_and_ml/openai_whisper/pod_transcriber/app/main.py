@@ -56,7 +56,7 @@ stub = Stub(
     secrets=[Secret.from_name("podchaser")],
 )
 
-stub.in_progress = Dict.new()
+in_progress = Dict.from_name("pod-transcriber-in-progress")
 
 
 def utc_now() -> datetime.datetime:
@@ -412,7 +412,7 @@ def process_episode(podcast_id: str, episode_id: str):
                 model=model,
             )
     finally:
-        del stub.in_progress[episode_id]
+        del in_progress[episode_id]
 
     return episode
 
