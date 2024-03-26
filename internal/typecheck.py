@@ -66,7 +66,7 @@ def main() -> int:
                     future_to_path[future] = pth
 
         for future in concurrent.futures.as_completed(
-            future_to_path, timeout=30
+            future_to_path, timeout=60
         ):
             pth = future_to_path[future]
             try:
