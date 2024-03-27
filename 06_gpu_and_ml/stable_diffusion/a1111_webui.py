@@ -60,11 +60,10 @@ stub = Stub("example-a1111-webui", image=a1111_image)
     timeout=3600,
     # Allows 100 concurrent requests per container.
     allow_concurrent_inputs=100,
-    # Restrict ourselves to run on a single container because we want to our ComfyUI session state
-    # to stay consistent, which means keeping all the work on the same machine.
-    concurrency_limit=1,
+    # Keep at least one instance of the server running.
+    keep_warm=1,
 )
-@web_server(port=PORT, startup_timeout=0)
+@web_server(port=PORT, startup_timeout=180)
 def run():
     START_COMMAND = f"""
 cd /webui && \

@@ -126,7 +126,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
     gpu="any",
     # Allows 100 concurrent requests per container.
     allow_concurrent_inputs=100,
-    # Restrict to 1 container because we want to our ComfyUI session state
+    # Restrict to 1 container because we want our ComfyUI session state
     # to be on a single container.
     concurrency_limit=1,
     keep_warm=1,
