@@ -305,7 +305,7 @@ def app():
         title="LoRAs Galore",
         description="# Try out some of the top custom SDXL models!"
         "\n\nPick a LoRA finetune of SDXL from the dropdown, then prompt it to generate an image."
-        "\n\nCheck out [the code on GitHub](https://github.com/modal-labs/examples/blob/main/10_integrations/cloud_bucket_mount_loras.py)"
+        "\n\nCheck out [the code on GitHub](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/cloud_bucket_mount_loras.py)"
         " if you want to create your own version or just see how it works."
         "\n\nPowered by [Modal](https://modal.com) 🚀",
         theme="soft",
