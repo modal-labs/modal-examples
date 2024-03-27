@@ -1,11 +1,17 @@
 # ---
 # output-directory: "/tmp/s3_bucket_mount"
 # ---
-# # Mount S3 buckets
+# # Analyze NYC yellow taxi data with DuckDB on Parquet files from S3
 #
-# This example shows how to mount an S3 bucket in a Modal app with [`CloudBucketMount`](https://modal.com/docs/reference/modal.CloudBucketMount).
-# We will write to and then read from that bucket, in each case Modal's [parallel execution features](https://modal.com/docs/guide/scale)
-# to handle many files at once.
+# This example shows how to use Modal for a classic data science task: loading table-structured data into cloud stores,
+# analyzing it, and plotting the results.
+#
+# In particular, we'll load public NYC taxi ride data into S3 as Parquet files,
+# then run SQL queries on it with DuckDB.
+#
+# We'll mount the S3 bucket in a Modal app with [`CloudBucketMount`](https://modal.com/docs/reference/modal.CloudBucketMount).
+# We will write to and then read from that bucket, in each case using
+# Modal's [parallel execution features](https://modal.com/docs/guide/scale) to handle many files at once.
 #
 # ## Basic setup
 #
@@ -32,8 +38,8 @@ MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
 
 
-# Dependencies installed above are not available locally. The following block instructs Modal
-# to only make imports inside the container.
+# The dependencies installed above are not available locally. The following block instructs Modal
+# to only import them inside the container.
 with image.imports():
     import duckdb
     import requests
@@ -45,11 +51,10 @@ with image.imports():
 # publishes files in the Parquet format. Files are organized by year and month.
 #
 # We are going to download all available files and store them in an S3 bucket. We do this by
-# mounting a `modal.CloudBucketMount` with the S3 bucket name and its respective credentials.
-# The bucket will be mounted in `MOUNT_PATH`.
+# attaching a `modal.CloudBucketMount` with the S3 bucket name and its respective credentials.
+# The files in the bucket will then be available at `MOUNT_PATH`.
 #
-# This function takes two parameters: year and month, so we need to use Modal's [`starmap`](https://modal.com/docs/reference/modal.Function#starmap)
-# to parallelize this function. Running it in parallel across files massively speeds up the download.
+# As we'll see below, this operation can be massively sped up by running it in parallel on Modal.
 @stub.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
@@ -80,10 +85,8 @@ def download_data(year: int, month: int) -> str:
 # ## Analyze data with DuckDB
 #
 # [DuckDB](https://duckdb.org/) is an analytical database with rich support for Parquet files.
-# It is also very fast. We will write a Modal Function that aggregates the number of yellow taxi trips
-# per Parquet file in our S3 bucket (files are organized by year and month combination).
-# Since there's only a single argument, the path to the Parquet file,
-# we will parallelize it using [`map`](https://modal.com/docs/reference/modal.Function#map).
+# It is also very fast. Below, we define a Modal Function that aggregates yellow taxi trips
+# within a month (each file contains all the rides from a specific month).
 @stub.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
@@ -118,9 +121,9 @@ def aggregate_data(path: str) -> list[tuple[datetime, int]]:
 
 # ## Plot daily taxi rides
 #
-# Here we write a function to create a plot with our results.
-# The plot shows the number of yellow taxi rides per day in NYC.
-# This function will run remotely, so we don't need to install plotting libraries locally.
+# Finally, we want to plot our results.
+# The plot created shows the number of yellow taxi rides per day in NYC.
+# This function runs remotely, on Modal, so we don't need to install plotting libraries locally.
 @stub.function()
 def plot(dataset) -> bytes:
     import io
@@ -153,10 +156,10 @@ def plot(dataset) -> bytes:
 
 # ## Run everything
 #
-# Create a `@stub.local_entrypoint()` for your Modal program. This allows you to
-# run your program with the CLI by calling `modal run s3_bucket_mount.py`.
+# The `@stub.local_entrypoint()` defines what happens when we run our Modal program locally.
+# We invoke it from the CLI by calling `modal run s3_bucket_mount.py`.
 # We first call `download_data()` and `starmap` (named because it's kind of like `map(*args)`)
-# on tuples of inputs `(year, month)`. This will download
+# on tuples of inputs `(year, month)`. This will download, in parallel,
 # all yellow taxi data files into our locally mounted S3 bucket and return a list of
 # Parquet file paths. Then, we call `aggregate_data()` with `map` on that list. These files are
 # also read from our S3 bucket. So one function writes files to S3 and the other
@@ -166,7 +169,7 @@ def plot(dataset) -> bytes:
 #
 # ![Number of NYC yellow taxi trips by weekday, 2018-2023](./nyc_yellow_taxi_trips_s3_mount.png)
 #
-# This program shoulld run in less than 30 seconds.
+# This program should run in less than 30 seconds.
 @stub.local_entrypoint()
 def main():
     # List of tuples[year, month].
