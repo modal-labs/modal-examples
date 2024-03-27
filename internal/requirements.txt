@@ -1,0 +1,5 @@
+modal
+pytest
+jupytext~=1.16.1
+pydantic~=1.10.14
+mypy==0.950

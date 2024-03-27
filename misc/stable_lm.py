@@ -1,4 +1,3 @@
-import base64
 import os
 import time
 from pathlib import Path
@@ -7,11 +6,6 @@ from typing import Any, Dict, Generator, List, Optional, Union
 import modal
 from pydantic import BaseModel
 from typing_extensions import Annotated, Literal
-
-requirements_txt_path = Path(__file__).resolve().parent / "requirements.txt"
-requirements_data = base64.b64encode(
-    requirements_txt_path.read_text().encode("utf-8")
-).decode("utf-8")
 
 
 def build_models():
@@ -38,9 +32,9 @@ def build_models():
 
 
 image = (
-    modal.Image.conda()
+    modal.Image.micromamba()
     .apt_install("git", "software-properties-common", "wget")
-    .conda_install(
+    .micromamba_install(
         "cudatoolkit-dev=11.7",
         "pytorch-cuda=11.7",
         "rust=1.69.0",
@@ -56,9 +50,14 @@ image = (
             "PIP_NO_CACHE_DIR": "1",
         }
     )
-    .run_commands(
-        f"echo '{requirements_data}' | base64 --decode > /root/requirements.txt",
-        "pip install -r /root/requirements.txt",
+    .pip_install(
+        "transformers~=4.28.1",
+        "safetensors==0.3.0",
+        "accelerate==0.18.0",
+        "bitsandbytes==0.38.1",
+        "msgspec==0.18.6",
+        "sentencepiece==0.1.98",
+        "hf-transfer==0.1.3",
         gpu="any",
     )
     .run_function(

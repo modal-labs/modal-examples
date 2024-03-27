@@ -152,6 +152,7 @@ def get_examples(
         if p.is_dir()
         and not p.name.startswith(".")
         and not p.name.startswith("internal")
+        and not p.name.startswith("misc")
     ):
         yield from gather_example_files(
             parents=[], subdir=subdir, ignored=ignored, recurse=True
