@@ -12,11 +12,9 @@
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
 # For instance, here are 9 images produced by the prompt
-# `An 1600s oil painting of the New York City skyline`
+# `A 1600s oil painting of the New York City skyline`
 #
 # ![stable diffusion montage](./stable_diffusion_montage.png)
-#
-## Optimizations used in this example
 #
 # As mentioned, we use a few optimizations to run this faster:
 #
