@@ -51,7 +51,9 @@ def download_image(url, save_path="/root/input/"):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        pathlib.Path(save_path + url.split('/')[-1]).write_bytes(response.content)
+        pathlib.Path(save_path + url.split("/")[-1]).write_bytes(
+            response.content
+        )
         print(f"{url} image successfully downloaded")
 
     except Exception as e:
@@ -71,11 +73,11 @@ def run_python_workflow(item: Dict):
         VAEDecode,
         VAEEncodeForInpaint,
     )
-    
+
     download_image(item["image"])
     with torch.inference_mode():
         loadimage = LoadImage()
-        loadimage_1 = loadimage.load_image(image=item["image"].split('/')[-1])
+        loadimage_1 = loadimage.load_image(image=item["image"].split("/")[-1])
 
         checkpointloadersimple = CheckpointLoaderSimple()
         checkpointloadersimple_2 = checkpointloadersimple.load_checkpoint(
