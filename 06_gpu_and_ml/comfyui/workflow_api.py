@@ -45,13 +45,13 @@ def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
 
 
 # ComfyUI images expect input images to be saved in the /input directory
-def download_image(url, image_name, save_path="/root/input/"):
+def download_image(url, save_path="/root/input/"):
     import requests
 
     try:
         response = requests.get(url)
         response.raise_for_status()
-        pathlib.Path(save_path + image_name).write_bytes(response.content)
+        pathlib.Path(save_path + url.split('/')[-1]).write_bytes(response.content)
         print(f"{url} image successfully downloaded")
 
     except Exception as e:
@@ -71,12 +71,11 @@ def run_python_workflow(item: Dict):
         VAEDecode,
         VAEEncodeForInpaint,
     )
-
-    image_name = "yosemite.png"
-    download_image(item["image"], image_name)
+    
+    download_image(item["image"])
     with torch.inference_mode():
         loadimage = LoadImage()
-        loadimage_1 = loadimage.load_image(image=image_name)
+        loadimage_1 = loadimage.load_image(image=item["image"].split('/')[-1])
 
         checkpointloadersimple = CheckpointLoaderSimple()
         checkpointloadersimple_2 = checkpointloadersimple.load_checkpoint(
