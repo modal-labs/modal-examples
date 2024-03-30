@@ -76,6 +76,7 @@ accelerate launch \
     --num_cpu_threads_per_process=6 \
     /webui/launch.py \
         --skip-prepare-environment \
+        --no-gradio-queue \
         --listen \
         --port {PORT}
 """
