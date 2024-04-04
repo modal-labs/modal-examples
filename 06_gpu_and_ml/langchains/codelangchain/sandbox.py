@@ -1,3 +1,4 @@
+"""Defines the logic for running agent code in a sandbox."""
 import modal
 from common import COLOR, agent_image, stub
 

@@ -1,9 +1,11 @@
+"""Application serving logic for the CodeLangChain agent."""
 import agent
 import modal
 from agent import nodes, stub
-from fastapi import FastAPI
+from fastapi import FastAPI, responses
 from fastapi.middleware.cors import CORSMiddleware
 
+# create a FastAPI app
 web_app = FastAPI(
     title="CodeLangChain Server",
     version="1.0",
@@ -11,7 +13,7 @@ web_app = FastAPI(
 )
 
 
-# Set all CORS enabled origins
+# set all CORS enabled origins
 web_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,6 +24,7 @@ web_app.add_middleware(
 )
 
 
+# host it on Modal
 @stub.function(keep_warm=1)
 @modal.asgi_app()
 def serve():
@@ -48,5 +51,10 @@ def serve():
         chain,
         path="/codelangchain",
     )
+
+    # redirect the root to the interactive playground
+    @web_app.get("/")
+    def redirect():
+        return responses.RedirectResponse(url="/codelangchain/playground")
 
     return web_app
