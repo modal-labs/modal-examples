@@ -14,7 +14,6 @@ from modal import (
     Image,
     Mount,
     NetworkFileSystem,
-    Period,
     Secret,
     Stub,
     asgi_app,
@@ -143,7 +142,6 @@ def search_podcast(name):
 
 @stub.function(
     image=search_image,
-    schedule=Period(hours=4),
     network_file_systems={config.CACHE_DIR: volume},
     timeout=(400 * 60),
 )
