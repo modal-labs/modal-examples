@@ -30,7 +30,7 @@ MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 # ## Define a container image
 #
 # We want to create a Modal image which has the model weights pre-saved to a directory. The benefit of this
-# is that the container no longer has to re-download the model from Huggingface - instead, it will take
+# is that the container no longer has to re-download the model from Hugging Face - instead, it will take
 # advantage of Modal's internal filesystem for faster cold starts.
 #
 # ### Download the weights
@@ -61,6 +61,7 @@ image = (
         "vllm==0.4.0.post1",
         "torch==2.1.2",
         "transformers==4.39.3",
+        "ray==2.10.0",
         "hf-transfer==0.1.6",
         "huggingface_hub==0.22.2",
     )
@@ -68,7 +69,6 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_image,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
         timeout=60 * 20,
         kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
     )
@@ -92,9 +92,7 @@ with image.imports():
 GPU_CONFIG = modal.gpu.A100(count=1)  # 40GB A100 by default
 
 
-@stub.cls(
-    gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")]
-)
+@stub.cls(gpu=GPU_CONFIG)
 class Model:
     @modal.enter()
     def load_model(self):
