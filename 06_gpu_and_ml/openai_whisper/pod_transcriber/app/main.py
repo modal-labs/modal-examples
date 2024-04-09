@@ -35,6 +35,7 @@ app_image = (
         "jiwer",
         "ffmpeg-python",
         "gql[all]~=3.0.0a5",
+        "python-multipart~=0.0.9",
         "pandas",
         "loguru==0.6.0",
         "torchaudio==2.1.0",
