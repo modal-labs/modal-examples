@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false
+# cmd: ["modal", "serve", "10_integrations/streamlit/serve_streamlit.py"]
 # ---
 #
 # # Run and share Streamlit apps
