@@ -15,7 +15,7 @@ playwright_image = modal.Image.debian_slim(
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
-    "pip install playwright==1.30.0",
+    "pip install playwright==1.42.0",
     "playwright install-deps chromium",
     "playwright install chromium",
 )
