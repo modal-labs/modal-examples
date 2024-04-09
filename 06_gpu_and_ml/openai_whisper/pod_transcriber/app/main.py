@@ -291,6 +291,7 @@ def split_silences(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     cpu=2,
+    timeout=400,
 )
 def transcribe_segment(
     start: float,
