@@ -25,4 +25,4 @@ def print_time_2():
 
 if __name__ == "__main__":
     with stub.run():
-        time.sleep(10)
+        time.sleep(60)
