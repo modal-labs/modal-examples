@@ -3,27 +3,28 @@
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
 #
-# `vLLM` also supports a use case as a FastAPI server which we will explore in a future guide. This example
+# `vLLM` also supports a use case as a FastAPI server, which we will explore in a future guide. This example
 # walks through setting up an environment that works with `vLLM ` for basic inference.
 #
-# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1) model here, which is fine-tuned version of Mistral's 7B model trained to follow instructions.
-# You can expect 20 second cold starts and well over 100 tokens/second. The larger the batch of prompts, the higher the throughput.
+# We are running the [Mistral 7B Instruct](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2) model here,
+# which is version of Mistral's 7B model that hase been fine-tuned to follow instructions.
+# You can expect 20 second cold starts and well over 1000 tokens/second. The larger the batch of prompts, the higher the throughput.
 # For example, with the 64 prompts below, we can produce 15k tokens in less than 7 seconds, a throughput of over 2k tokens/second.
 #
-# To run
-# [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
-# simply replace the model name in the download step. You may also need to enable `trust_remote_code` for MPT models (see comment below)..
+# To run [any of the other supported models](https://vllm.readthedocs.io/en/latest/models/supported_models.html),
+# simply replace the model name in the download step.
 #
 # ## Setup
 #
-# First we import the components we need from `modal`.
+# First, we import the Modal client and define the model that we want to serve.
 
 import os
+import time
 
-from modal import Image, Secret, Stub, enter, gpu, method
+import modal
 
 MODEL_DIR = "/model"
-BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 
 
 # ## Define a container image
@@ -35,91 +36,83 @@ BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 # ### Download the weights
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
-# Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
-def download_model_to_folder():
+# Tip: avoid using global variables in this function.
+# Changes to code outside this function will not be detected, and the download step will not re-run.
+def download_model_to_image(model_dir, model_name):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
 
     snapshot_download(
-        BASE_MODEL,
-        local_dir=MODEL_DIR,
+        model_name,
+        local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
     )
     move_cache()
 
 
 # ### Image definition
-# We’ll start from a recommended Docker Hub image and install `vLLM`.
-# Then we’ll use `run_function` to run the function defined above to ensure the weights of
-# the model are saved within the container image.
+# We’ll start from Modal's Debian slim image.
+# Then we’ll use `run_function` with `download_model_to_image` to write the model into the container image.
 image = (
-    Image.from_registry(
-        "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
-    )
+    modal.Image.debian_slim()
     .pip_install(
-        "vllm==0.2.5",
-        "huggingface_hub==0.19.4",
-        "hf-transfer==0.1.4",
+        "vllm==0.4.0.post1",
         "torch==2.1.2",
+        "transformers==4.39.3",
+        "hf-transfer==0.1.6",
+        "huggingface_hub==0.22.2",
     )
     # Use the barebones hf-transfer package for maximum download speeds. No progress bar, but expect 700MB/s.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
-        download_model_to_folder,
-        secrets=[Secret.from_name("huggingface-secret")],
+        download_model_to_image,
+        secrets=[modal.Secret.from_name("huggingface-secret")],
         timeout=60 * 20,
+        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
     )
 )
 
-stub = Stub("example-vllm-inference", image=image)
+stub = modal.Stub("example-vllm-inference", image=image)
 
+# Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
+with image.imports():
+    import vllm
 
 # ## The model class
 #
-# The inference function is best represented with Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
-# This enables us to load the model into memory just once every time a container starts up, and keep it cached
-# on the GPU for each subsequent invocation of the function.
+# The inference function is best represented with Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions),
+# using a `load_model` method decorated with `@modal.enter`. This enables us to load the model into memory just once,
+# every time a container starts up, and to keep it cached on the GPU for subsequent invocations of the function.
 #
 # The `vLLM` library allows the code to remain quite clean.
 
-# try out an H100 if you've got a large model or big batches!
-GPU_CONFIG = gpu.A100(count=1)  # 40GB A100 by default
+# Hint: try out an H100 if you've got a large model or big batches!
+GPU_CONFIG = modal.gpu.A100(count=1)  # 40GB A100 by default
 
 
-@stub.cls(gpu=GPU_CONFIG, secrets=[Secret.from_name("huggingface-secret")])
+@stub.cls(
+    gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")]
+)
 class Model:
-    @enter()
+    @modal.enter()
     def load_model(self):
-        from vllm import LLM
-
-        if GPU_CONFIG.count > 1:
-            # Patch issue from https://github.com/vllm-project/vllm/issues/1116
-            import ray
-
-            ray.shutdown()
-            ray.init(num_gpus=GPU_CONFIG.count)
-
-        # Load the model. Tip: MPT models may require `trust_remote_code=true`.
-        self.llm = LLM(MODEL_DIR, tensor_parallel_size=GPU_CONFIG.count)
+        # Tip: models that are not fully implemented by Hugging Face may require `trust_remote_code=true`.
+        self.llm = vllm.LLM(MODEL_DIR, tensor_parallel_size=GPU_CONFIG.count)
         self.template = """<s>[INST] <<SYS>>
 {system}
 <</SYS>>
 
 {user} [/INST] """
 
-    @method()
+    @modal.method()
     def generate(self, user_questions):
-        import time
-
-        from vllm import SamplingParams
-
         prompts = [
             self.template.format(system="", user=q) for q in user_questions
         ]
 
-        sampling_params = SamplingParams(
+        sampling_params = vllm.SamplingParams(
             temperature=0.75,
             top_p=1,
             max_tokens=256,
@@ -148,7 +141,8 @@ class Model:
             )
             time.sleep(0.01)
         print(
-            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
+            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {MODEL_NAME} in {duration_s:.1f} seconds,"
+            f" throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
         )
 
 
@@ -157,7 +151,6 @@ class Model:
 # sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
 @stub.local_entrypoint()
 def main():
-    model = Model()
     questions = [
         # Coding questions
         "Implement a Python function to compute the Fibonacci numbers.",
@@ -230,4 +223,5 @@ def main():
         "Tuende hatua kwa hatua. Hesabu jumla ya mfululizo wa kihesabu wenye neno la kwanza 2, neno la mwisho 42, na jumla ya maneno 21.",
         "Kannst du die wichtigsten Eigenschaften und Funktionen des NMDA-Rezeptors beschreiben?",
     ]
+    model = Model()
     model.generate.remote(questions)
