@@ -5,7 +5,7 @@ import sys
 
 import pytest
 from utils import (
-    DEFAULT_DIRECTORY,
+    EXAMPLES_ROOT,
     ExampleType,
     get_examples,
     get_examples_json,
@@ -18,7 +18,7 @@ example_ids = [ex.module for ex in examples]
 
 @pytest.fixture(autouse=False)
 def add_root_to_syspath(monkeypatch):
-    sys.path.append(str(DEFAULT_DIRECTORY))
+    sys.path.append(str(EXAMPLES_ROOT))
     yield
     sys.path.pop()
 

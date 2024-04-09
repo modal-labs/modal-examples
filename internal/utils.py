@@ -7,7 +7,7 @@ from typing import Iterator, Optional
 
 from pydantic import BaseModel
 
-DEFAULT_DIRECTORY = Path(__file__).parent.parent
+EXAMPLES_ROOT = Path(__file__).parent.parent
 
 
 with warnings.catch_warnings():
@@ -136,19 +136,17 @@ def gather_example_files(
                 ignored.append(str(filename))
 
 
-def get_examples(
-    directory: Path = DEFAULT_DIRECTORY, silent=False
-) -> Iterator[Example]:
+def get_examples() -> Iterator[Example]:
     """Yield all Python module files and asset files relevant to building modal.com/docs."""
-    if not directory.exists():
+    if not EXAMPLES_ROOT.exists():
         raise Exception(
-            f"Can't find directory {directory}. You might need to clone the modal-examples repo there"
+            f"Can't find directory {EXAMPLES_ROOT}. You might need to clone the modal-examples repo there."
         )
 
     ignored = []
     for subdir in sorted(
         p
-        for p in directory.iterdir()
+        for p in EXAMPLES_ROOT.iterdir()
         if p.is_dir()
         and not p.name.startswith(".")
         and not p.name.startswith("internal")
