@@ -55,7 +55,10 @@ stub = Stub(
     secrets=[Secret.from_name("podchaser")],
 )
 
-in_progress = Dict.from_name("pod-transcriber-in-progress")
+in_progress = Dict.from_name(
+    "pod-transcriber-in-progress",
+    create_if_missing=True
+)
 
 
 def utc_now() -> datetime.datetime:
