@@ -51,12 +51,12 @@ model_id = "runwayml/stable-diffusion-v1-5"
 image = Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.29.2",
     "diffusers==0.15.1",
-    "ftfy",
+    "ftfy==6.2.0",
     "safetensors==0.4.2",
     "torch==2.2.2",
     "torchvision",
     "transformers~=4.25.1",
-    "triton",
+    "triton~=2.2.0",
     "xformers==0.0.25post1",
 )
 
