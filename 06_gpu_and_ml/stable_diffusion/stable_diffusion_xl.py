@@ -154,11 +154,11 @@ class Model:
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
-# with: `modal run stable_diffusion_xl.py --prompt "An astronaut riding a green horse"`
+# with: `modal run stable_diffusion_xl.py --help
 
 
 @stub.local_entrypoint()
-def main(prompt: str):
+def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     image_bytes = Model().inference.remote(prompt)
 
     dir = Path("/tmp/stable-diffusion-xl")
