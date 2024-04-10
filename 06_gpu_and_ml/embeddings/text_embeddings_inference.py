@@ -65,7 +65,7 @@ stub = Stub("example-tei")
 
 tei_image = (
     Image.from_registry(
-        "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
+        DOCKER_IMAGE,
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
