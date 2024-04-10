@@ -35,19 +35,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Identify all changed Python files
-        id: get-changed-files
+      - name: Checkout the main repo
+        shell: bash
         run: |
-          files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.yml$')
-          echo "CHANGED_FILES=$files" >> $GITHUB_ENV
-          echo "Changed files: $files"
+          cd ..
+          git clone --depth 1 --branch main https://github.com/modal-labs/modal.git
+          cd modal
+          ls
 
-      - name: Run monitoring on changed Python files
+      - name: Run the monitoring script on each changed example
+        id: get-changed-files
+        shell: bash
         run: |
-          cd ../
-          for file in $(cat $GITHUB_ENV | grep CHANGED_FILES= | cut -d= -f2); do
+          files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.py$' | grep -vE '^(misc|internal)/' || true)
+          if [ -z "$files" ]; then
+            exit 0
+          fi
+          cd modal
+          while IFS= read -r file; do
             stem=$(basename "$file" .py)
-            echo $stem
-            # python -m synthetic_monitoring.examples "$stem" ../modal-examples &
-          done
+            python -m synthetic_monitoring.examples "$stem" ../examples &
+          done <<< "$files"
           wait
