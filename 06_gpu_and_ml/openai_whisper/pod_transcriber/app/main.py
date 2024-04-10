@@ -14,7 +14,6 @@ from modal import (
     Image,
     Mount,
     NetworkFileSystem,
-    Period,
     Secret,
     Stub,
     asgi_app,
@@ -36,6 +35,7 @@ app_image = (
         "jiwer",
         "ffmpeg-python",
         "gql[all]~=3.0.0a5",
+        "python-multipart~=0.0.9",
         "pandas",
         "loguru==0.6.0",
         "torchaudio==2.1.0",
@@ -56,7 +56,9 @@ stub = Stub(
     secrets=[Secret.from_name("podchaser")],
 )
 
-in_progress = Dict.from_name("pod-transcriber-in-progress")
+in_progress = Dict.from_name(
+    "pod-transcriber-in-progress", create_if_missing=True
+)
 
 
 def utc_now() -> datetime.datetime:
@@ -143,7 +145,6 @@ def search_podcast(name):
 
 @stub.function(
     image=search_image,
-    schedule=Period(hours=4),
     network_file_systems={config.CACHE_DIR: volume},
     timeout=(400 * 60),
 )
@@ -289,6 +290,7 @@ def split_silences(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     cpu=2,
+    timeout=400,
 )
 def transcribe_segment(
     start: float,
