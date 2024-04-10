@@ -65,7 +65,7 @@ stub = Stub("example-tei")
 
 tei_image = (
     Image.from_registry(
-        "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
+        DOCKER_IMAGE,
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
@@ -79,7 +79,6 @@ tei_image = (
 
 
 with tei_image.imports():
-    import numpy as np
     from httpx import AsyncClient
 
 
@@ -109,9 +108,7 @@ class TextEmbeddingsInference:
         resp.raise_for_status()
         outputs = resp.json()
 
-        # Returning a list is slower because of additional Modal-specific overhead,
-        # to be fixed shortly.
-        return np.array(zip(ids, outputs))
+        return list(zip(ids, outputs))
 
 
 def download_data():
@@ -139,7 +136,7 @@ def download_data():
     volume.commit()
 
 
-image = Image.debian_slim().pip_install(
+image = Image.debian_slim(python_version="3.10").pip_install(
     "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
 )
 

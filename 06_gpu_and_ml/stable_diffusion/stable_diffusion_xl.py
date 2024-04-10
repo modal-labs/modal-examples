@@ -59,7 +59,6 @@ with sdxl_image.imports():
     import torch
     from diffusers import DiffusionPipeline
     from fastapi import Response
-    from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
 #
@@ -74,6 +73,8 @@ with sdxl_image.imports():
 class Model:
     @build()
     def build(self):
+        from huggingface_hub import snapshot_download
+
         ignore = [
             "*.bin",
             "*.onnx_data",
@@ -153,11 +154,11 @@ class Model:
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
-# with: `modal run stable_diffusion_xl.py --prompt "An astronaut riding a green horse"`
+# with: `modal run stable_diffusion_xl.py --help
 
 
 @stub.local_entrypoint()
-def main(prompt: str):
+def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     image_bytes = Model().inference.remote(prompt)
 
     dir = Path("/tmp/stable-diffusion-xl")
