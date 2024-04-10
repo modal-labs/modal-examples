@@ -16,11 +16,11 @@
 import os
 import time
 
-from modal import Image, Stub, enter, exit, gpu, method
+import modal
 
 MODEL_DIR = "/model"
-BASE_MODEL = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-GPU_CONFIG = gpu.A100(memory=80, count=2)
+MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+GPU_CONFIG = modal.gpu.A100(memory=80, count=2)
 
 
 # ## Define a container image
@@ -36,16 +36,16 @@ GPU_CONFIG = gpu.A100(memory=80, count=2)
 # Mixtral is beefy, at nearly 100 GB in `safetensors` format, so this can take some time -- at least a few minutes.
 #
 # Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
-def download_model_to_folder():
+def download_model_to_image(model_dir, model_name):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
 
     snapshot_download(
-        BASE_MODEL,
-        local_dir=MODEL_DIR,
-        ignore_patterns=["*.pt"],  # Using safetensors
+        model_name,
+        local_dir=model_dir,
+        ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
     )
     move_cache()
 
@@ -56,20 +56,24 @@ def download_model_to_folder():
 # the model are saved within the container image.
 
 vllm_image = (
-    Image.from_registry(
-        "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
-    )
+    modal.Image.debian_slim()
     .pip_install(
-        "vllm==0.3.2",
-        "huggingface_hub==0.19.4",
-        "hf-transfer==0.1.4",
+        "vllm==0.4.0.post1",
         "torch==2.1.2",
+        "transformers==4.39.3",
+        "ray==2.10.0",
+        "hf-transfer==0.1.6",
+        "huggingface_hub==0.22.2",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-    .run_function(download_model_to_folder, timeout=60 * 20)
+    .run_function(
+        download_model_to_image,
+        timeout=60 * 20,
+        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
+    )
 )
 
-stub = Stub("example-vllm-mixtral")
+stub = modal.Stub("example-vllm-mixtral")
 
 
 # ## The model class
@@ -87,22 +91,13 @@ stub = Stub("example-vllm-mixtral")
     image=vllm_image,
 )
 class Model:
-    @enter()
+    @modal.enter()
     def start_engine(self):
-        import time
-
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm.engine.async_llm_engine import AsyncLLMEngine
 
         print("🥶 cold starting inference")
         start = time.monotonic_ns()
-
-        if GPU_CONFIG.count > 1:
-            # Patch issue from https://github.com/vllm-project/vllm/issues/1116
-            import ray
-
-            ray.shutdown()
-            ray.init(num_gpus=GPU_CONFIG.count)
 
         engine_args = AsyncEngineArgs(
             model=MODEL_DIR,
@@ -119,7 +114,7 @@ class Model:
         duration_s = (time.monotonic_ns() - start) / 1e9
         print(f"🏎️ engine started in {duration_s:.0f}s")
 
-    @method()
+    @modal.method()
     async def completion_stream(self, user_question):
         from vllm import SamplingParams
         from vllm.utils import random_uuid
@@ -151,9 +146,12 @@ class Model:
             yield text_delta
         duration_s = (time.monotonic_ns() - start) / 1e9
 
-        yield f"\n\tGenerated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f}s, throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.\n"
+        yield (
+            f"\n\tGenerated {num_tokens} tokens from {MODEL_NAME} in {duration_s:.1f}s,"
+            f" throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.\n"
+        )
 
-    @exit()
+    @modal.exit()
     def stop_engine(self):
         if GPU_CONFIG.count > 1:
             import ray
@@ -167,7 +165,6 @@ class Model:
 # enables the text to stream in your local terminal.
 @stub.local_entrypoint()
 def main():
-    model = Model()
     questions = [
         "Implement a Python function to compute the Fibonacci numbers.",
         "What is the fable involving a fox and grapes?",
@@ -176,10 +173,11 @@ def main():
         "What is the product of 9 and 8?",
         "Who was Emperor Norton I, and what was his significance in San Francisco's history?",
     ]
+    model = Model()
     for question in questions:
         print("Sending new request:", question, "\n\n")
         for text in model.completion_stream.remote_gen(question):
-            print(text, end="", flush=True)
+            print(text, end="", flush=text.endswith("\n"))
 
 
 # ## Deploy and invoke the model
@@ -230,7 +228,7 @@ def app():
         return {
             "backlog": stats.backlog,
             "num_total_runners": stats.num_total_runners,
-            "model": BASE_MODEL + " (vLLM)",
+            "model": MODEL_NAME + " (vLLM)",
         }
 
     @web_app.get("/completion/{question}")
