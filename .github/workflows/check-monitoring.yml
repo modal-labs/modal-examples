@@ -1,0 +1,59 @@
+name: Check in synthetic monitoring
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**.py"
+  push:
+    branches:
+      - main
+    paths:
+      - "**.py"
+  workflow_dispatch:
+
+# Cancel previous runs of the same PR but do not cancel previous runs on main
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TERM: linux
+  TERMINFO: /etc/terminfo
+
+jobs:
+  # We monitor our examples regularly for regressions and flakes.
+  # This job executes the script on any changed examples.
+  test-monitoring:
+    name: Test monitoring
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the examples repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Identify all changed Python files
+        id: get-changed-files
+        run: |
+          files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.yml$')
+          echo "CHANGED_FILES=$files" >> $GITHUB_ENV
+          echo "Changed files: $files"
+
+      - name: Clone the private repository
+        run: |
+          cd ../
+          git clone https://github.com/modal-labs/modal.git
+          cd modal
+
+      - name: Run script on changed Python files
+        run: |
+          cd ../modal
+          for file in $(cat $GITHUB_ENV | grep CHANGED_FILES= | cut -d= -f2); do
+            stem=$(basename "$file" .py)
+            echo $stem
+            # python -m synthetic_monitoring.examples "$stem" ../modal-examples &
+          done
+          wait
