@@ -1,4 +1,4 @@
-name: Check in synthetic monitoring
+name: Check example in synthetic monitoring
 
 on:
   pull_request:
@@ -42,15 +42,9 @@ jobs:
           echo "CHANGED_FILES=$files" >> $GITHUB_ENV
           echo "Changed files: $files"
 
-      - name: Clone the private repository
+      - name: Run monitoring on changed Python files
         run: |
           cd ../
-          git clone https://github.com/modal-labs/modal.git
-          cd modal
-
-      - name: Run script on changed Python files
-        run: |
-          cd ../modal
           for file in $(cat $GITHUB_ENV | grep CHANGED_FILES= | cut -d= -f2); do
             stem=$(basename "$file" .py)
             echo $stem
