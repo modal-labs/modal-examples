@@ -136,7 +136,7 @@ def download_data():
     volume.commit()
 
 
-image = Image.debian_slim().pip_install(
+image = Image.debian_slim(python_version="3.10").pip_install(
     "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
 )
 
