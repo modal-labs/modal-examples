@@ -79,7 +79,6 @@ tei_image = (
 
 
 with tei_image.imports():
-    import numpy as np
     from httpx import AsyncClient
 
 
@@ -109,9 +108,7 @@ class TextEmbeddingsInference:
         resp.raise_for_status()
         outputs = resp.json()
 
-        # Returning a list is slower because of additional Modal-specific overhead,
-        # to be fixed shortly.
-        return np.array(zip(ids, outputs))
+        return list(zip(ids, outputs))
 
 
 def download_data():
