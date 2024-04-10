@@ -57,8 +57,7 @@ stub = Stub(
 )
 
 in_progress = Dict.from_name(
-    "pod-transcriber-in-progress",
-    create_if_missing=True
+    "pod-transcriber-in-progress", create_if_missing=True
 )
 
 
