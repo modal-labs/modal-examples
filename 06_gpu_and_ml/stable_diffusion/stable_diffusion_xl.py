@@ -59,7 +59,6 @@ with sdxl_image.imports():
     import torch
     from diffusers import DiffusionPipeline
     from fastapi import Response
-    from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
 #
@@ -74,6 +73,8 @@ with sdxl_image.imports():
 class Model:
     @build()
     def build(self):
+        from huggingface_hub import snapshot_download
+
         ignore = [
             "*.bin",
             "*.onnx_data",
