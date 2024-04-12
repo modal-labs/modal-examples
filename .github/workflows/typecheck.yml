@@ -13,13 +13,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          fetch-depth: 1
 
-      - name: Install mypy
-        run: pip install mypy==0.950
+      - uses: ./.github/actions/setup-cached-python
 
       - name: Run
         run: python3 internal/typecheck.py

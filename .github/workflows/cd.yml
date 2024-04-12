@@ -17,14 +17,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-cached-python
 
-      - name: Install Modal client package and jupytext
-        run: pip install modal-client jupytext pydantic~=1.10
+      - name: Install the Modal client
+        run: uv pip install --system modal
 
       - name: Run deployment script
         run: |
-          python3 internal/deploy.py --no-dry-run
+          python3 internal/deploy.py --dry-run

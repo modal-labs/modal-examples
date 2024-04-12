@@ -13,13 +13,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-cached-python
 
-      # keep version here in sync with .pre-commit-config.yaml and other modal repos
-      - run: pip install ruff==0.2.1
+      - name: Install the Modal client
+        run: uv pip install --system modal
 
       - run: ruff check
 
@@ -31,16 +30,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
-      - name: Install NbConvert
-        run: pip install jupyter nbconvert
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-cached-python
+
+      - name: Install the Modal client
+        run: uv pip install --system modal
 
       - name: Check notebooks are cleaned
         run: |
           jupyter nbconvert --clear-output --inplace 11_notebooks/*.ipynb
-          git diff --quiet && git diff --cached --quiet || exit 1
+          git diff --quiet 11_notebooks/*.ipynb && git diff --cached --quiet 11_notebooks/*.ipynb || exit 1
 
   pytest:
     name: Pytest
@@ -48,16 +48,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
-
-      - name: Install dev dependencies
-        run: pip install pytest jupytext pydantic~=1.10
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-cached-python
 
       - name: Install the Modal client
-        run: pip install modal-client
+        run: uv pip install --system modal
 
       - name: Run
         run: pytest -v .
