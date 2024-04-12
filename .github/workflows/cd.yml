@@ -21,9 +21,6 @@ jobs:
           fetch-depth: 1
       - uses: ./.github/actions/setup-cached-python
 
-      - name: Install the Modal client
-        run: uv pip install --system modal
-
       - name: Run deployment script
         run: |
           python3 internal/deploy.py --no-dry-run

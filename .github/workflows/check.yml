@@ -17,9 +17,6 @@ jobs:
           fetch-depth: 1
       - uses: ./.github/actions/setup-cached-python
 
-      - name: Install the Modal client
-        run: uv pip install --system modal
-
       - run: ruff check
 
       - run: ruff format --check
@@ -33,9 +30,6 @@ jobs:
         with:
           fetch-depth: 1
       - uses: ./.github/actions/setup-cached-python
-
-      - name: Install the Modal client
-        run: uv pip install --system modal
 
       - name: Check notebooks are cleaned
         run: |
@@ -51,9 +45,6 @@ jobs:
         with:
           fetch-depth: 1
       - uses: ./.github/actions/setup-cached-python
-
-      - name: Install the Modal client
-        run: uv pip install --system modal
 
       - name: Run
         run: pytest -v .

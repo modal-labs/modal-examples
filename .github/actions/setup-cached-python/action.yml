@@ -1,4 +1,5 @@
 name: setup-cached-python
+# TODO: look into caching with uv
 
 description: Set up a shared Python environment with cached dependencies.
 
@@ -7,10 +8,6 @@ inputs:
     description: Which Python version to install
     required: false
     default: "3.11"
-  dependencies:
-    description: Whether to skip installing cached dependencies.
-    required: false
-    default: "no-skip"
 
 runs:
   using: composite
@@ -20,13 +17,23 @@ runs:
       with:
         python-version: ${{ inputs.version }}
 
+    # TODO: look into dropping this workaround
+    - name: Workaround to make uv work
+      shell: bash
+      run: |
+        echo "VIRTUAL_ENV=${Python_ROOT_DIR}" >> $GITHUB_ENV
+
     - name: Install base packages
       shell: bash
       run: |
         pip install uv
-        uv pip install --system pip setuptools wheel
+        uv pip install -U pip setuptools wheel
 
     - name: Install Python packages
       if: ${{ inputs.dependencies != 'skip' }}
       shell: bash
-      run: uv pip install --system -r internal/requirements.txt
+      run: uv pip install -r internal/requirements.txt
+
+    - name: Install the modal client
+      shell: bash
+      run: uv pip install --force-reinstall modal
