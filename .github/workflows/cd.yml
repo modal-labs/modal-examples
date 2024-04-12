@@ -26,4 +26,4 @@ jobs:
 
       - name: Run deployment script
         run: |
-          python3 internal/deploy.py --dry-run
+          python3 internal/deploy.py --no-dry-run
