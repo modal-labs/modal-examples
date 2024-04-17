@@ -5,7 +5,10 @@
 
 from pathlib import Path
 
+import fastapi.staticfiles
 import modal
+from fastapi import FastAPI, Request, Response
+from fastapi.templating import Jinja2Templates
 
 stub = modal.Stub("playground-2-5")
 
@@ -28,7 +31,6 @@ with image.imports():
 
     import torch
     from diffusers import DiffusionPipeline
-    from fastapi import Response
 
 
 @stub.cls(image=image, gpu="H100")
@@ -87,27 +89,25 @@ web_image = modal.Image.debian_slim().pip_install("jinja2")
 )
 @modal.asgi_app()
 def app():
-    import fastapi.staticfiles
-    from fastapi import FastAPI
-    from jinja2 import Template
-
     web_app = FastAPI()
+    templates = Jinja2Templates(directory="/assets")
 
-    with open("/assets/index.html", "r") as f:
-        template_html = f.read()
-
-    template = Template(template_html)
-
-    with open("/assets/index.html", "w") as f:
-        html = template.render(
-            inference_url=Model.web_inference.web_url,
-            model_name="Playground 2.5",
-            default_prompt="Astronaut in the ocean, cold color palette, muted colors, detailed, 8k",
+    @web_app.get("/")
+    async def read_root(request: Request):
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "inference_url": Model.web_inference.web_url,
+                "model_name": "Playground 2.5",
+                "default_prompt": "Astronaut in the ocean, cold color palette, muted colors, detailed, 8k",
+            },
         )
-        f.write(html)
 
     web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory="/assets"),
+        name="static",
     )
 
     return web_app

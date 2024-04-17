@@ -193,26 +193,28 @@ web_image = Image.debian_slim().pip_install("jinja2")
 @asgi_app()
 def app():
     import fastapi.staticfiles
-    from fastapi import FastAPI
-    from jinja2 import Template
+    from fastapi import FastAPI, Request
+    from fastapi.templating import Jinja2Templates
 
     web_app = FastAPI()
+    templates = Jinja2Templates(directory="/assets")
 
-    with open("/assets/index.html", "r") as f:
-        template_html = f.read()
-
-    template = Template(template_html)
-
-    with open("/assets/index.html", "w") as f:
-        html = template.render(
-            inference_url=Model.web_inference.web_url,
-            model_name="Stable Diffusion XL",
-            default_prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+    @web_app.get("/")
+    async def read_root(request: Request):
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "inference_url": Model.web_inference.web_url,
+                "model_name": "Stable Diffusion XL",
+                "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+            },
         )
-        f.write(html)
 
     web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory="/assets"),
+        name="static",
     )
 
     return web_app
