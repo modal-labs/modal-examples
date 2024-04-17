@@ -128,15 +128,20 @@ def app():
 
     @web_app.get("/")
     async def read_root(request: Request):
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "inference_url": Model.web_inference.web_url,
-            "model_name": "Stable Diffusion XL Lightning",
-            "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe."
-        })
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "inference_url": Model.web_inference.web_url,
+                "model_name": "Stable Diffusion XL Lightning",
+                "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe.",
+            },
+        )
 
     web_app.mount(
-        "/static", fastapi.staticfiles.StaticFiles(directory="/assets"), name="static"
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory="/assets"),
+        name="static",
     )
 
     return web_app
