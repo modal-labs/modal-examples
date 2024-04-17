@@ -98,13 +98,14 @@ def download_dataset(cache=True):
 # SQLite.
 
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 def load_daily_reports():
-    volume.reload()
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
-        raise RuntimeError(
-            f"Could not find any daily reports in {REPORTS_DIR}."
-        )
+        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
     for filepath in daily_reports:
         yield from load_report(filepath)
 
@@ -184,10 +185,7 @@ def prep_db():
     table.create_index(["province_or_state"], if_not_exists=True)
     table.create_index(["country_or_region"], if_not_exists=True)
 
-    db.close()
-
     print("Syncing DB with volume.")
-    volume.commit()
 
 
 # ## Keep it fresh
