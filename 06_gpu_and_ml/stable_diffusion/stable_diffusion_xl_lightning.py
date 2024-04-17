@@ -119,9 +119,9 @@ web_image = modal.Image.debian_slim().pip_install("jinja2", "fastapi")
 )
 @modal.asgi_app()
 def app():
+    import fastapi.staticfiles
     from fastapi import FastAPI, Request
     from fastapi.templating import Jinja2Templates
-    import fastapi.staticfiles
 
     web_app = FastAPI()
     templates = Jinja2Templates(directory="/assets")

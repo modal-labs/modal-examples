@@ -5,7 +5,10 @@
 
 from pathlib import Path
 
+import fastapi.staticfiles
 import modal
+from fastapi import FastAPI, Request, Response
+from fastapi.templating import Jinja2Templates
 
 stub = modal.Stub("playground-2-5")
 
@@ -28,7 +31,6 @@ with image.imports():
 
     import torch
     from diffusers import DiffusionPipeline
-    from fastapi import Response
 
 
 @stub.cls(image=image, gpu="H100")
@@ -87,9 +89,6 @@ web_image = modal.Image.debian_slim().pip_install("jinja2", "fastapi")
 )
 @modal.asgi_app()
 def app():
-    from fastapi import FastAPI, Request
-    from fastapi.templating import Jinja2Templates
-
     web_app = FastAPI()
     templates = Jinja2Templates(directory="/assets")
 
