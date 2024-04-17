@@ -241,13 +241,19 @@ def app():
     if os.path.exists(DB_PATH):
         print(f"Database file {DB_PATH} exists before Datasette instance creation.")
         print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+        print(f"File size for {DB_PATH}: {os.path.getsize(DB_PATH)}")
+        print(f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}")
     else:
         print(f"Database file {DB_PATH} does not exist before Datasette instance creation.")
         raise RuntimeError(f"Database file {DB_PATH} not found after waiting.")
 
-    ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
-    asyncio.run(ds.invoke_startup())
-    return ds.app()
+    try:
+        ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
+        asyncio.run(ds.invoke_startup())
+        return ds.app()
+    except Exception as e:
+        print(f"Failed to create Datasette instance: {e}")
+        raise
 
 
 # ## Publishing to the web
