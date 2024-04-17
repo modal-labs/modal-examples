@@ -109,7 +109,7 @@ def main(
 
 frontend_path = Path(__file__).parent / "frontend"
 
-web_image = modal.Image.debian_slim().pip_install("jinja2", "fastapi")
+web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
 @stub.function(
