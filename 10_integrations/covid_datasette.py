@@ -186,6 +186,7 @@ def prep_db():
     table.create_index(["country_or_region"], if_not_exists=True)
 
     print("Syncing DB with volume.")
+    volume.commit()
 
 
 # ## Keep it fresh
