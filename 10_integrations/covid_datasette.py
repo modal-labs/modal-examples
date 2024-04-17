@@ -167,6 +167,7 @@ def chunks(it, size):
 )
 def prep_db():
     import sqlite_utils
+    import os
 
     print("Loading daily reports...")
     records = load_daily_reports()
@@ -188,6 +189,13 @@ def prep_db():
     print("Syncing DB with volume.")
     volume.commit()
 
+    # Diagnostic logging to check file existence and permissions
+    if os.path.exists(DB_PATH):
+        print(f"Database file {DB_PATH} exists after commit.")
+        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+    else:
+        print(f"Database file {DB_PATH} does not exist after commit.")
+
 
 # ## Keep it fresh
 #
@@ -201,6 +209,8 @@ def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.remote(cache=False)
     prep_db.remote()
+    volume.commit()
+    print("Volume changes committed.")
 
 
 # ## Web endpoint
@@ -217,7 +227,15 @@ def refresh_db():
 )
 @asgi_app()
 def app():
+    import os
     from datasette.app import Datasette
+
+    # Diagnostic logging to check file existence and permissions
+    if os.path.exists(DB_PATH):
+        print(f"Database file {DB_PATH} exists before Datasette instance creation.")
+        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+    else:
+        print(f"Database file {DB_PATH} does not exist before Datasette instance creation.")
 
     ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
     asyncio.run(ds.invoke_startup())
