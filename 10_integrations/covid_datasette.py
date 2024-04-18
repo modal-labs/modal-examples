@@ -166,8 +166,9 @@ def chunks(it, size):
     timeout=900,
 )
 def prep_db():
-    import sqlite_utils
     import os
+
+    import sqlite_utils
 
     print("Loading daily reports...")
     records = load_daily_reports()
@@ -230,6 +231,7 @@ def refresh_db():
 def app():
     import os
     import time
+
     from datasette.app import Datasette
 
     # Wait for the database file to be ready before creating the Datasette instance
