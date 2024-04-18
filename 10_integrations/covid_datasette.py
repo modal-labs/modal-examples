@@ -102,13 +102,10 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-
 def load_daily_reports():
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
-        raise RuntimeError(
-            f"Could not find any daily reports in {REPORTS_DIR}."
-        )
+        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
     for filepath in daily_reports:
         yield from load_report(filepath)
 
@@ -170,6 +167,7 @@ def chunks(it, size):
 )
 def prep_db():
     import sqlite_utils
+    import os
 
     print("Loading daily reports...")
     records = load_daily_reports()
@@ -190,6 +188,13 @@ def prep_db():
 
     print("Syncing DB with volume.")
     volume.commit()
+
+    # Diagnostic logging to check file existence and permissions
+    if os.path.exists(DB_PATH):
+        print(f"Database file {DB_PATH} exists after commit.")
+        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+    else:
+        print(f"Database file {DB_PATH} does not exist after commit.")
 
 
 # ## Keep it fresh
@@ -219,48 +224,13 @@ def refresh_db():
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     allow_concurrent_inputs=16,
-    _allow_background_volume_commits=True,
+    _allow_background_volume_commits=True
 )
 @asgi_app()
 def app():
     import os
     import time
-
     from datasette.app import Datasette
-
-    # Reload the volume to ensure we have the latest state
-    volume.reload()
-
-    # Diagnostic logging to check directory and file state after reload
-    try:
-        dir_contents = os.listdir(REPORTS_DIR)
-        print(
-            f"Contents of {REPORTS_DIR} immediately after reload: {dir_contents}"
-        )
-    except Exception as e:
-        print(
-            f"Error listing contents of {REPORTS_DIR} immediately after reload: {e}"
-        )
-
-    if os.path.exists(DB_PATH):
-        print(f"Database file {DB_PATH} exists immediately after reload.")
-        print(
-            f"File permissions for {DB_PATH} immediately after reload: {oct(os.stat(DB_PATH).st_mode)}"
-        )
-        print(
-            f"File size for {DB_PATH} immediately after reload: {os.path.getsize(DB_PATH)}"
-        )
-        print(
-            f"Last modified time for {DB_PATH} immediately after reload: {time.ctime(os.path.getmtime(DB_PATH))}"
-        )
-    else:
-        print(
-            f"Database file {DB_PATH} does not exist immediately after reload."
-        )
-        # If the file does not exist after reload, raise an error to avoid entering the wait loop
-        raise RuntimeError(
-            f"Database file {DB_PATH} not found immediately after reload."
-        )
 
     # Wait for the database file to be ready before creating the Datasette instance
     while not os.path.exists(DB_PATH):
@@ -269,20 +239,12 @@ def app():
 
     # Diagnostic logging to check file existence and permissions
     if os.path.exists(DB_PATH):
-        print(
-            f"Database file {DB_PATH} exists before Datasette instance creation."
-        )
-        print(
-            f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}"
-        )
+        print(f"Database file {DB_PATH} exists before Datasette instance creation.")
+        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
         print(f"File size for {DB_PATH}: {os.path.getsize(DB_PATH)}")
-        print(
-            f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}"
-        )
+        print(f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}")
     else:
-        print(
-            f"Database file {DB_PATH} does not exist before Datasette instance creation."
-        )
+        print(f"Database file {DB_PATH} does not exist before Datasette instance creation.")
         raise RuntimeError(f"Database file {DB_PATH} not found after waiting.")
 
     try:
@@ -314,5 +276,3 @@ def run():
 
 
 # You can explore the data at the [deployed web endpoint](https://modal-labs--example-covid-datasette-app.modal.run/covid-19).
-
-# Minor change to trigger CI - Timestamp: 2024-04-18
