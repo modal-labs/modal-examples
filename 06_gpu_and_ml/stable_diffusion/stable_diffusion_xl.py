@@ -191,7 +191,7 @@ web_image = Image.debian_slim().pip_install("jinja2")
     allow_concurrent_inputs=20,
 )
 @asgi_app()
-def app():
+def ui():
     import fastapi.staticfiles
     from fastapi import FastAPI, Request
     from fastapi.templating import Jinja2Templates
