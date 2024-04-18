@@ -102,10 +102,13 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+
 def load_daily_reports():
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
-        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
+        raise RuntimeError(
+            f"Could not find any daily reports in {REPORTS_DIR}."
+        )
     for filepath in daily_reports:
         yield from load_report(filepath)
 
@@ -193,7 +196,9 @@ def prep_db():
     # Diagnostic logging to check file existence and permissions
     if os.path.exists(DB_PATH):
         print(f"Database file {DB_PATH} exists after commit.")
-        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+        print(
+            f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}"
+        )
     else:
         print(f"Database file {DB_PATH} does not exist after commit.")
 
@@ -225,7 +230,7 @@ def refresh_db():
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     allow_concurrent_inputs=16,
-    _allow_background_volume_commits=True
+    _allow_background_volume_commits=True,
 )
 @asgi_app()
 def app():
@@ -241,12 +246,20 @@ def app():
 
     # Diagnostic logging to check file existence and permissions
     if os.path.exists(DB_PATH):
-        print(f"Database file {DB_PATH} exists before Datasette instance creation.")
-        print(f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}")
+        print(
+            f"Database file {DB_PATH} exists before Datasette instance creation."
+        )
+        print(
+            f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}"
+        )
         print(f"File size for {DB_PATH}: {os.path.getsize(DB_PATH)}")
-        print(f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}")
+        print(
+            f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}"
+        )
     else:
-        print(f"Database file {DB_PATH} does not exist before Datasette instance creation.")
+        print(
+            f"Database file {DB_PATH} does not exist before Datasette instance creation."
+        )
         raise RuntimeError(f"Database file {DB_PATH} not found after waiting.")
 
     try:
