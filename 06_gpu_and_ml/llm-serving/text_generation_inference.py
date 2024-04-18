@@ -194,12 +194,10 @@ class Model:
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
 @stub.local_entrypoint()
-def main():
-    print(
-        Model().generate.remote(
-            "Implement a Python function to compute the Fibonacci numbers."
-        )
-    )
+def main(prompt: str = None):
+    if prompt is None:
+        prompt = "Implement a Python function to compute the Fibonacci numbers."
+    print(Model().generate.remote(prompt))
 
 
 # ## Serve the model
