@@ -99,7 +99,6 @@ def download_dataset(cache=True):
 
 
 def load_daily_reports():
-    volume.reload()
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
         raise RuntimeError(
@@ -167,6 +166,7 @@ def chunks(it, size):
 def prep_db():
     import sqlite_utils
 
+    volume.reload()
     print("Loading daily reports...")
     records = load_daily_reports()
 
@@ -246,4 +246,3 @@ def run():
 
 
 # You can explore the data at the [deployed web endpoint](https://modal-labs--example-covid-datasette-app.modal.run/covid-19).
-# Minor change to trigger CI - Timestamp: 2024-04-18
