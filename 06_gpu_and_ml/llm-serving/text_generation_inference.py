@@ -5,7 +5,7 @@
 # - continuous batching, so multiple generations can take place at the same time on a single container
 # - PagedAttention, which applies memory paging to the attention mechanism's key-value cache, increasing throughput
 #
-# This example deployment, [accessible here](https://modal-labs--llama3.modal.run), can serve LLaMA 3 70B with
+# This example deployment, [accessible here](https://modal.chat), can serve LLaMA 3 70B with
 # 70 second cold starts, up to 200 tokens/s of throughput, and a per-token latency of 55ms.
 
 # ## Setup
@@ -205,7 +205,7 @@ def main(prompt: str = None):
 # behind an ASGI app front-end. The front-end code (a single file of Alpine.js) is available
 # [here](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/llm-frontend/index.html).
 #
-# You can try our deployment [here](https://modal-labs--llama3.modal.run).
+# You can try our deployment [here](https://modal.chat).
 
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
