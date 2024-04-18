@@ -98,12 +98,8 @@ def download_dataset(cache=True):
 # SQLite.
 
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-
 def load_daily_reports():
+    volume.reload()
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
         raise RuntimeError(
@@ -169,8 +165,6 @@ def chunks(it, size):
     timeout=900,
 )
 def prep_db():
-    import os
-
     import sqlite_utils
 
     print("Loading daily reports...")
@@ -192,15 +186,7 @@ def prep_db():
 
     print("Syncing DB with volume.")
     volume.commit()
-
-    # Diagnostic logging to check file existence and permissions
-    if os.path.exists(DB_PATH):
-        print(f"Database file {DB_PATH} exists after commit.")
-        print(
-            f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}"
-        )
-    else:
-        print(f"Database file {DB_PATH} does not exist after commit.")
+    db.close()
 
 
 # ## Keep it fresh
@@ -230,45 +216,14 @@ def refresh_db():
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     allow_concurrent_inputs=16,
-    _allow_background_volume_commits=True,
 )
 @asgi_app()
 def app():
-    import os
-    import time
-
     from datasette.app import Datasette
 
-    # Wait for the database file to be ready before creating the Datasette instance
-    while not os.path.exists(DB_PATH):
-        print(f"Waiting for database file {DB_PATH} to be ready...")
-        time.sleep(5)  # Wait for 5 seconds before retrying
-
-    # Diagnostic logging to check file existence and permissions
-    if os.path.exists(DB_PATH):
-        print(
-            f"Database file {DB_PATH} exists before Datasette instance creation."
-        )
-        print(
-            f"File permissions for {DB_PATH}: {oct(os.stat(DB_PATH).st_mode)}"
-        )
-        print(f"File size for {DB_PATH}: {os.path.getsize(DB_PATH)}")
-        print(
-            f"Last modified time for {DB_PATH}: {time.ctime(os.path.getmtime(DB_PATH))}"
-        )
-    else:
-        print(
-            f"Database file {DB_PATH} does not exist before Datasette instance creation."
-        )
-        raise RuntimeError(f"Database file {DB_PATH} not found after waiting.")
-
-    try:
-        ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
-        asyncio.run(ds.invoke_startup())
-        return ds.app()
-    except Exception as e:
-        print(f"Failed to create Datasette instance: {e}")
-        raise
+    ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
+    asyncio.run(ds.invoke_startup())
+    return ds.app()
 
 
 # ## Publishing to the web
