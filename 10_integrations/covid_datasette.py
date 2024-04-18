@@ -99,7 +99,6 @@ def download_dataset(cache=True):
 
 
 def load_daily_reports():
-    volume.reload()
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
         raise RuntimeError(
@@ -167,6 +166,7 @@ def chunks(it, size):
 def prep_db():
     import sqlite_utils
 
+    volume.reload()
     print("Loading daily reports...")
     records = load_daily_reports()
 
@@ -184,10 +184,9 @@ def prep_db():
     table.create_index(["province_or_state"], if_not_exists=True)
     table.create_index(["country_or_region"], if_not_exists=True)
 
-    db.close()
-
     print("Syncing DB with volume.")
     volume.commit()
+    db.close()
 
 
 # ## Keep it fresh
@@ -202,6 +201,8 @@ def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.remote(cache=False)
     prep_db.remote()
+    volume.commit()
+    print("Volume changes committed.")
 
 
 # ## Web endpoint
