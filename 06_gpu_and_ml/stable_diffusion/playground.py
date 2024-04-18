@@ -88,7 +88,7 @@ web_image = modal.Image.debian_slim().pip_install("jinja2")
     allow_concurrent_inputs=20,
 )
 @modal.asgi_app()
-def app():
+def ui():
     web_app = FastAPI()
     templates = Jinja2Templates(directory="/assets")
 

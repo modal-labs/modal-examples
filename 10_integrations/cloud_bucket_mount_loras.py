@@ -255,7 +255,7 @@ web_image = Image.debian_slim().pip_install("gradio~=3.50.2", "pillow~=10.2.0")
 
 @stub.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
 @asgi_app()
-def app():
+def ui():
     """A simple Gradio interface around our LoRA inference."""
     import io
 

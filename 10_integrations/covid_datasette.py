@@ -218,7 +218,7 @@ def refresh_db():
     allow_concurrent_inputs=16,
 )
 @asgi_app()
-def app():
+def ui():
     from datasette.app import Datasette
 
     ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})

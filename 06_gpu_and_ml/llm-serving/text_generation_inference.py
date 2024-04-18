@@ -218,8 +218,8 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
     allow_concurrent_inputs=10,
     timeout=60 * 10,
 )
-@asgi_app(label="tgi-app")
-def app():
+@asgi_app()
+def tgi_app():
     import json
 
     import fastapi
