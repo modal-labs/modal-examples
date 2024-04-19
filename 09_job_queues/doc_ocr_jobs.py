@@ -18,16 +18,16 @@
 #
 # ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
-# ## Define a Stub
+# ## Define a App
 #
-# Let's first import `modal` and define a [`Stub`](/docs/reference/modal.Stub). Later, we'll use the name provided
-# for our `Stub` to find it from our web app, and submit tasks to it.
+# Let's first import `modal` and define a [`App`](/docs/reference/modal.App). Later, we'll use the name provided
+# for our `App` to find it from our web app, and submit tasks to it.
 
 import urllib.request
 
 import modal
 
-stub = modal.Stub("example-doc-ocr-jobs")
+app = modal.App("example-doc-ocr-jobs")
 
 # ## Model cache
 #
@@ -59,13 +59,13 @@ image = (
 
 # ## Handler function
 #
-# Now let's define our handler function. Using the [@stub.function()](https://modal.com/docs/reference/modal.Stub#function)
+# Now let's define our handler function. Using the [@app.function()](https://modal.com/docs/reference/modal.App#function)
 # decorator, we set up a Modal [Function](/docs/reference/modal.Function) that uses GPUs,
 # runs on a [custom container image](/docs/guide/custom-container),
 # and automatically [retries](/docs/guide/retries#function-retries) failures up to 3 times.
 
 
-@stub.function(
+@app.function(
     gpu="any",
     image=image,
     retries=3,
@@ -123,12 +123,12 @@ def parse_receipt(image: bytes):
 # ## Run manually
 #
 # We can also trigger `parse_receipt` manually for easier debugging:
-# `modal run doc_ocr_jobs::stub.main`
+# `modal run doc_ocr_jobs::app.main`
 # To try it out, you can find some
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     from pathlib import Path
 

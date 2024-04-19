@@ -17,15 +17,15 @@
 
 # ## Basic setup
 #
-# Let's get the imports out of the way and define a [`Stub`](/docs/reference/modal.Stub).
+# Let's get the imports out of the way and define a [`App`](/docs/reference/modal.App).
 
 from pathlib import Path
 
 import fastapi
 import fastapi.staticfiles
-from modal import Function, Mount, Stub, asgi_app
+from modal import App, Function, Mount, asgi_app
 
-stub = Stub("example-doc-ocr-webapp")
+app = App("example-doc-ocr-webapp")
 
 # Modal works with any [ASGI](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
 # [WSGI](/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).
@@ -84,7 +84,7 @@ async def poll_results(call_id: str):
 assets_path = Path(__file__).parent / "doc_ocr_frontend"
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")]
 )
 @asgi_app()

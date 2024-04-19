@@ -6,16 +6,16 @@
 # In this example, we use Modal to deploy a cron job that periodically queries Hacker News for
 # new posts matching a given search term, and posts the results to Slack.
 
-# ## Import and define the stub
+# ## Import and define the app
 #
-# Let's start off with imports, and defining a Modal stub.
+# Let's start off with imports, and defining a Modal app.
 
 import os
 from datetime import datetime, timedelta
 
 import modal
 
-stub = modal.Stub("example-hn-bot")
+app = modal.App("example-hn-bot")
 
 # Now, let's define an image that has the `slack-sdk` package installed, in which we can run a function
 # that posts a slack message.
@@ -33,7 +33,7 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 # and then uses it to post a message to a given channel name.
 
 
-@stub.function(
+@app.function(
     image=slack_sdk_image, secrets=[modal.Secret.from_name("hn-bot-slack")]
 )
 async def post_to_slack(message: str):
@@ -60,7 +60,7 @@ requests_image = modal.Image.debian_slim().pip_install("requests")
 # means that our function will run automatically at the given interval.
 
 
-@stub.function(image=requests_image)
+@app.function(image=requests_image)
 def search_hackernews():
     import requests
 
@@ -83,14 +83,14 @@ def search_hackernews():
 
 # ## Test running
 #
-# We can now test run our scheduled function as follows: `modal run hackernews_alerts.py::stub.search_hackernews`
+# We can now test run our scheduled function as follows: `modal run hackernews_alerts.py::app.search_hackernews`
 
 # ## Defining the schedule and deploying
 #
 # Let's define a function that will be called by Modal every day
 
 
-@stub.function(schedule=modal.Period(days=1))
+@app.function(schedule=modal.Period(days=1))
 def run_daily():
     search_hackernews.remote()
 

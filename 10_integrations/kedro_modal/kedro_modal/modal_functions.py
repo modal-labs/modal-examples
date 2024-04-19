@@ -4,7 +4,7 @@ import subprocess
 import warnings
 from pathlib import Path
 
-from modal import Image, Mount, NetworkFileSystem, Stub, create_package_mounts
+from modal import App, Image, Mount, NetworkFileSystem, create_package_mounts
 
 package_mounts = create_package_mounts(["kedro_modal"])
 
@@ -36,7 +36,7 @@ def non_hidden_files(project_path: Path):
     return condition
 
 
-def main_stub(project_path, project_name, package_name) -> Stub:
+def main_app(project_path, project_name, package_name) -> App:
     requirements_txt = project_path / "src" / "requirements.txt"
 
     image = Image.debian_slim()
@@ -54,7 +54,7 @@ def main_stub(project_path, project_name, package_name) -> Stub:
         local_dir=project_path,
         condition=non_hidden_files(project_path),
     )
-    stub = Stub(
+    app = App(
         f"kedro-run.{project_name}",
         image=image,
         mounts=[kedro_proj_mount] + package_mounts,
@@ -62,19 +62,19 @@ def main_stub(project_path, project_name, package_name) -> Stub:
     volume_name = f"kedro.{project_name}.storage"
     data_volume = NetworkFileSystem.from_name(volume_name, create_if_true=True)
 
-    stub.function(network_file_systems={"/kedro-storage": data_volume})(
+    app.function(network_file_systems={"/kedro-storage": data_volume})(
         run_kedro
     )
-    stub.function(network_file_systems={"/kedro-storage": data_volume})(
+    app.function(network_file_systems={"/kedro-storage": data_volume})(
         sync_data
     )
     remote_data_path = Path("/kedro-storage/data")
-    return stub, remote_project_mount_point, remote_data_path
+    return app, remote_project_mount_point, remote_data_path
 
 
-def sync_stub(project_path, project_name):
-    # slimmer sync stub that only mounts the data dir in order to upload raw data
-    stub = Stub(f"kedro-data-sync.{project_name}")
+def sync_app(project_path, project_name):
+    # slimmer sync app that only mounts the data dir in order to upload raw data
+    app = App(f"kedro-data-sync.{project_name}")
     volume_name = f"kedro.{project_name}.storage"
     data_volume = NetworkFileSystem().persist(volume_name)
 
@@ -84,9 +84,9 @@ def sync_stub(project_path, project_name):
         local_dir=project_path / "data",
         condition=non_hidden_files(project_path),
     )
-    stub.function(
+    app.function(
         mounts=[source_mount] + package_mounts,
         network_file_systems={"/kedro-storage": data_volume},
     )(sync_data)
     remote_destination_path = Path("/kedro-storage/data")
-    return stub, remote_source_path, remote_destination_path
+    return app, remote_source_path, remote_destination_path

@@ -12,7 +12,7 @@ from datetime import timedelta
 from modal import Mount, asgi_app, enter, method
 
 from . import config, inpaint, ops, pokemon_naming
-from .config import stub, volume
+from .config import app, volume
 
 
 @dataclasses.dataclass(frozen=True)
@@ -61,7 +61,7 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-@stub.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
+@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
 class Model:
     @enter()
     def load_model(self):
@@ -88,7 +88,7 @@ def normalize_prompt(p: str) -> str:
     return re.sub("[^a-z0-9- ]", "", p.lower())
 
 
-@stub.function(volumes={config.CACHE_DIR: volume})
+@app.function(volumes={config.CACHE_DIR: volume})
 def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     start_time = time.monotonic()
     cached = False
@@ -129,7 +129,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     return samples_data
 
 
-@stub.function(
+@app.function(
     mounts=[
         Mount.from_local_dir(
             local_path=config.ASSETS_PATH, remote_path="/assets"
@@ -149,7 +149,7 @@ def fastapi_app():
     return web_app
 
 
-@stub.function(
+@app.function(
     image=inpaint.cv_image,
     volumes={config.CACHE_DIR: volume},
     interactive=False,
@@ -248,7 +248,7 @@ def color_dist(
     return delta_e
 
 
-@stub.function(volumes={config.CACHE_DIR: volume})
+@app.function(volumes={config.CACHE_DIR: volume})
 def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     """
     Takes a single Pokémon sample and creates a Pokémon card image for it.
@@ -275,7 +275,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     )
 
 
-@stub.function(volumes={config.CACHE_DIR: volume})
+@app.function(volumes={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")
@@ -350,7 +350,7 @@ def closest_pokecard_by_color(sample: bytes, cards):
     return closest_card
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run_local(prompt: str):
     images_data = diskcached_text_to_pokemon.remote(prompt)
 

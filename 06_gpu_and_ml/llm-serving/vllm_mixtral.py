@@ -85,7 +85,7 @@ vllm_image = (
     )
 )
 
-stub = modal.Stub("example-vllm-mixtral")
+app = modal.App("example-vllm-mixtral")
 
 
 # ## The model class
@@ -95,7 +95,7 @@ stub = modal.Stub("example-vllm-mixtral")
 # on the GPU for each subsequent invocation of the function.
 #
 # The `vLLM` library allows the code to remain quite clean. We do have to patch the multi-GPU setup due to issues with Ray.
-@stub.cls(
+@app.cls(
     gpu=GPU_CONFIG,
     timeout=60 * 10,
     container_idle_timeout=60 * 10,
@@ -175,7 +175,7 @@ class Model:
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run -q vllm_mixtral.py`. The `q` flag
 # enables the text to stream in your local terminal.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     questions = [
         "Implement a Python function to compute the Fibonacci numbers.",
@@ -218,7 +218,7 @@ from modal import Mount, asgi_app
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,

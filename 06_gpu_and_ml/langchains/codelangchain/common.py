@@ -20,7 +20,7 @@ agent_image = image.pip_install(
     "tiktoken==0.6.0",
 )
 
-stub = modal.Stub(
+app = modal.App(
     "code-langchain",
     image=image,
     secrets=[

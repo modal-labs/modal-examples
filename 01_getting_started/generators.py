@@ -1,15 +1,15 @@
 import modal
 
-stub = modal.Stub("example-generators")
+app = modal.App("example-generators")
 
 
-@stub.function()
+@app.function()
 def f(i):
     for j in range(i):
         yield j
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     for r in f.remote_gen(10):
         print(r)

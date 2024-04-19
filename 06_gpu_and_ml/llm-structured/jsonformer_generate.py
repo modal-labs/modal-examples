@@ -50,7 +50,7 @@ image = (
     )
     .run_function(download_model)
 )
-stub = modal.Stub("example-jsonformer")
+app = modal.App("example-jsonformer")
 
 
 # ## Generate examples
@@ -58,7 +58,7 @@ stub = modal.Stub("example-jsonformer")
 # The generate function takes two arguments `prompt` and `json_schema`, where
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
-@stub.function(gpu=modal.gpu.A10G(), image=image)
+@app.function(gpu=modal.gpu.A10G(), image=image)
 def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
     from jsonformer import Jsonformer
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -77,7 +77,7 @@ def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
 
 
 # Add Modal entrypoint for invoking your script, and done!
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     prompt = "Generate random plant information based on the following schema:"
     json_schema = {

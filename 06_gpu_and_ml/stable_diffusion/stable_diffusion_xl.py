@@ -19,9 +19,9 @@ import io
 from pathlib import Path
 
 from modal import (
+    App,
     Image,
     Mount,
-    Stub,
     asgi_app,
     build,
     enter,
@@ -53,7 +53,7 @@ sdxl_image = (
     )
 )
 
-stub = Stub("stable-diffusion-xl")
+app = App("stable-diffusion-xl")
 
 with sdxl_image.imports():
     import torch
@@ -69,7 +69,7 @@ with sdxl_image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
+@app.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
     @build()
     def build(self):
@@ -157,7 +157,7 @@ class Model:
 # with: `modal run stable_diffusion_xl.py --help
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     image_bytes = Model().inference.remote(prompt)
 
@@ -185,7 +185,7 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = Image.debian_slim().pip_install("jinja2")
 
 
-@stub.function(
+@app.function(
     image=web_image,
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,

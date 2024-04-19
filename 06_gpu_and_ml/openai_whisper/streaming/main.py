@@ -23,7 +23,7 @@ image = (
         "pytube @ git+https://github.com/felipeucelli/pytube",
     )
 )
-stub = modal.Stub(name="example-whisper-streaming", image=image)
+app = modal.App(name="example-whisper-streaming", image=image)
 web_app = FastAPI()
 CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = (
     "https://www.youtube.com/watch?v=J7GY1Xg6X20"
@@ -130,7 +130,7 @@ def split_silences(
     print(f"Split {path} into {num_segments} segments")
 
 
-@stub.function()
+@app.function()
 def download_mp3_from_youtube(youtube_url: str) -> bytes:
     from pytube import YouTube
 
@@ -143,7 +143,7 @@ def download_mp3_from_youtube(youtube_url: str) -> bytes:
     return buffer.read()
 
 
-@stub.function(cpu=2)
+@app.function(cpu=2)
 def transcribe_segment(
     start: float,
     end: float,
@@ -222,19 +222,19 @@ async def transcribe(url: str):
     )
 
 
-@stub.function()
+@app.function()
 @modal.asgi_app()
 def web():
     return web_app
 
 
-@stub.function()
+@app.function()
 async def transcribe_cli(data: bytes, suffix: str):
     async for result in stream_whisper(data):
         print(result)
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
     if path.startswith("https"):
         data = download_mp3_from_youtube.remote(path)

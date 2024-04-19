@@ -9,20 +9,20 @@ import time
 
 import modal
 
-# Next, define an stub, with a custom image that installs `sklearn`.
+# Next, define an app, with a custom image that installs `sklearn`.
 
-stub = modal.Stub(
+app = modal.App(
     "import-sklearn",
     image=modal.Image.debian_slim()
     .apt_install("libgomp1")
     .pip_install("scikit-learn"),
 )
 
-# The `stub.image.imports()` lets us conditionally import in the global scope.
+# The `app.image.imports()` lets us conditionally import in the global scope.
 # This is needed because we might not have sklearn and numpy installed locally,
 # but we know they are installed inside the custom image.
 
-with stub.image.imports():
+with app.image.imports():
     import numpy as np
     from sklearn import datasets, linear_model
 
@@ -30,7 +30,7 @@ with stub.image.imports():
 # and fits a very simple model (linear regression) to it
 
 
-@stub.function()
+@app.function()
 def fit():
     print("Inside run!")
     t0 = time.time()
@@ -48,7 +48,7 @@ def fit():
 
 if __name__ == "__main__":
     t0 = time.time()
-    with stub.run():
+    with app.run():
         t = fit.remote()
         print("Function time spent:", t)
     print("Full time spent:", time.time() - t0)

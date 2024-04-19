@@ -34,7 +34,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from modal import Image, Mount, Stub, asgi_app, build, enter, method
+from modal import App, Image, Mount, asgi_app, build, enter, method
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -48,7 +48,7 @@ from modal import Image, Mount, Stub, asgi_app, build, enter, method
 model_repo_id = "facebook/detr-resnet-50"
 
 
-stub = Stub("example-webcam-object-detection")
+app = App("example-webcam-object-detection")
 image = (
     Image.debian_slim()
     .pip_install(
@@ -86,7 +86,7 @@ with image.imports():
     from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-@stub.cls(
+@app.cls(
     cpu=4,
     image=image,
 )
@@ -188,7 +188,7 @@ async def predict(request: Request):
 # Let's take the Fast API app and expose it to Modal.
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(static_path, remote_path="/assets")],
 )
 @asgi_app()

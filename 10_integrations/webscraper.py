@@ -5,7 +5,7 @@ import os
 
 import modal
 
-stub = modal.Stub("example-linkscraper")
+app = modal.App("example-linkscraper")
 
 
 playwright_image = modal.Image.debian_slim(
@@ -21,7 +21,7 @@ playwright_image = modal.Image.debian_slim(
 )
 
 
-@stub.function(image=playwright_image)
+@app.function(image=playwright_image)
 async def get_links(url: str) -> set[str]:
     from playwright.async_api import async_playwright
 
@@ -40,7 +40,7 @@ async def get_links(url: str) -> set[str]:
 slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 
-@stub.function(
+@app.function(
     image=slack_sdk_image,
     secrets=[modal.Secret.from_name("scraper-slack-secret")],
 )
@@ -52,7 +52,7 @@ def bot_token_msg(channel, message):
     client.chat_postMessage(channel=channel, text=message)
 
 
-@stub.function()
+@app.function()
 def scrape():
     links_of_interest = ["http://modal.com"]
 
@@ -61,11 +61,11 @@ def scrape():
             bot_token_msg.remote("scraped-links", link)
 
 
-@stub.function(schedule=modal.Period(days=1))
+@app.function(schedule=modal.Period(days=1))
 def daily_scrape():
     scrape.remote()
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     scrape.remote()

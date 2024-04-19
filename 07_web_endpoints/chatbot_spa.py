@@ -21,10 +21,10 @@ from typing import Optional, Tuple
 import fastapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from modal import Dict, Image, Mount, Stub, asgi_app
+from modal import App, Dict, Image, Mount, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-stub = Stub("example-chatbot-spa")
+app = App("example-chatbot-spa")
 chat_histories = Dict.from_name(
     "example-chatbot-spa-history", create_if_missing=True
 )
@@ -55,7 +55,7 @@ with gpu_image.imports():
     tokenizer, model = load_tokenizer_and_model()
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")]
 )
 @asgi_app()
@@ -73,7 +73,7 @@ def transformer():
     return app
 
 
-@stub.function(gpu="any", image=gpu_image)
+@app.function(gpu="any", image=gpu_image)
 def generate_response(
     message: str, id: Optional[str] = None
 ) -> Tuple[str, str]:
@@ -98,7 +98,7 @@ def generate_response(
     return id, response
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def test_response(message: str):
     _, response = generate_response.remote(message)
     print(response)

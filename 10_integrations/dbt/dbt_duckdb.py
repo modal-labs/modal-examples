@@ -45,7 +45,7 @@ dbt_image = (
         }
     )
 )
-stub = modal.Stub(name="example-dbt-duckdb-s3", image=dbt_image)
+app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
 
 # ## DBT Configuration
 #
@@ -108,7 +108,7 @@ s3_secret = modal.Secret.from_name("modal-examples-aws-user")
 # demonstration example. See https://docs.getdbt.com/docs/build/seeds for more info.
 
 
-@stub.function(
+@app.function(
     mounts=[dbt_project],
     secrets=[s3_secret],
 )
@@ -137,7 +137,7 @@ def create_source_data():
 # to have sources which continually provide new data across time.
 
 
-@stub.function(
+@app.function(
     schedule=modal.Period(days=1),
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
@@ -176,7 +176,7 @@ def daily_build() -> None:
 #
 
 
-@stub.function(
+@app.function(
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
     network_file_systems={TARGET_PATH: dbt_target},

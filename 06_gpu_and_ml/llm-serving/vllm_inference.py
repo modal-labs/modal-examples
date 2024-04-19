@@ -74,7 +74,7 @@ image = (
     )
 )
 
-stub = modal.Stub("example-vllm-inference", image=image)
+app = modal.App("example-vllm-inference", image=image)
 
 # Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
 with image.imports():
@@ -92,7 +92,7 @@ with image.imports():
 GPU_CONFIG = modal.gpu.A100(count=1)  # 40GB A100 by default
 
 
-@stub.cls(gpu=GPU_CONFIG)
+@app.cls(gpu=GPU_CONFIG)
 class Model:
     @modal.enter()
     def load_model(self):
@@ -147,7 +147,7 @@ class Model:
 # ## Run the model
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run vllm_inference.py`.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     questions = [
         # Coding questions

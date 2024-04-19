@@ -1,4 +1,4 @@
-"""This module defines our agent and attaches it to the Modal Stub.
+"""This module defines our agent and attaches it to the Modal App.
 
 Our agent is defined as a graph: a collection of nodes and edges,
 where nodes represent actions and edges represent transitions between actions.
@@ -13,10 +13,10 @@ You can test the agent from the command line with `modal run agent.py --question
 import edges
 import nodes
 import retrieval
-from common import stub
+from common import app
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(question: str = "How do I build a RAG pipeline?", debug: bool = False):
     """Sends a question to the LCEL code generation agent.
 
@@ -27,7 +27,7 @@ def main(question: str = "How do I build a RAG pipeline?", debug: bool = False):
     print(go.remote(question, debug=debug)["keys"]["response"])
 
 
-@stub.function()
+@app.function()
 def go(question: str = "How do I build a RAG pipeline?", debug: bool = False):
     """Compiles the LCEL code generation agent graph and runs it, returning the result."""
     graph = construct_graph(debug=debug)

@@ -10,7 +10,7 @@ import modal
 from fastapi import FastAPI, Request, Response
 from fastapi.templating import Jinja2Templates
 
-stub = modal.Stub("playground-2-5")
+app = modal.App("playground-2-5")
 
 DIFFUSERS_GIT_SHA = "2e31a759b5bd8ca2b288b5c61709636a96c4bae9"
 
@@ -33,7 +33,7 @@ with image.imports():
     from diffusers import DiffusionPipeline
 
 
-@stub.cls(image=image, gpu="H100")
+@app.cls(image=image, gpu="H100")
 class Model:
     @modal.build()
     @modal.enter()
@@ -82,7 +82,7 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
-@stub.function(
+@app.function(
     image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
@@ -113,7 +113,7 @@ def ui():
     return web_app
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(prompt: str):
     image_bytes = Model().inference.remote(prompt)
 

@@ -35,10 +35,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from modal import (
+    App,
     Image,
     Mount,
     Secret,
-    Stub,
     Volume,
     asgi_app,
     enter,
@@ -55,7 +55,7 @@ from modal import (
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our app runs.
 
-stub = Stub(name="example-dreambooth-app")
+app = App(name="example-dreambooth-app")
 
 image = Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.27.2",
@@ -205,7 +205,7 @@ def load_images(image_urls: list[str]) -> Path:
 #
 # The model weights, training libraries, and training script are all provided by [🤗 Hugging Face](https://huggingface.co).
 #
-# You can kick off a training job with the command `modal run dreambooth_app.py::stub.train`.
+# You can kick off a training job with the command `modal run dreambooth_app.py::app.train`.
 # It should take under five minutes.
 #
 # Training machine learning models takes time and produces a lot of metadata --
@@ -258,7 +258,7 @@ class TrainConfig(SharedConfig):
     seed: int = 117
 
 
-@stub.function(
+@app.function(
     image=image,
     gpu="A100",  # fine-tuning is VRAM-heavy and requires an A100 GPU
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
@@ -350,7 +350,7 @@ def train(instance_example_urls):
 # so that the fine-tuned model created  by `train` is available to us.
 
 
-@stub.cls(image=image, gpu="A10G", volumes={MODEL_DIR: volume})
+@app.cls(image=image, gpu="A10G", volumes={MODEL_DIR: volume})
 class Model:
     @enter()
     def load_model(self):
@@ -415,7 +415,7 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 7.5
 
 
-@stub.function(
+@app.function(
     image=image,
     concurrency_limit=3,
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
@@ -516,14 +516,14 @@ def fastapi_app():
 #
 # - `modal run dreambooth_app.py` will train the model. Change the `instance_example_urls_file` to point to your own pet's images.
 # - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-modal-serve) the Gradio interface at a temporary location. Great for iterating on code!
-# - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#stubinteractive_shell) in our image. Great for debugging environment issues.
+# - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#appinteractive_shell) in our image. Great for debugging environment issues.
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #
 # If you just want to try the app out, you can find it at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     with open(TrainConfig().instance_example_urls_file) as f:
         instance_example_urls = [line.strip() for line in f.readlines()]

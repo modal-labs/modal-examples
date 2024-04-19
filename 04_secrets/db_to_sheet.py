@@ -46,10 +46,10 @@ import os
 
 import modal
 
-stub = modal.Stub("example-db-to-sheet")
+app = modal.App("example-db-to-sheet")
 
 
-@stub.function(secrets=[modal.Secret.from_name("example-postgres-secret")])
+@app.function(secrets=[modal.Secret.from_name("example-postgres-secret")])
 def my_func():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
@@ -73,7 +73,7 @@ pg_image = (
 # user in our dummy `users` table:
 
 
-@stub.function(
+@app.function(
     image=pg_image,
     secrets=[modal.Secret.from_name("example-postgres-secret")],
 )
@@ -88,7 +88,7 @@ def get_db_rows():
 
 # Note that we import psycopg2 inside our function instead of the global scope. This allows us to
 # run this Modal function even from an environment where psycopg2 is not installed. We can test run
-# this function using the `modal run` shell command: `modal run db_to_sheet.py::stub.get_db_rows`.
+# this function using the `modal run` shell command: `modal run db_to_sheet.py::app.get_db_rows`.
 
 # ## Applying Python logic
 #
@@ -102,7 +102,7 @@ requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 
 
-@stub.function(
+@app.function(
     image=requests_image,
     secrets=[modal.Secret.from_name("weather-secret")],
 )
@@ -124,7 +124,7 @@ def city_weather(city):
 from collections import Counter
 
 
-@stub.function()
+@app.function()
 def create_report(cities):
     # run city_weather for each city in parallel
     user_weather = city_weather.map(cities)
@@ -137,7 +137,7 @@ def create_report(cities):
 # easily triggered from the command line:
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     cities = [
         "Stockholm,,Sweden",
@@ -149,7 +149,7 @@ def main():
 
 # Running the local entrypoint using `modal run db_to_sheet.py` should print something like:
 # `dict_items([('Clouds', 3)])`.
-# Note that since this file only has a single stub, and the stub has only one local entrypoint
+# Note that since this file only has a single app, and the app has only one local entrypoint
 # we only have to specify the file to run - the function/entrypoint is inferred.
 
 # In this case the logic is quite simple, but in a real world context you could have applied a
@@ -173,7 +173,7 @@ pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 
 
-@stub.function(
+@app.function(
     image=pygsheets_image,
     secrets=[modal.Secret.from_name("gsheets-secret")],
 )
@@ -193,7 +193,7 @@ def update_sheet_report(rows):
 # another Modal function, and add a [schedule](/docs/guide/cron) argument so it runs every day automatically:
 
 
-@stub.function(schedule=modal.Cron("0 0 * * *"))
+@app.function(schedule=modal.Cron("0 0 * * *"))
 def db_to_sheet():
     rows = get_db_rows.remote()
     report = create_report.remote(rows)
@@ -203,12 +203,12 @@ def db_to_sheet():
         print(f"{weather}: {count}")
 
 
-# This entire stub can now be deployed using `modal deploy db_to_sheet.py`. The [apps page](/apps)
+# This entire app can now be deployed using `modal deploy db_to_sheet.py`. The [apps page](/apps)
 # shows our cron job's execution history and lets you navigate to each invocation's logs.
 # To trigger a manual run from your local code during development, you can also trigger this function using the cli:
-# `modal run db_to_sheet.py::stub.db_to_sheet`
+# `modal run db_to_sheet.py::app.db_to_sheet`
 
-# Note that all of the @stub.function() annotated functions above run remotely in isolated containers that are specified per
+# Note that all of the @app.function() annotated functions above run remotely in isolated containers that are specified per
 # function, but they are called as seamlessly as using regular Python functions. This is a simple
 # showcase of how you can mix and match functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.

@@ -54,7 +54,7 @@ dockerfile_commands = [
     f"RUN curl -L -o scene.blend -C - '{SCENE_FILENAME}'",
     f"RUN curl -L -o scene.mtl -C - '{MATERIALS_FILENAME}'",
 ]
-stub = modal.Stub(
+app = modal.App(
     "example-blender-video",
     image=modal.Image.debian_slim(python_version="3.9").dockerfile_commands(
         dockerfile_commands
@@ -66,9 +66,9 @@ stub = modal.Stub(
 #
 # We need various global configuration that we want to happen inside the containers (but not locally), such as
 # enabling the GPU device.
-# To do this, we use the `stub.image.run.inside()` context manager.
+# To do this, we use the `app.image.run.inside()` context manager.
 
-with stub.image.imports():
+with app.image.imports():
     import bpy
 
     # NOTE: Blender segfaults if you try to do this after the other imports.
@@ -108,7 +108,7 @@ with stub.image.imports():
 # Note the `gpu="any"` argument which tells Modal to use GPU workers.
 
 
-@stub.function(gpu="t4")
+@app.function(gpu="t4")
 def render_frame(i):
     print(f"Using frame {i}")
 
@@ -139,7 +139,7 @@ def render_frame(i):
 OUTPUT_DIR = "/tmp/render"
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 

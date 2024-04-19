@@ -20,7 +20,7 @@
 # A `docsearch` global variable is also declared to facilitate caching a slow operation in the code below.
 from pathlib import Path
 
-from modal import Image, Secret, Stub, web_endpoint
+from modal import App, Image, Secret, web_endpoint
 
 image = Image.debian_slim().pip_install(
     # scraping pkgs
@@ -33,7 +33,7 @@ image = Image.debian_slim().pip_install(
     "openai~=0.27.4",
     "tiktoken==0.3.0",
 )
-stub = Stub(
+app = App(
     name="example-langchain-qanda",
     image=image,
     secrets=[Secret.from_name("openai-secret")],
@@ -173,7 +173,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 # As said above, we're implementing a web endpoint, `web`, and a CLI command, `cli`.
 
 
-@stub.function()
+@app.function()
 @web_endpoint(method="GET")
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
@@ -188,7 +188,7 @@ def web(query: str, show_sources: bool = False):
         }
 
 
-@stub.function()
+@app.function()
 def cli(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     # Terminal codes for pretty-printing.

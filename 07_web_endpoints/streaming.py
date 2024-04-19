@@ -7,9 +7,9 @@ import time
 
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-from modal import Stub, asgi_app, web_endpoint
+from modal import App, asgi_app, web_endpoint
 
-stub = Stub("example-fastapi-streaming")
+app = App("example-fastapi-streaming")
 
 web_app = FastAPI()
 
@@ -38,7 +38,7 @@ async def main():
     )
 
 
-@stub.function()
+@app.function()
 @asgi_app()
 def fastapi_app():
     return web_app
@@ -48,14 +48,14 @@ def fastapi_app():
 # and it just works!
 
 
-@stub.function()
+@app.function()
 def sync_fake_video_streamer():
     for i in range(10):
         yield f"frame {i}: some data\n".encode()
         time.sleep(1)
 
 
-@stub.function()
+@app.function()
 @web_endpoint()
 def hook():
     return StreamingResponse(
@@ -67,13 +67,13 @@ def hook():
 # Modal function. Using `.starmap` also would work in the same fashion.
 
 
-@stub.function()
+@app.function()
 def map_me(i):
     time.sleep(i)  # stagger the results for demo purposes
     return f"hello from {i}\n"
 
 
-@stub.function()
+@app.function()
 @web_endpoint()
 def mapped():
     return StreamingResponse(

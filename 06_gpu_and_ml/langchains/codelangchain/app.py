@@ -1,7 +1,7 @@
 """Application serving logic for the CodeLangChain agent."""
 import agent
 import modal
-from agent import nodes, stub
+from agent import app, nodes
 from fastapi import FastAPI, responses
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,7 +25,7 @@ web_app.add_middleware(
 
 
 # host it on Modal
-@stub.function(keep_warm=1)
+@app.function(keep_warm=1)
 @modal.asgi_app()
 def serve():
     from langchain_core.runnables import RunnableLambda

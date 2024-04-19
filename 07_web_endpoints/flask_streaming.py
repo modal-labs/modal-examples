@@ -5,13 +5,13 @@
 import modal
 from modal import wsgi_app
 
-stub = modal.Stub(
+app = modal.App(
     "example-web-flask-stream",
     image=modal.Image.debian_slim().pip_install("flask"),
 )
 
 
-@stub.function()
+@app.function()
 def generate_rows():
     """
     This creates a large CSV file, about 10MB, which will be streaming downloaded
@@ -22,7 +22,7 @@ def generate_rows():
         yield f"{line}\n"
 
 
-@stub.function()
+@app.function()
 @wsgi_app()
 def flask_app():
     from flask import Flask

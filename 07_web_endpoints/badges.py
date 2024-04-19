@@ -6,24 +6,24 @@
 # In this example, we use Modal's [webhook](/docs/guide/webhooks) capability to host a dynamic SVG badge that shows
 # you the current # of downloads for a Python package.
 #
-# First let's start off by creating a Modal stub, and defining an image with the Python packages we're going to be using:
+# First let's start off by creating a Modal app, and defining an image with the Python packages we're going to be using:
 
-from modal import Image, Stub, web_endpoint
+from modal import App, Image, web_endpoint
 
-stub = Stub(
+app = App(
     "example-web-badges",
     image=Image.debian_slim().pip_install("pybadges", "pypistats"),
 )
 
 # ## Defining the web endpoint
 #
-# In addition to using `@stub.function()` to decorate our function, we use the
+# In addition to using `@app.function()` to decorate our function, we use the
 # `@modal.web_endpoint` decorator ([learn more](/docs/guide/webhooks#web_endpoint)), which instructs Modal
 # to create a REST endpoint that serves this function. Note that the default method is `GET`, but this
 # can be overridden using the `method` argument.
 
 
-@stub.function()
+@app.function()
 @web_endpoint()
 async def package_downloads(package_name: str):
     import json

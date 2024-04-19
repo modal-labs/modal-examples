@@ -7,7 +7,7 @@ import socket
 import subprocess
 from pathlib import Path
 
-from modal import Image, Secret, Stub, Volume, enter, exit, gpu, method
+from modal import App, Image, Secret, Volume, enter, exit, gpu, method
 
 GPU_CONFIG = gpu.A10G()
 MODEL_ID = "BAAI/bge-base-en-v1.5"
@@ -60,7 +60,7 @@ def download_model():
 
 volume = Volume.from_name("tei-hn-data", create_if_missing=True)
 
-stub = Stub("example-tei")
+app = App("example-tei")
 
 
 tei_image = (
@@ -82,7 +82,7 @@ with tei_image.imports():
     from httpx import AsyncClient
 
 
-@stub.cls(
+@app.cls(
     secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     image=tei_image,
@@ -145,7 +145,7 @@ with image.imports():
     from google.oauth2 import service_account
 
 
-@stub.function(
+@app.function(
     image=image,
     secrets=[Secret.from_name("bigquery")],
     volumes={DATA_PATH.parent: volume},

@@ -97,7 +97,7 @@ image = (
     )
 )
 
-stub = modal.Stub(f"example-vllm-{MODEL_NAME}", image=image)
+app = modal.App(f"example-vllm-{MODEL_NAME}", image=image)
 
 # Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
 with image.imports():
@@ -114,7 +114,7 @@ with image.imports():
 GPU_CONFIG = modal.gpu.H100(count=1)
 
 
-@stub.cls(
+@app.cls(
     gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")]
 )
 class Model:
@@ -182,7 +182,7 @@ class Model:
 #
 # The examples below are meant to put the model through its paces, with a variety of questions and prompts.
 # We also calculate the throughput and latency we achieve.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     questions = [
         # Coding questions

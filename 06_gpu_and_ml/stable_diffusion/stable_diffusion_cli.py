@@ -31,12 +31,12 @@ import io
 import time
 from pathlib import Path
 
-from modal import Image, Stub, build, enter, method
+from modal import App, Image, build, enter, method
 
-# All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
+# All Modal programs need a [`App`](/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-stub = Stub("stable-diffusion-cli")
+app = App("stable-diffusion-cli")
 
 # ## Model dependencies
 #
@@ -83,7 +83,7 @@ with image.imports():
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@stub.cls(image=image, gpu="A10G")
+@app.cls(image=image, gpu="A10G")
 class StableDiffusion:
     @build()
     @enter()
@@ -135,7 +135,7 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def entrypoint(
     prompt: str = "A 1600s oil painting of the New York City skyline",
     samples: int = 5,

@@ -17,7 +17,7 @@ import time
 
 import modal
 
-stub = modal.Stub(
+app = modal.App(
     image=modal.Image.debian_slim().pip_install(
         "jupyter", "bing-image-downloader~=1.1.2"
     )
@@ -30,7 +30,7 @@ CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
 
 
-@stub.function(volumes={CACHE_DIR: volume})
+@app.function(volumes={CACHE_DIR: volume})
 def seed_volume():
     # Bing it!
     from bing_image_downloader import downloader
@@ -54,7 +54,7 @@ def seed_volume():
 # without having to download it to your host computer.
 
 
-@stub.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=1_500)
+@app.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=1_500)
 def run_jupyter(timeout: int):
     jupyter_port = 8888
     with modal.forward(jupyter_port) as tunnel:
@@ -85,7 +85,7 @@ def run_jupyter(timeout: int):
             jupyter_process.kill()
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(timeout: int = 10_000):
     # Write some images to a volume, for demonstration purposes.
     seed_volume.remote()

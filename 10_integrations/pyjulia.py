@@ -14,10 +14,10 @@ image = image = (
     .pip_install("julia")
     .run_commands('python -c "import julia; julia.install()"')
 )
-stub = modal.Stub("example-pyjulia", image=image)
+app = modal.App("example-pyjulia", image=image)
 
 
-@stub.function()
+@app.function()
 def julia_subprocess():
     """Run the Julia interpreter as a subprocess."""
     import subprocess
@@ -26,7 +26,7 @@ def julia_subprocess():
     subprocess.run('julia -e "println(2 + 3)"', shell=True)
 
 
-@stub.function()
+@app.function()
 def julia_matrix_determinant():
     """Compute the determinant of a random matrix with PyJulia."""
     from julia.Base import rand
@@ -37,7 +37,7 @@ def julia_matrix_determinant():
     print(det(rand(10, 10)))
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     julia_subprocess.remote()
     julia_matrix_determinant.remote()

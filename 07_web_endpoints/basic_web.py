@@ -4,7 +4,7 @@
 import modal
 from modal import enter, web_endpoint
 
-stub = modal.Stub(name="example-lifecycle-web")
+app = modal.App(name="example-lifecycle-web")
 
 # Hello world!
 #
@@ -12,7 +12,7 @@ stub = modal.Stub(name="example-lifecycle-web")
 # returns a string.
 
 
-@stub.function()
+@app.function()
 @web_endpoint()
 def hello():
     return "Hello world!"
@@ -25,7 +25,7 @@ def hello():
 # But note that they don't need the [`modal.method`](/docs/reference/modal.method#modalmethod) decorator.
 
 
-@stub.cls()
+@app.cls()
 class WebApp:
     @enter()
     def startup(self):

@@ -25,7 +25,7 @@ from datetime import timedelta
 import modal
 
 from . import config, dataset, models
-from .app import stub, volume
+from .app import app, volume
 
 
 def fetch_git_commit_hash(allow_dirty: bool) -> str:
@@ -72,13 +72,13 @@ def fetch_git_commit_hash(allow_dirty: bool) -> str:
     return result.stdout.decode().strip()
 
 
-@stub.function(volumes={config.VOLUME_DIR: volume})
+@app.function(volumes={config.VOLUME_DIR: volume})
 def init_volume():
     config.MODEL_STORE_DIR.mkdir(parents=True, exist_ok=True)
     volume.commit()  # Persist changes
 
 
-@stub.function(
+@app.function(
     timeout=int(timedelta(minutes=8).total_seconds()),
     volumes={config.VOLUME_DIR: volume},
 )
@@ -90,7 +90,7 @@ def prep_dataset():
     volume.commit()  # Persist changes
 
 
-@stub.function(
+@app.function(
     volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
@@ -120,7 +120,7 @@ def train(
     print(f"classification: {is_spam=}")
 
 
-@stub.function(
+@app.function(
     volumes={config.VOLUME_DIR: volume},
     secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
@@ -143,7 +143,7 @@ def train_gpu(
     logger.info(f"saved model to model store. {model_id=}")
 
 
-@stub.function(
+@app.function(
     secrets=[modal.Secret.from_dict({"PYTHONHASHSEED": "10"})],
     timeout=int(timedelta(minutes=30).total_seconds()),
 )
@@ -185,11 +185,11 @@ def main(git_commit_hash: str, model_type=config.ModelType.BAD_WORDS):
 # Example:
 #
 # ```
-# modal run spam_detect.train::stub.train_model --model-type "BAD_WORDS"
+# modal run spam_detect.train::app.train_model --model-type "BAD_WORDS"
 # ```
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def train_model(model_type: str):
     model_type_val = config.ModelType(model_type)
     # All training runs are versioned against git repository state.
@@ -202,5 +202,5 @@ def train_model(model_type: str):
 
 
 if __name__ == "__main__":
-    with stub.run():
+    with app.run():
         train_model(model_type="NAIVE_BAYES")

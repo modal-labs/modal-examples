@@ -28,10 +28,10 @@ from typing import List, Optional, Tuple
 
 from fastapi import FastAPI
 from modal import (
+    App,
     Image,
     Mount,
     Secret,
-    Stub,
     Volume,
     asgi_app,
     enter,
@@ -40,7 +40,7 @@ from modal import (
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
-stub = Stub(name="example-fastai-wandb-gradio-cifar10-demo")
+app = App(name="example-fastai-wandb-gradio-cifar10-demo")
 image = Image.debian_slim(python_version="3.10").pip_install(
     "fastai~=2.7.9",
     "gradio~=3.6.0",
@@ -128,11 +128,11 @@ def download_dataset():
 # Fine-tuning the base ResNet model takes about 30-40 minutes on a GPU. To avoid
 # needing to keep our terminal active, we can run training as a 'detached run'.
 #
-# `MODAL_GPU=any modal run --detach vision_model_training.py::stub.train`
+# `MODAL_GPU=any modal run --detach vision_model_training.py::app.train`
 #
 
 
-@stub.function(
+@app.function(
     image=image,
     gpu=USE_GPU,
     volumes={str(MODEL_CACHE): volume},
@@ -161,7 +161,7 @@ def train():
     wandb_enabled = bool(os.environ.get("WANDB_API_KEY"))
     if wandb_enabled:
         wandb.init(
-            id=stub.app_id,
+            id=app.app_id,
             project=config.wandb.project,
             entity=config.wandb.entity,
         )
@@ -219,7 +219,7 @@ def train():
 # The model's predict function accepts an image as bytes or a numpy array.
 
 
-@stub.cls(
+@app.cls(
     image=image,
     volumes={str(MODEL_CACHE): volume},
 )
@@ -237,7 +237,7 @@ class ClassifierModel:
         return classification
 
 
-@stub.function(
+@app.function(
     image=image,
 )
 def classify_url(image_url: str) -> None:
@@ -290,7 +290,7 @@ def create_demo_examples() -> List[str]:
     return available_examples
 
 
-@stub.function(
+@app.function(
     image=image,
     volumes={str(MODEL_CACHE): volume},
     mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
@@ -320,13 +320,13 @@ def fastapi_app():
 # To run training as an ephemeral app:
 #
 # ```shell
-# modal run vision_model_training.py::stub.train
+# modal run vision_model_training.py::app.train
 # ```
 #
 # To test the model on an image, run:
 #
 # ```shell
-# modal run vision_model_training.py::stub.classify_url --image-url <url>
+# modal run vision_model_training.py::app.classify_url --image-url <url>
 # ```
 #
 # To run the Gradio server, run:

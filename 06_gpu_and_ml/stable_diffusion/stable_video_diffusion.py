@@ -6,7 +6,7 @@ import sys
 
 import modal
 
-stub = modal.Stub(name="example-stable-video-diffusion-streamlit")
+app = modal.App(name="example-stable-video-diffusion-streamlit")
 q = modal.Queue.from_name(
     "stable-video-diffusion-streamlit", create_if_missing=True
 )
@@ -58,7 +58,7 @@ svd_image = (
 )
 
 
-@stub.function(image=svd_image, timeout=session_timeout, gpu="A100")
+@app.function(image=svd_image, timeout=session_timeout, gpu="A100")
 def run_streamlit(publish_url: bool = False):
     from streamlit.web.bootstrap import load_config_options, run
 
@@ -82,7 +82,7 @@ def run_streamlit(publish_url: bool = False):
         )
 
 
-@stub.function()
+@app.function()
 @modal.web_endpoint(method="GET", label="svd")
 def share():
     from fastapi.responses import RedirectResponse

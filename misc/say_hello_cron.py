@@ -7,10 +7,10 @@ from datetime import datetime, timezone
 
 import modal
 
-stub = modal.Stub("example-say-hello-cron")
+app = modal.App("example-say-hello-cron")
 
 
-@stub.function(schedule=modal.Period(seconds=10))
+@app.function(schedule=modal.Period(seconds=10))
 def say_hello():
     start_time = datetime.now(timezone.utc)
     for i in range(10):

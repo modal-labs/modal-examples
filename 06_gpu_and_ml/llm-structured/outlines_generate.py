@@ -24,9 +24,9 @@
 #  First, you'll want to build an image and install the relevant Python dependencies:
 # `outlines` and a Hugging Face inference stack.
 
-from modal import Image, Stub, gpu
+from modal import App, Image, gpu
 
-stub = Stub(name="outlines-app")
+app = App(name="outlines-app")
 
 outlines_image = Image.debian_slim(python_version="3.11").pip_install(
     "outlines==0.0.34",
@@ -95,13 +95,13 @@ schema = """{
 # ## Define the function
 
 # Next, we define the generation function.
-# We use the `@stub.function` decorator to tell Modal to run this function on the stub we defined above.
+# We use the `@app.function` decorator to tell Modal to run this function on the app we defined above.
 # Note that we import `outlines` from inside the Modal function. This is because the `outlines` package exists in the container, but not necessarily locally.
 
 # We specify that we want to use the Mistral-7B model, and then ask for a character, and we'll receive structured data with the right schema.
 
 
-@stub.function(image=outlines_image, gpu=gpu.A100(memory=80))
+@app.function(image=outlines_image, gpu=gpu.A100(memory=80))
 def generate(
     prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
 ):
@@ -129,7 +129,7 @@ def generate(
 #  `{'name': 'Amiri', 'age': 53, 'armor': 'leather', 'weapon': 'sword', 'strength': 10}`
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(
     prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
 ):

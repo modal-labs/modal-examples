@@ -27,12 +27,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from modal import CloudBucketMount, Image, Secret, Stub
+from modal import App, CloudBucketMount, Image, Secret
 
 image = Image.debian_slim().pip_install(
     "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
 )
-stub = Stub(image=image)
+app = App(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
@@ -55,7 +55,7 @@ with image.imports():
 # The files in the bucket will then be available at `MOUNT_PATH`.
 #
 # As we'll see below, this operation can be massively sped up by running it in parallel on Modal.
-@stub.function(
+@app.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
@@ -87,7 +87,7 @@ def download_data(year: int, month: int) -> str:
 # [DuckDB](https://duckdb.org/) is an analytical database with rich support for Parquet files.
 # It is also very fast. Below, we define a Modal Function that aggregates yellow taxi trips
 # within a month (each file contains all the rides from a specific month).
-@stub.function(
+@app.function(
     volumes={
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
@@ -124,7 +124,7 @@ def aggregate_data(path: str) -> list[tuple[datetime, int]]:
 # Finally, we want to plot our results.
 # The plot created shows the number of yellow taxi rides per day in NYC.
 # This function runs remotely, on Modal, so we don't need to install plotting libraries locally.
-@stub.function()
+@app.function()
 def plot(dataset) -> bytes:
     import io
 
@@ -156,7 +156,7 @@ def plot(dataset) -> bytes:
 
 # ## Run everything
 #
-# The `@stub.local_entrypoint()` defines what happens when we run our Modal program locally.
+# The `@app.local_entrypoint()` defines what happens when we run our Modal program locally.
 # We invoke it from the CLI by calling `modal run s3_bucket_mount.py`.
 # We first call `download_data()` and `starmap` (named because it's kind of like `map(*args)`)
 # on tuples of inputs `(year, month)`. This will download, in parallel,
@@ -170,7 +170,7 @@ def plot(dataset) -> bytes:
 # ![Number of NYC yellow taxi trips by weekday, 2018-2023](./nyc_yellow_taxi_trips_s3_mount.png)
 #
 # This program should run in less than 30 seconds.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     # List of tuples[year, month].
     inputs = [
