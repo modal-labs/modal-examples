@@ -20,6 +20,7 @@ import modal
 
 MODEL_DIR = "/model"
 MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+MODEL_REVISION = "1e637f2d7cb0a9d6fb1922f305cb784995190a83"
 GPU_CONFIG = modal.gpu.A100(memory=80, count=2)
 
 
@@ -33,10 +34,15 @@ GPU_CONFIG = modal.gpu.A100(memory=80, count=2)
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
-# Mixtral is beefy, at nearly 100 GB in `safetensors` format, so this can take some time -- at least a few minutes.
+# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# like Mixtral 8x7B, the `HF_TOKEN` environment variable must be set.
 #
-# Tip: avoid using global variables in this function. Changes to code outside this function will not be detected and the download step will not re-run.
-def download_model_to_image(model_dir, model_name):
+# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
+# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
+# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
+#
+# Mixtral is beefy, at nearly 100 GB in `safetensors` format, so this can take some time -- at least a few minutes.
+def download_model_to_image(model_dir, model_name, model_revision):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
@@ -44,6 +50,7 @@ def download_model_to_image(model_dir, model_name):
 
     snapshot_download(
         model_name,
+        revision=model_revision,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
     )
@@ -69,7 +76,12 @@ vllm_image = (
     .run_function(
         download_model_to_image,
         timeout=60 * 20,
-        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
+        kwargs={
+            "model_dir": MODEL_DIR,
+            "model_name": MODEL_NAME,
+            "model_revision": MODEL_REVISION,
+        },
+        secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
 
