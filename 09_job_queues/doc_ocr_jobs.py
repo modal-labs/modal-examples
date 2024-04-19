@@ -18,7 +18,7 @@
 #
 # ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
-# ## Define a App
+# ## Define an App
 #
 # Let's first import `modal` and define a [`App`](/docs/reference/modal.App). Later, we'll use the name provided
 # for our `App` to find it from our web app, and submit tasks to it.
