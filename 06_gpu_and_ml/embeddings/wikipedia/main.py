@@ -47,7 +47,7 @@ LAUNCH_FLAGS = [
 ]
 
 
-app = App("example-embeddings")
+app = App("example-embeddings")  # Note: prior to April 2024, "app" was called "stub"
 
 
 def spawn_server() -> subprocess.Popen:

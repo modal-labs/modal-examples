@@ -30,7 +30,7 @@ dockerhub_image = Image.from_registry(
     "tensorflow/tensorflow:2.12.0-gpu",
 ).pip_install("protobuf==3.20.*")
 
-app = App("example-tensorflow-tutorial", image=dockerhub_image)
+app = App("example-tensorflow-tutorial", image=dockerhub_image)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Logging data to TensorBoard
 #
@@ -168,7 +168,7 @@ def tensorboard_app():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
-    )
+    )  # Note: prior to April 2024, "app" was called "stub"
     return wsgi_app
 
 

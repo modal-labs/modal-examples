@@ -59,7 +59,7 @@ app = modal.App(
     image=modal.Image.debian_slim(python_version="3.9").dockerfile_commands(
         dockerfile_commands
     ),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## Setting things up in the containers

@@ -21,7 +21,7 @@ import pathlib
 
 import modal
 
-app = modal.App("example-screenshot")
+app = modal.App("example-screenshot")  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Define a custom image
 #

@@ -6,7 +6,7 @@ from datetime import datetime
 
 import modal
 
-app = modal.App("example-schedule-simple")
+app = modal.App("example-schedule-simple")  # Note: prior to April 2024, "app" was called "stub"
 
 
 @app.function(schedule=modal.Period(seconds=5))

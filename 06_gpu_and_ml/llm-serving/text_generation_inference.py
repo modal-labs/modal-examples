@@ -76,7 +76,7 @@ def download_model():
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-app = App("example-tgi-" + MODEL_ID.split("/")[-1])
+app = App("example-tgi-" + MODEL_ID.split("/")[-1])  # Note: prior to April 2024, "app" was called "stub"
 
 tgi_image = (
     Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.4")

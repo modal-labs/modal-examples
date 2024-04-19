@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from modal import App, Dict, Image, Mount, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-app = App("example-chatbot-spa")
+app = App("example-chatbot-spa")  # Note: prior to April 2024, "app" was called "stub"
 chat_histories = Dict.from_name(
     "example-chatbot-spa-history", create_if_missing=True
 )

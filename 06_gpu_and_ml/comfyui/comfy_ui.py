@@ -112,7 +112,7 @@ image = (
     .run_function(download_checkpoints)
     .run_function(download_plugins)
 )
-app = modal.App(name="example-comfy-ui", image=image)
+app = modal.App(name="example-comfy-ui", image=image)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Start the ComfyUI server
 #

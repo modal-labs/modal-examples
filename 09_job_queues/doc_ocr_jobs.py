@@ -27,7 +27,7 @@ import urllib.request
 
 import modal
 
-app = modal.App("example-doc-ocr-jobs")
+app = modal.App("example-doc-ocr-jobs")  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Model cache
 #

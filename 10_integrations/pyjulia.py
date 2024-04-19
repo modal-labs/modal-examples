@@ -14,7 +14,7 @@ image = image = (
     .pip_install("julia")
     .run_commands('python -c "import julia; julia.install()"')
 )
-app = modal.App("example-pyjulia", image=image)
+app = modal.App("example-pyjulia", image=image)  # Note: prior to April 2024, "app" was called "stub"
 
 
 @app.function()

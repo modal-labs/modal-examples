@@ -6,7 +6,7 @@ import os
 
 import modal
 
-app = modal.App("example-count-faces")
+app = modal.App("example-count-faces")  # Note: prior to April 2024, "app" was called "stub"
 
 
 open_cv_image = (

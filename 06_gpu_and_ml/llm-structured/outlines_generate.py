@@ -26,7 +26,7 @@
 
 from modal import App, Image, gpu
 
-app = App(name="outlines-app")
+app = App(name="outlines-app")  # Note: prior to April 2024, "app" was called "stub"
 
 outlines_image = Image.debian_slim(python_version="3.11").pip_install(
     "outlines==0.0.34",

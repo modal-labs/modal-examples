@@ -27,7 +27,7 @@ generated_workflow_path = (
     pathlib.Path(__file__).parent / "_generated_workflow_api.py"
 )
 
-app = modal.App(name="example-comfy-api")
+app = modal.App(name="example-comfy-api")  # Note: prior to April 2024, "app" was called "stub"
 from .comfy_ui import image
 
 

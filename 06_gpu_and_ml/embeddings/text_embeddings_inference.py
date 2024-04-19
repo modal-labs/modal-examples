@@ -60,7 +60,7 @@ def download_model():
 
 volume = Volume.from_name("tei-hn-data", create_if_missing=True)
 
-app = App("example-tei")
+app = App("example-tei")  # Note: prior to April 2024, "app" was called "stub"
 
 
 tei_image = (

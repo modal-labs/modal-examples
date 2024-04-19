@@ -15,7 +15,7 @@ import sys
 
 import modal
 
-app = modal.App("example-hello-world")
+app = modal.App("example-hello-world")  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Defining a function
 #

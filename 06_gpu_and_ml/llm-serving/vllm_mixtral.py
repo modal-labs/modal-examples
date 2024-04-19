@@ -85,7 +85,7 @@ vllm_image = (
     )
 )
 
-app = modal.App("example-vllm-mixtral")
+app = modal.App("example-vllm-mixtral")  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## The model class

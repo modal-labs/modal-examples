@@ -53,7 +53,7 @@ sdxl_image = (
     )
 )
 
-app = App("stable-diffusion-xl")
+app = App("stable-diffusion-xl")  # Note: prior to April 2024, "app" was called "stub"
 
 with sdxl_image.imports():
     import torch
