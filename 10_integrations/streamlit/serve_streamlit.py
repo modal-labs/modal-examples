@@ -28,7 +28,9 @@ import modal
 
 image = modal.Image.debian_slim().pip_install("streamlit", "numpy", "pandas")
 
-app = modal.App(name="example-modal-streamlit", image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    name="example-modal-streamlit", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Mounting the `app.py` script
 #

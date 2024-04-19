@@ -27,7 +27,9 @@ image = (
         'ENTRYPOINT ["/root/entrypoint.sh"]',
     )
 )
-app = modal.App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # Run your function adding a Tailscale secret. It expects an environment variable

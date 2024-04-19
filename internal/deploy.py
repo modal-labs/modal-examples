@@ -25,9 +25,7 @@ def deploy(
         return None
 
     if not deployable:
-        print(
-            f"⏩ skipping: '{module_with_app.name}' is not marked for deploy"
-        )
+        print(f"⏩ skipping: '{module_with_app.name}' is not marked for deploy")
         return None
 
     deploy_command = f"modal deploy {module_with_app.name}"

@@ -15,7 +15,9 @@ from modal import App, Volume, web_endpoint
 
 from .comfy_ui import image
 
-app = App(name="example-comfy-python-api")  # Note: prior to April 2024, "app" was called "stub"
+app = App(
+    name="example-comfy-python-api"
+)  # Note: prior to April 2024, "app" was called "stub"
 vol_name = "comfyui-images"
 vol = Volume.from_name(vol_name, create_if_missing=True)
 

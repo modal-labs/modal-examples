@@ -14,7 +14,9 @@ image = (
     .pip_install("InstructorEmbedding")
 )
 
-app = App("instructor", image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = App(
+    "instructor", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 with image.imports():
     from InstructorEmbedding import INSTRUCTOR

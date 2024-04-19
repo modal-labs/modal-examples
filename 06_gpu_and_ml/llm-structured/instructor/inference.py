@@ -60,7 +60,9 @@ image = (
     )
 )
 
-app = App("vllm-inference-openai-compatible", image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = App(
+    "vllm-inference-openai-compatible", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 GPU_CONFIG = gpu.A100(count=1)  # 40GB A100 by default

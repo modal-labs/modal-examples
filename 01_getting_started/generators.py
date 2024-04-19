@@ -1,6 +1,8 @@
 import modal
 
-app = modal.App("example-generators")  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    "example-generators"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 @app.function()

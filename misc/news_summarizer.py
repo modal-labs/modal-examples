@@ -13,7 +13,9 @@ from typing import List
 
 import modal
 
-app = modal.App(name="example-news-summarizer")  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    name="example-news-summarizer"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Building Images and Downloading Pre-trained Model
 #

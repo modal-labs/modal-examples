@@ -37,7 +37,9 @@ image = Image.debian_slim().pip_install(
     "tensorboard",
 )
 
-app = App(name="example-news-summarizer", image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = App(
+    name="example-news-summarizer", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption

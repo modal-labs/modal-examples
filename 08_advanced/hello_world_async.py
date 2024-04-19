@@ -8,7 +8,9 @@ import sys
 
 import modal
 
-app = modal.App("example-hello-world-async")  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    "example-hello-world-async"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## Defining a function

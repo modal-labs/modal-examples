@@ -74,7 +74,9 @@ def main_app(project_path, project_name, package_name) -> App:
 
 def sync_app(project_path, project_name):
     # slimmer sync app that only mounts the data dir in order to upload raw data
-    app = App(f"kedro-data-sync.{project_name}")  # Note: prior to April 2024, "app" was called "stub"
+    app = App(
+        f"kedro-data-sync.{project_name}"
+    )  # Note: prior to April 2024, "app" was called "stub"
     volume_name = f"kedro.{project_name}.storage"
     data_volume = NetworkFileSystem().persist(volume_name)
 

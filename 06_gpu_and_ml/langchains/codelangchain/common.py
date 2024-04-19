@@ -1,4 +1,5 @@
 """Shared information: image definitions and common utilities."""
+
 import os
 from typing import Dict, TypedDict
 

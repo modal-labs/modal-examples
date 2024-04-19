@@ -1,4 +1,5 @@
 """Just as a constant function is _technically_ a polynomial, so too is injecting the same information every time _technically_ RAG."""
+
 from common import COLOR
 
 lcel_docs_url = "https://python.langchain.com/docs/expression_language/"

@@ -97,7 +97,9 @@ image = (
     )
 )
 
-app = modal.App(f"example-vllm-{MODEL_NAME}", image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(
+    f"example-vllm-{MODEL_NAME}", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
 with image.imports():
@@ -114,9 +116,7 @@ with image.imports():
 GPU_CONFIG = modal.gpu.H100(count=1)
 
 
-@app.cls(
-    gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")]
-)
+@app.cls(gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")])
 class Model:
     @modal.enter()
     def load(self):
