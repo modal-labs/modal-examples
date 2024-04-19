@@ -6,17 +6,19 @@ from datetime import datetime
 
 import modal
 
-stub = modal.Stub("example-schedule-simple")
+app = modal.App(
+    "example-schedule-simple"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
-@stub.function(schedule=modal.Period(seconds=5))
+@app.function(schedule=modal.Period(seconds=5))
 def print_time_1():
     print(
         f'Printing with period 5 seconds: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
     )
 
 
-@stub.function(schedule=modal.Cron("* * * * *"))
+@app.function(schedule=modal.Cron("* * * * *"))
 def print_time_2():
     print(
         f'Printing with cron every minute: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
@@ -24,5 +26,5 @@ def print_time_2():
 
 
 if __name__ == "__main__":
-    with stub.run():
+    with app.run():
         time.sleep(60)

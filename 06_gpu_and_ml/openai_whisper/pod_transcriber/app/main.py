@@ -10,12 +10,12 @@ import pathlib
 from typing import Iterator, Tuple
 
 from modal import (
+    App,
     Dict,
     Image,
     Mount,
     NetworkFileSystem,
     Secret,
-    Stub,
     asgi_app,
 )
 
@@ -50,11 +50,11 @@ search_image = Image.debian_slim(python_version="3.10").pip_install(
     "dacite",
 )
 
-stub = Stub(
+app = App(
     "whisper-pod-transcriber",
     image=app_image,
     secrets=[Secret.from_name("podchaser")],
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 in_progress = Dict.from_name(
     "pod-transcriber-in-progress", create_if_missing=True
@@ -73,7 +73,7 @@ def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
-@stub.function(network_file_systems={config.CACHE_DIR: volume})
+@app.function(network_file_systems={config.CACHE_DIR: volume})
 def populate_podcast_metadata(podcast_id: str):
     from gql import gql
 
@@ -100,7 +100,7 @@ def populate_podcast_metadata(podcast_id: str):
     logger.info(f"Populated metadata for {pod_metadata.title}")
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")],
     network_file_systems={config.CACHE_DIR: volume},
     keep_warm=2,
@@ -118,7 +118,7 @@ def fastapi_app():
     return web_app
 
 
-@stub.function(
+@app.function(
     image=app_image,
 )
 def search_podcast(name):
@@ -143,7 +143,7 @@ def search_podcast(name):
     ]
 
 
-@stub.function(
+@app.function(
     image=search_image,
     network_file_systems={config.CACHE_DIR: volume},
     timeout=(400 * 60),
@@ -286,7 +286,7 @@ def split_silences(
     logger.info(f"Split {path} into {num_segments} segments")
 
 
-@stub.function(
+@app.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     cpu=2,
@@ -334,7 +334,7 @@ def transcribe_segment(
     return result
 
 
-@stub.function(
+@app.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
@@ -365,7 +365,7 @@ def transcribe_episode(
         json.dump(result, f, indent=4)
 
 
-@stub.function(
+@app.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     timeout=900,
@@ -419,7 +419,7 @@ def process_episode(podcast_id: str, episode_id: str):
     return episode
 
 
-@stub.function(
+@app.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
 )
@@ -454,7 +454,7 @@ def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     return episodes
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def search_entrypoint(name: str):
     # To search for a podcast, run:
     # modal run app.main --name "search string"

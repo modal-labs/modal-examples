@@ -28,9 +28,11 @@ import subprocess
 from datetime import datetime
 from urllib.request import urlretrieve
 
-from modal import Image, Period, Stub, Volume, asgi_app
+from modal import App, Image, Period, Volume, asgi_app
 
-stub = Stub("example-covid-datasette")
+app = App(
+    "example-covid-datasette"
+)  # Note: prior to April 2024, "app" was called "stub"
 datasette_image = (
     Image.debian_slim()
     .pip_install("datasette~=0.63.2", "sqlite-utils")
@@ -59,7 +61,7 @@ DB_PATH = pathlib.Path(VOLUME_DIR, "covid-19.db")
 # The full git repository size for the dataset is over 6GB, but we only need to shallow clone around 300MB.
 
 
-@stub.function(
+@app.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     retries=2,
@@ -158,7 +160,7 @@ def chunks(it, size):
     return iter(lambda: tuple(itertools.islice(it, size)), ())
 
 
-@stub.function(
+@app.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     timeout=900,
@@ -196,7 +198,7 @@ def prep_db():
 # every 24 hours.
 
 
-@stub.function(schedule=Period(hours=24), timeout=1000)
+@app.function(schedule=Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.remote(cache=False)
@@ -212,7 +214,7 @@ def refresh_db():
 # lines to instantiate the `Datasette` instance and return its app server.
 
 
-@stub.function(
+@app.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     allow_concurrent_inputs=16,
@@ -237,7 +239,7 @@ def ui():
 # Just run `modal deploy covid_datasette.py`.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     print("Downloading COVID-19 dataset...")
     download_dataset.remote()

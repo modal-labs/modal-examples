@@ -24,13 +24,15 @@
 
 import time
 
-from modal import Image, NetworkFileSystem, Stub, wsgi_app
+from modal import App, Image, NetworkFileSystem, wsgi_app
 
 dockerhub_image = Image.from_registry(
     "tensorflow/tensorflow:2.12.0-gpu",
 ).pip_install("protobuf==3.20.*")
 
-stub = Stub("example-tensorflow-tutorial", image=dockerhub_image)
+app = App(
+    "example-tensorflow-tutorial", image=dockerhub_image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Logging data to TensorBoard
 #
@@ -49,7 +51,7 @@ logdir = "/tensorboard"
 # This is basically the same code as [the official example](https://www.tensorflow.org/tutorials/images/classification) from the TensorFlow docs.
 # A few Modal-specific things are worth pointing out:
 #
-# * We set up the shared storage with TensorBoard in the arguments to `stub.function`
+# * We set up the shared storage with TensorBoard in the arguments to `app.function`
 # * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU
 # * We put all the TensorFlow imports inside the function body.
 #   This makes it possible to run this example even if you don't have TensorFlow installed on your local computer -- a key benefit of Modal!
@@ -58,7 +60,7 @@ logdir = "/tensorboard"
 # While these optimizations can be important for some workloads, especially if you are running ML models on a CPU, they are not critical for most cases.
 
 
-@stub.function(network_file_systems={logdir: fs}, gpu="T4", timeout=600)
+@app.function(network_file_systems={logdir: fs}, gpu="T4", timeout=600)
 def train():
     import pathlib
 
@@ -154,7 +156,7 @@ def train():
 # Note that this server will be exposed to the public internet!
 
 
-@stub.function(network_file_systems={logdir: fs})
+@app.function(network_file_systems={logdir: fs})
 @wsgi_app()
 def tensorboard_app():
     import tensorboard
@@ -168,7 +170,7 @@ def tensorboard_app():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
-    )
+    )  # Note: prior to April 2024, "app" was called "stub"
     return wsgi_app
 
 
@@ -183,7 +185,7 @@ def tensorboard_app():
 # The first time you run it, it might have to build the image, which can take an additional few minutes.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(just_run: bool = False):
     train.remote()
     if not just_run:

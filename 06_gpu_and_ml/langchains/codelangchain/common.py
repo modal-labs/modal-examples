@@ -1,4 +1,5 @@
 """Shared information: image definitions and common utilities."""
+
 import os
 from typing import Dict, TypedDict
 
@@ -20,14 +21,14 @@ agent_image = image.pip_install(
     "tiktoken==0.6.0",
 )
 
-stub = modal.Stub(
+app = modal.App(
     "code-langchain",
     image=image,
     secrets=[
         modal.Secret.from_name("my-openai-secret"),
         modal.Secret.from_name("my-langsmith-secret"),
     ],
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 class GraphState(TypedDict):

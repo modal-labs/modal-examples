@@ -11,7 +11,7 @@
 
 import subprocess
 
-from modal import Image, Stub, web_server
+from modal import App, Image, web_server
 
 PORT = 8000
 
@@ -43,7 +43,9 @@ a1111_image = (
     )
 )
 
-stub = Stub("example-a1111-webui", image=a1111_image)
+app = App(
+    "example-a1111-webui", image=a1111_image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # After defining the custom container image, we start the server with `accelerate launch`. This
 # function is also where you would configure hardware resources, CPU/memory, and timeouts.
@@ -53,7 +55,7 @@ stub = Stub("example-a1111-webui", image=a1111_image)
 # Startup of the web server should finish in under one to three minutes.
 
 
-@stub.function(
+@app.function(
     gpu="a10g",
     cpu=2,
     memory=1024,

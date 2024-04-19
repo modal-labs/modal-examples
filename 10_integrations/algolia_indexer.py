@@ -16,7 +16,7 @@ import json
 import os
 import subprocess
 
-from modal import Image, Secret, Stub, web_endpoint
+from modal import App, Image, Secret, web_endpoint
 
 # Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#use-an-existing-container-image-with-from_registry),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
@@ -29,7 +29,9 @@ algolia_image = Image.from_registry(
     setup_dockerfile_commands=["ENTRYPOINT []"],
 )
 
-stub = Stub("example-algolia-indexer")
+app = App(
+    "example-algolia-indexer"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Configure the crawler
 #
@@ -76,7 +78,7 @@ CONFIG = {
 # so we're invoking it using a subprocess.
 
 
-@stub.function(
+@app.function(
     image=algolia_image,
     secrets=[Secret.from_name("algolia-secret")],
 )
@@ -91,7 +93,7 @@ def crawl():
 # We want to be able to trigger this function through a webhook.
 
 
-@stub.function()
+@app.function()
 @web_endpoint()
 def crawl_webhook():
     crawl.remote()
@@ -120,6 +122,6 @@ def crawl_webhook():
 # `modal run algolia_indexer.py`
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     crawl.remote()

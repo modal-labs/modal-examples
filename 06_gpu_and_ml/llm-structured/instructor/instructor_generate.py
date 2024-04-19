@@ -38,9 +38,9 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "instructor~=1.0.0", "anthropic~=0.23.1", "matplotlib~=3.8.3"
 )
 
-stub = modal.Stub(
+app = modal.App(
     image=image, secrets=[modal.Secret.from_name("my-anthropic-secret")]
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## The overall flow
@@ -48,7 +48,7 @@ stub = modal.Stub(
 # We'll run the example by calling `modal run instructor_generate.py` from the command line.
 #
 # When we invoke `modal run` on a Python file, we run the function
-# marked with `@stub.local_entrypoint`.
+# marked with `@app.local_entrypoint`.
 #
 # This is the only code that runs locally -- it coordinates
 # the activity of the rest of our code, which runs in Modal's cloud.
@@ -63,7 +63,7 @@ stub = modal.Stub(
 # Opus is also ~60x more expensive, at ~$30 per million tokens.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(limit: int = 15, with_opus: bool = False):
     # find all of the examples in the repo
     examples = get_examples()
@@ -105,7 +105,7 @@ def main(limit: int = 15, with_opus: bool = False):
 # TODO: refactor classes out of this function, explain separately
 
 
-@stub.function(concurrency_limit=5)  # watch those rate limits!
+@app.function(concurrency_limit=5)  # watch those rate limits!
 def extract_example_metadata(
     example_contents: Optional[str] = None,
     filename: Optional[str] = None,

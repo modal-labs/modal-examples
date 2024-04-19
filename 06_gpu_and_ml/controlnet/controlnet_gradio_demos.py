@@ -24,7 +24,7 @@ import pathlib
 from dataclasses import dataclass, field
 
 from fastapi import FastAPI
-from modal import Image, Secret, Stub, asgi_app
+from modal import App, Image, Secret, asgi_app
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.
 # The demos each depend on their own custom pretrained StableDiffusion model, and these models are 5-6GB each.
@@ -241,7 +241,9 @@ image = (
         secrets=[Secret.from_dict({"DEMO_NAME": DEMO_NAME})],
     )
 )
-stub = Stub(name="example-controlnet", image=image)
+app = App(
+    name="example-controlnet", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 web_app = FastAPI()
 
@@ -285,7 +287,7 @@ def import_gradio_app_blocks(demo: DemoApp):
 # of continued experimentation.
 
 
-@stub.function(
+@app.function(
     gpu="A10G",
     concurrency_limit=1,
     container_idle_timeout=600,

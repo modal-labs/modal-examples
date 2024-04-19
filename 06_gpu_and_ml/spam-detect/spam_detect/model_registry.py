@@ -8,7 +8,7 @@ import json
 from typing import Callable, NamedTuple, Optional
 
 from . import config
-from .app import stub, volume
+from .app import app, volume
 
 
 class Prediction(NamedTuple):
@@ -64,7 +64,7 @@ class ModelMetadata(NamedTuple):
         )
 
 
-@stub.function(volumes={config.VOLUME_DIR: volume})
+@app.function(volumes={config.VOLUME_DIR: volume})
 def _list_models() -> dict[str, ModelMetadata]:
     registry_filepath = config.MODEL_STORE_DIR / config.MODEL_REGISTRY_FILENAME
     with open(registry_filepath, "r") as f:
@@ -74,7 +74,7 @@ def _list_models() -> dict[str, ModelMetadata]:
     }
 
 
-@stub.function(volumes={config.VOLUME_DIR: volume})
+@app.function(volumes={config.VOLUME_DIR: volume})
 def delete_model(
     # sha256 hashtag of model. eg 'sha256.1234567890abcd'
     model_id: str,
@@ -85,10 +85,10 @@ def delete_model(
     pass
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def list_models() -> None:
     """Show all models in registry."""
-    with stub.run():
+    with app.run():
         models = _list_models.remote()
     newest_to_oldest = sorted(
         [(key, value) for key, value in models.items()],

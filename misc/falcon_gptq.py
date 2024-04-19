@@ -15,7 +15,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Stub, enter, gpu, method, web_endpoint
+from modal import App, Image, enter, gpu, method, web_endpoint
 
 # ## Define a container image
 #
@@ -52,8 +52,10 @@ image = (
     .run_function(download_model)
 )
 
-# Let's instantiate and name our [`Stub`](https://modal.com/docs/guide/apps).
-stub = Stub(name="example-falcon-gptq", image=image)
+# Let's instantiate and name our [`App`](https://modal.com/docs/guide/apps).
+app = App(
+    name="example-falcon-gptq", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## The model class
@@ -61,7 +63,7 @@ stub = Stub(name="example-falcon-gptq", image=image)
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
 # so we use [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
-# Within the [`@stub.cls`](https://modal.com/docs/reference/modal.Stub#cls) decorator, we use the [`gpu` parameter](https://modal.com/docs/guide/gpu)
+# Within the [`@app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator, we use the [`gpu` parameter](https://modal.com/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU](https://modal.com/docs/guide/gpu#a100-gpus). We also allow each call 10 mintues to complete,
 # and request the runner to stay live for 5 minutes after its last request.
 #
@@ -71,7 +73,7 @@ stub = Stub(name="example-falcon-gptq", image=image)
 #
 # Note that we need to create a separate thread to call the `generate` function because we need to
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
-@stub.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
+@app.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
     @enter()
     def load_model(self):
@@ -130,7 +132,7 @@ prompt_template = (
 )
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def cli():
     question = "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40BGPTQ()
@@ -143,7 +145,7 @@ def cli():
 # you visit the resulting URL with a question parameter in your URL, you can view the model's
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
-@stub.function(timeout=60 * 10)
+@app.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
     from itertools import chain

@@ -6,7 +6,7 @@
 import os
 import subprocess
 
-from modal import Image, Secret, Stub, gpu, web_server
+from modal import App, Image, Secret, gpu, web_server
 
 MODEL_DIR = "/model"
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
@@ -60,13 +60,15 @@ image = (
     )
 )
 
-stub = Stub("vllm-inference-openai-compatible", image=image)
+app = App(
+    "vllm-inference-openai-compatible", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 GPU_CONFIG = gpu.A100(count=1)  # 40GB A100 by default
 
 
-@stub.function(
+@app.function(
     allow_concurrent_inputs=100,
     gpu=GPU_CONFIG,
 )

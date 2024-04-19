@@ -16,7 +16,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from modal import Image, Mount, Secret, Stub, asgi_app, enter, exit, gpu, method
+from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -76,7 +76,9 @@ def download_model():
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-stub = Stub("example-tgi-" + MODEL_ID.split("/")[-1])
+app = App(
+    "example-tgi-" + MODEL_ID.split("/")[-1]
+)  # Note: prior to April 2024, "app" was called "stub"
 
 tgi_image = (
     Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.4")
@@ -113,7 +115,7 @@ tgi_image = (
 GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
 
 
-@stub.cls(
+@app.cls(
     secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=15,
@@ -193,7 +195,7 @@ class Model:
 # ## Run the model
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(prompt: str = None):
     if prompt is None:
         prompt = "Implement a Python function to compute the Fibonacci numbers."
@@ -210,7 +212,7 @@ def main(prompt: str = None):
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
-@stub.function(
+@app.function(
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=10,

@@ -1,4 +1,4 @@
-from modal import Image, Stub, build, enter, method
+from modal import App, Image, build, enter, method
 
 MODEL_DIR = "/model"
 
@@ -14,13 +14,15 @@ image = (
     .pip_install("InstructorEmbedding")
 )
 
-stub = Stub("instructor", image=image)
+app = App(
+    "instructor", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 with image.imports():
     from InstructorEmbedding import INSTRUCTOR
 
 
-@stub.cls(gpu="any")
+@app.cls(gpu="any")
 class InstructorModel:
     @build()
     def download_model(self):
@@ -41,7 +43,7 @@ class InstructorModel:
         return similarities.tolist()
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     sentences_a = [
         [

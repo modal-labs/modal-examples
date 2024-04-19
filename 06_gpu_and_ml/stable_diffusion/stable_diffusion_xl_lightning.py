@@ -2,7 +2,9 @@ from pathlib import Path
 
 import modal
 
-stub = modal.Stub("stable-diffusion-xl-lightning")
+app = modal.App(
+    "stable-diffusion-xl-lightning"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "diffusers==0.26.3", "transformers~=4.37.2", "accelerate==0.27.2"
@@ -27,7 +29,7 @@ with image.imports():
     from safetensors.torch import load_file
 
 
-@stub.cls(image=image, gpu="a100")
+@app.cls(image=image, gpu="a100")
 class Model:
     @modal.build()
     @modal.enter()
@@ -82,7 +84,7 @@ class Model:
 # with: `modal run stable_diffusion_xl_lightning.py --prompt "An astronaut riding a green horse"`
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(
     prompt: str = "in the style of Dali, a surrealist painting of a weasel in a tuxedo riding a bicycle in the rain",
 ):
@@ -112,7 +114,7 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
-@stub.function(
+@app.function(
     image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,

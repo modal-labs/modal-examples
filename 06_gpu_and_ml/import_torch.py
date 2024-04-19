@@ -1,21 +1,21 @@
 # # PyTorch with CUDA GPU support
 #
 # This example shows how you can use CUDA GPUs in Modal, with a minimal PyTorch
-# image. You can specify GPU requirements in the `stub.function` decorator.
+# image. You can specify GPU requirements in the `app.function` decorator.
 
 import time
 
 import modal
 
-stub = modal.Stub(
+app = modal.App(
     "example-import-torch",
     image=modal.Image.debian_slim().pip_install(
         "torch", find_links="https://download.pytorch.org/whl/cu116"
     ),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
-@stub.function(gpu="any")
+@app.function(gpu="any")
 def gpu_function():
     import subprocess
 
@@ -29,6 +29,6 @@ def gpu_function():
 
 if __name__ == "__main__":
     t0 = time.time()
-    with stub.run():
+    with app.run():
         gpu_function.remote()
     print("Full time spent:", time.time() - t0)

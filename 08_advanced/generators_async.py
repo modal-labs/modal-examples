@@ -1,15 +1,17 @@
 import modal
 
-stub = modal.Stub("example-generators-async")
+app = modal.App(
+    "example-generators-async"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
-@stub.function()
+@app.function()
 def f(i):
     for j in range(i):
         yield j
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 async def run_async():
     async for r in f.remote_gen.aio(10):
         print(r)

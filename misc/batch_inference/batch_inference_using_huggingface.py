@@ -25,7 +25,7 @@ import io
 
 import modal
 
-stub = modal.Stub(
+app = modal.App(
     "example-batch-inference-using-huggingface",
     image=modal.Image.debian_slim().pip_install(
         "datasets",
@@ -34,11 +34,11 @@ stub = modal.Stub(
         "torch",
         "transformers",
     ),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Defining the prediction function
 #
-# Instead of a using `@stub.function()` in the global scope,
+# Instead of a using `@app.function()` in the global scope,
 # we put the method on a class, and define a setup method that we
 # decorate with `@modal.enter()`.
 #
@@ -50,7 +50,7 @@ stub = modal.Stub(
 # to the model. Every container that runs will have 8 CPUs set aside for it.
 
 
-@stub.cls(cpu=8, retries=3)
+@app.cls(cpu=8, retries=3)
 class SentimentAnalysis:
     @modal.enter()
     def setup_pipeline(self):
@@ -78,7 +78,7 @@ class SentimentAnalysis:
 # which we can download using the `datasets` package:
 
 
-@stub.function()
+@app.function()
 def get_data():
     from datasets import load_dataset
 
@@ -94,7 +94,7 @@ def get_data():
 # This is a common way to evaluate classifiers on binary data.
 
 
-@stub.function()
+@app.function()
 def roc_plot(labels, predictions):
     from matplotlib import pyplot
     from sklearn.metrics import RocCurveDisplay
@@ -121,7 +121,7 @@ def roc_plot(labels, predictions):
 # Modal will automatically spin up more and more workers until all inputs are processed.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     print("Downloading data...")
     data = get_data.remote()
