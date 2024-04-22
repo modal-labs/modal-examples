@@ -195,15 +195,16 @@ def main():
 
 
 # ## Deploy and invoke the model
-# Once we deploy this model with `modal deploy text_generation_inference.py`,
+# Once we deploy this model with `modal deploy vllm_mixtral.py`,
 # we can invoke inference from other apps, sharing the same pool
 # of GPU containers with all other apps we might need.
 #
 # ```
 # $ python
 # >>> import modal
-# >>> f = modal.Function.lookup("example-tgi-Mixtral-8x7B-Instruct-v0.1", "Model.generate")
-# >>> f.remote("What is the story about the fox and grapes?")
+# >>> f = modal.Function.lookup("example-vllm-mixtral", "Model.completion_stream")
+# >>> for text in f.remote_gen("What is the story about the fox and grapes?"):
+# >>>    print(text, end="", flush=text.endswith("\n"))
 # 'The story about the fox and grapes ...
 # ```
 
