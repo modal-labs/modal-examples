@@ -47,6 +47,7 @@
 # We start from the official `nvidia/cuda:12.1.1-devel-ubuntu22.04` image,
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
+
 import modal
 
 tensorrt_image = modal.Image.from_registry(
@@ -56,7 +57,15 @@ tensorrt_image = modal.Image.from_registry(
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
 # and the `tensorrt_llm` package itself.
-#
+
+tensorrt_image = tensorrt_image.apt_install(
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+).pip_install(
+    "tensorrt_llm==0.10.0.dev2024042300",
+    pre=True,
+    extra_index_url="https://pypi.nvidia.com",
+)
+
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
 # a number of calls to methods on the `modal.Image`. If you're familiar with
 # Dockerfiles, you can think of this as a Pythonic interface to instructions like `RUN` and `CMD`.
@@ -66,15 +75,7 @@ tensorrt_image = modal.Image.from_registry(
 # you might want to stop here and execute the example
 # with `modal run trtllm_llama.py`
 # so that it runs in the background while you read the rest.
-
-tensorrt_image = tensorrt_image.apt_install(
-    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
-    "tensorrt_llm~=0.10.0.dev",
-    pre=True,
-    extra_index_url="https://pypi.nvidia.com",
-)
-
+#
 # ## Downloading the Model
 #
 # Next, we download the model we want to serve. In this case, we're using the instruction-tuned
@@ -106,7 +107,6 @@ def download_model():
 # We can run it by adding it to the image's build process with `run_function`.
 # The download process has its own dependencies, which we add here.
 
-
 MINUTES = 60  # seconds
 tensorrt_image = (  # update the image by downloading the model we're using
     tensorrt_image.pip_install(  # add utilities for downloading the model
@@ -134,26 +134,29 @@ GIT_HASH = "71d8d4d3dc655671f32535d6d2b60cab87f36e87"
 CHECKPOINT_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/llama/convert_checkpoint.py"
 
 # TensorRT-LLM requires that a GPU be present to load the model, even though it isn't used directly during this conversion process.
-# We'll use a single A100-40GB GPU for this example, but we have also tested it successfully with A100-80GB and H100 GPUs.
+# We'll use a single A100-40GB GPU for this example, but we have also tested it successfully with A10G, A100-80GB, and H100 GPUs.
+#
 # The most important feature to track when selecting hardware to run on is GPU RAM:
-# larger models, longer sequences, and bigger batches all require more memory.
+# larger models, longer sequences, and bigger batches all require more memory,
 # We tuned all three to maximize throughput on this example.
 #
 # The amount of GPU RAM on a single card is a tight constraint for most LLMs:
 # RAM is measured in tens of gigabytes and
 # models have billions of floating point parameters,
 # each consuming one to four bytes of memory.
-# The only solution is to split the model across multiple GPUs,
-# which you will need when serving larger models (e.g. 70B or 8x22B).
+# The performance cliff if you need to spill to CPU memory is steep,
+# so the only solution is to split the model across multiple GPUs.
+# This is particularly important when serving larger models (e.g. 70B or 8x22B).
 
 N_GPUS = 1  # Heads up: this example has not yet been tested with multiple GPUs
 GPU_CONFIG = modal.gpu.A100(count=N_GPUS)
 
 # This is also the point where we specify the data type for this model.
-# We use IEEE 754-compliant half-precision floats, (`float16`), because we found that it resulted in higher throughput,
+# We use IEEE 754-compliant half-precision floats, (`float16`), because we found that it resulted in marginally higher throughput,
 # but the model is provided in Google's
 # [`bfloat16` format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format).
-# On the latest Ada Lovelace chips, you might use `float8` to reduce GPU RAM usage and speed up inference.
+# On the latest Ada Lovelace chips, you might use `float8` to reduce GPU RAM usage and speed up inference,
+# but note that the FP8 format is very new, so expect rough edges.
 
 DTYPE = "float16"
 
@@ -164,7 +167,8 @@ tensorrt_image = (  # update the image by converting the model to TensorRT forma
     tensorrt_image.run_commands(  # takes ~5 minutes
         [
             f"wget {CHECKPOINT_SCRIPT_URL} -O /root/convert_checkpoint.py",
-            f"python /root/convert_checkpoint.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR} --tp_size={N_GPUS} --dtype={DTYPE}",
+            f"python /root/convert_checkpoint.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR}"
+            + f" --tp_size={N_GPUS} --dtype={DTYPE}",
         ],
         gpu=GPU_CONFIG,  # GPU must be present to load tensorrt_llm
     )
@@ -174,7 +178,7 @@ tensorrt_image = (  # update the image by converting the model to TensorRT forma
 #
 # TensorRT-LLM achieves its high throughput primarily by compiling the model:
 # making concrete choices of CUDA kernels to execute for each operation.
-# These kernels are much more specific that `matrix_multiply` or `softmax` --
+# These kernels are much more specific than `matrix_multiply` or `softmax` --
 # they have names like `maxwell_scudnn_winograd_128x128_ldg1_ldg4_tile148t_nt`.
 # They are optimized for the specific types and shapes of tensors that the model uses
 # and for the specific hardware that the model runs on.
@@ -190,7 +194,9 @@ tensorrt_image = (  # update the image by converting the model to TensorRT forma
 # The closer these are to the actual values we'll use in production, the better the throughput we'll get.
 
 MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
-MAX_BATCH_SIZE = 128  # you'll get better throughput at larger batch sizes, so long as you stay inside VRAM limits
+MAX_BATCH_SIZE = (
+    128  # better throughput at larger batch sizes, limited by GPU RAM
+)
 ENGINE_DIR = "/root/model/model_output"
 
 SIZE_ARGS = f"--max_batch_size={MAX_BATCH_SIZE} --max_input_len={MAX_INPUT_LEN} --max_output_len={MAX_OUTPUT_LEN}"
@@ -199,7 +205,7 @@ SIZE_ARGS = f"--max_batch_size={MAX_BATCH_SIZE} --max_input_len={MAX_INPUT_LEN} 
 # You can find the document we used for LLaMA
 # [here](https://github.com/NVIDIA/TensorRT-LLM/tree/66ef1df492f7bc9c8eeb01d7e14db01838e3f0bd/examples/llama),
 # which you can use to adjust the arguments to fit your workloads,
-# e.g. adjusting rotary embeddings and block sizes for long contexts.
+# e.g. adjusting rotary embeddings and block sizes for longer contexts.
 #
 # We selected plugins that accelerate two core components of the model: dense matrix multiplication and attention.
 # You can read more about the plugin options [here](https://fetch.ai/blog/advancing-llm-optimization).
@@ -207,7 +213,6 @@ SIZE_ARGS = f"--max_batch_size={MAX_BATCH_SIZE} --max_input_len={MAX_INPUT_LEN} 
 PLUGIN_ARGS = f"--gemm_plugin={DTYPE} --gpt_attention_plugin={DTYPE}"
 
 # We put all of this together with another invocation of `.run_commands`.
-
 
 tensorrt_image = (  # update the image by building the TensorRT engine
     tensorrt_image.run_commands(  # takes ~5 minutes
@@ -546,7 +551,7 @@ def main():
 # We can use `modal.web_endpoint` and `app.function` to turn any Python function into a web API.
 #
 # This API wrapper doesn't need all the dependencies of the core inference service,
-# so we switch images here to a basic Linux image, `debian_slim`, which includes our Modal dependencies.
+# so we switch images here to a basic Linux image, `debian_slim`, which has everything we need.
 
 web_image = modal.Image.debian_slim(python_version="3.10")
 
