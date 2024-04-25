@@ -76,7 +76,7 @@ def download_model_to_image(model_dir, model_name):
 # and save the resulting files to the container image -- that way we don't need
 # to redownload the weights every time we change the server's code or start up more instances of the server.
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "vllm==0.4.0.post1",
         "torch==2.1.2",
