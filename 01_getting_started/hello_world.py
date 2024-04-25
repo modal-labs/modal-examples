@@ -47,10 +47,8 @@ def f(i):
 # Now let's see three different ways we can call that function:
 #
 # 1. As a regular `local` call on your computer, with `f.local()`
-#
 # 2. As a `remote` call that runs in the cloud, with `f.remote()`
-#
-# 3. By _mapping_ many copies of `f` in the cloud over a sequence of inputs, with `f.map()`
+# 3. As a `map` where many copies of `f` run in the cloud over a sequence of inputs, with `f.map()`
 #
 # We call `f` in each of these ways inside the `main` function below.
 
