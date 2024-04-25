@@ -115,7 +115,7 @@ def main():
 # The function `f` is silly and doesn't do much, but in its place
 # imagine something that matters to you, like:
 #
-# * Deploying [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune) workloads.
+# * Running [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune).
 # * Manipulating [audio](/docs/examples/discord-musicgen) or [images](/docs/examples/stable_diffusion_xl_turbo).
 # * [Collecting financial data](/docs/examples/fetch_stock_prices) to backtest a trading algorithm.
 #
