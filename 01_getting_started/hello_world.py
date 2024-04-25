@@ -13,9 +13,9 @@
 
 import sys
 
-import modal
+from modal import App
 
-app = modal.App("example-hello-world")
+app = App("example-hello-world")
 
 # ## Defining a function
 #
