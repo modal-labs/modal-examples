@@ -15,9 +15,7 @@ import sys
 
 import modal
 
-app = modal.App(
-    "example-hello-world"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-hello-world")
 
 # ## Defining a function
 #
@@ -25,10 +23,9 @@ app = modal.App(
 #
 # So first we've got to write some code.
 #
-# Let's write a simple function:
-# log `"hello"` to standard out if the input is even
-# or `"world"` to standard error if it's not,
-# then return the input times itself.
+# Let's write a simple function that takes an integer and
+# prints a message based on whether its value is even or odd. Then,
+# return the number multiplied by itself.
 #
 # To make this function work with Modal, we just wrap it in a decorator
 # from our application `app`,
@@ -49,13 +46,13 @@ def f(i):
 #
 # Now let's see three different ways we can call that function:
 #
-# 1. As a regular `local` call on your computer, with `f.local`
+# 1. As a regular `local` call on your computer, with `f.local()`
 #
-# 2. As a `remote` call that runs in the cloud, with `f.remote`
+# 2. As a `remote` call that runs in the cloud, with `f.remote()`
 #
-# 3. By `map`ping many copies of `f` in the cloud over many inputs, with `f.map`
+# 3. By _mapping_ many copies of `f` in the cloud over a sequence of inputs, with `f.map()`
 #
-# We call `f` in each of these ways inside a `main` function below.
+# We call `f` in each of these ways inside the `main` function below.
 
 
 @app.local_entrypoint()
@@ -74,7 +71,7 @@ def main():
     print(total)
 
 
-# Enter `modal run hello_world.py` in a shell and you'll see
+# Enter `modal run hello_world.py` in a shell, and you'll see
 # a Modal app initialize.
 # You'll then see the `print`ed logs of
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
@@ -86,16 +83,16 @@ def main():
 # ## What just happened?
 #
 # When we called `.remote` on `f`, the function was executed
-# **in the cloud**, on Modal's infrastructure, not locally on our computer.
+# _in the cloud_, on Modal's infrastructure, not locally on our computer.
 #
 # In short, we took the function `f`, put it inside a container,
 # sent it the inputs, and streamed back the logs and outputs.
 #
 # ## But why does this matter?
 #
-# Try doing one of these things next to start seeing the full power of Modal!
+# Try doing one of these things next to see the full power of Modal.
 #
-# ### You can change the code and run it again
+# ### Change the code and run it again
 #
 # For instance, change the `print` statement in the function `f`
 # to print `"spam"` and `"eggs"` instead and run the app again.
@@ -106,21 +103,20 @@ def main():
 # running code locally. That means no waiting for long image builds when you've just moved a comma,
 # no fiddling with container image pushes, and no context-switching to a web UI to inspect logs.
 #
-# ### You can map over more data
+# ### Map over more data
 #
 # Change the `map` range from `20` to some large number, like `1170`. You'll see
 # Modal create and run even more containers in parallel this time.
 #
 # And it'll happen lightning fast!
 #
-# ### You can run a more interesting function
+# ### Run something more interesting
 #
-# The function `f` is obviously silly and doesn't do much, but in its place
+# The function `f` is silly and doesn't do much, but in its place
 # imagine something that matters to you, like:
 #
-# * Running [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune)
-# * Manipulating [audio](/docs/examples/discord-musicgen) or [images](stable_diffusion_xl_turbo)
+# * Deploying [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune) workloads.
+# * Manipulating [audio](/docs/examples/discord-musicgen) or [images](/docs/examples/stable_diffusion_xl_turbo).
 # * [Collecting financial data](/docs/examples/fetch_stock_prices) to backtest a trading algorithm.
 #
-# Modal lets you parallelize that operation effortlessly by running hundreds or
-# thousands of containers in the cloud.
+# Modal lets you parallelize these operations effortlessly by running hundreds of containers in the cloud.
