@@ -363,6 +363,7 @@ class Model:
                 "\n\n",
                 sep=COLOR["ENDC"],
             )
+            time.sleep(0.01)  # to avoid log truncation
 
         print(
             f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {MODEL_ID} in {duration_s:.1f} seconds,"
