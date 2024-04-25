@@ -1,31 +1,64 @@
-import os
-import time
-
+# # Blazingly Fast Inference with TensorRT-LLM (LLaMA 3 8B)
+#
+# In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
+# at a total throughput of roughly 4,500 output tokens per second on a single NVIDIA A100 40GB GPU.
+# At [Modal's current price](https://modal.com/pricing) of $3.73/hr, that's under $0.20 per million tokens --
+# on auto-scaling infrastructure and served via an API.
+#
+# Additional optimizations like speculative sampling and FP8 quantization can further improve throughput.
+# For more on the throughput levels that are possible with TensorRT-LLM, see the
+# [official benchmarks](https://github.com/NVIDIA/TensorRT-LLM/blob/71d8d4d3dc655671f32535d6d2b60cab87f36e87/docs/source/performance.md)
+#
+# TensorRT-LLM is the Lamborghini of inference engines: it achieves seriously
+# impressive performance if you treat it right and tune it carefully.
+# So we carefully document the choices we made so you know where you might need to adjust for your use case,
+# whether it involves a different GPU, a different model, or a different workload.
+#
+# ## Installing TensorRT-LLM
+#
+# To run TensorRT-LLM, we must first install it. Easier said than done!
+#
+# In Modal, we define [container images](https://modal.com/docs/guide/custom-containers) that run our serverless workloads.
+# All Modal images have access to GPU drivers via the underlying host environment, but we still need to install
+# the software stack on top of the drivers, from the CUDA runtime up.
+#
+# We start from the official `nvidia/cuda:12.1.1-devel-ubuntu22.04` image, which includes the CUDA runtime and development libraries
+# and the environment configuration necessary to run them.
 import modal
 
+tensorrt_image = modal.Image.from_registry(
+    "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
+)
+
+# Then, we add some system dependencies of TensorRT-LLM, including OpenMPI for distributed communication.
+# We also include some core system dependencies we'll need later on, like `git`.
+# Finally, we add the `tensorrt_llm` package itself.
+
+tensorrt_image = tensorrt_image.apt_install(
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+).run_commands(
+    "pip install tensorrt_llm~=0.10.0.dev --pre --extra-index-url https://pypi.nvidia.com --no-cache-dir"
+)
+
+# ## Downloading the Model
+#
+# Next, we download the model we want to serve. In this case, we're using Meta's Llama 3 8B model.
+# We use the function below to download the model from the Hugging Face Hub.
+
 MODEL_DIR = "/root/model/model_input"
-CKPT_DIR = "/root/model/model_ckpt"
-ENGINE_DIR = "/root/model/model_output"
-MODEL_ID = BASE_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
-MODEL_REVISION = "7840f95a8c7a781d3f89c4818bf693431ab3119a"
-
-N_GPUS = 1
-GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
-
-
-MINUTES = 60
-
-GIT_HASH = "71d8d4d3dc655671f32535d6d2b60cab87f36e87"
-CHECKPOINT_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/llama/convert_checkpoint.py"
+MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
+MODEL_REVISION = "7840f95a8c7a781d3f89c4818bf693431ab3119a"  # pin model revisions to prevent unexpected changes!
 
 
 def download_model():
+    import os
+
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     snapshot_download(
-        BASE_MODEL,
+        MODEL_ID,
         local_dir=MODEL_DIR,
         ignore_patterns=["*.pt", "*.bin"],  # using safetensors
         revision=MODEL_REVISION,
@@ -33,56 +66,161 @@ def download_model():
     move_cache()
 
 
-tensorrt_image = (
-    modal.Image.from_registry(
-        "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
+# Just defining that function doesn't actually download the model, though.
+# We can run it by adding it to the image's build process with `run_function`.
+# The download process has its own dependencies, which we add here.
+
+
+MINUTES = 60  # seconds
+tensorrt_image = (  # update the image by downloading the model we're using
+    tensorrt_image.pip_install(  # add utilities for downloading the model
+        "hf-transfer==0.1.6",
+        "huggingface_hub==0.22.2",
+        "requests~=2.31.0",
     )
-    .apt_install("openmpi-bin", "libopenmpi-dev")
-    .apt_install("git", "git-lfs", "wget")
-    .run_commands(
-        "pip install tensorrt_llm~=0.10.0.dev --pre --extra-index-url https://pypi.nvidia.com --no-cache-dir"
-    )
-    .pip_install(
-        "hf-transfer==0.1.6", "huggingface_hub==0.22.2", "requests~=2.31.0"
-    )
-    .env(
+    .env(  # hf-transfer: faster downloads, but fewer comforts
         {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
-    )  # faster downloads, but fewer comforts
-    .run_function(
+    )
+    .run_function(  # download the model
         download_model,
         timeout=20 * MINUTES,
         secrets=[modal.Secret.from_name("huggingface-secret")],
     )
-    .run_commands(  # takes ~5 minutes
+)
+
+# ## Configuring the model
+#
+# Now that we have the model downloaded, we need to convert it to a format that TensorRT-LLM can use.
+# We use a convenience script provided by the TensorRT-LLM team.
+# This script takes a few minutes to run.
+
+GIT_HASH = "71d8d4d3dc655671f32535d6d2b60cab87f36e87"
+CHECKPOINT_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/llama/convert_checkpoint.py"
+
+# TensorRT-LLM requires that a GPU be present to load the model, even though it isn't used directly during this conversion process.
+# We'll use a single A100-40GB GPU for this example, but we have also tested it successfully with A100-80GB and H100 GPUs.
+# The most important feature to track when selecting hardware to run on is GPU RAM:
+# larger models, longer sequences, and bigger batches all require more memory.
+# We tuned all three to maximize throughput on this example.
+#
+# The amount of GPU RAM on a single card is a tight constraint for most LLMs:
+# they have billions of floating point parameters that must reside in device memory and RAM is measured in tens of gigabytes.
+# The only solution is to split the model across multiple GPUs,
+# which you will need when serving larger models (e.g. 70B or 8x22B).
+
+N_GPUS = 1  # ACHTUNG: this example has not yet been tested with multiple GPUs
+GPU_CONFIG = modal.gpu.A100(count=N_GPUS)
+
+# This is also the point where we specify the data type for this model.
+# We use IEEE 754-compliant half-precision floats, (`float16`), because we found that it resulted in higher throughput,
+# but the model is provided in Google's
+# [`bfloat16` format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format).
+# On the latest Ada Lovelace chips, you might use `float8` to reduce GPU RAM usage and speed up inference.
+
+DTYPE = "float16"
+
+# We put that all together with another invocation of `.run_commands`.
+
+CKPT_DIR = "/root/model/model_ckpt"
+tensorrt_image = (  # update the image by converting the model to TensorRT format
+    tensorrt_image.run_commands(  # takes ~5 minutes
         [
             f"wget {CHECKPOINT_SCRIPT_URL} -O /root/convert_checkpoint.py",
-            f"python /root/convert_checkpoint.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR} --tp_size={N_GPUS} --dtype=float16",
+            f"python /root/convert_checkpoint.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR} --tp_size={N_GPUS} --dtype={DTYPE}",
         ],
-        gpu=GPU_CONFIG,
-    )
-    .run_commands(  # takes ~5 minutes
-        [
-            f"trtllm-build --checkpoint_dir {CKPT_DIR} --output_dir {ENGINE_DIR} --tp_size={N_GPUS}"
-            + " --gpt_attention_plugin float16 --gemm_plugin float16 --max_input_len 32256 --max_batch_size=128 --max_input_len=256 --max_output_len=256"
-        ],
-        gpu=GPU_CONFIG,
-    )
-    .env(
-        {
-            "TLLM_LOG_LEVEL": "INFO"
-        }  # show more log information from the inference engine
+        gpu=GPU_CONFIG,  # GPU must be present to load tensorrt_llm
     )
 )
 
-stub = modal.Stub(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
+# ## Compiling the engine
+#
+# TensorRT-LLM achieves its high throughput primarily by compiling the model:
+# making concrete choices of CUDA kernels to execute for each operation.
+# These kernels are much more specific that `matrix_multiply` or `softmax` --
+# they have names like `maxwell_scudnn_winograd_128x128_ldg1_ldg4_tile148t_nt`.
+# They are optimized for the specific types and shapes of tensors that the model uses
+# and for the specific hardware that the model runs on.
+#
+# That means we need to know all of that information a priori --
+# more like the original TensorFlow, which defined static graphs, than like PyTorch,
+# which builds up a graph of kernels dynamically at runtime.
+#
+# This extra layer of constraint on our LLM service is precisely
+# what allows TensorRT-LLM to achieve its high throughput.
+#
+# So we need to specify things like the maximum batch size and the lengths of inputs and outputs.
+# The closer these are to the actual values we'll use in production, the better the throughput we'll get.
+
+MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
+MAX_BATCH_SIZE = 128  # you'll get better throughput at larger batch sizes, so long as you stay inside VRAM limits
+ENGINE_DIR = "/root/model/model_output"
+
+SIZE_ARGS = f"--max_batch_size={MAX_BATCH_SIZE} --max_input_len={MAX_INPUT_LEN} --max_output_len={MAX_OUTPUT_LEN}"
+
+# There are many additional options you can pass to `trtllm-build` to tune the engine for your specific workload.
+# You can find the document we used for LLaMA
+# [here](https://github.com/NVIDIA/TensorRT-LLM/tree/66ef1df492f7bc9c8eeb01d7e14db01838e3f0bd/examples/llama),
+# which you can use to adjust the arguments to fit your workloads,
+# e.g. adjusting rotary embeddings and block sizes for long contexts.
+#
+# We selected plugins that accelerate two core components of the model: dense matrix multiplication and attention.
+# You can read more about the plugin options [here](https://fetch.ai/blog/advancing-llm-optimization).
+
+PLUGIN_ARGS = f"--gemm_plugin={DTYPE} --gpt_attention_plugin={DTYPE}"
+
+# We put all of this together with another invocation of `.run_commands`.
 
 
-@stub.cls(
-    gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")]
+tensorrt_image = (  # update the image by building the TensorRT engine
+    tensorrt_image.run_commands(  # takes ~5 minutes
+        [
+            f"trtllm-build --checkpoint_dir {CKPT_DIR} --output_dir {ENGINE_DIR}"
+            + f" --tp_size={N_GPUS} --workers={N_GPUS}"
+            + f" {SIZE_ARGS}"
+            + f" {PLUGIN_ARGS}"
+        ],
+        gpu=GPU_CONFIG,  # TRT-LLM compilation is GPU-specific, so make sure this matches production!
+    ).env(  # show more log information from the inference engine
+        {"TLLM_LOG_LEVEL": "INFO"}
+    )
+)
+
+# ## Serving inference at thousands of tokens per second
+#
+# Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
+
+app = modal.App(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
+
+# Thanks to our custom container runtime system, even this
+# large, many gigabyte container boots in seconds.
+#
+# At container start time, we boot up the engine, which completes in under 30 seconds.
+# Container starts are triggered when Modal scales up your infrastructure,
+# like the first time you run this code or the first time a request comes in after a period of inactivity.
+#
+# Container lifecycles in Modal are managed via our `Cls` interface, so we define one below
+# to manage the engine and run inference.
+# For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
+
+
+@app.cls(
+    gpu=GPU_CONFIG,
+    secrets=[modal.Secret.from_name("huggingface-secret")],
+    container_idle_timeout=10 * MINUTES,
 )
 class Model:
     @modal.enter()
     def load(self):
+        """Loads the TRT-LLM engine and configures our tokenizer.
+
+        The @enter decorator ensures that it runs only once per container, when it starts."""
+        import time
+
+        print(
+            f"{COLOR['HEADER']}🥶 Cold boot: spinning up TRT-LLM engine{COLOR['ENDC']}"
+        )
+        self.init_start = time.monotonic_ns()
+
         import tensorrt_llm
         from tensorrt_llm.runtime import ModelRunner
         from transformers import AutoTokenizer
@@ -97,28 +235,48 @@ class Model:
         self.pad_id = self.tokenizer.pad_token_id
         self.end_id = self.tokenizer.eos_token_id
 
-        print("🚀 Spinning up TRT-LLM engine")
         runner_kwargs = dict(
             engine_dir=f"{ENGINE_DIR}",
             lora_dir=None,
-            rank=tensorrt_llm.mpi_rank(),
+            rank=tensorrt_llm.mpi_rank(),  # this will need to be adjusted to use multiple GPUs
         )
 
         self.model = ModelRunner.from_dir(**runner_kwargs)
 
-    @modal.method()
-    def generate(self, prompts):
-        settings = dict(
-            temperature=0.9,
-            top_k=1,
-            top_p=0,
-            max_new_tokens=256,
-            end_id=self.end_id,
-            pad_id=self.pad_id,
-            stop_words_list=None,
+        self.init_duration_s = (time.monotonic_ns() - self.init_start) / 1e9
+        print(
+            f"{COLOR['HEADER']}🚀 Cold boot finished in {self.init_duration_s}s{COLOR['ENDC']}"
         )
 
-        print("🚀 Generating completions...")
+    @modal.method()
+    def generate(self, prompts, settings=None):
+        """Generate responses to a batch of prompts, optionally with custom inference settings."""
+        import time
+
+        if settings is None:
+            settings = dict(
+                temperature=0.1,  # temperature 0 not allowed, so we set top_k to 1 to get the same effect
+                top_k=1,
+                stop_words_list=None,
+                repetition_penalty=1.1,
+            )
+
+        settings[
+            "max_new_tokens"
+        ] = MAX_OUTPUT_LEN  # exceeding this will raise an error
+        settings["end_id"] = self.end_id
+        settings["pad_id"] = self.pad_id
+
+        num_prompts = len(prompts)
+
+        if num_prompts > MAX_BATCH_SIZE:
+            raise ValueError(
+                f"Batch size {num_prompts} exceeds maximum of {MAX_BATCH_SIZE}"
+            )
+
+        print(
+            f"{COLOR['HEADER']}🚀 Generating completions for batch of size {num_prompts}...{COLOR['ENDC']}"
+        )
         start = time.monotonic_ns()
 
         parsed_prompts = [
@@ -130,23 +288,30 @@ class Model:
             for prompt in prompts
         ]
 
-        print("Parsed prompts:", *parsed_prompts, sep="\n\t")
+        print(
+            f"{COLOR['HEADER']}Parsed prompts:{COLOR['ENDC']}",
+            *parsed_prompts,
+            sep="\n\t",
+        )
 
         inputs_t = self.tokenizer(
             parsed_prompts, return_tensors="pt", padding=True, truncation=False
         )["input_ids"]
 
-        print("Input tensors:", inputs_t[:, :8])
+        print(
+            f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8]
+        )
 
         outputs_t = self.model.generate(inputs_t, **settings)
 
-        outputs_text = self.tokenizer.batch_decode(outputs_t[:, 0])
+        outputs_text = self.tokenizer.batch_decode(
+            outputs_t[:, 0]
+        )  # only one output per input, so we index with 0
 
         responses = [
-            self.extract_assistant_response(output_text)
+            extract_assistant_response(output_text)
             for output_text in outputs_text
         ]
-
         duration_s = (time.monotonic_ns() - start) / 1e9
 
         num_tokens = sum(
@@ -164,33 +329,38 @@ class Model:
 
         print(
             f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {MODEL_ID} in {duration_s:.1f} seconds,"
-            f" throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
+            f" throughput = {num_tokens / duration_s:.0f} tokens/second for batch of size {num_prompts} on {GPU_CONFIG}.{COLOR['ENDC']}"
         )
 
         return responses
 
-    def extract_assistant_response(self, output_text):
-        # Split the output text by the assistant header token
-        parts = output_text.split(
-            "<|start_header_id|>assistant<|end_header_id|>"
-        )
 
-        if len(parts) > 1:
-            # Join the parts after the first occurrence of the assistant header token
-            response = parts[1].split("<|eot_id|>")[0].strip()
+# ## Calling our inference function
+#
+# Now, how do we actually run the model?
+#
+# There are two basic methods: from Python via our SDK or from anywhere, by setting up an API.
+#
+# ### Calling inference from Python
+#
+# To run our `Model`'s `.generate` method from Python, we just need to call it --
+# with `.remote` appended to run it on Modal.
+#
+# We wrap that logic in a `local_entrypoint` so you can run it from the command line with
+# ```bash
+# modal run trtllm_llama.py
+# ```
+#
+# For simplicity, we hard-code a batch of 128 questions to ask the model.
 
-            # Remove any remaining special tokens and whitespace
-            response = response.replace("<|eot_id|>", "").strip()
 
-            return response
-        else:
-            return output_text
-
-
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     questions = [
-        # Coding questions
+        # Generic assistant questions
+        "What are you?",
+        "What can you do?",
+        # Coding
         "Implement a Python function to compute the Fibonacci numbers.",
         "Write a Rust function that performs binary exponentiation.",
         "How do I allocate memory in C?",
@@ -206,10 +376,13 @@ def main():
         "What approach would you take to design a secure session management system in a web application?",
         "How would you handle collision in a hash table?",
         "How can you implement a load balancer for a distributed system?",
-        # Literature
+        "Implement a Python class for a doubly linked list.",
+        "Write a Haskell function that generates prime numbers using the Sieve of Eratosthenes.",
+        "Develop a simple HTTP server in Rust.",
+        # Literate and creative writing
         "What is the fable involving a fox and grapes?",
-        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083, to see robots in the beautiful desert.",
         "Who does Harry turn into a balloon?",
+        "Write a story in the style of James Joyce about a trip to the Australian outback in 2083 to see robots in the beautiful desert.",
         "Write a tale about a time-traveling historian who's determined to witness the most significant events in human history.",
         "Describe a day in the life of a secret agent who's also a full-time parent.",
         "Create a story about a detective who can communicate with animals.",
@@ -224,7 +397,10 @@ def main():
         "Tell a story about an astronaut who discovered a planet populated by plants.",
         "Describe the journey of a letter traveling through the most sophisticated postal service ever.",
         "Write a tale about a chef whose food can evoke memories from the eater's past.",
-        # History
+        "Write a poem in the style of Walt Whitman about the modern digital world.",
+        "Create a short story about a society where people can only speak in metaphors.",
+        "What are the main themes in Dostoevsky's 'Crime and Punishment'?",
+        # History and Philosophy
         "What were the major contributing factors to the fall of the Roman Empire?",
         "How did the invention of the printing press revolutionize European society?",
         "What are the effects of quantitative easing?",
@@ -232,12 +408,25 @@ def main():
         "What were the economic and philosophical factors that led to the fall of the Soviet Union?",
         "How did decolonization in the 20th century change the geopolitical map?",
         "What was the influence of the Khmer Empire on Southeast Asia's history and culture?",
+        "What led to the rise and fall of the Mongol Empire?",
+        "Discuss the effects of the Industrial Revolution on urban development in 19th century Europe.",
+        "How did the Treaty of Versailles contribute to the outbreak of World War II?",
+        "What led to the rise and fall of the Mongol Empire?",
+        "Discuss the effects of the Industrial Revolution on urban development in 19th century Europe.",
+        "How did the Treaty of Versailles contribute to the outbreak of World War II?",
+        "Explain the concept of 'tabula rasa' in John Locke's philosophy.",
+        "What does Nietzsche mean by 'ressentiment'?",
+        "Compare and contrast the early and late works of Ludwig Wittgenstein. Which do you prefer?",
+        "How does the trolley problem explore the ethics of decision-making in critical situations?",
         # Thoughtfulness
         "Describe the city of the future, considering advances in technology, environmental changes, and societal shifts.",
         "In a dystopian future where water is the most valuable commodity, how would society function?",
         "If a scientist discovers immortality, how could this impact society, economy, and the environment?",
         "What could be the potential implications of contact with an advanced alien civilization?",
         "Describe how you would mediate a conflict between two roommates about doing the dishes using techniques of non-violent communication.",
+        "If you could design a school curriculum for the future, what subjects would you include to prepare students for the next 50 years?",
+        "How would society change if teleportation was invented and widely accessible?",
+        "Consider a future where artificial intelligence governs countries. What are the potential benefits and pitfalls?",
         # Math
         "What is the product of 9 and 8?",
         "If a train travels 120 kilometers in 2 hours, what is its average speed?",
@@ -256,13 +445,103 @@ def main():
         "What are 'zombie stars' in the context of astronomy?",
         "Who were the 'Dog-Headed Saint' and the 'Lion-Faced Saint' in medieval Christian traditions?",
         "What is the story of the 'Globsters', unidentified organic masses washed up on the shores?",
+        "Which countries in the European Union use currencies other than the Euro, and what are those currencies?",
         # Multilingual
         "战国时期最重要的人物是谁?",
         "Tuende hatua kwa hatua. Hesabu jumla ya mfululizo wa kihesabu wenye neno la kwanza 2, neno la mwisho 42, na jumla ya maneno 21.",
         "Kannst du die wichtigsten Eigenschaften und Funktionen des NMDA-Rezeptors beschreiben?",
+        "¿Cuáles son los principales impactos ambientales de la deforestación en la Amazonía?",
+        "Décris la structure et le rôle de la mitochondrie dans une cellule.",
+        "Какие были социальные последствия Перестройки в Советском Союзе?",
+        # Economics and Business
+        "What are the principles of behavioral economics and how do they influence consumer choices?",
+        "Discuss the impact of blockchain technology on traditional banking systems.",
+        "What are the long-term effects of trade wars on global economic stability?",
+        "What is the law of supply and demand?",
+        "Explain the concept of inflation and its typical causes.",
+        "What is a trade deficit, and why does it matter?",
+        "How do interest rates affect consumer spending and saving?",
+        "What is GDP and why is it important for measuring economic health?",
+        "What is the difference between revenue and profit?",
+        "Describe the role of a business plan in startup success.",
+        "How does market segmentation benefit a company?",
+        "Explain the concept of brand equity.",
+        "What are the advantages of franchising a business?",
+        "What are Michael Porter's five forces and how do they impact strategy for tech startups?",
+        # Science and Technology
+        "Discuss the potential impacts of quantum computing on data security.",
+        "How could CRISPR technology change the future of medical treatments?",
+        "Explain the significance of graphene in the development of future electronics.",
+        "How do renewable energy sources compare to fossil fuels in terms of environmental impact?",
+        "What are the most promising technologies for carbon capture and storage?",
+        "Explain why the sky is blue.",
+        "What is the principle behind the operation of a microwave oven?",
+        "How does Newton's third law apply to rocket propulsion?",
+        "What causes iron to rust?",
+        "Describe the process of photosynthesis in simple terms.",
+        "What is the role of a catalyst in a chemical reaction?",
+        "What is the basic structure of a DNA molecule?",
+        "How do vaccines work to protect the body from disease?",
+        "Explain the significance of mitosis in cellular reproduction.",
+        "What are tectonic plates and how do they affect earthquakes?",
+        "How does the greenhouse effect contribute to global warming?",
+        "Describe the water cycle and its importance to Earth's climate.",
+        "What causes the phases of the Moon?",
+        "How do black holes form?",
+        "Explain the significance of the Big Bang theory.",
+        "What is the function of the CPU in a computer system?",
+        "Explain the difference between RAM and ROM.",
+        "How does a solid-state drive (SSD) differ from a hard disk drive (HDD)?",
+        "What role does the motherboard play in a computer system?",
+        "Describe the purpose and function of a GPU.",
+        "What is TensorRT? What role does it play in neural network inference?",
     ]
+
     model = Model()
     model.generate.remote(questions)
+
+
+# ### Calling inference via an API
+#
+# We can use `modal.web_endpoint` and `app.function` to turn any Python function into a web API.
+#
+# This API wrapper doesn't need all the dependencies of the core inference service,
+# so we switch images here to a basic Linux image, `debian_slim`, which includes our Modal dependencies.
+
+web_image = modal.Image.debian_slim(python_version="3.10")
+
+# From there, we can take the same remote generation logic we used in `main`
+# and serve it with only a few more lines of code.
+
+
+@app.function(image=web_image)
+@modal.web_endpoint(method="POST")
+def generate_web(data: dict):
+    return Model.generate.remote(data["prompts"], settings=None)
+
+
+# To set our function up as a web endpoint, we need to run this file --
+# with `modal serve` to create a hot-reloading development server or `modal deploy` to deploy it to production.
+#
+# ```bash
+# modal serve trtllm_llama.py
+# ```
+#
+# You can test the endpoint by sending a POST request with `curl` from another terminal:
+#
+# ```bash
+# curl -X POST url-from-output-of-modal-serve-here \
+# -H "Content-Type: application/json" \
+# -d '{
+#     "prompts": ["Tell me a joke", "Describe a dream you had recently", "Share your favorite childhood memory"]
+# }' | python -m json.tool # python for pretty-printing, optional
+# ```
+#
+# And now you have a high-throughput, low-latency, autoscaling API for serving LLaMA 3 8B completions!
+#
+# ## Footer
+#
+# The rest of the code in this example is utility code.
 
 
 COLOR = {
@@ -272,3 +551,22 @@ COLOR = {
     "RED": "\033[91m",
     "ENDC": "\033[0m",
 }
+
+
+def extract_assistant_response(output_text):
+    """Model-specific code to extract model responses.
+
+    See this doc for LLaMA 3: https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/."""
+    # Split the output text by the assistant header token
+    parts = output_text.split("<|start_header_id|>assistant<|end_header_id|>")
+
+    if len(parts) > 1:
+        # Join the parts after the first occurrence of the assistant header token
+        response = parts[1].split("<|eot_id|>")[0].strip()
+
+        # Remove any remaining special tokens and whitespace
+        response = response.replace("<|eot_id|>", "").strip()
+
+        return response
+    else:
+        return output_text
