@@ -3,7 +3,7 @@
 # In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
 # at a total throughput of roughly 4,500 output tokens per second on a single NVIDIA A100 40GB GPU.
 # At [Modal's on-demand rate](https://modal.com/pricing) of ~$4/hr, that's under $0.20 per million tokens --
-# on auto-scaling infrastructure and served via an API.
+# on auto-scaling infrastructure and served via a customizable API.
 #
 # Additional optimizations like speculative sampling and FP8 quantization can further improve throughput.
 # For more on the throughput levels that are possible with TensorRT-LLM for different combinations
