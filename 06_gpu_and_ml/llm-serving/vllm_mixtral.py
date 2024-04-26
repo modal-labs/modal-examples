@@ -63,7 +63,7 @@ def download_model_to_image(model_dir, model_name, model_revision):
 # the model are saved within the container image.
 
 vllm_image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "vllm==0.4.0.post1",
         "torch==2.1.2",
