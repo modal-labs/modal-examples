@@ -41,8 +41,10 @@ image = (
     )
     .run_commands(
         "pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch",
-        "git clone https://github.com/nerfstudio-project/nerfstudio.git",
-        "cd nerfstudio && pip install -e .",
+    )
+    .run_commands(
+        "git clone https://github.com/nerfstudio-project/nerfstudio.git /nerfstudio",
+        "cd /nerfstudio && pip install -e .",
         gpu=gpu_device,
     )
     .pip_install(
@@ -67,5 +69,5 @@ app = modal.App(name="nerfstudio-on-modal", image=image)
 def nerfstudio_web():
     import subprocess
 
-    cmd = "cd nerfstudio && python -m nerfstudio.server --port 7007"
+    cmd = "cd /nerfstudio && python -m nerfstudio.server --port 7007"
     subprocess.Popen(cmd, shell=True)
