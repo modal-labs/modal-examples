@@ -3,47 +3,46 @@
 # ---
 # # Structured Data Extraction using `instructor`
 #
-# This example demonstrates how to use the `instructor` library to extract structured data from unstructured text.
+# This example demonstrates how to use the `instructor` library to extract structured, schematized data from unstructured text.
 #
-# Structured output is a powerful but under-appreciated feature of LLMs,
-# because it makes it easier to connect LLMs to other software,
-# for example enabling the ingestion of unstructured data into structured databases.
+# Structured output is a powerful but under-appreciated feature of LLMs.
+# Structured output allows LLMs and multimodal models to connect to traditional software,
+# for example enabling the ingestion of unstructured data like text files into structured databases.
+# Applied properly, it makes them an extreme example of the [Robustness Principle](https://en.wikipedia.org/wiki/Robustness_principle)
+# Jon Postel formulated for TCP: "Be conservative in what you send, be liberal in what you accept".
 #
-# The unstructured data in this example is the code from the examples in the Modal examples repository --
-# including this one!
-#
-# We use this exact code to monitor the coverage of the examples
-# and to make decisions about which examples to write next!
+# The unstructured data used in this example code is the code from the examples in the Modal examples repository --
+# including this example's code!
 #
 # The output includes a JSONL file containing, on each line, the metadata extracted from the code in one example.
 # This can be consumed downstream by other software systems, like a database or a dashboard.
 #
-# We include in this folder a Jupyter notebook with some basic analyses.
-#
 # ## Environment setup
 #
-# We setup the environment our code will run in first.
+# We set up the environment our code will run in first.
 # In Modal, we define environments via [container images](https://modal.com/docs/guide/custom-container),
 # much like Docker images, by iteratively chaining together commands.
 #
-# This example also uses models from Anthropic, so if you want to run it yourself,
-# you'll need to set up a Modal [`Secret`](https://modal.com/docs/guide/secrets)
-# called `my-anthropic-secret` for your OpenAI API key.
+# Here there's just one command, installing instructor and the Python SDK for Anthropic's LLM API.
 from pathlib import Path
 from typing import Literal, Optional
 
 import modal
+from pydantic import BaseModel, Field
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "instructor~=1.0.0", "anthropic~=0.23.1", "matplotlib~=3.8.3"
+    "instructor~=1.0.0", "anthropic~=0.23.1"
 )
+
+# This example uses models from Anthropic, so if you want to run it yourself,
+# you'll need to set up a Modal [`Secret`](https://modal.com/docs/guide/secrets)
+# called `my-anthropic-secret` for your OpenAI API key.
 
 app = modal.App(
     image=image, secrets=[modal.Secret.from_name("my-anthropic-secret")]
 )  # Note: prior to April 2024, "app" was called "stub"
 
-
-# ## The overall flow
+# ## Running Modal functions from the command line
 #
 # We'll run the example by calling `modal run instructor_generate.py` from the command line.
 #
@@ -64,7 +63,7 @@ app = modal.App(
 
 
 @app.local_entrypoint()
-def main(limit: int = 15, with_opus: bool = False):
+def main(limit: int = 1, with_opus: bool = False):
     # find all of the examples in the repo
     examples = get_examples()
     # optionally limit the number of examples we process
@@ -72,17 +71,17 @@ def main(limit: int = 15, with_opus: bool = False):
         examples = [None]  # just run on this example
     else:
         examples = examples[:limit]
-    if examples:
-        # use Modal to map our extraction function over the examples concurrently
-        results = extract_example_metadata.map(
-            [
-                f"{example.stem}\n" + Path(example.filename).read_text()
-                if example
-                else None
-                for example in examples
-            ],
-            kwargs={"with_opus": with_opus},
-        )
+    # use Modal to map our extraction function over the examples concurrently
+    results = extract_example_metadata.map(
+        (  # iterable of file contents
+            Path(example.filename).read_text() if example else None
+            for example in examples
+        ),
+        (  # iterable of filenames
+            example.stem if example else None for example in examples
+        ),
+        kwargs={"with_opus": with_opus},
+    )
 
     # save the results to a local file
     results_path = Path("/tmp") / "instructor_generate" / "results.jsonl"
@@ -97,15 +96,65 @@ def main(limit: int = 15, with_opus: bool = False):
             f.write(result + "\n")
 
 
-# ## Extracting JSON from unstructured text with `instructor`
+# ## Extracting JSON from unstructured text with `instructor` and Pydantic
 #
-# The real meat of this example is here, in the `extract_example_metadata` function.
+# The real meat of this example is in this section, in the `extract_example_metadata` function and its schemas.
 #
-# TODO: write this up
-# TODO: refactor classes out of this function, explain separately
+# We define a schema for the data we want the LLM to extract, using Pydantic.
+# Instructor ensures that the LLM's output matches this schema.
+#
+# We can use the type system provided by Python and Pydantic to express many useful features
+# of the data we want to extract -- ranging from wide-open fields like a `str`ing-valued `summary`
+# to constrained fields like `difficulty`, which can only take on value between 1 and 5.
 
 
-@app.function(concurrency_limit=5)  # watch those rate limits!
+class ExampleMetadataExtraction(BaseModel):
+    """Extracted metadata about an example from the Modal examples repo."""
+
+    summary: str = Field(..., description="A brief summary of the example.")
+    has_thorough_explanation: bool = Field(
+        ...,
+        description="The example contains, in the form of inline comments with markdown formatting, a thorough explanation of what the code does.",
+    )
+    domains: list[
+        Literal[
+            "artificial_intelligence",
+            "machine_learning",
+            "data_science",
+            "web_serving",
+            "parallel_computing",
+        ]
+    ] = Field(..., description="The")
+    difficulty: Literal[1, 2, 3, 4, 5] = Field(
+        ...,
+        description="The difficulty of the example, from 1 to 5. An example that uses only one or two basic Modal features and is understandable by a professional Python developer familiar with the basics of the relevant domains is a 1, while an example that uses many Modal features and uses advanced Python features like async generator coroutines or metaclasses is a 5.",
+    )
+    freshness: float = Field(
+        ...,
+        description="The freshness of the example, from 0 to 1. This is relative to your knowledge cutoff. Examples are less fresh if they use older libraries and tools.",
+    )
+
+
+# That schema describes the data to be extracted by the LLM, but not all data is best extracted by an LLM.
+# For example, the filename is easily determined in software.
+#
+# So we inject that information into the output after the LLM has done its work. That necessitates
+# an additional schema, which inherits from the first.
+
+
+class ExampleMetadata(ExampleMetadataExtraction):
+    """Metadata about an example from the Modal examples repo."""
+
+    filename: Optional[str] = Field(
+        ..., description="The filename of the example."
+    )
+
+
+# With these schemas in hand, it's straightforward to write the function that extracts the metadata.
+# Note that we decorate it with `@app.function` to make it run on Modal.
+
+
+@app.function(concurrency_limit=5)  # watch those LLM API rate limits!
 def extract_example_metadata(
     example_contents: Optional[str] = None,
     filename: Optional[str] = None,
@@ -113,47 +162,16 @@ def extract_example_metadata(
 ):
     import instructor
     from anthropic import Anthropic
-    from pydantic import BaseModel, Field
 
+    # if no example is provided, use the contents of this example
     if example_contents is None:
         example_contents = Path(__file__).read_text()
         filename = Path(__file__).name
 
-    class ExampleMetadataExtraction(BaseModel):
-        """Extracted metadata about an example from the Modal examples repo."""
-
-        summary: str = Field(..., description="A brief summary of the example.")
-        has_thorough_explanation: bool = Field(
-            ...,
-            description="The example contains, in the form of inline comments with markdown formatting, a thorough explanation of what the code does.",
-        )
-        domains: list[
-            Literal[
-                "artificial_intelligence",
-                "machine_learning",
-                "data_science",
-                "web_serving",
-                "parallel_computing",
-            ]
-        ] = Field(..., description="The")
-        difficulty: Literal[1, 2, 3, 4, 5] = Field(
-            ...,
-            description="The difficulty of the example, from 1 to 5. An example that uses only one or two basic Modal features and is understandable by a professional Python developer familiar with the basics of the relevant domains is a 1, while an example that uses many Modal features and uses advanced Python features like async generator coroutines or metaclasses is a 5.",
-        )
-        freshness: float = Field(
-            ...,
-            description="The freshness of the example, from 0 to 1. This is relative to your knowledge cutoff. Examples are less fresh if they use older libraries and tools.",
-        )
-
-    class ExampleMetadata(ExampleMetadataExtraction):
-        """Metadata about an example from the Modal examples repo."""
-
-        filename: str = Field(..., description="The filename of the example.")
-
     client = instructor.from_anthropic(Anthropic())
-
     model = "claude-3-opus-20240229" if with_opus else "claude-3-haiku-20240307"
 
+    # add the schema as the `response_model` argument in what otherwise looks like a normal LLM API call
     extracted_metadata = client.messages.create(
         model=model,
         temperature=0.0,
@@ -167,18 +185,19 @@ def extract_example_metadata(
         ],
     )
 
+    # inject the filename
     full_metadata = ExampleMetadata(
         **extracted_metadata.dict(), filename=filename
     )
 
+    # return it as JSON
     return full_metadata.model_dump_json()
 
 
 # ## Addenda
 #
 # The rest of the code used in this example is not particularly interesting:
-# some boilerplate matplotlib code to generate the figures,
-# and a utility function to find all of the examples.
+# just a utility function to find all of the examples, which we invoke in the `local_entrypoint` above.
 
 
 def get_examples(silent=True):
@@ -195,7 +214,7 @@ def get_examples(silent=True):
     spec.loader.exec_module(example_utils)
     examples = [
         example
-        for example in example_utils.get_examples(silent=silent)
+        for example in example_utils.get_examples()
         if example.type != 2  # filter out non-code assets
     ]
     return examples
