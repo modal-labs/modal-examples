@@ -56,7 +56,7 @@ def download_model_to_image(model_dir, model_name):
 # We’ll start from Modal's Debian slim image.
 # Then we’ll use `run_function` with `download_model_to_image` to write the model into the container image.
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "vllm==0.4.0.post1",
         "torch==2.1.2",
