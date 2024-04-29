@@ -9,13 +9,18 @@
 # You can run it on CPUs to scale out on one hundred of containers
 # or run it on GPUs to get higher throughput per node.
 # Even with this simple scene, GPUs render 2x faster than CPUs.
+#
+# The final render looks something like this:
+#
+# ![Spinning Modal logo](https://modal-public-assets.s3.amazonaws.com/modal-blender-render.gif)
+#
+# ## Defining a Modal app
+
 import io
 import math
 from pathlib import Path
 
 import modal
-
-# ## Defining a Modal app
 
 # Modal runs your Python functions for you in the cloud.
 # You organize your code into apps, collections of functions that work together.
