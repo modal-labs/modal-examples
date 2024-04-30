@@ -137,6 +137,7 @@ def configure_rendering(ctx, with_gpu: bool):
     ctx.scene.render.resolution_x = 1920
     ctx.scene.render.resolution_y = 1080
     ctx.scene.render.resolution_percentage = 100
+    ctx.scene.cycles.samples = 128
 
     # add GPU acceleration if available
     if with_gpu:
@@ -220,7 +221,8 @@ def combine(
 #
 # The bytes for the video come back to our local machine, and we write them to a file.
 #
-# The whole rendering process (for six seconds of 1080p 60 FPS video) takes between five and ten minutes on 10 T4 GPUs.
+# The whole rendering process (for six seconds of 1080p 60 FPS video) takes about five minutes to run on 10 T4 GPUs,
+# with a per-frame latency of under 10 seconds, and about two minutes to run on 100 CPUs, with a per-frame latency of about 30 seconds.
 
 
 @app.local_entrypoint()
