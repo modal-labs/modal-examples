@@ -48,7 +48,6 @@ LAUNCH_FLAGS = [
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
 # as part of the image build.
 #
-#
 # For this step to work on a [gated model](https://huggingface.co/docs/text-generation-inference/en/basic_tutorials/gated_model_access)
 # like Mixtral 8x7B, the `HF_TOKEN` environment variable must be set.
 #
