@@ -206,7 +206,7 @@ def get_examples(silent=True):
     We use importlib to avoid the need to define the repo as a package."""
     import importlib
 
-    examples_root = Path(__file__).parent.parent.parent.parent
+    examples_root = Path(__file__).parent.parent.parent
     spec = importlib.util.spec_from_file_location(
         "utils", f"{examples_root}/internal/utils.py"
     )
