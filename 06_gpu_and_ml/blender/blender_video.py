@@ -6,9 +6,9 @@
 # This example shows how you can render an animated 3D scene using
 # [Blender](https://www.blender.org/)'s Python interface.
 #
-# You can run it on CPUs to scale out on one hundred of containers
+# You can run it on CPUs to scale out on one hundred containers
 # or run it on GPUs to get higher throughput per node.
-# Even with this simple scene, GPUs render 2x faster than CPUs.
+# Even with this simple scene, GPUs render 10x faster than CPUs.
 #
 # The final render looks something like this:
 #
@@ -60,7 +60,7 @@ WITH_GPU = True  # try changing this to False to run rendering massively in para
 
 
 @app.function(
-    gpu="T4" if WITH_GPU else None,
+    gpu="A10G" if WITH_GPU else None,
     concurrency_limit=10
     if WITH_GPU
     else 100,  # default limits on Modal free tier
@@ -104,12 +104,33 @@ def render(angle: int = 0) -> bytes:
     # add the Modal logo: two neon green rectangular prisms
     iridescent_material = create_iridescent_material()
 
-    add_prism(ctx, (-1, 0, 0), 45, angle, iridescent_material)
-    add_prism(ctx, (3, 0, 0), -45, angle, iridescent_material)
+    add_prism(ctx, (-2.07, -1, 0), 45, angle, iridescent_material)
+    add_prism(ctx, (2.07, 1, 0), -45, angle, iridescent_material)
 
-    # set up the lighting and camera
+    # set up the lighting
+    # warm key light
     bpy.ops.object.light_add(type="POINT", location=(5, 5, 5))
-    bpy.context.object.data.energy = 10
+    key_light = bpy.context.object
+    key_light.data.energy = 100
+    key_light.data.color = (1, 0.8, 0.5)  # warm
+
+    # tight, cool spotlight
+    bpy.ops.object.light_add(type="SPOT", radius=1, location=(4, 0, 6))
+    spot_light = bpy.context.object
+    spot_light.data.energy = 500
+    spot_light.data.spot_size = 0.5
+    spot_light.data.color = (0.8, 0.8, 1)  # cool
+    spot_light.rotation_euler = (3.14 / 4, 0, -3.14 / 4)
+
+    # soft overall illumination
+    bpy.ops.object.light_add(type="AREA", radius=3, location=(-3, 3, 5))
+    area_light = bpy.context.object
+    area_light.data.energy = 50  # softer
+    area_light.data.size = 5  # larger
+    area_light.data.color = (1, 1, 1)  # neutral
+    area_light.rotation_euler = (3.14 / 2, 0, 3.14)
+
+    # add camera
     bpy.ops.object.camera_add(location=(7, -7, 5))
     scene.camera = bpy.context.object
     ctx.object.rotation_euler = (1.1, 0, 0.785)
@@ -221,8 +242,8 @@ def combine(
 #
 # The bytes for the video come back to our local machine, and we write them to a file.
 #
-# The whole rendering process (for six seconds of 1080p 60 FPS video) takes about five minutes to run on 10 T4 GPUs,
-# with a per-frame latency of under 10 seconds, and about two minutes to run on 100 CPUs, with a per-frame latency of about 30 seconds.
+# The whole rendering process (for six seconds of 1080p 60 FPS video) takes about five minutes to run on 10 A10G GPUs,
+# with a per-frame latency of about 10 seconds, and about five minutes to run on 100 CPUs, with a per-frame latency of about one minute.
 
 
 @app.local_entrypoint()
@@ -251,6 +272,11 @@ def add_prism(ctx, location, initial_rotation, angle, material):
     bpy.ops.mesh.primitive_cube_add(size=2, location=location)
     obj = ctx.object  # the newly created object
 
+    bevel = obj.modifiers.new(name="Bevel", type="BEVEL")
+    bevel.width = 0.2
+    bevel.segments = 5
+    bevel.profile = 1.0
+
     # assign the material to the object
     obj.data.materials.append(material)
 
@@ -278,13 +304,22 @@ def create_iridescent_material():
 
     nodes.clear()
 
-    output_node = nodes.new(type="ShaderNodeOutputMaterial")
+    principled_node = nodes.new(type="ShaderNodeBsdfPrincipled")
+
     emission_node = nodes.new(type="ShaderNodeEmission")
     layer_weight = nodes.new(type="ShaderNodeLayerWeight")
     color_ramp = nodes.new(type="ShaderNodeValToRGB")
 
+    mix_shader_node = nodes.new(type="ShaderNodeMixShader")
+
+    output_node = nodes.new(type="ShaderNodeOutputMaterial")
+
+    principled_node.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    principled_node.inputs["Metallic"].default_value = 1.0
+    principled_node.inputs["Roughness"].default_value = 0.5
+
     color_ramp.color_ramp.elements[0].color = (0, 0, 0, 1)
-    color_ramp.color_ramp.elements[1].color = (0, 1, 0, 1)
+    color_ramp.color_ramp.elements[1].color = (0, 0.5, 0, 1)
     layer_weight.inputs["Blend"].default_value = 0.4
 
     links.new(layer_weight.outputs["Fresnel"], color_ramp.inputs["Fac"])
@@ -293,6 +328,10 @@ def create_iridescent_material():
     emission_node.inputs["Strength"].default_value = 5.0
     emission_node.inputs["Color"].default_value = (0.0, 1.0, 0.0, 1)
 
-    links.new(emission_node.outputs["Emission"], output_node.inputs["Surface"])
+    links.new(emission_node.outputs["Emission"], mix_shader_node.inputs[1])
+    links.new(principled_node.outputs["BSDF"], mix_shader_node.inputs[2])
+    links.new(layer_weight.outputs["Fresnel"], mix_shader_node.inputs["Fac"])
+
+    links.new(mix_shader_node.outputs["Shader"], output_node.inputs["Surface"])
 
     return mat
