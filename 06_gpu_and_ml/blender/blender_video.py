@@ -107,30 +107,8 @@ def render(angle: int = 0) -> bytes:
     add_prism(ctx, (-2.07, -1, 0), 45, angle, iridescent_material)
     add_prism(ctx, (2.07, 1, 0), -45, angle, iridescent_material)
 
-    # set up the lighting
-    # warm key light
-    bpy.ops.object.light_add(type="POINT", location=(5, 5, 5))
-    key_light = bpy.context.object
-    key_light.data.energy = 100
-    key_light.data.color = (1, 0.8, 0.5)  # warm
-
-    # tight, cool spotlight
-    bpy.ops.object.light_add(type="SPOT", radius=1, location=(4, 0, 6))
-    spot_light = bpy.context.object
-    spot_light.data.energy = 500
-    spot_light.data.spot_size = 0.5
-    spot_light.data.color = (0.8, 0.8, 1)  # cool
-    spot_light.rotation_euler = (3.14 / 4, 0, -3.14 / 4)
-
-    # soft overall illumination
-    bpy.ops.object.light_add(type="AREA", radius=3, location=(-3, 3, 5))
-    area_light = bpy.context.object
-    area_light.data.energy = 50  # softer
-    area_light.data.size = 5  # larger
-    area_light.data.color = (1, 1, 1)  # neutral
-    area_light.rotation_euler = (3.14 / 2, 0, 3.14)
-
-    # add camera
+    # add lighting and camera
+    add_lighting()
     bpy.ops.object.camera_add(location=(7, -7, 5))
     scene.camera = bpy.context.object
     ctx.object.rotation_euler = (1.1, 0, 0.785)
@@ -335,3 +313,29 @@ def create_iridescent_material():
     links.new(mix_shader_node.outputs["Shader"], output_node.inputs["Surface"])
 
     return mat
+
+
+def add_lighting():
+    import bpy
+
+    # warm key light
+    bpy.ops.object.light_add(type="POINT", location=(5, 5, 5))
+    key_light = bpy.context.object
+    key_light.data.energy = 100
+    key_light.data.color = (1, 0.8, 0.5)  # warm
+
+    # tight, cool spotlight
+    bpy.ops.object.light_add(type="SPOT", radius=1, location=(4, 0, 6))
+    spot_light = bpy.context.object
+    spot_light.data.energy = 500
+    spot_light.data.spot_size = 0.5
+    spot_light.data.color = (0.8, 0.8, 1)  # cool
+    spot_light.rotation_euler = (3.14 / 4, 0, -3.14 / 4)
+
+    # soft overall illumination
+    bpy.ops.object.light_add(type="AREA", radius=3, location=(-3, 3, 5))
+    area_light = bpy.context.object
+    area_light.data.energy = 50  # softer
+    area_light.data.size = 5  # larger
+    area_light.data.color = (1, 1, 1)  # neutral
+    area_light.rotation_euler = (3.14 / 2, 0, 3.14)
