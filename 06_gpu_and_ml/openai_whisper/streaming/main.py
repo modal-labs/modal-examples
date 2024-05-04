@@ -192,7 +192,7 @@ async def stream_whisper(audio_data: bytes):
         yield result["text"]
 
 
-@web_app.get("/")
+@web_app.get("/transcribe")
 async def transcribe(url: str):
     """
     Usage:
