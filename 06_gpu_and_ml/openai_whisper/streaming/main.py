@@ -213,7 +213,7 @@ async def transcribe(url: str):
 
     print(f"downloading {url}")
     try:
-        audio_data = download_mp3_from_youtube(url)
+        audio_data = download_mp3_from_youtube.remote(url)
     except pytube.exceptions.RegexMatchError:
         raise HTTPException(
             status_code=422, detail=f"Could not process url {url}"
