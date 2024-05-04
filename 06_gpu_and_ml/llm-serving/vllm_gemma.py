@@ -121,7 +121,7 @@ class Model:
     @modal.enter()
     def load(self):
         self.template = (
-            "start_of_turn>user\n{user}<end_of_turn>\n<start_of_turn>model"
+            "<start_of_turn>user\n{user}<end_of_turn>\n<start_of_turn>model\n"
         )
 
         # Load the model. Tip: Some models, like MPT, may require `trust_remote_code=true`.
