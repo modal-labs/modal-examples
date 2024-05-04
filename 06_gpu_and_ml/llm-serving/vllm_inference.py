@@ -109,11 +109,11 @@ class Model:
     def load_model(self):
         # Tip: models that are not fully implemented by Hugging Face may require `trust_remote_code=true`.
         self.llm = vllm.LLM(MODEL_DIR, tensor_parallel_size=GPU_CONFIG.count)
-        self.template = """<s>[INST] <<SYS>>
+        self.template = """[INST] <<SYS>>
 {system}
 <</SYS>>
 
-{user} [/INST] """
+{user} [/INST]"""
 
     @modal.method()
     def generate(self, user_questions):
