@@ -187,8 +187,8 @@ async def stream_whisper(audio_data: bytes):
         segment_gen, kwargs=dict(audio_data=audio_data, model="base.en")
     ):
         # Must cooperatively yeild here otherwise `StreamingResponse` will not iteratively return stream parts.
-        # see: https://github.com/python/asyncio/issues/284
-        await asyncio.sleep(0.5)
+        # see: https://github.com/python/asyncio/issues/284#issuecomment-154162668
+        await asyncio.sleep(0)
         yield result["text"]
 
 
