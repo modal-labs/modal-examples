@@ -183,7 +183,7 @@ async def stream_whisper(audio_data: bytes):
         f.flush()
         segment_gen = split_silences(f.name)
 
-    for result in transcribe_segment.starmap(
+    for result in transcribe_segment.starmap.aio(
         segment_gen, kwargs=dict(audio_data=audio_data, model="base.en")
     ):
         # Must cooperatively yeild here otherwise `StreamingResponse` will not iteratively return stream parts.
