@@ -19,7 +19,7 @@ jobs:
           python-version: "3.11"
 
       # keep version here in sync with .pre-commit-config.yaml and other modal repos
-      - run: pip install ruff==0.2.1
+      - run: pip install ruff==0.4.1
 
       - run: ruff check
 
