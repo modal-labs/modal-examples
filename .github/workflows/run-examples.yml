@@ -53,6 +53,9 @@ jobs:
   run-changed:
     name: Run changed example
     needs: [diff-matrix]
+    if:
+      ${{ needs.diff-matrix.outputs.matrix != '[]' &&
+      needs.diff-matrix.outputs.matrix != '' }}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
