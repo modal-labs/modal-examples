@@ -1,4 +1,3 @@
-# TODO: clean this up
 import os
 import subprocess
 import sys
@@ -7,7 +6,7 @@ import time
 from . import utils
 
 MINUTES = 60
-TIMEOUT = 20 * MINUTES
+TIMEOUT = 12 * MINUTES
 
 
 def run_script(example):
@@ -17,11 +16,8 @@ def run_script(example):
         print(f"cli args: {example.cli_args}")
         process = subprocess.run(
             example.cli_args,
-            env=os.environ,
-            capture_output=False,
+            env=os.environ | {"MODAL_SERVE_TIMEOUT": "5.0"},
             timeout=TIMEOUT,
-            stderr=sys.stderr,
-            stdout=sys.stdout,
         )
         total_time = time.time() - t0
         if process.returncode == 0:
@@ -44,12 +40,11 @@ def run_single_example(stem):
     examples = utils.get_examples()
     for example in examples:
         if stem == example.stem:
-            run_script(example)
-            break
+            return run_script(example)
     else:
         print(f"Could not find example name {stem}")
-        exit(1)
+        return 0
 
 
 if __name__ == "__main__":
-    SystemExit(run_single_example(sys.argv[1]))
+    sys.exit(run_single_example(sys.argv[1]))
