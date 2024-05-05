@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: ./.github/actions/setup-cached-python
+      - uses: ./.github/actions/setup
 
       - name: Run
         run: python3 internal/typecheck.py

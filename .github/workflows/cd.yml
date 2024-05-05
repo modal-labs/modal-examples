@@ -19,7 +19,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 1
-      - uses: ./.github/actions/setup-cached-python
+      - uses: ./.github/actions/setup
+        with:
+          devDependencies: skip
 
       - name: Run deployment script
         run: |

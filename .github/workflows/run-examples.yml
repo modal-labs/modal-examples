@@ -1,5 +1,4 @@
-name: Run examples
-# TODO: work on naming
+name: Run
 
 on:
   pull_request:
@@ -27,32 +26,48 @@ env:
   MODAL_ENVIRONMENT: main
 
 jobs:
-  # This job executes any examples that have changed
-  run-changed:
-    name: Run any changed examples
+  # Output all changed files in a JSON format compatible with GitHub Actions job matrices
+  diff-matrix:
+    name: Generate matrix of changed examples
     runs-on: ubuntu-20.04
+    outputs:
+      matrix: ${{ steps.diff.outputs.all_changed_files }}
+
     steps:
-      - name: Checkout the examples repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup-cached-python
+      - name: Find changed examples
+        id: diff
+        uses: tj-actions/changed-files@v44
+        with:
+          files: "**.py"
+          files_ignore: "internal/**,misc/**"
+          matrix: true
 
-      # TODO: PASSING SECRET CURRENTLY NOT WORKING!
-      - name: Run each changed example
-        id: get-changed-files
-        shell: bash
+      - name: List all changed examples
+        run: echo '${{ steps.diff.outputs.all_changed_files }}'
+
+  # Run each changed example, using the output of the previous step as a job matrix
+  run-changed:
+    name: Run changed example
+    needs: [diff-matrix]
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        file: ${{ fromJson(needs.diff-matrix.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - uses: ./.github/actions/setup
+
+      - name: Run example
         run: |
-          files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.py$' | grep -vE '^(misc|internal)/' || true)
-          if [ -z "$files" ]; then
-            echo "No changes found to any .py files in examples"
-            exit 0
-          fi
-          while IFS= read -r file; do
-            stem=$(basename "$file" .py)
-            echo $stem
-            python3 -m internal.run_example $stem
-          done <<< "$files"
-          wait
-          # parallel version is treating failure as success
+          echo "Running ${{ matrix.file }}"
+          stem=$(basename "${{ matrix.file }}" .py)
+          python3 -m internal.run_example $stem || exit $?
