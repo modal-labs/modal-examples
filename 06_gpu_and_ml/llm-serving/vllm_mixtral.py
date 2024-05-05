@@ -121,7 +121,7 @@ class Model:
             disable_log_stats=True,  # disable logging so we can stream tokens
             disable_log_requests=True,
         )
-        self.template = "<s> [INST] {user} [/INST] "
+        self.template = "[INST] {user} [/INST]"
 
         # this can take some time!
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
