@@ -36,6 +36,13 @@ MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 # ### Download the weights
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
+# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# like Mistral 7B, the `HF_TOKEN` environment variable must be set.
+#
+# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
+# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
+# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
+#
 # Tip: avoid using global variables in this function.
 # Changes to code outside this function will not be detected, and the download step will not re-run.
 def download_model_to_image(model_dir, model_name):
@@ -48,6 +55,7 @@ def download_model_to_image(model_dir, model_name):
         model_name,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
+        token=os.environ["HF_TOKEN"],
     )
     move_cache()
 
@@ -56,7 +64,7 @@ def download_model_to_image(model_dir, model_name):
 # We’ll start from Modal's Debian slim image.
 # Then we’ll use `run_function` with `download_model_to_image` to write the model into the container image.
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         "vllm==0.4.0.post1",
         "torch==2.1.2",
@@ -71,6 +79,7 @@ image = (
         download_model_to_image,
         timeout=60 * 20,
         kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
+        secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
 
@@ -100,11 +109,11 @@ class Model:
     def load_model(self):
         # Tip: models that are not fully implemented by Hugging Face may require `trust_remote_code=true`.
         self.llm = vllm.LLM(MODEL_DIR, tensor_parallel_size=GPU_CONFIG.count)
-        self.template = """<s>[INST] <<SYS>>
+        self.template = """[INST] <<SYS>>
 {system}
 <</SYS>>
 
-{user} [/INST] """
+{user} [/INST]"""
 
     @modal.method()
     def generate(self, user_questions):
