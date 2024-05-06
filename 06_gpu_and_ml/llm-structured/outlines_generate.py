@@ -24,7 +24,7 @@
 #  First, you'll want to build an image and install the relevant Python dependencies:
 # `outlines` and a Hugging Face inference stack.
 
-from modal import App, Image, gpu
+from modal import App, Image, Secret, gpu
 
 app = App(
     name="outlines-app"
@@ -42,6 +42,13 @@ outlines_image = Image.debian_slim(python_version="3.11").pip_install(
 # Next, we download the Mistral-7B model from Hugging Face.
 # We do this as part of the definition of our Modal image so that
 # we don't need to download it every time our inference function is run.
+#
+# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# like Mistral 7B, the `HF_TOKEN` environment variable must be set.
+#
+# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
+# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
+# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
 
 
 def import_model():
@@ -50,7 +57,10 @@ def import_model():
     outlines.models.transformers("mistralai/Mistral-7B-v0.1")
 
 
-outlines_image = outlines_image.run_function(import_model)
+outlines_image = outlines_image.run_function(
+    import_model,
+    secrets=[Secret.from_name("huggingface-secret")],
+)
 
 
 # ## Define the schema

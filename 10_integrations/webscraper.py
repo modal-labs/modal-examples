@@ -39,7 +39,9 @@ async def get_links(url: str) -> set[str]:
     return set(links)
 
 
-slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
+slack_sdk_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+    "slack-sdk==3.27.1"
+)
 
 
 @app.function(
@@ -48,9 +50,13 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 )
 def bot_token_msg(channel, message):
     import slack_sdk
+    from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+
+    client = slack_sdk.WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    rate_limit_handler = RateLimitErrorRetryHandler(max_retry_count=3)
+    client.retry_handlers.append(rate_limit_handler)
 
     print(f"Posting {message} to #{channel}")
-    client = slack_sdk.WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.chat_postMessage(channel=channel, text=message)
 
 

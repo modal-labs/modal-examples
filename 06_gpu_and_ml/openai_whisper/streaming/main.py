@@ -183,16 +183,16 @@ async def stream_whisper(audio_data: bytes):
         f.flush()
         segment_gen = split_silences(f.name)
 
-    for result in transcribe_segment.starmap(
+    async for result in transcribe_segment.starmap(
         segment_gen, kwargs=dict(audio_data=audio_data, model="base.en")
     ):
-        # Must cooperatively yeild here otherwise `StreamingResponse` will not iteratively return stream parts.
-        # see: https://github.com/python/asyncio/issues/284
-        await asyncio.sleep(0.5)
+        # Must cooperatively yield here otherwise `StreamingResponse` will not iteratively return stream parts.
+        # see: https://github.com/python/asyncio/issues/284#issuecomment-154162668
+        await asyncio.sleep(0)
         yield result["text"]
 
 
-@web_app.get("/")
+@web_app.get("/transcribe")
 async def transcribe(url: str):
     """
     Usage:
@@ -213,7 +213,7 @@ async def transcribe(url: str):
 
     print(f"downloading {url}")
     try:
-        audio_data = download_mp3_from_youtube(url)
+        audio_data = download_mp3_from_youtube.remote(url)
     except pytube.exceptions.RegexMatchError:
         raise HTTPException(
             status_code=422, detail=f"Could not process url {url}"
