@@ -17,13 +17,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
-
-      - name: Install Modal client package and jupytext
-        run: pip install modal-client jupytext pydantic~=1.10
+          fetch-depth: 1
+      - uses: ./.github/actions/setup
 
       - name: Run deployment script
         run: |
