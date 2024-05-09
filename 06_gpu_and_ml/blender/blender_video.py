@@ -182,7 +182,8 @@ def main():
     output_directory = Path("/tmp") / "render"
     output_directory.mkdir(parents=True, exist_ok=True)
 
-    blend_bytes = Path("IceModal.blend").read_bytes()
+    input_path = Path(__file__).parent / "IceModal.blend"
+    blend_bytes = input_path.read_bytes()
     args = [
         (blend_bytes, frame) for frame in range(1, FRAME_COUNT + 1, FRAME_SKIP)
     ]
