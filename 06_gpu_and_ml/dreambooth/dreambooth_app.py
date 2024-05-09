@@ -427,7 +427,7 @@ def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app
 
-    # Call out to the inference in a separate Modal environment with a GPu
+    # Call out to the inference in a separate Modal environment with a GPU
     def go(text=""):
         if not text:
             text = example_prompts[0]
