@@ -32,7 +32,7 @@ import os
 
 import modal
 
-stub = modal.Stub(
+app = modal.App(
     "example-fetch-stock-prices",
     image=modal.Image.debian_slim().pip_install(
         "httpx~=0.24.0",
@@ -40,7 +40,7 @@ stub = modal.Stub(
         "beautifulsoup4~=4.12.2",
         "matplotlib~=3.7.1",
     ),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Fetch a list of tickers
 #
@@ -49,7 +49,7 @@ stub = modal.Stub(
 # and ask for the top 100 ETFs.
 
 
-@stub.function()
+@app.function()
 def get_stocks():
     import bs4
     import httpx
@@ -75,7 +75,7 @@ def get_stocks():
 # It's fairly simple and just uses the `yfinance` package.
 
 
-@stub.function()
+@app.function()
 def get_prices(symbol):
     import yfinance
 
@@ -94,7 +94,7 @@ def get_prices(symbol):
 # and return the binary content from the function.
 
 
-@stub.function()
+@app.function()
 def plot_stocks():
     from matplotlib import pyplot, ticker
 
@@ -152,7 +152,7 @@ def plot_stocks():
 OUTPUT_DIR = "/tmp/"
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     data = plot_stocks.remote()

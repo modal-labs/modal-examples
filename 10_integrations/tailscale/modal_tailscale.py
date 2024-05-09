@@ -27,12 +27,14 @@ image = (
         'ENTRYPOINT ["/root/entrypoint.sh"]',
     )
 )
-stub = modal.Stub(image=image)
+app = modal.App(
+    image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # Run your function adding a Tailscale secret. It expects an environment variable
 # named `TAILSCALE_AUTHKEY`. We suggest creating a [reusable and ephemeral key](https://tailscale.com/kb/1111/ephemeral-nodes).
-@stub.function(
+@app.function(
     secrets=[
         modal.Secret.from_name("tailscale-auth"),
         modal.Secret.from_dict(

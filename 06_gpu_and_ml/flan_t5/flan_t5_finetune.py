@@ -22,7 +22,7 @@
 from pathlib import Path
 
 import modal
-from modal import Image, Stub, Volume, enter, method, wsgi_app
+from modal import App, Image, Volume, enter, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
 
@@ -37,7 +37,9 @@ image = Image.debian_slim().pip_install(
     "tensorboard",
 )
 
-stub = Stub(name="example-news-summarizer", image=image)
+app = App(
+    name="example-news-summarizer", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
@@ -71,7 +73,7 @@ def track_restarts(restart_tracker: modal.Dict) -> int:
 # Each row in the dataset has a `document` (input news article) and `summary` column.
 
 
-@stub.function(
+@app.function(
     gpu="A10g",
     timeout=7200,
     volumes={VOL_MOUNT_PATH: output_vol},
@@ -199,7 +201,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 # Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
 #
-@stub.function(volumes={VOL_MOUNT_PATH: output_vol})
+@app.function(volumes={VOL_MOUNT_PATH: output_vol})
 @wsgi_app()
 def monitor():
     import tensorboard
@@ -213,7 +215,7 @@ def monitor():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
-    )
+    )  # Note: prior to April 2024, "app" was called "stub"
     return wsgi_app
 
 
@@ -221,7 +223,7 @@ def monitor():
 #
 
 
-@stub.cls(volumes={VOL_MOUNT_PATH: output_vol})
+@app.cls(volumes={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
     @enter()
     def load_model(self):
@@ -244,7 +246,7 @@ class Summarizer:
         return self.summarizer(input)[0]["summary_text"]
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     input = """
     The 14-time major champion, playing in his first full PGA Tour event for almost 18 months,

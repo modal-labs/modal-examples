@@ -1,6 +1,7 @@
 """Defines the logic for running agent code in a sandbox."""
+
 import modal
-from common import COLOR, agent_image, stub
+from common import COLOR, agent_image, app
 
 
 def run(code: str):
@@ -9,7 +10,7 @@ def run(code: str):
         f"{COLOR['GREEN']}{code}{COLOR['ENDC']}",
         sep="\n",
     )
-    sb = stub.spawn_sandbox(
+    sb = app.spawn_sandbox(
         "python",
         "-c",
         code,

@@ -1,7 +1,7 @@
 import pathlib
 import time
 
-from modal import Image, Stub, Volume
+from modal import App, Image, Volume
 
 CACHE_DIR = "/cache"
 MODEL_CACHE = pathlib.Path("/models")
@@ -203,4 +203,6 @@ image = (
     )
     .run_function(load_stable_diffusion_pokemon_model)
 )
-stub = Stub(name="example-text-to-pokemon", image=image)
+app = App(
+    name="example-text-to-pokemon", image=image
+)  # Note: prior to April 2024, "app" was called "stub"

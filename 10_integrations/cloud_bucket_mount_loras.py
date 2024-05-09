@@ -26,10 +26,10 @@ from pathlib import Path
 from typing import Optional
 
 from modal import (
+    App,
     CloudBucketMount,  # the star of the show
     Image,
     Secret,
-    Stub,
     asgi_app,
     build,
     enter,
@@ -71,14 +71,14 @@ with image.imports():
 # We attach the S3 bucket to all the Modal functions in this app by mounting it on the filesystem they see,
 # passing a `CloudBucketMount` to the `volumes` dictionary argument. We can read and write to this mounted bucket
 # (almost) as if it were a local directory.
-stub = Stub(
+app = App(
     "loras-galore",
     image=image,
     volumes={
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
             secret=bucket_secret,
-        )
+        )  # Note: prior to April 2024, "app" was called "stub"
     },
 )
 
@@ -88,7 +88,7 @@ stub = Stub(
 # `search_loras()` will use the Hub API to search for LoRAs. We limit LoRAs
 # to a maximum size to avoid downloading very large model weights.
 # We went with 800 MiB, but feel free to adapt to what works best for you.
-@stub.function()
+@app.function()
 def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
     api = huggingface_hub.HfApi()
 
@@ -124,7 +124,7 @@ def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
 # Downloading files in this mount will automatically upload files to S3.
 # To speed things up, we will run this function in parallel using Modal's
 # [`map`](https://modal.com/docs/reference/modal.Function#map).
-@stub.function()
+@app.function()
 def download_lora(repository_id: str) -> Optional[str]:
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
@@ -161,7 +161,7 @@ def download_lora(repository_id: str) -> Optional[str]:
 # we load whichever LoRA the user specifies from the S3 bucket.
 # For more on the decorators we use on the methods below to speed up building and booting,
 # check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-hooks).
-@stub.cls(gpu="a10g")  # A10G GPUs are great for inference
+@app.cls(gpu="a10g")  # A10G GPUs are great for inference
 class StableDiffusionLoRA:
     pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
 
@@ -201,12 +201,12 @@ class StableDiffusionLoRA:
 
 # ## Try it locally!
 #
-# To use our inference code from our local command line, we add a `local_entrypoint` to our `stub`.
+# To use our inference code from our local command line, we add a `local_entrypoint` to our `app`.
 # Run it using `modal run cloud_bucket_mount_loras.py`, and pass `--help`
 # to see the available options.
 #
 # The inference code will run on our machines, but the results will be available on yours.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(
     limit: int = 100,
     example_lora: str = "ostris/ikea-instructions-lora-sdxl",
@@ -253,9 +253,9 @@ web_app = FastAPI()
 web_image = Image.debian_slim().pip_install("gradio~=3.50.2", "pillow~=10.2.0")
 
 
-@stub.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
+@app.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
 @asgi_app()
-def app():
+def ui():
     """A simple Gradio interface around our LoRA inference."""
     import io
 

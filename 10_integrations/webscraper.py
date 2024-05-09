@@ -5,7 +5,9 @@ import os
 
 import modal
 
-stub = modal.Stub("example-linkscraper")
+app = modal.App(
+    "example-linkscraper"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 playwright_image = modal.Image.debian_slim(
@@ -15,13 +17,13 @@ playwright_image = modal.Image.debian_slim(
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
     "apt-add-repository contrib",
-    "pip install playwright==1.30.0",
+    "pip install playwright==1.42.0",
     "playwright install-deps chromium",
     "playwright install chromium",
 )
 
 
-@stub.function(image=playwright_image)
+@app.function(image=playwright_image)
 async def get_links(url: str) -> set[str]:
     from playwright.async_api import async_playwright
 
@@ -37,22 +39,28 @@ async def get_links(url: str) -> set[str]:
     return set(links)
 
 
-slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
+slack_sdk_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+    "slack-sdk==3.27.1"
+)
 
 
-@stub.function(
+@app.function(
     image=slack_sdk_image,
     secrets=[modal.Secret.from_name("scraper-slack-secret")],
 )
 def bot_token_msg(channel, message):
     import slack_sdk
+    from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+
+    client = slack_sdk.WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    rate_limit_handler = RateLimitErrorRetryHandler(max_retry_count=3)
+    client.retry_handlers.append(rate_limit_handler)
 
     print(f"Posting {message} to #{channel}")
-    client = slack_sdk.WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.chat_postMessage(channel=channel, text=message)
 
 
-@stub.function()
+@app.function()
 def scrape():
     links_of_interest = ["http://modal.com"]
 
@@ -61,11 +69,11 @@ def scrape():
             bot_token_msg.remote("scraped-links", link)
 
 
-@stub.function(schedule=modal.Period(days=1))
+@app.function(schedule=modal.Period(days=1))
 def daily_scrape():
     scrape.remote()
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def run():
     scrape.remote()

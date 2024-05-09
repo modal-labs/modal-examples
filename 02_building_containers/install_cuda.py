@@ -4,18 +4,18 @@
 # We need to add Python 3 and pip with the `add_python` option because the image
 # doesn't have these by default.
 
-from modal import Image, Stub
+from modal import App, Image
 
 image = Image.from_registry(
     "nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.11"
 )
-stub = Stub(image=image)
+app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
 
 # Now, we can create a function with GPU capabilities. Run this file with
 # `modal run install_cuda.py`.
 
 
-@stub.function(gpu="T4")
+@app.function(gpu="T4")
 def f():
     import subprocess
 

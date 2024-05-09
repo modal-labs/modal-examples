@@ -11,11 +11,13 @@ import random
 from typing import Any, Dict, Mapping, Sequence, Union
 
 from fastapi.responses import HTMLResponse
-from modal import Stub, Volume, web_endpoint
+from modal import App, Volume, web_endpoint
 
 from .comfy_ui import image
 
-stub = Stub(name="example-comfy-python-api")
+app = App(
+    name="example-comfy-python-api"
+)  # Note: prior to April 2024, "app" was called "stub"
 vol_name = "comfyui-images"
 vol = Volume.from_name(vol_name, create_if_missing=True)
 
@@ -136,7 +138,7 @@ def run_python_workflow(item: Dict):
 
 # Serves the python workflow behind a web endpoint
 # Generated images are written to a Volume
-@stub.function(image=image, gpu="any", volumes={"/data": vol})
+@app.function(image=image, gpu="any", volumes={"/data": vol})
 @web_endpoint(method="POST")
 def serve_workflow(item: Dict):
     saved_image = run_python_workflow(item)
@@ -152,7 +154,7 @@ def serve_workflow(item: Dict):
 
 
 # Run the workflow as a function rather than an endpoint (for easier local testing)
-@stub.function(image=image, gpu="any")
+@app.function(image=image, gpu="any")
 def run_workflow(item: Dict):
     saved_image = run_python_workflow(item)
     images = saved_image["ui"]["images"]
@@ -164,7 +166,7 @@ def run_workflow(item: Dict):
     return image_list
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main() -> None:
     values = {
         "prompt": "white heron",

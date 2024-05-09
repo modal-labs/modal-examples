@@ -67,7 +67,7 @@ image = (
     )
 )
 
-stub = modal.Stub(
+app = modal.App(
     name="example-stability-lm",
     image=image,
     secrets=[
@@ -75,7 +75,7 @@ stub = modal.Stub(
             {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
         )
     ],
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 class CompletionRequest(BaseModel):
@@ -108,7 +108,7 @@ class CompletionRequest(BaseModel):
     ] = True
 
 
-@stub.cls(gpu="A10G")
+@app.cls(gpu="A10G")
 class StabilityLM:
     def __init__(
         self,
@@ -215,7 +215,7 @@ def format_prompt(instruction: str) -> str:
     return f"<|USER|>{instruction}<|ASSISTANT|>"
 
 
-with stub.image.imports():
+with app.image.imports():
     import uuid
 
     import msgspec
@@ -240,7 +240,7 @@ with stub.image.imports():
                 self.created = int(time.time())
 
 
-@stub.function()
+@app.function()
 @modal.web_endpoint(method="POST")
 async def completions(completion_request: CompletionRequest):
     from fastapi import Response, status
@@ -293,7 +293,7 @@ async def completions(completion_request: CompletionRequest):
     )
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     q_style, q_end = "\033[1m", "\033[0m"
     instructions = [

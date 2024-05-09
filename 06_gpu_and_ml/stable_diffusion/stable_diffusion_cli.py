@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
-# args: ["--prompt", "An 1600s oil painting of the New York City skyline"]
+# args: ["--prompt", "A 1600s oil painting of the New York City skyline"]
 # runtimes: ["runc", "gvisor"]
 # ---
 # # Stable Diffusion CLI
@@ -31,12 +31,14 @@ import io
 import time
 from pathlib import Path
 
-from modal import Image, Stub, build, enter, method
+from modal import App, Image, build, enter, method
 
-# All Modal programs need a [`Stub`](/docs/reference/modal.Stub) — an object that acts as a recipe for
+# All Modal programs need a [`App`](/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-stub = Stub("stable-diffusion-cli")
+app = App(
+    "stable-diffusion-cli"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Model dependencies
 #
@@ -48,22 +50,16 @@ stub = Stub("stable-diffusion-cli")
 
 model_id = "runwayml/stable-diffusion-v1-5"
 
-image = (
-    Image.debian_slim(python_version="3.10")
-    .pip_install(
-        "accelerate",
-        "diffusers[torch]>=0.15.1",
-        "ftfy",
-        "torchvision",
-        "transformers~=4.25.1",
-        "triton",
-        "safetensors",
-    )
-    .pip_install(
-        "torch==2.0.1+cu117",
-        find_links="https://download.pytorch.org/whl/torch_stable.html",
-    )
-    .pip_install("xformers", pre=True)
+image = Image.debian_slim(python_version="3.10").pip_install(
+    "accelerate==0.29.2",
+    "diffusers==0.15.1",
+    "ftfy==6.2.0",
+    "safetensors==0.4.2",
+    "torch==2.2.2",
+    "torchvision",
+    "transformers~=4.25.1",
+    "triton~=2.2.0",
+    "xformers==0.0.25post1",
 )
 
 with image.imports():
@@ -89,7 +85,7 @@ with image.imports():
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@stub.cls(image=image, gpu="A10G")
+@app.cls(image=image, gpu="A10G")
 class StableDiffusion:
     @build()
     @enter()
@@ -141,9 +137,12 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def entrypoint(
-    prompt: str, samples: int = 5, steps: int = 10, batch_size: int = 1
+    prompt: str = "A 1600s oil painting of the New York City skyline",
+    samples: int = 5,
+    steps: int = 10,
+    batch_size: int = 1,
 ):
     print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"

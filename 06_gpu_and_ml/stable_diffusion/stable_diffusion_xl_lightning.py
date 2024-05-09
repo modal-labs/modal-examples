@@ -2,7 +2,9 @@ from pathlib import Path
 
 import modal
 
-stub = modal.Stub("stable-diffusion-xl-lightning")
+app = modal.App(
+    "stable-diffusion-xl-lightning"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "diffusers==0.26.3", "transformers~=4.37.2", "accelerate==0.27.2"
@@ -27,7 +29,7 @@ with image.imports():
     from safetensors.torch import load_file
 
 
-@stub.cls(image=image, gpu="a100")
+@app.cls(image=image, gpu="a100")
 class Model:
     @modal.build()
     @modal.enter()
@@ -82,7 +84,7 @@ class Model:
 # with: `modal run stable_diffusion_xl_lightning.py --prompt "An astronaut riding a green horse"`
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(
     prompt: str = "in the style of Dali, a surrealist painting of a weasel in a tuxedo riding a bicycle in the rain",
 ):
@@ -112,34 +114,36 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
-@stub.function(
+@app.function(
     image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
 @modal.asgi_app()
-def app():
+def ui():
     import fastapi.staticfiles
-    from fastapi import FastAPI
-    from jinja2 import Template
+    from fastapi import FastAPI, Request
+    from fastapi.templating import Jinja2Templates
 
     web_app = FastAPI()
+    templates = Jinja2Templates(directory="/assets")
 
-    with open("/assets/index.html", "r") as f:
-        template_html = f.read()
-
-    template = Template(template_html)
-
-    with open("/assets/index.html", "w") as f:
-        html = template.render(
-            inference_url=Model.web_inference.web_url,
-            model_name="Stable Diffusion XL Lightning",
-            default_prompt="A cinematic shot of a baby raccoon wearing an intricate Italian priest robe.",
+    @web_app.get("/")
+    async def read_root(request: Request):
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "inference_url": Model.web_inference.web_url,
+                "model_name": "Stable Diffusion XL Lightning",
+                "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe.",
+            },
         )
-        f.write(html)
 
     web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory="/assets"),
+        name="static",
     )
 
     return web_app

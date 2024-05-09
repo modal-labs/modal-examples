@@ -8,14 +8,16 @@
 #
 # ## Importing Modal and setting up
 #
-# We start by importing `modal` and creating a `Stub`.
-# We build up from our `Stub` to [define our application](/docs/guide/apps).
+# We start by importing `modal` and creating a `App`.
+# We build up from our `App` to [define our application](/docs/guide/apps).
 
 import sys
 
 import modal
 
-stub = modal.Stub("example-hello-world")
+app = modal.App(
+    "example-hello-world"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Defining a function
 #
@@ -29,11 +31,11 @@ stub = modal.Stub("example-hello-world")
 # then return the input times itself.
 #
 # To make this function work with Modal, we just wrap it in a decorator
-# from our application `stub`,
-# [`@stub.function`](/docs/reference/modal.Stub#function).
+# from our application `app`,
+# [`@app.function`](/docs/reference/modal.App#function).
 
 
-@stub.function()
+@app.function()
 def f(i):
     if i % 2 == 0:
         print("hello", i)
@@ -56,7 +58,7 @@ def f(i):
 # We call `f` in each of these ways inside a `main` function below.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     # run the function locally
     print(f.local(1000))
@@ -78,7 +80,7 @@ def main():
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
 # locally, then remotely, and then remotely and in parallel.
 #
-# That's all triggered by adding the [`@stub.local_entrypoint`](/docs/reference/modal.Stub#local_entrypoint) decorator on `main`,
+# That's all triggered by adding the [`@app.local_entrypoint`](/docs/reference/modal.App#local_entrypoint) decorator on `main`,
 # which defines it as the function to start from locally when we invoke `modal run`.
 #
 # ## What just happened?

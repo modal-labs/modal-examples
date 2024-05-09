@@ -8,7 +8,9 @@ import sys
 
 import modal
 
-stub = modal.Stub("example-hello-world-async")
+app = modal.App(
+    "example-hello-world-async"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## Defining a function
@@ -18,7 +20,7 @@ stub = modal.Stub("example-hello-world-async")
 # Let's stick to a normal synchronous function
 
 
-@stub.function()
+@app.function()
 def f(i):
     if i % 2 == 0:
         print("hello", i)
@@ -35,7 +37,7 @@ def f(i):
 # Otherwise we would block the event loop while our call is being run.
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 async def run_async():
     # Call the function using .remote.aio() in order to run it asynchronously
     print(await f.remote.aio(1000))

@@ -7,7 +7,7 @@ import socket
 import subprocess
 from pathlib import Path
 
-from modal import Image, Secret, Stub, Volume, enter, exit, gpu, method
+from modal import App, Image, Secret, Volume, enter, exit, gpu, method
 
 GPU_CONFIG = gpu.A10G()
 MODEL_ID = "BAAI/bge-base-en-v1.5"
@@ -60,12 +60,12 @@ def download_model():
 
 volume = Volume.from_name("tei-hn-data", create_if_missing=True)
 
-stub = Stub("example-tei")
+app = App("example-tei")  # Note: prior to April 2024, "app" was called "stub"
 
 
 tei_image = (
     Image.from_registry(
-        "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
+        DOCKER_IMAGE,
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
@@ -79,11 +79,10 @@ tei_image = (
 
 
 with tei_image.imports():
-    import numpy as np
     from httpx import AsyncClient
 
 
-@stub.cls(
+@app.cls(
     secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     image=tei_image,
@@ -109,9 +108,7 @@ class TextEmbeddingsInference:
         resp.raise_for_status()
         outputs = resp.json()
 
-        # Returning a list is slower because of additional Modal-specific overhead,
-        # to be fixed shortly.
-        return np.array(zip(ids, outputs))
+        return list(zip(ids, outputs))
 
 
 def download_data():
@@ -139,7 +136,7 @@ def download_data():
     volume.commit()
 
 
-image = Image.debian_slim().pip_install(
+image = Image.debian_slim(python_version="3.10").pip_install(
     "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
 )
 
@@ -148,7 +145,7 @@ with image.imports():
     from google.oauth2 import service_account
 
 
-@stub.function(
+@app.function(
     image=image,
     secrets=[Secret.from_name("bigquery")],
     volumes={DATA_PATH.parent: volume},

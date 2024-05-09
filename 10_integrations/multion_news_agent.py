@@ -5,15 +5,17 @@
 
 # In this example, we use Modal to deploy a cron job that periodically checks for AI news everyday and tweets it on Twitter using the MultiOn Agent API.
 
-# ## Import and define the stub
+# ## Import and define the app
 #
-# Let's start off with imports, and defining a Modal stub.
+# Let's start off with imports, and defining a Modal app.
 
 import os
 
 import modal
 
-stub = modal.Stub("multion-news-tweet-agent")
+app = modal.App(
+    "multion-news-tweet-agent"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Searching for AI News
 #
@@ -36,7 +38,7 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 # To use the API create a [MultiOn API Key](https://app.multion.ai/api-keys) and store it as a modal secret on [the dashboard](https://modal.com/secrets)
 
 
-@stub.function(
+@app.function(
     image=multion_image, secrets=[modal.Secret.from_name("MULTION_API_KEY")]
 )
 def news_tweet_agent():
@@ -62,14 +64,14 @@ def news_tweet_agent():
 
 # ## Test running
 #
-# We can now test run our scheduled function as follows: `modal run multion_news_agent.py.py::stub.news_tweet_agent`
+# We can now test run our scheduled function as follows: `modal run multion_news_agent.py.py::app.news_tweet_agent`
 
 # ## Defining the schedule and deploying
 #
 # Let's define a function that will be called by Modal every day.
 
 
-@stub.function(schedule=modal.Cron("0 9 * * *"))
+@app.function(schedule=modal.Cron("0 9 * * *"))
 def run_daily():
     news_tweet_agent.remote()
 

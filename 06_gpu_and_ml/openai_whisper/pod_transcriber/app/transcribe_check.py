@@ -2,9 +2,9 @@ import pathlib
 
 from . import config, podcast
 from .main import (
+    app,
     app_image,
     split_silences,
-    stub,
     transcribe_episode,
     transcribe_segment,
     volume,
@@ -35,7 +35,7 @@ def _transcribe_serially(
     return failed_segments
 
 
-@stub.function(
+@app.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
     timeout=1000,
@@ -125,5 +125,5 @@ def test_transcribe_handles_dangling_segment():
 
 
 if __name__ == "__main__":
-    with stub.run():
+    with app.run():
         test_transcribe_handles_dangling_segment()

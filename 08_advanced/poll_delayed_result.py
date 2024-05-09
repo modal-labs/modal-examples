@@ -2,16 +2,16 @@
 # lambda-test: false
 # ---
 import fastapi
-from modal import Image, Stub, asgi_app
+from modal import App, Image, asgi_app
 from modal.functions import FunctionCall
 from starlette.responses import HTMLResponse, RedirectResponse
 
-stub = Stub("example-poll")
+app = App("example-poll")  # Note: prior to April 2024, "app" was called "stub"
 
 web_app = fastapi.FastAPI()
 
 
-@stub.function(image=Image.debian_slim().pip_install("primefac"))
+@app.function(image=Image.debian_slim().pip_install("primefac"))
 def factor_number(number):
     import primefac
 
@@ -52,7 +52,7 @@ async def web_poll(function_id: str):
     return result
 
 
-@stub.function()
+@app.function()
 @asgi_app()
 def fastapi_app():
     return web_app

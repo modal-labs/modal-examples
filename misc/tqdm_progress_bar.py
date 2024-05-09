@@ -2,13 +2,13 @@ import time
 
 import modal
 
-stub = modal.Stub(
+app = modal.App(
     "example-tqdm",
     image=modal.Image.debian_slim().pip_install("tqdm"),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
-@stub.function()
+@app.function()
 def f():
     from tqdm import tqdm
 
@@ -17,5 +17,5 @@ def f():
 
 
 if __name__ == "__main__":
-    with stub.run():
+    with app.run():
         f.remote()

@@ -2,7 +2,7 @@ import asyncio
 import json
 import subprocess
 
-from modal import Image, Secret, Stub, Volume, build, enter, exit, gpu, method
+from modal import App, Image, Secret, Volume, build, enter, exit, gpu, method
 
 # We first set out configuration variables for our script.
 ## Embedding Containers Configuration
@@ -47,7 +47,9 @@ LAUNCH_FLAGS = [
 ]
 
 
-stub = Stub("example-embeddings")
+app = App(
+    "example-embeddings"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 def spawn_server() -> subprocess.Popen:
@@ -76,7 +78,7 @@ tei_image = (
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
-    .pip_install("httpx")
+    .pip_install("httpx", "numpy")
 )
 
 with tei_image.imports():
@@ -120,7 +122,7 @@ def generate_batches(xs, batch_size):
         yield batch
 
 
-@stub.cls(
+@app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
     concurrency_limit=GPU_CONCURRENCY,
@@ -255,7 +257,7 @@ def upload_result_to_hf(batch_size: int) -> None:
     print(f"Uploaded in {end-start}s")
 
 
-@stub.function(
+@app.function(
     image=Image.debian_slim().pip_install(
         "datasets", "pyarrow", "hf_transfer", "huggingface_hub"
     ),
@@ -334,7 +336,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     return resp
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def full_job():
     batch_size = 512 * 150
     with open("benchmarks.json", "a") as f:

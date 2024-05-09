@@ -112,7 +112,9 @@ image = (
     .run_function(download_checkpoints)
     .run_function(download_plugins)
 )
-stub = modal.Stub(name="example-comfy-ui", image=image)
+app = modal.App(
+    name="example-comfy-ui", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Start the ComfyUI server
 #
@@ -122,7 +124,7 @@ stub = modal.Stub(name="example-comfy-ui", image=image)
 # For ASGI-compatible frameworks, you can also use Modal's `@asgi_app` decorator.
 
 
-@stub.function(
+@app.function(
     gpu="any",
     # Allows 100 concurrent requests per container.
     allow_concurrent_inputs=100,

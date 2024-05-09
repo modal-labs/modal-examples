@@ -12,15 +12,15 @@
 import modal
 
 # We build a custom image by adding the `google` package to the base image.
-stub = modal.Stub(
+app = modal.App(
     "example-google-search-generator",
     image=modal.Image.debian_slim().pip_install("google"),
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # Next, let's define a _generator_ function that uses our custom image.
 
 
-@stub.function()
+@app.function()
 def scrape(query):
     from googlesearch import search
 
@@ -31,7 +31,7 @@ def scrape(query):
 # Finally, let's launch it from the command line with `modal run`:
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(query: str = "modal"):
     for url in scrape.remote_gen(query):
         print(url)

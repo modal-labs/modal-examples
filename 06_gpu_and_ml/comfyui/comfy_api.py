@@ -27,7 +27,9 @@ generated_workflow_path = (
     pathlib.Path(__file__).parent / "_generated_workflow_api.py"
 )
 
-stub = modal.Stub(name="example-comfy-api")
+app = modal.App(
+    name="example-comfy-api"
+)  # Note: prior to April 2024, "app" was called "stub"
 from .comfy_ui import image
 
 
@@ -102,7 +104,7 @@ def run_workflow(
 # This is adapted from the ComfyUI script examples: https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example.py
 # A better way to execute a workflow programmatically is to convert the JSON to Python code using convert_workflow_to_python
 # Then importing that generated code into a Modal endpoint; see serve_workflow.py
-@stub.function(image=image)
+@app.function(image=image)
 def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     import websocket
 
@@ -125,7 +127,7 @@ def query_comfy_via_api(workflow_data: dict, prompt: str, server_address: str):
     return image_list
 
 
-@stub.function(
+@app.function(
     image=image,
     gpu="any",
 )
@@ -154,7 +156,7 @@ def convert_workflow_to_python(workflow: str):
 # Generate a Python representation of workflow_api.json using this extension: https://github.com/pydn/ComfyUI-to-Python-Extension
 # First, you need to download your workflow_api.json from ComfyUI and save it to this directory.
 # Then, this function will generate a Python version to _generated_workflow_api.py, which you'll reference in workflow_api.py.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def get_python_workflow():
     workflow_text = convert_workflow_to_python.remote(
         pathlib.Path(comfyui_workflow_data_path).read_text()
@@ -163,15 +165,15 @@ def get_python_workflow():
     print(f"saved '{generated_workflow_path}'")
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(prompt: str = "bag of wooden blocks") -> None:
     workflow_data = json.loads(comfyui_workflow_data_path.read_text())
 
     # Run the ComfyUI server app and make an API call to it.
     # The ComfyUI server app will shutdown on exit of this context manager.
-    from comfy_ui import stub as comfyui_stub
+    from comfy_ui import app as comfyui_app
 
-    with comfyui_stub.run(
+    with comfyui_app.run(
         show_progress=False,  # hide server app's modal progress logs
         stdout=open(os.devnull, "w"),  # hide server app's application logs
     ) as comfyui_app:

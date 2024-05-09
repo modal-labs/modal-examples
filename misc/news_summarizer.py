@@ -13,7 +13,9 @@ from typing import List
 
 import modal
 
-stub = modal.Stub(name="example-news-summarizer")
+app = modal.App(
+    name="example-news-summarizer"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 # ## Building Images and Downloading Pre-trained Model
 #
@@ -79,11 +81,11 @@ class NYArticle:
 
 
 # In order to connect to the NYT API, you will need to sign up at [NYT Developer Portal](https://developer.nytimes.com/),
-# create an Stub then grab an API key. Then head to Modal and create a [Secret](https://modal.com/docs/guide/secrets) called `nytimes`.
+# create an App then grab an API key. Then head to Modal and create a [Secret](https://modal.com/docs/guide/secrets) called `nytimes`.
 # Create an environment variable called `NYTIMES_API_KEY` with your API key.
 
 
-@stub.function(
+@app.function(
     secrets=[modal.Secret.from_name("nytimes")],
     image=scraping_image,
 )
@@ -121,7 +123,7 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
 # [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) for that.
 
 
-@stub.function(image=scraping_image)
+@app.function(image=scraping_image)
 def scrape_nyc_article(url: str) -> str:
     print(f"Scraping article => {url}")
 
@@ -150,7 +152,7 @@ def scrape_nyc_article(url: str) -> str:
 # documentation](https://huggingface.co/docs/transformers/model_doc/pegasus). Use `gpu="any"` to speed-up inference.
 
 
-@stub.function(
+@app.function(
     image=deep_learning_image,
     gpu=False,
     memory=4096,
@@ -178,7 +180,7 @@ def summarize_article(text: str) -> str:
 # more advanced scheduling interface.
 
 
-@stub.function(schedule=modal.Period(days=1))
+@app.function(schedule=modal.Period(days=1))
 def trigger():
     articles = latest_science_stories.remote()
 
@@ -207,7 +209,7 @@ def trigger():
 # call it with `modal run news_summarizer.py`
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
     trigger.remote()
 

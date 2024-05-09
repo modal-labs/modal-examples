@@ -9,7 +9,7 @@ from fastapi import FastAPI, Header
 from pydantic import BaseModel
 
 from . import config, models
-from .app import stub, volume
+from .app import app, volume
 
 web_app = FastAPI()
 
@@ -31,7 +31,7 @@ class ModelOutput(BaseModel):
 
 # TODO(Jonathon): This will acquire a GPU even when `model_id` doesn't
 # require it, which is inefficient. Find an elegant way to make the GPU optional.
-@stub.cls(gpu="A10G", volumes={config.VOLUME_DIR: volume})
+@app.cls(gpu="A10G", volumes={config.VOLUME_DIR: volume})
 class Model:
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
@@ -83,11 +83,11 @@ async def handle_classification(
     return model.generate.remote(input_.text)
 
 
-@stub.function()
+@app.function()
 @modal.asgi_app()
 def web():
     return web_app
 
 
 if __name__ == "__main__":
-    stub.serve()
+    app.serve()

@@ -20,7 +20,7 @@
 from io import BytesIO
 from pathlib import Path
 
-from modal import Image, Stub, build, enter, gpu, method
+from modal import App, Image, build, enter, gpu, method
 
 # ## Define a container image
 
@@ -33,7 +33,9 @@ image = Image.debian_slim().pip_install(
     "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
 )
 
-stub = Stub("stable-diffusion-xl-turbo", image=image)
+app = App(
+    "stable-diffusion-xl-turbo", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
 with image.imports():
     import torch
@@ -52,7 +54,7 @@ with image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@app.cls(gpu=gpu.A10G(), container_idle_timeout=240)
 class Model:
     @build()
     def download_models(self):
@@ -103,7 +105,7 @@ class Model:
 DEFAULT_IMAGE_PATH = Path(__file__).parent / "demo_images/dog.png"
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(
     image_path=DEFAULT_IMAGE_PATH,
     prompt="dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k",

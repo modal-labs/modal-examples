@@ -19,9 +19,9 @@ import io
 from pathlib import Path
 
 from modal import (
+    App,
     Image,
     Mount,
-    Stub,
     asgi_app,
     build,
     enter,
@@ -53,13 +53,14 @@ sdxl_image = (
     )
 )
 
-stub = Stub("stable-diffusion-xl")
+app = App(
+    "stable-diffusion-xl"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 with sdxl_image.imports():
     import torch
     from diffusers import DiffusionPipeline
     from fastapi import Response
-    from huggingface_hub import snapshot_download
 
 # ## Load model and run inference
 #
@@ -70,10 +71,12 @@ with sdxl_image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
+@app.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
     @build()
     def build(self):
+        from huggingface_hub import snapshot_download
+
         ignore = [
             "*.bin",
             "*.onnx_data",
@@ -153,11 +156,11 @@ class Model:
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
-# with: `modal run stable_diffusion_xl.py --prompt "An astronaut riding a green horse"`
+# with: `modal run stable_diffusion_xl.py --help
 
 
-@stub.local_entrypoint()
-def main(prompt: str):
+@app.local_entrypoint()
+def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     image_bytes = Model().inference.remote(prompt)
 
     dir = Path("/tmp/stable-diffusion-xl")
@@ -184,34 +187,36 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = Image.debian_slim().pip_install("jinja2")
 
 
-@stub.function(
+@app.function(
     image=web_image,
     mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
 @asgi_app()
-def app():
+def ui():
     import fastapi.staticfiles
-    from fastapi import FastAPI
-    from jinja2 import Template
+    from fastapi import FastAPI, Request
+    from fastapi.templating import Jinja2Templates
 
     web_app = FastAPI()
+    templates = Jinja2Templates(directory="/assets")
 
-    with open("/assets/index.html", "r") as f:
-        template_html = f.read()
-
-    template = Template(template_html)
-
-    with open("/assets/index.html", "w") as f:
-        html = template.render(
-            inference_url=Model.web_inference.web_url,
-            model_name="Stable Diffusion XL",
-            default_prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+    @web_app.get("/")
+    async def read_root(request: Request):
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "inference_url": Model.web_inference.web_url,
+                "model_name": "Stable Diffusion XL",
+                "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+            },
         )
-        f.write(html)
 
     web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory="/assets"),
+        name="static",
     )
 
     return web_app

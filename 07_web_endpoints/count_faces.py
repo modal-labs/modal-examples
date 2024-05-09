@@ -6,7 +6,9 @@ import os
 
 import modal
 
-stub = modal.Stub("example-count-faces")
+app = modal.App(
+    "example-count-faces"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 open_cv_image = (
@@ -16,7 +18,7 @@ open_cv_image = (
 )
 
 
-@stub.function(image=open_cv_image)
+@app.function(image=open_cv_image)
 def count_faces(image_bytes):
     import cv2
     import numpy as np
@@ -65,4 +67,4 @@ if __name__ == "__main__":
 
         return sanic.json({"faces": num_faces})
 
-    stub.run(auto_reload=True, debug=True)
+    app.run(auto_reload=True, debug=True)

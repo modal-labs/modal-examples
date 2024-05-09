@@ -12,7 +12,7 @@ import pathlib
 import modal
 from transformers import Seq2SeqTrainingArguments
 
-from .__main__ import stub, train
+from .__main__ import app, train
 from .config import DataTrainingArguments, ModelArguments, app_config
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 # This remote function should take only ~1 min to run.
 
 
-@stub.function(network_file_systems={app_config.model_dir: test_volume})
+@app.function(network_file_systems={app_config.model_dir: test_volume})
 def test_finetune_one_step_and_save_to_vol(run_id: str):
     output_dir = pathlib.Path(app_config.model_dir, run_id)
     test_model_args = ModelArguments(
@@ -66,7 +66,7 @@ def test_finetune_one_step_and_save_to_vol(run_id: str):
 # ephemeral app that ran the training has stopped.
 
 
-@stub.function(network_file_systems={app_config.model_dir: test_volume})
+@app.function(network_file_systems={app_config.model_dir: test_volume})
 def test_download_and_tryout_model(run_id: str):
     from datasets import Audio, load_dataset
     from evaluate import load
@@ -116,7 +116,7 @@ def test_download_and_tryout_model(run_id: str):
 
 
 def run_test() -> int:
-    with stub.run() as app:
+    with app.run():
         test_finetune_one_step_and_save_to_vol.remote(run_id=app.app_id)
         test_download_and_tryout_model.remote(run_id=app.app_id)
     return 0

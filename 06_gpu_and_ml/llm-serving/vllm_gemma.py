@@ -15,8 +15,9 @@
 # but has been fine-tuned to follow instructions -- like ChatGPT or Claude,
 # it is a model of an assistant that can understand and follow instructions.
 #
-# You can expect cold starts in under 30 seconds and well over 100 tokens/second throughput. The larger the batch of prompts, the higher the throughput.
-# For example, with the 64 prompts below, we can produce nearly 15k tokens with a latency just over 5 seconds, for a throughput of >2.5k tokens/second.
+# You can expect cold starts in under 30 seconds and well over 1000 tokens/second throughput.
+# The larger the batch of prompts, the higher the throughput. For example, with the 64 prompts below,
+# we can produce nearly 15k tokens with a latency just over 5 seconds, for a throughput of >2.5k tokens/second.
 # That's a lot of text!
 #
 #
@@ -30,71 +31,79 @@
 # First we import the components we need from `modal`.
 
 import os
+import time
 
-from modal import Image, Secret, Stub, enter, exit, gpu, method
+import modal
 
 MODEL_DIR = "/model"
-BASE_MODEL = "google/gemma-7b-it"
+MODEL_NAME = "google/gemma-7b-it"
 
 
 # ## Define a container image
 #
 # We want to create a Modal image which has the model weights pre-saved to a directory. The benefit of this
-# is that the container no longer has to re-download the model from Huggingface - instead, it will take
+# is that the container no longer has to re-download the model from Hugging Face - instead, it will take
 # advantage of Modal's internal filesystem for faster cold starts.
 #
 # ### Download the weights
 # Make sure you have created a [HuggingFace access token](https://huggingface.co/settings/tokens).
 # To access the token in a Modal function, we can create a secret on the [secrets page](https://modal.com/secrets).
-# Now the token will be available via the environment variable named `HF_TOKEN`. Functions that inject this secret will have access to the environment variable.
+# Now the token will be available via the environment variable named `HF_TOKEN`. Functions that inject this secret
+# will have access to the environment variable.
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
 # You may need to accept the license agreement from an account associated with that Hugging Face Token
 # to download the model.
-def download_model_to_folder():
+def download_model_to_image(model_dir, model_name):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
 
     snapshot_download(
-        BASE_MODEL,
-        local_dir=MODEL_DIR,
+        model_name,
+        local_dir=model_dir,
         token=os.environ["HF_TOKEN"],
-        ignore_patterns=["*.pt", "*.gguf"],
+        ignore_patterns=["*.pt", "*.gguf"],  # Using safetensors
     )
     move_cache()
 
 
 # ### Image definition
 # We’ll start from a Docker Hub image by NVIDIA and install `vLLM`.
-# Then we’ll use `run_function` to execute `download_model_to_folder`
+# Then we’ll use `run_function` to execute `download_model_to_image`
 # and save the resulting files to the container image -- that way we don't need
 # to redownload the weights every time we change the server's code or start up more instances of the server.
 image = (
-    Image.from_registry(
-        "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
-    )
+    modal.Image.debian_slim(python_version="3.10")
     .pip_install(
-        "vllm==0.3.2",
+        "vllm==0.4.0.post1",
+        "torch==2.1.2",
+        "transformers==4.39.3",
+        "ray==2.10.0",
         "huggingface_hub==0.19.4",
         "hf-transfer==0.1.4",
-        "torch==2.1.2",
     )
     # Use the barebones hf-transfer package for maximum download speeds. Varies from 100MB/s to 1.5 GB/s,
     # so download times can vary from under a minute to tens of minutes.
     # If your download slows down or times out, try interrupting and restarting.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
-        download_model_to_folder,
-        secrets=[Secret.from_name("huggingface-secret")],
+        download_model_to_image,
+        secrets=[modal.Secret.from_name("huggingface-secret")],
         timeout=60 * 20,
+        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
     )
 )
 
-stub = Stub(f"example-vllm-{BASE_MODEL}", image=image)
+app = modal.App(
+    f"example-vllm-{MODEL_NAME}", image=image
+)  # Note: prior to April 2024, "app" was called "stub"
 
+# Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
+with image.imports():
+    import vllm
 
 # ## Encapulate the model in a class
 #
@@ -104,42 +113,29 @@ stub = Stub(f"example-vllm-{BASE_MODEL}", image=image)
 #
 # The `vLLM` library allows the code to remain quite clean!
 
-GPU_CONFIG = gpu.H100(count=1)
+GPU_CONFIG = modal.gpu.H100(count=1)
 
 
-@stub.cls(gpu=GPU_CONFIG, secrets=[Secret.from_name("huggingface-secret")])
+@app.cls(gpu=GPU_CONFIG, secrets=[modal.Secret.from_name("huggingface-secret")])
 class Model:
-    @enter()
+    @modal.enter()
     def load(self):
-        from vllm import LLM
-
-        if GPU_CONFIG.count > 1:
-            # Patch issue from https://github.com/vllm-project/vllm/issues/1116
-            import ray
-
-            ray.shutdown()
-            ray.init(num_gpus=GPU_CONFIG.count)
-
         self.template = (
-            "start_of_turn>user\n{user}<end_of_turn>\n<start_of_turn>model"
+            "<start_of_turn>user\n{user}<end_of_turn>\n<start_of_turn>model\n"
         )
 
         # Load the model. Tip: Some models, like MPT, may require `trust_remote_code=true`.
-        self.llm = LLM(
+        self.llm = vllm.LLM(
             MODEL_DIR,
             enforce_eager=True,  # skip graph capturing for faster cold starts
             tensor_parallel_size=GPU_CONFIG.count,
         )
 
-    @method()
+    @modal.method()
     def generate(self, user_questions):
-        import time
-
-        from vllm import SamplingParams
-
         prompts = [self.template.format(user=q) for q in user_questions]
 
-        sampling_params = SamplingParams(
+        sampling_params = vllm.SamplingParams(
             temperature=0.75,
             top_p=0.99,
             max_tokens=256,
@@ -168,10 +164,11 @@ class Model:
             )
             time.sleep(0.01)
         print(
-            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {BASE_MODEL} in {duration_s:.1f} seconds, throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
+            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {MODEL_NAME} in {duration_s:.1f} seconds,"
+            f" throughput = {num_tokens / duration_s:.0f} tokens/second on {GPU_CONFIG}.{COLOR['ENDC']}"
         )
 
-    @exit()
+    @modal.exit()
     def stop_engine(self):
         if GPU_CONFIG.count > 1:
             import ray
@@ -185,9 +182,8 @@ class Model:
 #
 # The examples below are meant to put the model through its paces, with a variety of questions and prompts.
 # We also calculate the throughput and latency we achieve.
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main():
-    model = Model()
     questions = [
         # Coding questions
         "Implement a Python function to compute the Fibonacci numbers.",
@@ -260,4 +256,5 @@ def main():
         "Tuende hatua kwa hatua. Hesabu jumla ya mfululizo wa kihesabu wenye neno la kwanza 2, neno la mwisho 42, na jumla ya maneno 21.",
         "Kannst du die wichtigsten Eigenschaften und Funktionen des NMDA-Rezeptors beschreiben?",
     ]
+    model = Model()
     model.generate.remote(questions)

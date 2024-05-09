@@ -12,7 +12,7 @@ import sys
 import urllib.request
 
 from . import config
-from .config import stub, volume
+from .config import app, volume
 from .pokemon_naming import (
     fetch_pokemon_names,
     generate_names,
@@ -22,7 +22,7 @@ from .pokemon_naming import (
 )
 
 
-@stub.function(volumes={config.CACHE_DIR: volume})
+@app.function(volumes={config.CACHE_DIR: volume})
 def reset_diskcache(dry_run=True) -> None:
     """
     Delete all Pokémon character samples and cards from disk cache.
@@ -71,7 +71,7 @@ def reset_diskcache(dry_run=True) -> None:
     volume.commit()
 
 
-@stub.function()
+@app.function()
 def extract_colors(num=3) -> None:
     """
     Extracts the colors for all Pokémon cards contained in `config` module
@@ -96,7 +96,7 @@ def extract_colors(num=3) -> None:
     print(json.dumps(config.POKEMON_CARDS, indent=4))
 
 
-@stub.function(
+@app.function(
     image=rnn_image,
     volumes={config.CACHE_DIR: volume},
     timeout=15 * 60,
@@ -159,13 +159,13 @@ def main() -> int:
 
     args = parser.parse_args()
     if args.subcommand == "gen-pokemon-names":
-        with stub.run():
+        with app.run():
             generate_pokemon_names.remote()
     elif args.subcommand == "extract-colors":
-        with stub.run():
+        with app.run():
             extract_colors.remote()
     elif args.subcommand == "reset-diskcache":
-        with stub.run():
+        with app.run():
             reset_diskcache.remote(dry_run=not args.nodry_run)
     elif args.subcommand is None:
         parser.print_help(sys.stderr)

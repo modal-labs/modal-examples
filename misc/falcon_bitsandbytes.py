@@ -17,7 +17,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import Image, Stub, enter, gpu, method, web_endpoint
+from modal import App, Image, enter, gpu, method, web_endpoint
 
 
 # Spec for an image where falcon-40b-instruct is cached locally
@@ -56,7 +56,9 @@ image = (
     .run_function(download_falcon_40b)
 )
 
-stub = Stub(image=image, name="example-falcon-bnb")
+app = App(
+    image=image, name="example-falcon-bnb"
+)  # Note: prior to April 2024, "app" was called "stub"
 
 
 # ## The model class
@@ -64,7 +66,7 @@ stub = Stub(image=image, name="example-falcon-bnb")
 # Next, we write the model code. We want Modal to load the model into memory just once every time a container starts up,
 # so we use [class syntax](https://modal.com/docs/guide/lifecycle-functions) and the `@enter` decorator.
 #
-# Within the [@stub.cls](https://modal.com/docs/reference/modal.Stub#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
+# Within the [@app.cls](https://modal.com/docs/reference/modal.App#cls) decorator, we use the [gpu parameter](/docs/guide/gpu)
 # to specify that we want to run our function on an [A100 GPU](https://modal.com/docs/guide/gpu). We also allow each call 10 mintues to complete,
 # and request the runner to stay live for 5 minutes after its last request.
 #
@@ -72,7 +74,7 @@ stub = Stub(image=image, name="example-falcon-bnb")
 #
 # The rest is just using the [`pipeline`](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
 # abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
-@stub.cls(
+@app.cls(
     gpu=gpu.A100(),  # Use A100s
     timeout=60 * 10,  # 10 minute timeout on inputs
     container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
@@ -166,7 +168,7 @@ prompt_template = (
 )
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def cli(prompt: str = None):
     question = (
         prompt
@@ -182,7 +184,7 @@ def cli(prompt: str = None):
 # you visit the resulting URL with a question parameter in your URL, you can view the model's
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
-@stub.function(timeout=60 * 10)
+@app.function(timeout=60 * 10)
 @web_endpoint()
 def get(question: str):
     from itertools import chain

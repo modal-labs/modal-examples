@@ -29,16 +29,16 @@ persistent_volume = modal.Volume.from_name(
 image = modal.Image.debian_slim().pip_install_from_requirements(
     "requirements.txt"
 )
-stub = modal.Stub(
+app = modal.App(
     name=app_config.app_name,
     image=image,
     secrets=[modal.Secret.from_name("huggingface-secret")],
-)
+)  # Note: prior to April 2024, "app" was called "stub"
 
 logger = get_logger(__name__)
 
 
-@stub.function(
+@app.function(
     gpu="A10G",
     volumes={app_config.model_dir: persistent_volume},
     # 12hrs
@@ -496,11 +496,11 @@ def train(
 
 
 def main() -> int:
-    with stub.run(detach=True) as app:
+    with app.run(detach=True):
         run_id = app.app_id
         output_dir = str(pathlib.Path(app_config.model_dir, run_id))
         args = sys.argv[1:] + [f"--output_dir={str(output_dir)}"]
-        # Modal's @stub.local_entrypoint() uses tiangolo/typer, which doesn't support
+        # Modal's @app.local_entrypoint() uses tiangolo/typer, which doesn't support
         # building CLI interfaces from dataclasses. https://github.com/tiangolo/typer/issues/154
         parser = HfArgumentParser(
             (ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments)
