@@ -37,7 +37,7 @@ app = modal.App("examples-blender-video")
 rendering_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("xorg", "libxkbcommon0")  # X11 (Unix GUI) dependencies
-    .pip_install("bpy")  # Blender as a Python package
+    .pip_install("bpy==4.1.0")  # Blender as a Python package
 )
 
 # ## Rendering a single frame
