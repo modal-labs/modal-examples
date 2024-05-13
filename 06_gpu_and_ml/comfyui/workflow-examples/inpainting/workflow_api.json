@@ -46,7 +46,7 @@
   },
   "6": {
     "inputs": {
-      "seed": 268543777559866,
+      "seed": 366136222179564,
       "steps": 20,
       "cfg": 8,
       "sampler_name": "uni_pc_bh2",
@@ -90,19 +90,6 @@
       "title": "VAE Decode"
     }
   },
-  "8": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "7",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
   "9": {
     "inputs": {
       "grow_mask_by": 6,
@@ -126,19 +113,14 @@
   },
   "10": {
     "inputs": {
-      "protocol": "Https",
-      "text": "",
-      "module_size": 16,
-      "max_image_size": 512,
-      "fill_hexcolor": "#000000",
-      "back_hexcolor": "#FFFFFF",
-      "error_correction": "High",
-      "border": 1,
-      "module_drawer": "Square"
+      "images": [
+        "7",
+        0
+      ]
     },
-    "class_type": "comfy-qr-by-module-size",
+    "class_type": "SaveImageWebsocket",
     "_meta": {
-      "title": "QR Code"
+      "title": "SaveImageWebsocket"
     }
   }
 }
