@@ -81,9 +81,11 @@ def run_python_workflow(item: Dict):
     )
 
     download_image(item["image"])
-    models = json.loads((comfyui_workflow_data_path / "inpainting" / "model.json").read_text())
+    models = json.loads(
+        (comfyui_workflow_data_path / "inpainting" / "model.json").read_text()
+    )
     for m in models:
-        download_to_comfyui(m['url'], m['path'])
+        download_to_comfyui(m["url"], m["path"])
 
     with torch.inference_mode():
         loadimage = LoadImage()

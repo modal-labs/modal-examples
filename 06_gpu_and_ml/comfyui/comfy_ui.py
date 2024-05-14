@@ -65,7 +65,9 @@ app = modal.App(
 # You can define custom checkpoints, plugins, and more in the `workflow-examples/base-model.json` in this directory.
 
 comfyui_workflow_data_path = pathlib.Path(__file__).parent / "workflow-examples"
-base_models = json.loads((pathlib.Path(comfyui_workflow_data_path) / "base-model.json").read_text())
+base_models = json.loads(
+    (pathlib.Path(comfyui_workflow_data_path) / "base-model.json").read_text()
+)
 
 # Specific workflows (like our inpainting example) have their own folder containing the workflow JSON as well as that workflow's corresponding `model.json` which specifies the custom checkpoints/plugins used in the workflow.
 # These get loaded once at container start time and not build time; we'll go into more detail on how that works in the next section.
@@ -78,6 +80,7 @@ with comfyui_image.imports():
         download_to_comfyui,
         get_images,
     )
+
 
 # Here we use Modal's class syntax to build the image (with our custom checkpoints/plugins).
 @app.cls(
@@ -106,22 +109,21 @@ class ComfyUI:
     def ui(self):
         self._run_comfyui_server()
 
-# When you run `modal serve comfyui.comfy_ui`, you'll see a `ComfyUI.ui` link to interactively develop your ComfyUI workflow that has the custom checkpoints/plugins loaded in.
-#
-# Notice the `__init__` constructor.
-# This allows us to leverage a special Modal pattern called [parameterized functions](/docs/guide/lifecycle-functions#parametrized-functions) that will allow us to support arbitrary workflows and custom checkpoints/plugins in an optimized way.
-#
-# ## Optimize performance with `@enter`
-#
-# By setting a `models` argument for the class, we can dynamically download arbitrary models at runtime on top of the base objects that were downloaded at `@build` time.
-# We can use the `@enter` function to optimize inference time by downloading custom models and standing up the ComfyUI server exactly once at container startup time.
+    # When you run `modal serve comfyui.comfy_ui`, you'll see a `ComfyUI.ui` link to interactively develop your ComfyUI workflow that has the custom checkpoints/plugins loaded in.
+    #
+    # Notice the `__init__` constructor.
+    # This allows us to leverage a special Modal pattern called [parameterized functions](/docs/guide/lifecycle-functions#parametrized-functions) that will allow us to support arbitrary workflows and custom checkpoints/plugins in an optimized way.
+    #
+    # ## Optimize performance with `@enter`
+    #
+    # By setting a `models` argument for the class, we can dynamically download arbitrary models at runtime on top of the base objects that were downloaded at `@build` time.
+    # We can use the `@enter` function to optimize inference time by downloading custom models and standing up the ComfyUI server exactly once at container startup time.
     @modal.enter()
     def prepare_comfyui(self):
         self._run_comfyui_server()
 
-
-# Lastly, we write the inference method that takes in any workflow JSON and additional arguments you may want to use to parameterize your workflow JSON (e.g. handle user-defined text prompts, input images).
-# It then runs the workflow programmatically against the running ComfyUI server and returns the images.
+    # Lastly, we write the inference method that takes in any workflow JSON and additional arguments you may want to use to parameterize your workflow JSON (e.g. handle user-defined text prompts, input images).
+    # It then runs the workflow programmatically against the running ComfyUI server and returns the images.
     @modal.method()
     def infer(self, workflow_data: dict, params: dict):
         # input images need to be downloaded to the container at this step
@@ -156,12 +158,14 @@ def backend(item: Dict):
     images = ComfyUI(models).infer.remote(workflow, params)
     return Response(content=images[0], media_type="image/jpeg")
 
+
 # To deploy this API, run `modal deploy comfyui.comfy_ui`
 
 # ## Further optimization
 # After deploying, you can also apply [keep warm](/docs/reference/modal.Function#keep_warm) to a particular `model.json` combination of checkpoints/plugins.
 # This will stand up a dedicated container pool for any workflows that have the same `model.json` config.
 # This can help you further minimize a harsh cold start when a workflow is run for the first time.
+
 
 @app.local_entrypoint()
 def apply_config():
@@ -172,6 +176,7 @@ def apply_config():
         ).read_text()
     )
     DeployedComfyUI(models).infer.keep_warm(1)
+
 
 # Some other things to try:
 #

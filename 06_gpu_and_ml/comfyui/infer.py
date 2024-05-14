@@ -5,7 +5,9 @@ import requests
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--prompt', type=str, required=True, help='object to draw into the image')
+parser.add_argument(
+    "--prompt", type=str, required=True, help="object to draw into the image"
+)
 args = parser.parse_args()
 
 comfyui_workflow_data_path = (
@@ -27,7 +29,7 @@ data = {
 res = requests.post(url, json=data)
 if res.status_code == 200:
     print("Image finished generating!")
-    filename = 'comfyui_gen_image.png'
+    filename = "comfyui_gen_image.png"
     (pathlib.Path.home() / filename).write_bytes(res.content)
     print(f"saved '{filename}'")
 else:
