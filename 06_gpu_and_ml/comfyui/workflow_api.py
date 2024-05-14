@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse
 from modal import App, Volume, web_endpoint
 
 from .comfy_ui import comfyui_image, comfyui_workflow_data_path
+
 with comfyui_image.imports():
     from .helpers import download_to_comfyui
 

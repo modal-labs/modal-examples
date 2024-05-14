@@ -4,32 +4,32 @@
 #
 # # Run a ComfyUI workflow as an API
 #
-# In this example, we show you how to 
-# 
+# In this example, we show you how to
+#
 # 1) Run ComfyUI interactively
-# 
+#
 # 2) Optimize performance with [@enter](/docs/guide/lifecycle-functions#enter)
 #
 # 3) Run a ComfyUI workflow JSON via API
-# 
+#
 # The goal of this example is to give users an easy way to deploy an existing ComfyUI workflow on Modal and show some ways they can reduce inference latency.
-# 
+#
 # An alternative approach is to port your ComfyUI workflow from JSON into Python, which you can check out [in this blog post](/blog/comfyui-prototype-to-production).
 # The Python approach reduces latency by skipping the server standup step entirely, but requires more effort to migrate to from JSON.
-# 
+#
 # ## Quickstart
 # 1) Run `cd 06_gpu_and_ml`
-# 
+#
 # 2) Run `modal serve comfyui.comfy_ui` to stand up the ComfyUI server.
 # This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/) behind an API.
 # Inpainting is the process of filling in an image with another generated image.
 #
 # 3) Run inference with a text prompt: `python -m comfyui.infer --prompt "white heron"`. This creates the following image:
 # ![example comfyui image](./comfyui_gen_image.jpg)
-# 
+#
 # Try running inference again with a different prompt e.g. `python -m comfyui.infer.py --prompt "white tiger"`.
 # Notice how successive inference calls are much faster. In our tests, inference calls drop from 30s to 3s due to our optimized performance design.
-# 
+#
 # Now we'll dive into the step-by-step process of how to run ComfyUI both interactively and as an API, as well as how we're able to leverage Modal classes to run arbitrary workflows with minimal cold starts.
 # ## Run ComfyUI interactively
 # First, we define the ComfyUI image.
@@ -69,11 +69,15 @@ base_models = json.loads((pathlib.Path(comfyui_workflow_data_path) / "base-model
 
 # Specific workflows (like our inpainting example) have their own folder containing the workflow JSON as well as that workflow's corresponding `model.json` which specifies the custom checkpoints/plugins used in the workflow.
 # These get loaded once at container start time and not build time; we'll go into more detail on how that works in the next section.
-# 
+#
 # We move a lot of ComfyUI-specific code to `helpers.py`.
 # This includes functions like downloading checkpoints/plugins to the right directory on the ComfyUI server.
 with comfyui_image.imports():
-    from .helpers import connect_to_local_server, download_to_comfyui, get_images
+    from .helpers import (
+        connect_to_local_server,
+        download_to_comfyui,
+        get_images,
+    )
 
 # Here we use Modal's class syntax to build the image (with our custom checkpoints/plugins).
 @app.cls(
@@ -103,7 +107,7 @@ class ComfyUI:
         self._run_comfyui_server()
 
 # When you run `modal serve comfyui.comfy_ui`, you'll see a `ComfyUI.ui` link to interactively develop your ComfyUI workflow that has the custom checkpoints/plugins loaded in.
-# 
+#
 # Notice the `__init__` constructor.
 # This allows us to leverage a special Modal pattern called [parameterized functions](/docs/guide/lifecycle-functions#parametrized-functions) that will allow us to support arbitrary workflows and custom checkpoints/plugins in an optimized way.
 #
@@ -136,6 +140,7 @@ class ComfyUI:
 web_image = modal.Image.debian_slim()
 
 from typing import Dict
+
 
 @app.function(image=web_image, container_idle_timeout=300)
 @modal.web_endpoint(method="POST")
