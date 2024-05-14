@@ -47,6 +47,7 @@ def download_custom_node(url, path):
     repo_name = url.split("/")[-1].split(".")[0]
     repo_path = f"{path}/{repo_name}"
     if os.path.isfile(f"{repo_path}/requirements.txt"):
+        print("Installing custom node requirements...")
         subprocess.run(
             ["pip", "install", "-r", "requirements.txt"], cwd=repo_path
         )
@@ -103,3 +104,25 @@ def get_images(ws, workflow_json):
                     )  # parse out header of the image byte string
 
     return output_images
+
+
+def convert_workflow_to_python(workflow: str):
+    pathlib.Path("/root/workflow_api.json").write_text(workflow)
+
+    import subprocess
+
+    process = subprocess.Popen(
+        ["python", "./ComfyUI-to-Python-Extension/comfyui_to_python.py"]
+    )
+    process.wait()
+    retcode = process.returncode
+
+    if retcode != 0:
+        raise RuntimeError(
+            f"comfy_api.py exited unexpectedly with code {retcode}"
+        )
+    else:
+        try:
+            return pathlib.Path("workflow_api.py").read_text()
+        except FileNotFoundError:
+            print("Error: File workflow_api.py not found.")
