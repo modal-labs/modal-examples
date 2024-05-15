@@ -1,8 +1,10 @@
 # ---
-# cmd: ["cd", "06_gpu_and_ml", "&&", "modal", "serve", "comfyui.comfy_ui"]
+# cmd: ["modal", "serve", "06_gpu_and_ml.comfyui.comfy_ui"]
 # ---
 #
 # # Run a ComfyUI workflow as an API
+#
+# [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is a no-code Stable Diffusion GUI that allows you to design and execute advanced image generation pipelines.
 #
 # In this example, we show you how to
 #
@@ -12,7 +14,8 @@
 #
 # 3) Run a ComfyUI workflow JSON via API
 #
-# The goal of this example is to give users an easy way to deploy an existing ComfyUI workflow on Modal and show some ways they can reduce inference latency.
+# The primary goal of this example is to shows users an easy way to deploy an existing ComfyUI workflow on Modal.
+# This also covers some more advanced concepts on performance optimization, and so we assume you have some familiarity with ComfyUI already.
 #
 # An alternative approach is to port your ComfyUI workflow from JSON into Python, which you can check out [in this blog post](/blog/comfyui-prototype-to-production).
 # The Python approach reduces latency by skipping the server standup step entirely, but requires more effort to migrate to from JSON.
@@ -99,10 +102,10 @@ class ComfyUI:
         for model in base_models:
             download_to_comfyui(model["url"], model["path"])
 
-    def _run_comfyui_server(self):
+    def _run_comfyui_server(self, port=8188):
         for model in self.models:
             download_to_comfyui(model["url"], model["path"])
-        cmd = "python main.py --dont-print-server --listen --port 8188"
+        cmd = f"python main.py --dont-print-server --listen --port {port}"
         subprocess.Popen(cmd, shell=True)
 
     @modal.web_server(8188, startup_timeout=30)
@@ -120,7 +123,7 @@ class ComfyUI:
     # We can use the `@enter` function to optimize inference time by downloading custom models and standing up the ComfyUI server exactly once at container startup time.
     @modal.enter()
     def prepare_comfyui(self):
-        self._run_comfyui_server()
+        self._run_comfyui_server(port=8189)
 
     # Lastly, we write the inference method that takes in any workflow JSON and additional arguments you may want to use to parameterize your workflow JSON (e.g. handle user-defined text prompts, input images).
     # It then runs the workflow programmatically against the running ComfyUI server and returns the images.

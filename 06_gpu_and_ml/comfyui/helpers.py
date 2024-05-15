@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 import json
 import os
 import pathlib
@@ -6,15 +10,14 @@ import time
 import urllib.request
 import uuid
 
-import httpx
-import websocket
-from tqdm import tqdm
-
-server_address = "127.0.0.1:8188"
+server_address = "127.0.0.1:8189"
 client_id = str(uuid.uuid4())
 
 
 def download_to_comfyui(url, path):
+    import httpx
+    from tqdm import tqdm
+
     model_directory = "/root/" + path
     local_filename = url.split("/")[-1]
     local_filepath = pathlib.Path(model_directory, local_filename)
@@ -54,6 +57,8 @@ def download_custom_node(url, path):
 
 
 def connect_to_local_server():
+    import websocket
+
     ws = websocket.WebSocket()
     while True:
         try:
