@@ -1,11 +1,12 @@
 import os
 import pathlib
+import shutil
 import subprocess
+import zipfile
+
 import modal
 
 
-bucket_creds = modal.Secret.from_name("aws-s3-modal-examples-datasets", environment_name="main")
-bucket_name = "modal-examples-datasets"
 volume = modal.Volume.from_name("example-imagenet", create_if_missing=True)
 image = modal.Image.debian_slim().pip_install("kaggle")
 app = modal.App(
@@ -25,5 +26,27 @@ def import_transform_load() -> None:
     kaggle_token_filepath.parent.mkdir(exist_ok=True)
     kaggle_token_filepath.write_text(kaggle_api_token_data)
 
-    p = pathlib.Path("/vol/imagenet/")
-    subprocess.run(f"kaggle competitions download -c imagenet-object-localization-challenge --path {p}", shell=True, check=True)
+    tmp_path = pathlib.Path("/tmp/imagenet/")
+    vol_path = pathlib.Path("/vol/imagenet/")
+    filename = "imagenet-object-localization-challenge.zip"
+    dataset_path = vol_path / filename
+    if dataset_path.exists():
+        dataset_size = dataset_path.stat().st_size
+        if dataset_size < (150 * 1024 * 1024 * 1024):
+            dataset_size_gib = dataset_size / (1024 * 1024 * 1024)
+            raise RuntimeError(f"Partial download of dataset .zip. It is {dataset_size_gib} but should be > 150GiB")
+    else:
+        subprocess.run(
+            f"kaggle competitions download -c imagenet-object-localization-challenge --path {tmp_path}",
+            shell=True,
+            check=True
+        )
+        shutil.copy(tmp_path / filename, dataset_path)
+
+    # Extract dataset
+    extracted_dataset_path = vol_path / "extracted"
+    extracted_dataset_path.mkdir()
+    with zipfile.ZipFile(dataset_path, "r") as zip_ref:
+        zip_ref.extractall(extracted_dataset_path)
+    print(f"Unzipped {dataset_path} to {extracted_dataset_path}")
+
