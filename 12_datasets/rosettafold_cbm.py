@@ -24,13 +24,10 @@ def decompress_tar_gz(file_path: pathlib.Path, extract_dir: pathlib.Path) -> Non
 
 @app.function(
     volumes={"/vol/": volume},
-    timeout=60 * 60 * 2,  # 2 hours
+    timeout=60 * 60 * 5,  # 5 hours
     _allow_background_volume_commits=True,
 )
 def import_transform_load() -> None:
-    # Test simple write.
-    pathlib.Path("/vol/test-marker").write_text("hello world!")
-
     uniref30 = pathlib.Path("/tmp/UniRef30_2020_06_hhsuite.tar.gz")
     bfd_dataset = pathlib.Path("/tmp/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz")
     structure_templates = pathlib.Path("/tmp/pdb100_2021Mar03.tar.gz")

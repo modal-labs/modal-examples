@@ -19,7 +19,7 @@ def decompress_tar_gz(file_path: pathlib.Path, extract_dir: pathlib.Path) -> Non
 
 @app.function(
     volumes={"/vol": volume},
-    timeout=60 * 60 * 2,  # 2 hours
+    timeout=60 * 60 * 5,  # 5 hours
     _allow_background_volume_commits=True,
 )
 def import_transform_load() -> None:
