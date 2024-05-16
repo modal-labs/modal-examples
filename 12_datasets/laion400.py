@@ -34,7 +34,7 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
     monitoring_thread.start()
 
 @app.function(
-    volumes={"/vol": volume},
+    volumes={"/mnt": volume},
     timeout=60 * 60 * 12,  # 12 hours
 )
 def run_img2dataset_on_part(
@@ -45,7 +45,7 @@ def run_img2dataset_on_part(
     # Each part works in its own subdirectory because img2dataset creates a working
     # tmpdir at <output_folder>/_tmp and we don't want consistency issues caused by
     # all concurrently processing parts read/writing from the same temp directory.
-    laion400m_data_path = pathlib.Path(f"/vol/laion400/laion400m-data/{i}/")
+    laion400m_data_path = pathlib.Path(f"/mnt/laion400/laion400m-data/{i}/")
     command = (
         f'img2dataset --url_list {partfile} --input_format "parquet" '
         '--url_col "URL" --caption_col "TEXT" --output_format webdataset '
@@ -57,7 +57,7 @@ def run_img2dataset_on_part(
 
 
 @app.function(
-    volumes={"/vol": volume},
+    volumes={"/mnt": volume},
     timeout=60 * 60 * 16,  # 16 hours
 )
 def import_transform_load() -> None:
@@ -66,7 +66,7 @@ def import_transform_load() -> None:
     # any filesystem incompatibilities between the `wget` application and the bucket mount
     # filesystem mount.
     tmp_laion400m_meta_path = pathlib.Path("/tmp/laion400/laion400m-meta")
-    laion400m_meta_path = pathlib.Path("/vol/laion400/laion400m-meta")
+    laion400m_meta_path = pathlib.Path("/mnt/laion400/laion400m-meta")
     if not laion400m_meta_path.exists():
         laion400m_meta_path.mkdir(parents=True, exist_ok=True)
         # WARNING: We skip the certificate check for the-eye.eu because its TLS certificate expired as of mid-May 2024.
