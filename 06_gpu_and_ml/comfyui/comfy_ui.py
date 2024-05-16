@@ -14,7 +14,7 @@
 #
 # 2. Serve a ComfyUI workflow as an API
 #
-# The primary goal of this example is to shows users an easy way to deploy an existing ComfyUI workflow on Modal.
+# The primary goal of this example is to show users an easy way to deploy an existing ComfyUI workflow on Modal.
 # This unified UI / API example also makes it easy to iterate on your workflow even after deployment.
 # Simply fire up the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
