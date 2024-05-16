@@ -5,30 +5,25 @@
 import argparse
 import pathlib
 import sys
+import time
 
 import requests
 
 
 def main(args: argparse.Namespace):
-    comfyui_workflow_data_path = (
-        pathlib.Path(__file__).parent / "workflow-examples" / "inpainting"
-    )
-
-    url = "https://modal-labs--example-comfyui-backend-dev.modal.run"
-    workflow = pathlib.Path(
-        comfyui_workflow_data_path / "workflow_api.json"
-    ).read_text()
-    models = pathlib.Path(comfyui_workflow_data_path / "model.json").read_text()
+    url = "https://modal-labs--example-comfyui-comfyui-api-dev.modal.run/"
     data = {
-        "workflow_data": workflow,
-        "models": models,
-        "text_prompt": args.prompt,
+        "prompt": args.prompt,
         "input_image_url": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png",
     }
-
+    print("Waiting for response...")
+    start_time = time.time()
     res = requests.post(url, json=data)
     if res.status_code == 200:
-        print("Image finished generating!")
+        end_time = time.time()
+        print(
+            f"Image finished generating in {round(end_time - start_time)} seconds!"
+        )
         filename = "comfyui_gen_image.png"
         (pathlib.Path.home() / filename).write_bytes(res.content)
         print(f"saved '{filename}'")

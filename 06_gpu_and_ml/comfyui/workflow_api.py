@@ -11,13 +11,12 @@ import pathlib
 import random
 from typing import Any, Dict, Mapping, Sequence, Union
 
+from comfy_ui import comfyui_image
 from fastapi.responses import HTMLResponse
-from modal import App, Volume, web_endpoint
-
-from .comfy_ui import comfyui_image, comfyui_workflow_data_path
+from modal import App, Mount, Volume, web_endpoint
 
 with comfyui_image.imports():
-    from .helpers import download_to_comfyui
+    from helpers import download_to_comfyui
 
 app = App(
     name="example-comfy-python-api"
@@ -82,7 +81,7 @@ def run_python_workflow(item: Dict):
 
     download_image(item["image"])
     models = json.loads(
-        (comfyui_workflow_data_path / "inpainting" / "model.json").read_text()
+        (pathlib.Path(__file__).parent / "model.json").read_text()
     )
     for m in models:
         download_to_comfyui(m["url"], m["path"])
@@ -148,7 +147,21 @@ def run_python_workflow(item: Dict):
 
 # Serves the python workflow behind a web endpoint
 # Generated images are written to a Volume
-@app.function(image=comfyui_image, gpu="any", volumes={"/data": vol})
+@app.function(
+    image=comfyui_image,
+    gpu="any",
+    volumes={"/data": vol},
+    mounts=[
+        Mount.from_local_file(
+            pathlib.Path(__file__).parent / "model.json",
+            "/root/model.json",
+        ),
+        Mount.from_local_file(
+            pathlib.Path(__file__).parent / "helpers.py",
+            "/root/helpers.py",
+        ),
+    ],
+)
 @web_endpoint(method="POST")
 def serve_workflow(item: Dict):
     saved_image = run_python_workflow(item)

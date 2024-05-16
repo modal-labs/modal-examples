@@ -10,7 +10,6 @@ import time
 import urllib.request
 import uuid
 
-server_address = "127.0.0.1:8189"
 client_id = str(uuid.uuid4())
 
 
@@ -56,7 +55,7 @@ def download_custom_node(url, path):
         )
 
 
-def connect_to_local_server():
+def connect_to_local_server(server_address):
     import websocket
 
     ws = websocket.WebSocket()
@@ -72,7 +71,7 @@ def connect_to_local_server():
 
 
 # ComfyUI specific helpers, adpated from: https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example_ws_images.py
-def queue_prompt(workflow_json):
+def queue_prompt(workflow_json, server_address):
     # confusingly here, "prompt" in that code actually refers to the workflow_json, so just renaming it here for clarity
     p = {"prompt": workflow_json, "client_id": client_id}
     data = json.dumps(p).encode("utf-8")
@@ -82,8 +81,8 @@ def queue_prompt(workflow_json):
     return json.loads(urllib.request.urlopen(req).read())
 
 
-def get_images(ws, workflow_json):
-    prompt_id = queue_prompt(workflow_json)["prompt_id"]
+def get_images(ws, workflow_json, server_address):
+    prompt_id = queue_prompt(workflow_json, server_address)["prompt_id"]
     output_images = []
     current_node = ""
     while True:
