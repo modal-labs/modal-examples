@@ -3,7 +3,7 @@
 # deploy: true
 # ---
 #
-# # Run a ComfyUI interactively and as an API
+# # Run ComfyUI interactively and as an API
 #
 # [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is a no-code Stable Diffusion GUI that allows you to design and execute advanced image generation pipelines.
 #
