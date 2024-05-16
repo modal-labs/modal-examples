@@ -25,6 +25,60 @@ vol_name = "comfyui-images"
 vol = Volume.from_name(vol_name, create_if_missing=True)
 
 
+@app.function(
+    image=comfyui_image,
+    gpu="any",
+    mounts=[
+        Mount.from_local_file(
+            pathlib.Path(__file__).parent / "workflow_api.json",
+            "/root/workflow_api.json",
+        )
+    ],
+)
+def convert_workflow_to_python(workflow: str):
+    import subprocess
+
+    root_path = pathlib.Path("/root")
+    comfyui_to_python_path = root_path / "ComfyUI-to-Python-Extension"
+
+    # Install the extension at runtime since we don't want to clutter up the base ComfyUI image
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "https://github.com/pydn/ComfyUI-to-Python-Extension.git",
+        ],
+        cwd=root_path,
+    )
+    subprocess.run(
+        ["pip", "install", "-r", "requirements.txt"], cwd=comfyui_to_python_path
+    )
+    (comfyui_to_python_path / "workflow_api.json").write_text(workflow)
+    result = subprocess.run(
+        ["python", "comfyui_to_python.py"], cwd=comfyui_to_python_path
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"comfy_api.py exited unexpectedly with code {result.returncode}"
+        )
+    else:
+        try:
+            return (comfyui_to_python_path / "workflow_api.py").read_text()
+        except FileNotFoundError:
+            print("Error: File workflow_api.py not found.")
+
+
+@app.local_entrypoint()
+def get_python_workflow():
+    workflow_json = (
+        pathlib.Path(__file__).parent / "workflow_api.json"
+    ).read_text()
+    filename = "_generated_workflow_api.py"
+    generated_path = pathlib.Path(__file__).parent / filename
+    generated_path.write_text(convert_workflow_to_python.remote(workflow_json))
+    print("Wrote python file to {filename}")
+
+
 def get_value_at_index(obj: Union[Sequence, Mapping], index: int) -> Any:
     """Returns the value at the given index of a sequence or mapping.
 
