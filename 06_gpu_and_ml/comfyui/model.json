@@ -1,0 +1,6 @@
+[
+    {
+        "url": "https://huggingface.co/stabilityai/stable-diffusion-2-inpainting/resolve/main/512-inpainting-ema.ckpt",
+        "path": "models/checkpoints"
+    }
+]
