@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfy_ui.py"]
+# deploy: true
 # ---
 #
 # # Run a ComfyUI workflow as an API
@@ -14,8 +15,7 @@
 #
 # 2. Serve a ComfyUI workflow as an API
 #
-# The primary goal of this example is to demonstrate an easy way to deploy an existing ComfyUI workflow on Modal.
-# This unified UI / API example makes it easy to iterate on your workflow even after deployment.
+# Combining the UI and the API in a single app makes it easy to iterate on your workflow even after deployment.
 # Simply fire up the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
 # An alternative approach is to port your ComfyUI workflow from the JSON format to Python code.
@@ -24,14 +24,26 @@
 #
 # ## Quickstart
 #
-# 1. Run `modal serve 06_gpu_and_ml/comfyui/comfy_ui.py` to stand up the ComfyUI server.
-# This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/) behind an API.
-# Inpainting is the process of filling in an image with another generated image.
+# This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/),
+# which "fills in" part of an input image based on a prompt,
+# For the prompt `"Spider-Man visits Yosemite, rendered by Blender, trending on artstation"`,
+# on [this input image](https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png) we got this output:
 #
-# 2. Run inference with a text prompt: `python 06_gpu_and_ml/comfyui/infer.py --prompt "white heron"`. This creates the following image:
 # ![example comfyui image](./comfyui_gen_image.jpg)
 #
-# First inference time will take a bit longer for the ComfyUI server to boot (~30s). Successive inference calls while the server is up should take ~3s.
+# 1.Stand up the ComfyUI server in development mode:
+# ```bash
+# modal serve 06_gpu_and_ml/comfyui/comfy_ui.py
+# ```
+#
+# 2. In another terminal, run inference:
+# ```bash
+# python 06_gpu_and_ml/comfyui/infer.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
+# ```
+# You can find your Modal workspace name by running `modal profile current`.
+#
+# The first inference will take a bit longer, because the server will need to boot up (~20-30s).
+# Successive inference calls while the server is up should take a few seconds or less.
 #
 # ## Setup
 #
@@ -153,7 +165,7 @@ class ComfyUI:
 # Save the exported JSON to the `workflow_api.json` file in this directory.
 #
 # Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py` again.
-
+#
 # ## Further optimizations
 #
 # There is more you can do with Modal to further improve performance of your ComfyUI API endpoint.
