@@ -1,6 +1,10 @@
+import os
 import pathlib
 import shutil
 import subprocess
+import sys
+import threading
+import time
 import modal
 
 bucket_creds = modal.Secret.from_name("aws-s3-modal-examples-datasets", environment_name="main")
@@ -12,9 +16,22 @@ volume = modal.CloudBucketMount(
 image = modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
 app = modal.App("example-laoin400-dataset-import", image=image)
 
-
-
+# This script is base off the following instructions:
 # https://github.com/rom1504/img2dataset/blob/main/dataset_examples/laion400m.md
+
+def start_monitoring_disk_space(interval: int = 30) -> None:
+    """Start monitoring the disk space in a separate thread."""
+    task_id = os.environ["MODAL_TASK_ID"]
+    def log_disk_space(interval: int) -> None:
+        while True:
+            statvfs = os.statvfs('/')
+            free_space = statvfs.f_frsize * statvfs.f_bavail
+            print(f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB", file=sys.stderr)
+            time.sleep(interval)
+
+    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
+    monitoring_thread.daemon = True
+    monitoring_thread.start()
 
 @app.function(
     volumes={"/vol": volume},
@@ -24,6 +41,7 @@ def run_img2dataset_on_part(
     i: int,
     partfile: str,
 ) -> None:
+    start_monitoring_disk_space()
     # Each part works in its own subdirectory because img2dataset creates a working
     # tmpdir at <output_folder>/_tmp and we don't want consistency issues caused by
     # all concurrently processing parts read/writing from the same temp directory.
@@ -43,6 +61,7 @@ def run_img2dataset_on_part(
     timeout=60 * 60 * 16,  # 16 hours
 )
 def import_transform_load() -> None:
+    start_monitoring_disk_space()
     # We initially download into a tmp directory outside of the volume to avoid
     # any filesystem incompatibilities between the `wget` application and the bucket mount
     # filesystem mount.
@@ -50,8 +69,9 @@ def import_transform_load() -> None:
     laion400m_meta_path = pathlib.Path("/vol/laion400/laion400m-meta")
     if not laion400m_meta_path.exists():
         laion400m_meta_path.mkdir(parents=True, exist_ok=True)
+        # WARNING: We skip the certificate check for the-eye.eu because its TLS certificate expired as of mid-May 2024.
         subprocess.run(
-            f"wget -l1 -r --no-parent https://the-eye.eu/public/AI/cah/laion400m-met-release/laion400m-meta/ -P {tmp_laion400m_meta_path}",
+            f"wget -l1 -r --no-check-certificate --no-parent https://the-eye.eu/public/AI/cah/laion400m-met-release/laion400m-meta/ -P {tmp_laion400m_meta_path}",
             shell=True,
             check=True,
         )

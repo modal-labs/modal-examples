@@ -2,6 +2,9 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
+import threading
+import time
 import zipfile
 
 import modal
@@ -12,8 +15,23 @@ image = modal.Image.debian_slim().pip_install("kaggle")
 app = modal.App(
     "example-imagenet-dataset-import",
     image=image,
-    secrets=[modal.Secret.from_name("kaggle-api-token")],
+    secrets=[modal.Secret.from_name("kaggle-api-token"), modal.Secret.from_dict({"MODAL_LOGLEVEL": "DEBUG"})],
 )
+
+
+def start_monitoring_disk_space(interval: int = 30) -> None:
+    """Start monitoring the disk space in a separate thread."""
+    task_id = os.environ["MODAL_TASK_ID"]
+    def log_disk_space(interval: int) -> None:
+        while True:
+            statvfs = os.statvfs('/')
+            free_space = statvfs.f_frsize * statvfs.f_bavail
+            print(f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB", file=sys.stderr)
+            time.sleep(interval)
+
+    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
+    monitoring_thread.daemon = True
+    monitoring_thread.start()
 
 @app.function(
     volumes={"/vol/": volume},
@@ -21,6 +39,7 @@ app = modal.App(
     _allow_background_volume_commits=True,
 )
 def import_transform_load() -> None:
+    start_monitoring_disk_space()
     kaggle_api_token_data = os.environ["KAGGLE_API_TOKEN"]
     kaggle_token_filepath = pathlib.Path.home() / ".kaggle" / "kaggle.json"
     kaggle_token_filepath.parent.mkdir(exist_ok=True)
@@ -34,7 +53,7 @@ def import_transform_load() -> None:
         dataset_size = dataset_path.stat().st_size
         if dataset_size < (150 * 1024 * 1024 * 1024):
             dataset_size_gib = dataset_size / (1024 * 1024 * 1024)
-            raise RuntimeError(f"Partial download of dataset .zip. It is {dataset_size_gib} but should be > 150GiB")
+            raise RuntimeError(f"Partial download of dataset .zip. It is {dataset_size_gib} GiB but should be > 150GiB")
     else:
         subprocess.run(
             f"kaggle competitions download -c imagenet-object-localization-challenge --path {tmp_path}",
@@ -45,7 +64,7 @@ def import_transform_load() -> None:
 
     # Extract dataset
     extracted_dataset_path = vol_path / "extracted"
-    extracted_dataset_path.mkdir()
+    extracted_dataset_path.mkdir(exist_ok=True)
     with zipfile.ZipFile(dataset_path, "r") as zip_ref:
         zip_ref.extractall(extracted_dataset_path)
     print(f"Unzipped {dataset_path} to {extracted_dataset_path}")

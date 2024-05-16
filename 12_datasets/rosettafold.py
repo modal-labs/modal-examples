@@ -1,6 +1,10 @@
+import os
 import pathlib
 import subprocess
+import sys
 import tarfile
+import threading
+import time
 import modal
 from multiprocessing import Process
 
@@ -8,6 +12,20 @@ from multiprocessing import Process
 volume = modal.Volume.from_name("RoseTTAFold", create_if_missing=True)
 image = modal.Image.debian_slim().apt_install("wget")
 app = modal.App("example-rosettafold-dataset-import", image=image)
+
+def start_monitoring_disk_space(interval: int = 30) -> None:
+    """Start monitoring the disk space in a separate thread."""
+    task_id = os.environ["MODAL_TASK_ID"]
+    def log_disk_space(interval: int) -> None:
+        while True:
+            statvfs = os.statvfs('/')
+            free_space = statvfs.f_frsize * statvfs.f_bavail
+            print(f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB", file=sys.stderr)
+            time.sleep(interval)
+
+    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
+    monitoring_thread.daemon = True
+    monitoring_thread.start()
 
 
 def decompress_tar_gz(file_path: pathlib.Path, extract_dir: pathlib.Path) -> None:
@@ -23,6 +41,7 @@ def decompress_tar_gz(file_path: pathlib.Path, extract_dir: pathlib.Path) -> Non
     _allow_background_volume_commits=True,
 )
 def import_transform_load() -> None:
+    start_monitoring_disk_space()
     uniref30 = pathlib.Path("/tmp/UniRef30_2020_06_hhsuite.tar.gz")
     bfd_dataset = pathlib.Path("/tmp/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz")
     structure_templates = pathlib.Path("/tmp/pdb100_2021Mar03.tar.gz")
