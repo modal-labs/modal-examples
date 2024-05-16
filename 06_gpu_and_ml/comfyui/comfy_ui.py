@@ -10,16 +10,17 @@
 #
 # In this example, we show you how to
 #
-# 1. Run ComfyUI interactively
+# 1. Run ComfyUI interactively to develop workflows
 #
 # 2. Serve a ComfyUI workflow as an API
 #
-# The primary goal of this example is to show users an easy way to deploy an existing ComfyUI workflow on Modal.
+# The primary goal of this example is to demonstrate an easy way to deploy an existing ComfyUI workflow on Modal.
 # This unified UI / API example makes it easy to iterate on your workflow even after deployment.
 # Simply fire up the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
-# An alternative approach is to port your ComfyUI workflow from JSON into Python, which you can check out [in this blog post](/blog/comfyui-prototype-to-production).
-# The Python approach further reduces inference latency by skipping the server standup step entirely, but requires more effort to migrate to from JSON.
+# An alternative approach is to port your ComfyUI workflow from the JSON format to Python code.
+# The Python approach further reduces inference latency by a few hundred milliseconds to a second, but introduces some extra complexity.
+# You can read more about it [in this blog post](https://modal.com/blog/comfyui-prototype-to-production).
 #
 # ## Quickstart
 #
@@ -31,8 +32,12 @@
 # ![example comfyui image](./comfyui_gen_image.jpg)
 #
 # First inference time will take a bit longer for the ComfyUI server to boot (~30s). Successive inference calls while the server is up should take ~3s.
-# ## Run ComfyUI interactively
-# First, we define the ComfyUI image.
+#
+# ## Setup
+#
+# First, we define the environment we need to run ComfyUI -- system software, Python package, etc.
+#
+# You can add custom checkpoints and plugins to this environment by editing the `model.json` file in this directory.
 
 import json
 import pathlib
@@ -43,17 +48,19 @@ import modal
 
 comfyui_commit_sha = "0fecfd2b1a2794b77277c7e256c84de54a63d860"
 
-comfyui_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git")
-    .run_commands(
+comfyui_image = (  # build up a Modal Image to run ComfyUI, step by step
+    modal.Image.debian_slim(  # start from basic Linux with Python
+        python_version="3.11"
+    )
+    .apt_install("git")  # install git to clone ComfyUI
+    .run_commands(  # install ComfyUI
         "cd /root && git init .",
         "cd /root && git remote add --fetch origin https://github.com/comfyanonymous/ComfyUI",
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
-    .pip_install("httpx", "tqdm", "websocket-client")
-    .copy_local_file(
+    .pip_install("httpx", "tqdm", "websocket-client")  # add web dependencies
+    .copy_local_file(  # copy over the ComfyUI model definition JSON and helper Python module
         pathlib.Path(__file__).parent / "model.json", "/root/model.json"
     )
     .copy_local_file(
@@ -61,24 +68,23 @@ comfyui_image = (
     )
 )
 
-app = modal.App(
-    name="example-comfyui",
-)
+app = modal.App(name="example-comfyui")
 
-# You can define custom checkpoints, plugins, and more in the `model.json` file in this directory.
-
-
-# ComfyUI-specific code lives in `helpers.py`.
-# This includes functions like downloading checkpoints/plugins to the right directory on the ComfyUI server.
+# Some additional code for managing ComfyUI lives in `helpers.py`.
+# This includes functions like downloading checkpoints and plugins to the right directory on the ComfyUI server.
 with comfyui_image.imports():
-    from helpers import (
-        connect_to_local_server,
-        download_to_comfyui,
-        get_images,
-    )
+    from helpers import connect_to_local_server, download_to_comfyui, get_images
 
 
-# Here we use Modal's class syntax to build the image (with our custom checkpoints/plugins).
+# ## Running ComfyUI interactively and as an API on Modal
+#
+# Below, we use Modal's class syntax to run our customized ComfyUI environment and workflow on Modal.
+#
+# Here's the basic breakdown of how this works:
+# 1. We add another step to the image `build` with `download_models`, which adds the custom checkpoints and plugins defined in `model.json`.
+# 2. We stand up a "headless" ComfyUI server with `prepare_comfy_ui` when our app starts.
+# 3. We serve a `ui` (by decorating with `@web_server`), so that we can interactively develop our ComfyUI workflow.
+# 4. We stand up an `api` with `web_endpoint`, so that we can run our workflows as a service.
 @app.cls(
     allow_concurrent_inputs=100,
     gpu="any",
@@ -105,28 +111,15 @@ class ComfyUI:
         cmd = f"python main.py --dont-print-server --listen --port {port}"
         subprocess.Popen(cmd, shell=True)
 
+    @modal.enter()
+    def prepare_comfyui(self):
+        # runs on a different port as to not conflict with the UI instance
+        self._run_comfyui_server(port=8189)
+
     @modal.web_server(8188, startup_timeout=30)
     def ui(self):
         self._run_comfyui_server()
 
-    # When you run `modal serve 06_gpu_and_ml/comfyui/comfy_ui.py`, you'll see a `ComfyUI.ui` link to interactively develop your ComfyUI workflow that has the custom checkpoints/plugins loaded in.
-    #
-    # To serve this workflow, first export it to API JSON format:
-    # 1. Click the gear icon in the top-right corner of the menu
-    # 2. Select "Enable Dev mode Options"
-    # 3. Go back to the menu and select "Save (API Format)"
-    #
-    # Save the exported JSON to the `workflow_api.json` file in this directory.
-    #
-    # ## Serve a ComfyUI workflow as an API
-    #
-    # We use the `@enter` function to stand up a "headless" ComfyUI at container startup time.
-    @modal.enter()
-    def prepare_comfyui(self):
-        # Runs on a different port as to not conflict with the UI instance above.
-        self._run_comfyui_server(port=8189)
-
-    # Lastly, we stand up an API web endpoint that runs the ComfyUI workflow JSON programmatically and returns the generated image.
     @modal.web_endpoint(method="POST")
     def api(self, item: Dict):
         from fastapi import Response
@@ -137,7 +130,7 @@ class ComfyUI:
             (pathlib.Path(__file__).parent / "workflow_api.json").read_text()
         )
 
-        # insert custom text prompt
+        # insert the prompt
         workflow_data["3"]["inputs"]["text"] = item["prompt"]
 
         # send requests to local headless ComfyUI server (on port 8189)
@@ -147,11 +140,27 @@ class ComfyUI:
         return Response(content=images[0], media_type="image/jpeg")
 
 
-# To deploy this API, run `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py`.
+# ### The workflow for developing workflows
+#
+# When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py`, you'll see a link that includes `ComfyUI.ui`.
+# Head there to interactively develop your ComfyUI workflow. All of your custom checkpoints/plugins from `model.json` will be loaded in.
+#
+# To serve the workflow after you've developed it, first export it as "API Format" JSON:
+# 1. Click the gear icon in the top-right corner of the menu
+# 2. Select "Enable Dev mode Options"
+# 3. Go back to the menu and select "Save (API Format)"
+#
+# Save the exported JSON to the `workflow_api.json` file in this directory.
+#
+# Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py` again.
 
 # ## Further optimizations
-# There is more you can do with Modal to further improve performance of your ComfyUI API endpoint. For example:
-# * Apply [keep_warm](https://modal.com/docs/guide/cold-start#maintain-a-warm-pool-with-keep_warm) to the ComfyUI class to always have a server running
-# * Cache downloaded checkpoints/plugins to a [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds
 #
-# If you're interested in serving arbitrary ComfyUI workflows with arbitrary sets of custom checkpoints/plugins, please [reach out to us on Slack](https://modallabscommunity.slack.com/join/shared_invite/zt-2a4ojve51-bc89MNAk2yqOFgwqCnqicw#/shared-invite/email) and we can try to help.
+# There is more you can do with Modal to further improve performance of your ComfyUI API endpoint.
+#
+# For example:
+# - Apply [keep_warm](https://modal.com/docs/guide/cold-start#maintain-a-warm-pool-with-keep_warm) to the `ComfyUI` class to always have a server running
+# - Cache downloaded checkpoints/plugins to a [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds
+#
+# If you're interested in building a platform for running ComfyUI workflows with dynamically-defined dependencies and workflows,
+# please [reach out to us on Slack](https://modal.com/slack).
