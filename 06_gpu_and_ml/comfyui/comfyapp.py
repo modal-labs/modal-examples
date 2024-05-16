@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/app.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfyapp.py"]
 # deploy: true
 # ---
 #
@@ -33,7 +33,7 @@
 #
 # 1. Stand up the ComfyUI server in development mode:
 # ```bash
-# modal serve 06_gpu_and_ml/comfyui/app.py
+# modal serve 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
 #
 # 2. In another terminal, run inference:
@@ -157,7 +157,7 @@ class ComfyUI:
 
 # ### The workflow for developing workflows
 #
-# When you run this script with `modal deploy 06_gpu_and_ml/comfyui/app.py`, you'll see a link that includes `ComfyUI.ui`.
+# When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py`, you'll see a link that includes `ComfyUI.ui`.
 # Head there to interactively develop your ComfyUI workflow. All of your custom checkpoints/plugins from `model.json` will be loaded in.
 #
 # To serve the workflow after you've developed it, first export it as "API Format" JSON:
@@ -167,7 +167,7 @@ class ComfyUI:
 #
 # Save the exported JSON to the `workflow_api.json` file in this directory.
 #
-# Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/app.py` again.
+# Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py` again.
 #
 # ## Further optimizations
 #
