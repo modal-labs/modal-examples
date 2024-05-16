@@ -1,5 +1,5 @@
 # ---
-# cmd: ["python", "06_gpu_and_ml/comfyui/infer.py", "--modal-workspace", "modal-labs", "--prompt", "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"]
+# cmd: ["python", "06_gpu_and_ml/comfyui/client.py", "--modal-workspace", "modal-labs", "--prompt", "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"]
 # ---
 
 import argparse

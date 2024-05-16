@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfy_ui.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/app.py"]
 # deploy: true
 # ---
 #
@@ -33,12 +33,12 @@
 #
 # 1. Stand up the ComfyUI server in development mode:
 # ```bash
-# modal serve 06_gpu_and_ml/comfyui/comfy_ui.py
+# modal serve 06_gpu_and_ml/comfyui/app.py
 # ```
 #
 # 2. In another terminal, run inference:
 # ```bash
-# python 06_gpu_and_ml/comfyui/infer.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
+# python 06_gpu_and_ml/comfyui/client.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
 # ```
 # You can find your Modal workspace name by running `modal profile current`.
 #
@@ -95,7 +95,7 @@ with comfyui_image.imports():
 # Here's the basic breakdown of how we do it:
 # 1. We add another step to the image [`build`](https://modal.com/docs/guide/model-weights)
 # with `download_models`, which adds the custom checkpoints and plugins defined in `model.json`.
-# 2. We stand up a "headless" ComfyUI server with `prepare_comfy_ui` when our app starts.
+# 2. We stand up a "headless" ComfyUI server with `prepare_comfyui` when our app starts.
 # 3. We serve a `ui` (by decorating with `@web_server`), so that we can interactively develop our ComfyUI workflow.
 # 4. We stand up an `api` with `web_endpoint`, so that we can run our workflows as a service.
 #
@@ -157,7 +157,7 @@ class ComfyUI:
 
 # ### The workflow for developing workflows
 #
-# When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py`, you'll see a link that includes `ComfyUI.ui`.
+# When you run this script with `modal deploy 06_gpu_and_ml/comfyui/app.py`, you'll see a link that includes `ComfyUI.ui`.
 # Head there to interactively develop your ComfyUI workflow. All of your custom checkpoints/plugins from `model.json` will be loaded in.
 #
 # To serve the workflow after you've developed it, first export it as "API Format" JSON:
@@ -167,7 +167,7 @@ class ComfyUI:
 #
 # Save the exported JSON to the `workflow_api.json` file in this directory.
 #
-# Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfy_ui.py` again.
+# Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/app.py` again.
 #
 # ## Further optimizations
 #
