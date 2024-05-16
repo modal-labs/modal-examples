@@ -3,7 +3,7 @@
 # deploy: true
 # ---
 #
-# # Run a ComfyUI workflow as an API
+# # Run a ComfyUI interactively and as an API
 #
 # [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is a no-code Stable Diffusion GUI that allows you to design and execute advanced image generation pipelines.
 #
@@ -11,12 +11,12 @@
 #
 # In this example, we show you how to
 #
-# 1. Run ComfyUI interactively to develop workflows
+# 1. run ComfyUI interactively to develop workflows
 #
-# 2. Serve a ComfyUI workflow as an API
+# 2. serve a ComfyUI workflow as an API
 #
 # Combining the UI and the API in a single app makes it easy to iterate on your workflow even after deployment.
-# Simply fire up the interactive UI, make your changes, export the JSON, and redeploy the app.
+# Simply head to the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
 # An alternative approach is to port your ComfyUI workflow from the JSON format to Python code.
 # The Python approach further reduces inference latency by a few hundred milliseconds to a second, but introduces some extra complexity.
@@ -31,7 +31,7 @@
 #
 # ![example comfyui image](./comfyui_gen_image.jpg)
 #
-# 1.Stand up the ComfyUI server in development mode:
+# 1. Stand up the ComfyUI server in development mode:
 # ```bash
 # modal serve 06_gpu_and_ml/comfyui/comfy_ui.py
 # ```
@@ -92,11 +92,14 @@ with comfyui_image.imports():
 #
 # Below, we use Modal's class syntax to run our customized ComfyUI environment and workflow on Modal.
 #
-# Here's the basic breakdown of how this works:
-# 1. We add another step to the image `build` with `download_models`, which adds the custom checkpoints and plugins defined in `model.json`.
+# Here's the basic breakdown of how we do it:
+# 1. We add another step to the image [`build`](https://modal.com/docs/guide/model-weights)
+# with `download_models`, which adds the custom checkpoints and plugins defined in `model.json`.
 # 2. We stand up a "headless" ComfyUI server with `prepare_comfy_ui` when our app starts.
 # 3. We serve a `ui` (by decorating with `@web_server`), so that we can interactively develop our ComfyUI workflow.
 # 4. We stand up an `api` with `web_endpoint`, so that we can run our workflows as a service.
+#
+# For more on how to run web services on Modal, check out [this guide](https://modal.com/docs/guide/webhooks).
 @app.cls(
     allow_concurrent_inputs=100,
     gpu="any",
