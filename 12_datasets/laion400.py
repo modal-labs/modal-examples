@@ -77,7 +77,7 @@ def import_transform_load() -> None:
         )
 
         # Perform a simple copy operation to move the data into the bucket.
-        shutil.copytree(tmp_laion400m_meta_path, laion400m_meta_path)
+        shutil.copytree(tmp_laion400m_meta_path, laion400m_meta_path, dirs_exist_ok=True)
 
     parquet_files = list(laion400m_meta_path.glob("**/*.parquet"))
     print(f"Downloaded {len(parquet_files)} parquet files.")
