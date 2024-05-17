@@ -16,7 +16,7 @@ volume = modal.CloudBucketMount(
     bucket_name,
     secret=bucket_creds,
 )
-image = modal.Image.debian_slim().pip_install("kaggle")
+image = modal.Image.debian_slim().pip_install("kaggle", "tqdm")
 app = modal.App(
     "example-imagenet-dataset-import",
     image=image,
@@ -39,7 +39,7 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
 
 @app.function(
     volumes={"/mnt/": volume},
-    timeout=60 * 60 * 5,  # 5 hours
+    timeout=60 * 60 * 8,  # 8 hours
 )
 def import_transform_load() -> None:
     start_monitoring_disk_space()
@@ -69,7 +69,21 @@ def import_transform_load() -> None:
     # Extract dataset
     extracted_dataset_path = vol_path / "extracted"
     extracted_dataset_path.mkdir(exist_ok=True)
+
+    def extractall(fzip, dest, desc="Extracting"):
+        from tqdm.auto import tqdm
+        from tqdm.utils import CallbackIOWrapper
+        dest = pathlib.Path(dest).expanduser()
+        with zipfile.ZipFile(fzip) as zipf, tqdm(
+            desc=desc, unit="B", unit_scale=True, unit_divisor=1024,
+            total=sum(getattr(i, "file_size", 0) for i in zipf.infolist()),
+        ) as pbar:
+            for i in zipf.infolist():
+                if not getattr(i, "file_size", 0):  # directory
+                    zipf.extract(i, os.fspath(dest))
+                else:
+                    with zipf.open(i) as fi, open(os.fspath(dest / i.filename), "wb") as fo:
+                        shutil.copyfileobj(CallbackIOWrapper(pbar.update, fi), fo)
     print("Extracting .zip into volume...")
-    with zipfile.ZipFile(dataset_path, "r") as zip_ref:
-        zip_ref.extractall(extracted_dataset_path)
+    extractall(dataset_path, extracted_dataset_path)
     print(f"Unzipped {dataset_path} to {extracted_dataset_path}")
