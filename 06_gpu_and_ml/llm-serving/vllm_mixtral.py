@@ -21,7 +21,7 @@ import modal
 MODEL_DIR = "/model"
 MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 MODEL_REVISION = "1e637f2d7cb0a9d6fb1922f305cb784995190a83"
-GPU_CONFIG = modal.gpu.A100(memory=80, count=2)
+GPU_CONFIG = modal.gpu.A100(size=80, count=2)
 
 
 # ## Define a container image
