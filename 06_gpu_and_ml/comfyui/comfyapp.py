@@ -38,7 +38,7 @@
 #
 # 2. In another terminal, run inference:
 # ```bash
-# python 06_gpu_and_ml/comfyui/client.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
+# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
 # ```
 # You can find your Modal workspace name by running `modal profile current`.
 #
