@@ -24,7 +24,7 @@ from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(size=40, count=4)
+GPU_CONFIG = gpu.A100(size="40GB", count=4)
 MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 MODEL_REVISION = "f1ca00645f0b1565c7f9a1c863d2be6ebf896b04"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
