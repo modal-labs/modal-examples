@@ -25,7 +25,7 @@
 # ## Quickstart
 #
 # This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/),
-# which "fills in" part of an input image based on a prompt,
+# which "fills in" part of an input image based on a prompt.
 # For the prompt `"Spider-Man visits Yosemite, rendered by Blender, trending on artstation"`,
 # on [this input image](https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png) we got this output:
 #
@@ -42,7 +42,7 @@
 # ```
 # You can find your Modal workspace name by running `modal profile current`.
 #
-# The first inference will take a bit longer, because the server will need to boot up (~20-30s).
+# The first inference will take a bit longer because the server will need to boot up (~20-30s).
 # Successive inference calls while the server is up should take a few seconds or less.
 #
 # ## Setup
