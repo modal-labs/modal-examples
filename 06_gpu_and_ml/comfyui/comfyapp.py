@@ -26,8 +26,9 @@
 #
 # This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/),
 # which "fills in" part of an input image based on a prompt.
-# For the prompt `"Spider-Man visits Yosemite, rendered by Blender, trending on artstation"`,
-# on [this input image](https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png) we got this output:
+# For the prompt `"Spider-Man visits Yosemite, rendered by Blender, trending on artstation"`
+# on [this input image](https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png),
+# we got this output:
 #
 # ![example comfyui image](./comfyui_gen_image.jpg)
 #

@@ -1,6 +1,6 @@
 # ---
 # cmd: ["python", "06_gpu_and_ml/comfyui/comfyclient.py", "--modal-workspace", "modal-labs", "--prompt", "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"]
-# output-directory: "06_gpu_and_ml/comfyui"
+# output-directory: "/tmp/comfyui"
 # ---
 
 import argparse
@@ -10,6 +10,9 @@ import time
 
 import requests
 
+OUTPUT_DIR = pathlib.Path("/tmp/comfyui")
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
 
 def main(args: argparse.Namespace):
     url = f"https://{args.modal_workspace}--example-comfyui-comfyui-api{'-dev' if args.dev else ''}.modal.run/"
@@ -17,6 +20,7 @@ def main(args: argparse.Namespace):
         "prompt": args.prompt,
         "input_image_url": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png",
     }
+    print(f"Sending request to {url} with prompt: {data['prompt']}")
     print("Waiting for response...")
     start_time = time.time()
     res = requests.post(url, json=data)
@@ -25,9 +29,9 @@ def main(args: argparse.Namespace):
         print(
             f"Image finished generating in {round(end_time - start_time, 1)} seconds!"
         )
-        filename = "comfyui_gen_image.png"
-        (pathlib.Path(__file__).parent / filename).write_bytes(res.content)
-        print(f"saved '{filename}'")
+        filename = OUTPUT_DIR / f"{slugify(args.prompt)}.png"
+        filename.write_bytes(res.content)
+        print(f"saved to '{filename}'")
     else:
         if res.status_code == 404:
             print(f"Workflow API not found at {url}")
@@ -61,6 +65,10 @@ def parse_args(arglist: list[str]) -> argparse.Namespace:
         help="URL of the image to inpaint",
     )
     return parser.parse_args(arglist[1:])
+
+
+def slugify(s: str) -> str:
+    return s.lower().replace(" ", "-").replace(".", "-").replace("/", "-")[:32]
 
 
 if __name__ == "__main__":
