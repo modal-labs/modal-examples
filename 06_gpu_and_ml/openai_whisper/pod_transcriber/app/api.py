@@ -150,7 +150,7 @@ async def poll_status(call_id: str):
     except IndexError:
         return dict(finished=False)
 
-    assert map_root.function_name == "transcribe_episode"
+    assert map_root.function_name == "main.transcribe_episode"
 
     leaves = map_root.children
     tasks = len(set([leaf.task_id for leaf in leaves]))
