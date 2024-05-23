@@ -24,7 +24,7 @@ def download_to_comfyui(url, path):
 
     print(f"downloading {url} ... to {model_directory}")
 
-    if path == 'custom_nodes':
+    if path == "custom_nodes":
         download_custom_node(url, model_directory)
 
     else:
