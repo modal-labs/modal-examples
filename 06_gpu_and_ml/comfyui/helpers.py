@@ -43,7 +43,7 @@ def download_to_comfyui(url, path):
 
 
 def download_custom_node(url, path):
-    subprocess.run(["git", "clone", url], cwd=path)
+    subprocess.run(["git", "clone", url, "--recursive"], cwd=path)
 
     # Pip install requirements.txt if it exists in the custom node
     repo_name = url.split("/")[-1].split(".")[0]
