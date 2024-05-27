@@ -82,7 +82,9 @@ def import_transform_load() -> None:
                 if not getattr(i, "file_size", 0):  # directory
                     zipf.extract(i, os.fspath(dest))
                 else:
-                    with zipf.open(i) as fi, open(os.fspath(dest / i.filename), "wb") as fo:
+                    full_path = dest / i.filename
+                    full_path.parent.mkdir(exist_ok=True, parents=True)
+                    with zipf.open(i) as fi, open(full_path, "wb") as fo:
                         shutil.copyfileobj(CallbackIOWrapper(pbar.update, fi), fo)
     print("Extracting .zip into volume...")
     extractall(dataset_path, extracted_dataset_path)
