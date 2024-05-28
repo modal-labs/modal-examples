@@ -127,7 +127,7 @@ class Model:
         self.runtime = sgl.Runtime(
             model_path=MODEL_PATH,
             tokenizer_path=TOKENIZER_PATH,
-            tp_size=GPU_COUNT,  # t_ensor p_arralel size, number of GPUs to split the model over
+            tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_evel=SGL_LOG_LEVEL,
         )
         self.runtime.endpoint.chat_template = (
