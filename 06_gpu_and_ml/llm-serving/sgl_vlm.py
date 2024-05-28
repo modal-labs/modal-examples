@@ -82,6 +82,7 @@ vllm_image = (
         "sglang[all]==0.1.16",
         "ninja",
         "packaging",
+        "wheel",
         "transformers==4.40.2",
     )
     .run_commands(  # add FlashAttention for faster inference using a shell command
