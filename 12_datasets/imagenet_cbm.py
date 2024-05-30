@@ -39,7 +39,8 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
 
 @app.function(
     volumes={"/mnt/": volume},
-    timeout=60 * 60 * 8,  # 8 hours
+    timeout=60 * 60 * 8,  # 8 hours,
+    ephemeral_disk=1000 * 1024,
 )
 def import_transform_load() -> None:
     start_monitoring_disk_space()
