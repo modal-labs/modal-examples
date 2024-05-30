@@ -54,6 +54,7 @@
 
 import json
 import pathlib
+import shutil
 import subprocess
 from typing import Dict
 
@@ -72,7 +73,9 @@ comfyui_image = (  # build up a Modal Image to run ComfyUI, step by step
         f"cd /root && git checkout {comfyui_commit_sha}",
         "cd /root && pip install xformers!=0.0.18 -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121",
     )
-    .pip_install("httpx", "tqdm", "websocket-client")  # add web dependencies
+    .pip_install(
+        "httpx", "tqdm", "websocket-client", force_build=True
+    )  # add web dependencies
     .copy_local_file(  # copy over the ComfyUI model definition JSON and helper Python module
         pathlib.Path(__file__).parent / "model.json", "/root/model.json"
     )
@@ -101,6 +104,12 @@ with comfyui_image.imports():
 # 4. We stand up an `api` with `web_endpoint`, so that we can run our workflows as a service.
 #
 # For more on how to run web services on Modal, check out [this guide](https://modal.com/docs/guide/webhooks).
+
+# Define a volume per ComfyUI object mirroring their file system
+models_vol = modal.Volume.from_name("comfy-models")
+plugins_vol = modal.Volume.from_name("comfy-nodes")
+
+
 @app.cls(
     allow_concurrent_inputs=100,
     gpu="any",
@@ -113,6 +122,7 @@ with comfyui_image.imports():
             "/root/workflow_api.json",
         )
     ],
+    volumes={"/models/checkpoints": models_vol, "/custom_nodes": plugins_vol},
 )
 class ComfyUI:
     @modal.build()
@@ -121,7 +131,27 @@ class ComfyUI:
             (pathlib.Path(__file__).parent / "model.json").read_text()
         )
         for m in models:
-            download_to_comfyui(m["url"], m["path"])
+            url = m["url"]
+            path = m["path"]
+            model_name = url.split("/")[-1]
+            vol_path = pathlib.Path("/") / path / model_name
+            comfy_path = pathlib.Path("/root") / path / model_name
+
+            # If the model already exists in the volume symlink to it
+            if vol_path.is_file():
+                print(f"Skipping download, getting {model_name} from cache")
+                comfy_path.symlink_to(vol_path)
+            else:
+                # If not, download it, then copy and commit it to the volume
+                download_to_comfyui(url, path)
+
+                # We need branching here because custom nodes are directories, not files
+                if path == "models/checkpoints":
+                    shutil.copy2(comfy_path, vol_path)
+                    models_vol.commit()
+                elif path == "custom_nodes":
+                    shutil.copytree(comfy_path, vol_path, dirs_exist_ok=True)
+                    plugins_vol.commit()
 
     def _run_comfyui_server(self, port=8188):
         cmd = f"python main.py --dont-print-server --listen --port {port}"
