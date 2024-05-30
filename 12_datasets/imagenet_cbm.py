@@ -8,6 +8,7 @@ import time
 import zipfile
 
 import modal
+from multiprocessing.pool import ThreadPool
 
 
 bucket_creds = modal.Secret.from_name("aws-s3-modal-examples-datasets", environment_name="main")
@@ -16,7 +17,7 @@ volume = modal.CloudBucketMount(
     bucket_name,
     secret=bucket_creds,
 )
-image = modal.Image.debian_slim().pip_install("kaggle", "tqdm")
+image = modal.Image.debian_slim().apt_install("tree").pip_install("kaggle", "tqdm")
 app = modal.App(
     "example-imagenet-dataset-import",
     image=image,
@@ -36,6 +37,33 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
     monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
     monitoring_thread.daemon = True
     monitoring_thread.start()
+
+def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
+    class MultithreadedCopier:
+        def __init__(self, max_threads):
+            self.pool = ThreadPool(max_threads)
+            self.copy_jobs = []
+
+        def copy(self, source, dest):
+            res = self.pool.apply_async(
+                shutil.copy2,
+                args=(source, dest),
+                callback=lambda r: print(f"{source} copied to {dest}"),
+                error_callback=lambda exc: print(f"{source} failed", file=sys.stderr),
+            )
+            self.copy_jobs.append(res)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.pool.close()
+            self.pool.join()
+
+    with MultithreadedCopier(max_threads=48) as copier:
+        shutil.copytree(
+            src, dest, copy_function=copier.copy, dirs_exist_ok=True
+        )
 
 @app.function(
     volumes={"/mnt/": volume},
@@ -68,8 +96,8 @@ def import_transform_load() -> None:
         shutil.copy(tmp_path / filename, dataset_path)
 
     # Extract dataset
-    extracted_dataset_path = vol_path / "extracted"
-    extracted_dataset_path.mkdir(exist_ok=True)
+    extracted_dataset_path = tmp_path / "extracted"
+    extracted_dataset_path.mkdir(parents=True, exist_ok=True)
 
     def extractall(fzip, dest, desc="Extracting"):
         from tqdm.auto import tqdm
@@ -87,6 +115,13 @@ def import_transform_load() -> None:
                     full_path.parent.mkdir(exist_ok=True, parents=True)
                     with zipf.open(i) as fi, open(full_path, "wb") as fo:
                         shutil.copyfileobj(CallbackIOWrapper(pbar.update, fi), fo)
-    print("Extracting .zip into volume...")
+    print(f"Extracting .zip into {extracted_dataset_path}...")
     extractall(dataset_path, extracted_dataset_path)
-    print(f"Unzipped {dataset_path} to {extracted_dataset_path}")
+    print(f"Extracted {dataset_path} to {extracted_dataset_path}")
+    subprocess.run(f"tree -L 3 {extracted_dataset_path}", shell=True, check=True)
+
+    final_dataset_path = vol_path / "extracted"
+    final_dataset_path.mkdir(exist_ok=True)
+    copy_concurrent(extracted_dataset_path, final_dataset_path)
+    subprocess.run(f"tree -L 3 {final_dataset_path}", shell=True, check=True)
+    print("Dataset is loaded ✅")

@@ -33,27 +33,56 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
     monitoring_thread.daemon = True
     monitoring_thread.start()
 
+
+def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
+    from multiprocessing.pool import ThreadPool
+    class MultithreadedCopier:
+        def __init__(self, max_threads):
+            self.pool = ThreadPool(max_threads)
+
+        def copy(self, source, dest):
+            self.pool.apply_async(shutil.copy2, args=(source, dest))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.pool.close()
+            self.pool.join()
+
+    with MultithreadedCopier(max_threads=48) as copier:
+        shutil.copytree(
+            src, dest, copy_function=copier.copy, dirs_exist_ok=True
+        )
+
 @app.function(
     volumes={"/mnt": volume},
     timeout=60 * 60 * 12,  # 12 hours
+    ephemeral_disk=512 * 1024,
 )
 def run_img2dataset_on_part(
     i: int,
     partfile: str,
 ) -> None:
     start_monitoring_disk_space()
+    while not pathlib.Path(partfile).exists():
+        print(f"{partfile} not yet visible...", file=sys.stderr)
+        time.sleep(1)
     # Each part works in its own subdirectory because img2dataset creates a working
     # tmpdir at <output_folder>/_tmp and we don't want consistency issues caused by
     # all concurrently processing parts read/writing from the same temp directory.
-    laion400m_data_path = pathlib.Path(f"/mnt/laion400/laion400m-data/{i}/")
+    tmp_laion400m_data_path = pathlib.Path(f"/tmp/laion400/laion400m-data/{i}/")
+    tmp_laion400m_data_path.mkdir(exist_ok=True, parents=True)
     command = (
         f'img2dataset --url_list {partfile} --input_format "parquet" '
         '--url_col "URL" --caption_col "TEXT" --output_format webdataset '
-        f'--output_folder {laion400m_data_path} --processes_count 16 --thread_count 128 --image_size 256 '
-        '--save_additional_columns \'["NSFW","similarity","LICENSE"]\' --enable_wandb False'
+        f'--output_folder {tmp_laion400m_data_path} --processes_count 16 --thread_count 128 --image_size 256 '
+        '--retries=3 --save_additional_columns \'["NSFW","similarity","LICENSE"]\' --enable_wandb False'
     )
     print(f"Running img2dataset command: \n\n{command}")
     subprocess.run(command, shell=True, check=True)
+    laion400m_data_path = pathlib.Path("/mnt/laion400/laion400m-data/")
+    copy_concurrent(tmp_laion400m_data_path, laion400m_data_path)
 
 
 @app.function(
@@ -76,10 +105,12 @@ def import_transform_load() -> None:
             check=True,
         )
 
+        parquet_files = list(tmp_laion400m_meta_path.glob("**/*.parquet"))
+        print(f"Downloaded {len(parquet_files)} parquet files into {tmp_laion400m_meta_path}.")
         # Perform a simple copy operation to move the data into the bucket.
-        shutil.copytree(tmp_laion400m_meta_path, laion400m_meta_path, dirs_exist_ok=True)
+        copy_concurrent(tmp_laion400m_meta_path, laion400m_meta_path)
 
     parquet_files = list(laion400m_meta_path.glob("**/*.parquet"))
-    print(f"Downloaded {len(parquet_files)} parquet files.")
+    print(f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}.")
     print(f"Spawning {len(parquet_files)} to enrich dataset...")
     list(run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files)))

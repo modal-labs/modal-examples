@@ -7,7 +7,6 @@ import tarfile
 import threading
 import time
 import modal
-from multiprocessing import Process
 from multiprocessing.pool import ThreadPool
 
 
@@ -76,7 +75,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 @app.function(
     volumes={"/mnt/": volume},
-    timeout=60 * 60 * 9,  # 9 hours,
+    timeout=60 * 60 * 12,  # 12 hours,
     ephemeral_disk=1000 * 1024,
 )
 def import_transform_load() -> None:
@@ -87,26 +86,21 @@ def import_transform_load() -> None:
     )
     structure_templates = pathlib.Path("/tmp/pdb100_2021Mar03.tar.gz")
     commands = []
-    if not uniref30.exists():
-        print("Downloading uniref30 [46G]")
-        commands.append(
-            f"wget http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz -O {uniref30}"
-        )
-
-    if not bfd_dataset.exists():
-        print("Downloading BFD [272G]")
-        # NOTE: the mmseq.com server upload speed is quite slow so this download takes a while.
-        commands.append(
-            f"wget https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz -O {bfd_dataset}"
-        )
-
-    if not structure_templates.exists():
-        print(
-            "Downloading structure templates (including *_a3m.ffdata, *_a3m.ffindex)"
-        )
-        commands.append(
-            f"wget https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz -O {structure_templates}"
-        )
+    print("Downloading uniref30 [46G]")
+    commands.append(
+        f"wget http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz -O {uniref30}"
+    )
+    print("Downloading BFD [272G]")
+    # NOTE: the mmseq.com server upload speed is quite slow so this download takes a while.
+    commands.append(
+        f"wget https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz -O {bfd_dataset}"
+    )
+    print(
+        "Downloading structure templates (including *_a3m.ffdata, *_a3m.ffindex)"
+    )
+    commands.append(
+        f"wget https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz -O {structure_templates}"
+    )
 
     # Start all downloads in parallel
     processes = [subprocess.Popen(cmd, shell=True) for cmd in commands]
