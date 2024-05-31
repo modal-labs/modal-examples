@@ -1,3 +1,7 @@
+# ---
+# deploy: true
+# lambda-test: false
+# ---
 import os
 import pathlib
 import shutil

@@ -1,10 +1,14 @@
-"""
-This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protien-folding
-model's dataset into a mounted volume.
+# ---
+# deploy: true
+# lambda-test: false
+# ---
+#
+# This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protien-folding
+# model's dataset into a mounted volume.
 
-The dataset is over 2 TiB when decompressed to the runtime of this script is quite long.
-ref: https://github.com/RosettaCommons/RoseTTAFold/issues/132.
-"""
+# The dataset is over 2 TiB when decompressed to the runtime of this script is quite long.
+# ref: https://github.com/RosettaCommons/RoseTTAFold/issues/132.
+#
 import os
 import pathlib
 import shutil

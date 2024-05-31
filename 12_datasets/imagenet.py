@@ -1,10 +1,13 @@
-"""
-This scripts demonstrates how to ingest the famous ImageNet (https://www.image-net.org/)
-dataset into a mounted volume.
-
-It requires a Kaggle account's API token stored as a modal.Secret in order to download part
-of the dataset from Kaggle's servers using the `kaggle` CLI.
-"""
+# ---
+# deploy: true
+# lambda-test: false
+# ---
+#
+# This scripts demonstrates how to ingest the famous ImageNet (https://www.image-net.org/)
+# dataset into a mounted volume.
+#
+# It requires a Kaggle account's API token stored as a modal.Secret in order to download part
+# of the dataset from Kaggle's servers using the `kaggle` CLI.
 import os
 import pathlib
 import shutil

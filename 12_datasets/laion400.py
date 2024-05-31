@@ -1,18 +1,21 @@
-"""
-https://laion.ai/blog/laion-400-open-dataset/
-
-LAION-400 is a large dataset of 400M English (image, text) pairs.
-
-As described on the dataset's homepage, it consists of 32 .parquet files
-containing dataset metadata *but not* the image data itself.
-
-After downloading the .parquet files, this script fans out 32 worker jobs
-to process a single .parquet file. Processing involves fetch and transform
-of image data into 256 * 256 square JPEGs.
-
-This script is loosely based off the following instructions:
+# ---
+# deploy: true
+# lambda-test: false
+# ---
+#
+# https://laion.ai/blog/laion-400-open-dataset/
+#
+# LAION-400 is a large dataset of 400M English (image, text) pairs.
+#
+# As described on the dataset's homepage, it consists of 32 .parquet files
+# containing dataset metadata *but not* the image data itself.
+#
+# After downloading the .parquet files, this script fans out 32 worker jobs
+# to process a single .parquet file. Processing involves fetch and transform
+# of image data into 256 * 256 square JPEGs.
+#
+# This script is loosely based off the following instructions:
 # https://github.com/rom1504/img2dataset/blob/main/dataset_examples/laion400m.md
-"""
 import os
 import pathlib
 import shutil
