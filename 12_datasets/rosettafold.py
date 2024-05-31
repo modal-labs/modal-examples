@@ -1,3 +1,10 @@
+"""
+This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protien-folding
+model's dataset into a mounted volume.
+
+The dataset is over 2 TiB when decompressed to the runtime of this script is quite long.
+ref: https://github.com/RosettaCommons/RoseTTAFold/issues/132.
+"""
 import os
 import pathlib
 import shutil
@@ -7,7 +14,6 @@ import tarfile
 import threading
 import time
 import modal
-from multiprocessing.pool import ThreadPool
 
 
 bucket_creds = modal.Secret.from_name(
@@ -53,12 +59,28 @@ def decompress_tar_gz(
 
 
 def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
+    """
+    A modified shutil.copytree which copies in parallel to increase bandwidth
+    and compensate for the increased IO latency of volume mounts.
+    """
+    from multiprocessing.pool import ThreadPool
+
     class MultithreadedCopier:
         def __init__(self, max_threads):
             self.pool = ThreadPool(max_threads)
+            self.copy_jobs = []
 
         def copy(self, source, dest):
-            self.pool.apply_async(shutil.copy2, args=(source, dest))
+            res = self.pool.apply_async(
+                shutil.copy2,
+                args=(source, dest),
+                callback=lambda r: print(f"{source} copied to {dest}"),
+                # NOTE: this should `raise` an exception for proper reliability.
+                error_callback=lambda exc: print(
+                    f"{source} failed: {exc}", file=sys.stderr
+                ),
+            )
+            self.copy_jobs.append(res)
 
         def __enter__(self):
             return self
@@ -75,7 +97,10 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 @app.function(
     volumes={"/mnt/": volume},
-    timeout=60 * 60 * 16,  # 16 hours,
+    # Timeout for this Function is set at the maximum, 24 hours,
+    # because downloading, decompressing and storing almost 2 TiB of
+    # files takes a long time.
+    timeout=60 * 60 * 24,
     ephemeral_disk=1000 * 1024,
 )
 def import_transform_load() -> None:
@@ -91,7 +116,9 @@ def import_transform_load() -> None:
         f"wget http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz -O {uniref30}"
     )
     print("Downloading BFD [272G]")
-    # NOTE: the mmseq.com server upload speed is quite slow so this download takes a while.
+    # NOTE:
+    # The mmseq.com server upload speed is quite slow so this download takes a while.
+    # The download speed is also quite variable, sometimes taking over 5 hours.
     commands.append(
         f"wget https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz -O {bfd_dataset}"
     )
@@ -102,22 +129,20 @@ def import_transform_load() -> None:
         f"wget https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz -O {structure_templates}"
     )
 
-    # Start all downloads in parallel
+    # Start all downloads in parallel and wait for all of them to complete.
     processes = [subprocess.Popen(cmd, shell=True) for cmd in commands]
-
-    # Wait for all downloads to complete
     errors = []
     for p in processes:
         returncode = p.wait()
-        if returncode == 0:
-            print("Download completed successfully.")
-        else:
+        if returncode != 0:
             errors.append(
                 f"Error in downloading. {p.args} failed {returncode=}"
             )
     if errors:
         raise RuntimeError(errors)
 
+    # Decompression is much faster against the container's local SSD disk
+    # compared with against the mounted volume. So we first compress into /tmp/.
     uniref30_decompressed = pathlib.Path(
         "/tmp/rosettafold/UniRef30_2020_06_hhsuite"
     )
@@ -132,19 +157,22 @@ def import_transform_load() -> None:
         (bfd_dataset, bfd_dataset_decompressed),
         (structure_templates, structure_templates_decompressed),
     }
-    processes = []
-    # Create and start a process for each decompression task
     for file_path, extract_dir in decompression_jobs:
         decompress_tar_gz(file_path, extract_dir)
-        file_path.unlink()
+        file_path.unlink()  # delete compressed file to free up disk
 
     print("All decompression tasks completed.")
 
+    # Finally, we move the decompressed data from /tmp/ into the mounted volume.
+    # There are a large mount of files to copy so this step takes a while.
+
     dest = pathlib.Path("/mnt/rosettafold/")
     copy_concurrent(uniref30_decompressed, dest)
-    shutil.rmtree(uniref30_decompressed, ignore_errors=True)
+    shutil.rmtree(uniref30_decompressed, ignore_errors=True)  # free up disk
     copy_concurrent(bfd_dataset_decompressed, dest)
-    shutil.rmtree(bfd_dataset_decompressed, ignore_errors=True)
+    shutil.rmtree(bfd_dataset_decompressed, ignore_errors=True)  # free up disk
     copy_concurrent(structure_templates_decompressed, dest)
-    shutil.rmtree(structure_templates_decompressed, ignore_errors=True)
+    shutil.rmtree(
+        structure_templates_decompressed, ignore_errors=True
+    )  # free up disk
     print("Dataset is loaded ✅")

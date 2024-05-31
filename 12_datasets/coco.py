@@ -10,7 +10,9 @@ import zipfile
 import modal
 
 
-bucket_creds = modal.Secret.from_name("aws-s3-modal-examples-datasets", environment_name="main")
+bucket_creds = modal.Secret.from_name(
+    "aws-s3-modal-examples-datasets", environment_name="main"
+)
 bucket_name = "modal-examples-datasets"
 volume = modal.CloudBucketMount(
     bucket_name,
@@ -27,14 +29,20 @@ app = modal.App(
 def start_monitoring_disk_space(interval: int = 30) -> None:
     """Start monitoring the disk space in a separate thread."""
     task_id = os.environ["MODAL_TASK_ID"]
+
     def log_disk_space(interval: int) -> None:
         while True:
-            statvfs = os.statvfs('/')
+            statvfs = os.statvfs("/")
             free_space = statvfs.f_frsize * statvfs.f_bavail
-            print(f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB", file=sys.stderr)
+            print(
+                f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB",
+                file=sys.stderr,
+            )
             time.sleep(interval)
 
-    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
+    monitoring_thread = threading.Thread(
+        target=log_disk_space, args=(interval,)
+    )
     monitoring_thread.daemon = True
     monitoring_thread.start()
 
@@ -42,9 +50,13 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
 def extractall(fzip, dest, desc="Extracting"):
     from tqdm.auto import tqdm
     from tqdm.utils import CallbackIOWrapper
+
     dest = pathlib.Path(dest).expanduser()
     with zipfile.ZipFile(fzip) as zipf, tqdm(
-        desc=desc, unit="B", unit_scale=True, unit_divisor=1024,
+        desc=desc,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
         total=sum(getattr(i, "file_size", 0) for i in zipf.infolist()),
     ) as pbar:
         for i in zipf.infolist():
@@ -59,6 +71,7 @@ def extractall(fzip, dest, desc="Extracting"):
 
 def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
     from multiprocessing.pool import ThreadPool
+
     class MultithreadedCopier:
         def __init__(self, max_threads):
             self.pool = ThreadPool(max_threads)
@@ -78,9 +91,11 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
             src, dest, copy_function=copier.copy, dirs_exist_ok=True
         )
 
+
 # This script uses wget to download ZIP files over HTTP because while the official
 # website recommends using gsutil to download from a bucket (https://cocodataset.org/#download)
 # that bucket no longer exists.
+
 
 @app.function(
     volumes={"/vol/": volume},
@@ -95,7 +110,9 @@ def import_transform_load() -> None:
     test2017_tmp = pathlib.Path("/tmp/test2017.zip")
     unlabeled2017_tmp = pathlib.Path("/tmp/unlabeled2017.zip")
     annotations_trainval2017 = pathlib.Path("/tmp/annotations_trainval2017.zip")
-    stuff_annotations_trainval2017 = pathlib.Path("/tmp/stuff_annotations_trainval2017.zip")
+    stuff_annotations_trainval2017 = pathlib.Path(
+        "/tmp/stuff_annotations_trainval2017.zip"
+    )
     image_info_test2017 = pathlib.Path("/tmp/image_info_test2017.zip")
     image_info_unlabeled2017 = pathlib.Path("/tmp/image_info_unlabeled2017.zip")
     commands = [
@@ -124,18 +141,56 @@ def import_transform_load() -> None:
         raise RuntimeError(errors)
 
     destination = pathlib.Path("/tmp/train2017/")
-    for src, extract_dest, final_dest, in [
-        (train2017_tmp, pathlib.Path("/tmp/train2017/"), pathlib.Path("/vol/coco/train2017/")),
-        (val2017_tmp, pathlib.Path("/tmp/val2017/"), pathlib.Path("/vol/coco/val2017/")),
-        (test2017_tmp, pathlib.Path("/tmp/test2017/"), pathlib.Path("/vol/coco/test2017/")),
-        (unlabeled2017_tmp, pathlib.Path("/tmp/unlabeled2017/"), pathlib.Path("/vol/coco/unlabeled2017/")),
-        (annotations_trainval2017, pathlib.Path("/tmp/annotations_trainval2017/"), pathlib.Path("/vol/coco/annotations_trainval2017/")),
-        (stuff_annotations_trainval2017, pathlib.Path("/tmp/stuff_annotations_trainval2017/"), pathlib.Path("/vol/coco/stuff_annotations_trainval2017/")),
-        (image_info_test2017, pathlib.Path("/tmp/image_info_test2017/"), pathlib.Path("/vol/coco/image_info_test2017/")),
-        (image_info_unlabeled2017, pathlib.Path("/tmp/image_info_unlabeled2017/"), pathlib.Path("/vol/coco/image_info_unlabeled2017/")),
+    for (
+        src,
+        extract_dest,
+        final_dest,
+    ) in [
+        (
+            train2017_tmp,
+            pathlib.Path("/tmp/train2017/"),
+            pathlib.Path("/vol/coco/train2017/"),
+        ),
+        (
+            val2017_tmp,
+            pathlib.Path("/tmp/val2017/"),
+            pathlib.Path("/vol/coco/val2017/"),
+        ),
+        (
+            test2017_tmp,
+            pathlib.Path("/tmp/test2017/"),
+            pathlib.Path("/vol/coco/test2017/"),
+        ),
+        (
+            unlabeled2017_tmp,
+            pathlib.Path("/tmp/unlabeled2017/"),
+            pathlib.Path("/vol/coco/unlabeled2017/"),
+        ),
+        (
+            annotations_trainval2017,
+            pathlib.Path("/tmp/annotations_trainval2017/"),
+            pathlib.Path("/vol/coco/annotations_trainval2017/"),
+        ),
+        (
+            stuff_annotations_trainval2017,
+            pathlib.Path("/tmp/stuff_annotations_trainval2017/"),
+            pathlib.Path("/vol/coco/stuff_annotations_trainval2017/"),
+        ),
+        (
+            image_info_test2017,
+            pathlib.Path("/tmp/image_info_test2017/"),
+            pathlib.Path("/vol/coco/image_info_test2017/"),
+        ),
+        (
+            image_info_unlabeled2017,
+            pathlib.Path("/tmp/image_info_unlabeled2017/"),
+            pathlib.Path("/vol/coco/image_info_unlabeled2017/"),
+        ),
     ]:
         extract_dest.mkdir()
-        extractall(src, destination)   # extract into /tmp/
+        extractall(src, destination)  # extract into /tmp/
         src.unlink()  # free up disk space by deleting the zip
-        copy_concurrent(destination, final_dest)  # copy from /tmp/ into mounted volume
+        copy_concurrent(
+            destination, final_dest
+        )  # copy from /tmp/ into mounted volume
     print("✅ Done")
