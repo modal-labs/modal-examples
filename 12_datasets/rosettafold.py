@@ -9,6 +9,9 @@
 # The dataset is over 2 TiB when decompressed to the runtime of this script is quite long.
 # ref: https://github.com/RosettaCommons/RoseTTAFold/issues/132.
 #
+# It is recommended to iterate on this code from a modal.Function running Jupyter server.
+# This better supports experimentation and maintains state in the face of errors:
+# 11_notebooks/jupyter_inside_modal.py
 import os
 import pathlib
 import shutil
