@@ -113,7 +113,7 @@ schema = """{
 # We specify that we want to use the Mistral-7B model, and then ask for a character, and we'll receive structured data with the right schema.
 
 
-@app.function(image=outlines_image, gpu=gpu.A100(memory=80))
+@app.function(image=outlines_image, gpu=gpu.A100(size="80GB"))
 def generate(
     prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
 ):

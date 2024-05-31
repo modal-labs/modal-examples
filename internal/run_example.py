@@ -39,7 +39,7 @@ def run_script(example):
 def run_single_example(stem):
     examples = utils.get_examples()
     for example in examples:
-        if stem == example.stem:
+        if stem == example.stem and example.metadata.get("lambda-test", True):
             return run_script(example)
     else:
         print(f"Could not find example name {stem}")
