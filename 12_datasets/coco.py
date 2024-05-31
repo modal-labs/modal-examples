@@ -2,6 +2,13 @@
 # deploy: true
 # lambda-test: false
 # ---
+#
+# This script demonstrates ingestion of the [COCO](https://cocodataset.org/#download) (Common Objects in Context)
+# dataset.
+#
+# It is recommended to iterate on this code from a modal.Function running Jupyter server.
+# This better supports experimentation and maintains state in the face of errors:
+# 11_notebooks/jupyter_inside_modal.py
 import os
 import pathlib
 import shutil

@@ -16,6 +16,10 @@
 #
 # This script is loosely based off the following instructions:
 # https://github.com/rom1504/img2dataset/blob/main/dataset_examples/laion400m.md
+#
+# It is recommended to iterate on this code from a modal.Function running Jupyter server.
+# This better supports experimentation and maintains state in the face of errors:
+# 11_notebooks/jupyter_inside_modal.py
 import os
 import pathlib
 import shutil
