@@ -73,14 +73,16 @@ def run_img2dataset_on_part(
     # all concurrently processing parts read/writing from the same temp directory.
     tmp_laion400m_data_path = pathlib.Path(f"/tmp/laion400/laion400m-data/{i}/")
     tmp_laion400m_data_path.mkdir(exist_ok=True, parents=True)
+    # TODO: Support --incremental mode. https://github.com/rom1504/img2dataset?tab=readme-ov-file#incremental-mode
     command = (
         f'img2dataset --url_list {partfile} --input_format "parquet" '
         '--url_col "URL" --caption_col "TEXT" --output_format webdataset '
         f'--output_folder {tmp_laion400m_data_path} --processes_count 16 --thread_count 128 --image_size 256 '
-        '--retries=3 --save_additional_columns \'["NSFW","similarity","LICENSE"]\' --enable_wandb False'
+        '--retries=1 --save_additional_columns \'["NSFW","similarity","LICENSE"]\' --enable_wandb False'
     )
     print(f"Running img2dataset command: \n\n{command}")
     subprocess.run(command, shell=True, check=True)
+    print("Completed img2dataset, copying into mounted volume...")
     laion400m_data_path = pathlib.Path("/mnt/laion400/laion400m-data/")
     copy_concurrent(tmp_laion400m_data_path, laion400m_data_path)
 
@@ -113,4 +115,5 @@ def import_transform_load() -> None:
     parquet_files = list(laion400m_meta_path.glob("**/*.parquet"))
     print(f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}.")
     print(f"Spawning {len(parquet_files)} to enrich dataset...")
-    list(run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files)))
+    run_img2dataset_on_part.remote(0, parquet_files[0])
+    # list(run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files)))

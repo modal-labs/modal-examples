@@ -49,7 +49,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
                 shutil.copy2,
                 args=(source, dest),
                 callback=lambda r: print(f"{source} copied to {dest}"),
-                error_callback=lambda exc: print(f"{source} failed", file=sys.stderr),
+                error_callback=lambda exc: print(f"{source} failed: {exc}", file=sys.stderr),
             )
             self.copy_jobs.append(res)
 
@@ -60,7 +60,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
             self.pool.close()
             self.pool.join()
 
-    with MultithreadedCopier(max_threads=48) as copier:
+    with MultithreadedCopier(max_threads=24) as copier:
         shutil.copytree(
             src, dest, copy_function=copier.copy, dirs_exist_ok=True
         )
