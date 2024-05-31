@@ -105,7 +105,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
     # because downloading, decompressing and storing almost 2 TiB of
     # files takes a long time.
     timeout=60 * 60 * 24,
-    ephemeral_disk=1000 * 1024,
+    ephemeral_disk=2100 * 1024,
 )
 def import_transform_load() -> None:
     start_monitoring_disk_space()
