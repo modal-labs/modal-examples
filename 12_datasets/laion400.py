@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+
 import modal
 
 bucket_creds = modal.Secret.from_name(
@@ -106,7 +107,7 @@ def run_img2dataset_on_part(
     i: int,
     partfile: str,
 ) -> None:
-    start_monitoring_disk_space(internal=60)
+    start_monitoring_disk_space(interval=60)
     while not pathlib.Path(partfile).exists():
         print(f"{partfile} not yet visible...", file=sys.stderr)
         time.sleep(1)

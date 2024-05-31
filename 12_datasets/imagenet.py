@@ -16,7 +16,6 @@ import zipfile
 
 import modal
 
-
 bucket_creds = modal.Secret.from_name(
     "aws-s3-modal-examples-datasets", environment_name="main"
 )

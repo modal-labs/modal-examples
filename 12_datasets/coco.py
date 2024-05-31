@@ -9,7 +9,6 @@ import zipfile
 
 import modal
 
-
 bucket_creds = modal.Secret.from_name(
     "aws-s3-modal-examples-datasets", environment_name="main"
 )
@@ -135,7 +134,7 @@ def import_transform_load() -> None:
             print("Download completed successfully.")
         else:
             errors.append(
-                f"Error in downloading. {p.args} failed {returncode=}"
+                f"Error in downloading. {p.args!r} failed {returncode=}"
             )
     if errors:
         raise RuntimeError(errors)

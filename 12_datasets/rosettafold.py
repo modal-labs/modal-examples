@@ -13,8 +13,8 @@ import sys
 import tarfile
 import threading
 import time
-import modal
 
+import modal
 
 bucket_creds = modal.Secret.from_name(
     "aws-s3-modal-examples-datasets", environment_name="main"
@@ -136,7 +136,7 @@ def import_transform_load() -> None:
         returncode = p.wait()
         if returncode != 0:
             errors.append(
-                f"Error in downloading. {p.args} failed {returncode=}"
+                f"Error in downloading. {p.args!r} failed {returncode=}"
             )
     if errors:
         raise RuntimeError(errors)
