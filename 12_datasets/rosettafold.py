@@ -167,7 +167,9 @@ def import_transform_load() -> None:
     for file_path, extract_dir in decompression_jobs:
         print(f"Decompressing {file_path} into {extract_dir}.")
         decompress_tar_gz(file_path, extract_dir)
-        print(f"✅ Decompressed {file_path} into {extract_dir}. Now deleting it to free up disk..")
+        print(
+            f"✅ Decompressed {file_path} into {extract_dir}. Now deleting it to free up disk.."
+        )
         file_path.unlink()  # delete compressed file to free up disk
 
     print("All decompression tasks completed.")
