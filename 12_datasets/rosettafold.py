@@ -108,7 +108,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
     # because downloading, decompressing and storing almost 2 TiB of
     # files takes a long time.
     timeout=60 * 60 * 24,
-    ephemeral_disk=2100 * 1024,
+    ephemeral_disk=2560 * 1024,
 )
 def import_transform_load() -> None:
     start_monitoring_disk_space()
@@ -165,7 +165,9 @@ def import_transform_load() -> None:
         (structure_templates, structure_templates_decompressed),
     }
     for file_path, extract_dir in decompression_jobs:
+        print(f"Decompressing {file_path} into {extract_dir}.")
         decompress_tar_gz(file_path, extract_dir)
+        print(f"✅ Decompressed {file_path} into {extract_dir}. Now deleting it to free up disk..")
         file_path.unlink()  # delete compressed file to free up disk
 
     print("All decompression tasks completed.")
@@ -179,7 +181,4 @@ def import_transform_load() -> None:
     copy_concurrent(bfd_dataset_decompressed, dest)
     shutil.rmtree(bfd_dataset_decompressed, ignore_errors=True)  # free up disk
     copy_concurrent(structure_templates_decompressed, dest)
-    shutil.rmtree(
-        structure_templates_decompressed, ignore_errors=True
-    )  # free up disk
     print("Dataset is loaded ✅")
