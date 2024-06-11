@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# deploy: true
 # cmd: ["modal", "serve", "10_integrations/streamlit/serve_streamlit.py"]
 # ---
 #
@@ -26,7 +26,9 @@ import modal
 # The `app.py` script imports three third-party packages, so we include these in the example's
 # image definition.
 
-image = modal.Image.debian_slim().pip_install("streamlit", "numpy", "pandas")
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2"
+)
 
 app = modal.App(
     name="example-modal-streamlit", image=image
