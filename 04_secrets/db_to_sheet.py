@@ -1,19 +1,25 @@
+# ---
+# deploy: true
+# ---
 # # Write to Google Sheets
 #
-# In this tutorial, we'll show how to use Modal to schedule a daily update of a dataset
-# from an analytics database to Google Sheets.
+# In this tutorial, we'll show how to use Modal to schedule a daily report in a spreadsheet on Google Sheets
+# that combines data from a PostgreSQL database with data from an external API.
+#
+# In particular, we'll extract the city of each user from the database, look up the current weather in that city,
+# and then build a count/histogram of how many users are experiencing each type of weather.
 #
 # ## Entering credentials
 #
 # We begin by setting up some credentials that we'll need in order to access our database and output
 # spreadsheet. To do that in a secure manner, we log in to our Modal account on the web and go to
-# the [Secrets](/secrets) section.
+# the [Secrets](https://modal.com/secrets) section.
 #
 # ### Database
 #
 # First we will enter our database credentials. The easiest way to do this is to click **New
-# secret** and select the **Postgres compatible** secret preset and fill in the requested
-# information. Then we press **Next** and name our secret "example-postgres-secret" and click **Create**.
+# secret** and select the **Postgres compatible** Secret preset and fill in the requested
+# information. Then we press **Next** and name our Secret `example-postgres-secret` and click **Create**.
 #
 # ### Google Sheets/GCP
 #
@@ -35,12 +41,12 @@
 # 7. Click **Add key** and choose **Create new key**. Use the **JSON** key type and confirm by
 #    clicking **Create**.
 # 8. A json key file should be downloaded to your computer at this point. Copy the contents of that
-#    file and use it as the value for the **SERVICE_ACCOUNT_JSON** field in your new secret.
+#    file and use it as the value for the `SERVICE_ACCOUNT_JSON` field in your new secret.
 #
-# We'll name this other secret "gsheets-secret".
+# We'll name this other Secret "my-gsheets-secret".
 #
-# Now you can access the values of your secrets from modal functions that you annotate with the
-# corresponding EnvDict includes, e.g.:
+# Now you can access the values of your Secrets from Modal Functions that you annotate with the
+# corresponding `modal.Secret`s, e.g.:
 
 import os
 
@@ -52,16 +58,16 @@ app = modal.App(
 
 
 @app.function(secrets=[modal.Secret.from_name("example-postgres-secret")])
-def my_func():
+def show_host():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
 
 
 # In order to connect to the database, we'll use the `psycopg2` Python package. To make it available
-# to your Modal function you need to supply it with an `image` argument that tells Modal how to
+# to your Modal Function you need to supply it with an `image` argument that tells Modal how to
 # build the container image that contains that package. We'll base it off of the `Image.debian_slim` base
-# image that's built into modal, and make sure to install the required binary packages as well as
-# the psycopg2 package itself:
+# image that's built into Modal, and make sure to install the required binary packages as well as
+# the `psycopg2` package itself:
 
 pg_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -70,33 +76,45 @@ pg_image = (
 )
 
 # Since the default keynames for a **Postgres compatible** secret correspond to the environment
-# variables that `psycopg2` looks for, you can now easily connect to the database even without
+# variables that `psycopg2` looks for, we can now easily connect to the database even without
 # explicit credentials in your code. We'll create a simple function that queries the city for each
-# user in our dummy `users` table:
+# user in the `users` table.
 
 
 @app.function(
-    image=pg_image,
-    secrets=[modal.Secret.from_name("example-postgres-secret")],
+    image=pg_image, secrets=[modal.Secret.from_name("example-postgres-secret")]
 )
-def get_db_rows():
+def get_db_rows(verbose=True):
     import psycopg2
 
     conn = psycopg2.connect()  # no explicit credentials needed
     cur = conn.cursor()
     cur.execute("SELECT city FROM users")
-    return [row[0] for row in cur.fetchall()]
+    results = [row[0] for row in cur.fetchall()]
+    if verbose:
+        print(results)
+    return results
 
 
-# Note that we import psycopg2 inside our function instead of the global scope. This allows us to
-# run this Modal function even from an environment where psycopg2 is not installed. We can test run
+# Note that we import `psycopg2` inside our function instead of the global scope. This allows us to
+# run this Modal Function even from an environment where `psycopg2` is not installed. We can test run
 # this function using the `modal run` shell command: `modal run db_to_sheet.py::app.get_db_rows`.
+#
+# To run this function, make sure there is a table called `users` in your database with a column called `city`.
+# You can populate the table with some example data using the following SQL commands:
+#
+# ```sql
+# CREATE TABLE users (city TEXT);
+# INSERT INTO users VALUES ('Stockholm,,Sweden');
+# INSERT INTO users VALUES ('New York,NY,USA');
+# INSERT INTO users VALUES ('Tokyo,,Japan');
+# ```
 
 # ## Applying Python logic
 #
-# For each city in our source data we'll make an online lookup of the current weather using the
+# For each row in our source data we'll run an online lookup of the current weather using the
 # [http://openweathermap.org](http://openweathermap.org) API. To do this, we'll add the API key to
-# another modal secret. We'll use a custom secret called "weather-secret" with the key
+# another Modal Secret. We'll use a custom secret called "weather-secret" with the key
 # `OPENWEATHER_API_KEY` containing our API key for OpenWeatherMap.
 
 requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -105,8 +123,7 @@ requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 
 @app.function(
-    image=requests_image,
-    secrets=[modal.Secret.from_name("weather-secret")],
+    image=requests_image, secrets=[modal.Secret.from_name("weather-secret")]
 )
 def city_weather(city):
     import requests
@@ -119,9 +136,9 @@ def city_weather(city):
 
 
 # We'll make use of Modal's built-in `function.map` method to create our report. `function.map`
-# makes it really easy to parallelise work by executing a function for a larger sequence of input
-# data. For this example we'll make a simple count of rows per weather type, using Python's
-# standard library `collections.Counter`.
+# makes it really easy to parallelize work by executing a Function on every element in a sequence of
+# data. For this example we'll just do a simple count of rows per weather type --
+# answering the question "how many of our users are experiencing each type of weather?".
 
 from collections import Counter
 
@@ -130,13 +147,17 @@ from collections import Counter
 def create_report(cities):
     # run city_weather for each city in parallel
     user_weather = city_weather.map(cities)
-    users_by_weather = Counter(user_weather).items()
-    return users_by_weather
+    count_users_by_weather = Counter(user_weather).items()
+    return count_users_by_weather
 
 
 # Let's try to run this! To make it simple to trigger the function with some
-# predefined input data, we create a "local entrypoint" `main` that can be
-# easily triggered from the command line:
+# predefined input data, we create a "local entrypoint" that can be
+# run from the command line with
+#
+# ```bash
+# modal run db_to_sheet.py
+# ```
 
 
 @app.local_entrypoint()
@@ -152,7 +173,7 @@ def main():
 # Running the local entrypoint using `modal run db_to_sheet.py` should print something like:
 # `dict_items([('Clouds', 3)])`.
 # Note that since this file only has a single app, and the app has only one local entrypoint
-# we only have to specify the file to run - the function/entrypoint is inferred.
+# we only have to specify the file to run it - the function/entrypoint is inferred.
 
 # In this case the logic is quite simple, but in a real world context you could have applied a
 # machine learning model or any other tool you could build into a container to transform the data.
@@ -160,14 +181,18 @@ def main():
 # ## Sending output to a Google Sheet
 #
 # We'll set up a new Google Sheet to send our report to. Using the "Sharing" dialog in Google
-# Sheets, we make sure to share the document to the service account's email address (the value of
-# the `client_email` field in the json file) and make the service account an editor of the document.
+# Sheets, share the document to the service account's email address (the value of the `client_email` field in the json file)
+# and make the service account an editor of the document.
 #
-# The URL of a Google Sheet is something like:
+# You may also need to enable the Google Sheets API for your project in the Google Cloud Platform console.
+# If so, the URL will be printed inside the message of a 403 Forbidden error when you run the function.
+# It begins with https://console.developers.google.com/apis/api/sheets.googleapis.com/overview.
+#
+# Lastly, we need to point our code to the correct Google Sheet. We'll need the *key* of the document.
+# You can find the key in the URL of the Google Sheet. It appears after the `/d/` in the URL, like:
 # `https://docs.google.com/spreadsheets/d/1wOktal......IJR77jD8Do`.
 #
-# We copy the part of the URL that comes after `/d/` - that is the *key* of the document which
-# we'll refer to in our code. We'll make use of the `pygsheets` python package to authenticate with
+# We'll make use of the `pygsheets` python package to authenticate with
 # Google Sheets and then update the spreadsheet with information from the report we just created:
 
 pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -177,13 +202,13 @@ pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 @app.function(
     image=pygsheets_image,
-    secrets=[modal.Secret.from_name("gsheets-secret")],
+    secrets=[modal.Secret.from_name("my-gsheets-secret")],
 )
 def update_sheet_report(rows):
     import pygsheets
 
     gc = pygsheets.authorize(service_account_env_var="SERVICE_ACCOUNT_JSON")
-    document_key = "1RqQrJ6Ikf611adKunm8tmL1mKzHLjNwLWm_T7mfXSYA"
+    document_key = "1JxhGsht4wltyPFFOd2hP0eIv6lxZ5pVxJN_ZwNT-l3c"
     sh = gc.open_by_key(document_key)
     worksheet = sh.sheet1
     worksheet.clear("A2")
@@ -192,10 +217,10 @@ def update_sheet_report(rows):
 
 
 # At this point, we have everything we need in order to run the full program. We can put it all together in
-# another Modal function, and add a [schedule](/docs/guide/cron) argument so it runs every day automatically:
+# another Modal function, and add a [`schedule`](https://modal.com/docs/guide/cron) argument so it runs every day automatically:
 
 
-@app.function(schedule=modal.Cron("0 0 * * *"))
+@app.function(schedule=modal.Period(days=1))
 def db_to_sheet():
     rows = get_db_rows.remote()
     report = create_report.remote(rows)
@@ -205,12 +230,12 @@ def db_to_sheet():
         print(f"{weather}: {count}")
 
 
-# This entire app can now be deployed using `modal deploy db_to_sheet.py`. The [apps page](/apps)
+# This entire app can now be deployed using `modal deploy db_to_sheet.py`. The [apps page](https://modal.com/apps)
 # shows our cron job's execution history and lets you navigate to each invocation's logs.
 # To trigger a manual run from your local code during development, you can also trigger this function using the cli:
-# `modal run db_to_sheet.py::app.db_to_sheet`
+# `modal run db_to_sheet.py::db_to_sheet`
 
-# Note that all of the @app.function() annotated functions above run remotely in isolated containers that are specified per
-# function, but they are called as seamlessly as using regular Python functions. This is a simple
-# showcase of how you can mix and match functions that use different environments and have them feed
+# Note that all of the `@app.function()` annotated functions above run remotely in isolated containers that are specified per
+# function, but they are called as seamlessly as if we were using regular Python functions. This is a simple
+# showcase of how you can mix and match Modal Functions that use different environments and have them feed
 # into each other or even call each other as if they were all functions in the same local program.
