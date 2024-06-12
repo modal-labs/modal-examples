@@ -12,7 +12,7 @@ app = modal.App(
     image=modal.Image.debian_slim().pip_install(
         "torch", find_links="https://download.pytorch.org/whl/cu116"
     ),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 
 @app.function(gpu="any")

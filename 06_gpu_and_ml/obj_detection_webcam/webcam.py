@@ -48,9 +48,7 @@ from modal import App, Image, Mount, asgi_app, build, enter, method
 model_repo_id = "facebook/detr-resnet-50"
 
 
-app = App(
-    "example-webcam-object-detection"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-webcam-object-detection")
 image = (
     Image.debian_slim()
     .pip_install(

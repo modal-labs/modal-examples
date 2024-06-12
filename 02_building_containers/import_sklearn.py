@@ -16,7 +16,7 @@ app = modal.App(
     image=modal.Image.debian_slim()
     .apt_install("libgomp1")
     .pip_install("scikit-learn"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # The `app.image.imports()` lets us conditionally import in the global scope.
 # This is needed because we might not have sklearn and numpy installed locally,

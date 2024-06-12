@@ -58,7 +58,7 @@ def main_app(project_path, project_name, package_name) -> App:
         f"kedro-run.{project_name}",
         image=image,
         mounts=[kedro_proj_mount] + package_mounts,
-    )  # Note: prior to April 2024, "app" was called "stub"
+    )
     volume_name = f"kedro.{project_name}.storage"
     data_volume = NetworkFileSystem.from_name(volume_name, create_if_true=True)
 
@@ -74,9 +74,7 @@ def main_app(project_path, project_name, package_name) -> App:
 
 def sync_app(project_path, project_name):
     # slimmer sync app that only mounts the data dir in order to upload raw data
-    app = App(
-        f"kedro-data-sync.{project_name}"
-    )  # Note: prior to April 2024, "app" was called "stub"
+    app = App(f"kedro-data-sync.{project_name}")
     volume_name = f"kedro.{project_name}.storage"
     data_volume = NetworkFileSystem().persist(volume_name)
 

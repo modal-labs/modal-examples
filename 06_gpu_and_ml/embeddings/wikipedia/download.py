@@ -11,7 +11,7 @@ volume = Volume.from_name("embedding-wikipedia", create_if_missing=True)
 image = Image.debian_slim(python_version="3.9").pip_install(
     "datasets==2.16.1", "apache_beam==2.53.0"
 )
-app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = App(image=image)
 
 
 # The default timeout is 5 minutes re: https://modal.com/docs/guide/timeouts#handling-timeouts

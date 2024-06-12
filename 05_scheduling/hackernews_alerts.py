@@ -15,9 +15,7 @@ from datetime import datetime, timedelta
 
 import modal
 
-app = modal.App(
-    "example-hn-bot"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-hn-bot")
 
 # Now, let's define an image that has the `slack-sdk` package installed, in which we can run a function
 # that posts a slack message.

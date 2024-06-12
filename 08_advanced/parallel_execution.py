@@ -2,9 +2,7 @@ import time
 
 import modal
 
-app = modal.App(
-    "example-parallel"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-parallel")
 
 
 @app.function()

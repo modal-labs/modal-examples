@@ -10,9 +10,7 @@ import modal
 from fastapi import FastAPI, Request, Response
 from fastapi.templating import Jinja2Templates
 
-app = modal.App(
-    "playground-2-5"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("playground-2-5")
 
 DIFFUSERS_GIT_SHA = "2e31a759b5bd8ca2b288b5c61709636a96c4bae9"
 

@@ -83,9 +83,7 @@ image = (
     )
 )
 
-app = modal.App(
-    "example-vllm-inference", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-vllm-inference", image=image)
 
 # Using `image.imports` allows us to have a reference to vLLM in global scope without getting an error when our script executes locally.
 with image.imports():

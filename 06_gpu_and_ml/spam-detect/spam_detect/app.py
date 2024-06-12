@@ -18,9 +18,7 @@ image = modal.Image.debian_slim(
     "transformers~=4.24.0",
 )
 
-app = modal.App(
-    name="example-spam-detect-llm", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-spam-detect-llm", image=image)
 # Used to store datasets, trained models, model metadata, config.
 volume = modal.Volume.from_name(
     "example-spam-detect-vol", create_if_missing=True

@@ -9,9 +9,7 @@ from modal import App, Image, asgi_app, web_endpoint
 from pydantic import BaseModel
 
 web_app = FastAPI()
-app = App(
-    "example-fastapi-app"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-fastapi-app")
 image = Image.debian_slim()
 
 

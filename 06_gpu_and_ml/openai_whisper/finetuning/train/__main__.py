@@ -33,7 +33,7 @@ app = modal.App(
     name=app_config.app_name,
     image=image,
     secrets=[modal.Secret.from_name("huggingface-secret")],
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 logger = get_logger(__name__)
 

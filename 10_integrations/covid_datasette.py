@@ -30,9 +30,7 @@ from urllib.request import urlretrieve
 
 from modal import App, Image, Period, Volume, asgi_app
 
-app = App(
-    "example-covid-datasette"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-covid-datasette")
 datasette_image = (
     Image.debian_slim()
     .pip_install("datasette~=0.63.2", "sqlite-utils")

@@ -9,9 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from modal import App, asgi_app, web_endpoint
 
-app = App(
-    "example-fastapi-streaming"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-fastapi-streaming")
 
 web_app = FastAPI()
 

@@ -34,7 +34,7 @@ app = modal.App(
         "torch",
         "transformers",
     ),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # ## Defining the prediction function
 #

@@ -37,9 +37,7 @@ image = Image.debian_slim().pip_install(
     "tensorboard",
 )
 
-app = App(
-    name="example-news-summarizer", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(name="example-news-summarizer", image=image)
 output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
@@ -215,7 +213,7 @@ def monitor():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
-    )  # Note: prior to April 2024, "app" was called "stub"
+    )
     return wsgi_app
 
 

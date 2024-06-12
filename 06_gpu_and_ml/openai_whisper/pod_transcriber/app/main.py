@@ -54,7 +54,7 @@ app = App(
     "whisper-pod-transcriber",
     image=app_image,
     secrets=[Secret.from_name("podchaser")],
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 in_progress = Dict.from_name(
     "pod-transcriber-in-progress", create_if_missing=True

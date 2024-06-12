@@ -203,6 +203,4 @@ image = (
     )
     .run_function(load_stable_diffusion_pokemon_model)
 )
-app = App(
-    name="example-text-to-pokemon", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(name="example-text-to-pokemon", image=image)

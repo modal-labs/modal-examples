@@ -15,7 +15,7 @@ import modal
 app = modal.App(
     "example-google-search-generator",
     image=modal.Image.debian_slim().pip_install("google"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # Next, let's define a _generator_ function that uses our custom image.
 

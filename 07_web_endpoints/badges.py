@@ -13,7 +13,7 @@ from modal import App, Image, web_endpoint
 app = App(
     "example-web-badges",
     image=Image.debian_slim().pip_install("pybadges", "pypistats"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # ## Defining the web endpoint
 #

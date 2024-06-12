@@ -12,7 +12,7 @@ import modal
 app = modal.App(
     "example-basic-grid-search",
     image=modal.Image.debian_slim().pip_install("scikit-learn~=1.2.2"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # ## The Modal function
 #

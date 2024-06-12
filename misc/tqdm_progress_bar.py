@@ -5,7 +5,7 @@ import modal
 app = modal.App(
     "example-tqdm",
     image=modal.Image.debian_slim().pip_install("tqdm"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 
 @app.function()

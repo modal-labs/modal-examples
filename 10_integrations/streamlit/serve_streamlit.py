@@ -30,9 +30,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2"
 )
 
-app = modal.App(
-    name="example-modal-streamlit", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-modal-streamlit", image=image)
 
 # ## Mounting the `app.py` script
 #

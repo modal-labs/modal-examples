@@ -6,7 +6,7 @@ from modal import App, Image, asgi_app
 from modal.functions import FunctionCall
 from starlette.responses import HTMLResponse, RedirectResponse
 
-app = App("example-poll")  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-poll")
 
 web_app = fastapi.FastAPI()
 

@@ -29,9 +29,7 @@ algolia_image = Image.from_registry(
     setup_dockerfile_commands=["ENTRYPOINT []"],
 )
 
-app = App(
-    "example-algolia-indexer"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-algolia-indexer")
 
 # ## Configure the crawler
 #

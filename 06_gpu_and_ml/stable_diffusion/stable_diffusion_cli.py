@@ -36,9 +36,7 @@ from modal import App, Image, build, enter, method
 # All Modal programs need a [`App`](/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-app = App(
-    "stable-diffusion-cli"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("stable-diffusion-cli")
 
 # ## Model dependencies
 #

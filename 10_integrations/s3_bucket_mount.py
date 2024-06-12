@@ -32,7 +32,7 @@ from modal import App, CloudBucketMount, Image, Secret
 image = Image.debian_slim().pip_install(
     "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
 )
-app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+app = App(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"

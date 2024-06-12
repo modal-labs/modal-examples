@@ -4,9 +4,7 @@
 import modal
 from modal import enter, web_endpoint
 
-app = modal.App(
-    name="example-lifecycle-web"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-lifecycle-web")
 
 # Hello world!
 #

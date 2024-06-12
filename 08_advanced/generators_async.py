@@ -1,8 +1,6 @@
 import modal
 
-app = modal.App(
-    "example-generators-async"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-generators-async")
 
 
 @app.function()
