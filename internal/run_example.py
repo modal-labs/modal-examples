@@ -15,7 +15,7 @@ def run_script(example):
     try:
         print(f"cli args: {example.cli_args}")
         process = subprocess.run(
-            example.cli_args,
+            map(str, example.cli_args),
             env=os.environ | {"MODAL_SERVE_TIMEOUT": "5.0"},
             timeout=TIMEOUT,
         )
