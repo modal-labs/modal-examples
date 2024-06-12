@@ -8,7 +8,7 @@
 #
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is COVID-19 case data from Johns Hopkins University which is refreshed daily.
-# Try it out for yourself at [modal-labs-example-covid-datasette-app.modal.run/covid-19](https://modal-labs-example-covid-datasette-app.modal.run/covid-19/johns_hopkins_csse_daily_reports).
+# Try it out for yourself at [here](https://modal-labs--example-covid-datasette-ui.modal.run).
 #
 # Some Modal features it uses:
 # * Volumes: a persisted volume lets us store and grow the published dataset over time.
