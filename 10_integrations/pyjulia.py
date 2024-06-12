@@ -11,7 +11,7 @@ image = image = (
         "ln -s /opt/julia-1.10.0/bin/julia /usr/local/bin/julia",
     )
     # Install PyJulia bindings
-    .pip_install("julia")
+    .pip_install("julia==0.6.1")
     .run_commands('python -c "import julia; julia.install()"')
 )
 app = modal.App("example-pyjulia", image=image)
