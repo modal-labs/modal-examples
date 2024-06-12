@@ -25,9 +25,7 @@ import fastapi
 import fastapi.staticfiles
 from modal import App, Function, Mount, asgi_app
 
-app = App(
-    "example-doc-ocr-webapp"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-doc-ocr-webapp")
 
 # Modal works with any [ASGI](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
 # [WSGI](/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).

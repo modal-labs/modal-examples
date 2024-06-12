@@ -78,7 +78,7 @@ app = App(
         MOUNT_PATH: CloudBucketMount(
             "modal-s3mount-test-bucket",
             secret=bucket_secret,
-        )  # Note: prior to April 2024, "app" was called "stub"
+        )
     },
 )
 

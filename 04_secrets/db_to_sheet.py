@@ -52,9 +52,7 @@ import os
 
 import modal
 
-app = modal.App(
-    "example-db-to-sheet"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-db-to-sheet")
 
 
 @app.function(secrets=[modal.Secret.from_name("example-postgres-secret")])

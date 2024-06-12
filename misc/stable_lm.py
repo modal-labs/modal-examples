@@ -75,7 +75,7 @@ app = modal.App(
             {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
         )
     ],
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 
 class CompletionRequest(BaseModel):

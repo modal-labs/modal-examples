@@ -33,9 +33,7 @@ image = Image.debian_slim().pip_install(
     "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
 )
 
-app = App(
-    "stable-diffusion-xl-turbo", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("stable-diffusion-xl-turbo", image=image)
 
 with image.imports():
     import torch

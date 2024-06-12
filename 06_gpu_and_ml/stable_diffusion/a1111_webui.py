@@ -43,9 +43,7 @@ a1111_image = (
     )
 )
 
-app = App(
-    "example-a1111-webui", image=a1111_image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-a1111-webui", image=a1111_image)
 
 # After defining the custom container image, we start the server with `accelerate launch`. This
 # function is also where you would configure hardware resources, CPU/memory, and timeouts.

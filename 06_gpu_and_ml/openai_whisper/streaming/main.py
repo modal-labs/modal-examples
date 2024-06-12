@@ -23,9 +23,7 @@ image = (
         "pytube @ git+https://github.com/felipeucelli/pytube",
     )
 )
-app = modal.App(
-    name="example-whisper-streaming", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-whisper-streaming", image=image)
 web_app = FastAPI()
 CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = (
     "https://www.youtube.com/watch?v=J7GY1Xg6X20"

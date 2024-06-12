@@ -28,7 +28,7 @@ app = modal.App(
         modal.Secret.from_name("my-openai-secret"),
         modal.Secret.from_name("my-langsmith-secret"),
     ],
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 
 class GraphState(TypedDict):

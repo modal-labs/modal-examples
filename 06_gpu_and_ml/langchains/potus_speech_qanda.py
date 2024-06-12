@@ -37,7 +37,7 @@ app = App(
     name="example-langchain-qanda",
     image=image,
     secrets=[Secret.from_name("openai-secret")],
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 docsearch = None  # embedding index that's relatively expensive to compute, so caching with global var.
 
 # ## Scraping the speech from whitehouse.gov

@@ -53,9 +53,7 @@ image = (
 )
 
 # Let's instantiate and name our [`App`](https://modal.com/docs/guide/apps).
-app = App(
-    name="example-falcon-gptq", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(name="example-falcon-gptq", image=image)
 
 
 # ## The model class

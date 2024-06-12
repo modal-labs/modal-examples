@@ -40,7 +40,7 @@ app = modal.App(
         "beautifulsoup4~=4.12.2",
         "matplotlib~=3.7.1",
     ),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # ## Fetch a list of tickers
 #

@@ -2,9 +2,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App(
-    "stable-diffusion-xl-lightning"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("stable-diffusion-xl-lightning")
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "diffusers==0.26.3", "transformers~=4.37.2", "accelerate==0.27.2"

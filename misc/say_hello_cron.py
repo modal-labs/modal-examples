@@ -7,9 +7,7 @@ from datetime import datetime, timezone
 
 import modal
 
-app = modal.App(
-    "example-say-hello-cron"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("example-say-hello-cron")
 
 
 @app.function(schedule=modal.Period(seconds=10))

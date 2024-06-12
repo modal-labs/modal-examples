@@ -13,9 +13,7 @@ import os
 
 import modal
 
-app = modal.App(
-    "multion-news-tweet-agent"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App("multion-news-tweet-agent")
 
 # ## Searching for AI News
 #

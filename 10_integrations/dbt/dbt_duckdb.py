@@ -45,9 +45,7 @@ dbt_image = (
         }
     )
 )
-app = modal.App(
-    name="example-dbt-duckdb-s3", image=dbt_image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
 
 # ## DBT Configuration
 #

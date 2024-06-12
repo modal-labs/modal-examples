@@ -90,9 +90,7 @@ tgi_image = (
     .pip_install("text-generation")
 )
 
-app = App(
-    "example-tgi-mixtral"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App("example-tgi-mixtral")
 
 
 # ## The model class

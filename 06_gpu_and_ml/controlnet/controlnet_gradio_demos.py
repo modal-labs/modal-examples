@@ -241,9 +241,7 @@ image = (
         secrets=[Secret.from_dict({"DEMO_NAME": DEMO_NAME})],
     )
 )
-app = App(
-    name="example-controlnet", image=image
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(name="example-controlnet", image=image)
 
 web_app = FastAPI()
 

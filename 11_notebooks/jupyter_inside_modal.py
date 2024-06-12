@@ -20,7 +20,7 @@ import modal
 app = modal.App(
     image=modal.Image.debian_slim().pip_install(
         "jupyter", "bing-image-downloader~=1.1.2"
-    )  # Note: prior to April 2024, "app" was called "stub"
+    )
 )
 volume = modal.Volume.from_name(
     "modal-examples-jupyter-inside-modal-data", create_if_missing=True

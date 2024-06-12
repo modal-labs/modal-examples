@@ -56,9 +56,7 @@ image = (
     .run_function(download_falcon_40b)
 )
 
-app = App(
-    image=image, name="example-falcon-bnb"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(image=image, name="example-falcon-bnb")
 
 
 # ## The model class

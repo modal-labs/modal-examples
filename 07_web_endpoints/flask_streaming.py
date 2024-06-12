@@ -8,7 +8,7 @@ from modal import wsgi_app
 app = modal.App(
     "example-web-flask-stream",
     image=modal.Image.debian_slim().pip_install("flask"),
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 
 @app.function()

@@ -40,7 +40,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 app = modal.App(
     image=image, secrets=[modal.Secret.from_name("my-anthropic-secret")]
-)  # Note: prior to April 2024, "app" was called "stub"
+)
 
 # ## Running Modal functions from the command line
 #

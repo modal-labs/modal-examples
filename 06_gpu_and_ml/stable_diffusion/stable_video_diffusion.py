@@ -6,9 +6,7 @@ import sys
 
 import modal
 
-app = modal.App(
-    name="example-stable-video-diffusion-streamlit"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = modal.App(name="example-stable-video-diffusion-streamlit")
 q = modal.Queue.from_name(
     "stable-video-diffusion-streamlit", create_if_missing=True
 )

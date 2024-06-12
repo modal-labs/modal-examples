@@ -55,9 +55,7 @@ from modal import (
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our app runs.
 
-app = App(
-    name="example-dreambooth-app"
-)  # Note: prior to April 2024, "app" was called "stub"
+app = App(name="example-dreambooth-app")
 
 image = Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.27.2",
