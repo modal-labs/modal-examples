@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Hosting Mixtral 8x7B with Text Generation Inference (TGI)
 #
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)
@@ -12,7 +15,6 @@
 #
 # First we import the components we need from `modal`.
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -116,7 +118,9 @@ class Model:
 
         from text_generation import AsyncClient
 
-        self.launcher = subprocess.Popen(["text-generation-launcher"] + LAUNCH_FLAGS)
+        self.launcher = subprocess.Popen(
+            ["text-generation-launcher"] + LAUNCH_FLAGS
+        )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = "[INST] {user} [/INST]"
 
@@ -227,7 +231,7 @@ def tgi_mixtral():
 # ```
 # $ python
 # >>> import modal
-# >>> f = modal.Function.lookup("example-tgi-Mixtral-8x7B-Instruct-v0.1", "Model.generate")
+# >>> f = modal.Function.lookup("example-tgi-mixtral", "Model.generate")
 # >>> f.remote("What is the story about the fox and grapes?")
 # 'The story about the fox and grapes ...
 # ```
