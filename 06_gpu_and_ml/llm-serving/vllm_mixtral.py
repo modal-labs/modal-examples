@@ -11,8 +11,6 @@
 # The larger the batch of prompts, the higher the throughput (up to hundreds of tokens per second).
 #
 # ## Setup
-#
-# First we import the components we need from `modal`.
 
 import os
 import time
