@@ -12,11 +12,10 @@
 #
 # First we import the components we need from `modal`.
 
-import os
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
+from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -24,8 +23,8 @@ from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-MODEL_ID = "meta-llama/Meta-Llama-3-70B-Instruct"
-MODEL_REVISION = "81ca4500337d94476bda61d84f0c93af67e4495f"
+MODEL_ID = "NousResearch/Meta-Llama-3-8B"
+MODEL_REVISION = "315b20096dc791d381d514deb5f8bd9c8d6d3061"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -38,7 +37,7 @@ LAUNCH_FLAGS = [
 
 # ## Define a container image
 #
-# We want to create a Modal image which has the Huggingface model cache pre-populated.
+# We want to create a Modal Image which has the Huggingface model cache pre-populated.
 # The benefit of this is that the container no longer has to re-download the model from Huggingface -
 # instead, it will take advantage of Modal's internal filesystem for faster cold starts. On
 # the largest 70B model, the 135GB model can be loaded in as little as 70 seconds.
@@ -46,7 +45,6 @@ LAUNCH_FLAGS = [
 # ### Download the weights
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
 # as part of the image build.
-#
 
 
 def download_model():
@@ -65,14 +63,11 @@ def download_model():
 # We’ll start from a Docker Hub image recommended by TGI, and override the default `ENTRYPOINT` for
 # Modal to run its own which enables seamless serverless deployments.
 #
-# Next we run the download step to pre-populate the image with our model weights.
+# Next we run the download function above to pre-populate the image with our model weights.
 #
-# For this step to work on a [gated model](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)
-# such as LLaMA 3, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [LLaMA 3 license](https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal
+# If you adapt this example to run another model,
+# note that for this step to work on a [gated model](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)
+# the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
@@ -83,7 +78,6 @@ tgi_image = (
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
-        secrets=[Secret.from_name("huggingface-secret")],
         timeout=3600,
     )
     .pip_install("text-generation")
@@ -114,7 +108,6 @@ GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
 
 
 @app.cls(
-    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=15,
     container_idle_timeout=60 * 10,
@@ -131,10 +124,6 @@ class Model:
 
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS,
-            env={
-                **os.environ,
-                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
-            },
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<|begin_of_text|><|start_header_id|>user<|end_header_id|>
