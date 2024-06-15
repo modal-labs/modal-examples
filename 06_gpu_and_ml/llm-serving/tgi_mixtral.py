@@ -25,8 +25,8 @@ from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 # Any model supported by TGI can be chosen here.
 
 GPU_CONFIG = gpu.A100(size="40GB", count=4)
-MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-MODEL_REVISION = "f1ca00645f0b1565c7f9a1c863d2be6ebf896b04"
+MODEL_ID = "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO"
+MODEL_REVISION = "286ae6737d048ad1d965c2e830864df02db50f2f"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -85,7 +85,6 @@ tgi_image = (
     .run_function(
         download_model,
         timeout=60 * 20,
-        secrets=[Secret.from_name("huggingface-secret")],
     )
     .pip_install("text-generation")
 )
@@ -113,7 +112,7 @@ app = App("example-tgi-mixtral")
 
 
 @app.cls(
-    secrets=[Secret.from_name("huggingface-secret")],
+    # secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
