@@ -24,8 +24,8 @@ from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-MODEL_ID = "meta-llama/Meta-Llama-3-70B-Instruct"
-MODEL_REVISION = "81ca4500337d94476bda61d84f0c93af67e4495f"
+MODEL_ID = "NousResearch/Meta-Llama-3-8B"
+MODEL_REVISION = "main"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
