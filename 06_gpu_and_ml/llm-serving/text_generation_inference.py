@@ -16,7 +16,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
+from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -129,7 +129,6 @@ class Model:
 
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS,
-            env=os.environ,
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<|begin_of_text|><|start_header_id|>user<|end_header_id|>
