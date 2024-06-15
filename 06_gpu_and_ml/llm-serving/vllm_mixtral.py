@@ -3,8 +3,9 @@
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)
 # to take advantage of PagedAttention, which speeds up sequential inferences with optimized key-value caching.
 #
-# We are running the [Mixtral 8x7B Instruct](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1) model here,
-# which is a mixture-of-experts model finetuned for conversation.
+# We are running a [variant](https://huggingface.co/NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO)
+# of [Mistral AI](https://mistral.ai/)'s ~56 billion parameter mixture-of-experts model Mixtral 8x7B model
+# that has been additionally finetuned by [Nous Research](https://nousresearch.com/).
 # You can expect ~3 minute cold starts.
 # For a single request, the throughput is over 50 tokens/second.
 # The larger the batch of prompts, the higher the throughput (up to hundreds of tokens per second).
@@ -42,17 +43,13 @@ GPU_CONFIG = modal.gpu.A100(size="80GB", count=2)
 # head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
 #
 # Mixtral is beefy, at nearly 100 GB in `safetensors` format, so this can take some time -- at least a few minutes.
+
+
 def download_model_to_image(model_dir, model_name, model_revision):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
     os.makedirs(model_dir, exist_ok=True)
-
-    # Debugging: Print environment variables and model details
-    print("Environment Variables:", os.environ)
-    print("Model Directory:", model_dir)
-    print("Model Name:", model_name)
-    print("Model Revision:", model_revision)
 
     snapshot_download(
         model_name,

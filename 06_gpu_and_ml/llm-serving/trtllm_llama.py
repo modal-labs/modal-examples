@@ -79,12 +79,12 @@ tensorrt_image = tensorrt_image.apt_install(
 # ## Downloading the Model
 #
 # Next, we download the model we want to serve. In this case, we're using the instruction-tuned
-# version of Meta's Llama 3 8B model.
+# version of Meta's LLaMA 3 8B model.
 # We use the function below to download the model from the Hugging Face Hub.
 
 MODEL_DIR = "/root/model/model_input"
-MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
-MODEL_REVISION = "7840f95a8c7a781d3f89c4818bf693431ab3119a"  # pin model revisions to prevent unexpected changes!
+MODEL_ID = "NousResearch/Meta-Llama-3-8B"
+MODEL_REVISION = "315b20096dc791d381d514deb5f8bd9c8d6d3061"  # pin model revisions to prevent unexpected changes!
 
 
 def download_model():
@@ -120,7 +120,6 @@ tensorrt_image = (  # update the image by downloading the model we're using
     .run_function(  # download the model
         download_model,
         timeout=20 * MINUTES,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
 
@@ -248,7 +247,6 @@ app = modal.App(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
 
 @app.cls(
     gpu=GPU_CONFIG,
-    secrets=[modal.Secret.from_name("huggingface-secret")],
     container_idle_timeout=10 * MINUTES,
 )
 class Model:
