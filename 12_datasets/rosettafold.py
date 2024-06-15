@@ -3,7 +3,7 @@
 # lambda-test: false
 # ---
 #
-# This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protien-folding
+# This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protein-folding
 # model's dataset into a mounted volume.
 
 # The dataset is over 2 TiB when decompressed to the runtime of this script is quite long.
