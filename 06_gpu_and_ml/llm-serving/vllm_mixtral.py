@@ -7,7 +7,7 @@
 # of [Mistral AI](https://mistral.ai/)'s ~56 billion parameter mixture-of-experts model Mixtral 8x7B model
 # that has been additionally finetuned by [Nous Research](https://nousresearch.com/).
 # You can expect ~3 minute cold starts.
-# For a single request, the throughput is over 50 tokens/second.
+# For a single request, the throughput is around 50 tokens/second.
 # The larger the batch of prompts, the higher the throughput (up to hundreds of tokens per second).
 #
 # ## Setup
@@ -35,12 +35,9 @@ GPU_CONFIG = modal.gpu.A100(size="80GB", count=2)
 #
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
 #
-# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
-# like Mixtral 8x7B, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
+# If you adapt this example to run another model,
+# note that for this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 #
 # Mixtral is beefy, at nearly 100 GB in `safetensors` format, so this can take some time -- at least a few minutes.
 
@@ -61,8 +58,9 @@ def download_model_to_image(model_dir, model_name, model_revision):
 
 
 # ### Image definition
-# We’ll start from a Dockerhub image recommended by `vLLM`, and use
-# run_function to run the function defined above to ensure the weights of
+#
+# We’ll start from a basic Linux container image, install `vllm` and related libraries,
+# and then use `run_function` to run the function defined above and ensure the weights of
 # the model are saved within the container image.
 
 vllm_image = (
@@ -122,7 +120,6 @@ class Model:
             disable_log_stats=True,  # disable logging so we can stream tokens
             disable_log_requests=True,
         )
-        self.template = "[INST] {user} [/INST]"
 
         # this can take some time!
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -142,7 +139,7 @@ class Model:
 
         request_id = random_uuid()
         result_generator = self.engine.generate(
-            self.template.format(user=user_question),
+            user_question,
             sampling_params,
             request_id,
         )
