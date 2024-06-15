@@ -25,6 +25,7 @@ import modal
 
 MODEL_DIR = "/model"
 MODEL_NAME = "mistral-community/Mistral-7B-Instruct-v0.3"
+MODEL_REVISION = "df1c0be33bc77b5cef4c08c28721e37c01ba9b81"
 
 
 # ## Define a container image
@@ -41,7 +42,7 @@ MODEL_NAME = "mistral-community/Mistral-7B-Instruct-v0.3"
 # the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 
 
-def download_model_to_image(model_dir, model_name):
+def download_model_to_image(model_dir, model_name, model_revision):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
@@ -51,7 +52,7 @@ def download_model_to_image(model_dir, model_name):
         model_name,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
-        revision="df1c0be33bc77b5cef4c08c28721e37c01ba9b81",
+        revision=model_revision,
     )
     move_cache()
 
@@ -74,7 +75,7 @@ image = (
     .run_function(
         download_model_to_image,
         timeout=60 * 20,
-        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
+        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME, "model_revision": MODEL_REVISION},
     )
 )
 
