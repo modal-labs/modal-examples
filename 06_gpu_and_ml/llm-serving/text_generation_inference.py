@@ -37,7 +37,7 @@ LAUNCH_FLAGS = [
 
 # ## Define a container image
 #
-# We want to create a Modal image which has the Huggingface model cache pre-populated.
+# We want to create a Modal Image which has the Huggingface model cache pre-populated.
 # The benefit of this is that the container no longer has to re-download the model from Huggingface -
 # instead, it will take advantage of Modal's internal filesystem for faster cold starts. On
 # the largest 70B model, the 135GB model can be loaded in as little as 70 seconds.
@@ -45,7 +45,6 @@ LAUNCH_FLAGS = [
 # ### Download the weights
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
 # as part of the image build.
-#
 
 
 def download_model():
@@ -64,14 +63,11 @@ def download_model():
 # We’ll start from a Docker Hub image recommended by TGI, and override the default `ENTRYPOINT` for
 # Modal to run its own which enables seamless serverless deployments.
 #
-# Next we run the download step to pre-populate the image with our model weights.
+# Next we run the download function above to pre-populate the image with our model weights.
 #
-# For this step to work on a [gated model](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)
-# such as LLaMA 3, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [LLaMA 3 license](https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal
+# If you adapt this example to run another model,
+# note that for this step to work on a [gated model](https://github.com/huggingface/text-generation-inference#using-a-private-or-gated-model)
+# the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
