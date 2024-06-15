@@ -57,8 +57,8 @@ LAUNCH_FLAGS = [
 
 
 def download_model():
-    # the secret name is different for TGI and for transformers
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
+    # Removed reference to HF_TOKEN
+    # os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
 
     subprocess.run(
         [
@@ -131,7 +131,8 @@ class Model:
             ["text-generation-launcher"] + LAUNCH_FLAGS,
             env={
                 **os.environ,
-                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
+                # Removed reference to HF_TOKEN
+                # "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
             },
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
