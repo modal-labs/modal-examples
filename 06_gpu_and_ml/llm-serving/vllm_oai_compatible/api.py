@@ -65,7 +65,11 @@ MINUTES = 60
 vllm_image = vllm_image.env({"HF_HUB_ENABLE_HF_TRANSFER": "1"}).run_function(
     download_model_to_image,
     timeout=20 * MINUTES,
-    kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME, "model_revision": MODEL_REVISION},
+    kwargs={
+        "model_dir": MODEL_DIR,
+        "model_name": MODEL_NAME,
+        "model_revision": MODEL_REVISION,
+    },
 )
 
 # ## Build the server
