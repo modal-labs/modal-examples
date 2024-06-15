@@ -35,21 +35,17 @@ vllm_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # Meta's LLaMA 3-8B Instruct. We create a Python function for this and add it to the image definition,
 # so that we only need to download it when we define the image, not every time we run the server.
 #
-# This is a [gated model](https://huggingface.co/docs/hub/en/models-gated),
-# so it is not accessible unless you authenticate with Hugging Face
-# from an account that has accepted the terms of use.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and [accepting those terms](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
+# If you adapt this example to run another model,
+# note that for this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 
-MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct"
+
+MODEL_NAME = "NousResearch/Meta-Llama-3-8B"
+MODEL_REVISION = "315b20096dc791d381d514deb5f8bd9c8d6d3061"
 MODEL_DIR = f"/models/{MODEL_NAME}"
 
-huggingface_secret = modal.Secret.from_name("huggingface-secret")
 
-
-def download_model_to_image(model_dir, model_name):
+def download_model_to_image(model_dir, model_name, model_revision):
     import os
 
     from huggingface_hub import snapshot_download
@@ -60,7 +56,7 @@ def download_model_to_image(model_dir, model_name):
         model_name,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
-        token=os.environ["HF_TOKEN"],
+        revision=model_revision,
     )
 
 
@@ -69,8 +65,11 @@ MINUTES = 60
 vllm_image = vllm_image.env({"HF_HUB_ENABLE_HF_TRANSFER": "1"}).run_function(
     download_model_to_image,
     timeout=20 * MINUTES,
-    kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
-    secrets=[huggingface_secret],
+    kwargs={
+        "model_dir": MODEL_DIR,
+        "model_name": MODEL_NAME,
+        "model_revision": MODEL_REVISION,
+    },
 )
 
 # ## Build the server
