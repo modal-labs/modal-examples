@@ -40,6 +40,7 @@ MODEL_NAME = "mistral-community/Mistral-7B-Instruct-v0.3"
 # note that for this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
 # the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 
+
 def download_model_to_image(model_dir, model_name):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
