@@ -24,7 +24,7 @@ import time
 import modal
 
 MODEL_DIR = "/model"
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_NAME = "mistral-community/Mistral-7B-Instruct-v0.3"
 
 
 # ## Define a container image
@@ -55,7 +55,7 @@ def download_model_to_image(model_dir, model_name):
         model_name,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
-        token=os.environ["HF_TOKEN"],
+        revision="df1c0be33bc77b5cef4c08c28721e37c01ba9b81",
     )
     move_cache()
 
@@ -79,7 +79,6 @@ image = (
         download_model_to_image,
         timeout=60 * 20,
         kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
-        secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
 
