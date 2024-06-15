@@ -46,6 +46,7 @@ vllm_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 MODEL_NAME = "NousResearch/Meta-Llama-3-8B"
 MODEL_DIR = f"/models/{MODEL_NAME}"
 
+
 def download_model_to_image(model_dir, model_name):
     import os
 
@@ -59,6 +60,7 @@ def download_model_to_image(model_dir, model_name):
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
         revision="315b20096dc791d381d514deb5f8bd9c8d6d3061",
     )
+
 
 MINUTES = 60
 
