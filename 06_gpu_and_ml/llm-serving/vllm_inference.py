@@ -75,7 +75,11 @@ image = (
     .run_function(
         download_model_to_image,
         timeout=60 * 20,
-        kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME, "model_revision": MODEL_REVISION},
+        kwargs={
+            "model_dir": MODEL_DIR,
+            "model_name": MODEL_NAME,
+            "model_revision": MODEL_REVISION,
+        },
     )
 )
 
