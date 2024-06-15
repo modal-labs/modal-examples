@@ -12,7 +12,6 @@
 #
 # First we import the components we need from `modal`.
 
-import os
 import subprocess
 from pathlib import Path
 
