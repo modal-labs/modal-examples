@@ -19,8 +19,8 @@ import time
 import modal
 
 MODEL_DIR = "/model"
-MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-MODEL_REVISION = "1e637f2d7cb0a9d6fb1922f305cb784995190a83"
+MODEL_NAME = "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO"
+MODEL_REVISION = "286ae6737d048ad1d965c2e830864df02db50f2f"
 GPU_CONFIG = modal.gpu.A100(size="80GB", count=2)
 
 
@@ -47,6 +47,12 @@ def download_model_to_image(model_dir, model_name, model_revision):
     from transformers.utils import move_cache
 
     os.makedirs(model_dir, exist_ok=True)
+
+    # Debugging: Print environment variables and model details
+    print("Environment Variables:", os.environ)
+    print("Model Directory:", model_dir)
+    print("Model Name:", model_name)
+    print("Model Revision:", model_revision)
 
     snapshot_download(
         model_name,
