@@ -13,8 +13,7 @@
 # Outlines is considered an alternative to tools like [JSONFormer](https://github.com/1rgs/jsonformer), and can be used on top of a variety of LLMs, including:
 
 # - OpenAI models
-# - Transformers models
-# - Llama
+# - LLaMA
 # - Mamba
 
 # In this guide, we will show how you can use Outlines to enforce a JSON schema on the output of Mistral-7B.
@@ -24,40 +23,35 @@
 #  First, you'll want to build an image and install the relevant Python dependencies:
 # `outlines` and a Hugging Face inference stack.
 
-from modal import App, Image, Secret, gpu
+import modal
 
-app = App(name="outlines-app")
+app = modal.App(name="outlines-app")
 
-outlines_image = Image.debian_slim(python_version="3.11").pip_install(
-    "outlines==0.0.34",
-    "transformers==4.38.2",
+outlines_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "outlines==0.0.44",
+    "transformers==4.41.2",
+    "sentencepiece==0.2.0",
     "datasets==2.18.0",
     "accelerate==0.27.2",
 )
 
 # ## Download the model
 #
-# Next, we download the Mistral-7B model from Hugging Face.
-# We do this as part of the definition of our Modal image so that
+# Next, we download the Mistral 7B model from Hugging Face.
+# We do this as part of the definition of our Modal Image so that
 # we don't need to download it every time our inference function is run.
-#
-# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
-# like Mistral 7B, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
+
+MODEL_NAME = "mistral-community/Mistral-7B-v0.2"
 
 
-def import_model():
+def import_model(model_name):
     import outlines
 
-    outlines.models.transformers("mistralai/Mistral-7B-v0.1")
+    outlines.models.transformers(model_name)
 
 
 outlines_image = outlines_image.run_function(
-    import_model,
-    secrets=[Secret.from_name("huggingface-secret")],
+    import_model, kwargs={"model_name": MODEL_NAME}
 )
 
 
@@ -111,22 +105,20 @@ schema = """{
 # We specify that we want to use the Mistral-7B model, and then ask for a character, and we'll receive structured data with the right schema.
 
 
-@app.function(image=outlines_image, gpu=gpu.A100(size="80GB"))
+@app.function(image=outlines_image, gpu=modal.gpu.A100(size="40GB"))
 def generate(
     prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
 ):
     import outlines
 
-    model = outlines.models.transformers(
-        "mistralai/Mistral-7B-v0.1", device="cuda"
-    )
+    model = outlines.models.transformers(MODEL_NAME, device="cuda")
 
     generator = outlines.generate.json(model, schema)
     character = generator(
         f"Give me a character description. Describe {prompt}."
     )
 
-    print(character)
+    return character
 
 
 # ## Define the entrypoint
@@ -143,4 +135,4 @@ def generate(
 def main(
     prompt: str = "Amiri, a 53 year old warrior woman with a sword and leather armor.",
 ):
-    generate.remote(prompt)
+    print(generate.remote(prompt))
