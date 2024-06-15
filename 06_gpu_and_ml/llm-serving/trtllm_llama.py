@@ -79,7 +79,7 @@ tensorrt_image = tensorrt_image.apt_install(
 # ## Downloading the Model
 #
 # Next, we download the model we want to serve. In this case, we're using the instruction-tuned
-# version of Meta's Llama 3 8B model.
+# version of Meta's LLaMA 3 8B model.
 # We use the function below to download the model from the Hugging Face Hub.
 
 MODEL_DIR = "/root/model/model_input"
