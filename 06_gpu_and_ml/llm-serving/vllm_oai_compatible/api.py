@@ -43,11 +43,8 @@ vllm_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # and [accepting those terms](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct),
 # head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
 
-MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct"
+MODEL_NAME = "NousResearch/Meta-Llama-3-8B"
 MODEL_DIR = f"/models/{MODEL_NAME}"
-
-huggingface_secret = modal.Secret.from_name("huggingface-secret")
-
 
 def download_model_to_image(model_dir, model_name):
     import os
@@ -60,9 +57,8 @@ def download_model_to_image(model_dir, model_name):
         model_name,
         local_dir=model_dir,
         ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
-        token=os.environ["HF_TOKEN"],
+        revision="315b20096dc791d381d514deb5f8bd9c8d6d3061",
     )
-
 
 MINUTES = 60
 
@@ -70,7 +66,6 @@ vllm_image = vllm_image.env({"HF_HUB_ENABLE_HF_TRANSFER": "1"}).run_function(
     download_model_to_image,
     timeout=20 * MINUTES,
     kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
-    secrets=[huggingface_secret],
 )
 
 # ## Build the server
