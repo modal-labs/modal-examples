@@ -17,5 +17,3 @@ This pull request updates the `vllm_mixtral` example to use the Nous-Hermes-2-Mi
 - Ensure that the added print statements do not affect the overall functionality of the script.
 
 Thank you for reviewing this pull request.
-
-[This Devin run](https://preview.devin.ai/devin/463a6ebe006047c9b142b67beaef5062) was requested by Charles.
