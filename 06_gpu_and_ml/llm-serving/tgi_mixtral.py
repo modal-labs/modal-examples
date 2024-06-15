@@ -50,9 +50,6 @@ LAUNCH_FLAGS = [
 
 
 def download_model():
-    # Removed reference to HF_TOKEN
-    # os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
-
     subprocess.run(
         [
             "text-generation-server",
