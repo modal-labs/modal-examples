@@ -83,7 +83,6 @@ tgi_image = (
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
-        secrets=[Secret.from_name("huggingface-secret")],
         timeout=3600,
     )
     .pip_install("text-generation")
@@ -114,7 +113,6 @@ GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
 
 
 @app.cls(
-    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=15,
     container_idle_timeout=60 * 10,
@@ -131,10 +129,7 @@ class Model:
 
         self.launcher = subprocess.Popen(
             ["text-generation-launcher"] + LAUNCH_FLAGS,
-            env={
-                **os.environ,
-                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
-            },
+            env=os.environ,
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = """<|begin_of_text|><|start_header_id|>user<|end_header_id|>
