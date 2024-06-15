@@ -116,14 +116,7 @@ class Model:
 
         from text_generation import AsyncClient
 
-        self.launcher = subprocess.Popen(
-            ["text-generation-launcher"] + LAUNCH_FLAGS,
-            env={
-                **os.environ,
-                # Removed reference to HF_TOKEN
-                # "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
-            },
-        )
+        self.launcher = subprocess.Popen(["text-generation-launcher"] + LAUNCH_FLAGS)
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = "[INST] {user} [/INST]"
 
