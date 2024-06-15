@@ -47,19 +47,9 @@ LAUNCH_FLAGS = [
 # ### Download the weights
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
 # as part of the image build.
-#
-# For this step to work on a [gated model](https://huggingface.co/docs/text-generation-inference/en/basic_tutorials/gated_model_access)
-# like Mixtral 8x7B, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
 
 
 def download_model():
-    # the secret name is different for TGI and for transformers
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
-
     subprocess.run(
         [
             "text-generation-server",
@@ -112,7 +102,6 @@ app = App("example-tgi-mixtral")
 
 
 @app.cls(
-    # secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
