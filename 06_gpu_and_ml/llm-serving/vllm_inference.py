@@ -35,16 +35,11 @@ MODEL_NAME = "mistral-community/Mistral-7B-Instruct-v0.3"
 #
 # ### Download the weights
 # We can download the model to a particular directory using the HuggingFace utility function `snapshot_download`.
-#
-# For this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
-# like Mistral 7B, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
-#
-# Tip: avoid using global variables in this function.
-# Changes to code outside this function will not be detected, and the download step will not re-run.
+
+# If you adapt this example to run another model,
+# note that for this step to work on a [gated model](https://huggingface.co/docs/hub/en/models-gated)
+# the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
+
 def download_model_to_image(model_dir, model_name):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
@@ -61,7 +56,7 @@ def download_model_to_image(model_dir, model_name):
 
 
 # ### Image definition
-# We’ll start from Modal's Debian slim image.
+# We’ll start from Modal's baseline ``debian_slim` image.
 # Then we’ll use `run_function` with `download_model_to_image` to write the model into the container image.
 image = (
     modal.Image.debian_slim(python_version="3.10")
