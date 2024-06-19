@@ -40,8 +40,8 @@ vllm_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # the `HF_TOKEN` environment variable must be set and provided as a [Modal Secret](https://modal.com/secrets).
 
 
-MODEL_NAME = "NousResearch/Meta-Llama-3-8B"
-MODEL_REVISION = "315b20096dc791d381d514deb5f8bd9c8d6d3061"
+MODEL_NAME = "NousResearch/Meta-Llama-3-8B-Instruct"
+MODEL_REVISION = "b1532e4dee724d9ba63fe17496f298254d87ca64"
 MODEL_DIR = f"/models/{MODEL_NAME}"
 
 
