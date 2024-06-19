@@ -31,11 +31,11 @@ import requests
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
 # We find that inference for a single input takes about 3-4 seconds on an A10G.
 #
-# You can customize the GPU type and count using the `GPU_CONFIG` and `GPU_COUNT` environment variables.
+# You can customize the GPU type and count using the `GPU_TYPE` and `GPU_COUNT` environment variables.
 # If you want to see the model really rip, try an `"a100-80gb"` or an `"h100"`
 # on a large batch.
 
-GPU_TYPE = os.environ.get("GPU_CONFIG", "a10g")
+GPU_TYPE = os.environ.get("GPU_TYPE", "a10g")
 GPU_COUNT = os.environ.get("GPU_COUNT", 1)
 
 GPU_CONFIG = f"{GPU_TYPE}:{GPU_COUNT}"
@@ -79,14 +79,9 @@ vllm_image = (
     )
     .apt_install("git")  # add system dependencies
     .pip_install(  # add sglang and some Python dependencies
-        "sglang[all]==0.1.16",
-        "ninja",
-        "packaging",
-        "wheel",
+        "sglang[all]==0.1.17",
         "transformers==4.40.2",
-    )
-    .run_commands(  # add FlashAttention for faster inference using a shell command
-        "pip install flash-attn==2.5.8 --no-build-isolation"
+        "wheel"  # needed for flash-attn installation
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
@@ -94,6 +89,7 @@ vllm_image = (
     .pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
     )
+    .pip_install("numpy<2.0.0")  # downgrade numpy - 2.0.0 breaks the "outlines" package used by sglang
 )
 
 # ## Defining a Visual QA service
@@ -120,7 +116,7 @@ app = modal.App("app")
 )
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
-    async def start_runtime(self):
+    def start_runtime(self):
         """Starts an SGL runtime to execute inference."""
         import sglang as sgl
 
@@ -128,7 +124,7 @@ class Model:
             model_path=MODEL_PATH,
             tokenizer_path=TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_evel=SGL_LOG_LEVEL,
+            log_level=SGL_LOG_LEVEL,
         )
         self.runtime.endpoint.chat_template = (
             sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
@@ -136,7 +132,7 @@ class Model:
         sgl.set_default_backend(self.runtime)
 
     @modal.web_endpoint(method="POST")
-    async def generate(self, request: dict):
+    def generate(self, request: dict):
         import sglang as sgl
         from term_image.image import from_file
 
