@@ -73,15 +73,12 @@ def download_model_to_image():
 # The environment those functions run in is defined by the container's `Image`.
 # The block of code below defines our example's `Image`.
 
-vllm_image = (
-    modal.Image.from_registry(  # start from an official NVIDIA CUDA image
-        "nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.11"
-    )
-    .apt_install("git")  # add system dependencies
+vlm_image = (
+    modal.Image.debian_slim(python_version="3.11")
     .pip_install(  # add sglang and some Python dependencies
         "sglang[all]==0.1.17",
         "transformers==4.40.2",
-        "wheel",  # needed for flash-attn installation
+        "numpy<2",
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
@@ -89,9 +86,6 @@ vllm_image = (
     .pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
     )
-    .pip_install(
-        "numpy<2.0.0"
-    )  # downgrade numpy - 2.0.0 breaks the "outlines" package used by sglang
 )
 
 # ## Defining a Visual QA service
@@ -114,7 +108,7 @@ app = modal.App("app")
     timeout=20 * MINUTES,
     container_idle_timeout=20 * MINUTES,
     allow_concurrent_inputs=100,
-    image=vllm_image,
+    image=vlm_image,
 )
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
