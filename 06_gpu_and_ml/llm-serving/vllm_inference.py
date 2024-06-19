@@ -62,6 +62,7 @@ def download_model_to_image(model_dir, model_name, model_revision):
 # Then we’ll use `run_function` with `download_model_to_image` to write the model into the container image.
 image = (
     modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04")
+    .run_commands("apt-get update", "apt-get install -y python3 python3-pip")
     .pip_install(
         "vllm==0.4.0.post1",
         "torch==2.1.2",
