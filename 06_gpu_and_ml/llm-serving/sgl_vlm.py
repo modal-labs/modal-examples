@@ -48,7 +48,6 @@ MINUTES = 60  # seconds
 # model built on top of Meta's LLaMA 3 8B.
 
 MODEL_PATH = "lmms-lab/llama3-llava-next-8b"
-MODEL_REVISION = "e7e6a9fd5fd75d44b32987cba51c123338edbede"
 TOKENIZER_PATH = "lmms-lab/llama3-llava-next-8b-tokenizer"
 MODEL_CHAT_TEMPLATE = "llama-3-instruct"
 
@@ -58,6 +57,10 @@ MODEL_CHAT_TEMPLATE = "llama-3-instruct"
 def download_model_to_image():
     import transformers
     from huggingface_hub import snapshot_download
+
+    MODEL_REVISION = (
+        "e7e6a9fd5fd75d44b32987cba51c123338edbede"  # Define the model revision
+    )
 
     snapshot_download(
         MODEL_PATH,
@@ -75,7 +78,7 @@ def download_model_to_image():
 
 vllm_image = (
     modal.Image.from_registry(  # start from an official NVIDIA CUDA image
-        "nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.11"
+        "nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11"
     )
     .apt_install("git")  # add system dependencies
     .pip_install(  # add sglang and some Python dependencies
@@ -124,16 +127,22 @@ class Model:
         """Starts an SGL runtime to execute inference."""
         import sglang as sgl
 
+        print(
+            f"Initializing runtime with GPU_COUNT: {GPU_COUNT}, GPU_CONFIG: {GPU_CONFIG}"
+        )
+
         self.runtime = sgl.Runtime(
             model_path=MODEL_PATH,
             tokenizer_path=TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_evel=SGL_LOG_LEVEL,
+            log_level=SGL_LOG_LEVEL,
         )
         self.runtime.endpoint.chat_template = (
             sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
         )
         sgl.set_default_backend(self.runtime)
+
+        print("Runtime initialized successfully")
 
     @modal.web_endpoint(method="POST")
     async def generate(self, request: dict):
