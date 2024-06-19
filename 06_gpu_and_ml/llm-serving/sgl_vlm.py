@@ -131,16 +131,24 @@ class Model:
             f"Initializing runtime with GPU_COUNT: {GPU_COUNT}, GPU_CONFIG: {GPU_CONFIG}"
         )
 
+        # Print the state of the world group before initialization
+        import vllm.distributed.parallel_state as ps
+
+        print(f"World group before initialization: {ps._WORLD}")
+
         self.runtime = sgl.Runtime(
             model_path=MODEL_PATH,
             tokenizer_path=TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_level=SGL_LOG_LEVEL,
         )
+        self.runtime.log_level = SGL_LOG_LEVEL  # Set log_level separately
         self.runtime.endpoint.chat_template = (
             sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
         )
         sgl.set_default_backend(self.runtime)
+
+        # Print the state of the world group after initialization
+        print(f"World group after initialization: {ps._WORLD}")
 
         print("Runtime initialized successfully")
 
