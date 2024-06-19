@@ -81,7 +81,7 @@ vllm_image = (
     .pip_install(  # add sglang and some Python dependencies
         "sglang[all]==0.1.17",
         "transformers==4.40.2",
-        "wheel"  # needed for flash-attn installation
+        "wheel",  # needed for flash-attn installation
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
@@ -89,7 +89,9 @@ vllm_image = (
     .pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
     )
-    .pip_install("numpy<2.0.0")  # downgrade numpy - 2.0.0 breaks the "outlines" package used by sglang
+    .pip_install(
+        "numpy<2.0.0"
+    )  # downgrade numpy - 2.0.0 breaks the "outlines" package used by sglang
 )
 
 # ## Defining a Visual QA service
