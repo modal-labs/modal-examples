@@ -222,7 +222,7 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
     allow_concurrent_inputs=20,
     timeout=60 * 10,
 )
-@asgi_app()
+@asgi_app(label="vllm-mixtral")
 def vllm_mixtral():
     import json
 
