@@ -207,7 +207,7 @@ def main():
 #
 # We can stream inference from a FastAPI backend, also deployed on Modal.
 #
-# You can try our deployment [here](https://modal-labs--vllm-mixtral.modal.run).
+# You can try our deployment [here](https://modal-labs--example-vllm-mixtral-vllm-mixtral.modal.run).
 
 from pathlib import Path
 
