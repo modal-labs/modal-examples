@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Serverless TensorRT-LLM (LLaMA 3 8B)
 #
 # In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
@@ -83,8 +86,8 @@ tensorrt_image = tensorrt_image.apt_install(
 # We use the function below to download the model from the Hugging Face Hub.
 
 MODEL_DIR = "/root/model/model_input"
-MODEL_ID = "NousResearch/Meta-Llama-3-8B"
-MODEL_REVISION = "315b20096dc791d381d514deb5f8bd9c8d6d3061"  # pin model revisions to prevent unexpected changes!
+MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"
+MODEL_REVISION = "b1532e4dee724d9ba63fe17496f298254d87ca64"  # pin model revisions to prevent unexpected changes!
 
 
 def download_model():
@@ -231,7 +234,9 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 #
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
+app = modal.App(
+    f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
+)
 
 # Thanks to our custom container runtime system, even this
 # large, many gigabyte container boots in seconds.
@@ -558,7 +563,9 @@ web_image = modal.Image.debian_slim(python_version="3.10")
 
 
 @app.function(image=web_image)
-@modal.web_endpoint(method="POST")
+@modal.web_endpoint(
+    method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True
+)
 def generate_web(data: dict):
     return Model.generate.remote(data["prompts"], settings=None)
 
@@ -570,7 +577,9 @@ def generate_web(data: dict):
 # modal serve trtllm_llama.py
 # ```
 #
-# You can test the endpoint by sending a POST request with `curl` from another terminal:
+# The URL for the endpoint appears in the output of the `modal serve` or `modal deploy` command.
+#
+# You can also test the endpoint by sending a POST request with `curl` from another terminal:
 #
 # ```bash
 # curl -X POST url-from-output-of-modal-serve-here \
