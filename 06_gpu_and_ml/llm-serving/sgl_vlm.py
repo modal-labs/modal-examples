@@ -127,7 +127,7 @@ class Model:
         )
         sgl.set_default_backend(self.runtime)
 
-    @modal.web_endpoint(method="POST")
+    @modal.web_endpoint(method="POST", docs=True)
     def generate(self, request: dict):
         import sglang as sgl
         from term_image.image import from_file
@@ -234,6 +234,8 @@ def main(image_url=None, question=None, twice=True):
 # And then send requests from anywhere. See the [docs](https://modal.com/docs/guide/webhook-urls)
 # for details on the `web_url` of the function, which also appears in the terminal output
 # when running `modal deploy`.
+#
+# You can also find interactive documentation for the endpoint at the `/docs` route of the web endpoint URL.
 
 # ## Addenda
 #
