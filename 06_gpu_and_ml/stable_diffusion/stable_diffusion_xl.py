@@ -143,8 +143,10 @@ class Model:
             prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
         ).getvalue()
 
-    @web_endpoint()
-    def web_inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+    @web_endpoint(docs=True)
+    def web_inference(
+        self, prompt: str, n_steps: int = 24, high_noise_frac: float = 0.8
+    ):
         return Response(
             content=self._inference(
                 prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
@@ -176,9 +178,12 @@ def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
 # Here we ship a simple web application that exposes a front-end (written in Alpine.js) for
 # our backend deployment.
 #
-# The Model class will serve multiple users from a its own shared pool of warm GPU containers automatically.
+# The Model class will serve multiple users from its own shared pool of warm GPU containers automatically.
 #
 # We can deploy this with `modal deploy stable_diffusion_xl.py`.
+#
+# Because the `web_endpoint` decorator on our `web_inference` function has the `docs` flag set to `True`,
+# we also get interactive documentation for our endpoint at `/docs`.
 
 frontend_path = Path(__file__).parent / "frontend"
 

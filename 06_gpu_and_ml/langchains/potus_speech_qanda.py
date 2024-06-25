@@ -1,4 +1,5 @@
 # ---
+# deploy: true
 # args: ["--query", "How many oil barrels were released from reserves"]
 # ---
 # # Question-answering with LangChain
@@ -174,7 +175,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 
 
 @app.function()
-@web_endpoint(method="GET")
+@web_endpoint(method="GET", docs=True)
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     if show_sources:
@@ -235,3 +236,9 @@ def cli(query: str, show_sources: bool = False):
 #   "answer": "The president thanked Justice Breyer for his service and mentioned his legacy of excellence. He also nominated Ketanji Brown Jackson to continue in Justice Breyer's legacy."
 # }
 # ```
+#
+# You can also find interactive docs for the endpoint at the `/docs` route of the web endpoint URL.
+#
+# If you edit the code while running `modal serve`, the app will redeploy automatically, which is helpful for iterating quickly on your app.
+#
+# Once you're ready to deploy to production, use `modal deploy`.

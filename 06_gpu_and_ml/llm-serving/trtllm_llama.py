@@ -51,7 +51,10 @@
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
 
+from typing import Optional
+
 import modal
+import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
@@ -299,7 +302,7 @@ class Model:
         """Generate responses to a batch of prompts, optionally with custom inference settings."""
         import time
 
-        if settings is None:
+        if settings is None or not settings:
             settings = dict(
                 temperature=0.1,  # temperature 0 not allowed, so we set top_k to 1 to get the same effect
                 top_k=1,
@@ -562,11 +565,17 @@ web_image = modal.Image.debian_slim(python_version="3.10")
 # and serve it with only a few more lines of code.
 
 
+class GenerateRequest(pydantic.BaseModel):
+    prompts: list[str]
+    settings: Optional[dict]
+
+
 @app.function(image=web_image)
 @modal.web_endpoint(
     method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True
 )
-def generate_web(data: dict):
+def generate_web(data: GenerateRequest) -> list[str]:
+    """Generate responses to a batch of prompts, optionally with custom inference settings."""
     return Model.generate.remote(data["prompts"], settings=None)
 
 
@@ -578,6 +587,7 @@ def generate_web(data: dict):
 # ```
 #
 # The URL for the endpoint appears in the output of the `modal serve` or `modal deploy` command.
+# Add `/docs` to the end of this URL to see the interactive Swagger documentation for the endpoint.
 #
 # You can also test the endpoint by sending a POST request with `curl` from another terminal:
 #

@@ -136,7 +136,7 @@ class ComfyUI:
     def ui(self):
         self._run_comfyui_server()
 
-    @modal.web_endpoint(method="POST")
+    @modal.web_endpoint(method="POST", docs=True)
     def api(self, item: Dict):
         from fastapi import Response
 
@@ -169,13 +169,15 @@ class ComfyUI:
 # Save the exported JSON to the `workflow_api.json` file in this directory.
 #
 # Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py` again.
+# You can see how to interact with your API via the interactive Swagger documentation at the `/docs` route
+# of the URL that includes `ComfyUI.api`.
 #
 # ## Further optimizations
 #
 # There is more you can do with Modal to further improve performance of your ComfyUI API endpoint.
 #
 # For example:
-# - Apply [keep_warm](https://modal.com/docs/guide/cold-start#maintain-a-warm-pool-with-keep_warm) to the `ComfyUI` class to always have a server running
+# - Apply [`keep_warm`](https://modal.com/docs/guide/cold-start#maintain-a-warm-pool-with-keep_warm) to the `ComfyUI` class to always have a server running
 # - Cache downloaded checkpoints/plugins to a [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds
 #
 # If you're interested in building a platform for running ComfyUI workflows with dynamically-defined dependencies and workflows,
