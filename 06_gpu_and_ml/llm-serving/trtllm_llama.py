@@ -576,7 +576,7 @@ class GenerateRequest(pydantic.BaseModel):
 )
 def generate_web(data: GenerateRequest) -> list[str]:
     """Generate responses to a batch of prompts, optionally with custom inference settings."""
-    return Model.generate.remote(data["prompts"], settings=None)
+    return Model.generate.remote(data.prompts, settings=None)
 
 
 # To set our function up as a web endpoint, we need to run this file --
