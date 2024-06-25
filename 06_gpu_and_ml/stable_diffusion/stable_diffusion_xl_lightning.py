@@ -67,7 +67,7 @@ class Model:
             n_steps=n_steps,
         ).getvalue()
 
-    @modal.web_endpoint()
+    @modal.web_endpoint(docs=True)
     def web_inference(self, prompt, n_steps=4):
         return Response(
             content=self._inference(
@@ -106,6 +106,9 @@ def main(
 # The Model class will serve multiple users from a its own shared pool of warm GPU containers automatically.
 #
 # We can deploy this with `modal deploy stable_diffusion_xl_lightning.py`.
+#
+# Because the `web_endpoint` decorator on our `web_inference` function has the `docs` flag set to `True`,
+# we also get interactive documentation for our endpoint at `/docs`.
 
 frontend_path = Path(__file__).parent / "frontend"
 

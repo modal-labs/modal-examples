@@ -241,7 +241,7 @@ with app.image.imports():
 
 
 @app.function()
-@modal.web_endpoint(method="POST")
+@modal.web_endpoint(method="POST", docs=True)  # Interactive docs at /docs
 async def completions(completion_request: CompletionRequest):
     from fastapi import Response, status
     from fastapi.responses import StreamingResponse
