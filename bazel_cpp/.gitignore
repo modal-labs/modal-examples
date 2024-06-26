@@ -1,0 +1,4 @@
+venv
+bazel-*
+__pycache__
+MODULE.*
