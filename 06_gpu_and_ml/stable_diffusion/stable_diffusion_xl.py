@@ -2,6 +2,7 @@
 # output-directory: "/tmp/stable-diffusion-xl"
 # args: ["--prompt", "An astronaut riding a green horse"]
 # runtimes: ["runc", "gvisor"]
+# web_url: "https://modal-labs--stable-diffusion-xl-model-web-inference.modal.run"
 # ---
 # # Stable Diffusion XL 1.0
 #
@@ -151,6 +152,7 @@ class Model:
             ).getvalue(),
             media_type="image/jpeg",
         )
+    
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
@@ -183,7 +185,6 @@ def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
 frontend_path = Path(__file__).parent / "frontend"
 
 web_image = Image.debian_slim().pip_install("jinja2")
-
 
 @app.function(
     image=web_image,
