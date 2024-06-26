@@ -156,7 +156,6 @@ class Model:
         )
 
 
-
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `modal run stable_diffusion_xl.py --help
 
@@ -187,6 +186,7 @@ def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
 frontend_path = Path(__file__).parent / "frontend"
 
 web_image = Image.debian_slim().pip_install("jinja2")
+
 
 @app.function(
     image=web_image,
