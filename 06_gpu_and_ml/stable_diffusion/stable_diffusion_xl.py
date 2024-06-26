@@ -154,7 +154,7 @@ class Model:
             ).getvalue(),
             media_type="image/jpeg",
         )
-    
+
 
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
