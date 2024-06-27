@@ -161,6 +161,9 @@ class ComfyUI:
 # When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py`, you'll see a link that includes `ComfyUI.ui`.
 # Head there to interactively develop your ComfyUI workflow. All of your custom checkpoints/plugins from `model.json` will be loaded in.
 #
+# Remember to **close your UI tab** when you are done developing to avoid accidental charges to your account.
+# This will close the connection with the container serving ComfyUI, which will spin down based on your `container_idle_timeout` setting.
+#
 # To serve the workflow after you've developed it, first export it as "API Format" JSON:
 # 1. Click the gear icon in the top-right corner of the menu
 # 2. Select "Enable Dev mode Options"
@@ -178,7 +181,7 @@ class ComfyUI:
 #
 # For example:
 # - Apply [`keep_warm`](https://modal.com/docs/guide/cold-start#maintain-a-warm-pool-with-keep_warm) to the `ComfyUI` class to always have a server running
-# - Cache downloaded checkpoints/plugins to a [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds
+# - Cache downloaded checkpoints/plugins to a [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds (see [gist](https://gist.github.com/kning/bb5f076e831266d00e134fcb3a13ed88))
 #
 # If you're interested in building a platform for running ComfyUI workflows with dynamically-defined dependencies and workflows,
 # please [reach out to us on Slack](https://modal.com/slack).
