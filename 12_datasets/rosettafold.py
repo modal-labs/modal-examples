@@ -104,83 +104,57 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 @app.function(
     volumes={"/mnt/": volume},
+    timeout=60 * 60 * 24,
+    ephemeral_disk=2560 * 1024,
+)
+def _do_part(url: str) -> None:
+    name = url.split("/")[-1].replace(".tar.gz", "")
+    print(f"Downloading {name}")
+    compressed = pathlib.Path("/tmp", name)
+    cmd = f"wget {url} -O {compressed}"
+    p = subprocess.Popen(cmd, shell=True)
+    returncode = p.wait()
+    if returncode != 0:
+        raise RuntimeError(
+            f"Error in downloading. {p.args!r} failed {returncode=}"
+        )
+    decompressed = pathlib.Path("/tmp/rosettafold/", name)
+
+    # Decompression is much faster against the container's local SSD disk
+    # compared with against the mounted volume. So we first compress into /tmp/.
+    print(f"Decompressing {compressed} into {decompressed}.")
+    decompress_tar_gz(compressed, decompressed)
+    print(
+        f"✅ Decompressed {compressed} into {decompressed}. Now deleting it to free up disk.."
+    )
+    compressed.unlink()  # delete compressed file to free up disk
+
+    # Finally, we move the decompressed data from /tmp/ into the mounted volume.
+    # There are a large mount of files to copy so this step takes a while.
+    dest = pathlib.Path("/mnt/rosettafold/")
+    copy_concurrent(decompressed, dest)
+    shutil.rmtree(decompressed, ignore_errors=True)  # free up disk
+    print(f"Dataset part {url} is loaded ✅")
+
+
+@app.function(
+    volumes={"/mnt/": volume},
     # Timeout for this Function is set at the maximum, 24 hours,
     # because downloading, decompressing and storing almost 2 TiB of
     # files takes a long time.
     timeout=60 * 60 * 24,
-    ephemeral_disk=2560 * 1024,
 )
 def import_transform_load() -> None:
-    start_monitoring_disk_space()
-    uniref30 = pathlib.Path("/tmp/UniRef30_2020_06_hhsuite.tar.gz")
-    bfd_dataset = pathlib.Path(
-        "/tmp/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz"
-    )
-    structure_templates = pathlib.Path("/tmp/pdb100_2021Mar03.tar.gz")
-    commands = []
-    print("Downloading uniref30 [46G]")
-    commands.append(
-        f"wget http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz -O {uniref30}"
-    )
-    print("Downloading BFD [272G]")
     # NOTE:
     # The mmseq.com server upload speed is quite slow so this download takes a while.
     # The download speed is also quite variable, sometimes taking over 5 hours.
-    commands.append(
-        f"wget https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz -O {bfd_dataset}"
-    )
-    print(
-        "Downloading structure templates (including *_a3m.ffdata, *_a3m.ffindex)"
-    )
-    commands.append(
-        f"wget https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz -O {structure_templates}"
-    )
-
-    # Start all downloads in parallel and wait for all of them to complete.
-    processes = [subprocess.Popen(cmd, shell=True) for cmd in commands]
-    errors = []
-    for p in processes:
-        returncode = p.wait()
-        if returncode != 0:
-            errors.append(
-                f"Error in downloading. {p.args!r} failed {returncode=}"
-            )
-    if errors:
-        raise RuntimeError(errors)
-
-    # Decompression is much faster against the container's local SSD disk
-    # compared with against the mounted volume. So we first compress into /tmp/.
-    uniref30_decompressed = pathlib.Path(
-        "/tmp/rosettafold/UniRef30_2020_06_hhsuite"
-    )
-    bfd_dataset_decompressed = pathlib.Path(
-        "/tmp/rosettafold/bfd_metaclust_clu_complete_id30_c90_final_seq"
-    )
-    structure_templates_decompressed = pathlib.Path(
-        "/tmp/rosettafold/pdb100_2021Mar03/"
-    )
-    decompression_jobs = {
-        (uniref30, uniref30_decompressed),
-        (bfd_dataset, bfd_dataset_decompressed),
-        (structure_templates, structure_templates_decompressed),
-    }
-    for file_path, extract_dir in decompression_jobs:
-        print(f"Decompressing {file_path} into {extract_dir}.")
-        decompress_tar_gz(file_path, extract_dir)
-        print(
-            f"✅ Decompressed {file_path} into {extract_dir}. Now deleting it to free up disk.."
+    list(
+        _do_part.map(
+            [
+                "http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz",
+                "https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz",
+                "https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz",
+            ]
         )
-        file_path.unlink()  # delete compressed file to free up disk
-
-    print("All decompression tasks completed.")
-
-    # Finally, we move the decompressed data from /tmp/ into the mounted volume.
-    # There are a large mount of files to copy so this step takes a while.
-
-    dest = pathlib.Path("/mnt/rosettafold/")
-    copy_concurrent(uniref30_decompressed, dest)
-    shutil.rmtree(uniref30_decompressed, ignore_errors=True)  # free up disk
-    copy_concurrent(bfd_dataset_decompressed, dest)
-    shutil.rmtree(bfd_dataset_decompressed, ignore_errors=True)  # free up disk
-    copy_concurrent(structure_templates_decompressed, dest)
+    )
     print("Dataset is loaded ✅")

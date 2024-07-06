@@ -36,7 +36,7 @@ app = modal.App(
 )
 
 
-def start_monitoring_disk_space(interval: int = 30) -> None:
+def start_monitoring_disk_space(interval: int = 120) -> None:
     """Start monitoring the disk space in a separate thread."""
     task_id = os.environ["MODAL_TASK_ID"]
 
@@ -109,98 +109,53 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 @app.function(
     volumes={"/vol/": volume},
-    timeout=60 * 60 * 4,  # 4 hours
-    ephemeral_disk=600 * 1024,  # 600 GiB
+    timeout=60 * 60 * 5,  # 5 hours
+    ephemeral_disk=600 * 1024,  # 600 GiB,
+)
+def _do_part(url: str) -> None:
+    start_monitoring_disk_space()
+    part = url.replace("http://images.cocodataset.org/", "")
+    name = pathlib.Path(part).name.replace(".zip", "")
+    zip_path = pathlib.Path("/tmp/") / pathlib.Path(part).name
+    extract_tmp_path = pathlib.Path("/tmp", name)
+    dest_path = pathlib.Path("/vol/coco/", name)
+
+    print(f"Downloading {name} from {url}")
+    command = f"wget {url} -O {zip_path}"
+    subprocess.run(command, shell=True, check=True)
+    print(f"Download of {name} completed successfully.")
+    extract_tmp_path.mkdir()
+    extractall(
+        zip_path, extract_tmp_path, desc=f"Extracting {name}"
+    )  # extract into /tmp/
+    zip_path.unlink()  # free up disk space by deleting the zip
+    print(f"Copying extract {name} data to volume.")
+    copy_concurrent(
+        extract_tmp_path, dest_path
+    )  # copy from /tmp/ into mounted volume
+
+
+# We can process each part of the dataset in parallel, using a 'parent' Function just to execute
+# the map and wait on completion of all children.
+
+
+@app.function(
+    timeout=60 * 60 * 5,  # 5 hours
 )
 def import_transform_load() -> None:
-    start_monitoring_disk_space()
-
-    train2017_tmp = pathlib.Path("/tmp/train2017.zip")
-    val2017_tmp = pathlib.Path("/tmp/val2017.zip")
-    test2017_tmp = pathlib.Path("/tmp/test2017.zip")
-    unlabeled2017_tmp = pathlib.Path("/tmp/unlabeled2017.zip")
-    annotations_trainval2017 = pathlib.Path("/tmp/annotations_trainval2017.zip")
-    stuff_annotations_trainval2017 = pathlib.Path(
-        "/tmp/stuff_annotations_trainval2017.zip"
+    print("Starting import, transform, and load of COCO dataset")
+    list(
+        _do_part.map(
+            [
+                "http://images.cocodataset.org/zips/train2017.zip",
+                "http://images.cocodataset.org/zips/val2017.zip",
+                "http://images.cocodataset.org/zips/test2017.zip",
+                "http://images.cocodataset.org/zips/unlabeled2017.zip",
+                "http://images.cocodataset.org/annotations/annotations_trainval2017.zip",
+                "http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip",
+                "http://images.cocodataset.org/annotations/image_info_test2017.zip",
+                "http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip",
+            ]
+        )
     )
-    image_info_test2017 = pathlib.Path("/tmp/image_info_test2017.zip")
-    image_info_unlabeled2017 = pathlib.Path("/tmp/image_info_unlabeled2017.zip")
-    commands = [
-        f"wget http://images.cocodataset.org/zips/train2017.zip -O {train2017_tmp}",
-        f"wget http://images.cocodataset.org/zips/val2017.zip -O {val2017_tmp}",
-        f"wget http://images.cocodataset.org/zips/test2017.zip -O {test2017_tmp}",
-        f"wget http://images.cocodataset.org/zips/unlabeled2017.zip -O {unlabeled2017_tmp}",
-        f"wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip -O {annotations_trainval2017}",
-        f"wget http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip -O {stuff_annotations_trainval2017}",
-        f"wget http://images.cocodataset.org/annotations/image_info_test2017.zip -O {image_info_test2017}",
-        f"wget http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip -O {image_info_unlabeled2017}",
-    ]
-    # Start all downloads in parallel
-    processes = [subprocess.Popen(cmd, shell=True) for cmd in commands]
-    # Wait for all downloads to complete
-    errors = []
-    for p in processes:
-        returncode = p.wait()
-        if returncode == 0:
-            print("Download completed successfully.")
-        else:
-            errors.append(
-                f"Error in downloading. {p.args!r} failed {returncode=}"
-            )
-    if errors:
-        raise RuntimeError(errors)
-
-    destination = pathlib.Path("/tmp/train2017/")
-    for (
-        src,
-        extract_dest,
-        final_dest,
-    ) in [
-        (
-            train2017_tmp,
-            pathlib.Path("/tmp/train2017/"),
-            pathlib.Path("/vol/coco/train2017/"),
-        ),
-        (
-            val2017_tmp,
-            pathlib.Path("/tmp/val2017/"),
-            pathlib.Path("/vol/coco/val2017/"),
-        ),
-        (
-            test2017_tmp,
-            pathlib.Path("/tmp/test2017/"),
-            pathlib.Path("/vol/coco/test2017/"),
-        ),
-        (
-            unlabeled2017_tmp,
-            pathlib.Path("/tmp/unlabeled2017/"),
-            pathlib.Path("/vol/coco/unlabeled2017/"),
-        ),
-        (
-            annotations_trainval2017,
-            pathlib.Path("/tmp/annotations_trainval2017/"),
-            pathlib.Path("/vol/coco/annotations_trainval2017/"),
-        ),
-        (
-            stuff_annotations_trainval2017,
-            pathlib.Path("/tmp/stuff_annotations_trainval2017/"),
-            pathlib.Path("/vol/coco/stuff_annotations_trainval2017/"),
-        ),
-        (
-            image_info_test2017,
-            pathlib.Path("/tmp/image_info_test2017/"),
-            pathlib.Path("/vol/coco/image_info_test2017/"),
-        ),
-        (
-            image_info_unlabeled2017,
-            pathlib.Path("/tmp/image_info_unlabeled2017/"),
-            pathlib.Path("/vol/coco/image_info_unlabeled2017/"),
-        ),
-    ]:
-        extract_dest.mkdir()
-        extractall(src, destination)  # extract into /tmp/
-        src.unlink()  # free up disk space by deleting the zip
-        copy_concurrent(
-            destination, final_dest
-        )  # copy from /tmp/ into mounted volume
     print("✅ Done")
