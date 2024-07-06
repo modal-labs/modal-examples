@@ -101,6 +101,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
             src, dest, copy_function=copier.copy, dirs_exist_ok=True
         )
 
+
 @app.function(
     volumes={"/mnt/": volume},
     timeout=60 * 60 * 24,
@@ -135,6 +136,7 @@ def _do_part(url: str) -> None:
     shutil.rmtree(decompressed, ignore_errors=True)  # free up disk
     print(f"Dataset part {url} is loaded ✅")
 
+
 @app.function(
     volumes={"/mnt/": volume},
     # Timeout for this Function is set at the maximum, 24 hours,
@@ -146,9 +148,13 @@ def import_transform_load() -> None:
     # NOTE:
     # The mmseq.com server upload speed is quite slow so this download takes a while.
     # The download speed is also quite variable, sometimes taking over 5 hours.
-    list(_do_part.map([
-        "http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz",
-        "https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz",
-        "https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz",
-    ]))
+    list(
+        _do_part.map(
+            [
+                "http://wwwuser.gwdg.de/~compbiol/uniclust/2020_06/UniRef30_2020_06_hhsuite.tar.gz",
+                "https://bfd.mmseqs.com/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz",
+                "https://files.ipd.uw.edu/pub/RoseTTAFold/pdb100_2021Mar03.tar.gz",
+            ]
+        )
+    )
     print("Dataset is loaded ✅")

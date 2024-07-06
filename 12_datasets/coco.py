@@ -109,14 +109,14 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
 
 @app.function(
     volumes={"/vol/": volume},
-    timeout=60 * 60 * 5, # 5 hours
+    timeout=60 * 60 * 5,  # 5 hours
     ephemeral_disk=600 * 1024,  # 600 GiB,
 )
 def _do_part(url: str) -> None:
     start_monitoring_disk_space()
     part = url.replace("http://images.cocodataset.org/", "")
     name = pathlib.Path(part).name.replace(".zip", "")
-    zip_path =  pathlib.Path("/tmp/") / pathlib.Path(part).name
+    zip_path = pathlib.Path("/tmp/") / pathlib.Path(part).name
     extract_tmp_path = pathlib.Path("/tmp", name)
     dest_path = pathlib.Path("/vol/coco/", name)
 
@@ -125,29 +125,37 @@ def _do_part(url: str) -> None:
     subprocess.run(command, shell=True, check=True)
     print(f"Download of {name} completed successfully.")
     extract_tmp_path.mkdir()
-    extractall(zip_path, extract_tmp_path, desc=f"Extracting {name}")  # extract into /tmp/
+    extractall(
+        zip_path, extract_tmp_path, desc=f"Extracting {name}"
+    )  # extract into /tmp/
     zip_path.unlink()  # free up disk space by deleting the zip
     print(f"Copying extract {name} data to volume.")
     copy_concurrent(
         extract_tmp_path, dest_path
     )  # copy from /tmp/ into mounted volume
 
+
 # We can process each part of the dataset in parallel, using a 'parent' Function just to execute
 # the map and wait on completion of all children.
+
 
 @app.function(
     timeout=60 * 60 * 5,  # 5 hours
 )
 def import_transform_load() -> None:
     print("Starting import, transform, and load of COCO dataset")
-    list(_do_part.map([
-        "http://images.cocodataset.org/zips/train2017.zip",
-        "http://images.cocodataset.org/zips/val2017.zip",
-        "http://images.cocodataset.org/zips/test2017.zip",
-        "http://images.cocodataset.org/zips/unlabeled2017.zip",
-        "http://images.cocodataset.org/annotations/annotations_trainval2017.zip",
-        "http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip",
-        "http://images.cocodataset.org/annotations/image_info_test2017.zip",
-        "http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip",
-    ]))
+    list(
+        _do_part.map(
+            [
+                "http://images.cocodataset.org/zips/train2017.zip",
+                "http://images.cocodataset.org/zips/val2017.zip",
+                "http://images.cocodataset.org/zips/test2017.zip",
+                "http://images.cocodataset.org/zips/unlabeled2017.zip",
+                "http://images.cocodataset.org/annotations/annotations_trainval2017.zip",
+                "http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip",
+                "http://images.cocodataset.org/annotations/image_info_test2017.zip",
+                "http://images.cocodataset.org/annotations/image_info_unlabeled2017.zip",
+            ]
+        )
+    )
     print("✅ Done")
