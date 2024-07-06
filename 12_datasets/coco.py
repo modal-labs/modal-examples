@@ -125,7 +125,7 @@ def _do_part(url: str) -> None:
     subprocess.run(command, shell=True, check=True)
     print(f"Download of {name} completed successfully.")
     extract_tmp_path.mkdir()
-    extractall(zip_path, dest_path)  # extract into /tmp/
+    extractall(zip_path, extract_tmp_path, desc=f"Extracting {name}")  # extract into /tmp/
     zip_path.unlink()  # free up disk space by deleting the zip
     print(f"Copying extract {name} data to volume.")
     copy_concurrent(
