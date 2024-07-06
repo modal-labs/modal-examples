@@ -143,7 +143,6 @@ def _do_part(url: str) -> None:
     timeout=60 * 60 * 24,
 )
 def import_transform_load() -> None:
-    start_monitoring_disk_space()
     # NOTE:
     # The mmseq.com server upload speed is quite slow so this download takes a while.
     # The download speed is also quite variable, sometimes taking over 5 hours.
