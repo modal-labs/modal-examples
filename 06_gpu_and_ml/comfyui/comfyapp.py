@@ -59,7 +59,7 @@ from typing import Dict
 
 import modal
 
-comfyui_commit_sha = "0fecfd2b1a2794b77277c7e256c84de54a63d860"
+comfyui_commit_sha = "0e3dfd9e343d4aee7826fbc188e2af8ceb1bdde9"
 
 comfyui_image = (  # build up a Modal Image to run ComfyUI, step by step
     modal.Image.debian_slim(  # start from basic Linux with Python
