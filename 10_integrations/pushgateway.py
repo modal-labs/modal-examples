@@ -41,7 +41,7 @@ gw_image = (
 #
 # We'll start the Pushgateway as a separate Modal app. This way, we can run the Pushgateway
 # in the background and have our main app push metrics to it. We'll use the `web_server`
-# decorator to expose the Pushgateway's web interface. Note that we must set concurrency_limit=1
+# decorator to expose the Pushgateway's web interface. Note that we must set `concurrency_limit=1`
 # as the Pushgateway is a single-process application. If we spin up multiple instances, they'll
 # conflict with each other.
 #
