@@ -86,6 +86,7 @@ with client_image.imports():
     from prometheus_client import (
         CollectorRegistry,
         Counter,
+        delete_from_gateway,
         push_to_gateway,
     )
 
@@ -101,6 +102,16 @@ class ExampleClientApplication:
             "hello_counter",
             "This is a counter",
             registry=self.registry,
+        )
+
+    # We must explicitly clean up the metric when the app exits so Prometheus doesn't
+    # keep stale metrics around.
+    @modal.exit()
+    def cleanup(self):
+        delete_from_gateway(
+            self.web_url,
+            job="hello",
+            grouping_key={"instance": self.instance_id},
         )
 
     @web_endpoint()
