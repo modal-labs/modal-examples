@@ -1,5 +1,6 @@
 # ---
-# cmd: ["modal", "deploy", "10_integrations/pushgateway.py"]
+# deploy: true
+# cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
 # ---
 # # Publish custom metrics with Prometheus Pushgateway
 #
@@ -134,17 +135,18 @@ app.include(gw_app)
 # ```shell
 # $ modal deploy pushgateway.py
 # ✓ Created objects.
-# ├── 🔨 Created mount /Users/example/projects/scratch/pushgateway/pushgateway.py
-# ├── 🔨 Created web function run_pushgateway => https://modal-labs-example--client-example-run-pushgateway.modal.run
+# ├── 🔨 Created mount
+# │   /home/runner/work/modal-examples/modal-examples/10_integrations/pushgateway.py
 # ├── 🔨 Created function ExampleClientApplication.*.
+# ├── 🔨 Created web function run_pushgateway =>
+# │   https://modal-labs--client-example-run-pushgateway.modal.run
 # └── 🔨 Created web function ExampleClientApplication.hello =>
-#     https://modal-labs-example--client-example-exampleclientappli-4c6f64.modal.run (label truncated)
+#     https://modal-labs--client-example-exampleclientapplication-hello.modal.run
 # ✓ App deployed! 🎉
-#
-# View Deployment: https://modal.com/modal-labs/example/apps/deployed/client-example
 # ```
 #
-# Go to both the client application and Pushgateway URLs to see the metrics being pushed.
+# You can now go to both the [client application](https://modal-labs--client-example-exampleclientapplication-hello.modal.run)
+# and [Pushgateway](https://modal-labs--client-example-run-pushgateway.modal.run) URLs to see the metrics being pushed.
 #
 # ## Hooking up Prometheus
 #
@@ -157,7 +159,7 @@ app.include(gw_app)
 # - job_name: 'pushgateway'
 #   honor_labels: true # required so that the instance label is preserved
 #   static_configs:
-#   - targets: ['modal-labs-example--client-example-run-pushgateway-dev.modal.run']
+#   - targets: ['modal-labs--client-example-run-pushgateway.modal.run']
 # ```
 #
 # Note that the target will be different if you have a custom domain set up for the Pushgateway,
