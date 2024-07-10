@@ -11,7 +11,7 @@
   },
   "2": {
     "inputs": {
-      "ckpt_name": "512-inpainting-ema.ckpt"
+      "ckpt_name": "512-inpainting-ema.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
@@ -46,7 +46,7 @@
   },
   "6": {
     "inputs": {
-      "seed": 366136222179564,
+      "seed": 768469026019348,
       "steps": 20,
       "cfg": 8,
       "sampler_name": "uni_pc_bh2",
@@ -111,16 +111,17 @@
       "title": "VAE Encode (for Inpainting)"
     }
   },
-  "10": {
+  "11": {
     "inputs": {
+      "filename_prefix": "ComfyUI",
       "images": [
         "7",
         0
       ]
     },
-    "class_type": "SaveImageWebsocket",
+    "class_type": "SaveImage",
     "_meta": {
-      "title": "SaveImageWebsocket"
+      "title": "Save Image"
     }
   }
 }
