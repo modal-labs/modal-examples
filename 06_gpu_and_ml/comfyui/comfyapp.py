@@ -44,7 +44,7 @@
 #
 # ## Setup
 #
-# First, we define the environment we need to run ComfyUI -- system software, Python package, etc. We primarily leverage [comfy-cli](https://github.com/Comfy-Org/comfy-cli) to manage base ComfyUI installation as well as models and custom nodes.
+# First, we define the environment we need to run ComfyUI using [comfy-cli](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
 
 
 import json
@@ -60,12 +60,15 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         python_version="3.11"
     )
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli")  # install comfy-cli
+    .pip_install("comfy-cli==1.0.33")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia",
     )
     .run_commands(  # download the inpainting model
         "comfy --skip-prompt model download --url https://huggingface.co/stabilityai/stable-diffusion-2-inpainting/resolve/main/512-inpainting-ema.safetensors --relative-path models/checkpoints"
+    )
+    .run_commands(  # download a custom node
+        "comfy node install image-resize-comfyui"
     )
     # can layer additional models and custom node downloads as needed
 )
@@ -79,10 +82,11 @@ app = modal.App(name="example-comfyui", image=image)
 @app.function(
     allow_concurrent_inputs=10,
     concurrency_limit=1,
+    container_idle_timeout=30,
     timeout=1800,
     gpu="any",
 )
-@modal.web_server(8000, startup_timeout=30)
+@modal.web_server(8000, startup_timeout=60)
 def ui():
     subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)
 
@@ -90,7 +94,7 @@ def ui():
 # Remember to **close your UI tab** when you are done developing to avoid accidental charges to your account.
 # This will close the connection with the container serving ComfyUI, which will spin down based on your `container_idle_timeout` setting.
 #
-# To run as an existing workflow as an API, we use Modal's class syntax to run our customized ComfyUI environment and workflow on Modal.
+# To run an existing workflow as an API, we use Modal's class syntax to run our customized ComfyUI environment and workflow on Modal.
 #
 # Here's the basic breakdown of how we do it:
 # 1. We stand up a "headless" ComfyUI server in the background when the app starts.
@@ -105,11 +109,12 @@ def ui():
     gpu="any",
     mounts=[
         modal.Mount.from_local_file(
-            "workflow_api.json", "/root/workflow_api.json"
+            Path(__file__).parent / "workflow_api.json",
+            "/root/workflow_api.json",
         ),
         # mount input images
         modal.Mount.from_local_file(
-            "yosemite_inpaint_example.png",
+            Path(__file__).parent / "yosemite_inpaint_example.png",
             "/root/comfy/ComfyUI/input/yosemite_inpaint_example.png",
         ),
     ],
@@ -117,29 +122,17 @@ def ui():
 class ComfyUI:
     @modal.enter()
     def launch_comfy_background(self):
-        print("Launching Comfy...")
-        # TODO: a way to pass these internal logs to Modal?
         cmd = "comfy launch --background"
-        result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        if result.returncode == 0:
-            print("Comfy launched successfully")
-        else:
-            raise Exception("Comfy failed to launch")
+        subprocess.run(cmd, shell=True, check=True)
 
     @modal.method()
-    def infer(self, workflow_path: str):
+    def infer(self, workflow_path: str = "/root/workflow_api.json"):
         # runs the comfy run --workflow command as a subprocess
-        print(f"Running workflow {workflow_path}...")
-        cmd = f"comfy run --workflow {workflow_path}"
-        result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        if result.returncode == 0:
-            print("Workflow completed successfully")
-        else:
-            raise Exception("Workflow failed")
+        cmd = f"comfy run --workflow {workflow_path} --wait"
+        subprocess.run(cmd, shell=True, check=True)
 
         # completed workflows write output images to this directory
         output_dir = "/root/comfy/ComfyUI/output"
-
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
         file_prefix = [
@@ -153,7 +146,7 @@ class ComfyUI:
             if f.name.startswith(file_prefix):
                 return f.read_bytes()
 
-    @modal.web_endpoint(method="POST", docs=True)
+    @modal.web_endpoint(method="POST")
     def api(self, item: Dict):
         from fastapi import Response
 
@@ -192,11 +185,9 @@ class ComfyUI:
 # Save the exported JSON to the `workflow_api.json` file in this directory.
 #
 # Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py` again.
-# You can see how to interact with your API via the interactive Swagger documentation at the `/docs` route
-# of the URL that includes `ComfyUI.api`.
 #
 # ## Further optimizations
 #
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
 # - To reduce image build time, you can write custom code to cache previous model and custom node downloads into a Modal [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds. (see [gist](https://gist.github.com/kning/bb5f076e831266d00e134fcb3a13ed88)).
-# - For those who prefer to run a single ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
+# - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
