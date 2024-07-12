@@ -33,6 +33,7 @@ outlines_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "sentencepiece==0.2.0",
     "datasets==2.18.0",
     "accelerate==0.27.2",
+    "numpy<2",
 )
 
 # ## Download the model
