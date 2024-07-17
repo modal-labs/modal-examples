@@ -32,10 +32,10 @@ TARGET_PATH = "/root/target"
 dbt_image = (
     modal.Image.debian_slim()
     .pip_install(
-        "boto3",
-        "dbt-duckdb>=1.5.1",
-        "pandas",
-        "pyarrow",
+        "boto3~=1.34",
+        "dbt-duckdb~=1.8.1",
+        "pandas~=2.2.2",
+        "pyarrow~=16.1.0",
     )
     .env(
         {
@@ -66,9 +66,7 @@ dbt_profiles = modal.Mount.from_local_file(
     local_path=LOCAL_DBT_PROJECT / "profiles.yml",
     remote_path=Path(PROFILES_PATH, "profiles.yml"),
 )
-dbt_target = modal.NetworkFileSystem.from_name(
-    "dbt-target", create_if_missing=True
-)
+dbt_target = modal.Volume.from_name("dbt-target-vol", create_if_missing=True)
 # Create this secret using the "AWS" template at https://modal.com/secrets/create.
 # Be sure that the AWS user you provide credentials for has permission to
 # create S3 buckets and read/write data from them.
@@ -137,16 +135,18 @@ def create_source_data():
 # up-to-date. Currently, the source data for this warehouse is static, so the updates
 # don't really update anything, just re-build. But this example could be extended
 # to have sources which continually provide new data across time.
+# It will also generate the dbt docs daily to keep them fresh.
 
 
 @app.function(
     schedule=modal.Period(days=1),
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
-    network_file_systems={TARGET_PATH: dbt_target},
+    volumes={TARGET_PATH: dbt_target},
 )
 def daily_build() -> None:
     run.remote("build")
+    run.remote("docs generate")
 
 
 # `modal run dbt_duckdb.py::run --command run`
@@ -181,12 +181,12 @@ def daily_build() -> None:
 @app.function(
     secrets=[s3_secret],
     mounts=[dbt_project, dbt_profiles],
-    network_file_systems={TARGET_PATH: dbt_target},
+    volumes={TARGET_PATH: dbt_target},
 )
 def run(command: str) -> None:
     from dbt.cli.main import dbtRunner
 
-    res = dbtRunner().invoke([command])
+    res = dbtRunner().invoke(command.split(" "))
     if res.exception:
         print(res.exception)
 
@@ -197,3 +197,24 @@ def run(command: str) -> None:
 # After running the 'run' command and seeing it succeed, check what's contained
 # under the bucket's `out/` key prefix. You'll see that DBT has run the transformations
 # defined in `sample_proj_duckdb_s3/models/` and produced output .parquet files.
+
+
+# You can also serve the dbt docs generated from the daily build and access them through modal
+# Just look for the url in your deployment
+# Created web function serve_dbt_docs => <output-url>
+
+
+@app.function(volumes={TARGET_PATH: dbt_target})
+@modal.asgi_app()
+def serve_dbt_docs():
+    import fastapi
+    from fastapi.staticfiles import StaticFiles
+
+    web_app = fastapi.FastAPI()
+    web_app.mount(
+        "/",
+        StaticFiles(directory=TARGET_PATH, html=True),
+        name="static",
+    )
+
+    return web_app
