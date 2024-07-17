@@ -104,6 +104,8 @@ s3_secret = modal.Secret.from_name("modal-examples-aws-user")
 # we have this `create_source_data` function which creates an AWS S3 bucket and
 # populates it with .parquet files based of CSV data in the seeds/ directory.
 #
+# `modal run dbt_duckdb.py::create_source_data`
+#
 # This is not the typical way that seeds/ data is used, but it is fine for this
 # demonstration example. See https://docs.getdbt.com/docs/build/seeds for more info.
 
@@ -144,7 +146,7 @@ def create_source_data():
     network_file_systems={TARGET_PATH: dbt_target},
 )
 def daily_build() -> None:
-    run("build")
+    run.remote("build")
 
 
 # `modal run dbt_duckdb.py::run --command run`
