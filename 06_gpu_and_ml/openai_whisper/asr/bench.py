@@ -4,6 +4,7 @@ import json
 
 # Define URL and audio files
 URL = 'https://modal-labs--low-latency-transcription-model-web-dev.modal.run'
+URL = 'https://modal-labs--faster-v2-model-web-dev.modal.run'
 AUDIO_FILES = {
     'short': 'wavs/short.wav',
     'preamble': 'wavs/preamble.wav',
