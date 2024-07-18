@@ -1,8 +1,11 @@
-from modal import App, Image, gpu, enter, asgi_app, Volume
+import base64
+import os
+import re
+
+
+from modal import App, Image, gpu, enter, asgi_app
 from utils.languages import LANGUAGES
 import logging
-
-app = App("low-latency-transcription")
 
 tensorrt_image = Image.from_registry(
     "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
@@ -26,8 +29,6 @@ tensorrt_image = tensorrt_image.apt_install(
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
-
-volume = Volume.from_name("advay_tensorrt", create_if_missing=True)
 
 
 tensorrt_image = tensorrt_image.run_commands([
@@ -71,7 +72,7 @@ f"trtllm-build  --checkpoint_dir {CHECKPOINT_DIR}/encoder \
               --max_input_len 1500",
 ], gpu=GPU_CONFIG)
 
-tensorrt_image = tensorrt_image.run_commands([
+image = tensorrt_image.run_commands([
 f"trtllm-build  --checkpoint_dir {CHECKPOINT_DIR}/decoder \
               --output_dir {OUTPUT_DIR}/decoder \
               --paged_kv_cache disable \
@@ -89,9 +90,12 @@ f"trtllm-build  --checkpoint_dir {CHECKPOINT_DIR}/decoder \
               --remove_input_padding disable"
 ], gpu=GPU_CONFIG)
 
-class_declaration = app.cls(image=tensorrt_image, keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=1, gpu="a10g")
+image = image.pip_install("pydantic==1.10.11")
 
-with tensorrt_image.imports():
+
+app = App("low-latency-transcription", image=image)
+
+with image.imports():
     from typing import Annotated
     from pydantic import Json
     import tensorrt_llm
@@ -108,10 +112,12 @@ with tensorrt_image.imports():
     from fastapi import FastAPI, UploadFile, File, Form, HTTPException
     from fastapi.responses import PlainTextResponse
     from utils.whisper_utils import log_mel_spectrogram
+
     import tiktoken
     import base64
     import os
     import re
+
 
 def get_tokenizer(name: str = "multilingual",
                   num_languages: int = 99,
@@ -145,6 +151,7 @@ def get_tokenizer(name: str = "multilingual",
         special_tokens[token] = n_vocab
         n_vocab += 1
 
+    import tiktoken
     return tiktoken.Encoding(
         name=os.path.basename(vocab_path),
         explicit_n_vocab=n_vocab,
@@ -397,14 +404,15 @@ def decode_wav_file(
     results = [(0, [""], prediction.split())]
     return results, total_duration
 
-@class_declaration
+@app.cls(keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=1, gpu=GPU_CONFIG)
 class Model:
     @enter()
     def enter(self):
-        self.model = WhisperTRTLLM(OUTPUT_DIR)
+        self.model = WhisperTRTLLM(OUTPUT_DIR, assets_dir="/assets")
 
     @asgi_app()
     def web(self):
+        from fastapi import FastAPI
         webapp = FastAPI()
 
         @webapp.get("/", response_class=PlainTextResponse)
