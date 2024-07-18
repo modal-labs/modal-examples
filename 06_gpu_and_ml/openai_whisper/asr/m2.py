@@ -375,7 +375,7 @@ def setup_logger():
 
 server_logger = setup_logger()
 
-def decode_wav_file(
+async def decode_wav_file(
         input_file_path,
         model,
         text_prefix="<|startoftranscript|><|en|><|transcribe|><|notimestamps|>",
@@ -384,7 +384,7 @@ def decode_wav_file(
         num_beams=1,
         normalizer=None,
         mel_filters_dir=None):
-    mel, total_duration = log_mel_spectrogram(input_file_path,
+    mel, total_duration = await log_mel_spectrogram(input_file_path,
                                               model.encoder.n_mels,
                                               device='cuda',
                                               return_duration=True,
@@ -426,7 +426,7 @@ class Model:
         async def predict(
             file: Annotated[UploadFile, File()],
         ):
-            results, _ = decode_wav_file(file, self.model)
+            results, _ = await decode_wav_file(file, self.model)
             return results
 
         return webapp

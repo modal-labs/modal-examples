@@ -21,6 +21,9 @@ from subprocess import CalledProcessError, run
 from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Union
 
 import kaldialign
+import asyncio
+from scipy.io import wavfile
+import io
 import numpy as np
 import soundfile
 import torch
@@ -33,6 +36,12 @@ N_FFT = 400
 HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
+
+async def wav_uploadfile_to_numpy(file) -> np.ndarray:
+    content = await file.read()
+    wav_bytes = io.BytesIO(content)
+    sample_rate, data = wavfile.read(wav_bytes)
+    return np.array(data), sample_rat
 
 
 def load_audio(file: str, sr: int = SAMPLE_RATE):
@@ -128,7 +137,7 @@ def mel_filters(device,
         return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
 
 
-def log_mel_spectrogram(
+async def log_mel_spectrogram(
     audio: Union[str, np.ndarray, torch.Tensor],
     n_mels: int,
     padding: int = 0,
@@ -158,12 +167,15 @@ def log_mel_spectrogram(
     torch.Tensor, shape = (80 or 128, n_frames)
         A Tensor that contains the Mel spectrogram
     """
+    audio = await wav_uploadfile_to_numpy(audio)
     if not torch.is_tensor(audio):
         if isinstance(audio, str):
             if audio.endswith('.wav'):
                 audio, _ = load_audio_wav_format(audio)
             else:
                 audio = load_audio(audio)
+        
+
         assert isinstance(audio,
                           np.ndarray), f"Unsupported audio type: {type(audio)}"
         duration = audio.shape[-1] / SAMPLE_RATE
