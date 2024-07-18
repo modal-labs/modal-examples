@@ -3,7 +3,7 @@ import requests
 import json
 
 # Define URL and audio files
-URL = 'https://irfansharif--diarization-model-web.modal.run'
+URL = 'https://modal-labs--low-latency-transcription-model-web-dev.modal.run'
 AUDIO_FILES = {
     'short': 'wavs/short.wav',
     'preamble': 'wavs/preamble.wav',

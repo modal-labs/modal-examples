@@ -1,4 +1,4 @@
-from modal import App, Image, gpu, enter, asgi_app
+from modal import App, Image, gpu, enter, asgi_app, Volume
 from utils.languages import LANGUAGES
 import logging
 
@@ -27,6 +27,7 @@ tensorrt_image = tensorrt_image.apt_install(
     extra_index_url="https://pypi.nvidia.com",
 )
 
+volume = Volume.from_name("advay_tensorrt", create_if_missing=True)
 
 
 tensorrt_image = tensorrt_image.run_commands([
@@ -43,8 +44,8 @@ INFERENCE_PRECISION = "float16"
 WEIGHT_ONLY_PRECISION = "int8"
 MAX_BEAM_WIDTH = 4
 MAX_BATCH_SIZE = 8
-CHECKPOINT_DIR = f"whisper_large_v3_weights_{WEIGHT_ONLY_PRECISION}"
-OUTPUT_DIR= f"whisper_large_v3_{WEIGHT_ONLY_PRECISION}"
+CHECKPOINT_DIR = f"/root/whisper/checkpoints/whisper_large_v3_weights_{WEIGHT_ONLY_PRECISION}"
+OUTPUT_DIR= f"/root/whisper/output/whisper_large_v3_{WEIGHT_ONLY_PRECISION}"
 N_GPUS = 1 
 GPU_CONFIG = gpu.A100(count=N_GPUS)
 
@@ -88,6 +89,7 @@ f"trtllm-build  --checkpoint_dir {CHECKPOINT_DIR}/decoder \
               --remove_input_padding disable"
 ], gpu=GPU_CONFIG)
 
+class_declaration = app.cls(image=tensorrt_image, keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=1, gpu="a10g")
 
 with tensorrt_image.imports():
     from typing import Annotated
@@ -109,6 +111,7 @@ with tensorrt_image.imports():
     import tiktoken
     import base64
     import os
+    import re
 
 def get_tokenizer(name: str = "multilingual",
                   num_languages: int = 99,
@@ -150,7 +153,6 @@ def get_tokenizer(name: str = "multilingual",
         mergeable_ranks=ranks,
         special_tokens=special_tokens,
     )
-
 
 class WhisperEncoding:
     def __init__(self, engine_dir):
@@ -297,7 +299,7 @@ class WhisperDecoding:
         # get the list of int from output_ids tensor
         output_ids = output_ids.cpu().numpy().tolist()
         return output_ids
-
+    
 class WhisperTRTLLM(object):
     def __init__(self, engine_dir, debug_mode=False, assets_dir=None):
         world_size = 1
@@ -395,7 +397,7 @@ def decode_wav_file(
     results = [(0, [""], prediction.split())]
     return results, total_duration
 
-@app.cls(image=tensorrt_image, keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=1, gpu="a10g")
+@class_declaration
 class Model:
     @enter()
     def enter(self):
