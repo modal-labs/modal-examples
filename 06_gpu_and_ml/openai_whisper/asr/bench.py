@@ -7,18 +7,19 @@ URL = 'https://modal-labs--low-latency-transcription-model-web-dev.modal.run'
 URL = 'https://modal-labs--faster-v2-model-web-dev.modal.run'
 
 AUDIO_FILES = {
-    'short': 'wavs/short.wav',
-    'preamble': 'wavs/preamble.wav',
-    'long': 'wavs/long.wav'
+    'thirty': 'wavs/short.wav',
+    # 'preamble': 'wavs/preamble.wav',
+    # 'long': 'wavs/long.wav'
 }
 
 SCENARIOS = [  # (audio_type, batch_size, assisted)
-    ('short', '24', 'false'),
-    ('short', '1', 'true'),
-    ('long', '24', 'false'),
-    ('long', '1', 'true'),
-    ('preamble', '24', 'false'),
-    ('preamble', '1', 'true'),
+    # ('short', '24', 'false'),
+    # ('short', '1', 'true'),
+    # ('long', '24', 'false'),
+    # ('long', '1', 'true'),
+    # ('preamble', '24', 'false'),
+    # ('preamble', '1', 'true'),
+    ('thirty', '1', 'false')
 ]
 
 # Fixture to perform HTTP POST request

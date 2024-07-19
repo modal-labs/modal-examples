@@ -26,7 +26,7 @@ PLUGIN_ARGS = f"--gemm_plugin={DTYPE} --gpt_attention_plugin={DTYPE}"
 
 
 N_GPUS = 1
-GPU_CONFIG = modal.gpu.A100(count=N_GPUS)
+GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
 DTYPE = "float16"
 
 def setup_logger():
