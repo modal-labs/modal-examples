@@ -168,7 +168,7 @@ image = (
     .run_commands(["wget --directory-prefix=whisper_scripts https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/main/examples/whisper/whisper_utils.py"])
 )
 
-app = modal.App("faster-v2", image=image)
+app = modal.App("faster-v4", image=image)
 
 @app.cls(keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=1, gpu=GPU_CONFIG)
 class Model:

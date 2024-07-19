@@ -22,7 +22,7 @@ LLAMA_MAX_BATCH_SIZE = 128
 DTYPE = "float16"
 
 N_GPUS = 1
-GPU_CONFIG = modal.gpu.A100(count=N_GPUS)
+GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
 
 def download_llama():
     import os
@@ -189,7 +189,7 @@ def extract_assistant_response(output_text):
     else:
         return output_text
 
-app = modal.App("faster-v2", image=image)
+app = modal.App("faster-v4", image=image)
 
 @app.cls(keep_warm=1, allow_concurrent_inputs=1, concurrency_limit=2, gpu=GPU_CONFIG)
 class Model:
@@ -239,6 +239,7 @@ class Model:
 
     @modal.enter()
     def warmup(self):
+        return
         from whisper.normalizers import EnglishTextNormalizer
         from run import decode_dataset
 
@@ -253,12 +254,8 @@ class Model:
         for i in range(0, len(results), 8):
             chunk = results[i:i+8]
             transcriptions = [" ".join(result[2]) for result in chunk]
-            _ = self.generate.local(prompts=transcriptions)
+            _ = self.generate(prompts=transcriptions)
 
-        
-
-
-    @modal.method()
     def generate(self, prompts: list[str], settings=None):
         """Generate responses to a batch of prompts, optionally with custom inference settings."""
         import time
@@ -292,20 +289,20 @@ class Model:
         parsed_prompts = [
             self.tokenizer.apply_chat_template(
                 [
-                    {"role": "system", "content": """You are an AI assistant specializing in enhancing speech-to-text transcriptions. Given a transcription, your task is to:
+#                     {"role": "system", "content": """You are an AI assistant specializing in enhancing speech-to-text transcriptions. Given a transcription, your task is to:
 
-- Repeat it as is, don't change the person being addressed
-- Don't try to paraphrase or summarize, or complete the sentence
-- Correct spelling and grammar errors
-- Add appropriate punctuation
-- Retain the original meaning and speaker's intent
-- Preserve unique speech patterns or dialects
-- Format the text for readability
-- Fix mis-transcribed words or phrases
+# - Repeat it as is, don't change the person being addressed
+# - Don't try to paraphrase or summarize, or complete the sentence
+# - Correct spelling and grammar errors
+# - Add appropriate punctuation
+# - Retain the original meaning and speaker's intent
+# - Preserve unique speech patterns or dialects
+# - Format the text for readability
+# - Fix mis-transcribed words or phrases
 
-Do not add new information or significantly alter the content. Aim for a polished, accurate representation of the original speech. If certain words or phrases are unclear, indicate this with [unclear] brackets.
-Include ONLY with actual the enhanced transcription in your response - no explanations, comments. Don't preface it with "Here is the enhanced transcription:" or similar."""},
-                    {"role": "user", "content": prompt}
+# Do not add new information or significantly alter the content. Aim for a polished, accurate representation of the original speech. If certain words or phrases are unclear, indicate this with [unclear] brackets.
+# Include ONLY with actual the enhanced transcription in your response - no explanations, comments. Don't preface it with "Here is the enhanced transcription:" or similar."""},
+                    {"role": "user", "content": f"Enhance the following transcription (copy-edit, fix grammar, spelling, punctionation): {prompt}"}
                 ],
                 add_generation_prompt=True,
                 tokenize=False,
@@ -313,19 +310,15 @@ Include ONLY with actual the enhanced transcription in your response - no explan
             for prompt in prompts
         ]
 
-        print(
-            f"{COLOR['HEADER']}Parsed prompts:{COLOR['ENDC']}",
-            *parsed_prompts,
-            sep="\n\t",
-        )
+        # print(
+        #     f"{COLOR['HEADER']}Parsed prompts:{COLOR['ENDC']}",
+        #     *parsed_prompts,
+        #     sep="\n\t",
+        # )
 
         inputs_t = self.tokenizer(
             parsed_prompts, return_tensors="pt", padding=True, truncation=False
         )["input_ids"]
-
-        print(
-            f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8]
-        )
 
         try:
             outputs_t = self.llama_model.generate(inputs_t, **settings)
@@ -350,19 +343,19 @@ Include ONLY with actual the enhanced transcription in your response - no explan
             map(lambda r: len(self.tokenizer.encode(r)), responses)
         )
 
-        for prompt, response in zip(prompts, responses):
-            print(
-                f"{COLOR['HEADER']}{COLOR['GREEN']}{prompt}",
-                f"\n{COLOR['BLUE']}{response}",
-                "\n\n",
-                sep=COLOR["ENDC"],
-            )
-            time.sleep(0.01)  # to avoid log truncation
+        # for prompt, response in zip(prompts, responses):
+        #     print(
+        #         f"{COLOR['HEADER']}{COLOR['GREEN']}{prompt}",
+        #         f"\n{COLOR['BLUE']}{response}",
+        #         "\n\n",
+        #         sep=COLOR["ENDC"],
+        #     )
+        #     time.sleep(0.01)  # to avoid log truncation
 
-        print(
-            f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {LLAMA_MODEL_ID} in {duration_s:.1f} seconds,"
-            f" throughput = {num_tokens / duration_s:.0f} tokens/second for batch of size {num_prompts} on {GPU_CONFIG}.{COLOR['ENDC']}"
-        )
+        # print(
+        #     f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {LLAMA_MODEL_ID} in {duration_s:.1f} seconds,"
+        #     f" throughput = {num_tokens / duration_s:.0f} tokens/second for batch of size {num_prompts} on {GPU_CONFIG}.{COLOR['ENDC']}"
+        # )
 
         return responses
 
@@ -395,8 +388,9 @@ Include ONLY with actual the enhanced transcription in your response - no explan
                 self.model,
                 mel_filters_dir=self.assets_dir,
             )
+
             transcription = " ".join(results[0][2])
-            llmed = self.generate.local(prompts=[transcription])
+            llmed = self.generate(prompts=[transcription])
             return {
                 "raw": transcription,
                 "llama": llmed[0],
