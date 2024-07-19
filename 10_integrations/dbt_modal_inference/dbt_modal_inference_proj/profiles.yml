@@ -1,0 +1,5 @@
+modal:
+  outputs:
+    dev:
+      type: duckdb
+  target: dev
