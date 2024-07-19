@@ -404,8 +404,7 @@ Include ONLY with actual the enhanced transcription in your response - no explan
 
         return webapp
 
-
-@app.function(gpu=GPU_CONFIG)
+@app.function(image=image, gpu=GPU_CONFIG)
 def fn():
     print("hi")
 
