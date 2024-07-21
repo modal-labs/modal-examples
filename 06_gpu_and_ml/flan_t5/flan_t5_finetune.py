@@ -75,7 +75,6 @@ def track_restarts(restart_tracker: modal.Dict) -> int:
     gpu="A10g",
     timeout=7200,
     volumes={VOL_MOUNT_PATH: output_vol},
-    _allow_background_volume_commits=True,
 )
 def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
     from datasets import load_dataset

@@ -9,7 +9,7 @@
 # example, but it generates images from the larger SDXL 1.0 model. Specifically, it runs the
 # first set of steps with the base model, followed by the refiner model.
 #
-# [Try out the live demo here!](https://modal-labs--stable-diffusion-xl-app.modal.run/) The first
+# [Try out the live demo here!](https://modal-labs--stable-diffusion-xl-ui.modal.run/) The first
 # generation may include a cold-start, which takes around 20 seconds. The inference speed depends on the GPU
 # and step count (for reference, an A100 runs 40 steps in 8 seconds).
 
