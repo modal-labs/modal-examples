@@ -24,5 +24,6 @@ def print_time_2():
 
 
 if __name__ == "__main__":
-    with app.run():
-        time.sleep(60)
+    with modal.enable_output():
+        with app.run():
+            time.sleep(60)
