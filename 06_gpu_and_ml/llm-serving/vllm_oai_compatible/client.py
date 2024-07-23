@@ -40,8 +40,8 @@ def get_completion(client, model_id, messages, args):
 def main():
     parser = argparse.ArgumentParser(description="OpenAI Client CLI")
 
-    parser.add_argument('--model', type=str, default=None, help='The model to use for completion, defaults to the first available model.')
-    parser.add_argument('--api-key', type=str, default="super-secret-token", help='The API key to use for authentication, set in your api.py.')
+    parser.add_argument('--model', type=str, default=None, help='The model to use for completion, defaults to the first available model')
+    parser.add_argument('--api-key', type=str, default="super-secret-token", help='The API key to use for authentication, set in your api.py')
     
     # Completion parameters
     parser.add_argument('--max-tokens', type=int, default=None)
@@ -50,16 +50,16 @@ def main():
     parser.add_argument('--top-k', type=int, default=0)
     parser.add_argument('--frequency-penalty', type=float, default=0)
     parser.add_argument('--presence-penalty', type=float, default=0)
-    parser.add_argument('--n', type=int, default=1)
+    parser.add_argument('--n', type=int, default=1, help='Number of completions to generate. Streaming and chat mode only support n=1.')
     parser.add_argument('--stop', type=str, default=None)
     parser.add_argument('--seed', type=int, default=None)
 
     # Prompting
-    parser.add_argument('--prompt', type=str, default="Compose a limerick about baboons and racoons.", help='The user prompt for the chat completion.')
-    parser.add_argument('--system-prompt', type=str, default="You are a poetic assistant, skilled in writing satirical doggerel with creative flair.", help='The system prompt for the chat completion.')
+    parser.add_argument('--prompt', type=str, default="Compose a limerick about baboons and racoons.", help='The user prompt for the chat completion')
+    parser.add_argument('--system-prompt', type=str, default="You are a poetic assistant, skilled in writing satirical doggerel with creative flair.", help='The system prompt for the chat completion')
     
     # UI options
-    parser.add_argument('--no-stream', dest='stream', action='store_false')
+    parser.add_argument('--no-stream', dest='stream', action='store_false', help='Disable streaming of response chunks')
     parser.add_argument('--chat', action='store_true', help='Enable interactive chat mode')
 
     args = parser.parse_args()
@@ -123,6 +123,7 @@ def main():
             
             if response:
                 if args.stream:
+                    # only stream assuming n=1
                     print(Colors.BLUE + "\n🤖: ", end="")
                     assistant_message = ""
                     for chunk in response:
@@ -148,7 +149,9 @@ def main():
                         print(chunk.choices[0].delta.content, end="")
                 print(Colors.END)
             else:
-                print(Colors.BLUE + "\n🤖:" + response.choices[0].message.content + Colors.END, sep="")
+                # only case where multiple completions are returned
+                for i, response in enumerate(response.choices):
+                    print(Colors.BLUE + f"\n🤖 Choice {i+1}:{response.message.content}" + Colors.END, sep="")
 
 if __name__ == "__main__":
     main()
