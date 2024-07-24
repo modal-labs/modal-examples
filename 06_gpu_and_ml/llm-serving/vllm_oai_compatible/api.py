@@ -196,5 +196,5 @@ def serve():
 #
 # ```bash
 # # pip install openai==1.13.3
-# python client.py
+# python client.py --chat
 # ```
