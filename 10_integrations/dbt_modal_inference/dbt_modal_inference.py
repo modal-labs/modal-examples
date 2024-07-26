@@ -168,7 +168,7 @@ def dbt_run() -> None:
 #
 # ## Python dbt model
 #
-# The python dbt model in [`dbt_modal_inference_proj/models/product_reviews_sentiment.py`](https://github.com/modal-labs/modal-examples/blob/kramstrom/dbt-inference-example/10_integrations/dbt_modal_inference/dbt_modal_inference_proj/models/product_reviews_sentiment.py) is quite simple.
+# The python dbt model in [`dbt_modal_inference_proj/models/product_reviews_sentiment.py`](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/dbt_modal_inference/dbt_modal_inference_proj/models/product_reviews_sentiment.py) is quite simple.
 #
 # It defines a python dbt model that reads a record batch of product reviews,
 # generates a prompt for each review and makes an inference call to a Modal Function
