@@ -5,6 +5,15 @@ import requests
 
 
 def get_prompt(review):
+    """
+    This function takes a review and returns a prompt for the review sentiment classification.
+
+    Args:
+        review: A product review.
+
+    Returns:
+        A prompt for the review sentiment classification.
+    """
     return (
         """
 You are an expert at analyzing product reviews sentiment.
@@ -28,6 +37,16 @@ Respond in a single word with the label.
 
 
 def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
+    """
+    This function takes a batch reader and an inference url and yields a record batch with the review sentiment.
+
+    Args:
+        batch_reader: A record batch reader.
+        inference_url: The url of the inference service.
+
+    Yields:
+        A record batch with the review sentiment.
+    """
     for batch in batch_reader:
         df = batch.to_pandas()
 
@@ -37,9 +56,11 @@ def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
             .tolist()
         )
 
-        res = requests.post(
-            inference_url,
-            json={"prompts": prompts},
+        res = (
+            requests.post(  # request to the inference service running on Modal
+                inference_url,
+                json={"prompts": prompts},
+            )
         )
 
         df["review_sentiment"] = json.loads(res.content)
@@ -48,6 +69,16 @@ def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
 
 
 def model(dbt, session):
+    """
+    This function defines the model for the product reviews sentiment.
+
+    Args:
+        dbt: The dbt object.
+        session: The session object.
+
+    Returns:
+        A record batch reader with the review sentiment.
+    """
     dbt.config(
         materialized="external",
         location="/root/vol/db/review_sentiments.parquet",
