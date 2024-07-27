@@ -86,7 +86,7 @@ def demo():
     train.remote()
 
     inference = Inference("/root/data/runs/bees/weights/best.pt")
-    inference.predict.remote(image_path = "/demo_images/bees.png") 
+    inference.predict.remote(image_path = "/demo_images/bees.png")
     inference.predict.remote(image_path = "/demo_images/dog.png")
 
 
@@ -94,5 +94,9 @@ def demo():
 @app.local_entrypoint()
 def inference():
     inference = Inference("/root/data/runs/bees/weights/best.pt")
+
     inference.predict.remote(image_path = "/demo_images/bees.png") # first call cold boot (enter) then run the method
     inference.predict.remote(image_path = "/demo_images/dog.png") # subsequent calls are warm and just run the method
+
+    # model has higher confidence on images from dataset test set
+    inference.predict.remote(image_path = "/root/data/dataset/bees/test/images/20230228-122000_jpg.rf.5fd572dfd6d555c072d65facfaf897fc.jpg") 
