@@ -20,7 +20,7 @@ volume = modal.Volume.from_name("yolo-finetune", create_if_missing=True)
 @app.function(
     image=image,
     volumes={"/root/data/": volume},
-    secrets=[modal.Secret.from_name("roboflow-api-key")] # set up ROBOFLOW_API_KEY=yourkey as a secret "roboflow-api-key". this is injected as an env var.
+    secrets=[modal.Secret.from_name("roboflow-api-key")] # set up ROBOFLOW_API_KEY=yourkey as a secret in "roboflow-api-key" in the modal UI. this is injected as an env var.
 )
 def download_bees():
     from roboflow import Roboflow
