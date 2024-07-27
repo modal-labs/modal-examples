@@ -16,12 +16,12 @@ volume = modal.Volume.from_name("yolo-finetune", create_if_missing=True)
 @app.function(
     image=image,
     volumes={"/root/data/": volume},
+    secrets=[modal.Secret.from_name("roboflow-api-key")] # set up ROBOFLOW_API_KEY=yourkey as a secret "roboflow-api-key". this is injected as an env var.
 )
 def download_bees():
     from roboflow import Roboflow
-
-    # Bees?
-    rf = Roboflow(api_key="Qa6qcF7kZDYza6MUlefE")
+    import os
+    rf = Roboflow(api_key=os.getenv("ROBOFLOW_API_KEY"))
     project = rf.workspace("bees-tbdsg").project("bee-counting").version(11)
     project.download("yolov9", location="/root/data/dataset/bees")
 
@@ -68,9 +68,22 @@ class Inference:
 
     @modal.method()
     def predict(self, image_path: str):
-        res = self.model.predict(image_path)
-        res[0].save("/root/data/out/bees")
+        self.model.predict(image_path, save=True, project="/root/data/out", name="bees", exist_ok=True)
 
+# modal run --detach yolo2::demo
 @app.local_entrypoint()
-def predict():
-    Inference("/root/data/runs/bees2/weights/best.pt").predict.remote(image_path = "/bees.png")
+def demo():
+    download_bees.remote()
+    train.remote()
+
+    inference = Inference("/root/data/runs/bees3/weights/best.pt")
+    inference.predict.remote(image_path = "/bees.png") 
+    inference.predict.remote(image_path = "/dog.png")
+
+
+# modal run yolo2::inference
+@app.local_entrypoint()
+def inference():
+    inference = Inference("/root/data/runs/bees3/weights/best.pt") # runs init
+    inference.predict.remote(image_path = "/bees.png") # runs enter and method (cold boot)
+    inference.predict.remote(image_path = "/dog.png") # runs method (warm)
