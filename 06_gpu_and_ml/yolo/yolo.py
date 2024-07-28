@@ -9,12 +9,14 @@ image = (
     Image.debian_slim(python_version="3.10")
     .apt_install(["libgl1-mesa-glx", "libglib2.0-0"])
     .pip_install(["ultralytics", "roboflow", "opencv-python"])
-    .copy_local_file("./demo_images/dog.png", "/demo_images/dog.png")
-    .copy_local_file("./demo_images/bees.png", "/demo_images/bees.png")
 )
 
 # add persistent volume for storing dataset, trained weights, and inference outputs
 volume = modal.Volume.from_name("yolo-finetune", create_if_missing=True)
+
+#
+# ## Training
+#
 
 # function for downloading bees dataset
 @app.function(
@@ -55,8 +57,31 @@ def train():
         fraction=0.4,
     )
 
-# class-based functions for inferencing
-# we use the class abstraction to load the model only once on container start and reuse it for future inferences
+#
+# ## Inference
+#
+# This example inference pipeline is a bit more complicated than the training pipeline.
+#
+# We use a class abstraction to load the model only once on container start and reuse it for future inferences.
+# We use a generator to stream images to the model.
+# 
+# The images we use for inference are loaded from the /test set in our Volume.
+# Since each image read from the Volume ends up being slower than the inference itself,
+# we spawn up to 20 parallel workers to read images from the Volume and stream their bytes back to the model.
+
+# Helper function to read images from the Volume in parallel
+@app.function(
+    image=image,
+    volumes={"/root/data": volume},
+    concurrency_limit=20, # prevent spawning too many containers
+)
+def read_image(image_path: str):
+    import cv2
+    source = cv2.imread(image_path)
+    return cv2.imencode('.jpg', source)[1].tobytes()
+
+# Class-based functions for inferencing
+# We use the class abstraction to load the model only once on container start and reuse it for future inferences
 @app.cls(
     image=image,
     volumes={"/root/data/": volume},
@@ -68,35 +93,79 @@ class Inference:
 
     @modal.enter()
     def load_model(self):
-        # load model only once, on container boot
         from ultralytics import YOLO
         self.model = YOLO(self.weights_path)
 
+    # A single image prediction method
     @modal.method()
     def predict(self, image_path: str):
         # inference on image and save to /root/data/out/bees/{image_path}
         # you can view the file from the Volumes UI in modal
-        self.model.predict(image_path, save=True, project="/root/data/out", name="bees", exist_ok=True)
+        self.model.predict(image_path, image_path, save=True, project="/root/data/out", name="bees", exist_ok=True)
+    
+    @modal.method()
+    def batch(self, batch_dir: str, threshold: float|None = None):
+        import time, os, cv2
+        import numpy as np
 
+        # Input stream
+        # Spawn workers to stream images from Volume into a generator
+        image_files = os.listdir(batch_dir)
+        image_files = [os.path.join(batch_dir, f) for f in image_files]
+        print("image_files", len(image_files))
+        def image_generator():
+            for image_bytes in read_image.map(image_files):
+                # Function.map runs read_image in parallel, yielding images as bytes. 
+                # We now decode those bytes into openCV images and yield them into our own generator.
+                image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+                yield image
+
+        # image_generator is now a generator which yields openCV images the moment they're available
+        # this is to emulate the behavior of a real-time inference pipeline
+
+        count = 0
+        completed = 0
+        start = time.time()
+        for image in image_generator():
+            results = self.model.predict(
+                image,
+                project="/root/data/out", 
+                name="bees", 
+                exist_ok=True,
+            )
+            completed += 1
+            for res in results:
+                for conf in res.boxes.conf:
+                    if threshold == None:
+                        count += 1
+                        continue
+                    if conf.item() >= threshold:
+                        count += 1
+
+        print("Inferences per second", completed / (time.time() - start))   
+        return count
+    
 
 # modal run --detach yolo::demo
+# this runs training and inference on a single image, saving output image to the volume.
 @app.local_entrypoint()
 def demo():
     download_bees.remote()
     train.remote()
+    inference.local()
 
-    inference = Inference("/root/data/runs/bees/weights/best.pt")
-    inference.predict.remote(image_path = "/demo_images/bees.png")
-    inference.predict.remote(image_path = "/demo_images/dog.png")
-
-
-# modal run yolo::inference
+# modal run --detach yolo::inference
+# this runs inference on a single image, saving output image to the volume.
 @app.local_entrypoint()
 def inference():
     inference = Inference("/root/data/runs/bees/weights/best.pt")
-
-    inference.predict.remote(image_path = "/demo_images/bees.png") # first call cold boot (enter) then run the method
-    inference.predict.remote(image_path = "/demo_images/dog.png") # subsequent calls are warm and just run the method
-
-    # model has higher confidence on images from dataset test set
     inference.predict.remote(image_path = "/root/data/dataset/bees/test/images/20230228-122000_jpg.rf.5fd572dfd6d555c072d65facfaf897fc.jpg") 
+
+# modal run yolo::batch
+# this counts the number of bees in the 1035 image test set
+# this is a more realistic inference pipeline, where we stream images from the Volume
+@app.local_entrypoint()
+def batch():
+    inference = Inference("/root/data/runs/bees/weights/best.pt")
+    count = inference.batch.remote(batch_dir = "/root/data/dataset/bees/test/images") 
+    print(f"Counted {count} bees!")
