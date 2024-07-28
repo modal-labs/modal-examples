@@ -66,8 +66,9 @@ def train():
 # We use a generator to stream images to the model.
 # 
 # The images we use for inference are loaded from the /test set in our Volume.
-# Since each image read from the Volume ends up being slower than the inference itself,
-# we spawn up to 20 parallel workers to read images from the Volume and stream their bytes back to the model.
+# Each image read takes ~50ms, and inference can takse ~2ms, so the disk read is our biggest bottleneck.
+# So parallelize the disk reads across other containers using Modal's function.map(), and stream the images to the model, shifting the bottleneck to network IO.
+# This increases throughput to ~60 images/s, or ~17 seconds/image.
 
 # Helper function to read images from the Volume in parallel
 @app.function(
