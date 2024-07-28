@@ -66,9 +66,9 @@ def train():
 # We use a generator to stream images to the model.
 # 
 # The images we use for inference are loaded from the /test set in our Volume.
-# Each image read takes ~50ms, and inference can takse ~2ms, so the disk read is our biggest bottleneck.
-# So parallelize the disk reads across other containers using Modal's function.map(), and stream the images to the model, shifting the bottleneck to network IO.
-# This increases throughput to ~60 images/s, or ~17 seconds/image.
+# Each image read takes ~50ms, and inference can take ~2ms, so the disk read is our biggest bottleneck if we just looped over the images.
+# So, we parallelize the disk reads across many workers using Modal's function.map(), and stream the image bytes to the model, shifting the bottleneck to network IO.
+# This increases throughput to ~60 images/s, or ~17 milliseconds/image.
 
 # Helper function to read images from the Volume in parallel
 @app.function(
@@ -100,9 +100,12 @@ class Inference:
     # A single image prediction method
     @modal.method()
     def predict(self, image_path: str):
-        # inference on image and save to /root/data/out/bees/{image_path}
-        # you can view the file from the Volumes UI in modal
-        self.model.predict(image_path, image_path, save=True, project="/root/data/out", name="bees", exist_ok=True)
+        import cv2, time
+        s = time.time()
+        image = cv2.imread(image_path)
+        print(f"Read image in {time.time() - s} seconds")
+        self.model.predict(image, save=False, project="/root/data/out", name="bees", exist_ok=True)
+         # you can view the file from the Volumes UI in modal
     
     @modal.method()
     def batch(self, batch_dir: str, threshold: float|None = None):
@@ -113,7 +116,6 @@ class Inference:
         # Spawn workers to stream images from Volume into a generator
         image_files = os.listdir(batch_dir)
         image_files = [os.path.join(batch_dir, f) for f in image_files]
-        print("image_files", len(image_files))
         def image_generator():
             for image_bytes in read_image.map(image_files):
                 # Function.map runs read_image in parallel, yielding images as bytes. 
