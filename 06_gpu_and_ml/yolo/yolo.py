@@ -135,7 +135,7 @@ def train(model_id: str, model_size = "yolov10m.pt"):
 # The images we use for inference are loaded from the /test set in our Volume.
 # Each image read takes ~50ms, and inference can take ~5ms, so the disk read is our biggest bottleneck if we just looped over the images.
 # So, we parallelize the disk reads across many workers using Modal's function.map(), and stream the image bytes to the model, shifting the bottleneck to network IO.
-# This increases throughput to ~60 images/s, or ~17 milliseconds/image.
+# This can increase throughput up ~60 images/s, or ~17 milliseconds/image, depending on image size.
 
 # Helper function to read images from the Volume in parallel
 @app.function(
@@ -269,7 +269,7 @@ def main():
             if i >= 5:
                 break
 
-        # # batch inference on all images in the test set and return the count of detections
-        # print(f"{model_id}: Batch inference on all images in the test set...")
+        # batch inference on all images in the test set and return the count of detections
+        print(f"{model_id}: Batch inference on all images in the test set...")
         count = inference.batch_count.remote(batch_dir = f"{volume_path}/dataset/{model_id}/test/images")
         print(f"{model_id}: Counted {count} objects!")
