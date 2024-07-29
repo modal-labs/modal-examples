@@ -252,6 +252,13 @@ class Inference:
 # ```bash
 # modal run finetune_yolo.py
 # ```
+#
+# This runs the training in `quick_check` mode, useful for debugging the pipeline and getting a feel for it.
+# To do a longer run that actually meaningfully improves performance, use:
+#
+# ```bash
+# modal run finetune_yolo.py --no-quick-check
+# ```
 
 
 @app.local_entrypoint()
