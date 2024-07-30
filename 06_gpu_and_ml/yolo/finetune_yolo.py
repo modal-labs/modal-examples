@@ -1,32 +1,40 @@
 # # Fine-Tuning and Inference for Computer Vision with YOLO
 #
-# Example by [@Erik-Dunteman](https://github.com/erik-dunteman) and [@AnirudhRahul](https://github.com/AnirudhRahul/)
+# Example by [@Erik-Dunteman](https://github.com/erik-dunteman) and [@AnirudhRahul](https://github.com/AnirudhRahul/).
 
-# The popular YOLO "You Only Look Once" model line provides high-quality object detection in an economical package.
+# The popular "You Only Look Once" (YOLO) model line provides high-quality object detection in an economical package.
 # In this example, we use the [YOLOv10](https://docs.ultralytics.com/models/yolov10/) model, released on May 23, 2024.
 #
 # We will:
 # - Download two custom datasets from the [Roboflow](https://roboflow.com/) computer vision platform: a dataset of birds and a dataset of bees
 # - Fine-tune the model on those datasets, in parallel, using the [Ultralytics package](https://docs.ultralytics.com/)
-# - Run inference with the fine-tuned models
+# - Run inference with the fine-tuned models on single images and on streaming frames
 
-# For commercial use, be sure to consult the [ultralytics software license](https://docs.ultralytics.com/#yolo-licenses-how-is-ultralytics-yolo-licensed).
+# For commercial use, be sure to consult the [Ultralytics software license options](https://docs.ultralytics.com/#yolo-licenses-how-is-ultralytics-yolo-licensed),
+# which include AGPL-3.0.
 
-# ## Setting up our environment
-#
-# All packages are installed into a Debian Slim base image
-# using the `pip_install` function.
+# ## Set up the environment
+
+import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import modal
 
+# Modal runs your code in the cloud inside containers. So to use it, we have to define the dependencies
+# of our code as part of the container's [image](https://modal.com/docs/guide/custom-container).
+
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install(["libgl1-mesa-glx", "libglib2.0-0"])
-    .pip_install(
+    .apt_install(  # install system libraries for graphics handling
+        ["libgl1-mesa-glx", "libglib2.0-0"]
+    )
+    .pip_install(  # install python libraries for computer vision
         ["ultralytics~=8.2.68", "roboflow~=1.1.37", "opencv-python~=4.10.0"]
+    )
+    .pip_install(  # add an optional extra that renders images in the terminal
+        "term-image==0.7.1"
     )
 )
 
@@ -37,19 +45,19 @@ volume_path = (  # the path to the volume from within the container
     Path("/root") / "data"
 )
 
-# We use both of these in a Modal [App](https://modal.com/docs/guide/apps).
+# We attach both of these to a Modal [App](https://modal.com/docs/guide/apps).
 app = modal.App("yolo-finetune", image=image, volumes={volume_path: volume})
 
 
-# ## Downloading the dataset
+# ## Download a dataset
 #
-# We'll be downloading our data from the [Roboflow](https://roboflow.com/) computer vision platform, so you'll need to:
+# We'll be downloading our data from the [Roboflow](https://roboflow.com/) computer vision platform, so to follow along you'll need to:
 # - Create a free account on [Roboflow](https://app.roboflow.com/)
 # - [Generate a Private API key](https://app.roboflow.com/settings/api)
 # - Set up a Modal [Secret](https://modal.com/docs/guide/secrets) called `roboflow-api-key` in the Modal UI [here](https://modal.com/secrets),
 # setting the `ROBOFLOW_API_KEY` to the value of your API key.
 #
-# You're also free to bring your own dataset, with a config in YOLOv10-compatible yaml format.
+# You're also free to bring your own dataset with a config in YOLOv10-compatible yaml format.
 #
 # We'll be training on the medium size model, but you're free to experiment with [other model sizes](https://docs.ultralytics.com/models/yolov10/#model-variants).
 
@@ -82,10 +90,10 @@ def download_dataset(config: DatasetConfig):
         .version(config.version)
     )
     dataset_dir = volume_path / "dataset" / config.id
-    project.download(config.format, location=str(dataset_dir))  
+    project.download(config.format, location=str(dataset_dir))
 
 
-# ## Training
+# ## Train a model
 
 # We train the model on a single A100 GPU. Training usually takes only a few minutes.
 
@@ -116,7 +124,6 @@ def train(
 
     data_path = volume_path / "dataset" / dataset.id / "data.yaml"
 
-    # Load a pre-trained YOLOv10n model
     model = YOLO(model_size)
     model.train(
         # dataset config
@@ -144,14 +151,14 @@ def train(
     )
 
 
-# ## Running inference on single inputs and on streams
+# ## Run inference on single inputs and on streams
 #
 # We demonstrate two different ways to run inference -- on single images and on a stream of images.
 #
 # The images we use for inference are loaded from the test set, which was added to our Volume when we downloaded the dataset.
 # Each image read takes ~50ms, and inference can take ~5ms, so the disk read would be our biggest bottleneck if we just looped over the image paths.
 # To avoid it, we parallelize the disk reads across many workers using Modal's [`.map`](https://modal.com/docs/guide/scale),
-# streaming the image bytes to the model. This roughly mimics the behavior of an interactive object detection pipeline.
+# streaming the images to the model. This roughly mimics the behavior of an interactive object detection pipeline.
 # This can increase throughput up to ~60 images/s, or ~17 milliseconds/image, depending on image size.
 
 
@@ -160,7 +167,7 @@ def read_image(image_path: str):
     import cv2
 
     source = cv2.imread(image_path)
-    return cv2.imencode(".jpg", source)[1].tobytes()
+    return source
 
 
 # We use the `@enter` feature of [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions)
@@ -180,15 +187,20 @@ class Inference:
         self.model = YOLO(self.weights_path)
 
     @modal.method()
-    def predict(self, model_id: str, image_path: str):
+    def predict(self, model_id: str, image_path: str, display: bool = False):
         """A simple method for running inference on one image at a time."""
-        self.model.predict(
+        results = self.model.predict(
             image_path,
             half=True,  # use fp16
             save=True,
             exist_ok=True,
             project=f"{volume_path}/predictions/{model_id}",
         )
+        if display:
+            from term_image.image import from_file
+
+            terminal_image = from_file(results[0].path)
+            terminal_image.draw()
         # you can view the output file via the Volumes UI in the Modal dashboard -- https://modal.com/storage
 
     @modal.method()
@@ -199,27 +211,12 @@ class Inference:
         import os
         import time
 
-        import cv2
-        import numpy as np
-
         image_files = [
             os.path.join(batch_dir, f) for f in os.listdir(batch_dir)
         ]
 
-        def image_generator():
-            for image_bytes in read_image.map(image_files):
-                # Function.map runs read_image in parallel, yielding images as bytes.
-                # We now decode those bytes into openCV images and yield them into our own generator.
-                image = cv2.imdecode(
-                    np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR
-                )
-                yield image
-
-        # image_generator is now a generator which yields openCV images the moment they're available
-        # this is to emulate the behavior of a real-time inference pipeline
-
         completed, start = 0, time.monotonic_ns()
-        for image in image_generator():
+        for image in read_image.map(image_files):
             # note that we run predict on a single input at a time.
             # each individual inference is usually done before the next image arrives, so there's no throughput benefit to batching.
             results = self.model.predict(
@@ -291,15 +288,13 @@ def main(quick_check: bool = True, inference_only: bool = False):
     if not inference_only:
         download_dataset.for_each(datasets)
 
-    # make run unique to the second
-    today = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    today = datetime.now().strftime("%Y-%m-%d")
     model_ids = [dataset.id + f"/{today}" for dataset in datasets]
 
     if not inference_only:
         train.for_each(model_ids, datasets, kwargs={"quick_check": quick_check})
 
-    # # let's run inference!
-    # we'll do this serially for variety (since we saved so much time by parallelizing training)
+    # let's run inference!
     for model_id, dataset in zip(model_ids, datasets):
         inference = Inference(
             volume_path / "runs" / model_id / "weights" / "best.pt"
@@ -313,13 +308,19 @@ def main(quick_check: bool = True, inference_only: bool = False):
         for ii, image in enumerate(test_images):
             print(f"{model_id}: Single image prediction on image", image.path)
             inference.predict.remote(
-                model_id=model_id, image_path=f"{volume_path}/{image.path}"
+                model_id=model_id,
+                image_path=f"{volume_path}/{image.path}",
+                display=(
+                    ii == 0  # display inference results only on first image
+                ),
             )
             if ii >= 4:
                 break
 
-        # batch inference on all images in the test set and return the count of detections
-        print(f"{model_id}: Batch inference on all images in the test set...")
+        # streaming inference on images from the test set
+        print(
+            f"{model_id}: Streaming inferences on all images in the test set..."
+        )
         count = 0
         for detection in inference.streaming_count.remote_gen(
             batch_dir=f"{volume_path}/dataset/{dataset.id}/test/images"
@@ -328,5 +329,16 @@ def main(quick_check: bool = True, inference_only: bool = False):
                 print(f"{dataset.target_class}", end="")
                 count += 1
             else:
-                print()
-        print(f"{model_id}: Counted {count} {dataset.target_class}s!")
+                print("🎞️", end="", flush=True)
+        print(f"\n{model_id}: Counted {count} {dataset.target_class}s!")
+
+
+# ## Addenda
+#
+# The rest of the code in this example is utility code.
+
+warnings.filterwarnings(  # filter warning from the terminal image library
+    "ignore",
+    message="It seems this process is not running within a terminal. Hence, some features will behave differently or be disabled.",
+    category=UserWarning,
+)
