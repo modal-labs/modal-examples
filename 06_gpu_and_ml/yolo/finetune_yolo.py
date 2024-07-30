@@ -1,3 +1,6 @@
+# ---
+# args: ["--no-quick-check"]
+# ---
 # # Fine-Tuning and Inference for Computer Vision with YOLO
 #
 # Example by [@Erik-Dunteman](https://github.com/erik-dunteman) and [@AnirudhRahul](https://github.com/AnirudhRahul/).
