@@ -11,7 +11,7 @@
 # tasks to a separate Modal app defined in the [Job Queue
 # tutorial](/docs/examples/doc_ocr_jobs), polls until the task is completed, and displays
 # the results. Try it out for yourself
-# [here](https://modal-labs-example-doc-ocr-webapp-wrapper.modal.run/).
+# [here](https://modal-labs--example-doc-ocr-webapp-wrapper.modal.run/).
 #
 # ![receipt parser frontend](./receipt_parser_frontend.jpg)
 
