@@ -82,7 +82,7 @@ def download_dataset(config: DatasetConfig):
         .version(config.version)
     )
     dataset_dir = volume_path / "dataset" / config.id
-    project.download(config.format, location=dataset_dir)
+    project.download(config.format, location=str(dataset_dir))  
 
 
 # ## Training
@@ -291,7 +291,8 @@ def main(quick_check: bool = True, inference_only: bool = False):
     if not inference_only:
         download_dataset.for_each(datasets)
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    # make run unique to the second
+    today = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     model_ids = [dataset.id + f"/{today}" for dataset in datasets]
 
     if not inference_only:
