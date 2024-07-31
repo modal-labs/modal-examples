@@ -6,23 +6,23 @@
 # # Run an OpenAI-Compatible vLLM Server
 #
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
-# OpenAI's API has emerged as a standard interface for LLMs,
-# and it is supported by open source LLM serving frameworks like vLLM.
+# This has complicated their interface far beyond "text-in, text-out".
+# OpenAI's API has emerged as a standard for that interface,
+# and it is supported by open source LLM serving frameworks like [vLLM](https://docs.vllm.ai/en/latest/).
 #
 # In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
 # Note that the vLLM server is a FastAPI app, which can be configured and extended just like any other.
 # Here, we use it to add simple authentication middleware, following the
 # [implementation in the vLLM repository](https://github.com/vllm-project/vllm/blob/v0.5.3post1/vllm/entrypoints/openai/api_server.py).
 #
-# Our examples repository also includes scripts for running OpenAI-compatible clients
-# and load-testing [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
+# Our examples repository also includes scripts for running clients and load-testing for OpenAI-compatible APIs
+# [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
 #
 # ## Set up the container image
 #
 # Our first order of business is to define the environment our server will run in:
 # the [container `Image`](https://modal.com/docs/guide/custom-container).
-#
-# vLLM is easy to install: it's just `pip`!
+# vLLM is can be installed with `pip`.
 
 import modal
 
@@ -185,7 +185,7 @@ def serve():
 #
 # This will create a new app on Modal, build the container image for it, and deploy.
 #
-# ### Interact with the server
+# ## Interact with the server
 #
 # Once it is deployed, you'll see a URL appear in the command line,
 # something like `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run`.
@@ -210,7 +210,7 @@ def serve():
 # ```
 #
 # We also include a basic example of a load-testing setup using
-# `locust` in the `load_test.py` script:
+# `locust` in the `load_test.py` script [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatibl):
 #
 # ```bash
 # modal run openai_compatible/load_test.py
