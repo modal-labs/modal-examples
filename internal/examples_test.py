@@ -13,6 +13,7 @@ from utils import (
 )
 
 examples = [ex for ex in get_examples() if ex.type == ExampleType.MODULE]
+examples = [ex for ex in examples if ex.metadata.get("pytest", True)]
 example_ids = [ex.module for ex in examples]
 
 
