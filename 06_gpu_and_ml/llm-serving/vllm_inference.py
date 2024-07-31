@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "deploy", "06_gpu_and_ml/llm-serving/vllm_inference.py", "&&", "pip", "install", "openai==1.13.3", "&&", "python", "06_gpu_and_ml/llm-serving/openai_compatible/client.py"]
+# deploy: true
 # ---
 # # Run an OpenAI-Compatible vLLM Server
 #
