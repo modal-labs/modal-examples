@@ -1,3 +1,6 @@
+# ---
+# args: ["--force-download"]
+# ---
 import modal
 
 MODELS_DIR = "/llamas"
@@ -27,7 +30,7 @@ app = modal.App(image=image, secrets=[modal.Secret.from_name("huggingface")])
 
 
 @app.function(volumes={MODELS_DIR: volume}, timeout=4 * HOURS)
-def download_model(model_name, model_revision):
+def download_model(model_name, model_revision, force_download=False):
     from huggingface_hub import snapshot_download
 
     volume.reload()
@@ -42,6 +45,7 @@ def download_model(model_name, model_revision):
             "original/*",
         ],  # Ensure safetensors
         revision=model_revision,
+        force_download=force_download,
     )
 
     volume.commit()
@@ -51,5 +55,6 @@ def download_model(model_name, model_revision):
 def main(
     model_name: str = DEFAULT_NAME,
     model_revision: str = DEFAULT_REVISION,
+    force_download: bool = False,
 ):
-    download_model.remote(model_name, model_revision)
+    download_model.remote(model_name, model_revision, force_download)
