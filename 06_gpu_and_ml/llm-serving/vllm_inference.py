@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# lambda-test: false
+# cmd: ["modal", "serve"]
 # ---
 # # Run an OpenAI-Compatible vLLM Server
 #
