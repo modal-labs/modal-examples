@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["modal", "serve", "06_gpu_and_ml/llm-serving/vllm_inference"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/llm-serving/vllm_inference.py"]
 # ---
 # # Run an OpenAI-Compatible vLLM Server
 #
