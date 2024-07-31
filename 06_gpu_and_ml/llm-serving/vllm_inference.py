@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# lambda-test: false
 # ---
 # # Run an OpenAI-Compatible vLLM Server
 #
