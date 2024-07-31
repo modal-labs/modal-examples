@@ -106,22 +106,20 @@ def main():
 
     WORKSPACE = modal.config._profile
 
-    client.base_url = (
-        f"https://{WORKSPACE}--vllm-openai-compatible-serve.modal.run/v1"
-    )
+    client.base_url = f"https://{WORKSPACE}--example-vllm-openai-compatible-serve.modal.run/v1"
 
     if args.model:
         model_id = args.model
         print(
             Colors.BOLD,
-            f"🧠: Using model {model_id}. This may trigger a boot on first call!",
+            f"🧠: Using model {model_id}. This may trigger a model load on first call!",
             Colors.END,
             sep="",
         )
     else:
         print(
             Colors.BOLD,
-            f"🔎: Looking up available models on server at {client.base_url}. This may trigger a boot!",
+            f"🔎: Looking up available models on server at {client.base_url}. This may trigger a model load!",
             Colors.END,
             sep="",
         )
