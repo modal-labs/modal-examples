@@ -11,6 +11,8 @@
 # and it is supported by open source LLM serving frameworks like [vLLM](https://docs.vllm.ai/en/latest/).
 #
 # In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
+# You can find a video walkthrough of this example on our YouTube channel [here](https://www.youtube.com/watch?v=QmY_7ePR1hM).
+#
 # Note that the vLLM server is a FastAPI app, which can be configured and extended just like any other.
 # Here, we use it to add simple authentication middleware, following the
 # [implementation in the vLLM repository](https://github.com/vllm-project/vllm/blob/v0.5.3post1/vllm/entrypoints/openai/api_server.py).
