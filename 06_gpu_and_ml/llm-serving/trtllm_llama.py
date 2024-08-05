@@ -567,7 +567,7 @@ web_image = modal.Image.debian_slim(python_version="3.10")
 
 class GenerateRequest(pydantic.BaseModel):
     prompts: list[str]
-    settings: Optional[dict]
+    settings: Optional[dict] = None
 
 
 @app.function(image=web_image)
