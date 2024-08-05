@@ -15,7 +15,7 @@ from . import config
 rnn_image = modal.Image.debian_slim().pip_install(
     "keras",
     "pandas",
-    "numpy",
+    "numpy<2",
     "tensorflow",
 )
 
@@ -176,8 +176,8 @@ def prep_dataset(
             .replace("\n", " ")
         )
 
-    X = np.zeros((num_sequences, max_sequence_len, num_chars), dtype=np.bool)
-    Y = np.zeros((num_sequences, num_chars), dtype=np.bool)
+    X = np.zeros((num_sequences, max_sequence_len, num_chars), dtype=bool)
+    Y = np.zeros((num_sequences, num_chars), dtype=bool)
 
     for i, sequence in enumerate(sequences):
         for j, char in enumerate(sequence):
