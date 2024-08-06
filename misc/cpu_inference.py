@@ -31,10 +31,6 @@ llama_cpp_image = Image.debian_slim(python_version="3.11").apt_install(["curl", 
 def batch_iterator(dataset):
     for i in range(0, len(dataset), BATCH_SIZE):
         yield dataset[i : i + BATCH_SIZE]["text"]
-    
-def prepare_dataset(dataset):
-    return dataset
-
 
 @app.function(image = llama_cpp_image)
 def llama_cpp_inference(batch):
@@ -59,7 +55,7 @@ def llama_cpp_inference(batch):
 @app.function(image = Image.debian_slim().pip_install("datasets"))
 def process_data():
     from datasets import load_dataset
-    dataset = prepare_dataset(load_dataset("youngermax/text-tagging", split="train"))
+    dataset = load_dataset("youngermax/text-tagging", split="train")
     max_duration = 0
     for duration in llama_cpp_inference.map(batch_iterator(dataset)):
         max_duration = max(max_duration, duration)
