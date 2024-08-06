@@ -38,13 +38,13 @@ def llama_cpp_inference(batch):
     import time
 
     start = time.monotonic()
-    # TODO: Add support for batching, check if it's tagging correctly
+    # TODO: Add support for batching, check if it's tagging correctly, figure out way to pass entire batch
     subprocess.run([
         '/build/bin/llama-cli', 
         '-m', '/Meta-Llama-3-8B-Instruct-Q5_K_M.gguf', 
         '-b', f'{BATCH_SIZE}', 
         '-n', f'{NUM_OUTPUT_TOKENS}',
-        '-p', f'{PROMPT} \n batch'
+        '-p', f'{PROMPT} \n {batch[:10]}'
     ])
 
     end = time.monotonic()
