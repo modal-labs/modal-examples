@@ -2,6 +2,9 @@
 # output-directory: "/tmp/stable-diffusion-xl"
 # args: ["--prompt", "An astronaut riding a green horse"]
 # runtimes: ["runc", "gvisor"]
+# web_url: "https://modal-labs--stable-diffusion-xl-model-web-inference.modal.run"
+# inputs: ["str"]
+# outputs: ["image/jpeg"]
 # ---
 # # Stable Diffusion XL 1.0
 #
