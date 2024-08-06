@@ -37,7 +37,6 @@ def llama_cpp_inference(batch):
     import subprocess
     import time
 
-    print(batch)
     start = time.monotonic()
     # TODO: Add support for batching, check if it's tagging correctly
     subprocess.run([
