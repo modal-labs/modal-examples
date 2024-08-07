@@ -43,7 +43,7 @@
 #
 # To run TensorRT-LLM, we must first install it. Easier said than done!
 #
-# In Modal, we define [container images](https://modal.com/docs/guide/custom-containers) that run our serverless workloads.
+# In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # All Modal containers have access to GPU drivers via the underlying host environment,
 # but we still need to install the software stack on top of the drivers, from the CUDA runtime up.
 #
