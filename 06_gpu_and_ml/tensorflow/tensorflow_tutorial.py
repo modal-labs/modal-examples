@@ -15,7 +15,7 @@
 #
 # Configuring a system to properly run GPU-accelerated TensorFlow can be challenging.
 # Luckily, Modal makes it easy to stand on the shoulders of giants and
-# [use a pre-built Docker container image](https://modal.com/docs/guide/custom-containers#use-an-existing-container-image-with-from_registry) from a registry like Docker Hub.
+# [use a pre-built Docker container image](https://modal.com/docs/guide/custom-container#use-an-existing-container-image-with-from_registry) from a registry like Docker Hub.
 # We recommend TensorFlow's [official base Docker container images](https://hub.docker.com/r/tensorflow/tensorflow), which come with `tensorflow` and its matching CUDA libraries already installed.
 #
 # If you want to install TensorFlow some other way, check out [their docs](https://www.tensorflow.org/install) for options and instructions.
