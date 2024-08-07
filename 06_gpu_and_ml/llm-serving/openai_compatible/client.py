@@ -53,6 +53,24 @@ def main():
         help="The model to use for completion, defaults to the first available model",
     )
     parser.add_argument(
+        "--workspace",
+        type=str,
+        default=None,
+        help="The workspace where the LLM server app is hosted, defaults to your current Modal workspace",
+    )
+    parser.add_argument(
+        "--app-name",
+        type=str,
+        default="example-vllm-openai-compatible",
+        help="A Modal App serving an OpenAI-compatible API",
+    )
+    parser.add_argument(
+        "--function-name",
+        type=str,
+        default="serve",
+        help="A Modal Function serving an OpenAI-compatible API. Append `-dev` to use a `modal serve`d Function.",
+    )
+    parser.add_argument(
         "--api-key",
         type=str,
         default="super-secret-token",
@@ -104,9 +122,9 @@ def main():
 
     client = OpenAI(api_key=args.api_key)
 
-    WORKSPACE = modal.config._profile
+    workspace = args.workspace or modal.config._profile
 
-    client.base_url = f"https://{WORKSPACE}--example-vllm-openai-compatible-serve.modal.run/v1"
+    client.base_url = f"https://{workspace}--{args.app_name}-{args.function_name}.modal.run/v1"
 
     if args.model:
         model_id = args.model
