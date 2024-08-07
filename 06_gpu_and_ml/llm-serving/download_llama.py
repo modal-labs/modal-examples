@@ -26,7 +26,9 @@ MINUTES = 60
 HOURS = 60 * MINUTES
 
 
-app = modal.App(image=image, secrets=[modal.Secret.from_name("huggingface")])
+app = modal.App(
+    image=image, secrets=[modal.Secret.from_name("huggingface-secret")]
+)
 
 
 @app.function(volumes={MODELS_DIR: volume}, timeout=4 * HOURS)
@@ -37,7 +39,7 @@ def download_model(model_name, model_revision, force_download=False):
 
     snapshot_download(
         model_name,
-        local_dir=MODELS_DIR,
+        local_dir=MODELS_DIR + "/" + model_name,
         ignore_patterns=[
             "*.pt",
             "*.bin",
