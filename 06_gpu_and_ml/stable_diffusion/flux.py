@@ -7,6 +7,8 @@ from pathlib import Path
 
 import modal
 
+VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
+
 diffusers_commit_sha = "1fcb811a8e6351be60304b1d4a4a749c36541651"
 
 flux_image = (
@@ -49,12 +51,12 @@ class Model:
     def build(self):
         from huggingface_hub import snapshot_download
 
-        snapshot_download("black-forest-labs/FLUX.1-schnell")
+        snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
 
     @modal.enter()
     def enter(self):
         self.pipe = FluxPipeline.from_pretrained(
-            "black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16
+            f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
         )
         self.pipe.to("cuda")
 
@@ -64,9 +66,9 @@ class Model:
         out = self.pipe(
             prompt,
             output_type="pil",
-            num_inference_steps=4,  # use a larger number if you are using [dev]
+            num_inference_steps=4,  # use a larger number if you are using [dev], smaller for [schnell]
         ).images[0]
-        print("Generated image.")
+        print("Generated.")
 
         byte_stream = BytesIO()
         out.save(byte_stream, format="JPEG")
@@ -75,7 +77,7 @@ class Model:
 
 @app.local_entrypoint()
 def main(
-    prompt: str = "the word 'Modal' where the shapes of all the letters combine to form an entire system-on-a-chip using clever typography, neon green",
+    prompt: str = "a computer screen showing ASCII terminal art of the word 'Modal' in neon green. two programmers are pointing excitedly at the screen.",
 ):
     image_bytes = Model().inference.remote(prompt)
 
