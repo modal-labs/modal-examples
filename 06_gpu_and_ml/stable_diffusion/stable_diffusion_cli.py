@@ -31,12 +31,12 @@ import io
 import time
 from pathlib import Path
 
-from modal import App, Image, build, enter, method
+import modal
 
 # All Modal programs need a [`App`](/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-app = App("stable-diffusion-cli")
+app = modal.App("stable-diffusion-cli")
 
 # ## Model dependencies
 #
@@ -48,7 +48,7 @@ app = App("stable-diffusion-cli")
 
 model_id = "runwayml/stable-diffusion-v1-5"
 
-image = Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.29.2",
     "diffusers==0.15.1",
     "ftfy==6.2.0",
@@ -83,10 +83,10 @@ with image.imports():
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@app.cls(image=image, gpu="A10G")
+@modal.app.cls(image=image, gpu="A10G")
 class StableDiffusion:
-    @build()
-    @enter()
+    @modal.build()
+    @modal.enter()
     def initialize(self):
         scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
             model_id,
@@ -108,7 +108,7 @@ class StableDiffusion:
         )
         self.pipe.enable_xformers_memory_efficient_attention()
 
-    @method()
+    @modal.method()
     def run_inference(
         self, prompt: str, steps: int = 20, batch_size: int = 4
     ) -> list[bytes]:
@@ -135,7 +135,7 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@app.local_entrypoint()
+@modal.app.local_entrypoint()
 def entrypoint(
     prompt: str = "A 1600s oil painting of the New York City skyline",
     samples: int = 5,

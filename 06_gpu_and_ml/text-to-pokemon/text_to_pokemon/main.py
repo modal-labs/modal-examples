@@ -9,10 +9,10 @@ import time
 import urllib.request
 from datetime import timedelta
 
-from modal import Mount, asgi_app, enter, method
+import modal
 
 from . import config, inpaint, ops, pokemon_naming
-from .config import app, volume
+from .config import volume
 
 
 @dataclasses.dataclass(frozen=True)
@@ -61,9 +61,9 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
+@modal.app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
 class Model:
-    @enter()
+    @modal.enter()
     def load_model(self):
         import threading
 
@@ -71,7 +71,7 @@ class Model:
             threading.Thread(target=ops.generate_pokemon_names.remote).start()
         self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
 
-    @method()
+    @modal.method()
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
@@ -88,7 +88,7 @@ def normalize_prompt(p: str) -> str:
     return re.sub("[^a-z0-9- ]", "", p.lower())
 
 
-@app.function(volumes={config.CACHE_DIR: volume})
+@modal.app.function(volumes={config.CACHE_DIR: volume})
 def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     start_time = time.monotonic()
     cached = False
@@ -129,14 +129,14 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     return samples_data
 
 
-@app.function(
+@modal.app.function(
     mounts=[
-        Mount.from_local_dir(
+        modal.Mount.from_local_dir(
             local_path=config.ASSETS_PATH, remote_path="/assets"
         )
     ],
 )
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
 
@@ -149,7 +149,7 @@ def fastapi_app():
     return web_app
 
 
-@app.function(
+@modal.app.function(
     image=inpaint.cv_image,
     volumes={config.CACHE_DIR: volume},
     interactive=False,
@@ -248,7 +248,7 @@ def color_dist(
     return delta_e
 
 
-@app.function(volumes={config.CACHE_DIR: volume})
+@modal.app.function(volumes={config.CACHE_DIR: volume})
 def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     """
     Takes a single Pokémon sample and creates a Pokémon card image for it.
@@ -275,7 +275,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     )
 
 
-@app.function(volumes={config.CACHE_DIR: volume})
+@modal.app.function(volumes={config.CACHE_DIR: volume})
 def create_pokemon_cards(prompt: str) -> list[dict]:
     norm_prompt = normalize_prompt(prompt)
     print(f"Creating for prompt '{norm_prompt}'")
@@ -350,7 +350,7 @@ def closest_pokecard_by_color(sample: bytes, cards):
     return closest_card
 
 
-@app.local_entrypoint()
+@modal.app.local_entrypoint()
 def run_local(prompt: str):
     images_data = diskcached_text_to_pokemon.remote(prompt)
 

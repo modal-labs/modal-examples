@@ -32,9 +32,9 @@ import base64
 import io
 from pathlib import Path
 
+import modal
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
-from modal import App, Image, Mount, asgi_app, build, enter, method
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -48,9 +48,9 @@ from modal import App, Image, Mount, asgi_app, build, enter, method
 model_repo_id = "facebook/detr-resnet-50"
 
 
-app = App("example-webcam-object-detection")
+app = modal.App("example-webcam-object-detection")
 image = (
-    Image.debian_slim()
+    modal.Image.debian_slim()
     .pip_install(
         "huggingface-hub==0.16.4",
         "Pillow",
@@ -86,16 +86,16 @@ with image.imports():
     from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-@app.cls(
+@modal.app.cls(
     cpu=4,
     image=image,
 )
 class ObjectDetection:
-    @build()
+    @modal.build()
     def download_model(self):
         snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
 
-    @enter()
+    @modal.enter()
     def load_model(self):
         self.feature_extractor = DetrImageProcessor.from_pretrained(
             model_repo_id,
@@ -106,7 +106,7 @@ class ObjectDetection:
             cache_dir="/cache",
         )
 
-    @method()
+    @modal.method()
     def detect(self, img_data_in):
         # Based on https://huggingface.co/spaces/nateraw/detr-object-detection/blob/main/app.py
         # Read png from input
@@ -188,10 +188,10 @@ async def predict(request: Request):
 # Let's take the Fast API app and expose it to Modal.
 
 
-@app.function(
-    mounts=[Mount.from_local_dir(static_path, remote_path="/assets")],
+@modal.app.function(
+    mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     web_app.mount("/", StaticFiles(directory="/assets", html=True))
     return web_app

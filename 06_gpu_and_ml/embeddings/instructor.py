@@ -1,10 +1,10 @@
-from modal import App, Image, build, enter, method
+import modal
 
 MODEL_DIR = "/model"
 
 
 image = (
-    Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .run_commands(
         "git clone https://github.com/HKUNLP/instructor-embedding",
@@ -14,7 +14,7 @@ image = (
     .pip_install("InstructorEmbedding")
 )
 
-app = App("instructor", image=image)
+app = modal.App("instructor", image=image)
 
 with image.imports():
     from InstructorEmbedding import INSTRUCTOR
@@ -22,16 +22,16 @@ with image.imports():
 
 @app.cls(gpu="any")
 class InstructorModel:
-    @build()
+    @modal.build()
     def download_model(self):
         model = INSTRUCTOR("hkunlp/instructor-large")
         model.save(MODEL_DIR)
 
-    @enter()
+    @modal.enter()
     def enter(self):
         self.model = INSTRUCTOR(MODEL_DIR, device="cuda")
 
-    @method()
+    @modal.method()
     def compare(self, sentences_a, sentences_b):
         from sklearn.metrics.pairwise import cosine_similarity
 

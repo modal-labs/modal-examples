@@ -26,22 +26,13 @@ import pathlib
 import sys
 from typing import List, Optional, Tuple
 
+import modal
 from fastapi import FastAPI
-from modal import (
-    App,
-    Image,
-    Mount,
-    Secret,
-    Volume,
-    asgi_app,
-    enter,
-    method,
-)
 
 web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
-app = App(name="example-fastai-wandb-gradio-cifar10-demo")
-image = Image.debian_slim(python_version="3.10").pip_install(
+app = modal.App(name="example-fastai-wandb-gradio-cifar10-demo")
+image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "fastai~=2.7.9",
     "gradio~=3.6.0",
     "httpx~=0.23.0",
@@ -54,15 +45,15 @@ image = Image.debian_slim(python_version="3.10").pip_install(
 # A persisted volume will store trained model artefacts across Modal app runs.
 # This is crucial as training runs are separate from the Gradio.app we run as a webhook.
 
-volume = Volume.from_name("cifar10-training-vol", create_if_missing=True)
+volume = modal.Volume.from_name("cifar10-training-vol", create_if_missing=True)
 
 FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
 USE_GPU = os.environ.get("MODAL_GPU")
 MODEL_EXPORT_PATH = pathlib.Path(MODEL_CACHE, "model-exports", "inference.pkl")
-os.environ[
-    "FASTAI_HOME"
-] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
+os.environ["FASTAI_HOME"] = (
+    FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
+)
 
 # ## Config
 #
@@ -136,7 +127,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     volumes={str(MODEL_CACHE): volume},
-    secrets=[Secret.from_name("my-wandb-secret")],
+    secrets=[modal.Secret.from_name("my-wandb-secret")],
     timeout=2700,  # 45 minutes
 )
 def train():
@@ -224,13 +215,13 @@ def train():
     volumes={str(MODEL_CACHE): volume},
 )
 class ClassifierModel:
-    @enter()
+    @modal.enter()
     def load_model(self):
         from fastai.learner import load_learner
 
         self.model = load_learner(MODEL_EXPORT_PATH)
 
-    @method()
+    @modal.method()
     def predict(self, image) -> str:
         prediction = self.model.predict(image)
         classification = prediction[0]
@@ -293,9 +284,9 @@ def create_demo_examples() -> List[str]:
 @app.function(
     image=image,
     volumes={str(MODEL_CACHE): volume},
-    mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app

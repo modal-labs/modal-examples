@@ -18,7 +18,7 @@
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
+import modal
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -26,7 +26,7 @@ from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(size="40GB", count=4)
+GPU_CONFIG = modal.gpu.A100(size="40GB", count=4)
 MODEL_ID = "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO"
 MODEL_REVISION = "286ae6737d048ad1d965c2e830864df02db50f2f"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
@@ -72,7 +72,9 @@ def download_model():
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.3.3")
+    modal.Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.3.3"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
@@ -81,7 +83,7 @@ tgi_image = (
     .pip_install("text-generation")
 )
 
-app = App("example-tgi-mixtral")
+app = modal.App("example-tgi-mixtral")
 
 
 # ## The model class
@@ -103,7 +105,7 @@ app = App("example-tgi-mixtral")
 # - lift the timeout of each request.
 
 
-@app.cls(
+@modal.app.cls(
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
@@ -111,7 +113,7 @@ app = App("example-tgi-mixtral")
     image=tgi_image,
 )
 class Model:
-    @enter()
+    @modal.enter()
     def start_server(self):
         import socket
         import time
@@ -137,18 +139,18 @@ class Model:
                     raise RuntimeError(f"launcher exited with code {retcode}")
                 time.sleep(1.0)
 
-    @exit()
+    @modal.exit()
     def terminate_server(self):
         self.launcher.terminate()
 
-    @method()
+    @modal.method()
     async def generate(self, question: str):
         prompt = self.template.format(user=question)
         result = await self.client.generate(prompt, max_new_tokens=1024)
 
         return result.generated_text
 
-    @method()
+    @modal.method()
     async def generate_stream(self, question: str):
         prompt = self.template.format(user=question)
 
@@ -162,7 +164,7 @@ class Model:
 # ## Run the model
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
-@app.local_entrypoint()
+@modal.app.local_entrypoint()
 def main():
     print(
         Model().generate.remote(
@@ -181,13 +183,13 @@ def main():
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
-@app.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+@modal.app.function(
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
     timeout=60 * 10,
 )
-@asgi_app(label="tgi-mixtral")
+@modal.asgi_app(label="tgi-mixtral")
 def tgi_mixtral():
     import json
 

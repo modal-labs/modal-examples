@@ -15,7 +15,7 @@
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
+import modal
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -71,10 +71,12 @@ def download_model():
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-app = App("example-tgi-" + MODEL_ID.split("/")[-1])
+app = modal.App("example-tgi-" + MODEL_ID.split("/")[-1])
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.4")
+    modal.Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
@@ -104,10 +106,10 @@ tgi_image = (
 # - increase the timeout limit
 
 
-GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
+GPU_CONFIG = modal.gpu.H100(count=2)  # 2 H100s
 
 
-@app.cls(
+@modal.app.cls(
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=15,
     container_idle_timeout=60 * 10,
@@ -115,7 +117,7 @@ GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
     image=tgi_image,
 )
 class Model:
-    @enter()
+    @modal.enter()
     def start_server(self):
         import socket
         import time
@@ -152,11 +154,11 @@ class Model:
 
         print("Webserver ready!")
 
-    @exit()
+    @modal.exit()
     def terminate_server(self):
         self.launcher.terminate()
 
-    @method()
+    @modal.method()
     async def generate(self, question: str):
         prompt = self.template.format(user=question)
         result = await self.client.generate(
@@ -165,7 +167,7 @@ class Model:
 
         return result.generated_text
 
-    @method()
+    @modal.method()
     async def generate_stream(self, question: str):
         prompt = self.template.format(user=question)
 
@@ -182,7 +184,7 @@ class Model:
 # ## Run the model
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
-@app.local_entrypoint()
+@modal.app.local_entrypoint()
 def main(prompt: str = None):
     if prompt is None:
         prompt = "Implement a Python function to compute the Fibonacci numbers."
@@ -199,13 +201,13 @@ def main(prompt: str = None):
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
-@app.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+@modal.app.function(
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=10,
     timeout=60 * 10,
 )
-@asgi_app(label="llama3")
+@modal.asgi_app(label="llama3")
 def tgi_app():
     import json
 

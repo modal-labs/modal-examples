@@ -4,9 +4,9 @@ import subprocess
 import warnings
 from pathlib import Path
 
-from modal import App, Image, Mount, NetworkFileSystem, create_package_mounts
+import modal
 
-package_mounts = create_package_mounts(["kedro_modal"])
+package_mounts = modal.create_package_mounts(["kedro_modal"])
 
 
 def run_kedro(project_path: Path, data_path: Path):
@@ -36,10 +36,10 @@ def non_hidden_files(project_path: Path):
     return condition
 
 
-def main_app(project_path, project_name, package_name) -> App:
+def main_app(project_path, project_name, package_name) -> modal.App:
     requirements_txt = project_path / "src" / "requirements.txt"
 
-    image = Image.debian_slim()
+    image = modal.Image.debian_slim()
     if requirements_txt.exists():
         image = image.pip_install_from_requirements(requirements_txt)
     else:
@@ -49,18 +49,20 @@ def main_app(project_path, project_name, package_name) -> App:
         image = image.pip_install("kedro")
 
     remote_project_mount_point = Path(f"/kedro-project/{package_name}")
-    kedro_proj_mount = Mount(
+    kedro_proj_mount = modal.Mount(
         remote_dir=remote_project_mount_point,
         local_dir=project_path,
         condition=non_hidden_files(project_path),
     )
-    app = App(
+    app = modal.App(
         f"kedro-run.{project_name}",
         image=image,
         mounts=[kedro_proj_mount] + package_mounts,
     )
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = NetworkFileSystem.from_name(volume_name, create_if_true=True)
+    data_volume = modal.NetworkFileSystem.from_name(
+        volume_name, create_if_true=True
+    )
 
     app.function(network_file_systems={"/kedro-storage": data_volume})(
         run_kedro
@@ -74,12 +76,12 @@ def main_app(project_path, project_name, package_name) -> App:
 
 def sync_app(project_path, project_name):
     # slimmer sync app that only mounts the data dir in order to upload raw data
-    app = App(f"kedro-data-sync.{project_name}")
+    app = modal.App(f"kedro-data-sync.{project_name}")
     volume_name = f"kedro.{project_name}.storage"
-    data_volume = NetworkFileSystem().persist(volume_name)
+    data_volume = modal.NetworkFileSystem().persist(volume_name)
 
     remote_source_path = Path("/source-data")
-    source_mount = Mount(
+    source_mount = modal.Mount(
         remote_dir=remote_source_path,
         local_dir=project_path / "data",
         condition=non_hidden_files(project_path),

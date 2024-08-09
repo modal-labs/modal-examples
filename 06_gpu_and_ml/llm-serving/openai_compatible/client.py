@@ -1,4 +1,5 @@
 """This simple script shows how to interact with an OpenAI-compatible server from a client."""
+
 import argparse
 
 import modal
