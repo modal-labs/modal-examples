@@ -16,7 +16,6 @@
 # First we import the components we need from `modal`.
 
 import modal
-from modal import Image
 
 # ## Define a container image
 #
@@ -39,7 +38,7 @@ def download_model():
 # function defined above as part of the image build.
 
 image = (
-    Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .pip_install(
         "auto-gptq==0.7.0",
