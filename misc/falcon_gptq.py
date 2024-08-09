@@ -130,7 +130,7 @@ prompt_template = (
 )
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def cli():
     question = "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40BGPTQ()

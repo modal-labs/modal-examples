@@ -52,7 +52,7 @@ with image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@modal.app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240)
+@app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240)
 class Model:
     @modal.build()
     def download_models(self):
@@ -103,7 +103,7 @@ class Model:
 DEFAULT_IMAGE_PATH = Path(__file__).parent / "demo_images/dog.png"
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def main(
     image_path=DEFAULT_IMAGE_PATH,
     prompt="dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k",

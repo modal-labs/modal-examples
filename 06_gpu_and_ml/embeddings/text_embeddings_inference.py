@@ -72,7 +72,7 @@ with tei_image.imports():
     from httpx import AsyncClient
 
 
-@modal.app.cls(
+@app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
     # Use up to 20 GPU containers at once.
@@ -134,7 +134,7 @@ with image.imports():
     from google.oauth2 import service_account
 
 
-@modal.app.function(
+@app.function(
     image=image,
     secrets=[modal.Secret.from_name("bigquery")],
     volumes={DATA_PATH.parent: volume},

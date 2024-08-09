@@ -170,7 +170,7 @@ def plot(dataset) -> bytes:
 # ![Number of NYC yellow taxi trips by weekday, 2018-2023](./nyc_yellow_taxi_trips_s3_mount.png)
 #
 # This program should run in less than 30 seconds.
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def main():
     # List of tuples[year, month].
     inputs = [

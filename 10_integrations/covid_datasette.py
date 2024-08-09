@@ -59,7 +59,7 @@ DB_PATH = pathlib.Path(VOLUME_DIR, "covid-19.db")
 # The full git repository size for the dataset is over 6GB, but we only need to shallow clone around 300MB.
 
 
-@modal.app.function(
+@app.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
     retries=2,

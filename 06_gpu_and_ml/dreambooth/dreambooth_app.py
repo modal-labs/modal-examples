@@ -249,7 +249,7 @@ class TrainConfig(SharedConfig):
     seed: int = 117
 
 
-@modal.app.function(
+@app.function(
     image=image,
     gpu="A100",  # fine-tuning is VRAM-heavy and requires an A100 GPU
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
@@ -341,7 +341,7 @@ def train(instance_example_urls):
 # so that the fine-tuned model created  by `train` is available to us.
 
 
-@modal.app.cls(image=image, gpu="A10G", volumes={MODEL_DIR: volume})
+@app.cls(image=image, gpu="A10G", volumes={MODEL_DIR: volume})
 class Model:
     @modal.enter()
     def load_model(self):
@@ -406,7 +406,7 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 7.5
 
 
-@modal.app.function(
+@app.function(
     image=image,
     concurrency_limit=3,
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
@@ -514,7 +514,7 @@ def fastapi_app():
 # If you just want to try the app out, you can find it at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def run():
     with open(TrainConfig().instance_example_urls_file) as f:
         instance_example_urls = [line.strip() for line in f.readlines()]

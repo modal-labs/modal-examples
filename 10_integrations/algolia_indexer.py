@@ -120,6 +120,6 @@ def crawl_webhook():
 # `modal run algolia_indexer.py`
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def run():
     crawl.remote()

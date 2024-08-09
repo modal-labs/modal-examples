@@ -174,7 +174,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 # As said above, we're implementing a web endpoint, `web`, and a CLI command, `cli`.
 
 
-@modal.app.function()
+@app.function()
 @modal.web_endpoint(method="GET", docs=True)
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
@@ -189,7 +189,7 @@ def web(query: str, show_sources: bool = False):
         }
 
 
-@modal.app.function()
+@app.function()
 def cli(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     # Terminal codes for pretty-printing.

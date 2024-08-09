@@ -59,9 +59,7 @@ with sdxl_image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@modal.app.cls(
-    gpu=modal.gpu.A10G(), container_idle_timeout=240, image=sdxl_image
-)
+@app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
     @modal.build()
     def build(self):
@@ -151,7 +149,7 @@ class Model:
 # with: `modal run stable_diffusion_xl.py --help
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     image_bytes = Model().inference.remote(prompt)
 
@@ -182,7 +180,7 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
-@modal.app.function(
+@app.function(
     image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,

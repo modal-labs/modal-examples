@@ -166,7 +166,7 @@ prompt_template = (
 )
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def cli(prompt: str = None):
     question = (
         prompt

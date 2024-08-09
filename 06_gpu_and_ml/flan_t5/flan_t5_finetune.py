@@ -70,7 +70,7 @@ def track_restarts(restart_tracker: modal.Dict) -> int:
 # Each row in the dataset has a `document` (input news article) and `summary` column.
 
 
-@modal.app.function(
+@app.function(
     gpu="A10g",
     timeout=7200,
     volumes={VOL_MOUNT_PATH: output_vol},
@@ -197,7 +197,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 # Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
 #
-@modal.app.function(volumes={VOL_MOUNT_PATH: output_vol})
+@app.function(volumes={VOL_MOUNT_PATH: output_vol})
 @modal.wsgi_app()
 def monitor():
     import tensorboard
@@ -219,7 +219,7 @@ def monitor():
 #
 
 
-@modal.app.cls(volumes={VOL_MOUNT_PATH: output_vol})
+@app.cls(volumes={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
     @modal.enter()
     def load_model(self):
@@ -242,7 +242,7 @@ class Summarizer:
         return self.summarizer(input)[0]["summary_text"]
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def main():
     input = """
     The 14-time major champion, playing in his first full PGA Tour event for almost 18 months,

@@ -83,7 +83,7 @@ with image.imports():
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@modal.app.cls(image=image, gpu="A10G")
+@app.cls(image=image, gpu="A10G")
 class StableDiffusion:
     @modal.build()
     @modal.enter()
@@ -135,7 +135,7 @@ class StableDiffusion:
 # which determines how many images to generate for a given prompt.
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def entrypoint(
     prompt: str = "A 1600s oil painting of the New York City skyline",
     samples: int = 5,

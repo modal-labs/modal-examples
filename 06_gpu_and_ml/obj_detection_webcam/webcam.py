@@ -86,7 +86,7 @@ with image.imports():
     from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-@modal.app.cls(
+@app.cls(
     cpu=4,
     image=image,
 )
@@ -188,7 +188,7 @@ async def predict(request: Request):
 # Let's take the Fast API app and expose it to Modal.
 
 
-@modal.app.function(
+@app.function(
     mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
 @modal.asgi_app()

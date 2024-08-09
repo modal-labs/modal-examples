@@ -105,7 +105,7 @@ app = modal.App("example-tgi-mixtral")
 # - lift the timeout of each request.
 
 
-@modal.app.cls(
+@app.cls(
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
@@ -164,7 +164,7 @@ class Model:
 # ## Run the model
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to invoke
 # our remote function. You can run this script locally with `modal run text_generation_inference.py`.
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def main():
     print(
         Model().generate.remote(
@@ -183,7 +183,7 @@ def main():
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
-@modal.app.function(
+@app.function(
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,

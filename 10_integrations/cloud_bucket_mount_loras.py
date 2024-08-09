@@ -152,7 +152,7 @@ def download_lora(repository_id: str) -> Optional[str]:
 # we load whichever LoRA the user specifies from the S3 bucket.
 # For more on the decorators we use on the methods below to speed up building and booting,
 # check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-hooks).
-@modal.app.cls(gpu="a10g")  # A10G GPUs are great for inference
+@app.cls(gpu="a10g")  # A10G GPUs are great for inference
 class StableDiffusionLoRA:
     pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
 

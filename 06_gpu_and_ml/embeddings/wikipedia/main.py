@@ -120,7 +120,7 @@ def generate_batches(xs, batch_size):
         yield batch
 
 
-@modal.app.cls(
+@app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
     concurrency_limit=GPU_CONCURRENCY,
@@ -255,7 +255,7 @@ def upload_result_to_hf(batch_size: int) -> None:
     print(f"Uploaded in {end-start}s")
 
 
-@modal.app.function(
+@app.function(
     image=modal.Image.debian_slim().pip_install(
         "datasets", "pyarrow", "hf_transfer", "huggingface_hub"
     ),
@@ -334,7 +334,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     return resp
 
 
-@modal.app.local_entrypoint()
+@app.local_entrypoint()
 def full_job():
     batch_size = 512 * 150
     with open("benchmarks.json", "a") as f:
