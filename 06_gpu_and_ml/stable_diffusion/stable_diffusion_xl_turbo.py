@@ -20,12 +20,12 @@
 from io import BytesIO
 from pathlib import Path
 
-from modal import App, Image, build, enter, gpu, method
+import modal
 
 # ## Define a container image
 
 
-image = Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().pip_install(
     "Pillow~=10.1.0",
     "diffusers~=0.24.0",
     "transformers~=4.35.2",  # This is needed for `import torch`
@@ -33,7 +33,7 @@ image = Image.debian_slim().pip_install(
     "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
 )
 
-app = App("stable-diffusion-xl-turbo", image=image)
+app = modal.App("stable-diffusion-xl-turbo", image=image)
 
 with image.imports():
     import torch
@@ -52,9 +52,9 @@ with image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@app.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240)
 class Model:
-    @build()
+    @modal.build()
     def download_models(self):
         # Ignore files that we don't need to speed up download time.
         ignore = [
@@ -65,7 +65,7 @@ class Model:
 
         snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
 
-    @enter()
+    @modal.enter()
     def enter(self):
         self.pipe = AutoPipelineForImage2Image.from_pretrained(
             "stabilityai/sdxl-turbo",
@@ -74,7 +74,7 @@ class Model:
             device_map="auto",
         )
 
-    @method()
+    @modal.method()
     def inference(self, image_bytes, prompt):
         init_image = load_image(Image.open(BytesIO(image_bytes))).resize(
             (512, 512)

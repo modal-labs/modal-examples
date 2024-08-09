@@ -27,12 +27,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from modal import App, CloudBucketMount, Image, Secret
+import modal
 
-image = Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().pip_install(
     "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
 )
-app = App(image=image)
+app = modal.App(image=image)
 
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
@@ -57,9 +57,9 @@ with image.imports():
 # As we'll see below, this operation can be massively sped up by running it in parallel on Modal.
 @app.function(
     volumes={
-        MOUNT_PATH: CloudBucketMount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=Secret.from_name("s3-bucket-secret"),
+            secret=modal.Secret.from_name("s3-bucket-secret"),
         )
     },
 )
@@ -89,9 +89,9 @@ def download_data(year: int, month: int) -> str:
 # within a month (each file contains all the rides from a specific month).
 @app.function(
     volumes={
-        MOUNT_PATH: CloudBucketMount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=Secret.from_name("s3-bucket-secret"),
+            secret=modal.Secret.from_name("s3-bucket-secret"),
         )
     },
 )

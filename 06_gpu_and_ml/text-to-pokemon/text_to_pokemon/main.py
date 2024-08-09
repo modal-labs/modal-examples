@@ -9,7 +9,7 @@ import time
 import urllib.request
 from datetime import timedelta
 
-from modal import Mount, asgi_app, enter, method
+import modal
 
 from . import config, inpaint, ops, pokemon_naming
 from .config import app, volume
@@ -63,7 +63,7 @@ def image_to_byte_array(image) -> bytes:
 
 @app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
 class Model:
-    @enter()
+    @modal.enter()
     def load_model(self):
         import threading
 
@@ -71,7 +71,7 @@ class Model:
             threading.Thread(target=ops.generate_pokemon_names.remote).start()
         self.pipe = config.load_stable_diffusion_pokemon_model().to("cuda")
 
-    @method()
+    @modal.method()
     def text_to_pokemon(self, prompt: str) -> list[bytes]:
         from torch import autocast
 
@@ -131,12 +131,12 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
 
 @app.function(
     mounts=[
-        Mount.from_local_dir(
+        modal.Mount.from_local_dir(
             local_path=config.ASSETS_PATH, remote_path="/assets"
         )
     ],
 )
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
 

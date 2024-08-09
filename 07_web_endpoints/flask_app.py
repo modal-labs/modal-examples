@@ -2,16 +2,16 @@
 # lambda-test: false
 # ---
 
-from modal import App, Image, wsgi_app
+import modal
 
-app = App(
+app = modal.App(
     "example-web-flask",
-    image=Image.debian_slim().pip_install("flask"),
+    image=modal.Image.debian_slim().pip_install("flask"),
 )
 
 
 @app.function()
-@wsgi_app()
+@modal.wsgi_app()
 def flask_app():
     from flask import Flask, request
 

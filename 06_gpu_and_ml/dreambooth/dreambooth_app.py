@@ -32,18 +32,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import modal
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from modal import (
-    App,
-    Image,
-    Mount,
-    Secret,
-    Volume,
-    asgi_app,
-    enter,
-    method,
-)
 
 # ## Building up the environment
 #
@@ -55,9 +46,9 @@ from modal import (
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our app runs.
 
-app = App(name="example-dreambooth-app")
+app = modal.App(name="example-dreambooth-app")
 
-image = Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.27.2",
     "datasets~=2.13.0",
     "ftfy~=6.1.0",
@@ -153,7 +144,7 @@ image = image.run_function(download_models)
 # We'll use one to store the fine-tuned weights we create during training
 # and then load them back in for inference.
 
-volume = Volume.from_name(
+volume = modal.Volume.from_name(
     "dreambooth-finetuning-volume", create_if_missing=True
 )
 MODEL_DIR = "/model"
@@ -263,7 +254,7 @@ class TrainConfig(SharedConfig):
     gpu="A100",  # fine-tuning is VRAM-heavy and requires an A100 GPU
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
-    secrets=[Secret.from_name("my-wandb-secret")] if USE_WANDB else [],
+    secrets=[modal.Secret.from_name("my-wandb-secret")] if USE_WANDB else [],
 )
 def train(instance_example_urls):
     import subprocess
@@ -352,7 +343,7 @@ def train(instance_example_urls):
 
 @app.cls(image=image, gpu="A10G", volumes={MODEL_DIR: volume})
 class Model:
-    @enter()
+    @modal.enter()
     def load_model(self):
         import torch
         from diffusers import AutoencoderKL, DiffusionPipeline
@@ -373,7 +364,7 @@ class Model:
         pipe.load_lora_weights(MODEL_DIR)
         self.pipe = pipe
 
-    @method()
+    @modal.method()
     def inference(self, text, config):
         image = self.pipe(
             text,
@@ -418,9 +409,9 @@ class AppConfig(SharedConfig):
 @app.function(
     image=image,
     concurrency_limit=3,
-    mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     import gradio as gr
     from gradio.routes import mount_gradio_app

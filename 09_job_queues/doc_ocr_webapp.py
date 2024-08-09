@@ -23,9 +23,9 @@ from pathlib import Path
 
 import fastapi
 import fastapi.staticfiles
-from modal import App, Function, Mount, asgi_app
+import modal
 
-app = App("example-doc-ocr-webapp")
+app = modal.App("example-doc-ocr-webapp")
 
 # Modal works with any [ASGI](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
 # [WSGI](/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).
@@ -48,7 +48,9 @@ web_app = fastapi.FastAPI()
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
-    parse_receipt = Function.lookup("example-doc-ocr-jobs", "parse_receipt")
+    parse_receipt = modal.Function.lookup(
+        "example-doc-ocr-jobs", "parse_receipt"
+    )
 
     form = await request.form()
     receipt = await form["receipt"].read()  # type: ignore
@@ -63,9 +65,7 @@ async def parse(request: fastapi.Request):
 
 @web_app.get("/result/{call_id}")
 async def poll_results(call_id: str):
-    from modal.functions import FunctionCall
-
-    function_call = FunctionCall.from_id(call_id)
+    function_call = modal.FunctionCall.from_id(call_id)
     try:
         result = function_call.get(timeout=0)
     except TimeoutError:
@@ -84,8 +84,10 @@ async def poll_results(call_id: str):
 assets_path = Path(__file__).parent / "doc_ocr_frontend"
 
 
-@app.function(mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")])
-@asgi_app()
+@app.function(
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
+)
+@modal.asgi_app()
 def wrapper():
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)

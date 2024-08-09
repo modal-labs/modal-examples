@@ -15,7 +15,7 @@
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, asgi_app, enter, exit, gpu, method
+import modal
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -71,10 +71,12 @@ def download_model():
 #
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
-app = App("example-tgi-" + MODEL_ID.split("/")[-1])
+app = modal.App("example-tgi-" + MODEL_ID.split("/")[-1])
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.4")
+    modal.Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.4"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
@@ -104,7 +106,7 @@ tgi_image = (
 # - increase the timeout limit
 
 
-GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
+GPU_CONFIG = modal.gpu.H100(count=2)  # 2 H100s
 
 
 @app.cls(
@@ -115,7 +117,7 @@ GPU_CONFIG = gpu.H100(count=2)  # 2 H100s
     image=tgi_image,
 )
 class Model:
-    @enter()
+    @modal.enter()
     def start_server(self):
         import socket
         import time
@@ -152,11 +154,11 @@ class Model:
 
         print("Webserver ready!")
 
-    @exit()
+    @modal.exit()
     def terminate_server(self):
         self.launcher.terminate()
 
-    @method()
+    @modal.method()
     async def generate(self, question: str):
         prompt = self.template.format(user=question)
         result = await self.client.generate(
@@ -165,7 +167,7 @@ class Model:
 
         return result.generated_text
 
-    @method()
+    @modal.method()
     async def generate_stream(self, question: str):
         prompt = self.template.format(user=question)
 
@@ -200,12 +202,12 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @app.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=10,
     timeout=60 * 10,
 )
-@asgi_app(label="llama3")
+@modal.asgi_app(label="llama3")
 def tgi_app():
     import json
 

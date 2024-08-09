@@ -24,13 +24,13 @@
 
 import time
 
-from modal import App, Image, NetworkFileSystem, wsgi_app
+import modal
 
-dockerhub_image = Image.from_registry(
+dockerhub_image = modal.Image.from_registry(
     "tensorflow/tensorflow:2.12.0-gpu",
 ).pip_install("protobuf==3.20.*")
 
-app = App("example-tensorflow-tutorial", image=dockerhub_image)
+app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 
 # ## Logging data to TensorBoard
 #
@@ -41,7 +41,9 @@ app = App("example-tensorflow-tutorial", image=dockerhub_image)
 # We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
 # The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-fs = NetworkFileSystem.from_name("tensorflow-tutorial", create_if_missing=True)
+fs = modal.NetworkFileSystem.from_name(
+    "tensorflow-tutorial", create_if_missing=True
+)
 logdir = "/tensorboard"
 
 # ## Training function
@@ -155,7 +157,7 @@ def train():
 
 
 @app.function(network_file_systems={logdir: fs})
-@wsgi_app()
+@modal.wsgi_app()
 def tensorboard_app():
     import tensorboard
 
