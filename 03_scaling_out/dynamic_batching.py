@@ -1,35 +1,37 @@
 # # Dynamic batching for ASCII and character conversion
 #
-# This example demonstrates how dynamic batching can be used in a simple
-# application for converting ASCII codes to characters and vice versa.
+# This example demonstrates how to dynamically batch a simple
+# application to converts ASCII codes to characters and vice versa.
 #
-# For more details about using dynamic batching and tuning its configuration, see
-# the [Dynamic Batching](/docs/guide/dynamic-batching) guide.
+# For more details about using dynamic batching and optimizing
+# the batching configurations for your application, see
+# the [dynamic batching guide](https://modal.com/docs/guide/dynamic-batching).
 #
 # ## Setup
 #
-# First, let's define the image for the application.
+# Let's start by defining the image for the application.
 
 import modal
 
 app = modal.App(
-    "example-dynamic-batching-ascii-conversion",
-    image=modal.Image.debian_slim()
+    "example-dynamic-batching-ascii-conversion", image=modal.Image.debian_slim()
 )
 
-# ## The batched function
+# ## Defining a Batched Function
 #
-# Now, let's define a Function that converts ASCII codes to characters. This
-# async batched Function allows us to convert at most four ASCII codes at once.
-# If there are fewer than four ASCII codes in the batch, the function will wait
-# for one second to allow more inputs to arrive before returning the result.
+# Now, let's define a function that converts ASCII codes to characters. This
+# async Batched Function allows us to convert up to four ASCII codes at once.
+# If there are fewer than four ASCII codes in the batch, the Function will wait
+# for one second, as specified by `wait_ms`, to allow more inputs to arrive before
+# returning the result.
 #
-# In the function signature, the input `asciis` is a list of integers, and the
-# output is a list of strings. This is because the `asciis` input is batched,
-# and the output should be a list of the same length as the input.
+# The input `asciis` to the Function is a list of integers, and the
+# output is a list of strings. To allow batching, the input list `asciis`
+# and the output list must have the same length.
 #
-# When the function is invoked, however, the input will be a single integer,
-# and the return value to the invocation will be a single string.
+# However, you must invoke the Function with an individual ASCII input, and a single
+# character will be returned to the invocation.
+
 
 @app.function()
 @modal.batched(max_batch_size=4, wait_ms=1000)
@@ -37,14 +39,14 @@ async def asciis_to_chars(asciis: list[int]) -> list[str]:
     return [chr(ascii) for ascii in asciis]
 
 
-# ## The Class with a batched method
+# ## Defining a class with a Batched Method
 #
-# Next, let's define a Class that converts characters to ASCII codes. This
-# Class has an async batched method `chars_to_asiics` that converts characters
-# to ASCII codes and has the same configuration as the batched Function above.
+# Next, let's define a class that converts characters to ASCII codes. This
+# class has an async Batched Method `chars_to_asciis` that converts characters
+# to ASCII codes.
 #
-# Note that if a Class has a batched method, the Class cannot implement other
-# batched methods or `@modal.method`s.
+# Note that if a class has a Batched Method, it cannot have other Batched Methods
+# or Methods.
 
 
 @app.cls()
@@ -57,16 +59,16 @@ class AsciiConverter:
 
 # ## ASCII and character conversion
 #
-# Finally, let's define the `local_entrypoint` that uses the batched Function
-# and the Class with a batched method to convert ASCII codes to characters and
+# Finally, let's define the `local_entrypoint` that uses the Batched Function
+# and Class Method to convert ASCII codes to characters and
 # vice versa.
 #
 # We use [`map.aio`](/docs/reference/modal.Function#map) to asynchronously map
-# over the ASCII codes and characters. This allows us to invoke the batched
-# Function and the batched method over a range of ASCII codes and characters
+# over the ASCII codes and characters. This allows us to invoke the Batched
+# Function and the Batched Method over a range of ASCII codes and characters
 # in parallel.
 #
-# Run this script to see what ASCII codes from 33 to 38 correspond to in characters!
+# Run this script to see which characters correspond to ASCII codes 33 through 38!
 
 
 @app.local_entrypoint()
