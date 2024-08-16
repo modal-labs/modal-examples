@@ -68,6 +68,7 @@ app = modal.App("example-whisper-batched-inference", image=image)
 
 GPU_CONFIG = modal.gpu.A100(count=1)  # 40GB A100 by default
 
+
 @app.cls(gpu=GPU_CONFIG, concurrency_limit=1)
 class Model:
     @modal.build()
@@ -132,13 +133,9 @@ class Model:
 async def transcribe_hf_dataset(dataset_name):
     from datasets import load_dataset
 
-    ds = load_dataset(
-        dataset_name, "clean", split="validation"
-    )
+    ds = load_dataset(dataset_name, "clean", split="validation")
     batched_whisper = Model()
-    async for transcription in batched_whisper.transcribe.map.aio(
-        ds["audio"]
-    ):
+    async for transcription in batched_whisper.transcribe.map.aio(ds["audio"]):
         print("Transcription for audio 📻", transcription["text"])
 
 
