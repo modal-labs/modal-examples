@@ -4,7 +4,7 @@
 #
 # # Custom Pet Art from Flux with Hugging Face and Gradio
 #
-# This example finetunes the [Stable Diffusion XL model](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)
+# This example finetunes the [Flux.1-dev model](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 # on images of a pet (by default, a puppy named Qwerty)
 # using a technique called textual inversion from [the "Dreambooth" paper](https://dreambooth.github.io/).
 # Effectively, it teaches a general image generation model a new "proper noun",
