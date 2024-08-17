@@ -397,7 +397,7 @@ class Model:
 #
 # You can deploy the app on Modal with the command
 # `modal deploy dreambooth_app.py`.
-# You'll be able to come back days, weeks, or months later and find it still ready to do,
+# You'll be able to come back days, weeks, or months later and find it still ready to go,
 # even though you don't have to pay for a server to run while you're not using it.
 
 web_app = FastAPI()
@@ -442,7 +442,7 @@ def fastapi_app():
         f"drawing of {instance_phrase} high quality, cartoon, path traced, by studio ghibli and don bluth",
     ]
 
-    modal_docs_url = "https://modal.com/docs/guide"
+    modal_docs_url = "https://modal.com/docs"
     modal_example_url = f"{modal_docs_url}/examples/dreambooth_app"
 
     description = f"""Describe what they are doing or how a particular artist or style would depict them. Be fantastical! Try the examples below for inspiration.
@@ -518,7 +518,7 @@ def fastapi_app():
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #
-# If you just want to try the app out, you can find it at https://modal-labs-example-dreambooth-app-fastapi-app.modal.run
+# If you just want to try the app out, you can find it at https://modal-labs--example-dreambooth-app-fastapi-app.modal.run
 
 
 @app.local_entrypoint()
