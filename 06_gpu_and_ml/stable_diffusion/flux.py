@@ -50,6 +50,7 @@ class Model:
     @modal.enter()
     def enter(self):
         from huggingface_hub import snapshot_download
+
         snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
 
         self.pipe = FluxPipeline.from_pretrained(
