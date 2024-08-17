@@ -47,14 +47,11 @@ with flux_image.imports():
     image=flux_image,
 )
 class Model:
-    @modal.build()
-    def build(self):
-        from huggingface_hub import snapshot_download
-
-        snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
-
     @modal.enter()
     def enter(self):
+        from huggingface_hub import snapshot_download
+        snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
+
         self.pipe = FluxPipeline.from_pretrained(
             f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
         )
