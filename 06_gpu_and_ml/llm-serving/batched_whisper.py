@@ -1,8 +1,9 @@
 # # Fast Whisper inference using dynamic batching
 #
-# In this example, we demonstrate how to run batched inference for OpenAI's speech recognition model,
-# [Whisper](https://openai.com/index/whisper/). Batching multiple audio samples together or batching chunks
-# of a single audio sample can help to achieve a 2.5x speedup in inference throughput on an A100!
+# In this example, we demonstrate how to run [dynamically batched inference](https://modal.com/docs/guide/dynamic-batching)
+# for OpenAI's speech recognition model, [Whisper](https://openai.com/index/whisper/), on Modal.
+# Batching multiple audio samples together or batching chunks of a single audio sample can help to achieve a 2.5x increase
+# in inference throughput on an A100!
 #
 # We will be running the [Whisper Large V3](https://huggingface.co/openai/whisper-large-v3) model.
 # To run [any of the other HuggingFace Whisper models](https://huggingface.co/models?search=openai/whisper),
@@ -47,29 +48,30 @@ app = modal.App("example-whisper-batched-inference", image=image)
 # ## The model class
 #
 # The inference function is best represented using Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
-
-# We define a `@modal.build` method to download the model and a `@modal.enter` method to load the model. This allows
-# the container to download the model from HuggingFace just once when it launches, load the model into memory just once
-# every time a container starts up by caching it on the GPU for subsequent invocations of the function.
+#
+# We define a `@modal.build` method to download the model and a `@modal.enter` method to load the model.
+# `build` downloads the model from HuggingFace just once when our app is first run or deployed
+# and `enter` loads the model into memory just once when our inference function is first invoked.
 #
 # We also define a `transcribe` method that uses the `@modal.batched` decorator to enable dynamic batching.
 # This allows us to invoke the function with individual audio samples, and the function will automatically batch them
-# together before running inference.
+# together before running inference. Batching is critical for making good use of the GPU, since GPUs are designed
+# for running parallel operations at high throughput.
 #
 # The `max_batch_size` parameter limits the maximum number of audio samples combined into a single batch.
-# We used a `max_batch_size` of 128, the largest power of 2 that can be accommodated by the 40GB A100 GPU memory. This number
-# will vary depending on the model and the GPU you are using.
+# We used a `max_batch_size` of `64`, the largest power-of-2 batch size that can be accommodated by the 24 A10G GPU memory.
+# This number will vary depending on the model and the GPU you are using.
 #
 # The `wait_ms` parameter sets the maximum time to wait for more inputs before running the batched transcription.
 # To tune this parameter, you can set it to the target latency of your application minus the execution time of an inference batch.
 # This allows the latency of any request to stay within your target latency.
 #
-# Hint: Try using an H100 if you've got a large model or big batches!
-
-GPU_CONFIG = modal.gpu.A100(count=1)  # 40GB A100 by default
 
 
-@app.cls(gpu=GPU_CONFIG, concurrency_limit=1)
+@app.cls(
+    gpu="a10g",  # Try using an A100 or H100 if you've got a large model or need big batches!
+    concurrency_limit=10,  # default max GPUs for Modal's free tier
+)
 class Model:
     @modal.build()
     def download_model(self):
@@ -103,6 +105,8 @@ class Model:
             use_safetensors=True,
         ).to("cuda")
 
+        self.model.generation_config.language = "<|en|>"
+
         # Create a pipeline for preprocessing and transcribing speech data
         self.pipeline = pipeline(
             "automatic-speech-recognition",
@@ -113,10 +117,18 @@ class Model:
             device="cuda",
         )
 
-    @modal.batched(max_batch_size=128, wait_ms=4000)
+    @modal.batched(max_batch_size=64, wait_ms=1000)
     def transcribe(self, audio_samples):
+        import time
+
+        start = time.monotonic_ns()
+        print(f"Transcribing {len(audio_samples)} audio samples")
         transcription = self.pipeline(
             audio_samples, batch_size=len(audio_samples)
+        )
+        end = time.monotonic_ns()
+        print(
+            f"Transcribed {len(audio_samples)} samples in {round((end - start) / 1e9, 2)}s"
         )
         return transcription
 
@@ -133,10 +145,13 @@ class Model:
 async def transcribe_hf_dataset(dataset_name):
     from datasets import load_dataset
 
+    print("📂 Loading dataset", dataset_name)
     ds = load_dataset(dataset_name, "clean", split="validation")
+    print("📂 Dataset loaded")
     batched_whisper = Model()
+    print("📣 Sending data for transcripton")
     async for transcription in batched_whisper.transcribe.map.aio(ds["audio"]):
-        print("Transcription for audio 📻", transcription["text"])
+        yield transcription
 
 
 # ## Run the model
@@ -146,5 +161,8 @@ async def transcribe_hf_dataset(dataset_name):
 
 
 @app.local_entrypoint()
-async def main():
-    transcribe_hf_dataset.remote("hf-internal-testing/librispeech_asr_dummy")
+async def main(dataset_name: str = None):
+    if dataset_name is None:
+        dataset_name = "hf-internal-testing/librispeech_asr_dummy"
+    for result in transcribe_hf_dataset.remote_gen(dataset_name):
+        print(result["text"])
