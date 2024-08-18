@@ -4,9 +4,10 @@
 # ---
 # # Fetching stock prices in parallel
 #
-# This is a simple example that uses the Yahoo! Finance API to fetch a bunch of ETFs
-# We do this in parallel, which demonstrates the ability to map over a set of items
-# In this case, we fetch 100 stocks in parallel
+# This is a simple example that uses the Yahoo! Finance API to fetch a bunch of stock data.
+#
+# We do this in parallel, which demonstrates the ability to map over a set of items,
+# in this case 100 stock tickers.
 #
 # You can run this script on the terminal with
 #
@@ -59,14 +60,17 @@ def get_stocks():
         "referer": "https://finance.yahoo.com/",
     }
     url = "https://finance.yahoo.com/etfs?count=100&offset=0"
-    res = httpx.get(url, headers=headers)
+    res = httpx.get(url, headers=headers, follow_redirects=True)
     res.raise_for_status()
     soup = bs4.BeautifulSoup(res.text, "html.parser")
-    for td in soup.find_all("td", {"aria-label": "Symbol"}):
-        for link in td.find_all("a", {"data-test": "quoteLink"}):
-            symbol = str(link.next)
-            print(f"Found symbol {symbol}")
-            yield symbol
+    for link in soup.select('a[href*="/quote/"]'):
+        try:
+            symbol, *_ = link.text.strip().split(" ")
+            if symbol:
+                print(f"Found symbol {symbol}")
+                yield symbol
+        except Exception as e:
+            print(f"Error parsing {link}: {e}")
 
 
 # ## Fetch stock prices
@@ -135,7 +139,7 @@ def plot_stocks():
 
     # Configure axes and title
     ax.yaxis.set_major_formatter(ticker.PercentFormatter())
-    ax.set_title(f"Best ETFs {first_date.date()} - {last_date.date()}")
+    ax.set_title(f"Best Tickers {first_date.date()} - {last_date.date()}")
     ax.set_ylabel(f"% change, {first_date.date()} = 0%")
 
     # Dump the chart to .png and return the bytes
