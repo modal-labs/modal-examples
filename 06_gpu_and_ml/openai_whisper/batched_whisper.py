@@ -2,8 +2,8 @@
 #
 # In this example, we demonstrate how to run [dynamically batched inference](https://modal.com/docs/guide/dynamic-batching)
 # for OpenAI's speech recognition model, [Whisper](https://openai.com/index/whisper/), on Modal.
-# Batching multiple audio samples together or batching chunks of a single audio sample can help to achieve a 2.5x increase
-# in inference throughput on an A100!
+# Batching multiple audio samples together or batching chunks of a single audio sample can help to achieve a 2.8x increase
+# in inference throughput on an A10G!
 #
 # We will be running the [Whisper Large V3](https://huggingface.co/openai/whisper-large-v3) model.
 # To run [any of the other HuggingFace Whisper models](https://huggingface.co/models?search=openai/whisper),
