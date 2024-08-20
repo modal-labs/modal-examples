@@ -33,6 +33,7 @@ app = modal.App(
 # You must invoke the Function with an individual ASCII input, and a single
 # character will be returned in response.
 
+
 @app.function()
 @modal.batched(max_batch_size=4, wait_ms=1000)
 async def asciis_to_chars(asciis: list[int]) -> list[str]:
@@ -47,6 +48,7 @@ async def asciis_to_chars(asciis: list[int]) -> list[str]:
 #
 # Note that if a class has a Batched Method, it cannot have other Batched Methods
 # or Methods.
+
 
 @app.cls()
 class AsciiConverter:
@@ -68,6 +70,7 @@ class AsciiConverter:
 # in parallel.
 #
 # Run this script to see which characters correspond to ASCII codes 33 through 38!
+
 
 @app.local_entrypoint()
 async def main():
