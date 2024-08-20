@@ -123,14 +123,14 @@ class Model:
 
         start = time.monotonic_ns()
         print(f"Transcribing {len(audio_samples)} audio samples")
-        transcription = self.pipeline(
+        transcriptions = self.pipeline(
             audio_samples, batch_size=len(audio_samples)
         )
         end = time.monotonic_ns()
         print(
             f"Transcribed {len(audio_samples)} samples in {round((end - start) / 1e9, 2)}s"
         )
-        return transcription
+        return transcriptions
 
 
 # ## Transcribe a dataset
