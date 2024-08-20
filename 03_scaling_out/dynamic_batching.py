@@ -14,7 +14,8 @@
 import modal
 
 app = modal.App(
-    "example-dynamic-batching-ascii-conversion", image=modal.Image.debian_slim()
+    "example-dynamic-batching-ascii-conversion",
+    image=modal.Image.debian_slim(python_version="3.11"),
 )
 
 
@@ -22,6 +23,14 @@ app = modal.App(
 #
 # Now, let's define a function that converts ASCII codes to characters. This
 # async Batched Function allows us to convert up to four ASCII codes at once.
+
+
+@app.function()
+@modal.batched(max_batch_size=4, wait_ms=1000)
+async def asciis_to_chars(asciis: list[int]) -> list[str]:
+    return [chr(ascii) for ascii in asciis]
+
+
 # If there are fewer than four ASCII codes in the batch, the Function will wait
 # for one second, as specified by `wait_ms`, to allow more inputs to arrive before
 # returning the result.
@@ -32,13 +41,6 @@ app = modal.App(
 #
 # You must invoke the Function with an individual ASCII input, and a single
 # character will be returned in response.
-
-
-@app.function()
-@modal.batched(max_batch_size=4, wait_ms=1000)
-async def asciis_to_chars(asciis: list[int]) -> list[str]:
-    return [chr(ascii) for ascii in asciis]
-
 
 # ## Defining a class with a Batched Method
 #
