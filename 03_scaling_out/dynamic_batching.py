@@ -1,7 +1,7 @@
 # # Dynamic batching for ASCII and character conversion
 #
 # This example demonstrates how to dynamically batch a simple
-# application to converts ASCII codes to characters and vice versa.
+# application that converts ASCII codes to characters and vice versa.
 #
 # For more details about using dynamic batching and optimizing
 # the batching configurations for your application, see
@@ -17,6 +17,7 @@ app = modal.App(
     "example-dynamic-batching-ascii-conversion", image=modal.Image.debian_slim()
 )
 
+
 # ## Defining a Batched Function
 #
 # Now, let's define a function that converts ASCII codes to characters. This
@@ -29,9 +30,8 @@ app = modal.App(
 # output is a list of strings. To allow batching, the input list `asciis`
 # and the output list must have the same length.
 #
-# However, you must invoke the Function with an individual ASCII input, and a single
-# character will be returned to the invocation.
-
+# You must invoke the Function with an individual ASCII input, and a single
+# character will be returned in response.
 
 @app.function()
 @modal.batched(max_batch_size=4, wait_ms=1000)
@@ -47,7 +47,6 @@ async def asciis_to_chars(asciis: list[int]) -> list[str]:
 #
 # Note that if a class has a Batched Method, it cannot have other Batched Methods
 # or Methods.
-
 
 @app.cls()
 class AsciiConverter:
@@ -69,7 +68,6 @@ class AsciiConverter:
 # in parallel.
 #
 # Run this script to see which characters correspond to ASCII codes 33 through 38!
-
 
 @app.local_entrypoint()
 async def main():
