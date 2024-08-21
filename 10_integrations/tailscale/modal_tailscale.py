@@ -30,11 +30,12 @@ image = (
 app = modal.App(image=image)
 
 
-# Run your function adding a Tailscale secret. It expects an environment variable
-# named `TAILSCALE_AUTHKEY`. We suggest creating a [reusable and ephemeral key](https://tailscale.com/kb/1111/ephemeral-nodes).
+# Run your function adding a Tailscale secret. We suggest creating a [reusable and ephemeral key](https://tailscale.com/kb/1111/ephemeral-nodes).
 @app.function(
     secrets=[
-        modal.Secret.from_name("tailscale-auth"),
+        modal.Secret.from_name(
+            "tailscale-auth", required_keys=["TAILSCALE_AUTHKEY"]
+        ),
         modal.Secret.from_dict(
             {
                 "ALL_PROXY": "socks5://localhost:1080/",
