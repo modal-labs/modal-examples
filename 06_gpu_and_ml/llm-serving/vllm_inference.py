@@ -20,6 +20,9 @@
 # Our examples repository also includes scripts for running clients and load-testing for OpenAI-compatible APIs
 # [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
 #
+# You can find a video walkthrough of this example and the related scripts on the Modal YouTube channel
+# [here](https://www.youtube.com/watch?v=QmY_7ePR1hM).
+#
 # ## Set up the container image
 #
 # Our first order of business is to define the environment our server will run in:
