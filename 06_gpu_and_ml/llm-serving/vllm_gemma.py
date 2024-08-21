@@ -91,7 +91,11 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_image,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
+        secrets=[
+            modal.Secret.from_name(
+                "huggingface-secret", required_keys=["HF_TOKEN"]
+            )
+        ],
         timeout=60 * 20,
         kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
     )

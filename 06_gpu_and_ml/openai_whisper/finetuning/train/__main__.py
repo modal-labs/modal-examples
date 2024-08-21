@@ -32,7 +32,9 @@ image = modal.Image.debian_slim().pip_install_from_requirements(
 app = modal.App(
     name=app_config.app_name,
     image=image,
-    secrets=[modal.Secret.from_name("huggingface-secret")],
+    secrets=[
+        modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
+    ],
 )
 
 logger = get_logger(__name__)
