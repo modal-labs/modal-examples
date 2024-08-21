@@ -23,6 +23,9 @@
 #
 # ![Gradio.app image generation interface](./gradio-image-generate.png)
 #
+# You can find a video walkthrough of this example on the Modal YouTube channel
+# [here](https://www.youtube.com/watch?v=df-8fiByXMI).
+#
 # ## Imports and setup
 #
 # We start by importing the necessary libraries and setting up the environment.
@@ -265,12 +268,10 @@ class TrainConfig(SharedConfig):
     if USE_WANDB
     else [modal.Secret.from_name("huggingface")],
 )
-def train(instance_example_urls):
+def train(instance_example_urls, config):
     import subprocess
 
     from accelerate.utils import write_basic_config
-
-    config = TrainConfig()
 
     # load data locally
     img_path = load_images(instance_example_urls)
@@ -522,7 +523,11 @@ def fastapi_app():
 
 
 @app.local_entrypoint()
-def run():
-    with open(TrainConfig().instance_example_urls_file) as f:
-        instance_example_urls = [line.strip() for line in f.readlines()]
-    train.remote(instance_example_urls)
+def run(  # add more config params here to make training configurable
+    max_train_steps: int = 250,
+):
+    config = TrainConfig(max_train_steps=max_train_steps)
+    instance_example_urls = (
+        Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
+    )
+    train.remote(instance_example_urls, config)
