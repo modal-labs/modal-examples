@@ -47,13 +47,11 @@ with flux_image.imports():
     image=flux_image,
 )
 class Model:
-
     @modal.build()
     @modal.enter()
     def enter(self):
         from huggingface_hub import snapshot_download
         from transformers.utils import move_cache
-
 
         snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
 
