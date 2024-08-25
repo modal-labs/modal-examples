@@ -33,11 +33,13 @@ class ModelOutput(BaseModel):
 # require it, which is inefficient. Find an elegant way to make the GPU optional.
 @app.cls(gpu="A10G", volumes={config.VOLUME_DIR: volume})
 class Model:
-    def __init__(self, model_id: str) -> None:
-        self.model_id = model_id
-        classifier, metadata = models.load_model(model_id=self.model_id)
-        self.classifier = classifier
-        self.metadata = metadata
+    model_id: str = modal.parameter()
+
+    @modal.enter()
+    def load(self):
+        self.classifier, self.metadata = models.load_model(
+            model_id=self.model_id
+        )
 
     @modal.method()
     def generate(self, text: str) -> ModelOutput:
