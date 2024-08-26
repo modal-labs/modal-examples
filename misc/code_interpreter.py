@@ -18,7 +18,9 @@ NULL_MARKER = str(uuid.uuid4())
 
 # Our code interpreter will use a Debian base with Python 3.11 and pip install the IPython
 # package so we get the familiar JupyterHub REPL interface.
-image = modal.Image.debian_slim(python_version="3.11").pip_install("IPython==8.26.0")
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "IPython==8.26.0"
+)
 
 # This is the Python program which runs inside the modal.Sandbox container process and receives
 # code to execute from the code interpreter client.
@@ -54,12 +56,15 @@ while True:
 # from the Sandbox driver program and attaching it to this execution result
 # object.
 
+
 class ExecutionResult:
     def __init__(self, text: str):
         self.text = text
 
+
 # Our code interpreter could take many forms (it could even not run Python!)
 # but for this example we implement a Jupyer Notebook-like interface.
+
 
 class Notebook:
     def __init__(self, sb=None):
@@ -93,6 +98,7 @@ class Notebook:
 
 # The `CodeInterpreter` is a context manager class which manages
 # the lifecycle of the underlying modal.Sandbox.
+
 
 class CodeInterpreter:
     def __init__(self, timeout: int = 600, debug: bool = False):
@@ -134,11 +140,13 @@ class CodeInterpreter:
             )
         return process.stdout.read()
 
+
 # Finally, we demonstrate the basics of the code interpreter's functionality.
 # We can modify the interpreter's state by setting variables and then mutating
 # those variables. We can modify the sandbox's filesystem and then inspect that
 # filesystem modification by exec'ing arbitrary Linux shell commands in the sandbox
 # container.
+
 
 def main():
     with CodeInterpreter() as sandbox:
