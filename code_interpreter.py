@@ -102,7 +102,9 @@ class CodeInterpreter:
         process.wait()
         if process.returncode != 0:
             c = process.returncode
-            raise RuntimeError(f"command exec failed exit {c}: {process.stderr.read()}")
+            raise RuntimeError(
+                f"command exec failed exit {c}: {process.stderr.read()}"
+            )
         return process.stdout.read()
 
 
@@ -113,11 +115,12 @@ def main():
         print(execution.text)  # outputs 2
 
         # Demo filesystem mutation and querying
-        execution = sandbox.notebook.exec_cell("import pathlib; pathlib.Path('/tmp/foo').write_text('hello!')")
+        execution = sandbox.notebook.exec_cell(
+            "import pathlib; pathlib.Path('/tmp/foo').write_text('hello!')"
+        )
         stdout = sandbox.exec("ls", "/tmp/")  # outputs 'foo\n'
         print(stdout)
 
 
 if __name__ == "__main__":
     main()
-
