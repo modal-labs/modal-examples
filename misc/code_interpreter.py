@@ -1,6 +1,7 @@
 # ---
 # deploy: false
-# lambda-test: false
+# lambda-test: true
+# cmd: ["python", "-m", "misc.code_interpreter"]
 # ---
 #
 # This script demonstrates building a simple code interpeter for LLM apps on top of
