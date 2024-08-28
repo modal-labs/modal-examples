@@ -1,6 +1,6 @@
 # # Dynamic batching for ASCII and character conversion
 #
-# This example demonstrates how to dynamically batch a simple
+# This  demonstrates how to dynamically batch a simple
 # application that converts ASCII codes to characters and vice versa.
 #
 # For more details about using dynamic batching and optimizing
