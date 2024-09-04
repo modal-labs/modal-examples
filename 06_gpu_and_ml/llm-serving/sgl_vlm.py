@@ -1,8 +1,12 @@
 # ---
 # deploy: true
 # ---
-# # Run LLaVA-Next on SGLang for Visual QA
-#
+# # Run Qwen2-VL on SGLang for Visual QA
+
+import transformers
+
+print(f"Transformers version: {transformers.__version__}")
+
 # Vision-Language Models (VLMs) are like LLMs with eyes:
 # they can generate text based not just on other text,
 # but on images as well.
@@ -44,13 +48,12 @@ SGL_LOG_LEVEL = "error"  # try "debug" or "info" if you have issues
 
 MINUTES = 60  # seconds
 
-# We use a [LLaVA-NeXT](https://huggingface.co/docs/transformers/en/model_doc/llava_next)
-# model built on top of Meta's LLaMA 3 8B.
+# We use the Qwen2-VL model, which is a powerful vision-language model.
 
-MODEL_PATH = "lmms-lab/llama3-llava-next-8b"
-MODEL_REVISION = "e7e6a9fd5fd75d44b32987cba51c123338edbede"
-TOKENIZER_PATH = "lmms-lab/llama3-llava-next-8b-tokenizer"
-MODEL_CHAT_TEMPLATE = "llama-3-instruct"
+MODEL_PATH = "Qwen/Qwen2-VL-7B-Instruct"
+MODEL_REVISION = "main"  # Use the main branch as the default revision
+TOKENIZER_PATH = "Qwen/Qwen2-VL-7B-Instruct"
+MODEL_CHAT_TEMPLATE = "chatml"  # Qwen models typically use the ChatML format
 
 # We download it from the Hugging Face Hub using the Python function below.
 
@@ -77,8 +80,14 @@ vlm_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(  # add sglang and some Python dependencies
         "sglang[all]==0.1.17",
-        "transformers==4.40.2",
+        "transformers>=4.40.0",
         "numpy<2",
+        "qwen-vl-utils",  # Add Qwen-specific utilities
+        "torch",  # Ensure PyTorch is installed
+        "accelerate",  # For optimized model loading
+        "pillow",  # Required for image processing
+        "sentencepiece",  # Required for tokenization
+        "torchvision",  # Added for image processing and vision tasks
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
@@ -113,23 +122,26 @@ app = modal.App("example-sgl-vlm")
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
     def start_runtime(self):
-        """Starts an SGL runtime to execute inference."""
-        import sglang as sgl
+        """Initializes the Qwen2 VL model, processor, and tokenizer."""
+        import torch
+        from transformers import (
+            AutoProcessor,
+            AutoTokenizer,
+            Qwen2VLForConditionalGeneration,
+        )
 
-        self.runtime = sgl.Runtime(
-            model_path=MODEL_PATH,
-            tokenizer_path=TOKENIZER_PATH,
-            tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_level=SGL_LOG_LEVEL,
+        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+            MODEL_PATH, torch_dtype=torch.float16, device_map="auto"
         )
-        self.runtime.endpoint.chat_template = (
-            sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
-        )
-        sgl.set_default_backend(self.runtime)
+        self.tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
+        self.processor = AutoProcessor.from_pretrained(TOKENIZER_PATH)
+
+        # Set the chat template
+        self.tokenizer.chat_template = MODEL_CHAT_TEMPLATE
 
     @modal.web_endpoint(method="POST", docs=True)
     def generate(self, request: dict):
-        import sglang as sgl
+        from qwen_vl_utils import process_vision_info
         from term_image.image import from_file
 
         start = time.monotonic_ns()
@@ -149,25 +161,50 @@ class Model:
         with open(image_path, "wb") as file:
             file.write(response.content)
 
-        @sgl.function
-        def image_qa(s, image_path, question):
-            s += sgl.user(sgl.image(image_path) + question)
-            s += sgl.assistant(sgl.gen("answer"))
-
         question = request.get("question")
         if question is None:
             question = "What is this?"
 
-        state = image_qa.run(
-            image_path=image_path, question=question, max_new_tokens=128
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image_path},
+                    {"type": "text", "text": question},
+                ],
+            }
+        ]
+
+        text = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = self.processor(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        inputs = inputs.to("cuda")
+
+        generated_ids = self.model.generate(**inputs, max_new_tokens=128)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids) :]
+            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        answer = self.processor.batch_decode(
+            generated_ids_trimmed,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0]
+
         # show the question, image, and response in the terminal for demonstration purposes
         print(
             Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep=""
         )
         terminal_image = from_file(image_path)
         terminal_image.draw()
-        answer = state["answer"]
         print(
             Colors.BOLD,
             Colors.GREEN,
@@ -179,9 +216,11 @@ class Model:
             f"request {request_id} completed in {round((time.monotonic_ns() - start) / 1e9, 2)} seconds"
         )
 
+        return {"answer": answer}
+
     @modal.exit()  # what should a container do before it shuts down?
     def shutdown_runtime(self):
-        self.runtime.shutdown()
+        pass  # No specific shutdown needed for Qwen2-VL model
 
 
 # ## Asking questions about images via POST
