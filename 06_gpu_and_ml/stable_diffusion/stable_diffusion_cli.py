@@ -46,7 +46,7 @@ app = modal.App("stable-diffusion-cli")
 # This lets us start containers much faster, since all the data that's needed is
 # already inside the image.
 
-model_id = "runwayml/stable-diffusion-v1-5"
+model_id = "Jiali/stable-diffusion-1.5"
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.29.2",
