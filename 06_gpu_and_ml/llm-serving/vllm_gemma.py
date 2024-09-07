@@ -180,7 +180,7 @@ class Model:
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. Run it by executing the command `modal run vllm_inference.py`.
+# sequentially for a list of inputs. Run it by executing the command `modal run vllm_gemma.py`.
 #
 # The examples below are meant to put the model through its paces, with a variety of questions and prompts.
 # We also calculate the throughput and latency we achieve.
