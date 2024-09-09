@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# lambda-test: false
+# cmd: ["modal", "serve", "09_job_queues/doc_ocr_webapp.py"]
 # ---
 #
 # # Document OCR web app
@@ -8,8 +8,8 @@
 # This tutorial shows you how to use Modal to deploy a fully serverless
 # [React](https://reactjs.org/) + [FastAPI](https://fastapi.tiangolo.com/) application.
 # We're going to build a simple "Receipt Parser" web app that submits OCR transcription
-# tasks to a separate Modal app defined in the [Job Queue
-# tutorial](/docs/examples/doc_ocr_jobs), polls until the task is completed, and displays
+# tasks to a separate Modal app defined in the [Job Queue tutorial](https://modal.com/docs/examples/doc_ocr_jobs),
+# polls until the task is completed, and displays
 # the results. Try it out for yourself
 # [here](https://modal-labs--example-doc-ocr-webapp-wrapper.modal.run/).
 #
@@ -17,7 +17,7 @@
 
 # ## Basic setup
 #
-# Let's get the imports out of the way and define a [`App`](/docs/reference/modal.App).
+# Let's get the imports out of the way and define a [`App`](https://modal.com/docs/reference/modal.App).
 
 from pathlib import Path
 
@@ -27,8 +27,8 @@ import modal
 
 app = modal.App("example-doc-ocr-webapp")
 
-# Modal works with any [ASGI](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
-# [WSGI](/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).
+# Modal works with any [ASGI](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) or
+# [WSGI](https://modal.com/docs/guide/webhooks#wsgi) web framework. Here, we choose to use [FastAPI](https://fastapi.tiangolo.com/).
 
 web_app = fastapi.FastAPI()
 
@@ -38,12 +38,13 @@ web_app = fastapi.FastAPI()
 # and another to poll for the results of the job.
 #
 # In `parse`, we're going to submit tasks to the function defined in the [Job
-# Queue tutorial](/docs/examples/doc_ocr_jobs), so we import it first using
-# [`Function.lookup`](/docs/reference/modal.Function#lookup).
+# Queue tutorial](https://modal.com/docs/examples/doc_ocr_jobs), so we import it first using
+# [`Function.lookup`](https://modal.com/docs/reference/modal.Function#lookup).
 #
-# We call [`.spawn()`](/docs/reference/modal.Function#spawn) on the function handle
-# we imported above, to kick off our function without blocking on the results. `spawn` returns
-# a unique ID for the function call, that we can use later to poll for its result.
+# We call [`.spawn()`](https://modal.com/docs/reference/modal.Function#spawn) on the function handle
+# we imported above to kick off our function without blocking on the results. `spawn` returns
+# a unique ID for the function call, which we then use
+# to poll for its result.
 
 
 @web_app.post("/parse")
@@ -65,7 +66,7 @@ async def parse(request: fastapi.Request):
 
 @web_app.get("/result/{call_id}")
 async def poll_results(call_id: str):
-    function_call = modal.FunctionCall.from_id(call_id)
+    function_call = modal.functions.FunctionCall.from_id(call_id)
     try:
         result = function_call.get(timeout=0)
     except TimeoutError:
@@ -77,7 +78,7 @@ async def poll_results(call_id: str):
 # Finally, we mount the static files for our front-end. We've made [a simple React
 # app](https://github.com/modal-labs/modal-examples/tree/main/09_job_queues/doc_ocr_frontend)
 # that hits the two endpoints defined above. To package these files with our app, first
-# we get the local assets path, and then create a modal [`Mount`](/docs/guide/local-data#mounting-directories)
+# we get the local assets path, and then create a modal [`Mount`](https://modal.com/docs/guide/local-data#mounting-directories)
 # that mounts this directory at `/assets` inside our container. Then, we instruct FastAPI to [serve
 # this static file directory](https://fastapi.tiangolo.com/tutorial/static-files/) at our root path.
 
@@ -98,27 +99,27 @@ def wrapper():
 
 # ## Running
 #
-# You can run this as an ephemeral app, by running the command
+# While developing, you can run this as an ephemeral app by executing the command
 #
 # ```shell
 # modal serve doc_ocr_webapp.py
 # ```
 #
+# Modal watches all the mounted files and updates the app if anything changes.
+# See [these docs](https://www.notion.so/modal-com/Simple-RAG-chat-with-PDF-app-a20fc171f0fc415cb320606f737e6db4?pvs=4)
+# for more details.
+#
 # ## Deploy
 #
-# That's all! To deploy your application, run
+# To deploy your application, run
 #
 # ```shell
 # modal deploy doc_ocr_webapp.py
 # ```
 #
-# If successful, this will print a URL for your app, that you can navigate to from
+# That's all!
+#
+# If successful, this will print a URL for your app that you can navigate to in
 # your browser 🎉 .
 #
 # ![receipt parser processed](./receipt_parser_frontend_2.jpg)
-#
-# ## Developing
-#
-# If desired, instead of deploying, we can [serve](/docs/guide/webhooks#developing-with-modal-serve)
-# our app ephemerally. In this case, Modal watches all the mounted files, and updates
-# the app if anything changes.
