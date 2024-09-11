@@ -9,7 +9,7 @@
 # ## Importing Modal and setting up
 #
 # We start by importing `modal` and creating a `App`.
-# We build up from our `App` to [define our application](/docs/guide/apps).
+# We build up this `App` to [define our application](/docs/guide/apps).
 
 import sys
 
@@ -23,13 +23,11 @@ app = modal.App("example-hello-world")
 #
 # So first we've got to write some code.
 #
-# Let's write a simple function:
-# log `"hello"` to standard out if the input is even
-# or `"world"` to standard error if it's not,
-# then return the input times itself.
+# Let's write a simple function that takes in an input,
+# prints a log or an error to the console,
+# and then returns an output.
 #
-# To make this function work with Modal, we just wrap it in a decorator
-# from our application `app`,
+# To make this function work with Modal, we just wrap it in a decorator,
 # [`@app.function`](/docs/reference/modal.App#function).
 
 
@@ -47,13 +45,13 @@ def f(i):
 #
 # Now let's see three different ways we can call that function:
 #
-# 1. As a regular `local` call on your computer, with `f.local`
+# 1. As a regular call on your `local` machine, with `f.local`
 #
 # 2. As a `remote` call that runs in the cloud, with `f.remote`
 #
 # 3. By `map`ping many copies of `f` in the cloud over many inputs, with `f.map`
 #
-# We call `f` in each of these ways inside a `main` function below.
+# We call `f` in each of these ways inside the `main` function below.
 
 
 @app.local_entrypoint()
@@ -66,13 +64,13 @@ def main():
 
     # run the function in parallel and remotely on Modal
     total = 0
-    for ret in f.map(range(20)):
+    for ret in f.map(range(200)):
         total += ret
 
     print(total)
 
 
-# Enter `modal run hello_world.py` in a shell and you'll see
+# Enter `modal run hello_world.py` in a shell, and you'll see
 # a Modal app initialize.
 # You'll then see the `print`ed logs of
 # the `main` function and, mixed in with them, all the logs of `f` as it is run
@@ -84,14 +82,14 @@ def main():
 # ## What just happened?
 #
 # When we called `.remote` on `f`, the function was executed
-# **in the cloud**, on Modal's infrastructure, not on the local machine.
+# _in the cloud_, on Modal's infrastructure, not on the local machine.
 #
 # In short, we took the function `f`, put it inside a container,
 # sent it the inputs, and streamed back the logs and outputs.
 #
 # ## But why does this matter?
 #
-# Try doing one of these things next to start seeing the full power of Modal!
+# Try one of these things next to start seeing the full power of Modal!
 #
 # ### You can change the code and run it again
 #
@@ -106,19 +104,19 @@ def main():
 #
 # ### You can map over more data
 #
-# Change the `map` range from `20` to some large number, like `1170`. You'll see
+# Change the `map` range from `200` to some large number, like `1170`. You'll see
 # Modal create and run even more containers in parallel this time.
 #
 # And it'll happen lightning fast!
 #
 # ### You can run a more interesting function
 #
-# The function `f` is obviously silly and doesn't do much, but in its place
+# The function `f` is a bit silly and doesn't do much, but in its place
 # imagine something that matters to you, like:
 #
-# * Running [language model inference](/docs/examples/vllm_mixtral) or [fine-tuning](/docs/examples/slack-finetune)
-# * Manipulating [audio](/docs/examples/discord-musicgen) or [images](stable_diffusion_xl_turbo)
-# * [Collecting financial data](/docs/examples/fetch_stock_prices) to backtest a trading algorithm.
+# * Running [language model inference](/docs/examples/vllm_inference) or [fine-tuning](/docs/examples/slack-finetune)
+# * Manipulating [audio](/docs/examples/discord-musicgen) or [images](/docs/examples/dreambooth_app)
+# * [Collecting financial data](/docs/examples/fetch_stock_prices) to backtest a trading algorithm
 #
 # Modal lets you parallelize that operation effortlessly by running hundreds or
 # thousands of containers in the cloud.
