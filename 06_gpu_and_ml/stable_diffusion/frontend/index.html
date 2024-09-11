@@ -75,12 +75,24 @@
             this.submitted = this.prompt;
             this.loading = true;
 
-            const res = await fetch(`{{ inference_url }}?prompt=${this.submitted}`);
+            try {
+              const res = await fetch(
+                `{{ inference_url }}?prompt=${this.submitted}`,
+              );
 
-            const blob = await res.blob();
-            this.imageURL = URL.createObjectURL(blob);
-            this.loading = false;
-            console.log(this.imageURL);
+              if (!res.ok) {
+                throw new Error("Inference failed");
+              }
+
+              const blob = await res.blob();
+              this.imageURL = URL.createObjectURL(blob);
+            } catch (error) {
+              console.error("Fetch failed:", error);
+              alert("There was an error generating the image.");
+            } finally {
+              this.loading = false;
+              console.log(this.imageURL);
+            }
           },
         };
       }
