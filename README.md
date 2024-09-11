@@ -13,11 +13,11 @@ First, sign up for a free account at [modal.com](https://modal.com/) and follow
 the setup instructions to install the `modal` package and set your API key.
 
 The examples are organized into several folders based on their category. You can
-generally run the files in any folder as ordinary Python programs, with a
+generally run the files in any folder much like you run ordinary Python programs, with a
 command like:
 
 ```bash
-python -m 01_getting_started.hello_world
+modal run 01_getting_started.hello_world
 ```
 
 Although these scripts are run on your local machine, they'll communicate with
