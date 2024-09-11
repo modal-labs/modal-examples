@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Hosting Mixtral 8x7B with Text Generation Inference (TGI)
 #
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)
@@ -12,11 +15,10 @@
 #
 # First we import the components we need from `modal`.
 
-import os
 import subprocess
 from pathlib import Path
 
-from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
+import modal
 
 # Next, we set which model to serve, taking care to specify the GPU configuration required
 # to fit the model into VRAM, and the quantization method (`bitsandbytes` or `gptq`) if desired.
@@ -24,9 +26,9 @@ from modal import App, Image, Mount, Secret, asgi_app, enter, exit, gpu, method
 #
 # Any model supported by TGI can be chosen here.
 
-GPU_CONFIG = gpu.A100(size="40GB", count=4)
-MODEL_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-MODEL_REVISION = "f1ca00645f0b1565c7f9a1c863d2be6ebf896b04"
+GPU_CONFIG = modal.gpu.A100(size="40GB", count=4)
+MODEL_ID = "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO"
+MODEL_REVISION = "286ae6737d048ad1d965c2e830864df02db50f2f"
 # Add `["--quantize", "gptq"]` for TheBloke GPTQ models.
 LAUNCH_FLAGS = [
     "--model-id",
@@ -47,19 +49,9 @@ LAUNCH_FLAGS = [
 # ### Download the weights
 # We can use the included utilities to download the model weights (and convert to safetensors, if necessary)
 # as part of the image build.
-#
-# For this step to work on a [gated model](https://huggingface.co/docs/text-generation-inference/en/basic_tutorials/gated_model_access)
-# like Mixtral 8x7B, the `HF_TOKEN` environment variable must be set.
-#
-# After [creating a HuggingFace access token](https://huggingface.co/settings/tokens)
-# and accepting the [terms of use](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1),
-# head to the [secrets page](https://modal.com/secrets) to share it with Modal as `huggingface-secret`.
 
 
 def download_model():
-    # the secret name is different for TGI and for transformers
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
-
     subprocess.run(
         [
             "text-generation-server",
@@ -80,17 +72,18 @@ def download_model():
 # Finally, we install the `text-generation` client to interface with TGI's Rust webserver over `localhost`.
 
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference:1.3.3")
+    modal.Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference:1.3.3"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(
         download_model,
         timeout=60 * 20,
-        secrets=[Secret.from_name("huggingface-secret")],
     )
     .pip_install("text-generation")
 )
 
-app = App("example-tgi-mixtral")
+app = modal.App("example-tgi-mixtral")
 
 
 # ## The model class
@@ -113,7 +106,6 @@ app = App("example-tgi-mixtral")
 
 
 @app.cls(
-    secrets=[Secret.from_name("huggingface-secret")],
     gpu=GPU_CONFIG,
     allow_concurrent_inputs=10,
     container_idle_timeout=60 * 10,
@@ -121,7 +113,7 @@ app = App("example-tgi-mixtral")
     image=tgi_image,
 )
 class Model:
-    @enter()
+    @modal.enter()
     def start_server(self):
         import socket
         import time
@@ -129,11 +121,7 @@ class Model:
         from text_generation import AsyncClient
 
         self.launcher = subprocess.Popen(
-            ["text-generation-launcher"] + LAUNCH_FLAGS,
-            env={
-                **os.environ,
-                "HUGGING_FACE_HUB_TOKEN": os.environ["HF_TOKEN"],
-            },
+            ["text-generation-launcher"] + LAUNCH_FLAGS
         )
         self.client = AsyncClient("http://127.0.0.1:8000", timeout=60)
         self.template = "[INST] {user} [/INST]"
@@ -151,18 +139,18 @@ class Model:
                     raise RuntimeError(f"launcher exited with code {retcode}")
                 time.sleep(1.0)
 
-    @exit()
+    @modal.exit()
     def terminate_server(self):
         self.launcher.terminate()
 
-    @method()
+    @modal.method()
     async def generate(self, question: str):
         prompt = self.template.format(user=question)
         result = await self.client.generate(prompt, max_new_tokens=1024)
 
         return result.generated_text
 
-    @method()
+    @modal.method()
     async def generate_stream(self, question: str):
         prompt = self.template.format(user=question)
 
@@ -196,12 +184,12 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @app.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
     timeout=60 * 10,
 )
-@asgi_app()
+@modal.asgi_app(label="tgi-mixtral")
 def tgi_mixtral():
     import json
 
@@ -245,7 +233,7 @@ def tgi_mixtral():
 # ```
 # $ python
 # >>> import modal
-# >>> f = modal.Function.lookup("example-tgi-Mixtral-8x7B-Instruct-v0.1", "Model.generate")
+# >>> f = modal.Function.lookup("example-tgi-mixtral", "Model.generate")
 # >>> f.remote("What is the story about the fox and grapes?")
 # 'The story about the fox and grapes ...
 # ```

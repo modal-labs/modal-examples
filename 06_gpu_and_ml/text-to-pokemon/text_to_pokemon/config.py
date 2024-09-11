@@ -1,7 +1,7 @@
 import pathlib
 import time
 
-from modal import App, Image, Volume
+import modal
 
 CACHE_DIR = "/cache"
 MODEL_CACHE = pathlib.Path("/models")
@@ -189,9 +189,11 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = Volume.from_name("txt-to-pokemon-cache-vol", create_if_missing=True)
+volume = modal.Volume.from_name(
+    "txt-to-pokemon-cache-vol", create_if_missing=True
+)
 image = (
-    Image.debian_slim()
+    modal.Image.debian_slim()
     .pip_install(
         "accelerate",
         "colorgram.py",
@@ -203,4 +205,4 @@ image = (
     )
     .run_function(load_stable_diffusion_pokemon_model)
 )
-app = App(name="example-text-to-pokemon", image=image)
+app = modal.App(name="example-text-to-pokemon", image=image)

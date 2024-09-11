@@ -1,5 +1,5 @@
 import click
-from modal import lookup
+import modal
 
 from .modal_functions import main_app, sync_app
 
@@ -49,7 +49,7 @@ def deploy(metadata):
     )
     name = f"kedro.{metadata.project_name}"
     app.deploy(name)
-    sync_data = lookup(name, "sync_data")  # use the deployed function
+    sync_data = modal.lookup(name, "sync_data")  # use the deployed function
     sync_data(remote_project_mount_point / "data", remote_data_path)
 
 

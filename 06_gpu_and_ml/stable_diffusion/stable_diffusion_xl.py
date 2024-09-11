@@ -9,7 +9,7 @@
 # example, but it generates images from the larger SDXL 1.0 model. Specifically, it runs the
 # first set of steps with the base model, followed by the refiner model.
 #
-# [Try out the live demo here!](https://modal-labs--stable-diffusion-xl-app.modal.run/) The first
+# [Try out the live demo here!](https://modal-labs--stable-diffusion-xl-ui.modal.run/) The first
 # generation may include a cold-start, which takes around 20 seconds. The inference speed depends on the GPU
 # and step count (for reference, an A100 runs 40 steps in 8 seconds).
 
@@ -18,17 +18,7 @@
 import io
 from pathlib import Path
 
-from modal import (
-    App,
-    Image,
-    Mount,
-    asgi_app,
-    build,
-    enter,
-    gpu,
-    method,
-    web_endpoint,
-)
+import modal
 
 # ## Define a container image
 #
@@ -40,7 +30,7 @@ from modal import (
 
 
 sdxl_image = (
-    Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install(
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
     )
@@ -53,7 +43,7 @@ sdxl_image = (
     )
 )
 
-app = App("stable-diffusion-xl")
+app = modal.App("stable-diffusion-xl")
 
 with sdxl_image.imports():
     import torch
@@ -69,9 +59,9 @@ with sdxl_image.imports():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@app.cls(gpu=gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
+@app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240, image=sdxl_image)
 class Model:
-    @build()
+    @modal.build()
     def build(self):
         from huggingface_hub import snapshot_download
 
@@ -88,7 +78,7 @@ class Model:
             ignore_patterns=ignore,
         )
 
-    @enter()
+    @modal.enter()
     def enter(self):
         load_options = dict(
             torch_dtype=torch.float16,
@@ -137,14 +127,16 @@ class Model:
 
         return byte_stream
 
-    @method()
+    @modal.method()
     def inference(self, prompt, n_steps=24, high_noise_frac=0.8):
         return self._inference(
             prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
         ).getvalue()
 
-    @web_endpoint()
-    def web_inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+    @modal.web_endpoint(docs=True)
+    def web_inference(
+        self, prompt: str, n_steps: int = 24, high_noise_frac: float = 0.8
+    ):
         return Response(
             content=self._inference(
                 prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
@@ -176,21 +168,24 @@ def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
 # Here we ship a simple web application that exposes a front-end (written in Alpine.js) for
 # our backend deployment.
 #
-# The Model class will serve multiple users from a its own shared pool of warm GPU containers automatically.
+# The Model class will serve multiple users from its own shared pool of warm GPU containers automatically.
 #
 # We can deploy this with `modal deploy stable_diffusion_xl.py`.
+#
+# Because the `web_endpoint` decorator on our `web_inference` function has the `docs` flag set to `True`,
+# we also get interactive documentation for our endpoint at `/docs`.
 
 frontend_path = Path(__file__).parent / "frontend"
 
-web_image = Image.debian_slim().pip_install("jinja2")
+web_image = modal.Image.debian_slim().pip_install("jinja2")
 
 
 @app.function(
     image=web_image,
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=20,
 )
-@asgi_app()
+@modal.asgi_app()
 def ui():
     import fastapi.staticfiles
     from fastapi import FastAPI, Request

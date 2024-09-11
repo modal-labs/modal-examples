@@ -17,7 +17,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import App, Image, enter, gpu, method, web_endpoint
+import modal
 
 
 # Spec for an image where falcon-40b-instruct is cached locally
@@ -29,7 +29,7 @@ def download_falcon_40b():
 
 
 image = (
-    Image.micromamba()
+    modal.Image.micromamba()
     .micromamba_install(
         "cudatoolkit=11.7",
         "cudnn=8.1.0",
@@ -56,7 +56,7 @@ image = (
     .run_function(download_falcon_40b)
 )
 
-app = App(image=image, name="example-falcon-bnb")
+app = modal.App(image=image, name="example-falcon-bnb")
 
 
 # ## The model class
@@ -73,12 +73,12 @@ app = App(image=image, name="example-falcon-bnb")
 # The rest is just using the [`pipeline`](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
 # abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
 @app.cls(
-    gpu=gpu.A100(),  # Use A100s
+    gpu=modal.gpu.A100(),  # Use A100s
     timeout=60 * 10,  # 10 minute timeout on inputs
     container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
 )
 class Falcon40B_4bit:
-    @enter()
+    @modal.enter()
     def load_model(self):
         import torch
         from transformers import (
@@ -116,7 +116,7 @@ class Falcon40B_4bit:
         self.model = torch.compile(model)
         self.tokenizer = tokenizer
 
-    @method()
+    @modal.method()
     def generate(self, prompt: str):
         from threading import Thread
 
@@ -183,7 +183,7 @@ def cli(prompt: str = None):
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
 @app.function(timeout=60 * 10)
-@web_endpoint()
+@modal.web_endpoint()
 def get(question: str):
     from itertools import chain
 

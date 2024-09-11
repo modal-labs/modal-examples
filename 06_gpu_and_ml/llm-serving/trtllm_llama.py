@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Serverless TensorRT-LLM (LLaMA 3 8B)
 #
 # In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
@@ -40,7 +43,7 @@
 #
 # To run TensorRT-LLM, we must first install it. Easier said than done!
 #
-# In Modal, we define [container images](https://modal.com/docs/guide/custom-containers) that run our serverless workloads.
+# In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # All Modal containers have access to GPU drivers via the underlying host environment,
 # but we still need to install the software stack on top of the drivers, from the CUDA runtime up.
 #
@@ -48,7 +51,10 @@
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
 
+from typing import Optional
+
 import modal
+import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
@@ -79,12 +85,12 @@ tensorrt_image = tensorrt_image.apt_install(
 # ## Downloading the Model
 #
 # Next, we download the model we want to serve. In this case, we're using the instruction-tuned
-# version of Meta's Llama 3 8B model.
+# version of Meta's LLaMA 3 8B model.
 # We use the function below to download the model from the Hugging Face Hub.
 
 MODEL_DIR = "/root/model/model_input"
-MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
-MODEL_REVISION = "7840f95a8c7a781d3f89c4818bf693431ab3119a"  # pin model revisions to prevent unexpected changes!
+MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"
+MODEL_REVISION = "b1532e4dee724d9ba63fe17496f298254d87ca64"  # pin model revisions to prevent unexpected changes!
 
 
 def download_model():
@@ -120,7 +126,6 @@ tensorrt_image = (  # update the image by downloading the model we're using
     .run_function(  # download the model
         download_model,
         timeout=20 * MINUTES,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
     )
 )
 
@@ -232,7 +237,9 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 #
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
+app = modal.App(
+    f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
+)
 
 # Thanks to our custom container runtime system, even this
 # large, many gigabyte container boots in seconds.
@@ -248,7 +255,6 @@ app = modal.App(f"example-trtllm-{MODEL_ID}", image=tensorrt_image)
 
 @app.cls(
     gpu=GPU_CONFIG,
-    secrets=[modal.Secret.from_name("huggingface-secret")],
     container_idle_timeout=10 * MINUTES,
 )
 class Model:
@@ -296,7 +302,7 @@ class Model:
         """Generate responses to a batch of prompts, optionally with custom inference settings."""
         import time
 
-        if settings is None:
+        if settings is None or not settings:
             settings = dict(
                 temperature=0.1,  # temperature 0 not allowed, so we set top_k to 1 to get the same effect
                 top_k=1,
@@ -559,10 +565,18 @@ web_image = modal.Image.debian_slim(python_version="3.10")
 # and serve it with only a few more lines of code.
 
 
+class GenerateRequest(pydantic.BaseModel):
+    prompts: list[str]
+    settings: Optional[dict] = None
+
+
 @app.function(image=web_image)
-@modal.web_endpoint(method="POST")
-def generate_web(data: dict):
-    return Model.generate.remote(data["prompts"], settings=None)
+@modal.web_endpoint(
+    method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True
+)
+def generate_web(data: GenerateRequest) -> list[str]:
+    """Generate responses to a batch of prompts, optionally with custom inference settings."""
+    return Model.generate.remote(data.prompts, settings=None)
 
 
 # To set our function up as a web endpoint, we need to run this file --
@@ -572,7 +586,10 @@ def generate_web(data: dict):
 # modal serve trtllm_llama.py
 # ```
 #
-# You can test the endpoint by sending a POST request with `curl` from another terminal:
+# The URL for the endpoint appears in the output of the `modal serve` or `modal deploy` command.
+# Add `/docs` to the end of this URL to see the interactive Swagger documentation for the endpoint.
+#
+# You can also test the endpoint by sending a POST request with `curl` from another terminal:
 #
 # ```bash
 # curl -X POST url-from-output-of-modal-serve-here \

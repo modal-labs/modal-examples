@@ -2,12 +2,12 @@ import asyncio
 import json
 import subprocess
 
-from modal import App, Image, Secret, Volume, build, enter, exit, gpu, method
+import modal
 
 # We first set out configuration variables for our script.
 ## Embedding Containers Configuration
 GPU_CONCURRENCY = 100
-GPU_CONFIG = gpu.A10G()
+GPU_CONFIG = modal.gpu.A10G()
 MODEL_ID = "BAAI/bge-small-en-v1.5"
 MODEL_SLUG = MODEL_ID.split("/")[-1]
 BATCH_SIZE = 512
@@ -19,10 +19,10 @@ DOCKER_IMAGE = (
 
 ## Dataset-Specific Configuration
 DATASET_NAME = "wikipedia"
-DATASET_READ_VOLUME = Volume.from_name(
+DATASET_READ_VOLUME = modal.Volume.from_name(
     "embedding-wikipedia", create_if_missing=True
 )
-EMBEDDING_CHECKPOINT_VOLUME = Volume.from_name(
+EMBEDDING_CHECKPOINT_VOLUME = modal.Volume.from_name(
     "checkpoint", create_if_missing=True
 )
 DATASET_DIR = "/data"
@@ -47,7 +47,7 @@ LAUNCH_FLAGS = [
 ]
 
 
-app = App("example-embeddings")
+app = modal.App("example-embeddings")
 
 
 def spawn_server() -> subprocess.Popen:
@@ -71,7 +71,7 @@ def spawn_server() -> subprocess.Popen:
 
 
 tei_image = (
-    Image.from_registry(
+    modal.Image.from_registry(
         "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
         add_python="3.10",
     )
@@ -128,11 +128,11 @@ def generate_batches(xs, batch_size):
     retries=3,
 )
 class TextEmbeddingsInference:
-    @build()
+    @modal.build()
     def download_model(self):
         spawn_server()
 
-    @enter()
+    @modal.enter()
     def open_connection(self):
         # If the process is running for a long time, the client does not seem to close the connections, results in a pool timeout
         from httpx import AsyncClient
@@ -140,7 +140,7 @@ class TextEmbeddingsInference:
         self.process = spawn_server()
         self.client = AsyncClient(base_url="http://127.0.0.1:8000", timeout=30)
 
-    @exit()
+    @modal.exit()
     def terminate_connection(self):
         self.process.terminate()
 
@@ -149,7 +149,7 @@ class TextEmbeddingsInference:
         res = await self.client.post("/embed", json={"inputs": texts})
         return np.array(res.json())
 
-    @method()
+    @modal.method()
     async def embed(self, chunks):
         """Embeds a list of texts.  id, url, title, text = chunks[0]"""
         coros = [
@@ -256,7 +256,7 @@ def upload_result_to_hf(batch_size: int) -> None:
 
 
 @app.function(
-    image=Image.debian_slim().pip_install(
+    image=modal.Image.debian_slim().pip_install(
         "datasets", "pyarrow", "hf_transfer", "huggingface_hub"
     ),
     volumes={
@@ -264,7 +264,7 @@ def upload_result_to_hf(batch_size: int) -> None:
         CHECKPOINT_DIR: EMBEDDING_CHECKPOINT_VOLUME,
     },
     timeout=86400,
-    secrets=[Secret.from_name("huggingface-secret")],
+    secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     """

@@ -11,7 +11,7 @@
 
 import subprocess
 
-from modal import App, Image, web_server
+import modal
 
 PORT = 8000
 
@@ -20,7 +20,7 @@ PORT = 8000
 # The process may take a few minutes the first time, but subsequent image builds should only take a few seconds.
 
 a1111_image = (
-    Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install(
         "wget",
         "git",
@@ -43,7 +43,7 @@ a1111_image = (
     )
 )
 
-app = App("example-a1111-webui", image=a1111_image)
+app = modal.App("example-a1111-webui", image=a1111_image)
 
 # After defining the custom container image, we start the server with `accelerate launch`. This
 # function is also where you would configure hardware resources, CPU/memory, and timeouts.
@@ -63,7 +63,7 @@ app = App("example-a1111-webui", image=a1111_image)
     # Keep at least one instance of the server running.
     keep_warm=1,
 )
-@web_server(port=PORT, startup_timeout=180)
+@modal.web_server(port=PORT, startup_timeout=180)
 def run():
     START_COMMAND = f"""
 cd /webui && \

@@ -8,11 +8,11 @@
 #
 # First let's start off by creating a Modal app, and defining an image with the Python packages we're going to be using:
 
-from modal import App, Image, web_endpoint
+import modal
 
-app = App(
+app = modal.App(
     "example-web-badges",
-    image=Image.debian_slim().pip_install("pybadges", "pypistats"),
+    image=modal.Image.debian_slim().pip_install("pybadges", "pypistats"),
 )
 
 # ## Defining the web endpoint
@@ -24,7 +24,7 @@ app = App(
 
 
 @app.function()
-@web_endpoint()
+@modal.web_endpoint()
 async def package_downloads(package_name: str):
     import json
 

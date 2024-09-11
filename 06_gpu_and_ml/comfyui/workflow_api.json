@@ -11,7 +11,7 @@
   },
   "2": {
     "inputs": {
-      "ckpt_name": "512-inpainting-ema.ckpt"
+      "ckpt_name": "512-inpainting-ema.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
@@ -21,10 +21,7 @@
   "3": {
     "inputs": {
       "text": "closeup photograph of a white heron in the yosemite national park mountains nature",
-      "clip": [
-        "2",
-        1
-      ]
+      "clip": ["2", 1]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -34,10 +31,7 @@
   "5": {
     "inputs": {
       "text": "watermark, text",
-      "clip": [
-        "2",
-        1
-      ]
+      "clip": ["2", 1]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -46,28 +40,16 @@
   },
   "6": {
     "inputs": {
-      "seed": 366136222179564,
+      "seed": 655430128391471,
       "steps": 20,
       "cfg": 8,
       "sampler_name": "uni_pc_bh2",
       "scheduler": "normal",
       "denoise": 1,
-      "model": [
-        "2",
-        0
-      ],
-      "positive": [
-        "3",
-        0
-      ],
-      "negative": [
-        "5",
-        0
-      ],
-      "latent_image": [
-        "9",
-        0
-      ]
+      "model": ["2", 0],
+      "positive": ["3", 0],
+      "negative": ["5", 0],
+      "latent_image": ["9", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -76,14 +58,8 @@
   },
   "7": {
     "inputs": {
-      "samples": [
-        "6",
-        0
-      ],
-      "vae": [
-        "2",
-        2
-      ]
+      "samples": ["6", 0],
+      "vae": ["2", 2]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -93,34 +69,39 @@
   "9": {
     "inputs": {
       "grow_mask_by": 6,
-      "pixels": [
-        "1",
-        0
-      ],
-      "vae": [
-        "2",
-        2
-      ],
-      "mask": [
-        "1",
-        1
-      ]
+      "pixels": ["1", 0],
+      "vae": ["2", 2],
+      "mask": ["1", 1]
     },
     "class_type": "VAEEncodeForInpaint",
     "_meta": {
       "title": "VAE Encode (for Inpainting)"
     }
   },
-  "10": {
+  "11": {
     "inputs": {
-      "images": [
-        "7",
-        0
-      ]
+      "filename_prefix": "ComfyUI",
+      "images": ["7", 0]
     },
-    "class_type": "SaveImageWebsocket",
+    "class_type": "SaveImage",
     "_meta": {
-      "title": "SaveImageWebsocket"
+      "title": "Save Image"
+    }
+  },
+  "12": {
+    "inputs": {
+      "action": "resize only",
+      "smaller_side": 0,
+      "larger_side": 0,
+      "scale_factor": 0,
+      "resize_mode": "reduce size only",
+      "side_ratio": "4:3",
+      "crop_pad_position": 0.5,
+      "pad_feathering": 20
+    },
+    "class_type": "ImageResize",
+    "_meta": {
+      "title": "Image Resize"
     }
   }
 }

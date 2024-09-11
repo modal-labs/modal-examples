@@ -4,12 +4,12 @@
 # We need to add Python 3 and pip with the `add_python` option because the image
 # doesn't have these by default.
 
-from modal import App, Image
+import modal
 
-image = Image.from_registry(
+image = modal.Image.from_registry(
     "nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.11"
 )
-app = App(image=image)
+app = modal.App(image=image)
 
 # Now, we can create a function with GPU capabilities. Run this file with
 # `modal run install_cuda.py`.

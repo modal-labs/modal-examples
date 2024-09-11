@@ -15,7 +15,7 @@
 #
 # First we import the components we need from `modal`.
 
-from modal import App, Image, enter, gpu, method, web_endpoint
+import modal
 
 # ## Define a container image
 #
@@ -38,7 +38,7 @@ def download_model():
 # function defined above as part of the image build.
 
 image = (
-    Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
     .pip_install(
         "auto-gptq==0.7.0",
@@ -53,7 +53,7 @@ image = (
 )
 
 # Let's instantiate and name our [`App`](https://modal.com/docs/guide/apps).
-app = App(name="example-falcon-gptq", image=image)
+app = modal.App(name="example-falcon-gptq", image=image)
 
 
 # ## The model class
@@ -71,9 +71,9 @@ app = App(name="example-falcon-gptq", image=image)
 #
 # Note that we need to create a separate thread to call the `generate` function because we need to
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
-@app.cls(gpu=gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
+@app.cls(gpu=modal.gpu.A100(), timeout=60 * 10, container_idle_timeout=60 * 5)
 class Falcon40BGPTQ:
-    @enter()
+    @modal.enter()
     def load_model(self):
         from auto_gptq import AutoGPTQForCausalLM
         from transformers import AutoTokenizer
@@ -93,7 +93,7 @@ class Falcon40BGPTQ:
         )
         print("Loaded model.")
 
-    @method()
+    @modal.method()
     def generate(self, prompt: str):
         from threading import Thread
 
@@ -144,7 +144,7 @@ def cli():
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
 @app.function(timeout=60 * 10)
-@web_endpoint()
+@modal.web_endpoint()
 def get(question: str):
     from itertools import chain
 

@@ -1,4 +1,5 @@
 # ---
+# deploy: true
 # output-directory: "/tmp/playground-2-5"
 # args: ["--prompt", "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe."]
 # ---
@@ -67,8 +68,10 @@ class Model:
             prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
         ).getvalue()
 
-    @modal.web_endpoint()
-    def web_inference(self, prompt, n_steps=24, high_noise_frac=0.8):
+    @modal.web_endpoint(docs=True)
+    def web_inference(
+        self, prompt: str, n_steps: int = 24, high_noise_frac: float = 0.8
+    ):
         return Response(
             content=self._inference(
                 prompt, n_steps=n_steps, high_noise_frac=high_noise_frac
@@ -89,7 +92,7 @@ web_image = modal.Image.debian_slim().pip_install("jinja2")
 )
 @modal.asgi_app()
 def ui():
-    web_app = FastAPI()
+    web_app = FastAPI(docs_url="/docs")
     templates = Jinja2Templates(directory="/assets")
 
     @web_app.get("/")

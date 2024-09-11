@@ -84,7 +84,7 @@ def main():
 # ## What just happened?
 #
 # When we called `.remote` on `f`, the function was executed
-# **in the cloud**, on Modal's infrastructure, not locally on our computer.
+# **in the cloud**, on Modal's infrastructure, not on the local machine.
 #
 # In short, we took the function `f`, put it inside a container,
 # sent it the inputs, and streamed back the logs and outputs.

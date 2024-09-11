@@ -31,11 +31,11 @@ import requests
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
 # We find that inference for a single input takes about 3-4 seconds on an A10G.
 #
-# You can customize the GPU type and count using the `GPU_CONFIG` and `GPU_COUNT` environment variables.
+# You can customize the GPU type and count using the `GPU_TYPE` and `GPU_COUNT` environment variables.
 # If you want to see the model really rip, try an `"a100-80gb"` or an `"h100"`
 # on a large batch.
 
-GPU_TYPE = os.environ.get("GPU_CONFIG", "a10g")
+GPU_TYPE = os.environ.get("GPU_TYPE", "a10g")
 GPU_COUNT = os.environ.get("GPU_COUNT", 1)
 
 GPU_CONFIG = f"{GPU_TYPE}:{GPU_COUNT}"
@@ -73,20 +73,12 @@ def download_model_to_image():
 # The environment those functions run in is defined by the container's `Image`.
 # The block of code below defines our example's `Image`.
 
-vllm_image = (
-    modal.Image.from_registry(  # start from an official NVIDIA CUDA image
-        "nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.11"
-    )
-    .apt_install("git")  # add system dependencies
+vlm_image = (
+    modal.Image.debian_slim(python_version="3.11")
     .pip_install(  # add sglang and some Python dependencies
-        "sglang[all]==0.1.16",
-        "ninja",
-        "packaging",
-        "wheel",
+        "sglang[all]==0.1.17",
         "transformers==4.40.2",
-    )
-    .run_commands(  # add FlashAttention for faster inference using a shell command
-        "pip install flash-attn==2.5.8 --no-build-isolation"
+        "numpy<2",
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
@@ -108,7 +100,7 @@ vllm_image = (
 # By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
 # so it can be accessed over the public internet from any client.
 
-app = modal.App("app")
+app = modal.App("example-sgl-vlm")
 
 
 @app.cls(
@@ -116,11 +108,11 @@ app = modal.App("app")
     timeout=20 * MINUTES,
     container_idle_timeout=20 * MINUTES,
     allow_concurrent_inputs=100,
-    image=vllm_image,
+    image=vlm_image,
 )
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
-    async def start_runtime(self):
+    def start_runtime(self):
         """Starts an SGL runtime to execute inference."""
         import sglang as sgl
 
@@ -128,15 +120,15 @@ class Model:
             model_path=MODEL_PATH,
             tokenizer_path=TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_evel=SGL_LOG_LEVEL,
+            log_level=SGL_LOG_LEVEL,
         )
         self.runtime.endpoint.chat_template = (
             sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
         )
         sgl.set_default_backend(self.runtime)
 
-    @modal.web_endpoint(method="POST")
-    async def generate(self, request: dict):
+    @modal.web_endpoint(method="POST", docs=True)
+    def generate(self, request: dict):
         import sglang as sgl
         from term_image.image import from_file
 
@@ -242,6 +234,8 @@ def main(image_url=None, question=None, twice=True):
 # And then send requests from anywhere. See the [docs](https://modal.com/docs/guide/webhook-urls)
 # for details on the `web_url` of the function, which also appears in the terminal output
 # when running `modal deploy`.
+#
+# You can also find interactive documentation for the endpoint at the `/docs` route of the web endpoint URL.
 
 # ## Addenda
 #

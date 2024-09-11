@@ -5,11 +5,11 @@
 import asyncio
 import time
 
+import modal
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-from modal import App, asgi_app, web_endpoint
 
-app = App("example-fastapi-streaming")
+app = modal.App("example-fastapi-streaming")
 
 web_app = FastAPI()
 
@@ -39,7 +39,7 @@ async def main():
 
 
 @app.function()
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     return web_app
 
@@ -56,7 +56,7 @@ def sync_fake_video_streamer():
 
 
 @app.function()
-@web_endpoint()
+@modal.web_endpoint()
 def hook():
     return StreamingResponse(
         sync_fake_video_streamer.remote_gen(), media_type="text/event-stream"
@@ -74,7 +74,7 @@ def map_me(i):
 
 
 @app.function()
-@web_endpoint()
+@modal.web_endpoint()
 def mapped():
     return StreamingResponse(
         map_me.map(range(10)), media_type="text/event-stream"

@@ -3,7 +3,6 @@
 # ---
 
 import modal
-from modal import wsgi_app
 
 app = modal.App(
     "example-web-flask-stream",
@@ -23,7 +22,7 @@ def generate_rows():
 
 
 @app.function()
-@wsgi_app()
+@modal.wsgi_app()
 def flask_app():
     from flask import Flask
 
