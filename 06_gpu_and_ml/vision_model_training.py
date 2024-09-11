@@ -27,15 +27,13 @@ import sys
 from typing import List, Optional, Tuple
 
 import modal
-from fastapi import FastAPI
 
-web_app = FastAPI()
 assets_path = pathlib.Path(__file__).parent / "vision_model_training" / "assets"
 app = modal.App(name="example-fastai-wandb-gradio-cifar10-demo")
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "fastai~=2.7.9",
-    "gradio~=3.6.0",
-    "httpx~=0.23.0",
+    "gradio~=4.29.0",
+    "httpx~=0.24.1",
     # When using pip PyTorch is not automatically installed by fastai.
     "torch~=1.12.1",
     "torchvision~=0.13.1",
@@ -119,7 +117,7 @@ def download_dataset():
 # Fine-tuning the base ResNet model takes about 30-40 minutes on a GPU. To avoid
 # needing to keep our terminal active, we can run training as a 'detached run'.
 #
-# `MODAL_GPU=any modal run --detach vision_model_training.py::app.train`
+# `MODAL_GPU=any modal run --detach vision_model_training.py::train`
 #
 
 
@@ -127,7 +125,7 @@ def download_dataset():
     image=image,
     gpu=USE_GPU,
     volumes={str(MODEL_CACHE): volume},
-    secrets=[modal.Secret.from_name("my-wandb-secret")],
+    secrets=[modal.Secret.from_name("wandb")],
     timeout=2700,  # 45 minutes
 )
 def train():
@@ -285,20 +283,31 @@ def create_demo_examples() -> List[str]:
     image=image,
     volumes={str(MODEL_CACHE): volume},
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
+    allow_concurrent_inputs=100,
+    concurrency_limit=1,
 )
 @modal.asgi_app()
 def fastapi_app():
     import gradio as gr
+    from fastapi import FastAPI
     from gradio.routes import mount_gradio_app
 
     classifier = ClassifierModel()
     interface = gr.Interface(
         fn=classifier.predict.remote,
-        inputs=gr.Image(shape=(224, 224)),
+        inputs=gr.Image(),
         outputs="label",
         examples=create_demo_examples(),
         css="/assets/index.css",
     )
+
+    def lifespan(app: FastAPI):
+        yield
+        print("closing interface")
+        interface.close()
+
+    web_app = FastAPI(lifespan=lifespan)
+
     return mount_gradio_app(
         app=web_app,
         blocks=interface,
