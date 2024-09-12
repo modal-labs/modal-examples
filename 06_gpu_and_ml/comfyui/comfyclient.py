@@ -25,7 +25,9 @@ def main(args: argparse.Namespace):
     res = requests.post(url, json=data)
     if res.status_code == 200:
         end_time = time.time()
-        print(f"Image finished generating in {round(end_time - start_time, 1)} seconds!")
+        print(
+            f"Image finished generating in {round(end_time - start_time, 1)} seconds!"
+        )
         filename = OUTPUT_DIR / f"{slugify(args.prompt)}.png"
         filename.write_bytes(res.content)
         print(f"saved to '{filename}'")
