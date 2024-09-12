@@ -1,65 +1,29 @@
 {
-  "1": {
-    "inputs": {
-      "image": "yosemite_inpaint_example.png",
-      "upload": "image"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
-    }
-  },
-  "2": {
-    "inputs": {
-      "ckpt_name": "512-inpainting-ema.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
-  "3": {
-    "inputs": {
-      "text": "closeup photograph of a white heron in the yosemite national park mountains nature",
-      "clip": ["2", 1]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
   "5": {
     "inputs": {
-      "text": "watermark, text",
-      "clip": ["2", 1]
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
     },
-    "class_type": "CLIPTextEncode",
+    "class_type": "EmptyLatentImage",
     "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
+      "title": "Empty Latent Image"
     }
   },
   "6": {
     "inputs": {
-      "seed": 655430128391471,
-      "steps": 20,
-      "cfg": 8,
-      "sampler_name": "uni_pc_bh2",
-      "scheduler": "normal",
-      "denoise": 1,
-      "model": ["2", 0],
-      "positive": ["3", 0],
-      "negative": ["5", 0],
-      "latent_image": ["9", 0]
+      "text": "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light",
+      "clip": ["11", 0]
     },
-    "class_type": "KSampler",
+    "class_type": "CLIPTextEncode",
     "_meta": {
-      "title": "KSampler"
+      "title": "CLIP Text Encode (Prompt)"
     }
   },
-  "7": {
+  "8": {
     "inputs": {
-      "samples": ["6", 0],
-      "vae": ["2", 2]
+      "samples": ["13", 0],
+      "vae": ["10", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -68,40 +32,121 @@
   },
   "9": {
     "inputs": {
-      "grow_mask_by": 6,
-      "pixels": ["1", 0],
-      "vae": ["2", 2],
-      "mask": ["1", 1]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "VAE Encode (for Inpainting)"
-    }
-  },
-  "11": {
-    "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": ["7", 0]
+      "images": ["26", 0]
     },
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
     }
   },
+  "10": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "11": {
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
   "12": {
     "inputs": {
-      "action": "resize only",
+      "unet_name": "flux1-schnell.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "13": {
+    "inputs": {
+      "noise": ["25", 0],
+      "guider": ["22", 0],
+      "sampler": ["16", 0],
+      "sigmas": ["17", 0],
+      "latent_image": ["5", 0]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "16": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "17": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1,
+      "model": ["12", 0]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "22": {
+    "inputs": {
+      "model": ["12", 0],
+      "conditioning": ["6", 0]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider"
+    }
+  },
+  "25": {
+    "inputs": {
+      "noise_seed": 857914953840122
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "26": {
+    "inputs": {
+      "action": "crop to ratio",
       "smaller_side": 0,
       "larger_side": 0,
-      "scale_factor": 0,
-      "resize_mode": "reduce size only",
-      "side_ratio": "4:3",
+      "scale_factor": 2,
+      "resize_mode": "any",
+      "side_ratio": "1:1",
       "crop_pad_position": 0.5,
-      "pad_feathering": 20
+      "pad_feathering": 20,
+      "pixels": ["8", 0]
     },
     "class_type": "ImageResize",
     "_meta": {
       "title": "Image Resize"
+    }
+  },
+  "27": {
+    "inputs": {
+      "images": ["8", 0]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
     }
   }
 }
