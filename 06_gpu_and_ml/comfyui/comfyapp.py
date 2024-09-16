@@ -40,7 +40,7 @@
 # ```
 # You can find your Modal workspace name by running `modal profile current`.
 #
-# Images generate in 1-2m (20-30s for the ComfyUI server to launch, ~1m for the workflow to complete).
+# The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive inferences on a warm container should take a few seconds.
 #
 # ## Setup
 #
@@ -132,11 +132,9 @@ class ComfyUI:
         output_dir = "/root/comfy/ComfyUI/output"
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
-        file_prefix = [
-            node.get("inputs")
-            for node in workflow.values()
-            if node.get("class_type") == "SaveImage"
-        ][0]["filename_prefix"]
+        file_prefix = [node.get("inputs") for node in workflow.values() if node.get("class_type") == "SaveImage"][0][
+            "filename_prefix"
+        ]
 
         # returns the image as bytes
         for f in Path(output_dir).iterdir():
@@ -147,9 +145,7 @@ class ComfyUI:
     def api(self, item: Dict):
         from fastapi import Response
 
-        workflow_data = json.loads(
-            (Path(__file__).parent / "workflow_api.json").read_text()
-        )
+        workflow_data = json.loads((Path(__file__).parent / "workflow_api.json").read_text())
 
         # insert the prompt
         workflow_data["6"]["inputs"]["text"] = item["prompt"]
