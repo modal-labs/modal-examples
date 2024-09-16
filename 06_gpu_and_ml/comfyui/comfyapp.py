@@ -36,15 +36,14 @@
 #
 # 2. In another terminal, run inference:
 # ```bash
-# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
+# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace $(modal profile current) --prompt "neon green sign that says Modal"
 # ```
-# You can find your Modal workspace name by running `modal profile current`.
 #
 # The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive inferences on a warm container should take a few seconds.
 #
 # ## Setup
 #
-# First, we define the environment we need to run ComfyUI using [comfy-cli](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
+# First, we define the environment we need to run ComfyUI using [`comfy-cli`](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
 
 
 import json
@@ -172,7 +171,6 @@ class ComfyUI:
 #
 # When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py`, you'll see a link that includes `ui`.
 # Head there to interactively develop your ComfyUI workflow. All of your models and custom nodes specified in the image build step will be loaded in.
-#
 #
 # To serve the workflow after you've developed it, first export it as "API Format" JSON:
 # 1. Click the gear icon in the top-right corner of the menu
