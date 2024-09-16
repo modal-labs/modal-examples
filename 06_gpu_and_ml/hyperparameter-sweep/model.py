@@ -17,10 +17,10 @@ def build_encode_decode(chars):
     itos = {i: c for i, c in enumerate(chars)}
 
     def encode(s):
-        [stoi[c] for c in s]
+        return [stoi[c] for c in s]
 
     def decode(l):
-        [itos[i] for i in l]
+        return [itos[i] for i in l]
 
     return encode, decode
 

@@ -47,7 +47,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from modal import Image
-from model import AttentionModel, Dataset
 
 # We'll use A10G GPUs for training which are able to train the model
 # in 10 minutes while keeping costs under ~$1. Since the default modal function
@@ -65,7 +64,9 @@ timeout_s = 20 * 60  # 20 minutes
 # not automatically synchronize writes so we'll have to be careful to use
 # `commit()` and `reload()` calls when appropriate.
 
-volume = modal.Volume.from_name("nano_gpt_volume")
+volume = modal.Volume.from_name(
+    "example-hp-sweep-gpt-volume", create_if_missing=True
+)
 volume_path = Path("/vol/data")
 model_filename = "nano_gpt_model.pt"
 best_model_filename = "best_nano_gpt_model.pt"
@@ -77,15 +78,20 @@ save_path = volume_path / "models"
 # for training, `gradio` for serving a web interface, and `tensorboard` for
 # monitoring training.
 
-image = Image.debian_slim(python_version="3.11").pip_install(
-    "torch==2.1.2",
-    "gradio~=4.44.0",
-    "pydantic>=2",
-    "tensorboard==2.17.1",
-    "fastapi==0.114.2",
+image = (
+    Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch==2.1.2",
+        "gradio~=4.44.0",
+        "pydantic>=2",
+        "tensorboard==2.17.1",
+        "fastapi==0.114.2",
+        "numpy<2",
+    )
+    .copy_local_file("model.py", "/root/model.py")
 )
 
-app = modal.App("hp_sweep_gpt")
+app = modal.App("example-hp-sweep-gpt")
 
 with image.imports():
     import glob
@@ -94,6 +100,7 @@ with image.imports():
 
     import tensorboard
     import torch
+    from model import AttentionModel, Dataset
     from torch.utils.tensorboard import SummaryWriter
 
 # ### Training Function
@@ -257,7 +264,7 @@ def train_model(
                 L.info(f"{prepend_logs} Stopping early...")
                 break
 
-    return node_rank, out["val"], hparams
+    return node_rank, float(out["val"]), hparams
 
 
 # ### Main Entry Point
@@ -300,16 +307,15 @@ def main():
     h_options = (1, default_hparams.n_heads)
     c_options = (8, default_hparams.context_size)
     d_options = (0.1, default_hparams.dropout)
-    for n_heads in h_options:
-        for context_size in c_options:
-            for dropout in d_options:
-                hparams_list.append(
-                    ModelHyperparameters(
-                        n_heads=n_heads,
-                        context_size=context_size,
-                        dropout=dropout,
-                    )
-                )
+
+    hparams_list = [
+        ModelHyperparameters(
+            n_heads=n_heads, context_size=context_size, dropout=dropout
+        )
+        for n_heads in h_options
+        for context_size in c_options
+        for dropout in d_options
+    ]
 
     # Run training for each hyperparameter setting
     results = []
@@ -414,10 +420,10 @@ class ModelInference:
         itos = {i: c for i, c in enumerate(chars)}
 
         def encode(s):
-            [stoi[c] for c in s]
+            return [stoi[c] for c in s]
 
         def decode(l):
-            [itos[i] for i in l]
+            return [itos[i] for i in l]
 
         return encode, decode
 
@@ -498,22 +504,23 @@ class ModelInference:
 # First, we create a simple POST web endpoint for generating text.
 
 
-@app.function(image=image)
-@modal.web_endpoint(method="POST")
+@app.function()
+@modal.web_endpoint(method="POST", docs=True)
 def web_generate(item: dict):
     output = ModelInference().generate.remote(item["prompt"])
     return {"web_generate": output}
 
 
 # That will allow us to generate text via a simple `curl` command like this:
-# ```
+# ```bash
 # curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://shariqm--modal-nano-gpt-web-generate-dev.modal.run
 # ```
-# which will return:
-# ```
-# binary '{"prompt": "\n"}' https://shariqm--hp-sweep-gpt-web-generate-dev.modal.run
+# which will return something like:
+# ```bash
 # {'web_generate':'\nBRUTUS:\nThe broy trefore anny pleasory to\nwip me state of villoor so:\nFortols listhey for brother beat the else\nBe all, ill of lo-love in igham;\nAh, here all that queen and hould you father offer'}
 # ```
+#
+# It's not exactly Shakespeare, but at least it shows our model learned something!
 
 # Second, we create a Gradio web app for generating text via a nice looking
 # website. Notice that we don't include a `gpu` in the `app.function`
