@@ -40,7 +40,7 @@
 # ```
 # You can find your Modal workspace name by running `modal profile current`.
 #
-# Images generate in 1-2m (20-30s for the ComfyUI server to launch, ~1m for the workflow to complete).
+# The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive inferences on a warm container should take a few seconds.
 #
 # ## Setup
 #
