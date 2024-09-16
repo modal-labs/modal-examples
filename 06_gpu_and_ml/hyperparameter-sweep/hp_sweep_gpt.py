@@ -21,7 +21,7 @@
 #
 # ## Training
 # ### Basic Setup
-# First we `import modal`, `fastapi` for serving tenorboard, torch
+# First we `import modal`, `fastapi` for serving tensorboard, torch
 # LLM model (`AttentionModel`), and a `Dataset` class. The torch model is a nano GPT style model
 # very similar to [Karpathy's](https://github.com/ShariqM/modal_nano_gpt/blob/master/model.py).
 # The `Dataset` class manages the Shakespeare text data which is available
@@ -77,7 +77,6 @@ save_path = volume_path / "models"
 image = Image.debian_slim(python_version="3.11").pip_install(
     "torch==2.1.2",
     "gradio~=4.44.0",
-    # "gradio~=3.50.2",
     "pydantic>=2",
     "tensorboard==2.17.1",
     "fastapi==0.114.2",
