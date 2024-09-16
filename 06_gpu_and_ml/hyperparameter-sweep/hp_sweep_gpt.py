@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # LLM Training with Hyperparameter Optimization
 #
 # <img src="./images/shakespeare.png" alt='shakespeare'>
