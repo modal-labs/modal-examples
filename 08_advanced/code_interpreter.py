@@ -1,14 +1,12 @@
 # ---
-# deploy: false
-# lambda-test: true
-# cmd: ["python", "-m", "misc.code_interpreter"]
+# cmd: ["python", "08_advanced/code_interpreter.py"]
 # ---
 #
-# This script demonstrates building a simple code interpeter for LLM apps on top of
-# Modal's Sandbox functionality.
+# This script demonstrates a simple code interpeter for LLM apps on top of
+# Modal's [Sandbox](https://modal.com/docs/guide/sandbox) functionality.
 #
-# Modal's Sandboxes are a secure, trustless compute environment which enables usage of custom
-# container images, filesystem storage, cloud bucket mounts, GPUs, and more.
+# Modal's Sandboxes are a secure, trustless compute environment with access to all of Modal's features:
+# custom container images, remote and local filesystem storage, cloud bucket mounts, GPUs, and more.
 import uuid
 
 import modal
@@ -17,8 +15,8 @@ import modal
 # to indicate that some code ran but returned no output.
 NULL_MARKER = str(uuid.uuid4())
 
-# Our code interpreter will use a Debian base with Python 3.11 and pip install the IPython
-# package so we get the familiar JupyterHub REPL interface.
+# Our code interpreter will use a Debian base with Python 3.11 and install the `IPython`
+# package for its cleaner REPL interface.
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "IPython==8.26.0"
 )
@@ -64,7 +62,7 @@ class ExecutionResult:
 
 
 # Our code interpreter could take many forms (it could even not run Python!)
-# but for this example we implement a Jupyer Notebook-like interface.
+# but for this example we implement a Jupyter Notebook-like interface.
 
 
 class Notebook:
@@ -82,10 +80,10 @@ class Notebook:
         self.sb.stdin.write(code.encode("utf-8"))
         self.sb.stdin.write(b"\n")
         self.sb.stdin.drain()
-        for message in self.sb.stdout:
-            if message.strip() == NULL_MARKER:
-                return ExecutionResult(None)
-            return ExecutionResult(message)
+        message = next(iter(self.sb.stdout))
+        if message.strip() == NULL_MARKER:
+            return ExecutionResult(None)
+        return ExecutionResult(message)
 
     def _exec_cell_local(self, code: str) -> ExecutionResult:
         try:
@@ -98,7 +96,7 @@ class Notebook:
 
 
 # The `CodeInterpreter` is a context manager class which manages
-# the lifecycle of the underlying modal.Sandbox.
+# the lifecycle of the underlying `modal.Sandbox`.
 
 
 class CodeInterpreter:
@@ -109,6 +107,9 @@ class CodeInterpreter:
             DRIVER_PROGRAM,
             timeout=timeout,
             image=image,
+            app=modal.App.lookup(
+                "example-code-interpreter", create_if_missing=True
+            ),
         )
         self.notebook = Notebook(self.sb)
         self.debug = debug
@@ -118,7 +119,7 @@ class CodeInterpreter:
             print("Entering Code interpreter")
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+    def __exit__(self, exc_type, exc_value, traceback):
         if self.debug:
             print("Exiting Code interpreter")
         self.sb.stdin.write_eof()
@@ -159,7 +160,7 @@ def main():
         execution = sandbox.notebook.exec_cell(
             "import pathlib; pathlib.Path('/tmp/foo').write_text('hello!')"
         )
-        stdout = sandbox.exec("ls", "/tmp/")  # outputs 'foo\n'
+        stdout = sandbox.exec("cat", "/tmp/foo")  # outputs 'hello!'
         print(stdout)
 
 
