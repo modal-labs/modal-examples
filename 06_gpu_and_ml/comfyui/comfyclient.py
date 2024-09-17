@@ -50,7 +50,7 @@ def parse_args(arglist: list[str]) -> argparse.Namespace:
         "--prompt",
         type=str,
         required=True,
-        help="what to draw in the blank part of the image",
+        help="Prompt for the image generation model.",
     )
     parser.add_argument(
         "--dev",
