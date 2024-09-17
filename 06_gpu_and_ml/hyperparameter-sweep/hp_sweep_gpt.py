@@ -88,7 +88,7 @@ image = (
         "fastapi==0.114.2",
         "numpy<2",
     )
-    .copy_local_file("model.py", "/root/model.py")
+    .copy_local_file(Path(__file__).parent / "model.py", "/root/model.py")
 )
 
 app = modal.App("example-hp-sweep-gpt")
