@@ -55,7 +55,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
     "datasets~=2.13.0",
     "ftfy~=6.1.0",
-    "gradio~=3.50.2",
+    "gradio~=4.29.0",
     "smart_open~=6.4.0",
     "transformers~=4.41.2",
     "sentencepiece>=0.1.91,!=0.1.92",

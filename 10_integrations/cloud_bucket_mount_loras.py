@@ -242,11 +242,20 @@ from fastapi import FastAPI
 
 web_app = FastAPI()
 web_image = modal.Image.debian_slim().pip_install(
-    "gradio~=3.50.2", "pillow~=10.2.0"
+    "gradio~=4.29.0", "pillow~=10.2.0"
 )
 
 
-@app.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
+@app.function(
+    image=web_image,
+    keep_warm=1,
+    container_idle_timeout=60 * 20,
+    # gradio requires sticky sessions
+    # so we limit the number of concurrent containers to 1
+    # and allows it to scale to 100 concurrent inputs
+    allow_concurrent_inputs=100,
+    concurrency_limit=1,
+)
 @modal.asgi_app()
 def ui():
     """A simple Gradio interface around our LoRA inference."""
