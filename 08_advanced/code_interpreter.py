@@ -83,7 +83,7 @@ class Notebook:
         for message in self.sb.stdout:
             if message.strip() == NULL_MARKER:
                 return ExecutionResult(None)
-            return ExecutionResult(message)
+        return ExecutionResult(message)
 
     def _exec_cell_local(self, code: str) -> ExecutionResult:
         try:
@@ -119,7 +119,7 @@ class CodeInterpreter:
             print("Entering Code interpreter")
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+    def __exit__(self, exc_type, exc_value, traceback):
         if self.debug:
             print("Exiting Code interpreter")
         self.sb.stdin.write_eof()
