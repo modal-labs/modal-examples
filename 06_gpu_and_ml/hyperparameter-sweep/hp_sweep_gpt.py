@@ -121,10 +121,10 @@ def train_model(
 ):
     # Optimization, Data, and Model prep ###
     batch_size = 64
-    n_steps = 5000
+    n_steps = 3000
     n_eval_steps = 100
-    n_steps_before_eval = int(n_steps / 10.0)  # eval every 10% of training
-    n_steps_before_checkpoint = int(n_steps / 5.0)  # save every 20% of training
+    n_steps_before_eval = int(n_steps / 8)  # eval eight times per run
+    n_steps_before_checkpoint = int(n_steps / 4)  # save four times per run
     train_percent = 0.9
     learning_rate = 3e-4
     prepend_logs = f"[Node {node_rank+1}/{n_nodes}] "
@@ -193,7 +193,7 @@ def train_model(
         checkpoint = torch.load(str(model_save_dir / model_filename))
         if run_to_first_save:
             L.info(
-                "{prepend_logs} Already done. Container Restart? Stopping early..."
+                f"{prepend_logs} Already done. Container Restart? Stopping early..."
             )
             return node_rank, checkpoint["val_loss"], hparams
         else:
@@ -326,14 +326,15 @@ def main():
         [
             (i, n_nodes, h, experiment_name, stop_early)
             for i, h in enumerate(hparams_list)
-        ]
+        ],
+        order_outputs=False,
     ):
         # result = (node_rank, val_loss, hparams)
         node_rank = result[0]
         results.append(result)
         L.info(
             f"[Node {node_rank+1}/{n_nodes}] Finished."
-            " Early stop val loss result: {result[1:]}"
+            f" Early stop val loss result: {result[1:]}"
         )
 
     # Find the model and hparams with the lowest validation loss
@@ -394,7 +395,7 @@ def monitor_training():
 # After training your Tensorboard will look something like this:
 # [[./tensorboard.png|alt=tensorboard]]
 # Notice that there are 8 models training, and the one with the lowest
-# validation loss at step 1000 continues training to 5000 steps.
+# validation loss at step 600 continues training to 3000 steps.
 
 # ## Web Serving (another bonus)
 # ### Setup
