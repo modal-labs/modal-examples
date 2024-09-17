@@ -80,9 +80,9 @@ class Notebook:
         self.sb.stdin.write(code.encode("utf-8"))
         self.sb.stdin.write(b"\n")
         self.sb.stdin.drain()
-        for message in self.sb.stdout:
-            if message.strip() == NULL_MARKER:
-                return ExecutionResult(None)
+        message = next(iter(self.sb.stdout))
+        if message.strip() == NULL_MARKER:
+            return ExecutionResult(None)
         return ExecutionResult(message)
 
     def _exec_cell_local(self, code: str) -> ExecutionResult:
