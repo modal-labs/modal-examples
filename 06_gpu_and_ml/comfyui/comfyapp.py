@@ -20,7 +20,7 @@
 #
 # ## Quickstart
 #
-# This example runs a [simple FLUX.1-schnell workflow](https://openart.ai/workflows/reverentelusarca/flux-simple-workflow-schnell/40OkdaB23J2TMTXHmxxu) with a simple Image Resize custom node at the end.
+# This example runs `workflow_api.json` in this directory, which is an adapation of [this simple FLUX.1-schnell workflow](https://openart.ai/workflows/reverentelusarca/flux-simple-workflow-schnell/40OkdaB23J2TMTXHmxxu) with an Image Resize custom node added at the end.
 #
 # For the prompt `"Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"`
 # we got this output:
@@ -131,11 +131,9 @@ class ComfyUI:
         output_dir = "/root/comfy/ComfyUI/output"
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
-        file_prefix = [
-            node.get("inputs")
-            for node in workflow.values()
-            if node.get("class_type") == "SaveImage"
-        ][0]["filename_prefix"]
+        file_prefix = [node.get("inputs") for node in workflow.values() if node.get("class_type") == "SaveImage"][0][
+            "filename_prefix"
+        ]
 
         # returns the image as bytes
         for f in Path(output_dir).iterdir():
@@ -146,9 +144,7 @@ class ComfyUI:
     def api(self, item: Dict):
         from fastapi import Response
 
-        workflow_data = json.loads(
-            (Path(__file__).parent / "workflow_api.json").read_text()
-        )
+        workflow_data = json.loads((Path(__file__).parent / "workflow_api.json").read_text())
 
         # insert the prompt
         workflow_data["6"]["inputs"]["text"] = item["prompt"]
