@@ -1,3 +1,7 @@
+# # Instructor Embedding
+#
+# This example runs the [Instructor](https://github.com/xlang-ai/instructor-embedding) embedding model and runs a simple sentence similarity computation.
+
 import modal
 
 MODEL_DIR = "/model"

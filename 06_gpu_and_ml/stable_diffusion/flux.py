@@ -1,7 +1,11 @@
 # ---
 # output-directory: "/tmp/flux"
 # ---
-# example originally contributed by [@Arro](https://github.com/Arro)
+# # Flux.1 (Schnell)
+#
+# This example runs the popular [Flux.1-schnell](https://www.google.com/search?client=firefox-b-1-d&q=flux+schnell+) text-to-image model on Modal.
+#
+# Thanks to [@Arro](https://github.com/Arro) for the original contribution.
 from io import BytesIO
 from pathlib import Path
 
