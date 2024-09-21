@@ -32,19 +32,49 @@ jobs:
           pip install uv
           uv pip install --system setuptools wheel
 
-      - name: Clone Modal monorepo
-        run: git clone https://github.com/modal-labs/modal.git ../modal
-        env:
-          GIT_HTTP_USER: ${{ secrets.GH_PAT }}
-          GIT_HTTP_PASSWORD: ${{ secrets.GH_PAT }}
+      - name: Checkout modal repo
+        uses: actions/checkout@v3
+        with:
+          repository: modal-labs/modal
+          token: ${{ secrets.GH_PAT }}
+          path: internal/modal
+          fetch-depth: 1
 
-      - name: Install requirements.dev.txt from monorepo
+      - name: Move modal repo and symlink
         run: |
-          pip install -r ../modal/requirements.dev.txt
+          mv internal/modal ../modal
+          ln -s ../modal/examples ./
 
-    # also clone client
-    # install client
-    # protoc from client
-    # protoc from monorepo
-    # inv docs
-    # inv frontend-preview
+      - name: Install modal development packages
+        run: |
+          uv pip install --system -r ../modal/requirements.dev.txt
+
+      - name: Checkout client repo
+        uses: actions/checkout@v3
+        with:
+          repository: modal-labs/modal-client
+          token: ${{ secrets.GH_PAT }}
+          path: internal/client
+          fetch-depth: 1
+
+      - name: Install client repo from superdirectory
+        run: |
+          mv internal/client ../client
+          uv pip install --system -e ../client
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: npm ci --include=dev
+        working-directory: ../modal/frontend
+
+      - name: Compile protos
+        run: |
+          cd ../client && inv protoc type-stubs
+          cd ../modal && inv protoc
+
+      - name: Build the docs
+        working-directory: ../modal
+        run: |
+          inv frontend-preview
