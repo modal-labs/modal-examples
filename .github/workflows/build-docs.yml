@@ -1,0 +1,49 @@
+name: Build Docs
+on:
+  push:
+    branches:
+      - main
+      - build-docs
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build the docs
+    runs-on: ubuntu-20.04
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
+      MODAL_ENVIRONMENT: modal-egs
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install base packages
+        shell: bash
+        run: |
+          pip install uv
+          uv pip install --system setuptools wheel
+
+      - name: Clone Modal monorepo
+        run: git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/modal-labs/modal.git ../modal
+        # env:
+        #   GIT_HTTP_USER: ${{ secrets.GH_PAT }}
+        #   GIT_HTTP_PASSWORD: ${{ secrets.GH_PAT }}
+
+      - name: Install requirements.dev.txt from monorepo
+        run: |
+          pip install -r ../modal/requirements.dev.txt
+
+    # also clone client
+    # install client
+    # protoc from client
+    # protoc from monorepo
+    # inv docs
+    # inv frontend-preview
