@@ -33,10 +33,10 @@ jobs:
           uv pip install --system setuptools wheel
 
       - name: Clone Modal monorepo
-        run: git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/modal-labs/modal.git ../modal
-        # env:
-        #   GIT_HTTP_USER: ${{ secrets.GH_PAT }}
-        #   GIT_HTTP_PASSWORD: ${{ secrets.GH_PAT }}
+        run: git clone https://github.com/modal-labs/modal.git ../modal
+        env:
+          GIT_HTTP_USER: ${{ secrets.GH_PAT }}
+          GIT_HTTP_PASSWORD: ${{ secrets.GH_PAT }}
 
       - name: Install requirements.dev.txt from monorepo
         run: |
