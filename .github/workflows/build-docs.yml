@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - build-docs
+  pull_request:
   workflow_dispatch:
 
 jobs:
