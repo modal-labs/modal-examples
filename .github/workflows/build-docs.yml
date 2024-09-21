@@ -40,10 +40,9 @@ jobs:
           path: internal/modal
           fetch-depth: 1
 
-      - name: Move modal repo and symlink
+      - name: Move modal repo
         run: |
           mv internal/modal ../modal
-          ln -s ../modal/examples ./
 
       - name: Install modal development packages
         run: |
