@@ -49,9 +49,9 @@ FASTAI_HOME = "/fastai_home"
 MODEL_CACHE = pathlib.Path(FASTAI_HOME, "models")
 USE_GPU = os.environ.get("MODAL_GPU")
 MODEL_EXPORT_PATH = pathlib.Path(MODEL_CACHE, "model-exports", "inference.pkl")
-os.environ["FASTAI_HOME"] = (
-    FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
-)
+os.environ[
+    "FASTAI_HOME"
+] = FASTAI_HOME  # Ensure fastai saves data into persistent volume path.
 
 # ## Config
 #
