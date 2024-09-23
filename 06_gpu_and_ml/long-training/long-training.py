@@ -1,3 +1,8 @@
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml.long-training.long-training", "--detach"]
+# deploy: true
+# ---
+
 # # Running long training jobs on Modal
 
 # While Modal functions typically have a [maximum timeout of 24 hours](/docs/guide/timeouts), you can still run long training jobs on Modal by implementing a checkpointing mechanism in your code.
