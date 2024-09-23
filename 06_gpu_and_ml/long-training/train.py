@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false
+# pytest: false
 # ---
 import lightning as L
 from torch import nn, optim, utils
