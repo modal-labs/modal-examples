@@ -84,7 +84,7 @@ def train_model(data_dir, checkpoint_dir, resume_from_checkpoint=None):
         print("Starting training from scratch")
         trainer.fit(autoencoder, train_loader)
     print("Done training")
-    return trainer
+    return
 
 
 # ## Training function deployed on Modal
@@ -108,7 +108,7 @@ def train():
             print(
                 f"Resuming training from the latest checkpoint: {last_checkpoint}"
             )
-            trainer = train_model(
+            train_model(
                 DATA_PATH,
                 CHECKPOINTS_PATH,
                 resume_from_checkpoint=last_checkpoint,
@@ -116,7 +116,7 @@ def train():
             print("Training resumed successfully")
         else:
             print("Starting training from scratch")
-            trainer = train_model(DATA_PATH, CHECKPOINTS_PATH)
+            train_model(DATA_PATH, CHECKPOINTS_PATH)
     except Exception as e:
         print(f"Training interrupted due to: {str(e)}")
         return None
