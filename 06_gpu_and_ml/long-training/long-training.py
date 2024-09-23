@@ -92,9 +92,6 @@ def train_model(data_dir, checkpoint_dir, resume_from_checkpoint=None):
 # Next, we define the training function running on Modal infrastructure. Note that this function has the volume mounted on it.
 # The training function checks in the volume for an existing latest checkpoint file, and resumes training off that checkpoint if it finds it.
 # The `timeout` parameter in the `@app.function` decorator is set to 30 seconds for demonstration purposes. In a real scenario, you'd set this to a larger value (e.g., several hours) based on your needs.
-# If the function times out, or if the job is [preempted](/docs/guide/preemption#preemption), the main loop below will catch the exception and attempt to resume training from the last checkpoint.
-
-
 @app.function(
     image=image,
     # mounts=[train_script_mount],
@@ -130,9 +127,10 @@ def train():
 # ## Run the model
 #
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
-# to run the training. The entrypoint handles job preemptions and timeouts, and keeps attempting to run the training until it is able to keeps attempting to run the training until it is able to complete successfully.
+# to run the training.
+# If the function times out, or if the job is [preempted](/docs/guide/preemption#preemption), the loop will catch the exception and attempt to resume training from the last checkpoint.
 
-# You can run this locally with `modal run long-training.long-training  --detach`
+# You can run this locally with `modal run 06_gpu_and_ml.long-training.long-training --detach`
 # This runs the code in detached mode, allowing it to continue running even if you close your terminal or computer. This is important since training jobs can be long.
 
 
