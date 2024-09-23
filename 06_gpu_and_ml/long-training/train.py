@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import lightning as L
 from torch import nn, optim, utils
 from torchvision.datasets import MNIST
