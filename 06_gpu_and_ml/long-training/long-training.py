@@ -17,7 +17,7 @@
 # ## Setup
 
 # Let's start by importing the Modal client and defining the Modal app and image. Since we are using PyTorch Lightning, we use an officially supported CUDA docker image as our base image.
-# and then install `pytorch` and `lightning` on top of that.
+# Then we install `pytorch` and `lightning` on top of that.
 
 import os
 
