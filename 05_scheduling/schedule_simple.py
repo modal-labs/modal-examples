@@ -5,7 +5,7 @@
 # # Scheduling remote jobs
 
 # This example shows how you can schedule remote jobs on Modal.
-# There are two different ways of doing this with Modal:
+# You can do this either with:
 #
 # - [modal.Period](https://modal.com/docs/reference/modal.Period) - a time interval between function calls.
 # - [modal.Cron](https://modal.com/docs/reference/modal.Cron) - a cron expression to specify the schedule.
