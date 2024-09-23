@@ -2,6 +2,10 @@
 # lambda-test: false
 # ---
 
+# # Deploy Flask app with streaming results with Modal
+
+# This example shows how you can deploy a [Flask](https://flask.palletsprojects.com/en/3.0.x/) app with Modal that streams results back to the client.
+
 import modal
 
 app = modal.App(

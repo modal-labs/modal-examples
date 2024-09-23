@@ -1,3 +1,7 @@
+# # Run StableLM text completion model
+
+# This example shows how you can run [`stabilityai/stablelm-tuned-alpha-7b`](https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b) on Modal
+
 import os
 import time
 from pathlib import Path

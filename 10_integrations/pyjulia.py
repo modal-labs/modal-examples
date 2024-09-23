@@ -1,3 +1,7 @@
+# # Run Julia code from Python using PyJulia
+
+# This example shows how you can run Julia code from Python using the PyJulia package.
+
 import modal
 
 image = image = (
