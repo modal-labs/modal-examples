@@ -157,5 +157,5 @@ def main():
             print("Will attempt to resume in the next iteration.")
             continue
         except Exception as e:
-            print(f"Error: {str(e)}")
+            raise e
             break
