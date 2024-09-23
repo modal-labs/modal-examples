@@ -2,13 +2,13 @@
 
 # While Modal functions typically have a [maximum timeout of 24 hours](/docs/guide/timeouts), you can still run long training jobs on Modal by implementing a checkpointing mechanism in your code.
 # This allows you to save the model's state periodically and resume from the last saved state.
-# In fact, we recommend implementing checkpointing logic regardless of the duration of your training jobs. This prevents loss of progress in case of interruptions or preemptions.
+# In fact, we recommend implementing checkpointing logic regardless of the duration of your training jobs. This prevents loss of progress in case of interruptions or [preemptions](/docs/guide/preemption).
 
 # In this example, we'll walk through how to implement this pattern using PyTorch Lightning.
 
 # ## Pattern
 
-# The core pattern for long-duration training on Modal is as follows:
+# The core pattern for long-duration training on Modal:
 
 # 1. Periodically save checkpoints to a Modal [volume](/docs/guide/volumes)
 # 2. Handle interruptions/timeouts and resume from the last checkpoint
@@ -16,8 +16,8 @@
 
 # ## Setup
 
-# Let's start by importing the Modal client and defining the Modal app and image. Since we are using PyTorch Lightning, we use a Cuda12 docker image as our base image.
-# and then install pytorch and lightning on top of that.
+# Let's start by importing the Modal client and defining the Modal app and image. Since we are using PyTorch Lightning, we use an officially supported CUDA docker image as our base image.
+# and then install `pytorch` and `lightning` on top of that.
 
 import os
 
@@ -49,52 +49,10 @@ CHECKPOINTS_PATH = f"{VOLUME_PATH}/checkpoints"
 # Additionally, you can specify the checkpointing interval with the `every_n_epochs` parameter of [`ModelCheckpoint`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html).
 # In the code below, we save checkpoints every 10 epochs, but this number can be adjusted depending on how long the epochs take. The goal is to minimize the disruption from job failures. Something that takes a few days should be checkpointed perhaps every few hours. Depending on what training framework you are using, how exactly this checkpointing gets implemented may vary.
 
-import lightning as L
-from lightning.pytorch.callbacks import ModelCheckpoint
-from torch import nn, optim, utils
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-
-
-# define the LightningModule
-class LitAutoEncoder(L.LightningModule):
-    def __init__(self, encoder, decoder):
-        super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-
-    def training_step(self, batch, batch_idx):
-        x, _ = batch
-        x = x.view(x.size(0), -1)
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
-        loss = nn.functional.mse_loss(x_hat, x)
-        self.log("train_loss", loss)
-        return loss
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
-
-
-def get_autoencoder(checkpoint_path=None):
-    # define any number of nn.Modules (or use your current ones)
-    print("Defining encoder and decoder")
-    encoder = nn.Sequential(nn.Linear(28 * 28, 64), nn.ReLU(), nn.Linear(64, 3))
-    decoder = nn.Sequential(nn.Linear(3, 64), nn.ReLU(), nn.Linear(64, 28 * 28))
-
-    return LitAutoEncoder(encoder, decoder)
-
-
-def get_train_loader(data_dir):
-    # setup data
-    print("Setting up data")
-    dataset = MNIST(data_dir, download=True, transform=ToTensor())
-    train_loader = utils.data.DataLoader(dataset)
-    return train_loader
-
 
 def get_checkpoint(checkpoint_dir):
+    from lightning.pytorch.callbacks import ModelCheckpoint
+
     return ModelCheckpoint(
         dirpath=checkpoint_dir,
         save_last=True,
@@ -104,6 +62,10 @@ def get_checkpoint(checkpoint_dir):
 
 
 def train_model(data_dir, checkpoint_dir, resume_from_checkpoint=None):
+    import lightning as L
+
+    from .train import get_autoencoder, get_train_loader
+
     # train the model (hint: here are some helpful Trainer arguments for rapid idea iteration)
     autoencoder = get_autoencoder()
     train_loader = get_train_loader(data_dir=data_dir)
@@ -141,8 +103,6 @@ def train_model(data_dir, checkpoint_dir, resume_from_checkpoint=None):
     timeout=30,
 )
 def train():
-    from train import train_model
-
     last_checkpoint = os.path.join(CHECKPOINTS_PATH, "last.ckpt")
 
     try:
@@ -170,10 +130,9 @@ def train():
 # ## Run the model
 #
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
-# to run the training. The entrypoint keeps attempting to run the training until it is able to complete successfully.
-# In practice, you may want to add additional monitoring or logging here, or a timeout, so that if there are errors in the training code, it doesn't just cycle indefinitely, using up compute.
+# to run the training. The entrypoint handles job preemptions and timeouts, and keeps attempting to run the training until it is able to keeps attempting to run the training until it is able to complete successfully.
 
-# You can run this locally with `modal run long-training.py  --detach`
+# You can run this locally with `modal run long-training.long-training  --detach`
 # This runs the code in detached mode, allowing it to continue running even if you close your terminal or computer. This is important since training jobs can be long.
 
 
@@ -186,7 +145,14 @@ def main():
 
             print("Finished training")
             break  # Exit the loop if training completes successfully
-        except Exception as e:
-            print(f"An unexpected error occurred: {str(e)}")
+        except KeyboardInterrupt:
+            print("Job was preempted")
             print("Will attempt to resume in the next iteration.")
             continue
+        except modal.exception.FunctionTimeoutError:
+            print("Function timed out")
+            print("Will attempt to resume in the next iteration.")
+            continue
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            break
