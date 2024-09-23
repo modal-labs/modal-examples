@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml.long-training.long-training", "--detach"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml.long-training.long-training"]
 # deploy: true
 # ---
 
@@ -135,7 +135,7 @@ def train():
 # to run the training.
 # If the function times out, or if the job is [preempted](/docs/guide/preemption#preemption), the loop will catch the exception and attempt to resume training from the last checkpoint.
 
-# You can run this locally with `modal run 06_gpu_and_ml.long-training.long-training --detach`
+# You can run this locally with `modal run --detach 06_gpu_and_ml.long-training.long-training`
 # This runs the code in detached mode, allowing it to continue running even if you close your terminal or computer. This is important since training jobs can be long.
 
 
