@@ -1,8 +1,3 @@
-# ---
-# title: "Welcome to the SVX Tutorial"
-# description: "Learn how to work with mdsvex in a Svelte project."
-# ---
-
 # # Run a generator function on Modal
 
 # This example shows how you can run a generator function on Modal. We define a
@@ -13,6 +8,7 @@
 import modal
 
 app = modal.App("example-generators")
+
 
 @app.function()
 def f(i):

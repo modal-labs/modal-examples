@@ -2,6 +2,11 @@
 # lambda-test: false
 # ---
 
+# # Deploy Flask app with Modal
+
+# This example shows how you can deploy a [Flask](https://flask.palletsprojects.com/en/3.0.x/) app with Modal.
+# You can serve any app written in an ASGI or WSGI-compatible web framework (like Flask) on Modal.
+
 import modal
 
 app = modal.App(

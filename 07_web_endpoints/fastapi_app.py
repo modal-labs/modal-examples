@@ -2,6 +2,11 @@
 # lambda-test: false
 # ---
 
+# # Deploy FastAPI app with Modal
+
+# This example shows how you can deploy a [FastAPI](https://fastapi.tiangolo.com/) app with Modal.
+# You can serve any app written in an ASGI or WSGI-compatible web framework (like FastAPI) on Modal.
+
 from typing import Optional
 
 import modal

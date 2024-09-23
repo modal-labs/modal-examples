@@ -1,3 +1,7 @@
+# # Deploy a model with lmdeploy
+#
+# This script is used to deploy a model using [lmdeploy](https://github.com/InternLM/lmdeploy) with OpenAI compatible API.
+
 import subprocess
 
 import modal
