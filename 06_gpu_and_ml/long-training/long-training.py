@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml.long-training.long-training", "--detach"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml.long-training.long-training"]
 # deploy: true
 # ---
 
