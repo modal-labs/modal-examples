@@ -5,7 +5,7 @@
 # # Deploy FastAPI app with Modal
 
 # This example shows how you can deploy a [FastAPI](https://fastapi.tiangolo.com/) app with Modal.
-# You can serve any app written in an ASGI or WSGI-compatible web framework (like FastAPI) on Modal.
+# You can serve any app written in an ASGI-compatible web framework (like FastAPI) using this pattern or you can server WSGI-compatible frameworks like Flask with [`wsgi_app`](https://modal.com/docs/guide/webhooks#wsgi).
 
 from typing import Optional
 

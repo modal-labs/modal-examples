@@ -2,7 +2,7 @@
 # lambda-test: false
 # ---
 
-# Run opencv face detection on an image
+# Run OpenCV face detection on an image
 
 # This example shows how you can use OpenCV on Modal to detect faces in an image. We use
 # the `opencv-python` package to load the image and the `opencv` library to

@@ -1,4 +1,4 @@
-# # Parallel Execution on Modal
+# # Parallel execution on Modal with `spawn`
 
 # This example shows how you can run multiple functions in parallel on Modal.
 # We use the `spawn` method to start a function and return a handle to its result.
