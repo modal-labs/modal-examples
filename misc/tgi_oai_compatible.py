@@ -1,3 +1,7 @@
+# # Run TGI on Modal
+
+# This example shows how you can run LLMs with the [Text Generation Inference (TGI)](https://huggingface.co/docs/text-generation-inference/en/index) inference framework on Modal.
+
 import subprocess
 
 import modal
