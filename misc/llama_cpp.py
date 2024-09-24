@@ -9,16 +9,18 @@ app = App("llama-cpp-modal")
 
 
 # Change this to the model you want to use
+LLAMA_CPP_RELEASE = "b3367"
+MODEL_NAME = "Meta-Llama-3-8B-Instruct"
 MODEL = "Meta-Llama-3-8B-Instruct-Q5_K_M.gguf"
 NUM_OUTPUT_TOKENS = 128
 
 llama_cpp_image = Image.debian_slim(python_version="3.11").apt_install(["curl", "unzip"]).run_commands([
-    "curl -L -O https://github.com/ggerganov/llama.cpp/releases/download/b3367/llama-b3367-bin-ubuntu-x64.zip",
-    "unzip llama-b3367-bin-ubuntu-x64.zip",
+    f"curl -L -O https://github.com/ggerganov/llama.cpp/releases/download/{LLAMA_CPP_RELEASE}/llama-{LLAMA_CPP_RELEASE}-bin-ubuntu-x64.zip",
+    f"unzip llama-{LLAMA_CPP_RELEASE}-bin-ubuntu-x64.zip",
 ])
 
 llama_3_8b_image = llama_cpp_image.run_commands([
-    f"curl -L -O https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/{MODEL}",
+    f"curl -L -O https://huggingface.co/bartowski/{MODEL_NAME}-GGUF/resolve/main/{MODEL}",
 ])
 
 
@@ -26,8 +28,8 @@ llama_3_8b_image = llama_cpp_image.run_commands([
 def llama_cpp_inference():
     import subprocess
     subprocess.run([
-        "/build/bin/llama-cli", 
-        "-m", f"/{MODEL}", 
+        "/build/bin/llama-cli",
+        "-m", f"/{MODEL}",
         "-n", f"{NUM_OUTPUT_TOKENS}",
         "-p", "Write a poem about New York City"
     ])
