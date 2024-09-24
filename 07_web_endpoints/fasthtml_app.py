@@ -2,6 +2,13 @@
 # deploy: true
 # cmd: ["modal", "serve", "07_web_endpoints/fasthtml_app.py"]
 # ---
+
+# # Deploy a FastHTML app with Modal
+
+# This example shows how you can deploy a FastHTML app with Modal.
+# [FastHTML](https://www.fastht.ml/) is a Python library that allows you to create entire web applications using only Python.
+
+
 import modal
 
 app = modal.App("example-fasthtml")

@@ -1,3 +1,8 @@
+# # Run async generator function on Modal
+
+# This example shows how you can run an async generator function on Modal.
+# Modal natively supports async/await syntax using asyncio.
+
 import modal
 
 app = modal.App("example-generators-async")

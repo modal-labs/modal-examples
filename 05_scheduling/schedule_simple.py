@@ -1,6 +1,21 @@
 # ---
 # cmd: ["python", "-m", "05_scheduling.schedule_simple"]
 # ---
+
+# # Scheduling remote jobs
+
+# This example shows how you can schedule remote jobs on Modal.
+# You can do this either with:
+#
+# - [`modal.Period`](https://modal.com/docs/reference/modal.Period) - a time interval between function calls.
+# - [`modal.Cron`](https://modal.com/docs/reference/modal.Cron) - a cron expression to specify the schedule.
+
+# In the code below, the first function runs every
+# 5 seconds, and the second function runs every minute. We use the `schedule`
+# argument to specify the schedule for each function. The `schedule` argument can
+# take a `modal.Period` object to specify a time interval or a `modal.Cron` object
+# to specify a cron expression.
+
 import time
 from datetime import datetime
 
