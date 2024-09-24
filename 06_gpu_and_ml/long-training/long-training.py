@@ -99,7 +99,6 @@ def train_model(data_dir, checkpoint_dir, resume_from_checkpoint=None):
 # The `timeout` parameter in the `@app.function` decorator is set to 30 seconds for demonstration purposes. In a real scenario, you'd set this to a larger value (e.g., several hours) based on your needs.
 @app.function(
     image=image,
-    # mounts=[train_script_mount],
     volumes={VOLUME_PATH: volume},
     gpu="any",
     timeout=30,
@@ -123,8 +122,7 @@ def train():
             print("Starting training from scratch")
             train_model(DATA_PATH, CHECKPOINTS_PATH)
     except Exception as e:
-        print(f"Training interrupted due to: {str(e)}")
-        return None
+        raise e
 
     return
 
@@ -157,5 +155,5 @@ def main():
             print("Will attempt to resume in the next iteration.")
             continue
         except Exception as e:
-            raise e
+            print(f"Error: {str(e)}")
             break
