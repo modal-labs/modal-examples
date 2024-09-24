@@ -3,48 +3,47 @@
 # deploy: true
 # ---
 #
-# # Run ComfyUI interactively and as an API
+# # Run Flux on ComfyUI interactively and as an API
 #
-# [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is a no-code Stable Diffusion GUI that allows you to design and execute advanced image generation pipelines.
-#
-# ![example comfyui image](./comfyui.png)
+# [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is an open-source Stable Diffusion GUI with a graph/nodes based interface that allows you to design and execute advanced image generation pipelines.
+
+# Flux is a family of cutting-edge text-to-image models created by [black forest labs](https://huggingface.co/black-forest-labs), rapidly gaining popularity due to their exceptional image quality.
 #
 # In this example, we show you how to
 #
-# 1. run ComfyUI interactively to develop workflows
+# 1. run Flux on ComfyUI interactively to develop workflows
 #
-# 2. serve a ComfyUI workflow as an API
+# 2. serve a Flux ComfyUI workflow as an API
 #
 # Combining the UI and the API in a single app makes it easy to iterate on your workflow even after deployment.
 # Simply head to the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
 # ## Quickstart
 #
-# This example serves the [ComfyUI inpainting example workflow](https://comfyanonymous.github.io/ComfyUI_examples/inpaint/),
-# which "fills in" part of an input image based on a prompt.
-# For the prompt `"Spider-Man visits Yosemite, rendered by Blender, trending on artstation"`
-# on [this input image](https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png),
+# This example runs `workflow_api.json` in this directory, which is an adapation of [this simple FLUX.1-schnell workflow](https://openart.ai/workflows/reverentelusarca/flux-simple-workflow-schnell/40OkdaB23J2TMTXHmxxu) with an Image Resize custom node added at the end.
+#
+# For the prompt `"Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"`
 # we got this output:
 #
-# ![example comfyui image](./comfyui_gen_image.jpg)
+# ![example comfyui image](./flux_gen_image.jpeg)
 #
+# To serve the workflow in this example as an API:
 # 1. Stand up the ComfyUI server in development mode:
 # ```bash
 # modal serve 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
+# Note: if you're running this for the first time, it will take several minutes to build the image, since we have to download the Flux models (>20GB) to the container. Successive calls will reuse this prebuilt image.
 #
 # 2. In another terminal, run inference:
 # ```bash
-# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace your-modal-workspace --prompt "your prompt here"
+# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace $(modal profile current) --prompt "neon green sign that says Modal"
 # ```
-# You can find your Modal workspace name by running `modal profile current`.
 #
-# The first inference will take a bit longer because the server will need to boot up (~20-30s).
-# Successive inference calls while the server is up should take a few seconds or less.
+# The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive inferences on a warm container should take a few seconds.
 #
 # ## Setup
 #
-# First, we define the environment we need to run ComfyUI using [comfy-cli](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
+# First, we define the environment we need to run ComfyUI using [`comfy-cli`](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
 
 
 import json
@@ -60,12 +59,15 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         python_version="3.11"
     )
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli==1.0.33")  # install comfy-cli
+    .pip_install("comfy-cli==1.1.8")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
-        "comfy --skip-prompt install --nvidia",
+        "comfy --skip-prompt install --nvidia"
     )
-    .run_commands(  # download the inpainting model
-        "comfy --skip-prompt model download --url https://huggingface.co/stabilityai/stable-diffusion-2-inpainting/resolve/main/512-inpainting-ema.safetensors --relative-path models/checkpoints"
+    .run_commands(  # download the flux models
+        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors --relative-path models/clip",
+        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors --relative-path models/clip",
+        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors --relative-path models/vae",
+        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors --relative-path models/unet",
     )
     .run_commands(  # download a custom node
         "comfy node install image-resize-comfyui"
@@ -84,7 +86,7 @@ app = modal.App(name="example-comfyui", image=image)
     concurrency_limit=1,
     container_idle_timeout=30,
     timeout=1800,
-    gpu="any",
+    gpu="A10G",
 )
 @modal.web_server(8000, startup_timeout=60)
 def ui():
@@ -104,18 +106,12 @@ def ui():
 # For more on how to run web services on Modal, check out [this guide](https://modal.com/docs/guide/webhooks).
 @app.cls(
     allow_concurrent_inputs=10,
-    concurrency_limit=1,
     container_idle_timeout=300,
-    gpu="any",
+    gpu="A10G",
     mounts=[
         modal.Mount.from_local_file(
             Path(__file__).parent / "workflow_api.json",
             "/root/workflow_api.json",
-        ),
-        # mount input images
-        modal.Mount.from_local_file(
-            Path(__file__).parent / "yosemite_inpaint_example.png",
-            "/root/comfy/ComfyUI/input/yosemite_inpaint_example.png",
         ),
     ],
 )
@@ -128,7 +124,7 @@ class ComfyUI:
     @modal.method()
     def infer(self, workflow_path: str = "/root/workflow_api.json"):
         # runs the comfy run --workflow command as a subprocess
-        cmd = f"comfy run --workflow {workflow_path} --wait"
+        cmd = f"comfy run --workflow {workflow_path} --wait --timeout 1200"
         subprocess.run(cmd, shell=True, check=True)
 
         # completed workflows write output images to this directory
@@ -155,11 +151,11 @@ class ComfyUI:
         )
 
         # insert the prompt
-        workflow_data["3"]["inputs"]["text"] = item["prompt"]
+        workflow_data["6"]["inputs"]["text"] = item["prompt"]
 
         # give the output image a unique id per client request
         client_id = uuid.uuid4().hex
-        workflow_data["11"]["inputs"]["filename_prefix"] = client_id
+        workflow_data["9"]["inputs"]["filename_prefix"] = client_id
 
         # save this updated workflow to a new file
         new_workflow_file = f"{client_id}.json"
@@ -176,7 +172,6 @@ class ComfyUI:
 # When you run this script with `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py`, you'll see a link that includes `ui`.
 # Head there to interactively develop your ComfyUI workflow. All of your models and custom nodes specified in the image build step will be loaded in.
 #
-#
 # To serve the workflow after you've developed it, first export it as "API Format" JSON:
 # 1. Click the gear icon in the top-right corner of the menu
 # 2. Select "Enable Dev mode Options"
@@ -187,7 +182,6 @@ class ComfyUI:
 # Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py` again.
 #
 # ## Further optimizations
-#
+# - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. This will reduce overall response time, but will cost you more money. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
-# - To reduce image build time, you can write custom code to cache previous model and custom node downloads into a Modal [Volume](https://modal.com/docs/guide/volumes) to avoid full downloads on image rebuilds. (see [gist](https://gist.github.com/kning/bb5f076e831266d00e134fcb3a13ed88)).
 # - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).

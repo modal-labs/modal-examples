@@ -18,7 +18,6 @@ def main(args: argparse.Namespace):
     url = f"https://{args.modal_workspace}--example-comfyui-comfyui-api{'-dev' if args.dev else ''}.modal.run/"
     data = {
         "prompt": args.prompt,
-        "input_image_url": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI_examples/master/inpaint/yosemite_inpaint_example.png",
     }
     print(f"Sending request to {url} with prompt: {data['prompt']}")
     print("Waiting for response...")
@@ -51,19 +50,14 @@ def parse_args(arglist: list[str]) -> argparse.Namespace:
         "--prompt",
         type=str,
         required=True,
-        help="what to draw in the blank part of the image",
+        help="Prompt for the image generation model.",
     )
     parser.add_argument(
         "--dev",
         action="store_true",
         help="use this flag when running the ComfyUI server in development mode with `modal serve`",
     )
-    parser.add_argument(
-        "--input_image-url",
-        default="https://github.com/comfyanonymous/ComfyUI_examples/blob/abcc12912ca11f2f7a36b3a36a4b7651db907459/inpaint/yosemite_inpaint_example.png",
-        type=str,
-        help="URL of the image to inpaint",
-    )
+
     return parser.parse_args(arglist[1:])
 
 

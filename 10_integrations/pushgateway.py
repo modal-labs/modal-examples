@@ -22,7 +22,6 @@ import os
 import subprocess
 
 import modal
-from modal import web_endpoint
 
 PUSHGATEWAY_VERSION = "1.9.0"
 
@@ -116,7 +115,7 @@ class ExampleClientApplication:
             grouping_key={"instance": self.instance_id},
         )
 
-    @web_endpoint()
+    @modal.web_endpoint()
     def hello(self):
         self.counter.inc()
         push_to_gateway(

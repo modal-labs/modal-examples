@@ -100,7 +100,7 @@ vlm_image = (
 # By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
 # so it can be accessed over the public internet from any client.
 
-app = modal.App("app")
+app = modal.App("example-sgl-vlm")
 
 
 @app.cls(

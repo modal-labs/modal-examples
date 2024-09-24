@@ -28,11 +28,11 @@ import subprocess
 from datetime import datetime
 from urllib.request import urlretrieve
 
-from modal import App, Image, Period, Volume, asgi_app
+import modal
 
-app = App("example-covid-datasette")
+app = modal.App("example-covid-datasette")
 datasette_image = (
-    Image.debian_slim()
+    modal.Image.debian_slim()
     .pip_install("datasette~=0.63.2", "sqlite-utils")
     .apt_install("unzip")
 )
@@ -42,7 +42,7 @@ datasette_image = (
 # To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To achieve this we use a [`Volume`](/docs/guide/volumes).
 
-volume = Volume.from_name(
+volume = modal.Volume.from_name(
     "example-covid-datasette-cache-vol", create_if_missing=True
 )
 
@@ -196,7 +196,7 @@ def prep_db():
 # every 24 hours.
 
 
-@app.function(schedule=Period(hours=24), timeout=1000)
+@app.function(schedule=modal.Period(hours=24), timeout=1000)
 def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.remote(cache=False)
@@ -217,7 +217,7 @@ def refresh_db():
     volumes={VOLUME_DIR: volume},
     allow_concurrent_inputs=16,
 )
-@asgi_app()
+@modal.asgi_app()
 def ui():
     from datasette.app import Datasette
 

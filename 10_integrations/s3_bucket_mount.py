@@ -20,19 +20,22 @@
 #
 # After you are done creating a bucket and configuring IAM settings,
 # you now need to create a [`Secret`](https://modal.com/docs/guide/secrets) to share
-# the relevant AWS credentials with your Modal apps. Navigate to the "Secrets" tab and
-# click on the AWS card, then fill in the fields with your credentials.
-# Name the secret `s3-bucket-secret`.
+# the relevant AWS credentials with your Modal apps.
 
 from datetime import datetime
 from pathlib import Path
 
-from modal import App, CloudBucketMount, Image, Secret
+import modal
 
-image = Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().pip_install(
     "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
 )
-app = App(image=image)
+app = modal.App(image=image)
+
+secret = modal.Secret.from_name(
+    "s3-bucket-secret",
+    required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+)
 
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
@@ -57,10 +60,9 @@ with image.imports():
 # As we'll see below, this operation can be massively sped up by running it in parallel on Modal.
 @app.function(
     volumes={
-        MOUNT_PATH: CloudBucketMount(
-            "modal-s3mount-test-bucket",
-            secret=Secret.from_name("s3-bucket-secret"),
-        )
+        MOUNT_PATH: modal.CloudBucketMount(
+            "modal-s3mount-test-bucket", secret=secret
+        ),
     },
 )
 def download_data(year: int, month: int) -> str:
@@ -89,9 +91,9 @@ def download_data(year: int, month: int) -> str:
 # within a month (each file contains all the rides from a specific month).
 @app.function(
     volumes={
-        MOUNT_PATH: CloudBucketMount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
-            secret=Secret.from_name("s3-bucket-secret"),
+            secret=modal.Secret.from_name("s3-bucket-secret"),
         )
     },
 )

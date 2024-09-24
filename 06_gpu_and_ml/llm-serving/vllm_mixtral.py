@@ -211,18 +211,18 @@ def main():
 
 from pathlib import Path
 
-from modal import Mount, asgi_app
+import modal
 
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @app.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
+    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
     timeout=60 * 10,
 )
-@asgi_app(label="vllm-mixtral")
+@modal.asgi_app(label="vllm-mixtral")
 def vllm_mixtral():
     import json
 

@@ -25,16 +25,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from modal import (
-    App,
-    CloudBucketMount,  # the star of the show
-    Image,
-    Secret,
-    asgi_app,
-    build,
-    enter,
-    method,
-)
+import modal
 
 # You will need to have an S3 bucket and AWS credentials to run this example. Refer to the documentation
 # for the detailed [IAM permissions](https://modal.com/docs/guide/cloud-bucket-mounts#iam-permissions) those credentials will need.
@@ -44,7 +35,7 @@ from modal import (
 # click on the AWS card, then fill in the fields with the AWS key and secret created
 # previously. Name the Secret `s3-bucket-secret`.
 
-bucket_secret = Secret.from_name("s3-bucket-secret")
+bucket_secret = modal.Secret.from_name("s3-bucket-secret")
 
 MOUNT_PATH: Path = Path("/mnt/bucket")
 LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
@@ -54,7 +45,7 @@ LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
 # the container `Image`. The line below constructs an image
 # with the dependencies we need -- no need to install them locally.
 
-image = Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().pip_install(
     "huggingface_hub==0.21.4",
     "transformers==4.38.2",
     "diffusers==0.26.3",
@@ -71,11 +62,11 @@ with image.imports():
 # We attach the S3 bucket to all the Modal functions in this app by mounting it on the filesystem they see,
 # passing a `CloudBucketMount` to the `volumes` dictionary argument. We can read and write to this mounted bucket
 # (almost) as if it were a local directory.
-app = App(
+app = modal.App(
     "loras-galore",
     image=image,
     volumes={
-        MOUNT_PATH: CloudBucketMount(
+        MOUNT_PATH: modal.CloudBucketMount(
             "modal-s3mount-test-bucket",
             secret=bucket_secret,
         )
@@ -165,19 +156,19 @@ def download_lora(repository_id: str) -> Optional[str]:
 class StableDiffusionLoRA:
     pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
 
-    @build()  # when we setup our image, we download the base model
+    @modal.build()  # when we setup our image, we download the base model
     def build(self):
         diffusers.DiffusionPipeline.from_pretrained(
             self.pipe_id, torch_dtype=torch.float16
         )
 
-    @enter()  # when a new container starts, we load the base model into the GPU
+    @modal.enter()  # when a new container starts, we load the base model into the GPU
     def load(self):
         self.pipe = diffusers.DiffusionPipeline.from_pretrained(
             self.pipe_id, torch_dtype=torch.float16
         ).to("cuda")
 
-    @method()  # at inference time, we pull in the LoRA weights and pass the final model the prompt
+    @modal.method()  # at inference time, we pull in the LoRA weights and pass the final model the prompt
     def run_inference_with_lora(
         self, lora_id: str, prompt: str, seed: int = 8888
     ) -> bytes:
@@ -250,11 +241,22 @@ def main(
 from fastapi import FastAPI
 
 web_app = FastAPI()
-web_image = Image.debian_slim().pip_install("gradio~=3.50.2", "pillow~=10.2.0")
+web_image = modal.Image.debian_slim().pip_install(
+    "gradio~=4.29.0", "pillow~=10.2.0"
+)
 
 
-@app.function(image=web_image, keep_warm=1, container_idle_timeout=60 * 20)
-@asgi_app()
+@app.function(
+    image=web_image,
+    keep_warm=1,
+    container_idle_timeout=60 * 20,
+    # gradio requires sticky sessions
+    # so we limit the number of concurrent containers to 1
+    # and allows it to scale to 100 concurrent inputs
+    allow_concurrent_inputs=100,
+    concurrency_limit=1,
+)
+@modal.asgi_app()
 def ui():
     """A simple Gradio interface around our LoRA inference."""
     import io

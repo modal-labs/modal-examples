@@ -2,8 +2,11 @@
 # lambda-test: false
 # ---
 
+# # Deploy Flask app with streaming results with Modal
+
+# This example shows how you can deploy a [Flask](https://flask.palletsprojects.com/en/3.0.x/) app with Modal that streams results back to the client.
+
 import modal
-from modal import wsgi_app
 
 app = modal.App(
     "example-web-flask-stream",
@@ -23,7 +26,7 @@ def generate_rows():
 
 
 @app.function()
-@wsgi_app()
+@modal.wsgi_app()
 def flask_app():
     from flask import Flask
 

@@ -2,16 +2,21 @@
 # lambda-test: false
 # ---
 
-from modal import App, Image, wsgi_app
+# # Deploy Flask app with Modal
 
-app = App(
+# This example shows how you can deploy a [Flask](https://flask.palletsprojects.com/en/3.0.x/) app with Modal.
+# You can serve any app written in a WSGI-compatible web framework (like Flask) on Modal with this pattern. You can serve an app written in an ASGI-compatible framework, like FastAPI, with [`asgi_app`](https://modal.com/docs/guide/webhooks#asgi).
+
+import modal
+
+app = modal.App(
     "example-web-flask",
-    image=Image.debian_slim().pip_install("flask"),
+    image=modal.Image.debian_slim().pip_install("flask"),
 )
 
 
 @app.function()
-@wsgi_app()
+@modal.wsgi_app()
 def flask_app():
     from flask import Flask, request
 

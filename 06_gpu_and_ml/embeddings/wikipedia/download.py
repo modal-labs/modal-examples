@@ -1,4 +1,4 @@
-from modal import App, Image, Volume
+import modal
 
 # We first set out configuration variables for our script.
 DATASET_DIR = "/data"
@@ -7,11 +7,11 @@ DATASET_CONFIG = "20220301.en"
 
 
 # We define our Modal Resources that we'll need
-volume = Volume.from_name("embedding-wikipedia", create_if_missing=True)
-image = Image.debian_slim(python_version="3.9").pip_install(
+volume = modal.Volume.from_name("embedding-wikipedia", create_if_missing=True)
+image = modal.Image.debian_slim(python_version="3.9").pip_install(
     "datasets==2.16.1", "apache_beam==2.53.0"
 )
-app = App(image=image)
+app = modal.App(image=image)
 
 
 # The default timeout is 5 minutes re: https://modal.com/docs/guide/timeouts#handling-timeouts

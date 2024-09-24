@@ -1,7 +1,11 @@
+# # Run StableLM text completion model
+
+# This example shows how you can run [`stabilityai/stablelm-tuned-alpha-7b`](https://huggingface.co/stabilityai/stablelm-tuned-alpha-7b) on Modal
+
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Union
 
 import modal
 from pydantic import BaseModel
@@ -110,28 +114,25 @@ class CompletionRequest(BaseModel):
 
 @app.cls(gpu="A10G")
 class StabilityLM:
-    def __init__(
-        self,
-        model_url: str = "stabilityai/stablelm-tuned-alpha-7b",
-        decode_kwargs: Optional[Dict[str, Any]] = None,
-    ):
-        self.model_url = model_url
-        self.decode_kwargs = decode_kwargs or {}
-        self.stop_tokens = [
-            "<|USER|>",
-            "<|ASSISTANT|>",
-            "<|SYSTEM|>",
-            "<|padding|>",
-            "<|endoftext|>",
-        ]
-        os.environ["HF_HUB_OFFLINE"] = "1"
-        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    stop_tokens = [
+        "<|USER|>",
+        "<|ASSISTANT|>",
+        "<|SYSTEM|>",
+        "<|padding|>",
+        "<|endoftext|>",
+    ]
+    model_url: str = modal.parameter(
+        default="stabilityai/stablelm-tuned-alpha-7b"
+    )
 
     @modal.enter()
     def setup_model(self):
         """
         Container-lifeycle method for model setup.
         """
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
@@ -140,7 +141,8 @@ class StabilityLM:
         )
         self.stop_ids = tokenizer.convert_tokens_to_ids(self.stop_tokens)
         self.streamer = TextIteratorStreamer(
-            tokenizer, skip_prompt=True, **self.decode_kwargs
+            tokenizer,
+            skip_prompt=True,
         )
         self.generator = pipeline(
             "text-generation",

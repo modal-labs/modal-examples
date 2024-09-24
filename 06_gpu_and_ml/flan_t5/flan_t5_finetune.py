@@ -22,14 +22,13 @@
 from pathlib import Path
 
 import modal
-from modal import App, Image, Volume, enter, method, wsgi_app
 
 VOL_MOUNT_PATH = Path("/vol")
 
 # Other Flan-T5 models can be found [here](https://huggingface.co/docs/transformers/model_doc/flan-t5)
 BASE_MODEL = "google/flan-t5-base"
 
-image = Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().pip_install(
     "accelerate",
     "transformers",
     "torch",
@@ -37,8 +36,8 @@ image = Image.debian_slim().pip_install(
     "tensorboard",
 )
 
-app = App(name="example-news-summarizer", image=image)
-output_vol = Volume.from_name("finetune-volume", create_if_missing=True)
+app = modal.App(name="example-news-summarizer", image=image)
+output_vol = modal.Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
 #
@@ -199,7 +198,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 # serve it as a Modal WSGI app.
 #
 @app.function(volumes={VOL_MOUNT_PATH: output_vol})
-@wsgi_app()
+@modal.wsgi_app()
 def monitor():
     import tensorboard
 
@@ -222,7 +221,7 @@ def monitor():
 
 @app.cls(volumes={VOL_MOUNT_PATH: output_vol})
 class Summarizer:
-    @enter()
+    @modal.enter()
     def load_model(self):
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
@@ -238,7 +237,7 @@ class Summarizer:
             "summarization", tokenizer=tokenizer, model=model
         )
 
-    @method()
+    @modal.method()
     def generate(self, input: str) -> str:
         return self.summarizer(input)[0]["summary_text"]
 

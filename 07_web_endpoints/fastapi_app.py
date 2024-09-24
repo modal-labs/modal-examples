@@ -2,15 +2,20 @@
 # lambda-test: false
 # ---
 
+# # Deploy FastAPI app with Modal
+
+# This example shows how you can deploy a [FastAPI](https://fastapi.tiangolo.com/) app with Modal.
+# You can serve any app written in an ASGI-compatible web framework (like FastAPI) using this pattern or you can server WSGI-compatible frameworks like Flask with [`wsgi_app`](https://modal.com/docs/guide/webhooks#wsgi).
+
 from typing import Optional
 
+import modal
 from fastapi import FastAPI, Header
-from modal import App, Image, asgi_app, web_endpoint
 from pydantic import BaseModel
 
 web_app = FastAPI()
-app = App("example-fastapi-app")
-image = Image.debian_slim()
+app = modal.App("example-fastapi-app")
+image = modal.Image.debian_slim()
 
 
 class Item(BaseModel):
@@ -32,13 +37,13 @@ async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
 
 
 @app.function(image=image)
-@asgi_app()
+@modal.asgi_app()
 def fastapi_app():
     return web_app
 
 
 @app.function()
-@web_endpoint(method="POST")
+@modal.web_endpoint(method="POST")
 def f(item: Item):
     return "Hello " + item.name
 

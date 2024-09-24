@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import fastapi
+import modal
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from modal import App, Dict, Image, Mount, asgi_app
 
 assets_path = Path(__file__).parent / "chatbot_spa"
-app = App("example-chatbot-spa")
-chat_histories = Dict.from_name(
+app = modal.App("example-chatbot-spa")
+chat_histories = modal.Dict.from_name(
     "example-chatbot-spa-history", create_if_missing=True
 )
 
@@ -42,7 +42,7 @@ def load_tokenizer_and_model():
 
 
 gpu_image = (
-    Image.debian_slim()
+    modal.Image.debian_slim()
     .pip_install("torch", find_links="https://download.pytorch.org/whl/cu116")
     .pip_install("transformers~=4.31", "accelerate")
     .run_function(load_tokenizer_and_model)
@@ -55,8 +55,10 @@ with gpu_image.imports():
     tokenizer, model = load_tokenizer_and_model()
 
 
-@app.function(mounts=[Mount.from_local_dir(assets_path, remote_path="/assets")])
-@asgi_app()
+@app.function(
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
+)
+@modal.asgi_app()
 def transformer():
     app = fastapi.FastAPI()
 

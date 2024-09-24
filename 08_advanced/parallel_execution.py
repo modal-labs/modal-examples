@@ -1,3 +1,9 @@
+# # Parallel execution on Modal with `spawn`
+
+# This example shows how you can run multiple functions in parallel on Modal.
+# We use the `spawn` method to start a function and return a handle to its result.
+# The `get` method is used to retrieve the result of the function call.
+
 import time
 
 import modal

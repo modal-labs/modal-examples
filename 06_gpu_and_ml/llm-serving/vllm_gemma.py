@@ -91,7 +91,11 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_image,
-        secrets=[modal.Secret.from_name("huggingface-secret")],
+        secrets=[
+            modal.Secret.from_name(
+                "huggingface-secret", required_keys=["HF_TOKEN"]
+            )
+        ],
         timeout=60 * 20,
         kwargs={"model_dir": MODEL_DIR, "model_name": MODEL_NAME},
     )
@@ -176,7 +180,7 @@ class Model:
 
 # ## Run the model
 # We define a [`local_entrypoint`](/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
-# sequentially for a list of inputs. Run it by executing the command `modal run vllm_inference.py`.
+# sequentially for a list of inputs. Run it by executing the command `modal run vllm_gemma.py`.
 #
 # The examples below are meant to put the model through its paces, with a variety of questions and prompts.
 # We also calculate the throughput and latency we achieve.

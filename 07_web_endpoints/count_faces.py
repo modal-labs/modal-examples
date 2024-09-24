@@ -2,6 +2,16 @@
 # lambda-test: false
 # ---
 
+# Run OpenCV face detection on an image
+
+# This example shows how you can use OpenCV on Modal to detect faces in an image. We use
+# the `opencv-python` package to load the image and the `opencv` library to
+# detect faces. The function `count_faces` takes an image as input and returns
+# the number of faces detected in the image.
+
+# The code below also shows how you can create a web server with Sanic to upload
+# an image and get the number of faces detected in the image.
+
 import os
 
 import modal
