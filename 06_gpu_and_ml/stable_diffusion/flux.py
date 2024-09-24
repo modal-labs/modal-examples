@@ -1,7 +1,11 @@
 # ---
 # output-directory: "/tmp/flux"
 # ---
-# example originally contributed by [@Arro](https://github.com/Arro)
+# # Run Flux.1 (Schnell) on Modal
+#
+# This example runs the popular [Flux.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) text-to-image model on Modal.
+#
+# Thanks to [@Arro](https://github.com/Arro) for the original contribution.
 from io import BytesIO
 from pathlib import Path
 
