@@ -3,7 +3,7 @@
 # output-directory: "/tmp/playground-2-5"
 # args: ["--prompt", "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe."]
 # ---
-# # Playground v2.5
+# # Run Playground v2.5 on Modal
 #
 # This example runs the popular [Playground v2.5](https://huggingface.co/playgroundai/playground-v2.5-1024px-aesthetic) text-to-image on Modal.
 #

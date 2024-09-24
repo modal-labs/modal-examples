@@ -1,7 +1,7 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/stable_diffusion/stable_video_diffusion.py"]
 # ---
-# # Stable Video Diffusion
+# # Run Stable Video Diffusion in a Streamlit app
 #
 # This example runs the [Stable Video Diffusion](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt) image-to-video model.
 

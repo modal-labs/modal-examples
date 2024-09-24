@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/flux"
 # ---
-# # Flux.1 (Schnell)
+# # Run Flux.1 (Schnell) on Modal
 #
 # This example runs the popular [Flux.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) text-to-image model on Modal.
 #

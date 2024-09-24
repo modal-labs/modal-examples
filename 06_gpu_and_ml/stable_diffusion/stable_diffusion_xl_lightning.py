@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl-lightning"
 # ---
-# # SDXL Lightning
+# # Run SDXL Lightning on Modal
 #
 # This example runs [SDXL-Lightning](https://huggingface.co/ByteDance/SDXL-Lightning) by ByteDance, a fast text-to-image model that generates high quality images in just a few steps.
 #
