@@ -32,17 +32,18 @@
 import modal
 
 vllm_image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    "vllm==0.5.3post1"
+    "vllm==0.6.2"
 )
 
 # ## Download the model weights
 #
-# We'll be running a pretrained foundation model -- Meta's LLaMA 3.1 8B
-# in the Instruct variant that's trained to chat and follow instructions.
+# We'll be running a pretrained foundation model -- Meta's LLaMA 3.2 3B
+# in the Instruct variant that's trained to chat and follow instructions,
+# quantized to 8-bit by [Neural Magic](https://neuralmagic.com/) and uploaded to Hugging Face.
 
 MODELS_DIR = "/llamas"
-MODEL_NAME = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-MODEL_REVISION = "8c22764a7e3675c50d4c7c9a4edb474456022b16"
+MODEL_NAME = "neuralmagic/Llama-3.2-3B-Instruct-quantized.w8a8"
+MODEL_REVISION = "1c42cac61b517e84efa30e3e90f00076045d5a89"
 
 # We need to make the weights of that model available to our Modal Functions.
 #
@@ -85,10 +86,10 @@ HOURS = 60 * MINUTES
 
 @app.function(
     image=vllm_image,
-    gpu=modal.gpu.A100(count=N_GPU, size="40GB"),
+    gpu=modal.gpu.L4(count=N_GPU),
     container_idle_timeout=5 * MINUTES,
     timeout=24 * HOURS,
-    allow_concurrent_inputs=100,
+    allow_concurrent_inputs=500,
     volumes={MODELS_DIR: volume},
 )
 @modal.asgi_app()
@@ -102,6 +103,7 @@ def serve():
     from vllm.entrypoints.openai.serving_completion import (
         OpenAIServingCompletion,
     )
+    from vllm.entrypoints.openai.serving_engine import BaseModelPath
     from vllm.usage.usage_lib import UsageContext
 
     volume.reload()  # ensure we have the latest version of the weights
@@ -109,7 +111,7 @@ def serve():
     # create a fastAPI app that uses vLLM's OpenAI-compatible router
     web_app = fastapi.FastAPI(
         title=f"OpenAI-compatible {MODEL_NAME} server",
-        description="Run an OpenAI-compatible LLM server with vLLM on modal.com",
+        description="Run an OpenAI-compatible LLM server with vLLM on modal.com 🚀",
         version="0.0.1",
         docs_url="/docs",
     )
@@ -159,20 +161,24 @@ def serve():
 
     request_logger = RequestLogger(max_log_len=2048)
 
-    api_server.openai_serving_chat = OpenAIServingChat(
+    base_model_paths = [
+        BaseModelPath(name=MODEL_NAME.split("/")[1], model_path=MODEL_NAME)
+    ]
+
+    api_server.chat = lambda s: OpenAIServingChat(
         engine,
         model_config=model_config,
-        served_model_names=[MODEL_NAME],
+        base_model_paths=base_model_paths,
         chat_template=None,
         response_role="assistant",
         lora_modules=[],
         prompt_adapters=[],
         request_logger=request_logger,
     )
-    api_server.openai_serving_completion = OpenAIServingCompletion(
+    api_server.completion = lambda s: OpenAIServingCompletion(
         engine,
         model_config=model_config,
-        served_model_names=[MODEL_NAME],
+        base_model_paths=base_model_paths,
         lora_modules=[],
         prompt_adapters=[],
         request_logger=request_logger,

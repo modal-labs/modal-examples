@@ -25,7 +25,7 @@ class WebsiteUser(locust.HttpUser):
     @locust.task
     def chat_completion(self):
         payload = {
-            "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+            "model": "Llama-3.2-3B-Instruct-quantized.w8a8",
             "messages": messages,
         }
 
