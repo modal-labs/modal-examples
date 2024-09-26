@@ -1,4 +1,5 @@
-name: Build Docs
+# deploys a preview version of the frontend including example changes
+name: Preview Docs
 on:
   push:
     branches:
@@ -8,8 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build the docs
+  build-preview:
+    name: Build and deploy
     runs-on: ubuntu-20.04
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
@@ -17,9 +18,13 @@ jobs:
       MODAL_ENVIRONMENT: modal-egs
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout modal repo
+        uses: actions/checkout@v3
         with:
+          repository: modal-labs/modal
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
+          path: modal
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -32,48 +37,43 @@ jobs:
           pip install uv
           uv pip install --system setuptools wheel
 
-      - name: Checkout modal repo
-        uses: actions/checkout@v3
-        with:
-          repository: modal-labs/modal
-          token: ${{ secrets.GH_PAT }}
-          path: internal/modal
-          fetch-depth: 1
-
-      - name: Move modal repo
-        run: |
-          mv internal/modal ../modal
-
       - name: Install modal development packages
         run: |
-          uv pip install --system -r ../modal/requirements.dev.txt
+          uv pip install --system -r modal/requirements.dev.txt
 
       - name: Checkout client repo
         uses: actions/checkout@v3
         with:
           repository: modal-labs/modal-client
           token: ${{ secrets.GH_PAT }}
-          path: internal/client
+          path: client
           fetch-depth: 1
 
-      - name: Install client repo from superdirectory
+      - name: Install client repo
         run: |
-          mv internal/client ../client
-          uv pip install --system -e ../client
+          uv pip install --system -e client
 
-      - uses: actions/setup-node@v4
+      - name: Install node
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - run: npm ci --include=dev
-        working-directory: ../modal/frontend
+      - name: Install node packages
+        run: npm ci --include=dev
+        working-directory: modal/frontend
 
       - name: Compile protos
         run: |
-          cd ../client && inv protoc type-stubs
-          cd ../modal && inv protoc
+          cd client && inv protoc type-stubs
+          cd modal && inv protoc
+
+      - name: checkout examples repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          path: modal/examples
 
       - name: Build the docs
-        working-directory: ../modal
+        working-directory: modal
         run: |
           inv frontend-preview
