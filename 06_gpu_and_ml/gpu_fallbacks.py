@@ -1,9 +1,3 @@
-import subprocess
-
-import modal
-
-app = modal.App("example-gpu-fallbacks")
-
 # # Set "fallback" GPUs
 #
 # GPU availabilities on Modal can fluctuate, especially for
@@ -15,6 +9,12 @@ app = modal.App("example-gpu-fallbacks")
 # your Function scales up, we will try to schedule it on each requested GPU type in order.
 #
 # The code below demonstrates the usage of the `gpu` parameter with a list of GPUs.
+
+import subprocess
+
+import modal
+
+app = modal.App("example-gpu-fallbacks")
 
 
 @app.function(
