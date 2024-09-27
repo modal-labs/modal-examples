@@ -93,7 +93,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           script: |
             const deploymentUrl = `${{ steps.deploy_preview.outputs.DEPLOYMENT_URL }}`;
-            github.issues.createComment({
+            github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
