@@ -3,7 +3,7 @@
 # ---
 # # LLM Training with Hyperparameter Optimization
 #
-# <img src="./images/shakespeare.png" alt='shakespeare'>
+# <img src="./shakespeare.png" alt='shakespeare'>
 #
 # When you want an LLM tailored to your specific data there are three options.
 # The easiest is [Prompt Engineering](https://en.wikipedia.org/wiki/Prompt_engineering)
