@@ -1,9 +1,6 @@
 # deploys a preview version of the frontend including example changes
 name: Preview Docs
 on:
-  push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
 
