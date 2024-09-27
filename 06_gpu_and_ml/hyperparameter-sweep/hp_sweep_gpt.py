@@ -3,7 +3,7 @@
 # ---
 # # LLM Training with Hyperparameter Optimization
 #
-# <img src="./shakespeare.png" alt='shakespeare'>
+# <img src="./images/shakespeare.png" alt='shakespeare'>
 #
 # When you want an LLM tailored to your specific data there are three options.
 # The easiest is [Prompt Engineering](https://en.wikipedia.org/wiki/Prompt_engineering)
@@ -28,7 +28,7 @@
 # LLM model (`AttentionModel`), and a `Dataset` class. The torch model is a nano GPT style model
 # very similar to [Karpathy's](https://github.com/ShariqM/modal_nano_gpt/blob/master/model.py).
 # The `Dataset` class manages the Shakespeare text data which is available
-# [here](/modal_nano_gpt/blob/master/model.py).
+# [here](https://github.com/ShariqM/modal_nano_gpt/blob/master/model.py).
 
 import logging as L
 
