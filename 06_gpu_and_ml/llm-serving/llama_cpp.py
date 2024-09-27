@@ -1,4 +1,4 @@
-# # Run llama.cpp on Modal
+# # Run `llama.cpp` on Modal
 
 # [`llama.cpp`](https://github.com/ggerganov/llama.cpp) is a C++ library for running LLM inference.
 # It's lightweight, fast, and includes support for exotic quantizations like 5-bit integers.
