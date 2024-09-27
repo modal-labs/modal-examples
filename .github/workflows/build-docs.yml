@@ -81,4 +81,4 @@ jobs:
       - name: Build the docs
         working-directory: modal
         run: |
-          inv frontend-preview --skip-update
+          inv frontend-preview --skip-update --deployment-id ${GITHUB_SHA::7}
