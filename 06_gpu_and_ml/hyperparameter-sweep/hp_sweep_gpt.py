@@ -28,7 +28,7 @@
 # LLM model (`AttentionModel`), and a `Dataset` class. The torch model is a nano GPT style model
 # very similar to [Karpathy's](https://github.com/ShariqM/modal_nano_gpt/blob/master/model.py).
 # The `Dataset` class manages the Shakespeare text data which is available
-# [here](https://github.com/ShariqM/modal_nano_gpt/blob/master/model.py).
+# [here](/modal_nano_gpt/blob/master/model.py).
 
 import logging as L
 
