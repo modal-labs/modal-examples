@@ -15,7 +15,7 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
-      MODAL_ENVIRONMENT: modal-egs
+      MODAL_ENVIRONMENT: examples
 
     steps:
       - name: Checkout modal repo
