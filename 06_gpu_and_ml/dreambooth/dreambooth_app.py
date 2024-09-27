@@ -519,7 +519,7 @@ def fastapi_app():
 #
 # Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
 #
-# If you just want to try the app out, you can find it at https://modal-labs--example-dreambooth-app-fastapi-app.modal.run
+# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-dreambooth-flux-fastapi-app.modal.run).
 
 
 @app.local_entrypoint()
