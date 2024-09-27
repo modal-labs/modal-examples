@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-preview:
-    name: Build and deploy
+    name: Build and deploy preview
     runs-on: ubuntu-20.04
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
@@ -26,6 +26,7 @@ jobs:
           fetch-depth: 1
           path: modal
           persist-credentials: false
+          ref: charlesfrye/skip-update-docs
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -77,15 +78,7 @@ jobs:
           fetch-depth: 1
           path: modal/examples
 
-      - name: Set up git environment for pull in invoke task
-        working-directory: modal/examples
-        run: |
-          git remote set-url origin https://github.com/modal-labs/modal-examples.git
-          branch_name="${GITHUB_REF#refs/heads/}"
-          git fetch origin $branch_name
-          git checkout $branch_name
-
       - name: Build the docs
         working-directory: modal
         run: |
-          inv frontend-preview
+          inv frontend-preview --skip-update
