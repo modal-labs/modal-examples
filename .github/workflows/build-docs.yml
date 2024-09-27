@@ -78,7 +78,24 @@ jobs:
           fetch-depth: 1
           path: modal/examples
 
-      - name: Build the docs
+      - name: Build and deploy preview
+        id: deploy_preview
         working-directory: modal
         run: |
-          inv frontend-preview --skip-update --deployment-id ${GITHUB_SHA::7}
+          export DEPLOYMENT_ID=${GITHUB_SHA::7}
+          inv frontend-preview --skip-update --deployment-id $DEPLOYMENT_ID | tee output.txt
+          DEPLOYMENT_URL=$(cat output.txt | grep "$DEPLOYMENT_ID" | grep "modal.run" | tail -n 1)
+          echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Post a comment with the preview URL
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const deploymentUrl = `${{ steps.deploy_preview.outputs.DEPLOYMENT_URL }}`;
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 The docs preview is ready! Check it out here: ${deploymentUrl}`
+            });
