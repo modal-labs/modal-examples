@@ -1,6 +1,14 @@
 # ---
 # lambda-test: false
 # ---
+
+# # Polling for a delayed result on Modal
+
+# This example shows how you can poll for a delayed result on Modal.
+
+# The function `factor_number` takes a number as input and returns the prime factors of the number. The function could take a long time to run, so we don't want to wait for the result in the web server.
+# Instead, we return a URL that the client can poll to get the result.
+
 import fastapi
 import modal
 from modal.functions import FunctionCall

@@ -1,6 +1,10 @@
 # ---
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/text_embeddings_inference.py::embed_dataset"]
 # ---
+# # Run TextEmbeddingsInference (TEI) on Modal
+#
+# This example runs the [Text Embedding Inference (TEI)](https://github.com/huggingface/text-embeddings-inference) toolkit on the Hacker News BigQuery public dataset.
+
 import json
 import os
 import socket

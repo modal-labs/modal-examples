@@ -2,6 +2,10 @@
 # lambda-test: false
 # ---
 
+# # Deploy a cron job with Modal
+
+# This example shows how you can deploy a cron job with Modal.
+
 import time
 from datetime import datetime, timezone
 

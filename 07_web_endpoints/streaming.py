@@ -2,6 +2,10 @@
 # cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
 # deploy: true
 # ---
+
+# # Deploy FastAPI app with streaming results with Modal
+# This example shows how you can deploy a [FastAPI](https://fastapi.tiangolo.com/) app with Modal that streams results back to the client.
+
 import asyncio
 import time
 
