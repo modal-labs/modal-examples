@@ -38,8 +38,8 @@ VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and
 # Build the image with the required dependencies. We use an image with the
 # the full CUDA toolkit to ensure we can compile the latest Flash Attention
 
-# diffusers_commit_sha = "1fcb811a8e6351be60304b1d4a4a749c36541651"
 diffusers_commit_sha = "81cf3b2f155f1de322079af28f625349ee21ec6b"
+flash_commit_sha = "53a4f341634fcbc96bb999a3c804c192ea14f2ea"
 
 cuda_version = "12.4.0"  # should be no greater than host CUDA version
 flavor = "devel"  #  includes full CUDA toolkit
@@ -70,14 +70,15 @@ flux_image = (
     # Since Hugging Face does not support Flash Attention 3 (FA3) yet (Sep 2024),
     # let's build it from source and add it to our `PYTHONPATH`.
     .pip_install(
-        "ninja",
-        "packaging",
-        "wheel",
+        "ninja==1.11.1.1",
+        "packaging==24.1",
+        "wheel==0.44.0",
         "torch==2.4.1",
     )
     .run_commands(
         "ln -s /usr/bin/g++ /usr/bin/clang++",  # Use clang
         "git clone https://github.com/Dao-AILab/flash-attention.git",
+        f"cd flash-attention && git checkout {flash_commit_sha}",
         "cd flash-attention/hopper && python setup.py install",
     )
     .env({"PYTHONPATH": "/root/flash-attention/hopper"})
@@ -102,7 +103,7 @@ with flux_image.imports():
     gpu="H100",  # Necessary for FA3
     container_idle_timeout=60 * 3,
     image=flux_image,
-    timeout=60 * 10,  # 5m -> 10m to leave room for compile time.
+    timeout=60 * 20,  # 20 minutes to leave plenty of room for compile time.
 )
 class Model:
     def _download_model(self):
@@ -138,7 +139,7 @@ class Model:
         move_cache()
 
         # Runs for 1-2minutes
-        print("Calling pipe() to trigger torch compiliation...")
+        print("Calling pipe() to trigger torch compiliation (slow)...")
 
         self.pipe(
             "Test prompt to trigger torch compilation.",
@@ -195,3 +196,20 @@ def main(
     print(f"Saving it to {output_path}")
     with open(output_path, "wb") as f:
         f.write(image_bytes)
+
+
+# That's it! We can now run our `main` function to generate an image. You should
+# see something like this:
+
+# ```
+# Calling pipe() to trigger torch compiliation...
+# ...
+
+# AUTOTUNE mm(4096x3072, 3072x12288)
+# ...
+# Finished compilation.
+# 1st latency: 1112.18 seconds
+# ...
+# 2nd latency: 1.03 seconds
+# Saving it to /tmp/flux/output.jpg
+# ```
