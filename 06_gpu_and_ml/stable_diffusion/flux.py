@@ -16,7 +16,7 @@
 # is to break the QKV operations into tiny blocks that can be computed quickly
 # in high bandwidth SRAM rather than constantly using low bandwidth VRAM. Read
 # more [here](https://gordicaleksa.medium.com/eli5-flash-attention-5c44017022ad).
-# Note that Flash Attention 3 (FA3) is specifically designed for H100 GPUs.
+# Note that Flash Attention 3 (FA3), which we use here, is specifically designed for H100 GPUs.
 
 # We start off by importing `BytesIO` for return image byte streams,
 # along with `Path` and `modal`.
@@ -27,9 +27,9 @@ from pathlib import Path
 
 import modal
 
-# We'll use the schnell variant of Flux.1 which is faster but less accurate.
-# If you want to use the dev variant, get yourself a Hugging Face  API key,
-# put it in your [Secrets](https://modal.com/docs/guide/secrets) and include
+# We'll use the `schnell` variant of Flux.1 which is the fastest but lowest quality model in the series.
+# If you want to use the dev variant, get yourself a Hugging Face API key,
+# put it in your Modal [Secrets](https://modal.com/docs/guide/secrets) and include
 # it in the `@app.cls()` below.
 
 VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
@@ -67,7 +67,7 @@ flux_image = (
         "safetensors==0.4.4",
         "sentencepiece==0.2.0",
     )
-    # Since Hugging Face does not support Flash Attention 3 (FA3) yet (Sep 2024),
+    # Since Hugging Face does not support Flash Attention 3 as of writing (Sep 2024),
     # let's build it from source and add it to our `PYTHONPATH`.
     .pip_install(
         "ninja==1.11.1.1",
@@ -96,8 +96,8 @@ with flux_image.imports():
 
 # Now we can define our `Model` class which will
 # 1) Download the model from Hugging Face Hub
-# 2) Optimize the Flux's internal Transformer and VAE models to use FA3
-# 3) Call `torch.compile() `with the `max-autotune` mode to optimize the models
+# 2) Swap in FA3 in Flux's internal Transformer and VAE models
+# 3) Call `torch.compile()` in `max-autotune` mode to optimize the models
 # even further.
 @app.cls(
     gpu="H100",  # Necessary for FA3
@@ -164,7 +164,7 @@ class Model:
         return byte_stream.getvalue()
 
 
-# Finally we write our `main` entrypoint to  utilize the `Model`
+# Finally we write our `main` entrypoint to use the `Model`
 # class to generate an image. We'll use `BytesIO` to receive the image and
 # save it to a JPEG file for easy viewing.
 
