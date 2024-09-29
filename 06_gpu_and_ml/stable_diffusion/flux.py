@@ -12,11 +12,11 @@
 # ## Overview
 # In this guide we'll show you how to compile Flux to run at bleeding edge speeds,
 # create a Modal class for downloading and serving the model, and generate
-# unlimited images with a Modal entrypoint.
+# unlimited images via `remote` calls in a Modal entrypoint.
 
 # ### Flux Variants
 # We'll use the `schnell` variant of Flux.1 which is the fastest but lowest quality model in the series.
-# If you want to use the `dev` variant, get yourself a Hugging Face API key,
+# If you want to use the `dev` variant: get yourself a Hugging Face API key,
 # put it in your Modal [Secrets](https://modal.com/docs/guide/secrets) and include
 # it in the `@app.cls()` below.
 
@@ -24,8 +24,8 @@
 # To run Flux.1 at bleeding edge speeds we will use [Flash Attention (FA3)](https://github.com/Dao-AILab/flash-attention?tab=readme-ov-file)
 # which makes the attention blocks in Transformers go
 # [brrrr](https://horace.io/brrr_intro.html) on GPUs. FA3 does this by
-# breaking the Query, Key, Value (QKV) operations into tiny block that can be
-# computed quickly in high bandwidth SRAM rather than constantly using low
+# breaking the Query, Key, and Value (QKV) operations into tiny block that can be
+# computed quickly in high bandwidth SRAM rather than overusing low
 # bandwidth VRAM. Read more [here](https://gordicaleksa.medium.com/eli5-flash-attention-5c44017022ad).
 
 # ### Quick note
@@ -33,7 +33,7 @@
 # this example.
 #
 # ## Setting up the image and dependencies
-# To setup we'll need to import `BytesIO` for returning image bytes,
+# To set up we'll need to import `BytesIO` for returning image bytes,
 # use a specific CUDA image to ensure we can compile FA3, build and install FA3,
 # and import the Hugging Face `diffusers` library to download and run Flux via
 # the `FluxPipeline` class.
@@ -110,7 +110,7 @@ with flux_image.imports():
 # 3. Call `torch.compile()` in `max-autotune` mode to optimize the models
 
 # Once we do that we define the `generate` method which generates images via
-# Flux given a text prompt. At Modal's H100 pricing, generating an image every
+# Flux given a text `prompt`. At Modal's `H100` pricing, generating an image every
 # second works out to less than 1 cent per image!
 
 
@@ -220,4 +220,5 @@ def main(
         f.write(image_bytes)
 
 
-# That's it! We can now run our `main` function to generate an image.
+# That's it! The first time you run it will take a several minutes but the
+# second latency will be around ~1 second.
