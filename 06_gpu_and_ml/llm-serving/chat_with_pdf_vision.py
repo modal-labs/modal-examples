@@ -110,7 +110,6 @@ class Model:
 
         def generate_response(message, image):
             chatbot_message = get_chatbot_message_with_image(message, image)
-            print(chatbot_message, self.messages)
             query = self.qwen_processor.apply_chat_template(
                 [chatbot_message, *self.messages], tokenize=False, add_generation_prompt=True
             )
@@ -144,7 +143,6 @@ class Model:
         output_text = generate_response(message, relevant_image)
         append_to_messages(message, user_type="user")
         append_to_messages(output_text, user_type="assistant")
-        print("Response", type(output_text), output_text)
         return output_text
 
 web_app = FastAPI()
