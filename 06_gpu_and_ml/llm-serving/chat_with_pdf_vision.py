@@ -9,7 +9,7 @@
 # Chat with PDF RAG app. The ColQwen2 model is based on [ColPali](https://huggingface.co/blog/manu/colpali) and the
 # [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) visual language model.
 #
-## Setup
+# ## Setup
 # First, we’ll import the libraries we need locally and define some constants.
 
 import os
@@ -76,7 +76,7 @@ model_image = (
 # Running an inference service on Modal is as easy as writing inference in Python.
 # The code below adds a modal Cls to an App that embeds the input PDFs and runs the VLM.
 
-# First we define a modal [App] (https://modal.com/docs/guide/apps#apps-stubs-and-entrypoints)
+# First we define a modal [App](https://modal.com/docs/guide/apps#apps-stubs-and-entrypoints)
 app = modal.App("chat-with-pdf")
 
 # We then import some packages we will need in the container
@@ -93,10 +93,11 @@ with model_image.imports():
         size="80GB"
     ),  # gpu config: we have two model instances so we use 80gb
     container_idle_timeout=10
-    * MINUTES,  # how much time the container should stay up for after it's done with it's request
+    * MINUTES,  # how much time the container should stay up for after it's done
 )
 class Model:
-    # We stack the build and enter decorators here to ensure that the weights downloaded in from_pretrained are cached in the image
+    # We stack the build and enter decorators here to ensure that the weights 
+    # downloaded in from_pretrained are cached in the image
     @modal.build()
     @modal.enter()
     def load_models(self):
@@ -168,7 +169,8 @@ class Model:
                 }
             )
 
-        # Pass the query and retrieved image along with conversation history into the VLM for a response
+        # Pass the query and retrieved image along with conversation 
+        # history into the VLM for a response
         def generate_response(message, image):
             chatbot_message = get_chatbot_message_with_image(message, image)
             query = self.qwen2_vl_processor.apply_chat_template(
@@ -206,7 +208,7 @@ class Model:
         return output_text
 
 
-## A hosted Gradio interface
+# ## A hosted Gradio interface
 # With the Gradio library by Hugging Face, we can create a simple web interface around our class, and use Modal to host it
 # for anyone to try out. To set up your own, run modal deploy chat_with_pdf_vision.py and navigate to the URL it prints out.
 # If you’re playing with the code, use modal serve instead to see changes live.
@@ -265,3 +267,5 @@ def ui():
                 pdf.upload(upload_pdf, pdf)
 
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
+
+# And that's it!
