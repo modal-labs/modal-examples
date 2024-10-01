@@ -193,7 +193,6 @@ class ComfyUI:
 # COMFY_MODELS_PATH = f"{COMFY_PATH}/models"
 
 # custom_nodes_to_install = [
-#     "ComfyUI_bnb_nf4_fp4_Loaders",
 #     "image-resize-comfyui",
 # ]
 
@@ -201,7 +200,7 @@ class ComfyUI:
 # models_to_download = [
 #     {
 #         "repo_id": "black-forest-labs/FLUX.1-dev",
-#         "filename": "ae.safetensors",  # high ram usage
+#         "filename": "ae.safetensors",
 #         "revision": "main",
 #         "local_dir": f"{COMFY_MODELS_PATH}/vae",
 #     },
@@ -255,6 +254,8 @@ class ComfyUI:
 #     # We delete the models directory
 #     # since we are going to mount a volume of models into it
 #     .run_commands(f"rm -rf {COMFY_MODELS_PATH}")
+#     # We use a custom function to install the nodes
+#     # since we need to mount a volume of models into the container
 #     .run_function(
 #         install_nodes,
 #         args=[custom_nodes_to_install],
