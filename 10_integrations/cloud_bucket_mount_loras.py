@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
-# runtimes: ["runc", "gvisor"]
+# deploy: true
 # ---
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3
 #
@@ -15,10 +15,9 @@
 #
 # By the end of this example, we've deployed a "playground" app where anyone with a browser can try
 # out these custom models. That's the power of Modal: custom, autoscaling AI applications, deployed in seconds.
-# You can try out our deployment [here](https://modal-labs--loras-galore-app.modal.run).
+# You can try out our deployment [here](https://modal-labs--loras-galore-ui.modal.run).
 #
 # ## Basic setup
-#
 
 import io
 import os
@@ -252,7 +251,7 @@ web_image = modal.Image.debian_slim().pip_install(
     container_idle_timeout=60 * 20,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
-    # and allows it to scale to 100 concurrent inputs
+    # and allow it to scale to 100 concurrent inputs
     allow_concurrent_inputs=100,
     concurrency_limit=1,
 )
@@ -265,7 +264,7 @@ def ui():
     from gradio.routes import mount_gradio_app
     from PIL import Image
 
-    # determine with loras are available
+    # determine which loras are available
     lora_ids = [
         f"{lora_dir.parent.stem}/{lora_dir.stem}"
         for lora_dir in LORAS_PATH.glob("*/*")
