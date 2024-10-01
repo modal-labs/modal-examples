@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
-# runtimes: ["runc", "gvisor"]
+# deploy: true
 # ---
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3
 #
