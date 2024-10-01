@@ -18,7 +18,6 @@
 # You can try out our deployment [here](https://modal-labs--loras-galore-ui.modal.run).
 #
 # ## Basic setup
-#
 
 import io
 import os
