@@ -185,3 +185,93 @@ class ComfyUI:
 # - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. This will reduce overall response time, but will cost you more money. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
 # - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
+
+# ### Store models in a volume
+
+# ```python
+# COMFY_PATH = "/root/comfy/ComfyUI"
+# COMFY_MODELS_PATH = f"{COMFY_PATH}/models"
+
+# custom_nodes_to_install = [
+#     "ComfyUI_bnb_nf4_fp4_Loaders",
+#     "image-resize-comfyui",
+# ]
+
+
+# models_to_download = [
+#     {
+#         "repo_id": "black-forest-labs/FLUX.1-dev",
+#         "filename": "ae.safetensors",  # high ram usage
+#         "revision": "main",
+#         "local_dir": f"{COMFY_MODELS_PATH}/vae",
+#     },
+# ]
+
+# models_vol = modal.Volume.from_name("comfyui-models", create_if_missing=True)
+# volumes = {COMFY_MODELS_PATH: models_vol}
+
+# huggingface_secret = modal.Secret.from_name("my-huggingface-secret")
+# secrets = [huggingface_secret]
+
+
+# def install_nodes(nodes):
+#     print("Installing nodes...")
+#     for node in nodes:
+#         print(f"Installing node {node}...")
+#         subprocess.run(f"comfy node install {node}", shell=True, check=True)
+#     print("Finished installing nodes!")
+
+
+# def download_models(model_configs):
+#     # Opting to download models using the hf_hub_download
+#     # since comfy cli doesn't support downloading
+#     # models that require a huggingface token
+#     # hf_hub_download also has a build in cache
+#     # so it won't download the same model twice
+#     from huggingface_hub import hf_hub_download
+
+#     print("Downloading models...")
+#     for model_config in model_configs:
+#         print(
+#             f"Downloading {model_config['filename']} from {model_config['repo_id']}..."
+#         )
+
+#         hf_hub_download(
+#             repo_id=model_config["repo_id"],
+#             filename=model_config["filename"],
+#             revision=model_config["revision"],
+#             local_dir=model_config["local_dir"],
+#         )
+
+#     print("Finished downloading models!")
+
+
+# image = (
+#     modal.Image.debian_slim(python_version="3.11")
+#     .apt_install("git")
+#     .pip_install("comfy-cli==1.2.3", "huggingface_hub", "hf-transfer")
+#     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+#     .run_commands("comfy --skip-prompt install --nvidia")
+#     # We delete the models directory
+#     # since we are going to mount a volume of models into it
+#     .run_commands(f"rm -rf {COMFY_MODELS_PATH}")
+#     .run_function(
+#         install_nodes,
+#         args=[custom_nodes_to_install],
+#         volumes=volumes,  # In case the nodes need access to the models
+#         secrets=secrets,
+#     )
+#     # We always want to download the models last
+#     # since we cache them in the volume anyway
+#     # and this allows us to not rebuild any other step in the image
+#     # whenever we update our model
+#     .run_function(
+#         download_models,
+#         args=[models_to_download],
+#         volumes=volumes,
+#         # Some models need a huggingface token to download
+#         secrets=secrets,
+#         force_build=True,
+#     )
+# )
+# ```
