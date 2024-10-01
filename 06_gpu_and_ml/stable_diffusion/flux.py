@@ -1,42 +1,14 @@
 # ---
 # output-directory: "/tmp/flux"
+# args: ["--no-compile"]
 # ---
-# # Run Flux.1 on Modal
-#
-# When you want to generate the highest quality images there's no better model
-# than Flux.1, made by the folks at [Black Forest Labs](https://blackforestlabs.ai/).
-# But why pay someone else to generate the images when you can do it yourself
-# for a fraction of the cost in just a few minutes.
-# This example will show you how on Modal.
-#
-# ## Overview
-# In this guide we'll show you how to compile Flux to run at bleeding edge speeds,
-# create a Modal class for downloading and serving the model, and generate
-# unlimited images via `remote` calls in a Modal entrypoint.
 
-# ### Flux Variants
-# We'll use the `schnell` variant of Flux.1 which is the fastest but lowest quality model in the series.
-# If you want to use the `dev` variant: get yourself a Hugging Face API key,
-# put it in your Modal [Secrets](https://modal.com/docs/guide/secrets) and include
-# it in the `@app.cls()` below.
+# # Run Flux fast with Flash Attention 3 and `torch.compile` on Hopper GPUs
 
-# ### Background: Bleeding Edge Inference with Flash Attention 3
-# To run Flux.1 at bleeding edge speeds we will use [Flash Attention (FA3)](https://github.com/Dao-AILab/flash-attention?tab=readme-ov-file)
-# which makes the attention blocks in Transformers go
-# [brrrr](https://horace.io/brrr_intro.html) on GPUs. FA3 does this by
-# breaking the Query, Key, and Value (QKV) operations into tiny block that can be
-# computed quickly in high bandwidth SRAM rather than overusing low
-# bandwidth VRAM. Read more [here](https://gordicaleksa.medium.com/eli5-flash-attention-5c44017022ad).
+# In this guide, we'll run Flux as fast as possible on Modal using open source tools.
+# We'll use `torch.compile`, Flash Attention 3, and NVIDIA H100 GPUs.
 
-# ### Quick note
-# Thanks to [@Arro](https://github.com/Arro) for the original contribution to
-# this example.
-#
 # ## Setting up the image and dependencies
-# To set up we'll need to import `BytesIO` for returning image bytes,
-# use a specific CUDA image to ensure we can compile FA3, build and install FA3,
-# and import the Hugging Face `diffusers` library to download and run Flux via
-# the `FluxPipeline` class.
 
 import time
 from io import BytesIO
@@ -44,139 +16,144 @@ from pathlib import Path
 
 import modal
 
-VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
-
-# Here we set the parameters for the CUDA image.
+# We'll make use of the full [CUDA toolkit](https://modal.com/docs/guide/cuda)
+# in this example, so we'll build our container image off of the `nvidia/cuda` base.
 
 cuda_version = "12.4.0"  # should be no greater than host CUDA version
 flavor = "devel"  # includes full CUDA toolkit
 operating_sys = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
-# Now we create our image and install the required dependencies.
+cuda_dev_image = modal.Image.from_registry(
+    f"nvidia/cuda:{tag}", add_python="3.11"
+).entrypoint([])
+
+# Now we install most of our dependencies with `apt` and `pip`.
+# For Hugging Face's [Diffusers](https://github.com/huggingface/diffusers) library
+# and for Flash Attention 3, we install from GitHub source
+# and so pin to a specific commit.
 
 diffusers_commit_sha = "81cf3b2f155f1de322079af28f625349ee21ec6b"
 flash_commit_sha = "53a4f341634fcbc96bb999a3c804c192ea14f2ea"
 
-flux_image = (
-    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
-    .apt_install(
-        "git",
-        "libglib2.0-0",
-        "libsm6",
-        "libxrender1",
-        "libxext6",
-        "ffmpeg",
-        "libgl1",
-    )
-    .pip_install(
-        "invisible_watermark==0.2.0",
-        "transformers==4.44.0",
-        "accelerate==0.33.0",
-        "safetensors==0.4.4",
-        "sentencepiece==0.2.0",
-        # Below are for FA3
-        "ninja==1.11.1.1",
-        "packaging==24.1",
-        "wheel==0.44.0",
-        "torch==2.4.1",
-        f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha} 'numpy<2'",
-    )
-    .run_commands(
-        # Build Flash Attention 3 from source and add it to PYTHONPATH
-        "ln -s /usr/bin/g++ /usr/bin/clang++",  # Use clang
-        "git clone https://github.com/Dao-AILab/flash-attention.git",
-        f"cd flash-attention && git checkout {flash_commit_sha}",
-        "cd flash-attention/hopper && python setup.py install",
-    )
-    .env({"PYTHONPATH": "/root/flash-attention/hopper"})
+flux_image = cuda_dev_image.apt_install(
+    "git",
+    "libglib2.0-0",
+    "libsm6",
+    "libxrender1",
+    "libxext6",
+    "ffmpeg",
+    "libgl1",
+).pip_install(
+    "invisible_watermark==0.2.0",
+    "transformers==4.44.0",
+    "accelerate==0.33.0",
+    "safetensors==0.4.4",
+    "sentencepiece==0.2.0",
+    "ninja==1.11.1.1",
+    "packaging==24.1",
+    "wheel==0.44.0",
+    "torch==2.4.1",
+    f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
+    "numpy<2",
 )
+# ### Installing and compiling Flash Attention 3
 
-# Next we construct our [App](https://modal.com/docs/reference/modal.App)
+# [Flash Attention (FA3)](https://github.com/Dao-AILab/flash-attention)
+# is a library of optimized CUDA kernels that
+# make attention blocks in Transformers go
+# [brrrr](https://horace.io/brrr_intro.html) on Hopper GPUs
+
+# Flash Attention kernels break attention operations into tiny blocks that can be
+# computed in the high-bandwidth SRAM of the GPU's streaming multiprocessors
+# with minimal communication to the lower-latency off-chip DRAM.
+# Check out Aleksa Gordic's ELI5 [here](https://gordicaleksa.medium.com/eli5-flash-attention-5c44017022ad) for more.
+
+# Flash Attention 3 applies additional optimizations to make maximal use of specific features of NVIDIA's Hopper GPUs,
+# like hardware-accelerated indexing and matrix-multiplication accelerators.
+# Read Tri Dao's blog post [here](https://tridao.me/blog/2024/flash3/) for details.
+
+# To use it, we clone the repo and build the library from source.
+
+flux_fa3_image = flux_image.run_commands(
+    # build Flash Attention 3 from source and add it to PYTHONPATH
+    "ln -s /usr/bin/g++ /usr/bin/clang++",  # use clang as cpp compiler
+    "git clone https://github.com/Dao-AILab/flash-attention.git",
+    f"cd flash-attention && git checkout {flash_commit_sha}",
+    "cd flash-attention/hopper && python setup.py install",
+).env({"PYTHONPATH": "/root/flash-attention/hopper"})
+
+# Finally, we construct our Modal [App](https://modal.com/docs/reference/modal.App),
+# set its default image to the one we just constructed,
 # and import `FluxPipeline` for downloading and running Flux.1.
 
-app = modal.App("example-flux")
+app = modal.App("example-flux", image=flux_fa3_image)
 
-with flux_image.imports():
+with flux_fa3_image.imports():
     import torch
     from diffusers import FluxPipeline
 
-# ## Serving inference at 1 image every second
-# We'll define our `Model` class which will set us up for fast inference in
-# 3 steps:
-# 1. Download the model from Hugging Face Hub.
-# 2. Swap in FA3 into Flux's internal Transformer and Variational Auto Encoder
-# (VAE) models.
-# 3. Call `torch.compile()` in `max-autotune` mode to optimize the models
+# ## Defining a parameterized `Model` inference class
 
-# Once we do that we define the `generate` method which generates images via
-# Flux given a text `prompt`. At Modal's `H100` pricing, generating an image every
-# second works out to less than 1 cent per image!
+# Next, we map the model's setup and inference code onto Modal.
+
+# 1. We run any setup that can be persisted to disk in methods decorated with `@build`.
+# In this example, that includes downloading the model weights.
+# 2. We run any additional setup, like moving the model to the GPU, in methods decorated with `@enter`.
+# 3. We run the actual inference in methods decorated with `@method`.
+
+MINUTES = 60  # seconds
+VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
+NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 
 
 @app.cls(
-    gpu="H100",  # Necessary for FA3
-    container_idle_timeout=60 * 3,
-    image=flux_image,
-    timeout=60 * 20,  # 20 minutes to leave plenty of room for compile time.
+    gpu="H100",  # FA3 is tuned for Hopper
+    container_idle_timeout=20 * MINUTES,
+    volumes={  # add Volumes to store serializable compilation artifacts
+        "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
+        "/root/.triton": modal.Volume.from_name(
+            "triton-cache", create_if_missing=True
+        ),
+    },
 )
 class Model:
-    def download_model(self):
+    compile: int = (  # see section on torch.compile below for details
+        modal.parameter()
+    )
+
+    def setup_model(self):
         from huggingface_hub import snapshot_download
+        from transformers.utils import move_cache
 
         snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
 
-    @modal.build()
-    def build(self):
-        self.download_model()
+        move_cache()
 
-    @modal.enter()
-    def enter(self):
-        from transformers.utils import move_cache
-
-        self.download_model()  # Ensure model is downloaded.
-        self.pipe = FluxPipeline.from_pretrained(
+        pipe = FluxPipeline.from_pretrained(
             f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
         )
 
-        self.pipe.to("cuda")  # Move to GPU
-        # Fush QKV projections in Transformer and VAE and apply FA3
-        self.pipe.transformer.fuse_qkv_projections()
-        self.pipe.vae.fuse_qkv_projections()
-        self.pipe.transformer.to(memory_format=torch.channels_last)
-        self.pipe.transformer = torch.compile(
-            self.pipe.transformer, mode="max-autotune", fullgraph=True
-        )
-        self.pipe.vae.to(memory_format=torch.channels_last)
-        self.pipe.vae.decode = torch.compile(
-            self.pipe.vae.decode, mode="max-autotune", fullgraph=True
-        )
+        return pipe
 
-        move_cache()
+    @modal.build()
+    def build(self):
+        self.setup_model()
 
-        # Trigger torch compilation
-        print(
-            "Calling pipe() to trigger torch compiliation (may take ~10"
-            " minutes)..."
-        )
-
-        self.pipe(
-            "Test prompt to trigger torch compilation.",
-            output_type="pil",
-            num_inference_steps=4,  # use ~50 for [dev], smaller for [schnell]
-        ).images[0]
-
-        print("Finished compilation.")
+    @modal.enter()
+    def enter(self):
+        pipe = self.setup_model()
+        pipe.to("cuda")  # move model to GPU
+        self.pipe = optimize(pipe, compile=bool(self.compile))
 
     @modal.method()
-    def inference(self, prompt):
-        print("Generating image...")
+    def inference(self, prompt: str) -> bytes:
+        print("🎨 generating image...")
         out = self.pipe(
             prompt,
             output_type="pil",
-            num_inference_steps=4,  # use ~50 for [dev], smaller for [schnell]
+            num_inference_steps=NUM_INFERENCE_STEPS,
         ).images[0]
-        print("Generated.")
 
         byte_stream = BytesIO()
         out.save(byte_stream, format="JPEG")
@@ -184,14 +161,21 @@ class Model:
 
 
 # ## Calling our inference function
-# To generate an image we just need to call the `Model`'s `.generate` method
-# with `.remote` appended to it. Then we we can save the returned bytes into a
-# JPEG file for easy viewing.
 
-# We wrap this call in a Modal entrypoint function called `main`.
-# By default, we `generate` an image twice to demonstrate how much faster
-# the inference is once the server is running and the model is compiled with
-# FA3.
+# To generate an image we just need to call the `Model`'s `generate` method
+# with `.remote` appended to it.
+# You can call `.generate.remote` from any Python environment that has access to your Modal credentials.
+# The local environment will get back the image as bytes.
+
+# Here, we wrap the call in a Modal [`local_entrypoint`](https://modal.com/docs/reference/modal.App#local_entrypoint)
+# so that it can be run with `modal run`:
+
+# ```bash
+# modal run flux.py
+# ```
+
+# By default, we call `generate` twice to demonstrate how much faster
+# the inference is after cold start. We save the output bytes to a temporary file.
 
 
 @app.local_entrypoint()
@@ -199,26 +183,94 @@ def main(
     prompt: str = "a computer screen showing ASCII terminal art of the"
     " word 'Modal' in neon green. two programmers are pointing excitedly"
     " at the screen.",
-    twice=True,
+    twice: bool = True,
+    compile: bool = False,
 ):
     t0 = time.time()
-    image_bytes = Model().inference.remote(prompt)
-    print(f"1st latency: {time.time() - t0:.2f} seconds")
+    image_bytes = Model(compile=compile).inference.remote(prompt)
+    print(f"🎨 first inference latency: {time.time() - t0:.2f} seconds")
 
     if twice:
         t0 = time.time()
-        image_bytes = Model().inference.remote(prompt)
-        print(f"2nd latency: {time.time() - t0:.2f} seconds")
+        image_bytes = Model(compile=compile).inference.remote(prompt)
+        print(f"🎨 second inference latency: {time.time() - t0:.2f} seconds")
 
-    dir = Path("/tmp/flux")
-    if not dir.exists():
-        dir.mkdir(exist_ok=True, parents=True)
-
-    output_path = dir / "output.jpg"
-    print(f"Saving it to {output_path}")
-    with open(output_path, "wb") as f:
-        f.write(image_bytes)
+    output_path = Path("/tmp") / "flux" / "output.jpg"
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+    print(f"🎨 saving output to {output_path}")
+    output_path.write_bytes(image_bytes)
 
 
-# That's it! The first time you run it will take a several minutes but the
-# second latency will be around ~1 second.
+# ## Speeding up Flux with `torch.compile`
+
+# PyTorch 2 added a compiler that optimizes the
+# compute graphs created dynamically during PyTorch execution.
+# This feature helps close the gap with the performance of static graph frameworks
+# like TensorRT and TensorFlow.
+
+# Here, we follow the suggestions from Hugging Face's
+# [guide to fast diffusion inference](https://huggingface.co/docs/diffusers/en/tutorials/fast_diffusion),
+# which we verified with our own internal benchmarks.
+# Review that guide for detailed explanations of the choices made below.
+
+# The resulting compiled Flux `schnell` deployment returns images to the client in under a second (~800 ms), according to our testing.
+# _Super schnell_!
+
+# Compilation takes up to twenty minutes and, at time of writing in October 2024,
+# the compilation artifacts cannot be serialized,
+# so compilation work must be re-executed every time a new container is started.
+# That includes when scaling up an existing deployment or the first time a Function is invoked with `modal run`.
+
+# You can turn on compilation with the `--compile` flag.
+# Try it out with:
+
+# ```bash
+# modal run flux.py --compile
+# ```
+
+# The `compile` option is passed by a [`modal.parameter`](https://modal.com/docs/reference/modal.parameter#modalparameter) on our class.
+# Each different choice for a `parameter` creates a [separate auto-scaling deployment](https://modal.com/docs/guide/parameterized-functions).
+# That means your client can use arbitrary logic to decide whether to hit a compiled or eager endpoint.
+
+
+def optimize(pipe, compile=True):
+    # fuse QKV projections in Transformer and VAE
+    pipe.transformer.fuse_qkv_projections()
+    pipe.vae.fuse_qkv_projections()
+
+    # switch memory layout to Torch's preferred, channels_last
+    pipe.transformer.to(memory_format=torch.channels_last)
+    pipe.vae.to(memory_format=torch.channels_last)
+
+    if not compile:
+        return pipe
+
+    # set torch compile flags
+    config = torch._inductor.config
+    config.disable_progress = False  # show progress bar
+    config.conv_1x1_as_mm = True  # treat 1x1 convolutions as matrix muls
+    # adjust autotuning algorithm
+    config.coordinate_descent_tuning = True
+    config.coordinate_descent_check_all_directions = True
+    config.epilogue_fusion = False  # do not fuse pointwise ops into matmuls
+
+    # tag the compute-intensive modules, the Transformer and VAE decoder, for compilation
+    pipe.transformer = torch.compile(
+        pipe.transformer, mode="max-autotune", fullgraph=True
+    )
+    pipe.vae.decode = torch.compile(
+        pipe.vae.decode, mode="max-autotune", fullgraph=True
+    )
+
+    # trigger torch compilation
+    print("🔦 running torch compiliation (may take up to 20 minutes)...")
+
+    pipe(
+        "dummy prompt to trigger torch compilation",
+        output_type="pil",
+        num_inference_steps=NUM_INFERENCE_STEPS,  # use ~50 for [dev], smaller for [schnell]
+    ).images[0]
+
+    print("🔦 finished torch compilation")
+
+    return pipe
