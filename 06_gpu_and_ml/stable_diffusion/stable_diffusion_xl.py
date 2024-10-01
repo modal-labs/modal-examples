@@ -157,7 +157,7 @@ def main(prompt: str = "Unicorns and leprechauns sign a peace treaty"):
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = dir / "output.png"
+    output_path = dir / "output.jpg"
     print(f"Saving it to {output_path}")
     with open(output_path, "wb") as f:
         f.write(image_bytes)
