@@ -1,3 +1,17 @@
+# ---
+# deploy: true
+# cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
+# ---
+#
+# # Chat with PDF: RAG with ColQwen2
+#
+# In this example, we demonstrate how to use the the [ColQwen2](https://huggingface.co/vidore/colqwen2-v0.1) model to build a simple
+# Chat with PDF RAG app. The ColQwen2 model is based on [ColPali](https://huggingface.co/blog/manu/colpali) and the
+# [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) visual language model.
+#
+## Setup
+# First, we’ll import the libraries we need locally and define some constants.
+
 import os
 
 import modal
@@ -5,8 +19,14 @@ from fastapi import FastAPI
 
 MINUTES = 60  # seconds
 
+# ## Downloading the Model
+#
+# Next, we download the model we want to serve. In this case, we're using the instruction-tuned Qwen2-VL-2B-Instruct model,
+# both as our visual language model, and as the backbone for the ColQwen2 model.
+# We use the function below to download the model from the Hugging Face Hub.
 
-def download_model(model_dir, model_name):
+
+def download_model(model_dir, model_name, model_revision):
     from huggingface_hub import snapshot_download
     from transformers.utils import move_cache
 
@@ -14,41 +34,52 @@ def download_model(model_dir, model_name):
     snapshot_download(
         model_name,
         local_dir=model_dir,
+        revision=model_revision,
         ignore_patterns=["*.pt", "*.bin"],  # using safetensors
     )
     move_cache()
 
+
+# ## Building the image
+# In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
+# We define and install the packages required for our application.
+#
+# We want to create a Modal image which has the model weights pre-saved to a directory. The benefit of this is that the container no
+# longer has to re-download the model from Hugging Face - instead, it will take advantage of Modal's internal filesystem for
+# faster cold starts. We use the download function defined earlier to download the model.
 
 model_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("git")
     .pip_install(
         [
-            "git+https://github.com/illuin-tech/colpali",
-            "hf_transfer",
-            "qwen-vl-utils",
-            "torchvision",
+            "git+https://github.com/illuin-tech/colpali.git@782edcd50108d1842d154730ad3ce72476a2d17d",  # we pin the commit id
+            "hf_transfer==0.1.8",
+            "qwen-vl-utils==0.0.8",
+            "torchvision==0.19.1",
         ]
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model,
-        secrets=[
-            modal.Secret.from_name(
-                "huggingface-secret", required_keys=["HF_TOKEN"]
-            )
-        ],
         timeout=MINUTES * 20,
         kwargs={
             "model_dir": "/model-qwen2-VL-2B-Instruct",
             "model_name": "Qwen/Qwen2-VL-2B-Instruct",
+            "model_revision": "aca78372505e6cb469c4fa6a35c60265b00ff5a4",
         },
     )
 )
 
+## Defining a Chat with PDF application
+#
+# Running an inference service on Modal is as easy as writing inference in Python.
+# The code below adds a modal Cls to an App that embeds the input PDFs and runs the VLM.
 
+# First we define a modal [App] (https://modal.com/docs/guide/apps#apps-stubs-and-entrypoints)
 app = modal.App("chat-with-pdf")
 
+# We then import some packages we will need in the container
 with model_image.imports():
     import torch
     from colpali_engine.models import ColQwen2, ColQwen2Processor
@@ -58,14 +89,17 @@ with model_image.imports():
 
 @app.cls(
     image=model_image,
-    gpu=modal.gpu.A100(size="80GB"),
-    container_idle_timeout=10 * MINUTES,
-    allow_concurrent_inputs=4,
+    gpu=modal.gpu.A100(
+        size="80GB"
+    ),  # gpu config: we have two model instances so we use 80gb
+    container_idle_timeout=10
+    * MINUTES,  # how much time the container should stay up for after it's done with it's request
 )
 class Model:
+    # We stack the build and enter decorators here to ensure that the weights downloaded in from_pretrained are cached in the image
     @modal.build()
     @modal.enter()
-    def load_model(self):
+    def load_models(self):
         self.colqwen2_model = ColQwen2.from_pretrained(
             "vidore/colqwen2-v0.1",
             torch_dtype=torch.bfloat16,
@@ -96,11 +130,13 @@ class Model:
 
     @modal.method()
     def respond_to_message(self, message):
+        # Nothing to chat about without a PDF
         if self.images is None:
             return "Please upload a PDF first"
         elif self.pdf_embeddings is None:
             return "Indexing PDF..."
 
+        # Retrieve the most relevant image from the PDF for the input query
         def get_relevant_image(message):
             batch_queries = self.colqwen2_processor.process_queries(
                 [message]
@@ -112,6 +148,7 @@ class Model:
             max_index = max(range(len(scores)), key=lambda index: scores[index])
             return self.images[max_index]
 
+        # Helper function to put message in chatbot syntax
         def get_chatbot_message_with_image(message, image):
             return {
                 "role": "user",
@@ -121,6 +158,8 @@ class Model:
                 ],
             }
 
+        # Helper function add messages to the conversation history in chatbot format
+        # We don't include the image for the history
         def append_to_messages(message, user_type="user"):
             self.messages.append(
                 {
@@ -129,6 +168,7 @@ class Model:
                 }
             )
 
+        # Pass the query and retrieved image along with conversation history into the VLM for a response
         def generate_response(message, image):
             chatbot_message = get_chatbot_message_with_image(message, image)
             query = self.qwen2_vl_processor.apply_chat_template(
@@ -152,7 +192,7 @@ class Model:
                 out_ids[len(in_ids) :]
                 for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
-            output_text = self.qwen_processor.batch_decode(
+            output_text = self.qwen2_vl_processor.batch_decode(
                 generated_ids_trimmed,
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False,
@@ -166,18 +206,31 @@ class Model:
         return output_text
 
 
+## A hosted Gradio interface
+# With the Gradio library by Hugging Face, we can create a simple web interface around our class, and use Modal to host it
+# for anyone to try out. To set up your own, run modal deploy chat_with_pdf_vision.py and navigate to the URL it prints out.
+# If you’re playing with the code, use modal serve instead to see changes live.
+
 web_app = FastAPI()
 
 web_image = (
     modal.Image.debian_slim()
     .apt_install("poppler-utils")
-    .pip_install("gradio", "pillow", "gradio-pdf", "pdf2image")
+    .pip_install(
+        "gradio==4.44.1",
+        "pillow==10.4.0",
+        "gradio-pdf==0.0.15",
+        "pdf2image==1.17.0",
+    )
 )
 
 
 @app.function(
     image=web_image,
     keep_warm=1,
+    # gradio requires sticky sessions
+    # so we limit the number of concurrent containers to 1
+    # and allow it to scale to 100 concurrent inputs
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
 )
