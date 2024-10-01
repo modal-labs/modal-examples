@@ -188,6 +188,10 @@ class ComfyUI:
 
 # ### Store models in a volume
 
+# We can also store the models in a volume to avoid downloading them when we update earlier steps in the image.
+# As a side effect this allows you to cache models between apps as well.
+# And here we use huggingface to download models, allowing us to download models that require a token.
+
 # ```python
 # COMFY_PATH = "/root/comfy/ComfyUI"
 # COMFY_MODELS_PATH = f"{COMFY_PATH}/models"
