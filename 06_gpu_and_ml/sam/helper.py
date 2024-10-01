@@ -2,6 +2,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def convert_video_to_frames(video_path):
+    import subprocess
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-i",
+            video_path,
+            "-q:v 2 -start_number 0",
+            "06_gpu_and_ml/sam/videos/output_%05d.jpg",
+        ],
+        check=True,
+    )
+
+
 def show_anns(anns):
     if len(anns) == 0:
         return
@@ -24,11 +39,13 @@ def show_anns(anns):
     ax.imshow(img)
 
 
-def show_mask(mask, ax, random_color=False):
+def show_mask(mask, ax, obj_id=None, random_color=False):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
-        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+        cmap = plt.get_cmap("tab10")
+        cmap_idx = 0 if obj_id is None else obj_id
+        color = np.array([*cmap(cmap_idx)[:3], 0.6])
     h, w = mask.shape[-2:]
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
