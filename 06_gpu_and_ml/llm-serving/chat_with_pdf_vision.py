@@ -53,17 +53,18 @@ with model_image.imports():
     allow_concurrent_inputs=4,
 )
 class Model:
+    @modal.build()
     @modal.enter()
     def load_model(self):
-        self.colpali_model = ColQwen2.from_pretrained(
+        self.colqwen2_model = ColQwen2.from_pretrained(
             "vidore/colqwen2-v0.1",
             torch_dtype=torch.bfloat16,
             device_map="cuda:0",  # or "mps" if on Apple Silicon
         )
-        self.colpali_processor = ColQwen2Processor.from_pretrained("vidore/colqwen2-v0.1")
-        self.qwen_model = Qwen2VLForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True)
-        self.qwen_model.to("cuda:0")
-        self.qwen_processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True)
+        self.colqwen2_processor = ColQwen2Processor.from_pretrained("vidore/colqwen2-v0.1")
+        self.qwen2_vl_model = Qwen2VLForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True)
+        self.qwen2_vl_model.to("cuda:0")
+        self.qwen2_vl_processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True)
         
         self.pdf_embeddings = None
         self.images = None
@@ -73,15 +74,21 @@ class Model:
     @modal.method()
     def index_pdf(self, images):
         self.images = images
-        batch_images = self.colpali_processor.process_images(images).to(self.colpali_model.device)
-        self.pdf_embeddings = self.colpali_model(**batch_images)
+        batch_images = self.colqwen2_processor.process_images(images).to(self.colqwen2_model.device)
+        self.pdf_embeddings = self.colqwen2_model(**batch_images)
 
     @modal.method()
     def respond_to_message(self, message):
+        if self.images is None:
+            return "Please upload a PDF first"
+        elif self.pdf_embeddings is None:
+            return "Indexing PDF..."
+
+
         def get_relevant_image(message):
-            batch_queries = self.colpali_processor.process_queries([message]).to(self.colpali_model.device)
-            query_embeddings = self.colpali_model(**batch_queries)
-            scores = self.colpali_processor.score_multi_vector(query_embeddings, self.pdf_embeddings)[0]
+            batch_queries = self.colqwen2_processor.process_queries([message]).to(self.colqwen2_model.device)
+            query_embeddings = self.colqwen2_model(**batch_queries)
+            scores = self.colqwen2_processor.score_multi_vector(query_embeddings, self.pdf_embeddings)[0]
             max_index = max(range(len(scores)), key=lambda index: scores[index])
             return self.images[max_index]
         
@@ -110,11 +117,11 @@ class Model:
 
         def generate_response(message, image):
             chatbot_message = get_chatbot_message_with_image(message, image)
-            query = self.qwen_processor.apply_chat_template(
+            query = self.qwen2_vl_processor.apply_chat_template(
                 [chatbot_message, *self.messages], tokenize=False, add_generation_prompt=True
             )
             image_inputs, _ = process_vision_info([chatbot_message])
-            inputs = self.qwen_processor(
+            inputs = self.qwen2_vl_processor(
                 text=[query],
                 images=image_inputs,
                 padding=True,
@@ -122,7 +129,7 @@ class Model:
             )
             inputs = inputs.to("cuda:0")
 
-            generated_ids = self.qwen_model.generate(**inputs, max_new_tokens=128)
+            generated_ids = self.qwen2_vl_model.generate(**inputs, max_new_tokens=128)
             generated_ids_trimmed = [
                 out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
             ]
@@ -130,16 +137,8 @@ class Model:
                 generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )[0]
             return output_text
-
-
-
-        if self.images is None:
-            return "Please upload a PDF first"
-        elif self.pdf_embeddings is None:
-            return "Indexing PDF..."
-
-        relevant_image = get_relevant_image(message)
         
+        relevant_image = get_relevant_image(message)
         output_text = generate_response(message, relevant_image)
         append_to_messages(message, user_type="user")
         append_to_messages(output_text, user_type="assistant")
