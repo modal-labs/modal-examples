@@ -1,6 +1,6 @@
-import modal
 import os
 
+import modal
 from fastapi import FastAPI
 
 MINUTES = 60  # seconds
@@ -51,10 +51,9 @@ app = modal.App("chat-with-pdf")
 
 with model_image.imports():
     import torch
-    from PIL import Image
     from colpali_engine.models import ColQwen2, ColQwen2Processor
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
     from qwen_vl_utils import process_vision_info
+    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
 
 @app.cls(
@@ -184,8 +183,8 @@ web_image = (
 )
 @modal.asgi_app()
 def ui():
-    from gradio.routes import mount_gradio_app
     import gradio as gr
+    from gradio.routes import mount_gradio_app
     from gradio_pdf import PDF
     from pdf2image import convert_from_path
 
