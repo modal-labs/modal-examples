@@ -175,7 +175,8 @@ class Model:
 # ```
 
 # By default, we call `generate` twice to demonstrate how much faster
-# the inference is after cold start. We save the output bytes to a temporary file.
+# the inference is after cold start. In our tests, clients received images in about 1.5 seconds.
+# We save the output bytes to a temporary file.
 
 
 @app.local_entrypoint()
