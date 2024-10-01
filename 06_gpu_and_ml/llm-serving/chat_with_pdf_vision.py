@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/llm-serving/chat_with_pdf_vision.py"]
 # ---
 #
 # # Chat with PDF: RAG with ColQwen2
