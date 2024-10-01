@@ -113,6 +113,7 @@ def web():
             checkboxes[i] = not checkboxes[i]
 
         with clients_mutex:
+            expired = []
             for client in clients.values():
                 if client.id == client_id:
                     # ignore own client; it keeps its own diffs
@@ -120,10 +121,13 @@ def web():
 
                 # clean up old clients
                 if not client.is_active(): 
-                    del clients[client.id]
+                    expired.append(client.id)
 
                 # add diff to client for when they next poll
                 client.add_diff(i)
+            
+            for client_id in expired:
+                del clients[client_id]
         return
 
     # Clients polling for any outstanding diffs
