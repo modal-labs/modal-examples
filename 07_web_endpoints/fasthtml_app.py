@@ -23,6 +23,30 @@ db = modal.Dict.from_name("example-fasthtml-db", create_if_missing=True)
 
 N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
 
+
+# Override pico.css styles to be Modal green
+style = """
+body {
+  background-color: #1d1d1d;
+}
+
+[type="checkbox"]:is(:checked, :checked:focus) {
+  --pico-border-color: #7fee64;
+  --pico-background-color: #7fee64;
+}
+
+[type="checkbox"]:not(:checked, :checked:focus) {
+  --pico-border-color: rgba(255, 255, 255, 0.5);
+  --pico-background-color: rgba(255, 255, 255, 0.05);
+}
+
+:where(select, textarea):not([readonly]):focus,
+input:not([type=submit], [type=button], [type=reset], [type=range], [type=file], [readonly]):focus {
+  --pico-box-shadow: 0 0 0 var(--pico-outline-width) rgba(127, 238, 100, 0.25);
+  --pico-border-color: rgba(127, 238, 100, 0.50);
+}
+"""
+
 @app.function(
     image=modal.Image.debian_slim(python_version="3.12").pip_install(
         "python-fasthtml==0.6.9", "inflect~=7.4.0"
@@ -33,7 +57,6 @@ N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
 def web():
     import fasthtml.common as fh
     import inflect
-
 
     # Connected clients are tracked in-memory
     clients = {}
@@ -55,10 +78,10 @@ def web():
             db["checkboxes"] = checkboxes
         print("Checkbox state persisted.")
 
-
     app, _ = fh.fast_app(
         # FastHTML uses the ASGI spec, which allows handling of shutdown events
         on_shutdown=[on_shutdown],
+        hdrs=[fh.Style(style)],
     )
 
     # handler run on initial page load
@@ -76,7 +99,7 @@ def web():
                     id=f"cb-{i}",
                     checked=val,
                     # when clicked, that checkbox will send a POST request to the server with its index
-                    hx_post=f"/checkbox/toggle/{i}/{client.id}",
+                    hx_post=f"/checkbox/toggle/{i}/{client.id}", 
                 )
                 for i, val in enumerate(checkboxes)
             ]
@@ -93,7 +116,7 @@ def web():
                 ),
                 cls="container",
                 # use HTMX to poll for diffs to apply
-                hx_trigger="every 1s",  # poll every second
+                hx_trigger="every 20s",  # poll every second
                 hx_get=f"/diffs/{client.id}",  # call the diffs endpoint
                 hx_swap="none",  # don't replace the entire page
             ),
