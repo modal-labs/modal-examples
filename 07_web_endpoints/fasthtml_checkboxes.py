@@ -23,7 +23,7 @@ app = modal.App("checkboxes")
 db = modal.Dict.from_name("checkboxes-db", create_if_missing=True)
 
 css_path_local = Path(__file__).parent / "fasthtml_checkboxes.css"
-css_path_remote = PurePosixPath("/assets/fasthtml_checkboxes.css")
+css_path_remote = Path("/assets/fasthtml_checkboxes.css")
 
 N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
 
