@@ -7,20 +7,30 @@ import modal
 
 from .helper import show_mask, show_points
 
-# # Run Facebook's Segment Anything Model (SAM) on Modal
+# # Run Facebook's Segment Anything Model 2 (SAM2) on Modal
 
-# This example demonstrates how to deploy Facebook's Segment Anything Model (SAM)
-# on Modal. SAM is a powerful, flexible image segmentation model that can be used
+# This example demonstrates how to deploy Facebook's SAM2
+# on Modal. SAM2 is a powerful, flexible image and video segmentation model that can be used
 # for various computer vision tasks like object detection, instance segmentation,
 # and even as a foundation for more complex computer vision applications.
-# For more information, see: https://github.com/facebookresearch/segment-anything
+# SAM2 extends the capabilities of the original SAM to include video segmentation.
+# For more information, see: https://github.com/facebookresearch/sam2
+
+# Example SAM2 Segmentations:
+# Original video here: https://www.youtube.com/watch?v=WAz1406SjVw
+#
+# | | | |
+# |:---:|:---:|:---:|
+# | ![Figure 1](/assets/Figure_1.png) | ![Figure 2](/assets/Figure_2.png) | ![Figure 3](/assets/Figure_3.png) |
+# | ![Figure 4](/assets/Figure_4.png) | ![Figure 5](/assets/Figure_5.png) | ![Figure 6](/assets/Figure_6.png) |
+# | ![Figure 7](/assets/Figure_7.png) | ![Figure 8](/assets/Figure_8.png) | ![Figure 9](/assets/Figure_9.png) |
 
 # # Setup
 
 # First, we set up the Modal image with the necessary dependencies, including PyTorch,
-# OpenCV, and Torchvision. We also install the Segment Anything Model (SAM) library.
+# OpenCV, `huggingFace_hub``, and Torchvision. We also install the SAM2 library.
 
-MODEL_TYPE = "vit_h"
+MODEL_TYPE = "facebook/sam2-hiera-large"
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -43,7 +53,7 @@ app = modal.App("sam2-app", image=image)
 
 # # Model definition
 
-# Next, we define the Model class that will handle SAM operations
+# Next, we define the Model class that will handle SAM2 operations for both image and video
 
 
 # We use @modal.build() and @modal.enter() decorators here for optimization:
@@ -55,9 +65,6 @@ app = modal.App("sam2-app", image=image)
 # This significantly reduces cold start times and improves performance.
 @app.cls(gpu="any", timeout=600)
 class Model:
-    def __init__(self, model_type=MODEL_TYPE):
-        self.model_type = model_type
-
     # # Model initialization
     @modal.build()
     @modal.enter()
@@ -65,14 +72,10 @@ class Model:
         from sam2.sam2_image_predictor import SAM2ImagePredictor
         from sam2.sam2_video_predictor import SAM2VideoPredictor
 
-        self.image_predictor = SAM2ImagePredictor.from_pretrained(
-            "facebook/sam2-hiera-large"
-        )
-        self.video_predictor = SAM2VideoPredictor.from_pretrained(
-            "facebook/sam2-hiera-large"
-        )
+        self.image_predictor = SAM2ImagePredictor.from_pretrained(MODEL_TYPE)
+        self.video_predictor = SAM2VideoPredictor.from_pretrained(MODEL_TYPE)
 
-    # # Prompt-based mask generation
+    # # Prompt-based mask generation for images
     @modal.method()
     def generate_image_masks(self, prompts, image):
         print(f"image shape: {image.shape}")
@@ -93,6 +96,7 @@ class Model:
 
         return (masks, scores, logits)
 
+    # # Prompt-based mask generation for videos
     @modal.method()
     def generate_video_masks(self, prompts, video_dir):
         import torch
@@ -121,21 +125,17 @@ class Model:
                 f"frame_idx: {frame_idx}, object_ids: {object_ids}, masks: {masks}"
             )
 
-            return (frame_idx, object_ids, masks.cpu().numpy())
-
-    @modal.method()
-    def propagate_in_video(self):
-        # run propagation throughout the video and collect the results in a dict
-        video_segments = {}  # video_segments contains the per-frame segmentation results
-        for (
-            out_frame_idx,
-            out_obj_ids,
-            out_mask_logits,
-        ) in self.video_predictor.propagate_in_video(self.inference_state):
-            video_segments[out_frame_idx] = {
-                out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
-                for i, out_obj_id in enumerate(out_obj_ids)
-            }
+            # run propagation throughout the video and collect the results in a dict
+            video_segments = {}  # video_segments contains the per-frame segmentation results
+            for (
+                out_frame_idx,
+                out_obj_ids,
+                out_mask_logits,
+            ) in self.video_predictor.propagate_in_video(self.inference_state):
+                video_segments[out_frame_idx] = {
+                    out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
+                    for i, out_obj_id in enumerate(out_obj_ids)
+                }
 
         return video_segments
 
@@ -144,52 +144,50 @@ class Model:
 
 
 # Finally, We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
-# to run the training. This local entrypoint runs both:
-#  1. Automatic mask generation: Segmenting all objects in an image without prompts
-# 2. Prompt-based segmentation: Generating masks based on specific prompts (e.g., points or boxes)
+# to run the segmentation. This local entrypoint demonstrates:
+#  1. Image segmentation: Generating masks based on specific prompts (e.g., points or boxes)
+#  2. Video segmentation: Generating and propagating masks throughout a video
 @app.local_entrypoint()
 def main():
     import os
 
+    import cv2
     import matplotlib.pyplot as plt
     import numpy as np
     from PIL import Image
 
-    # # # Image segmentation
+    # # Image segmentation
 
-    # # # Image loading
-    # image = cv2.imread("06_gpu_and_ml/sam/dog.jpg")
-    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # # Image loading
+    image = cv2.imread("06_gpu_and_ml/sam/dog.jpg")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # # # Model inference
-    # # Create a Model instance and run inference
-    # # This demonstrates how to use SAM for image segmentation tasks
-    model = Model(model_type=MODEL_TYPE)
+    # # Model inference
+    # Create a Model instance and run inference
+    # This demonstrates how to use SAM2 for image segmentation tasks
+    model = Model()
 
-    # # # Prompt-based segmentation
-    # # set the input point and label
-    # input_point = np.array([[300, 250]])
-    # input_label = np.array([1])
+    # # Prompt-based segmentation
+    # set the input point and label
+    input_point = np.array([[300, 250]])
+    input_label = np.array([1])
 
-    # masks, scores, _ = model.generate_image_masks.remote(
-    #     prompts=[input_point, input_label], image=image
-    # )
+    masks, scores, _ = model.generate_image_masks.remote(
+        prompts=[input_point, input_label], image=image
+    )
 
-    # # # Visualize the results
-    # for i, (mask, score) in enumerate(zip(masks, scores)):
-    #     plt.figure(figsize=(10, 10))
-    #     plt.imshow(image)
-    #     show_mask(mask, plt.gca())
-    #     show_points(input_point, input_label, plt.gca())
-    #     plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
-    #     plt.axis("off")
-    #     plt.show()
+    # # Visualize the results
+    for i, (mask, score) in enumerate(zip(masks, scores)):
+        plt.figure(figsize=(10, 10))
+        plt.imshow(image)
+        show_mask(mask, plt.gca())
+        show_points(input_point, input_label, plt.gca())
+        plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
+        plt.axis("off")
+        plt.show()
 
     # # Video segmentation
 
-    # convert_video_to_frames("06_gpu_and_ml/sam/videos/cliff_jumping.mp4")
-
-    # `video_dir` a directory of JPEG frames with filenames like `<frame_index>.jpg`
     video_dir = "06_gpu_and_ml/sam/videos/"
 
     # scan all the JPEG frame names in this directory
@@ -209,35 +207,14 @@ def main():
     plt.imshow(Image.open(os.path.join(video_dir, frame_names[frame_idx])))
     plt.show()
 
-    ann_frame_idx = 0  # the frame index we interact with
-    ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
-
-    # Let's add a positive click at (x, y) = (210, 350) to get started
+    # Let's add a positive click at (x, y) = (250, 200) to get started
     points = np.array([[250, 200]], dtype=np.float32)
     # for labels, `1` means positive click and `0` means negative click
     labels = np.array([1], np.int32)
 
-    frame_idx, out_obj_ids, out_mask_logits = model.generate_video_masks.remote(
+    video_segments = model.generate_video_masks.remote(
         prompts=[points, labels], video_dir=video_dir
     )
-
-    # show the results
-    # show the results on the current (interacted) frame
-    plt.figure(figsize=(9, 6))
-    plt.title(f"frame {ann_frame_idx}")
-    plt.imshow(Image.open(os.path.join(video_dir, frame_names[ann_frame_idx])))
-    show_points(points, labels, plt.gca())
-    show_mask(
-        (out_mask_logits[0] > 0.0),
-        plt.gca(),
-        obj_id=out_obj_ids[0],
-    )
-    plt.show()
-
-    # propagate the prompts to get masklets throughout the video
-    video_segments = model.propagate_in_video.remote()
-
-    # show the results on the current interacted frame
 
     # render the segmentation results every few frames
     vis_frame_stride = 30
