@@ -1,8 +1,9 @@
 # ---
 # deploy: true
+# args: ["--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
 # ---
 
-# # Train an SLM from scratch with hyperparameter optimization
+# # Train an SLM from scratch with early-stopping grid search over hyperparameters
 
 # ![shakespeare](./shakespeare.png)
 
@@ -46,19 +47,11 @@
 # ### Basic Setup
 
 import logging as L
-
-import modal
-
-L.basicConfig(
-    level=L.INFO,
-    format="\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] %(message)s\033[0m",
-    datefmt="%b %d %H:%M:%S",
-)
-
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+import modal
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from modal import Image
@@ -159,23 +152,20 @@ def train_model(
 
     train_percent = 0.9
 
-    prepend_logs = f"[Node {node_rank+1}/{n_nodes}] "
+    L.basicConfig(
+        level=L.INFO,
+        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}/{n_nodes}] %(message)s\033[0m",
+        datefmt="%b %d %H:%M:%S",
+    )
 
     # use GPU if available
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    L.info(f"{prepend_logs} Remote Device: {device} // GPU: {gpu}")
+    device = "cuda"
+    L.info("Remote Device: %s // GPU: %s", device, gpu)
 
     input_file_path = volume_path / "shakespeare_char.txt"
-    volume.reload()  # make sure we have the latest data
-    if not os.path.exists(input_file_path):
-        L.info(f"{prepend_logs} Downloading Shakespeare dataset...")
-        data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-        urllib.request.urlretrieve(data_url, input_file_path)
-
-        volume.commit()  # commit to disk
+    text = prepare_data(input_file_path, volume)
 
     # construct dataset
-    text = input_file_path.read_text()
     dataset = Dataset(
         text,
         train_percent,
@@ -186,13 +176,12 @@ def train_model(
     )
 
     # build model
-    model = AttentionModel(dataset.vocab_size, hparams, device)
-    model.to(device)  # TODO: why?
+    model = build_model(hparams, dataset.vocab_size, device)
+    num_parameters = sum(p.numel() for p in model.parameters())
+    L.info(f"Num parameters: {num_parameters}")
 
     # setup optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    num_parameters = sum(p.numel() for p in model.parameters())
-    L.info(f"{prepend_logs} Num parameters: {num_parameters}")
 
     # TensorBoard logging & checkpointing prep
     model_name = (
@@ -200,7 +189,7 @@ def train_model(
         f"_context_size={hparams.context_size}_n_heads={hparams.n_heads}"
         f"_dropout={hparams.dropout}"
     )
-    L.info(f"{prepend_logs} Model Name: {model_name}")
+    L.info(f"Model Name: {model_name}")
 
     # save logs to something like:
     # volume/logs/E2024-01-01-000000.000000/
@@ -222,12 +211,10 @@ def train_model(
     #  E2024-01-01-000000.000000_context=8_n_heads=1_dropout=0.0/nano_gpt_model.pt
     model_save_dir = save_path / experiment_name / model_name
     if model_save_dir.exists():
-        L.info(f"{prepend_logs} Loading model from checkpoint...")
+        L.info("Loading model from checkpoint...")
         checkpoint = torch.load(str(model_save_dir / model_filename))
         if run_to_first_save:
-            L.info(
-                f"{prepend_logs} Already done. Container Restart? Stopping early..."
-            )
+            L.info("Already done. Container Restart? Stopping early...")
             return node_rank, checkpoint["val_loss"], hparams
         else:
             # create symlink to the best model so it's easy to find for web serving
@@ -255,6 +242,7 @@ def train_model(
 
     # training
     t_last = timer()
+    checkpoint_path = model_save_dir / model_filename
     for step in range(start_step, n_steps + 1):
         # sample a batch of data
         xb, yb = dataset.get_batch("train")
@@ -271,32 +259,69 @@ def train_model(
         # evaluate model on validation set
         if step % n_steps_before_eval == 0:
             out = dataset.eval_model(model)
-            runtime_s = timer() - t_last
-            L.info(
-                f"{prepend_logs} {step:5d}) // {runtime_s:>5.2f}s"
-                f" // Train Loss: {out['train']:.2f} // Val Loss:"
-                f" {out['val']:.2f}"
-            )
-            val_writer.add_scalar("Cross Entropy Loss", out["val"], step)
-            t_last = timer()
-            train_writer.flush()
+            log_evals(out, step, t_last, val_writer, train_writer)
             volume.commit()
+            t_last = timer()
 
         # save model with checkpoint information
         if step > 0 and step % n_steps_before_checkpoint == 0:
-            L.info(f"{prepend_logs} Saving model to {model_save_dir}")
-            checkpoint["finished_training"] = (
-                step >= n_steps
-            )  # Mark as finished if we hit n steps.
+            # mark as finished if we hit n steps.
+            checkpoint["finished_training"] = step >= n_steps
             checkpoint["steps"] = step
             checkpoint["val_loss"] = out["val"]
-            torch.save(checkpoint, model_save_dir / model_filename)
-            volume.commit()
+
+            L.info(f"Saving checkpoint to {checkpoint_path}")
+            save_checkpoint(checkpoint, checkpoint_path)
+
             if run_to_first_save:
-                L.info(f"{prepend_logs} Stopping early...")
+                L.info("Stopping early...")
                 break
 
     return node_rank, float(out["val"]), hparams
+
+
+def log_evals(result, step, t_last, val_writer, train_writer):
+    runtime_s = timer() - t_last
+    L.info(
+        f"{step:5d}) // {runtime_s:>5.2f}s"
+        f" // Train Loss: {result['train']:.2f} // Val Loss:"
+        f" {result['val']:.2f}"
+    )
+    val_writer.add_scalar("Cross Entropy Loss", result["val"], step)
+    train_writer.flush()
+
+    return result
+
+
+def save_checkpoint(
+    checkpoint,
+    checkpoint_path,
+):
+    torch.save(checkpoint, checkpoint_path)
+    volume.commit()
+
+
+def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
+    """Download and read the dataset."""
+    volume.reload()
+    if not input_file_path.exists():
+        L.info("Downloading Shakespeare dataset...")
+        data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+        urllib.request.urlretrieve(data_url, input_file_path)
+        volume.commit()
+    return input_file_path.read_text()
+
+
+def build_model(hparams, vocab_size, device):
+    """Initialize the model and move it to the device."""
+    model = AttentionModel(vocab_size, hparams, device)
+    model.to(device)  # TODO: why?
+    return model
+
+
+def setup_optimizer(model, learning_rate):
+    """Set up the optimizer for the model."""
+    return torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 
 # ### Main Entry Point
@@ -335,29 +360,27 @@ def main(
     n_steps_before_eval: int = None,
 ):
     from datetime import datetime
+    from itertools import product
 
     experiment_name = f"E{datetime.now().strftime('%Y-%m-%d-%H%M%S.%f')}"
     default_hparams = ModelHyperparameters()
 
     # build list of hyperparameters to train & validate
-    hparams_list = []
-    h_options = (1, default_hparams.n_heads)
-    c_options = (8, default_hparams.context_size)
-    d_options = (0.1, default_hparams.dropout)
+    nheads_options = (1, default_hparams.n_heads)
+    context_size_options = (8, default_hparams.context_size)
+    dropout_options = (0.1, default_hparams.dropout)
 
     hparams_list = [
-        ModelHyperparameters(
-            n_heads=n_heads, context_size=context_size, dropout=dropout
+        ModelHyperparameters(n_heads=h, context_size=c, dropout=d)
+        for h, c, d in product(
+            nheads_options, context_size_options, dropout_options
         )
-        for n_heads in h_options
-        for context_size in c_options
-        for dropout in d_options
     ]
 
     # run training for each hyperparameter setting
     results = []
     stop_early = True  # stop early so we can compare val losses
-    L.info(f"Testing {len(hparams_list)} hyperparameter settings")
+    print(f"Testing {len(hparams_list)} hyperparameter settings")
     n_nodes = len(hparams_list)
     for result in train_model.starmap(
         [
@@ -378,14 +401,14 @@ def main(
         # result = (node_rank, val_loss, hparams)
         node_rank = result[0]
         results.append(result)
-        L.info(
+        print(
             f"[Node {node_rank+1}/{n_nodes}] Finished."
             f" Early stop val loss result: {result[1:]}"
         )
 
     # find the model and hparams with the lowest validation loss
     best_result = min(results, key=lambda x: x[1])
-    L.info(f"Best early stop val loss result: {best_result}")
+    print(f"Best early stop val loss result: {best_result}")
     best_hparams = best_result[-1]
 
     # finish training with best hparams
@@ -397,7 +420,7 @@ def main(
         best_hparams,
         experiment_name,
         False,
-        n_steps - n_steps_before_checkpoint,
+        n_steps,
         n_steps_before_eval,
         n_steps_before_checkpoint,
     )
@@ -426,7 +449,7 @@ def main(
 def monitor_training():
     import time
 
-    L.info("TensorBoard: Waiting 10 seconds for training to start...")
+    print("TensorBoard: Waiting 10 seconds for training to start...")
     time.sleep(10)  # wait for experiment folder to be created by training.
     volume.reload()  # make sure we have the latest data.
 
@@ -434,7 +457,7 @@ def monitor_training():
     tb_log_paths = glob.glob(f"{tb_log_path}/*")
     latest_tb_log_path = max(tb_log_paths, key=os.path.getctime)
     monitor_path = Path(latest_tb_log_path)
-    L.info(f"Monitoring: {monitor_path.name}")
+    print(f"Monitoring: {monitor_path.name}")
 
     # start TensorBoard with the latest log path
     board = tensorboard.program.tensorboard()
@@ -501,12 +524,12 @@ class ModelInference:
         for latest_model_dir in sorted_model_dirs:
             if self.use_model_dir == latest_model_dir and self.is_fully_trained:
                 return  # Already loaded
-            L.info(f"Attemping to load from: {latest_model_dir} ...")
+            print(f"Attemping to load from: {latest_model_dir} ...")
             try:
                 checkpoint = torch.load(
                     f"{latest_model_dir}/{best_model_filename}"
                 )
-                L.info("Successfully loaded model.")
+                print("Successfully loaded model.")
                 found_model = True
                 break
             except Exception as e:
@@ -521,7 +544,7 @@ class ModelInference:
         val_loss = checkpoint["val_loss"]
         self.is_fully_trained = checkpoint["finished_training"]
 
-        L.info(
+        print(
             f"Loaded model with {steps} train steps "
             f" and val loss of {val_loss:.2f}"
             f" (fully_trained={self.is_fully_trained}"
