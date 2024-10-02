@@ -17,7 +17,6 @@ from threading import Lock
 from uuid import uuid4
 
 import modal
-from modal._utils.async_utils import on_shutdown
 
 app = modal.App("example-fasthtml")
 db = modal.Dict.from_name("example-fasthtml-db", create_if_missing=True)
