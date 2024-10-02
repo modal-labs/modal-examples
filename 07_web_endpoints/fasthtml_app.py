@@ -13,45 +13,27 @@
 # We think it makes for a great demonstration of how you can build interactive, stateful web apps with FastHTML on Modal.
 
 import time
+from pathlib import Path, PurePosixPath
 from threading import Lock
 from uuid import uuid4
+import os
 
 import modal
 
 app = modal.App("example-fasthtml")
 db = modal.Dict.from_name("example-fasthtml-db", create_if_missing=True)
 
+css_path_local = Path(__file__).parent / "fasthtml_app.css"
+css_path_remote = PurePosixPath("/assets/fasthtml_app.css")
+
 N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
-
-
-# Override pico.css styles to be Modal green
-style = """
-body {
-  background-color: #1d1d1d;
-}
-
-[type="checkbox"]:is(:checked, :checked:focus) {
-  --pico-border-color: #7fee64;
-  --pico-background-color: #7fee64;
-}
-
-[type="checkbox"]:not(:checked, :checked:focus) {
-  --pico-border-color: rgba(255, 255, 255, 0.2);
-  --pico-background-color: rgba(255, 255, 255, 0.05);
-}
-
-:where(select, textarea):not([readonly]):focus,
-input:not([type=submit], [type=button], [type=reset], [type=range], [type=file], [readonly]):focus {
-  --pico-box-shadow: 0 0 0 var(--pico-outline-width) rgba(127, 238, 100, 0.25);
-  --pico-border-color: rgba(127, 238, 100, 0.50);
-}
-"""
 
 @app.function(
     image=modal.Image.debian_slim(python_version="3.12").pip_install(
         "python-fasthtml==0.6.9", "inflect~=7.4.0"
     ),
     concurrency_limit=1,  # we currently maintain state in memory, so we restrict the server to one worker
+    mounts=[modal.Mount.from_local_file(css_path_local, remote_path=css_path_remote)],
 )
 @modal.asgi_app()
 def web():
@@ -78,6 +60,7 @@ def web():
             db["checkboxes"] = checkboxes
         print("Checkbox state persisted.")
 
+    style = open(css_path_remote, "r").read()
     app, _ = fh.fast_app(
         # FastHTML uses the ASGI spec, which allows handling of shutdown events
         on_shutdown=[on_shutdown],
