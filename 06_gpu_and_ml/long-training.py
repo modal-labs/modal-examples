@@ -141,7 +141,10 @@ train = app.function(
 @app.local_entrypoint()
 def main(experiment: str = None):
     if experiment is None:
-        experiment = "experiment"
+        from uuid import uuid4
+
+        experiment = uuid4().hex[:8]
+    print(f"⚡️ starting interruptible training experiment {experiment}")
     train.remote(experiment)
 
 
