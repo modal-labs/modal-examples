@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "run", "--detach", "06_gpu_and_ml/long-training.py"]
+# mypy: ignore-errors
 # ---
 
 # # Run long, resumable training jobs on Modal
