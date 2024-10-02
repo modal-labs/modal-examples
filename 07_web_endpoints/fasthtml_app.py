@@ -16,7 +16,6 @@ import time
 from pathlib import Path, PurePosixPath
 from threading import Lock
 from uuid import uuid4
-import os
 
 import modal
 
@@ -99,7 +98,7 @@ def web():
                 ),
                 cls="container",
                 # use HTMX to poll for diffs to apply
-                hx_trigger="every 20s",  # poll every second
+                hx_trigger="every 1s",  # poll every second
                 hx_get=f"/diffs/{client.id}",  # call the diffs endpoint
                 hx_swap="none",  # don't replace the entire page
             ),
@@ -156,7 +155,6 @@ def web():
         return diff_array
 
     return app
-
 
  #Class for tracking state to push out to connected clients
 class Client:
