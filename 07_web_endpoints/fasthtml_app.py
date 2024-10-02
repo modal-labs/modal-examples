@@ -17,11 +17,12 @@ from threading import Lock
 from uuid import uuid4
 
 import modal
+from modal._utils.async_utils import on_shutdown
 
 app = modal.App("example-fasthtml")
+db = modal.Dict.from_name("example-fasthtml-db", create_if_missing=True)
 
 N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
-
 
 @app.function(
     image=modal.Image.debian_slim(python_version="3.12").pip_install(
@@ -34,41 +35,32 @@ def web():
     import fasthtml.common as fh
     import inflect
 
-    app, _ = fh.fast_app()
 
-    # our in-memory state for the checkboxes
-    checkboxes = [False] * N_CHECKBOXES
-    checkbox_mutex = Lock()
-
-    # connected clients
+    # Connected clients are tracked in-memory
     clients = {}
     clients_mutex = Lock()
 
-    # class for tracking state to push out to connected clients
-    class Client:
-        def __init__(self):
-            self.id = str(uuid4())
-            self.diffs = []
-            self.inactive_deadline = time.time() + 30
+    # We keep all checkbox states in memory during operation, and persist to modal dict across restarts
+    checkboxes = db.get("checkboxes", [])
+    checkbox_mutex = Lock()
+    
+    if len(checkboxes) == N_CHECKBOXES:
+        print("Restored checkbox state from previous session.")
+    else:
+        print("Initializing checkbox state.")
+        checkboxes = [False] * N_CHECKBOXES
+    
+    def on_shutdown():
+        # Handle the shutdown event by persisting current state to modal dict
+        with checkbox_mutex:
+            db["checkboxes"] = checkboxes
+        print("Checkbox state persisted.")
 
-        def is_active(self):
-            return time.time() < self.inactive_deadline
 
-        def heartbeat(self):
-            self.inactive_deadline = time.time() + 30
-
-        def add_diff(self, i):
-            if i in self.diffs:
-                # two toggles are equivalent to zero, so we just cancel the diff
-                self.diffs.remove(i)
-            else:
-                self.diffs.append(i)
-
-        def pull_diffs(self):
-            # return a copy of the diffs and clear them
-            diffs = self.diffs
-            self.diffs = []
-            return diffs
+    app, _ = fh.fast_app(
+        # FastHTML uses the ASGI spec, which allows handling of shutdown events
+        on_shutdown=[on_shutdown],
+    )
 
     # handler run on initial page load
     @app.get("/")
@@ -159,3 +151,30 @@ def web():
         return diff_array
 
     return app
+
+
+ #Class for tracking state to push out to connected clients
+class Client:
+    def __init__(self):
+        self.id = str(uuid4())
+        self.diffs = []
+        self.inactive_deadline = time.time() + 30
+
+    def is_active(self):
+        return time.time() < self.inactive_deadline
+
+    def heartbeat(self):
+        self.inactive_deadline = time.time() + 30
+
+    def add_diff(self, i):
+        if i in self.diffs:
+            # two toggles are equivalent to zero, so we just cancel the diff
+            self.diffs.remove(i)
+        else:
+            self.diffs.append(i)
+
+    def pull_diffs(self):
+        # return a copy of the diffs and clear them
+        diffs = self.diffs
+        self.diffs = []
+        return diffs
