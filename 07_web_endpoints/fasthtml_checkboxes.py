@@ -3,17 +3,19 @@
 # cmd: ["modal", "serve", "07_web_endpoints/fasthtml_checkboxes.py"]
 # ---
 
-# # Deploy a FastHTML app with Modal
+# # Deploy 10,000 multiplayer checkboxes on Modal with FastHTML
 
-# This example shows how you can deploy a FastHTML app with Modal.
+# This example shows how you can deploy a multiplayer checkbox game with FastHTML on Modal.
+
 # [FastHTML](https://www.fastht.ml/) is a Python library built on top of [HTMX](https://htmx.org/)
 # which allows you to create entire web applications using only Python.
-#
-# Our example is a multiplayer checkbox game, inspired by [1 Million Checkboxes](https://onemillioncheckboxes.com/).
-# We think it makes for a great demonstration of how you can build interactive, stateful web apps with FastHTML on Modal.
+# For a simpler template for using FastHTML with Modal, check out
+# [this example](https://modal.com/docs/examples/fasthtml_app).
+
+# Our example is inspired by [1 Million Checkboxes](https://onemillioncheckboxes.com/).
 
 import time
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from threading import Lock
 from uuid import uuid4
 
@@ -27,12 +29,15 @@ css_path_remote = Path("/assets/fasthtml_checkboxes.css")
 
 N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
 
+
 @app.function(
     image=modal.Image.debian_slim(python_version="3.12").pip_install(
         "python-fasthtml==0.6.9", "inflect~=7.4.0"
     ),
     concurrency_limit=1,  # we currently maintain state in memory, so we restrict the server to one worker
-    mounts=[modal.Mount.from_local_file(css_path_local, remote_path=css_path_remote)],
+    mounts=[
+        modal.Mount.from_local_file(css_path_local, remote_path=css_path_remote)
+    ],
 )
 @modal.asgi_app()
 def web():
@@ -46,13 +51,13 @@ def web():
     # We keep all checkbox states in memory during operation, and persist to modal dict across restarts
     checkboxes = db.get("checkboxes", [])
     checkbox_mutex = Lock()
-    
+
     if len(checkboxes) == N_CHECKBOXES:
         print("Restored checkbox state from previous session.")
     else:
         print("Initializing checkbox state.")
         checkboxes = [False] * N_CHECKBOXES
-    
+
     def on_shutdown():
         # Handle the shutdown event by persisting current state to modal dict
         with checkbox_mutex:
@@ -81,7 +86,7 @@ def web():
                     id=f"cb-{i}",
                     checked=val,
                     # when clicked, that checkbox will send a POST request to the server with its index
-                    hx_post=f"/checkbox/toggle/{i}/{client.id}", 
+                    hx_post=f"/checkbox/toggle/{i}/{client.id}",
                 )
                 for i, val in enumerate(checkboxes)
             ]
@@ -156,7 +161,8 @@ def web():
 
     return app
 
- #Class for tracking state to push out to connected clients
+
+# Class for tracking state to push out to connected clients
 class Client:
     def __init__(self):
         self.id = str(uuid4())
