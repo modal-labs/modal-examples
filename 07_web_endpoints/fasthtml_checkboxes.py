@@ -21,8 +21,8 @@ from uuid import uuid4
 
 import modal
 
-app = modal.App("checkboxes")
-db = modal.Dict.from_name("checkboxes-db", create_if_missing=True)
+app = modal.App("example-checkboxes")
+db = modal.Dict.from_name("example-checkboxes-db", create_if_missing=True)
 
 css_path_local = Path(__file__).parent / "fasthtml_checkboxes.css"
 css_path_remote = Path("/assets/fasthtml_checkboxes.css")
