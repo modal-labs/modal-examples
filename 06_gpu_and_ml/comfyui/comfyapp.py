@@ -43,8 +43,6 @@
 #
 # ## Setup
 #
-# First, we define the environment we need to run ComfyUI using [`comfy-cli`](https://github.com/Comfy-Org/comfy-cli). This handy tool manages the installation of ComfyUI, its dependencies, models, and custom nodes.
-
 
 import json
 import subprocess
@@ -54,25 +52,84 @@ from typing import Dict
 
 import modal
 
+# ## Building up the environment
+#
+# ComfyUI setups can be complex, with a lot of custom nodes and models to manage.
+# We'll use [`comfy-cli`](https://github.com/Comfy-Org/comfy-cli) to manage the installation of ComfyUI, its dependencies, models, and custom nodes.
+#
+# We start from a base image and specify all of our dependencies.
+# We'll call out the interesting ones as they come up below.
+# Note that these dependencies are not installed locally
+# they are only installed in the remote environment where our app runs,
+# and they are only installed when you first deploy or run the app or make changes to the image,
+# on subsequent runs, the image will be cached and reused.
+
+
 image = (  # build up a Modal Image to run ComfyUI, step by step
     modal.Image.debian_slim(  # start from basic Linux with Python
         python_version="3.11"
     )
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli==1.1.8")  # install comfy-cli
+    .pip_install("comfy-cli==1.2.3")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
-    .run_commands(  # download the flux models
-        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors --relative-path models/clip",
-        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors --relative-path models/clip",
-        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors --relative-path models/vae",
-        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors --relative-path models/unet",
+)
+
+# ### Downloading models
+#
+# We'll download the Flux models using `comfy-cli`.
+# You can find other models on [Hugging Face](https://huggingface.co/).
+# ComfyUI will look for these models in the `models` subdirectory under specific subdirectories
+# (e.g. `vae`, `unet`, `clip`, etc.), so we need to download them into the correct location.
+#
+# You can run multiple commands using comma separated commands in `.run_commands()`.
+# But here we opt to split them up to allow for more granular layer caching in the Modal Image.
+# By appending a model install using `.run_commands(...)` at the end of this build step we ensure
+# that the previous steps remain un changed and will be cached, avoiding unnecessary re-runs.
+
+image = (
+    image.run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors --relative-path models/clip"
     )
-    .run_commands(  # download a custom node
+    .run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors --relative-path models/clip"
+    )
+    .run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors --relative-path models/vae"
+    )
+    .run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors --relative-path models/unet"
+    )
+    # Add .run_commands(...) calls for any other models you want to download
+)
+
+# ### Downloading custom nodes
+#
+# We'll download custom nodes using `comfy-cli` too.
+# Alternatively, you can install them by cloning the git repositories to your /root/comfy/ComfyUI/custom_nodes
+# directory and installing the required dependencies manually.
+# Similarly to models, we opt to split the custom node installation into separate `.run_commands(...)` calls
+# to allow for more granular layer caching.
+
+image = (
+    image.run_commands(  # download a custom node
         "comfy node install image-resize-comfyui"
     )
-    # can layer additional models and custom node downloads as needed
+    # Add .run_commands(...) calls for any other custom nodes you want to download
+)
+
+# ### Adding more dependencies
+#
+# To add more dependencies, models or custom nodes without having to rebuild the entire image
+# it's recommended to append them at the end of your image build rather than modifying previous steps.
+# This allows you to cache all previous steps and only build the new steps when you make changes to the image.
+
+image = (
+    image  # Add any additional steps here
+    # .run_commands(...)
+    # .pip_install(...)
+    # .apt_install(...)
 )
 
 app = modal.App(name="example-comfyui", image=image)
@@ -185,98 +242,4 @@ class ComfyUI:
 # - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. This will reduce overall response time, but will cost you more money. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
 # - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
-
-# ### Store models in a volume
-
-# We can also store the models in a volume to avoid downloading them when we update earlier steps in the image.
-# As a side effect this allows you to cache models between apps as well.
-# And here we use huggingface to download models, allowing us to download models that require a token.
-
-# ```python
-# COMFY_PATH = "/root/comfy/ComfyUI"
-# COMFY_MODELS_PATH = f"{COMFY_PATH}/models"
-
-# custom_nodes_to_install = [
-#     "image-resize-comfyui",
-# ]
-
-
-# models_to_download = [
-#     {
-#         "repo_id": "black-forest-labs/FLUX.1-dev",
-#         "filename": "ae.safetensors",
-#         "revision": "main",
-#         "local_dir": f"{COMFY_MODELS_PATH}/vae",
-#     },
-# ]
-
-# models_vol = modal.Volume.from_name("comfyui-models", create_if_missing=True)
-# volumes = {COMFY_MODELS_PATH: models_vol}
-
-# huggingface_secret = modal.Secret.from_name("my-huggingface-secret")
-# secrets = [huggingface_secret]
-
-
-# def install_nodes(nodes):
-#     print("Installing nodes...")
-#     for node in nodes:
-#         print(f"Installing node {node}...")
-#         subprocess.run(f"comfy node install {node}", shell=True, check=True)
-#     print("Finished installing nodes!")
-
-
-# def download_models(model_configs):
-#     # Opting to download models using the hf_hub_download
-#     # since comfy cli doesn't support downloading
-#     # models that require a huggingface token
-#     # hf_hub_download also has a build in cache
-#     # so it won't download the same model twice
-#     from huggingface_hub import hf_hub_download
-
-#     print("Downloading models...")
-#     for model_config in model_configs:
-#         print(
-#             f"Downloading {model_config['filename']} from {model_config['repo_id']}..."
-#         )
-
-#         hf_hub_download(
-#             repo_id=model_config["repo_id"],
-#             filename=model_config["filename"],
-#             revision=model_config["revision"],
-#             local_dir=model_config["local_dir"],
-#         )
-
-#     print("Finished downloading models!")
-
-
-# image = (
-#     modal.Image.debian_slim(python_version="3.11")
-#     .apt_install("git")
-#     .pip_install("comfy-cli==1.2.3", "huggingface_hub", "hf-transfer")
-#     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-#     .run_commands("comfy --skip-prompt install --nvidia")
-#     # We delete the models directory
-#     # since we are going to mount a volume of models into it
-#     .run_commands(f"rm -rf {COMFY_MODELS_PATH}")
-#     # We use a custom function to install the nodes
-#     # since we need to mount a volume of models into the container
-#     .run_function(
-#         install_nodes,
-#         args=[custom_nodes_to_install],
-#         volumes=volumes,  # In case the nodes need access to the models
-#         secrets=secrets,
-#     )
-#     # We always want to download the models last
-#     # since we cache them in the volume anyway
-#     # and this allows us to not rebuild any other step in the image
-#     # whenever we update our model
-#     .run_function(
-#         download_models,
-#         args=[models_to_download],
-#         volumes=volumes,
-#         # Some models need a huggingface token to download
-#         secrets=secrets,
-#         force_build=True,
-#     )
-# )
-# ```
+# - Currently `comfy-cli` doesn't support downloading models that require a huggingface token. Instead, you can use `huggingface_hub` library to download them.
