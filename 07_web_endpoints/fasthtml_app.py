@@ -10,13 +10,12 @@
 # which allows you to create entire web applications using only Python.
 #
 # Our example is a multiplayer checkbox game, inspired by [1 Million Checkboxes](https://onemillioncheckboxes.com/).
-# It's a great demonstration of of how you can build interactive, stateful web apps with FastHTML on Modal.
+# We think it makes for a great demonstration of how you can build interactive, stateful web apps with FastHTML on Modal.
 
 import time
 from threading import Lock
 from uuid import uuid4
 
-import fasthtml.common as fh
 import modal
 
 app = modal.App("example-fasthtml")
@@ -26,12 +25,15 @@ N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
 
 @app.function(
     image=modal.Image.debian_slim(python_version="3.12").pip_install(
-        "python-fasthtml==0.6.9"
+        "python-fasthtml==0.6.9", "inflect~=7.4.0"
     ),
     concurrency_limit=1,  # we currently maintain state in memory, so we restrict the server to one worker
 )
 @modal.asgi_app()
 def web():
+    import fasthtml.common as fh
+    import inflect
+
     app, _ = fh.fast_app()
 
     # our in-memory state for the checkboxes
@@ -68,30 +70,32 @@ def web():
             self.diffs = []
             return diffs
 
-    # Handler ran on initial page load
+    # handler run on initial page load
     @app.get("/")
     def get():
-        # Register a new client
+        # register a new client
         client = Client()
         with clients_mutex:
             clients[client.id] = client
 
-        # Get current state of all checkboxes
+        # get current state of all checkboxes
         with checkbox_mutex:
             checkbox_array = [
                 fh.CheckboxX(
                     id=f"cb-{i}",
                     checked=val,
-                    # When clicked, that checkbox will send a POST request to the server with its index
+                    # when clicked, that checkbox will send a POST request to the server with its index
                     hx_post=f"/checkbox/toggle/{i}/{client.id}",
                 )
                 for i, val in enumerate(checkboxes)
             ]
 
         return (
-            fh.Title("10k Checkboxes"),
+            fh.Title(f"{N_CHECKBOXES // 1000}k Checkboxes"),
             fh.Main(
-                fh.H1("Ten Thousand Checkboxes"),
+                fh.H1(
+                    f"{inflect.engine().number_to_words(N_CHECKBOXES).title()} Checkboxes"
+                ),
                 fh.Div(
                     *checkbox_array,
                     id="checkbox-array",
@@ -100,11 +104,11 @@ def web():
                 # use HTMX to poll for diffs to apply
                 hx_trigger="every 1s",  # poll every second
                 hx_get=f"/diffs/{client.id}",  # call the diffs endpoint
-                hx_swap="none",  # don't replace the entire page with returned values (more on this)
+                hx_swap="none",  # don't replace the entire page
             ),
         )
 
-    # Users submitting checkbox toggles
+    # users submitting checkbox toggles
     @app.post("/checkbox/toggle/{i}/{client_id}")
     def toggle(i: int, client_id: str):
         with checkbox_mutex:
@@ -114,7 +118,7 @@ def web():
             expired = []
             for client in clients.values():
                 if client.id == client_id:
-                    # ignore own client; it keeps its own diffs
+                    # ignore self; we keep our own diffs
                     continue
 
                 # clean up old clients
@@ -128,10 +132,10 @@ def web():
                 del clients[client_id]
         return
 
-    # Clients polling for any outstanding diffs
+    # clients polling for any outstanding diffs
     @app.get("/diffs/{client_id}")
     def diffs(client_id: str):
-        # we use the hx_swap_oob='true' feature to
+        # we use the `hx_swap_oob='true'` feature to
         # push updates only for the checkboxes that changed
         with clients_mutex:
             client = clients.get(client_id, None)
