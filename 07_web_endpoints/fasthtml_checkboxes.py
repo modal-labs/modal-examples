@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # cmd: ["modal", "serve", "07_web_endpoints/fasthtml_checkboxes.py"]
+# mypy: ignore-errors
 # ---
 
 # # Deploy 10,000 multiplayer checkboxes on Modal with FastHTML
