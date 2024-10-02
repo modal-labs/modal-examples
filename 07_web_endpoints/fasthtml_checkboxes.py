@@ -6,6 +6,8 @@
 
 # # Deploy 10,000 multiplayer checkboxes on Modal with FastHTML
 
+# ![Screenshot of FastHTML Checkboxes UI](./fasthtml-checkboxes-ui.png)
+
 # This example shows how you can deploy a multiplayer checkbox game with FastHTML on Modal.
 
 # [FastHTML](https://www.fastht.ml/) is a Python library built on top of [HTMX](https://htmx.org/)
