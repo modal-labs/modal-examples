@@ -45,9 +45,7 @@
 # the same infrastructural capabilities that the most sophisticated companies
 # have in their internal platforms.
 
-# ## Training
-
-# ### Basic Setup
+# ## Basic Setup
 
 import logging as L
 import urllib.request
@@ -71,9 +69,7 @@ gpu = "A10G"
 
 # Since we'll be coordinating training across multiple machines we'll use a
 # single [Volume](https://modal.com/docs/guide/volumes)
-# to store the `dataset`, checkpointed models, and TensorBoard logs. Modal Volumes do
-# not automatically synchronize writes so we'll have to be careful to use
-# `commit()` and `reload()` calls when appropriate.
+# to store the `dataset`, checkpointed models, and TensorBoard logs.
 
 volume = modal.Volume.from_name(
     "example-hp-sweep-gpt-volume", create_if_missing=True
@@ -84,27 +80,30 @@ best_model_filename = "best_nano_gpt_model.pt"
 tb_log_path = volume_path / "tb_logs"
 save_path = volume_path / "models"
 
-# ### Define a container image
+# ### Defining container images
 
-# The container image is based on the latest Debian slim image with `torch`
-# for training, `gradio` for serving a web interface, and `tensorboard` for
-# monitoring training.
+# The container imagefor training  is based on Modal's default slim Debian Linux image with `torch`
+# for defining and running our neural network and `tensorboard` for monitoring training.
+
+# We also copy over the model definition files from the local machine.
 
 image = (
     Image.debian_slim(python_version="3.11")
     .pip_install(
         "torch==2.1.2",
         "tensorboard==2.17.1",
-        "pydantic>=2",
-        "fastapi==0.114.2",
         "numpy<2",
     )
     .copy_local_file(Path(__file__).parent / "model.py", "/root/model.py")
 )
 
+# We'll spin up a separate container to monitor the training logs with TensorBoard.
+
 monitoring_image = Image.debian_slim(python_version="3.11").pip_install(
     "tensorboard==2.17.1"
 )
+
+# And we'll deploy a web UI for interacting with our trained models using Gradio.
 
 ui_image = Image.debian_slim(python_version="3.11").pip_install(
     "gradio~=4.44.0", "pydantic>=2", "fastapi==0.114.2"
@@ -122,14 +121,14 @@ with image.imports():
     from model import AttentionModel, Dataset
     from torch.utils.tensorboard import SummaryWriter
 
-# ### Training Function
+# ## Training Function
 
 # Here we define the training function making sure to include the `image`,
 # `volume`, `gpu`, and `timeout` parameters.
 
 # Training consists of specifying optimization parameters, loading the
 # `dataset`, building the `model`, setting up TensorBoard logging &
-# checkpointing, and then finally the `training_loop` itself.
+# checkpointing, and then finally executing the `training_loop` itself.
 
 
 @app.function(
@@ -265,9 +264,9 @@ def train_model(
     return node_rank, float(out["val"]), hparams
 
 
-# ### Main Entry Point
+# ## Launching a hyperparameter sweep from a `local_entrypoint`
 
-# The main entry point coordinates the hyperparameter optimization training.
+# The main entry point coordinates the hyperparameter optimization.
 # First we specify the default hyperparameters for the model, taken from
 # [Karpathy's biggest model](https://www.youtube.com/watch?v=kCc8FmEb1nY&t=5976s),
 # which add up to 10 million total neural network parameters.
@@ -282,14 +281,13 @@ class ModelHyperparameters:
     dropout: float = 0.2
 
 
-# Next we define the main entry point which runs the hyperparameter
-# optimization. It will train 8 models in parallel across 8 containers, each
+# Next we define the local entrypoint function.
+# It will train 8 models in parallel across 8 containers, each
 # with different hyperparameters, varying the number of heads (`n_heads`), the
-# `context_size`
-# (called the block size in Karpathy lingo), and the dropout rate (`dropout`). To run in
+# `context_size` (called the block size in Karpathy lingo), and the dropout rate (`dropout`). To run in
 # parallel we need to use the [starmap function](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
 
-# Training for each model until the first checkpoint, and then stop early so we
+# We train all of the models until the first checkpoint, and then stop early so we
 # can compare the validation losses. Then we'll restart training for the best
 # model and save it to the models directory.
 
@@ -367,7 +365,7 @@ def main(
     )
 
 
-# After running `modal run hp_sweep_gpt::main` you should see output like this:
+# After running `modal run hp_sweep_gpt.py` you should see output like this:
 # ```
 # Sep 16 21:20:39 INFO [hp_sweep_gpt.py.train_model:127] [Node 1/8]  Remote Device: cuda // GPU: A10G
 # Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:149] [Node 1/8]  Num parameters: 10693697
@@ -378,11 +376,11 @@ def main(
 # ```
 
 
-# ### Monitoring with TensorBoard
+# ### Monitoring experiments with TensorBoard
 
 # To monitor our training we will create a TensorBoard WSGI web app, it will
 # display the progress of our training across all 8 models. We'll use the latest
-# experiment TensorBoard logs available on the `volume`.
+# logs for the most recent experiment written to the Volume.
 
 
 @app.function(image=monitoring_image, volumes={volume_path: volume})
@@ -419,7 +417,7 @@ def monitor_training():
     return wsgi_app
 
 
-# After training your TensorBoard will look something like this:
+# After training your TensorBoard UI will look something like this:
 
 # [[./tensorboard.png|alt=TensorBoard]]
 
@@ -435,12 +433,12 @@ def monitor_training():
 web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
 
-# ### Inference class
+# ### Remote inference with Modal `Cls`es
 
-# Now we will create a class for running inference only on the trained model.
+# Now we will create a class for running model inference.
 
-# We choose the latest experiment that has a best model checkpoint
-# and to load that model for inference. In case training is still ongoing,
+# We choose the latest experiment that has a "best" model checkpoint
+# and load that model for inference. In case training is still ongoing,
 # we check for updated models on the fly and load them if available.
 
 
@@ -514,7 +512,7 @@ class ModelInference:
 
     @modal.method()
     def generate(self, prompt):
-        self.load_model_impl()  # load updated model if aviailable, o/w no op.
+        self.load_model_impl()  # load updated model if available
 
         # generate 1000 new characters from input prompt
         n_new_tokens = 1000
@@ -549,7 +547,7 @@ def web_generate(request: GenerationRequest):
     return {"output": output}
 
 
-# That will allow us to generate text via a simple `curl` command likthis:
+# That will allow us to generate text via a simple `curl` command like this:
 
 # ```bash
 # curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate-dev.modal.run
@@ -571,7 +569,7 @@ def web_generate(request: GenerationRequest):
 
 # It's not exactly Shakespeare, but at least it shows our model learned something!
 
-# ### Serving a Gradio UI
+# ### Serving a Gradio UI with `asgi_app`
 
 # Second, we create a Gradio web UI for generating text via a graphical user interface in the browser.
 # That way our fellow team members and stakeholders can easily interact with the model and give feedback.
