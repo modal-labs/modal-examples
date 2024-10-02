@@ -36,7 +36,7 @@ body {
 }
 
 [type="checkbox"]:not(:checked, :checked:focus) {
-  --pico-border-color: rgba(255, 255, 255, 0.5);
+  --pico-border-color: rgba(255, 255, 255, 0.2);
   --pico-background-color: rgba(255, 255, 255, 0.05);
 }
 
