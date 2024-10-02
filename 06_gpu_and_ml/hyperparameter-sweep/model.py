@@ -89,9 +89,16 @@ class Dataset(object):
             losses = torch.zeros(self.n_eval_steps)
             for k in range(self.n_eval_steps):
                 xb, yb = self.get_batch(split)
-                logits, loss = model.forward(xb, yb)  # Modal: Why need forward?
+                logits, loss = model.forward(xb, yb)
                 losses[k] = loss
             out[split] = losses.mean()
+        torch_input = torch.tensor(self.encode("HAMLET:\n"), dtype=torch.long)
+        torch_input = torch_input.view(1, len(torch_input))  # add batch dim
+        torch_input = torch_input.to(self.device)
+        out["sample"] = "".join(
+            self.decode(model.generate(torch_input, 100)[0].tolist())
+        )
+
         model.train()
         return out
 

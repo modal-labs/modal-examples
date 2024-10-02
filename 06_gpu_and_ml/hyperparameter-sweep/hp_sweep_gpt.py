@@ -33,6 +33,9 @@
 # In fact, we'll train 8 SLMs in parallel with different hyperparameters
 # and then select the best one for additional training.
 
+# We'll monitor this training live and serve our training and trained models
+# as web endpoints and simple browser UIs.
+
 # Along the way we'll use many features of the Modal platform:
 # [distributed volumes](https://modal.com/docs/guide/volumes),
 # multiple [web endpoints](https://modal.com/docs/guide/webhooks),
@@ -55,11 +58,12 @@ import modal
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from modal import Image
+from pydantic import BaseModel
 
 MINUTES = 60  # seconds
 
 # We'll use A10G GPUs for training which are able to train the model to recognizably improved performance
-# in 10 minutes while keeping costs under ~$1.
+# in ~15 minutes while keeping costs under ~$1.
 
 gpu = "A10G"
 
@@ -90,13 +94,20 @@ image = (
     Image.debian_slim(python_version="3.11")
     .pip_install(
         "torch==2.1.2",
-        "gradio~=4.44.0",
-        "pydantic>=2",
         "tensorboard==2.17.1",
+        "pydantic>=2",
         "fastapi==0.114.2",
         "numpy<2",
     )
     .copy_local_file(Path(__file__).parent / "model.py", "/root/model.py")
+)
+
+monitoring_image = Image.debian_slim(python_version="3.11").pip_install(
+    "tensorboard==2.17.1"
+)
+
+ui_image = Image.debian_slim(python_version="3.11").pip_install(
+    "gradio~=4.44.0", "pydantic>=2", "fastapi==0.114.2"
 )
 
 app = modal.App("example-hp-sweep-gpt")
@@ -116,9 +127,9 @@ with image.imports():
 # Here we define the training function making sure to include the `image`,
 # `volume`, `gpu`, and `timeout` parameters.
 
-# Training consists of specificying optimization parameters, loading the
-# `dataset`, building the `model`, setting up TensorBoard logging,
-# checkpointing, and finally the training itself.
+# Training consists of specifying optimization parameters, loading the
+# `dataset`, building the `model`, setting up TensorBoard logging &
+# checkpointing, and then finally the `training_loop` itself.
 
 
 @app.function(
@@ -195,28 +206,22 @@ def train_model(
     # volume/logs/E2024-01-01-000000.000000/
     #   E2024-01-01-000000.000000_context=8_n_heads=1_dropout=0.0/train
     model_log_dir = tb_log_path / f"{experiment_name}/{model_name}"
-    os.makedirs(model_log_dir, exist_ok=True)
+    model_log_dir.mkdir(parents=True, exist_ok=True)
     train_writer = SummaryWriter(log_dir=f"{model_log_dir}/train")
     val_writer = SummaryWriter(log_dir=f"{model_log_dir}/val")
 
     # save hyperparameters to TensorBoard for easy reference
-    pretty_hparams_str = ""
-    for k, v in hparams.__dict__.items():
-        pretty_hparams_str += f"{k}: {v}\n"
-    pretty_hparams_str += f"Num parameters: {num_parameters}"
+    pretty_hparams_str = "\n".join(
+        f"{k}: {v}" for k, v in hparams.__dict__.items()
+    )
+    pretty_hparams_str += f"\nNum parameters: {num_parameters}"
     train_writer.add_text("Hyperparameters", pretty_hparams_str)
 
-    # load & save models to something like:
-    # volume/models/E2024-01-01-000000.000000/
-    #  E2024-01-01-000000.000000_context=8_n_heads=1_dropout=0.0/nano_gpt_model.pt
     model_save_dir = save_path / experiment_name / model_name
     if model_save_dir.exists():
         L.info("Loading model from checkpoint...")
         checkpoint = torch.load(str(model_save_dir / model_filename))
-        if run_to_first_save:
-            L.info("Already done. Container Restart? Stopping early...")
-            return node_rank, checkpoint["val_loss"], hparams
-        else:
+        if not run_to_first_save:
             # create symlink to the best model so it's easy to find for web serving
             os.symlink(
                 str(model_save_dir / model_filename),
@@ -227,7 +232,7 @@ def train_model(
         model.load_state_dict(checkpoint["model"])
         start_step = checkpoint["steps"] + 1
     else:
-        os.makedirs(model_save_dir, exist_ok=True)
+        model_save_dir.mkdir(parents=True, exist_ok=True)
         start_step = 0
         # save metadata for training restarts and inference
         checkpoint = {
@@ -240,85 +245,24 @@ def train_model(
             "finished_training": False,
         }
 
-    # training
-    t_last = timer()
     checkpoint_path = model_save_dir / model_filename
-    for step in range(start_step, n_steps + 1):
-        # sample a batch of data
-        xb, yb = dataset.get_batch("train")
 
-        # evaluate the loss, calculate & apply gradients
-        logits, loss = model.forward(xb, yb)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
-
-        # log training loss
-        train_writer.add_scalar("Cross Entropy Loss", loss.item(), step)
-
-        # evaluate model on validation set
-        if step % n_steps_before_eval == 0:
-            out = dataset.eval_model(model)
-            log_evals(out, step, t_last, val_writer, train_writer)
-            volume.commit()
-            t_last = timer()
-
-        # save model with checkpoint information
-        if step > 0 and step % n_steps_before_checkpoint == 0:
-            # mark as finished if we hit n steps.
-            checkpoint["finished_training"] = step >= n_steps
-            checkpoint["steps"] = step
-            checkpoint["val_loss"] = out["val"]
-
-            L.info(f"Saving checkpoint to {checkpoint_path}")
-            save_checkpoint(checkpoint, checkpoint_path)
-
-            if run_to_first_save:
-                L.info("Stopping early...")
-                break
+    out = training_loop(
+        start_step,
+        n_steps,
+        n_steps_before_eval,
+        n_steps_before_checkpoint,
+        dataset,
+        model,
+        optimizer,
+        train_writer,
+        val_writer,
+        checkpoint,
+        checkpoint_path,
+        run_to_first_save,
+    )
 
     return node_rank, float(out["val"]), hparams
-
-
-def log_evals(result, step, t_last, val_writer, train_writer):
-    runtime_s = timer() - t_last
-    L.info(
-        f"{step:5d}) // {runtime_s:>5.2f}s"
-        f" // Train Loss: {result['train']:.2f} // Val Loss:"
-        f" {result['val']:.2f}"
-    )
-    val_writer.add_scalar("Cross Entropy Loss", result["val"], step)
-    train_writer.flush()
-
-    return result
-
-
-def save_checkpoint(checkpoint, checkpoint_path):
-    torch.save(checkpoint, checkpoint_path)
-    volume.commit()
-
-
-def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
-    """Download and read the dataset."""
-    volume.reload()
-    if not input_file_path.exists():
-        L.info("Downloading Shakespeare dataset...")
-        data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-        urllib.request.urlretrieve(data_url, input_file_path)
-        volume.commit()
-    return input_file_path.read_text()
-
-
-def build_model(hparams, vocab_size, device):
-    """Initialize the model and move it to the device."""
-    model = AttentionModel(vocab_size, hparams, device)
-    model.to(device)  # TODO: why?
-    return model
-
-
-def setup_optimizer(model, learning_rate):
-    """Set up the optimizer for the model."""
-    return torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 
 # ### Main Entry Point
@@ -416,7 +360,7 @@ def main(
         n_nodes,
         best_hparams,
         experiment_name,
-        False,
+        not stop_early,
         n_steps,
         n_steps_before_eval,
         n_steps_before_checkpoint,
@@ -441,26 +385,31 @@ def main(
 # experiment TensorBoard logs available on the `volume`.
 
 
-@app.function(image=image, volumes={volume_path: volume})
+@app.function(image=monitoring_image, volumes={volume_path: volume})
 @modal.wsgi_app()
 def monitor_training():
     import time
 
-    print("TensorBoard: Waiting 10 seconds for training to start...")
-    time.sleep(10)  # wait for experiment folder to be created by training.
-    volume.reload()  # make sure we have the latest data.
+    print("📈 TensorBoard: Waiting for logs...")
+    ct = 0
+    while not tb_log_path.exists():
+        ct += 1
+        if ct > 10:
+            raise Exception("No logs found after 10 seconds.")
+        volume.reload()  # make sure we have the latest data.
+        time.sleep(1)
 
     # obtain the latest log path
     tb_log_paths = glob.glob(f"{tb_log_path}/*")
     latest_tb_log_path = max(tb_log_paths, key=os.path.getctime)
     monitor_path = Path(latest_tb_log_path)
-    print(f"Monitoring: {monitor_path.name}")
+    print(f"📈 Monitoring: {monitor_path.name}")
 
     # start TensorBoard with the latest log path
-    board = tensorboard.program.tensorboard()
+    board = tensorboard.program.TensorBoard()
     board.configure(logdir=str(monitor_path))
     (data_provider, deprecated_multiplexer) = board._make_data_provider()
-    wsgi_app = tensorboard.backend.application.TensorboardWSGIApp(
+    wsgi_app = tensorboard.backend.application.TensorBoardWSGIApp(
         board.flags,
         board.plugin_loaders,
         data_provider,
@@ -477,7 +426,7 @@ def monitor_training():
 # Notice that there are 8 models training, and the one with the lowest
 # validation loss at step 600 continues training to 3000 steps.
 
-# ## Serving the trained model
+# ## Serving the trained model as a web endpoint
 
 # ### Setup
 
@@ -498,7 +447,7 @@ assets_path = Path(__file__).parent / "assets"
 @app.cls(image=image, volumes={volume_path: volume}, gpu=gpu)
 class ModelInference:
     def build_encode_decode(self, chars):
-        # create funcs for converting  text into digits (encode) and
+        # create funcs for converting text into digits (encode) and
         # vice versa (decode)
         stoi = {c: i for i, c in enumerate(chars)}
         itos = {i: c for i, c in enumerate(chars)}
@@ -578,7 +527,9 @@ class ModelInference:
         # generate new tokens
         gen_out = self.model.generate(torch_input, n_new_tokens)[0]  # 0th batch
         # decode from digits to text
-        chars_out = self.decode([x for x in gen_out.tolist()])
+        chars_out = self.decode([x for x in gen_out.tolist()])[
+            len(encoded_prompt) :
+        ]
         # join the characters into a string and return
         str_out = "".join(chars_out)
         return str_out
@@ -587,14 +538,18 @@ class ModelInference:
 # First, we create a simple POST web endpoint for generating text.
 
 
+class GenerationRequest(BaseModel):
+    prompt: str
+
+
 @app.function()
 @modal.web_endpoint(method="POST", docs=True)
-def web_generate(item: dict):
-    output = ModelInference().generate.remote(item["prompt"])
-    return {"web_generate": output}
+def web_generate(request: GenerationRequest):
+    output = ModelInference().generate.remote(request.prompt)
+    return {"output": output}
 
 
-# That will allow us to generate text via a simple `curl` command like this:
+# That will allow us to generate text via a simple `curl` command likthis:
 
 # ```bash
 # curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate-dev.modal.run
@@ -604,7 +559,7 @@ def web_generate(item: dict):
 
 # ```json
 # {
-# "web_generate":
+# "output":
 #    "BRUTUS:
 #     The broy trefore anny pleasory to
 #     wip me state of villoor so:
@@ -616,18 +571,20 @@ def web_generate(item: dict):
 
 # It's not exactly Shakespeare, but at least it shows our model learned something!
 
-# Second, we create a Gradio web app for generating text via a graphical user interface in the browser.
+# ### Serving a Gradio UI
+
+# Second, we create a Gradio web UI for generating text via a graphical user interface in the browser.
 # That way our fellow team members and stakeholders can easily interact with the model and give feedback.
 
 
 @app.function(
-    image=image,
+    image=ui_image,
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
-def fastapi_app():
+def ui():
     import gradio as gr
     from gradio.routes import mount_gradio_app
 
@@ -635,7 +592,7 @@ def fastapi_app():
     def go(text=""):
         if not text:
             text = "\n"
-        return ModelInference().generate.remote(text)
+        return text + ModelInference().generate.remote(text)
 
     example_prompts = [
         "DUKE OF YORK:\nWhere art thou Lucas?",
@@ -711,5 +668,106 @@ def fastapi_app():
     )
 
 
-# The Gradio app will look something like this:
+# The Gradio UI will look something like this:
 # [[./gradio.png|alt=gradio]]
+
+# ## Addenda
+
+# The remainder of this code is boilerplate for the training loop.
+# There's a lot! If you'd rather not write this stuff yourself,
+# consider a training framework like [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable)
+# or [Hugging Face](https://huggingface.co/transformers/main_classes/trainer.html).
+
+
+def log_evals(result, step, t_last, val_writer, train_writer):
+    runtime_s = timer() - t_last
+    L.info(
+        f"{step:5d}) // {runtime_s:>5.2f}s"
+        f" // Train Loss: {result['train']:.2f} // Val Loss:"
+        f" {result['val']:.2f}"
+    )
+    val_writer.add_scalar("Cross Entropy Loss", result["val"], step)
+    val_writer.add_text("Sample Output", result["sample"], step)
+    train_writer.flush()
+
+    return result
+
+
+def training_loop(
+    start_step,
+    n_steps,
+    n_steps_before_eval,
+    n_steps_before_checkpoint,
+    dataset,
+    model,
+    optimizer,
+    train_writer,
+    val_writer,
+    checkpoint,
+    checkpoint_path,
+    run_to_first_save,
+):
+    t_last = timer()
+    for step in range(start_step, n_steps + 1):
+        # sample a batch of data
+        xb, yb = dataset.get_batch("train")
+
+        # evaluate the loss, calculate & apply gradients
+        logits, loss = model.forward(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+        # log training loss
+        train_writer.add_scalar("Cross Entropy Loss", loss.item(), step)
+
+        # evaluate model on validation set
+        if step % n_steps_before_eval == 0:
+            out = dataset.eval_model(model)
+            log_evals(out, step, t_last, val_writer, train_writer)
+            volume.commit()
+            t_last = timer()
+
+        # save model with checkpoint information
+        if step > 0 and step % n_steps_before_checkpoint == 0:
+            checkpoint["steps"] = step
+            checkpoint["val_loss"] = out["val"]
+
+            # mark as finished if we hit n steps.
+            checkpoint["finished_training"] = step >= n_steps
+
+            L.info(f"Saving checkpoint to {checkpoint_path}")
+            save_checkpoint(checkpoint, checkpoint_path)
+
+            if run_to_first_save:
+                L.info("Stopping early...")
+                break
+    return out
+
+
+def save_checkpoint(checkpoint, checkpoint_path):
+    torch.save(checkpoint, checkpoint_path)
+    volume.commit()
+
+
+def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
+    """Download and read the dataset."""
+    volume.reload()
+    if not input_file_path.exists():
+        L.info("Downloading Shakespeare dataset...")
+        data_url = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
+        urllib.request.urlretrieve(data_url, input_file_path)
+        volume.commit()
+    return input_file_path.read_text()
+
+
+def build_model(hparams, vocab_size, device):
+    """Initialize the model and move it to the device."""
+    model = AttentionModel(vocab_size, hparams, device)
+    model.to(device)
+    return model
+
+
+def setup_optimizer(model, learning_rate):
+    """Set up the optimizer for the model."""
+    return torch.optim.AdamW(model.parameters(), lr=learning_rate)
