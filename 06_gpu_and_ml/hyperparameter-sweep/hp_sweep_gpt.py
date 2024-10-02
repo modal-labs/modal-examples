@@ -293,10 +293,7 @@ def log_evals(result, step, t_last, val_writer, train_writer):
     return result
 
 
-def save_checkpoint(
-    checkpoint,
-    checkpoint_path,
-):
+def save_checkpoint(checkpoint, checkpoint_path):
     torch.save(checkpoint, checkpoint_path)
     volume.commit()
 
