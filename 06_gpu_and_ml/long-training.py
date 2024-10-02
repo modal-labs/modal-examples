@@ -1,13 +1,12 @@
 # ---
-# cmd: ["modal", "run", "--detach", "06_gpu_and_ml.long-training.long-training"]
-# deploy: true
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/long-training.py"]
 # ---
 
 # # Run long, resumable training jobs on Modal
 
 # Individual Modal Function calls have a [maximum timeout of 24 hours](https://modal.com/docs/guide/timeouts).
 # You can still run long training jobs on Modal by making them interruptible and resumable
-# (aka [_reentrant_](https://en.wikipedia.org/wiki/Reentrancy_(computing)).
+# (aka [_reentrant_](https://en.wikipedia.org/wiki/Reentrancy_%28computing%29)).
 
 # This is usually done via checkpointing: saving the model state to disk at regular intervals.
 # We recommend implementing checkpointing logic regardless of the duration of your training jobs.
@@ -20,11 +19,7 @@
 
 # 1. Periodically save checkpoints to a Modal [Volume](https://modal.com/docs/guide/volumes)
 # 2. When your training function starts, check the Volume for the latest checkpoint
-# 3. Add retries to your training function
-
-from pathlib import Path
-
-import modal
+# 3. Add [retries](https://modal.com/docs/guide/retries) to your training function
 
 # ## Resuming from checkpoints in a training loop
 
@@ -34,6 +29,10 @@ import modal
 # Lightning uses a special filename, `last.ckpt`,
 # to indicate which checkpoint is the most recent.
 # We check for this file and resume training from it if it exists.
+
+from pathlib import Path
+
+import modal
 
 
 def train(experiment):
@@ -68,7 +67,8 @@ def train(experiment):
 # Their performance is tuned for [Write-Once, Read-Many](https://en.wikipedia.org/wiki/Write_once_read_many) workloads
 # with small numbers of large files.
 
-# You just need to attach them to any Function that needs access.
+# You can attach them to any Modal Function that needs access.
+
 # But first, you need to create them:
 
 volume = modal.Volume.from_name("example-long-training", create_if_missing=True)
@@ -94,7 +94,7 @@ app = modal.App("example-long-training-lightning", image=image)
 # Next, we attach our training function to this app with `app.function`.
 
 # We define all of the serverless infrastructure-specific details of our training at this point.
-# For resumable training, there are three key pieces: the Volume attachment, addition of retries, and the timeout setting.
+# For resumable training, there are three key pieces: attaching volumes, adding retries, and setting the timeout.
 
 # We want to attach the Volume to our Function so that the data and checkpoints are saved into it.
 # In this sample code, we set these paths via global variables, but in another setting,
@@ -122,26 +122,20 @@ retries = modal.Retries(initial_delay=0.0, max_retries=10)
 timeout = 30  # seconds
 
 # Now, we put all of this together by wrapping `train` with a call to `app.function`.
-# Note that the more common way to wrap functions
-# is by putting `@app.function` as a decorator on the function's definition,
-# but we've split the two steps out in this example to make the separation of concerns clearer.
 
 train = app.function(
     volumes=volumes, gpu="a10g", timeout=timeout, retries=retries
 )(train)
+
+# Note that the more common way to wrap functions
+# is by putting `@app.function` as a decorator on the function's definition,
+# but we've split the two steps out in this example to make the separation of concerns clearer.
 
 
 # ## Kicking off interruptible training
 
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
 # to kick off the training job from the local Python environment.
-
-# You can run this with
-# ```bash
-# modal run --detach 06_gpu_and_ml/long-training/long-training.py
-# ```
-
-# The `--detach` flag ensures training will continue even if you close your terminal or turn off your computer.
 
 
 @app.local_entrypoint()
@@ -151,7 +145,25 @@ def main(experiment: str = None):
     train.remote(experiment)
 
 
+# You can run this with
+# ```bash
+# modal run --detach 06_gpu_and_ml/long-training/long-training.py
+# ```
+
+# You should see the training job start and then be interrupted,
+# producing a large stack trace in the terminal in red font.
+# The job will restart within a few seconds.
+
+# The `--detach` flag ensures training will continue even if you close your terminal or turn off your computer.
+# Try detaching and then watch the logs in the [Modal dashboard](https://modal.com/apps).
+
+
 # ## Details of PyTorch Lightning implementation
+
+# This basic pattern works for any training framework or for custom training jobs --
+# or for any reentrant work that can save state to disk.
+
+# But to make the example complete, we include all the details of the PyTorch Lightning implementation below.
 
 # PyTorch Lightning offers [built-in checkpointing](https://pytorch-lightning.readthedocs.io/en/1.2.10/common/weights_loading.html).
 # You can specify the checkpoint file path that you want to resume from using the `ckpt_path` parameter of
