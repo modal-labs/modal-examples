@@ -130,8 +130,15 @@ train = app.function(
 
 # Note that the more common way to wrap functions
 # is by putting `@app.function` as a decorator on the function's definition,
-# but we've split the two steps out in this example to make the separation of concerns clearer.
+# like this:
 
+# ```python
+# @app.function(...)
+# def train(...):
+#     ...
+# ```
+
+# but we've split the two steps out in this example to make the separation of concerns clearer.
 
 # ## Kicking off interruptible training
 
