@@ -122,23 +122,14 @@ retries = modal.Retries(initial_delay=0.0, max_retries=10)
 
 timeout = 30  # seconds
 
-# Now, we put all of this together by wrapping `train` with a call to `app.function`.
+# Now, we put all of this together by wrapping `train` and decorating it
+# with `app.function` to add all the infrastructure.
 
-train = app.function(
-    volumes=volumes, gpu="a10g", timeout=timeout, retries=retries
-)(train)
 
-# Note that the more common way to wrap functions
-# is by putting `@app.function` as a decorator on the function's definition,
-# like this:
+@app.function(volumes=volumes, gpu="a10g", timeout=timeout, retries=retries)
+def train_interruptible(*args, **kwargs):
+    train(*args, **kwargs)
 
-# ```python
-# @app.function(...)
-# def train(...):
-#     ...
-# ```
-
-# but we've split the two steps out in this example to make the separation of concerns clearer.
 
 # ## Kicking off interruptible training
 
@@ -153,12 +144,12 @@ def main(experiment: str = None):
 
         experiment = uuid4().hex[:8]
     print(f"⚡️ starting interruptible training experiment {experiment}")
-    train.remote(experiment)
+    train_interruptible.remote(experiment)
 
 
 # You can run this with
 # ```bash
-# modal run --detach 06_gpu_and_ml/long-training/long-training.py
+# modal run --detach 06_gpu_and_ml/long-training.py
 # ```
 
 # You should see the training job start and then be interrupted,
