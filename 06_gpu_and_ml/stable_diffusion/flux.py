@@ -111,6 +111,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 @app.cls(
     gpu="H100",  # FA3 is tuned for Hopper
     container_idle_timeout=20 * MINUTES,
+    timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
         "/root/.triton": modal.Volume.from_name(
