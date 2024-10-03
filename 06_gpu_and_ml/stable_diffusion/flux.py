@@ -120,7 +120,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 )
 class Model:
     compile: int = (  # see section on torch.compile below for details
-        modal.parameter()
+        modal.parameter(default=0)
     )
 
     def setup_model(self):
