@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # runtimes: ["runc", "gvisor"]
+# tags: ["use-case-job-queues-batch"]
 # ---
 # # Publish interactive datasets with Datasette
 #
