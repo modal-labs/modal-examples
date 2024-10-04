@@ -1,7 +1,7 @@
 # ---
 # deploy: true
 # ---
-# # Write to Google Sheets
+# # Write to Google Sheets from Postgres
 #
 # In this tutorial, we'll show how to use Modal to schedule a daily report in a spreadsheet on Google Sheets
 # that combines data from a PostgreSQL database with data from an external API.
