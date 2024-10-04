@@ -1,6 +1,3 @@
-# ---
-# tags: ["feature-batched"]
-# ---
 # # Dynamic batching for ASCII and character conversion
 #
 # This example demonstrates how to dynamically batch a simple
