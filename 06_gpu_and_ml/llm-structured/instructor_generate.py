@@ -2,28 +2,30 @@
 # output-directory: "/tmp/instructor_generate"
 # ---
 # # Structured Data Extraction using `instructor`
-#
+
 # This example demonstrates how to use the `instructor` library to extract structured, schematized data from unstructured text.
-#
+
 # Structured output is a powerful but under-appreciated feature of LLMs.
 # Structured output allows LLMs and multimodal models to connect to traditional software,
 # for example enabling the ingestion of unstructured data like text files into structured databases.
 # Applied properly, it makes them an extreme example of the [Robustness Principle](https://en.wikipedia.org/wiki/Robustness_principle)
 # Jon Postel formulated for TCP: "Be conservative in what you send, be liberal in what you accept".
-#
+
 # The unstructured data used in this example code is the code from the examples in the Modal examples repository --
 # including this example's code!
-#
+
 # The output includes a JSONL file containing, on each line, the metadata extracted from the code in one example.
 # This can be consumed downstream by other software systems, like a database or a dashboard.
-#
+# We've used it to maintain and update our [examples repository](https://github.com/modal-labs/modal-examples).
+
 # ## Environment setup
-#
+
 # We set up the environment our code will run in first.
 # In Modal, we define environments via [container images](https://modal.com/docs/guide/custom-container),
 # much like Docker images, by iteratively chaining together commands.
-#
-# Here there's just one command, installing instructor and the Python SDK for Anthropic's LLM API.
+
+# Here there's just one command, installing `instructor` and the Python SDK for Anthropic's LLM API.
+
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -43,19 +45,19 @@ app = modal.App(
 )
 
 # ## Running Modal functions from the command line
-#
+
 # We'll run the example by calling `modal run instructor_generate.py` from the command line.
-#
+
 # When we invoke `modal run` on a Python file, we run the function
 # marked with `@app.local_entrypoint`.
-#
+
 # This is the only code that runs locally -- it coordinates
 # the activity of the rest of our code, which runs in Modal's cloud.
-#
+
 # The logic is fairly simple: collect up the code for our examples,
 # and then use `instructor` to extract metadata from them,
 # which we then write to a file.
-#
+
 # By default, the language model is Claude 3 Haiku, the smallest model
 # in the Claude 3 family.  We include the option to run `with_opus`,
 # which gives much better results, but it is off by default because
@@ -97,12 +99,12 @@ def main(limit: int = 1, with_opus: bool = False):
 
 
 # ## Extracting JSON from unstructured text with `instructor` and Pydantic
-#
+
 # The real meat of this example is in this section, in the `extract_example_metadata` function and its schemas.
-#
+
 # We define a schema for the data we want the LLM to extract, using Pydantic.
 # Instructor ensures that the LLM's output matches this schema.
-#
+
 # We can use the type system provided by Python and Pydantic to express many useful features
 # of the data we want to extract -- ranging from wide-open fields like a `str`ing-valued `summary`
 # to constrained fields like `difficulty`, which can only take on value between 1 and 5.
@@ -116,19 +118,16 @@ class ExampleMetadataExtraction(BaseModel):
         ...,
         description="The example contains, in the form of inline comments with markdown formatting, a thorough explanation of what the code does.",
     )
-    domains: list[
+    tags: list[
         Literal[
-            "artificial_intelligence",
-            "machine_learning",
-            "data_science",
-            "web_serving",
-            "parallel_computing",
+            "use-case-inference-llms",
+            "use-case-inference-audio",
+            "use-case-inference-images-video-3d",
+            "use-case-finetuning",
+            "use-case-job-queues-batch-processing",
+            "use-case-sandboxed-code-execution",
         ]
-    ] = Field(..., description="The")
-    difficulty: Literal[1, 2, 3, 4, 5] = Field(
-        ...,
-        description="The difficulty of the example, from 1 to 5. An example that uses only one or two basic Modal features and is understandable by a professional Python developer familiar with the basics of the relevant domains is a 1, while an example that uses many Modal features and uses advanced Python features like async generator coroutines or metaclasses is a 5.",
-    )
+    ] = Field(..., description="The use cases associated with the example")
     freshness: float = Field(
         ...,
         description="The freshness of the example, from 0 to 1. This is relative to your knowledge cutoff. Examples are less fresh if they use older libraries and tools.",
@@ -137,7 +136,7 @@ class ExampleMetadataExtraction(BaseModel):
 
 # That schema describes the data to be extracted by the LLM, but not all data is best extracted by an LLM.
 # For example, the filename is easily determined in software.
-#
+
 # So we inject that information into the output after the LLM has done its work. That necessitates
 # an additional schema, which inherits from the first.
 
@@ -195,7 +194,7 @@ def extract_example_metadata(
 
 
 # ## Addenda
-#
+
 # The rest of the code used in this example is not particularly interesting:
 # just a utility function to find all of the examples, which we invoke in the `local_entrypoint` above.
 
