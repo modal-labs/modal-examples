@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# tags: ["use-case-image-video-3d", "use-case-finetuning", "featured"]
 # ---
 #
 # # Custom Pet Art from Flux with Hugging Face and Gradio
