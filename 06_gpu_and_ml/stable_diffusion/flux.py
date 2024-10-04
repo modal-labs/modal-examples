@@ -83,6 +83,13 @@ flux_fa3_image = flux_image.run_commands(
     "cd flash-attention/hopper && python setup.py install",
 ).env({"PYTHONPATH": "/root/flash-attention/hopper"})
 
+# Later, we'll also use `torch.compile` to increase the speed further.
+# This requires a few environment variables to be set.
+
+flux_fa3_image = flux_fa3_image.env(
+    {"TORCHINDUCTOR_CACHE_DIR": "/root/.inductor-cache"}
+).env({"TORCHINDUCTOR_FX_GRAPH_CACHE": "1"})
+
 # Finally, we construct our Modal [App](https://modal.com/docs/reference/modal.App),
 # set its default image to the one we just constructed,
 # and import `FluxPipeline` for downloading and running Flux.1.
@@ -112,10 +119,13 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     gpu="H100",  # FA3 is tuned for Hopper
     container_idle_timeout=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
-    volumes={  # add Volumes to store serializable compilation artifacts
+    volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
         "/root/.triton": modal.Volume.from_name(
             "triton-cache", create_if_missing=True
+        ),
+        "/root/.inductor-cache": modal.Volume.from_name(
+            "inductor-cache", create_if_missing=True
         ),
     },
 )
@@ -223,10 +233,15 @@ def main(
 # The resulting compiled Flux `schnell` deployment returns images to the client in under a second (~800 ms), according to our testing.
 # _Super schnell_!
 
-# Compilation takes up to twenty minutes and, at time of writing in October 2024,
-# the compilation artifacts cannot be serialized,
-# so compilation work must be re-executed every time a new container is started.
+# Compilation takes up to twenty minutes on first iteration.
+# As of time of writing in October 2024,
+# the compilation artifacts cannot be fully serialized,
+# so some compilation work must be re-executed every time a new container is started.
 # That includes when scaling up an existing deployment or the first time a Function is invoked with `modal run`.
+
+# We cache compilation outputs from `nvcc`, `triton`, and `inductor`,
+# which can reduce compilation time by up to an order of magnitude.
+# For details see [this tutorial](https://pytorch.org/tutorials/recipes/torch_compile_caching_tutorial.html).
 
 # You can turn on compilation with the `--compile` flag.
 # Try it out with:
