@@ -1,5 +1,6 @@
 # ---
-# lambda-test: false
+# deploy: true
+# cmd: ["modal", "serve", "07_web_endpoints/count_faces.py"]
 # ---
 
 # # Run OpenCV face detection on an image
