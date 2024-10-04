@@ -20,9 +20,9 @@ app = modal.App("example-count-faces")
 
 
 open_cv_image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("python3-opencv")
-    .pip_install("opencv-python", "numpy")
+    .pip_install("opencv-python~=4.10.0", "numpy<2")
 )
 
 
@@ -48,8 +48,13 @@ def count_faces(image_bytes):
     return len(faces)
 
 
-if __name__ == "__main__":
-    # Code below could have been put in a different file, but keeping it in one place for cohesion
+@app.function(
+    image=modal.Image.debian_slim(python_version="3.11").pip_install(
+        "sanic~=24.6.0"
+    )
+)
+@modal.asgi_app()
+def web():
     import sanic
 
     app = sanic.Sanic("web_worker_example")
@@ -58,13 +63,13 @@ if __name__ == "__main__":
     def index(request):
         return sanic.html(
             """
-<html>
-<form action="/process" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" id="file" />
-    <input type="submit" />
-</form>
-</html>
-    """
+            <html>
+            <form action="/process" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" id="file" />
+                <input type="submit" />
+            </form>
+            </html>
+            """
         )
 
     @app.post("/process")
@@ -75,4 +80,4 @@ if __name__ == "__main__":
 
         return sanic.json({"faces": num_faces})
 
-    app.run(auto_reload=True, debug=True)
+    return app
