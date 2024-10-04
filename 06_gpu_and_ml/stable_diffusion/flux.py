@@ -1,6 +1,7 @@
 # ---
 # output-directory: "/tmp/flux"
 # args: ["--no-compile"]
+# tags: ["use-case-image-video-3d"]
 # ---
 
 # # Run Flux fast with Flash Attention 3 and `torch.compile` on Hopper GPUs

@@ -1,6 +1,8 @@
 # ---
 # output-directory: "/tmp/instructor_generate"
+# tags: ["use-case-lm-inference"]
 # ---
+
 # # Structured Data Extraction using `instructor`
 
 # This example demonstrates how to use the `instructor` library to extract structured, schematized data from unstructured text.

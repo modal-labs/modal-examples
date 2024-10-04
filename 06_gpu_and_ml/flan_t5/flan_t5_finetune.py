@@ -1,5 +1,6 @@
 # ---
 # runtimes: ["runc", "gvisor"]
+# tags: ["use-case-finetuning", "use-case-lm-inference"]
 # ---
 #
 # # Finetuning Flan-T5

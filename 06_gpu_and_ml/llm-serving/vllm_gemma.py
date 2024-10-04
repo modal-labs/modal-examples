@@ -1,3 +1,6 @@
+# ---
+# tags: ["use-case-lm-inference"]
+# ---
 # # Fast inference with vLLM (Gemma 7B)
 #
 # In this example, we show how to run basic LLM inference, using [`vLLM`](https://github.com/vllm-project/vllm)

@@ -2,6 +2,7 @@
 # deploy: true
 # output-directory: "/tmp/playground-2-5"
 # args: ["--prompt", "A cinematic shot of a baby raccoon wearing an intricate Italian priest robe."]
+# tags: ["use-case-image-video-3d"]
 # ---
 # # Run Playground v2.5 on Modal
 #

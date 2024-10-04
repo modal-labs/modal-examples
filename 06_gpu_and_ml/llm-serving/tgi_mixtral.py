@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# tags: ["use-case-lm-inference"]
 # ---
 # # Hosting Mixtral 8x7B with Text Generation Inference (TGI)
 #
