@@ -3,8 +3,6 @@
 # deploy: true
 # ---
 
-# ffmpeg -i input.mp4 -q:v 2 -start_number 0 %05d.jpg
-
 import modal
 
 from .helper import show_mask, show_points
@@ -18,14 +16,15 @@ from .helper import show_mask, show_points
 # SAM2 extends the capabilities of the original SAM to include video segmentation.
 # For more information, see: https://github.com/facebookresearch/sam2
 
-# Example SAM2 Segmentations:
-# Original video here: https://www.youtube.com/watch?v=WAz1406SjVw
+# Example SAM2 Segmentation:
+# In particular, this example segments [this video](https://www.youtube.com/watch?v=WAz1406SjVw) of a man jumping off the cliff.
+# This is the output:
 #
 # | | | |
-# |:---:|:---:|:---:|
-# | ![Figure 1](/assets/Figure_1.png) | ![Figure 2](/assets/Figure_2.png) | ![Figure 3](/assets/Figure_3.png) |
-# | ![Figure 4](/assets/Figure_4.png) | ![Figure 5](/assets/Figure_5.png) | ![Figure 6](/assets/Figure_6.png) |
-# | ![Figure 7](/assets/Figure_7.png) | ![Figure 8](/assets/Figure_8.png) | ![Figure 9](/assets/Figure_9.png) |
+# |---|---|---|
+# | ![Figure 1](/assets/video_output_0.png) | ![Figure 2](/assets/video_output_1.png) | ![Figure 3](/assets/video_output_2.png) |
+# | ![Figure 4](/assets/video_output_3.png) | ![Figure 5](/assets/video_output_4.png) | ![Figure 6](/assets/video_output_5.png) |
+# | ![Figure 7](/assets/video_output_6.png) | ![Figure 8](/assets/video_output_7.png) | ![Figure 9](/assets/video_output_8.png) |
 
 # # Setup
 
@@ -58,16 +57,16 @@ app = modal.App("sam2-app", image=image)
 # Next, we define the Model class that will handle SAM2 operations for both image and video
 
 
-# We use @modal.build() and @modal.enter() decorators here for optimization:
+# We use `@modal.build()` and `@modal.enter() decorators here for optimization:
 # @modal.build() ensures this method runs during the container build process,
 # downloading the model only once and caching it in the container image.
-# @modal.enter() makes sure the method runs only once when a new container starts,
+# `@modal.enter()` makes sure the method runs only once when a new container starts,
 # initializing the model and moving it to GPU.
 # The upshot is that model downloading and initialization only happen once upon container startup.
 # This significantly reduces cold start times and improves performance.
 @app.cls(gpu="any", timeout=600)
 class Model:
-    # # Model initialization
+    # Model initialization
     @modal.build()
     @modal.enter()
     def download_model_to_folder(self):
@@ -77,7 +76,7 @@ class Model:
         self.image_predictor = SAM2ImagePredictor.from_pretrained(MODEL_TYPE)
         self.video_predictor = SAM2VideoPredictor.from_pretrained(MODEL_TYPE)
 
-    # # Prompt-based mask generation for images
+    # Prompt-based mask generation for images
     @modal.method()
     def generate_image_masks(self, image):
         import io
@@ -87,15 +86,17 @@ class Model:
         import numpy as np
         import torch
 
-        # Convert image to numpy array
+        # Convert image bytes to numpy array
         image = np.frombuffer(image, dtype=np.uint8)
         image = cv2.imdecode(image, cv2.IMREAD_COLOR)
 
-        # # Prompt-based segmentation
-        # set the input point and label
+        # We are hardcoding the input point and label here
+        # In a real-world scenario, you would want to display the image
+        # and allow the user to click on the image to select the point
         input_point = np.array([[300, 250]])
         input_label = np.array([1])
 
+        # Want to run the model on GPU
         with torch.inference_mode(), torch.autocast(
             "cuda", dtype=torch.bfloat16
         ):
@@ -125,7 +126,6 @@ class Model:
 
         return frame_images
 
-    # # Prompt-based mask generation for videos
     @modal.method()
     def generate_video_masks(self, frame_names, video_dir):
         import io
@@ -136,11 +136,14 @@ class Model:
         import torch
         from PIL import Image
 
-        # Let's add a positive click at (x, y) = (250, 200) to get started
+        # We are hardcoding the input point and label here
+        # In a real-world scenario, you would want to display the video
+        # and allow the user to click on the video to select the point
         points = np.array([[250, 200]], dtype=np.float32)
         # for labels, `1` means positive click and `0` means negative click
         labels = np.array([1], np.int32)
 
+        # Want to run the model on GPU
         with torch.inference_mode(), torch.autocast(
             "cuda", dtype=torch.bfloat16
         ):
@@ -211,13 +214,15 @@ class Model:
 def main():
     import os
 
-    # # Instantiate the model
+    # Instantiate the model
     model = Model()
 
-    # # Image segmentation
+    # Image segmentation
 
-    # # Image loading
-    with open("06_gpu_and_ml/sam/dog.jpg", "rb") as f:
+    # One way of passing the image to the Modal function is as bytes
+    # Another way is to mount the image to the container
+    # In the video example below, the directory with all the frames is [auto-mounted](https://modal.com/docs/guide/mounting) to the container
+    with open("06_gpu_and_ml/sam/assets/dog.jpg", "rb") as f:
         image_bytes = f.read()
 
     frame_images = model.generate_image_masks.remote(image_bytes)
@@ -231,7 +236,7 @@ def main():
 
     # # Video segmentation
 
-    video_dir = "06_gpu_and_ml/sam/videos/"
+    video_dir = "06_gpu_and_ml/sam/assets/video_frames"
 
     # scan all the JPEG frame names in this directory
     frame_names = [
