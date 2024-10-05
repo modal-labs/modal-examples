@@ -3,6 +3,8 @@
 # deploy: true
 # ---
 
+# ffmpeg -i input.mp4 -q:v 2 -start_number 0 %05d.jpg
+
 import modal
 
 from .helper import show_mask, show_points
@@ -34,7 +36,7 @@ MODEL_TYPE = "facebook/sam2-hiera-large"
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "wget", "libgl1-mesa-glx")
+    .apt_install("git", "wget", "python3-opencv")
     .pip_install(
         "torch",
         "torchvision",
@@ -77,12 +79,22 @@ class Model:
 
     # # Prompt-based mask generation for images
     @modal.method()
-    def generate_image_masks(self, prompts, image):
-        print(f"image shape: {image.shape}")
+    def generate_image_masks(self, image):
+        import io
 
+        import cv2
+        import matplotlib.pyplot as plt
+        import numpy as np
         import torch
 
-        input_point, input_label = prompts
+        # Convert image to numpy array
+        image = np.frombuffer(image, dtype=np.uint8)
+        image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+
+        # # Prompt-based segmentation
+        # set the input point and label
+        input_point = np.array([[300, 250]])
+        input_label = np.array([1])
 
         with torch.inference_mode(), torch.autocast(
             "cuda", dtype=torch.bfloat16
@@ -94,14 +106,40 @@ class Model:
                 multimask_output=True,
             )
 
-        return (masks, scores, logits)
+            # # Visualize the results
+            frame_images = []
+            for i, (mask, score) in enumerate(zip(masks, scores)):
+                plt.figure(figsize=(10, 10))
+                plt.imshow(image)
+                show_mask(mask, plt.gca())
+                show_points(input_point, input_label, plt.gca())
+                plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
+                plt.axis("off")
+
+                # Convert plot to PNG bytes
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png")
+                buf.seek(0)
+                frame_images.append(buf.getvalue())
+                plt.close()
+
+        return frame_images
 
     # # Prompt-based mask generation for videos
     @modal.method()
-    def generate_video_masks(self, prompts, video_dir):
-        import torch
+    def generate_video_masks(self, frame_names, video_dir):
+        import io
+        import os
 
-        points, labels = prompts
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import torch
+        from PIL import Image
+
+        # Let's add a positive click at (x, y) = (250, 200) to get started
+        points = np.array([[250, 200]], dtype=np.float32)
+        # for labels, `1` means positive click and `0` means negative click
+        labels = np.array([1], np.int32)
 
         with torch.inference_mode(), torch.autocast(
             "cuda", dtype=torch.bfloat16
@@ -137,7 +175,29 @@ class Model:
                     for i, out_obj_id in enumerate(out_obj_ids)
                 }
 
-        return video_segments
+            # render the segmentation results every few frames
+            vis_frame_stride = 30
+            frame_images = []
+            for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
+                fig, ax = plt.subplots(figsize=(6, 4))
+                ax.set_title(f"frame {out_frame_idx}")
+                frame = Image.open(
+                    os.path.join(video_dir, frame_names[out_frame_idx])
+                )
+                ax.imshow(frame)
+                for out_obj_id, out_mask in video_segments[
+                    out_frame_idx
+                ].items():
+                    show_mask(out_mask, ax, obj_id=out_obj_id)
+
+                # Convert plot to PNG bytes
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png")
+                buf.seek(0)
+                frame_images.append(buf.getvalue())
+                plt.close(fig)
+
+        return frame_images
 
 
 # # Local entrypoint
@@ -151,40 +211,23 @@ class Model:
 def main():
     import os
 
-    import cv2
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from PIL import Image
+    # # Instantiate the model
+    model = Model()
 
     # # Image segmentation
 
     # # Image loading
-    image = cv2.imread("06_gpu_and_ml/sam/dog.jpg")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    with open("06_gpu_and_ml/sam/dog.jpg", "rb") as f:
+        image_bytes = f.read()
 
-    # # Model inference
-    # Create a Model instance and run inference
-    # This demonstrates how to use SAM2 for image segmentation tasks
-    model = Model()
+    frame_images = model.generate_image_masks.remote(image_bytes)
 
-    # # Prompt-based segmentation
-    # set the input point and label
-    input_point = np.array([[300, 250]])
-    input_label = np.array([1])
-
-    masks, scores, _ = model.generate_image_masks.remote(
-        prompts=[input_point, input_label], image=image
-    )
-
-    # # Visualize the results
-    for i, (mask, score) in enumerate(zip(masks, scores)):
-        plt.figure(figsize=(10, 10))
-        plt.imshow(image)
-        show_mask(mask, plt.gca())
-        show_points(input_point, input_label, plt.gca())
-        plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
-        plt.axis("off")
-        plt.show()
+    # # Save the images to assets folder
+    for i, image_bytes in enumerate(frame_images):
+        output_path = f"06_gpu_and_ml/sam/assets/image_output_{i}.png"
+        print(f"Saving it to {output_path}")
+        with open(output_path, "wb") as f:
+            f.write(image_bytes)
 
     # # Video segmentation
 
@@ -198,34 +241,12 @@ def main():
     ]
     frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
 
-    # take a look the first video frame
-    frame_idx = 0
-
-    print(os.path.join(video_dir, frame_names[frame_idx]))
-    plt.figure(figsize=(10, 10))
-    plt.title(f"frame {frame_idx}")
-    plt.imshow(Image.open(os.path.join(video_dir, frame_names[frame_idx])))
-    plt.show()
-
-    # Let's add a positive click at (x, y) = (250, 200) to get started
-    points = np.array([[250, 200]], dtype=np.float32)
-    # for labels, `1` means positive click and `0` means negative click
-    labels = np.array([1], np.int32)
-
-    video_segments = model.generate_video_masks.remote(
-        prompts=[points, labels], video_dir=video_dir
+    frame_images = model.generate_video_masks.remote(
+        frame_names=frame_names, video_dir=video_dir
     )
 
-    # render the segmentation results every few frames
-    vis_frame_stride = 30
-    plt.close("all")
-    for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
-        plt.figure(figsize=(6, 4))
-        plt.title(f"frame {out_frame_idx}")
-        plt.imshow(
-            Image.open(os.path.join(video_dir, frame_names[out_frame_idx]))
-        )
-        for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-            show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
-
-        plt.show()
+    for i, image_bytes in enumerate(frame_images):
+        output_path = f"06_gpu_and_ml/sam/assets/video_output_{i}.png"
+        print(f"Saving it to {output_path}")
+        with open(output_path, "wb") as f:
+            f.write(image_bytes)

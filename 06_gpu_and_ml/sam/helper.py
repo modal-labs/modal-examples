@@ -2,21 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def convert_video_to_frames(video_path):
-    import subprocess
-
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-i",
-            video_path,
-            "-q:v 2 -start_number 0",
-            "06_gpu_and_ml/sam/videos/output_%05d.jpg",
-        ],
-        check=True,
-    )
-
-
 def show_anns(anns):
     if len(anns) == 0:
         return
