@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # args: ["--query", "How many oil barrels were released from reserves"]
+# tags: ["featured"]
 # ---
 # # Question-answering with LangChain
 #

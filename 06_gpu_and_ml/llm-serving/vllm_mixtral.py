@@ -1,3 +1,6 @@
+# ---
+# tags: ["use-case-lm-inference"]
+# ---
 # # Fast inference with vLLM (Mixtral 8x7B)
 #
 # In this example, we show how to run basic inference, using [`vLLM`](https://github.com/vllm-project/vllm)

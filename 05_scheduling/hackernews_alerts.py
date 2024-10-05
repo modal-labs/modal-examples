@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false
+# tags: ["featured"]
 # ---
 # # Hacker News Slackbot
 

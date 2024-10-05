@@ -1,5 +1,6 @@
 # ---
 # args: ["--no-quick-check"]
+# tags: ["use-case-image-video-3d", "use-case-finetuning"]
 # ---
 # # Fine-Tuning and Inference for Computer Vision with YOLO
 #

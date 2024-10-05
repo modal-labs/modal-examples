@@ -1,3 +1,6 @@
+# ---
+# tags: ["use-case-lm-inference"]
+# ---
 # # Hosting any LLaMA 3 model with Text Generation Inference (TGI)
 #
 # In this example, we show how to run an optimized inference server using [Text Generation Inference (TGI)](https://github.com/huggingface/text-generation-inference)

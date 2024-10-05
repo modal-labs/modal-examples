@@ -1,31 +1,38 @@
 # ---
 # cmd: ["python", "08_advanced/code_interpreter.py"]
+# tags: ["use-case-sandboxed-code-execution"]
 # ---
-#
+
+# Run a "code interpreter" REPL in a Modal Sandbox
+
 # This script demonstrates a simple code interpeter for LLM apps on top of
 # Modal's [Sandbox](https://modal.com/docs/guide/sandbox) functionality.
-#
+
 # Modal's Sandboxes are a secure, trustless compute environment with access to all of Modal's features:
 # custom container images, remote and local filesystem storage, cloud bucket mounts, GPUs, and more.
+
 import uuid
 
 import modal
 
 # This unique string is exchanged between the Sandbox and the code interpreter wrapper
 # to indicate that some code ran but returned no output.
+
 NULL_MARKER = str(uuid.uuid4())
 
 # Our code interpreter will use a Debian base with Python 3.11 and install the `IPython`
 # package for its cleaner REPL interface.
+
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "IPython==8.26.0"
 )
 
 # This is the Python program which runs inside the modal.Sandbox container process and receives
 # code to execute from the code interpreter client.
-#
+
 # Its implementation is kept rudimentary for brevity. A production driver program should
 # have improved error handling at the least.
+
 DRIVER_PROGRAM = f"""import sys
 from IPython.core.interactiveshell import InteractiveShell
 shell = InteractiveShell.instance()
