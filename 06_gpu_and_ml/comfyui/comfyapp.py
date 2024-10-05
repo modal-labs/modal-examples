@@ -60,9 +60,9 @@ import modal
 # We start from a base image and specify all of our dependencies.
 # We'll call out the interesting ones as they come up below.
 #
-# Note that these dependencies are not installed locally
-# they are only installed once in the remote environment where our app runs,
-# on subsequent runs, the image will be cached and reused.
+# Note that these dependencies are not installed locally.
+# They are only installed in the remote environment where our app runs.
+# This happens the first time. On subsequent runs, the cached image will be reused.
 
 
 image = (  # build up a Modal Image to run ComfyUI, step by step
@@ -106,8 +106,8 @@ image = (
 # #### Downloading custom nodes
 #
 # We'll download custom nodes using `comfy-cli` too.
-# (alternatively, you can install them by cloning the git repositories to your `/root/comfy/ComfyUI/custom_nodes`
-# directory and installing the required dependencies manually.)
+# Alternatively, you can install them by cloning the git repositories to your `/root/comfy/ComfyUI/custom_nodes`
+# directory and installing the required dependencies manually.
 #
 # Similarly to models, we opt to split the custom node installation into separate `.run_commands(...)` calls
 # to allow for more granular layer caching.
