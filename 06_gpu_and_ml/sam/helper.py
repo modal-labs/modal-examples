@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt
-import numpy as np
-
-
 def show_anns(anns):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     if len(anns) == 0:
         return
     sorted_anns = sorted(anns, key=(lambda x: x["area"]), reverse=True)
@@ -25,6 +24,9 @@ def show_anns(anns):
 
 
 def show_mask(mask, ax, obj_id=None, random_color=False):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
