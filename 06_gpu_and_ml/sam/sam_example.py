@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml.sam.app"]
+# cmd: ["modal", "run", "06_gpu_and_ml.sam.sam_example"]
 # deploy: true
 # ---
 
