@@ -16,9 +16,9 @@
 #
 # | | | |
 # |---|---|---|
-# | ![Figure 1](./assets/video_output_0.png) | ![Figure 2](/assets/video_output_1.png) | ![Figure 3](/assets/video_output_2.png) |
-# | ![Figure 4](./assets/video_output_3.png) | ![Figure 5](/assets/video_output_4.png) | ![Figure 6](/assets/video_output_5.png) |
-# | ![Figure 7](/assets/video_output_6.png) | ![Figure 8](/assets/video_output_7.png) | ![Figure 9](/assets/video_output_8.png) |
+# | ![Figure 1](./assets/video_output_0.png) | ![Figure 2](./assets/video_output_1.png) | ![Figure 3](./assets/video_output_2.png) |
+# | ![Figure 4](./assets/video_output_3.png) | ![Figure 5](./assets/video_output_4.png) | ![Figure 6](./assets/video_output_5.png) |
+# | ![Figure 7](./assets/video_output_6.png) | ![Figure 8](./assets/video_output_7.png) | ![Figure 9](./assets/video_output_8.png) |
 
 
 # # Setup
