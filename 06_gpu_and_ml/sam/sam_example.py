@@ -3,33 +3,33 @@
 # deploy: true
 # ---
 
-import modal
-
-from .helper import show_mask, show_points
-
 # # Run Facebook's Segment Anything Model 2 (SAM2) on Modal
 
-# This example demonstrates how to deploy Facebook's SAM2
+# This example demonstrates how to deploy Facebook's [SAM2](https://github.com/facebookresearch/sam2)
 # on Modal. SAM2 is a powerful, flexible image and video segmentation model that can be used
 # for various computer vision tasks like object detection, instance segmentation,
 # and even as a foundation for more complex computer vision applications.
 # SAM2 extends the capabilities of the original SAM to include video segmentation.
-# For more information, see: https://github.com/facebookresearch/sam2
 
-# Example SAM2 Segmentation:
 # In particular, this example segments [this video](https://www.youtube.com/watch?v=WAz1406SjVw) of a man jumping off the cliff.
 # This is the output:
 #
 # | | | |
 # |---|---|---|
-# | ![Figure 1](/assets/video_output_0.png) | ![Figure 2](/assets/video_output_1.png) | ![Figure 3](/assets/video_output_2.png) |
-# | ![Figure 4](/assets/video_output_3.png) | ![Figure 5](/assets/video_output_4.png) | ![Figure 6](/assets/video_output_5.png) |
+# | ![Figure 1](./assets/video_output_0.png) | ![Figure 2](/assets/video_output_1.png) | ![Figure 3](/assets/video_output_2.png) |
+# | ![Figure 4](./assets/video_output_3.png) | ![Figure 5](/assets/video_output_4.png) | ![Figure 6](/assets/video_output_5.png) |
 # | ![Figure 7](/assets/video_output_6.png) | ![Figure 8](/assets/video_output_7.png) | ![Figure 9](/assets/video_output_8.png) |
+
 
 # # Setup
 
 # First, we set up the Modal image with the necessary dependencies, including PyTorch,
-# OpenCV, `huggingFace_hub``, and Torchvision. We also install the SAM2 library.
+# OpenCV, `huggingFace_hub`, and Torchvision. We also install the SAM2 library.
+
+
+import modal
+
+from .helper import show_mask, show_points
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
 
@@ -54,7 +54,7 @@ app = modal.App("sam2-app", image=image)
 
 # # Model definition
 
-# Next, we define the Model class that will handle SAM2 operations for both image and video
+# Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
 
 # We use `@modal.build()` and `@modal.enter() decorators here for optimization:
@@ -206,10 +206,13 @@ class Model:
 # # Local entrypoint
 
 
-# Finally, We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
-# to run the segmentation. This local entrypoint demonstrates:
-#  1. Image segmentation: Generating masks based on specific prompts (e.g., points or boxes)
-#  2. Video segmentation: Generating and propagating masks throughout a video
+# Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
+# to run the segmentation. This local entrypoint invokes the `generate_image_masks` and `generate_video_masks` methods.
+# Please note that there are several ways to pass the image from the local machine to the container running the Modal function.
+# One way is to conver the image to bytes and pass the bytes to the function.
+# Another way is to mount the image (or images) to the container.
+# In the image segmentation example below, the image is passed as bytes to the function.
+# In the video segmentation example on the other hand, the directory with all the frames is [auto-mounted](https://modal.com/docs/guide/mounting) to the container
 @app.local_entrypoint()
 def main():
     import os
@@ -219,15 +222,14 @@ def main():
 
     # Image segmentation
 
-    # One way of passing the image to the Modal function is as bytes
-    # Another way is to mount the image to the container
-    # In the video example below, the directory with all the frames is [auto-mounted](https://modal.com/docs/guide/mounting) to the container
+    # Read the image as bytes
     with open("06_gpu_and_ml/sam/assets/dog.jpg", "rb") as f:
         image_bytes = f.read()
 
+    # Pass image bytes to the function
     frame_images = model.generate_image_masks.remote(image_bytes)
 
-    # # Save the images to assets folder
+    # # Save the output image bytes to assets/ folder
     for i, image_bytes in enumerate(frame_images):
         output_path = f"06_gpu_and_ml/sam/assets/image_output_{i}.png"
         print(f"Saving it to {output_path}")
@@ -236,6 +238,7 @@ def main():
 
     # # Video segmentation
 
+    # Directory that will be automounted to the container
     video_dir = "06_gpu_and_ml/sam/assets/video_frames"
 
     # scan all the JPEG frame names in this directory
