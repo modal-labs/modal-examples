@@ -7,105 +7,12 @@
 
 # Built using ideas from Karpathy's [nanoGPT](https://github.com/karpathy/nanoGPT)
 #
-import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
 
-def build_encode_decode(chars):
-    stoi = {c: i for i, c in enumerate(chars)}
-    itos = {i: c for i, c in enumerate(chars)}
-
-    def encode(s):
-        return [stoi[c] for c in s]
-
-    def decode(l):
-        return [itos[i] for i in l]
-
-    return encode, decode
-
-
-###############
-### Dataset ###
-###############
-class Dataset(object):
-    """Manage text dataset and encoding & decoding."""
-
-    def __init__(
-        self,
-        text,
-        train_percent,
-        batch_size,
-        context_size,
-        n_eval_steps,
-        device,
-    ):
-        self.device = device
-        self.batch_size = batch_size
-        self.context_size = context_size
-        self.n_eval_steps = n_eval_steps
-        assert (train_percent > 0.0) and (
-            train_percent < 1.0
-        ), "train_percent must be in (0,1)"
-
-        self.chars = sorted(list(set(text)))
-        self.vocab_size = len(self.chars)
-
-        # Encoding/Decoding for transforming text to tensor.
-        self.encode, self.decode = build_encode_decode(self.chars)
-        self.newline_encoded = self.encode(["\n"])[0]
-
-        # Train/Validation.
-        data = torch.tensor(self.encode(text), dtype=torch.long)
-        n = len(data)
-        self.train_data = data[: int(train_percent * n)]
-        self.val_data = data[int(train_percent * n) :]
-
-    def get_batch(self, split):
-        """Get a batch of train or validation data."""
-        data = self.train_data if split == "train" else self.val_data
-
-        starts = torch.randint(
-            len(data) - self.context_size, (self.batch_size,)
-        )
-        x = torch.stack(
-            [data[start : start + self.context_size] for start in starts]
-        )
-        y = torch.stack(
-            [
-                data[start + 1 : start + self.context_size + 1]
-                for start in starts
-            ]
-        )
-        return x.to(self.device), y.to(self.device)
-
-    @torch.no_grad()
-    def eval_model(self, model):
-        """Evaluate model on train and validation data."""
-        out = {}
-        model.eval()
-        for split in ("train", "val"):
-            losses = torch.zeros(self.n_eval_steps)
-            for k in range(self.n_eval_steps):
-                xb, yb = self.get_batch(split)
-                logits, loss = model.forward(xb, yb)
-                losses[k] = loss
-            out[split] = losses.mean()
-        torch_input = torch.tensor(self.encode("HAMLET:\n"), dtype=torch.long)
-        torch_input = torch_input.view(1, len(torch_input))  # add batch dim
-        torch_input = torch_input.to(self.device)
-        out["sample"] = "".join(
-            self.decode(model.generate(torch_input, 100)[0].tolist())
-        )
-
-        model.train()
-        return out
-
-
-#######################
-### Attention Model ###
-#######################
 class MultiHeadFast(nn.Module):
     """Multihead self-attention."""
 
@@ -153,7 +60,7 @@ class MultiHeadFast(nn.Module):
             )
         else:
             weight = torch.einsum("bnth,bnuh->bntu", q, k)
-            weight /= np.sqrt(self.head_size)
+            weight /= torch.sqrt(self.head_size)
             weight = weight.masked_fill(
                 self.tril[:, :, :T, :T] == 0, float("-inf")
             )
@@ -255,3 +162,21 @@ class AttentionModel(nn.Module):
             next_token = torch.multinomial(probs, num_samples=1)
             input_tokens = torch.cat([input_tokens, next_token], axis=1)
         return input_tokens
+
+    @torch.no_grad()
+    def generate_from_text(self, tokenizer, text, max_new_tokens):
+        encoded_prompt = tokenizer.encode(text)
+        # create a torch tensor from the encoded prompt
+        torch_input = torch.tensor(encoded_prompt, dtype=torch.long)
+        torch_input = torch_input.view(1, len(torch_input))  # add batch dim
+        torch_input = torch_input.to(self.device)
+
+        # Generate. [0] to remove batch dim.
+        tokens = self.generate(torch_input, max_new_tokens)[0]
+
+        chars = tokenizer.decode([x for x in tokens.tolist()])
+
+        # Remove input text to get output
+        chars_out = chars[len(text):]
+
+        return "".join(chars_out)
