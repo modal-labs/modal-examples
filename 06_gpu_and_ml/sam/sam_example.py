@@ -152,14 +152,16 @@ class Model:
             )
 
             # add new prompts and instantly get the output on the same frame
-            frame_idx, object_ids, masks = (
-                self.video_predictor.add_new_points_or_box(
-                    inference_state=self.inference_state,
-                    frame_idx=0,
-                    obj_id=1,
-                    points=points,
-                    labels=labels,
-                )
+            (
+                frame_idx,
+                object_ids,
+                masks,
+            ) = self.video_predictor.add_new_points_or_box(
+                inference_state=self.inference_state,
+                frame_idx=0,
+                obj_id=1,
+                points=points,
+                labels=labels,
             )
 
             print(
