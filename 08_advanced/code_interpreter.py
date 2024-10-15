@@ -3,7 +3,7 @@
 # tags: ["use-case-sandboxed-code-execution"]
 # ---
 
-# Run a "code interpreter" REPL in a Modal Sandbox
+# # Run a "code interpreter" REPL in a Modal Sandbox
 
 # This script demonstrates a simple code interpeter for LLM apps on top of
 # Modal's [Sandbox](https://modal.com/docs/guide/sandbox) functionality.
