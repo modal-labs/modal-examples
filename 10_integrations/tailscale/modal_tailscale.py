@@ -17,7 +17,7 @@ import modal
 # Install Tailscale and copy custom entrypoint script ([entrypoint.sh](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/tailscale/entrypoint.sh)). The script must be
 # executable.
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl")
     .run_commands("curl -fsSL https://tailscale.com/install.sh | sh")
     .pip_install("requests==2.32.3", "PySocks==1.7.1")
