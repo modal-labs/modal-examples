@@ -16,7 +16,7 @@ import modal
 
 image = (
     modal.Image.debian_slim()
-    .pip_install("sentence-transformers")
+    .pip_install("sentence-transformers==3.2.0")
 )
 
 app = modal.App("gpu-packing", image=image)
