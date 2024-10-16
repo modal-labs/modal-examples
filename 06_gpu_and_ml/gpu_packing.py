@@ -6,7 +6,6 @@
 #
 # We use `allow_concurrent_inputs` to allow multiple connections into the container
 # We load the model instances into a FIFO queue to ensure only one http handler can access it at once
-#
 
 import asyncio
 import time
@@ -14,10 +13,7 @@ from contextlib import asynccontextmanager
 
 import modal
 
-image = (
-    modal.Image.debian_slim()
-    .pip_install("sentence-transformers==3.2.0")
-)
+image = modal.Image.debian_slim().pip_install("sentence-transformers==3.2.0")
 
 app = modal.App("gpu-packing", image=image)
 
@@ -25,7 +21,7 @@ app = modal.App("gpu-packing", image=image)
 # ModelPool holds multiple instances of the model, using a FIFO queue
 class ModelPool:
     def __init__(self):
-        self.pool = asyncio.Queue()
+        self.pool: asyncio.Queue = asyncio.Queue()
 
     async def put(self, model):
         await self.pool.put(model)
@@ -43,13 +39,14 @@ class ModelPool:
 with image.imports():
     from sentence_transformers import SentenceTransformer
 
+
 @app.cls(
     gpu="A10G",
-    concurrency_limit=1, # Max one container for this app, for the sake of demoing concurrent_inputs
-    allow_concurrent_inputs=100, # Allow concurrent inputs into our single container.
+    concurrency_limit=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
+    allow_concurrent_inputs=100,  # Allow concurrent inputs into our single container.
 )
 class Server:
-    def __init__(self, n_models):
+    def __init__(self, n_models=10):
         self.model_pool = ModelPool()
         self.n_models = n_models
 
@@ -78,7 +75,9 @@ class Server:
         async with self.model_pool.acquire_model() as model:
             # We now have exclusive access to this model instance
             embedding = model.encode(sentence)
-            await asyncio.sleep(0.2) # Simulate extra inference latency, for demo purposes
+            await asyncio.sleep(
+                0.2
+            )  # Simulate extra inference latency, for demo purposes
         return embedding.tolist()
 
 
