@@ -1,8 +1,7 @@
 # # Run multiple instances of a model on a single GPU
 #
-# Many models are small enough to fit multiple instances onto a single GPU.abs
-# You can dramatically reduce the number of GPUs needed to handle demand by
-# packing multiple models onto a single GPU.
+# Many models are small enough to fit multiple instances onto a single GPU.
+# Doing so can dramatically reduce the number of GPUs needed to handle demand.
 #
 # We use `allow_concurrent_inputs` to allow multiple connections into the container
 # We load the model instances into a FIFO queue to ensure only one http handler can access it at once
@@ -18,7 +17,7 @@ image = modal.Image.debian_slim().pip_install("sentence-transformers==3.2.0")
 app = modal.App("gpu-packing", image=image)
 
 
-# ModelPool holds multiple instances of the model, using a FIFO queue
+# ModelPool holds multiple instances of the model, using a queue
 class ModelPool:
     def __init__(self):
         self.pool: asyncio.Queue = asyncio.Queue()
