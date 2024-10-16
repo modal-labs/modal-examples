@@ -17,10 +17,10 @@ import modal
 # Install Tailscale and copy custom entrypoint script ([entrypoint.sh](https://github.com/modal-labs/modal-examples/blob/main/10_integrations/tailscale/entrypoint.sh)). The script must be
 # executable.
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl")
     .run_commands("curl -fsSL https://tailscale.com/install.sh | sh")
-    .pip_install("requests[socks]")
+    .pip_install("requests==2.32.3", "PySocks==1.7.1")
     .copy_local_file("./entrypoint.sh", "/root/entrypoint.sh")
     .dockerfile_commands(
         "RUN chmod a+x /root/entrypoint.sh",
@@ -28,6 +28,15 @@ image = (
     )
 )
 app = modal.App(image=image)
+
+# Configure Python to use the SOCKS5 proxy globally.
+with image.imports():
+    import socket
+
+    import socks
+
+    socks.set_default_proxy(socks.SOCKS5, "0.0.0.0", 1080)
+    socket.socket = socks.socksocket
 
 
 # Run your function adding a Tailscale secret. We suggest creating a [reusable and ephemeral key](https://tailscale.com/kb/1111/ephemeral-nodes).
@@ -45,11 +54,11 @@ app = modal.App(image=image)
         ),
     ],
 )
-def connect_to_raspberrypi():
+def connect_to_machine():
     import requests
 
     # Connect to other machines in your tailnet.
-    resp = requests.get("http://raspberrypi:5000")
+    resp = requests.get("http://my-tailscale-machine:5000")
     print(resp.content)
 
 
