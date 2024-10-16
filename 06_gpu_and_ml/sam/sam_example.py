@@ -24,8 +24,8 @@
 # # Setup
 
 # First, we set up the Modal image with the necessary dependencies, including PyTorch,
-# OpenCV, `huggingFace_hub`, and Torchvision. We also install the SAM2 library.
-
+# OpenCV, `huggingFace_hub`, Torchvision, and the SAM2 library.
+# We also install ffmpeg, which we will need to turn the .mp4 file into individual .jpg frames.
 
 import modal
 
@@ -35,7 +35,7 @@ MODEL_TYPE = "facebook/sam2-hiera-large"
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "wget", "python3-opencv")
+    .apt_install("git", "wget", "python3-opencv", "ffmpeg")
     .pip_install(
         "torch",
         "torchvision",
@@ -45,14 +45,12 @@ image = (
         "onnxruntime",
         "onnx",
         "huggingface_hub",
+        "ffmpeg",
     )
     .run_commands("git clone https://github.com/facebookresearch/sam2.git")
     .run_commands("cd sam2 && pip install -e .")
 )
-
 app = modal.App("sam2-app", image=image)
-
-# # Model definition
 
 # Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
@@ -64,7 +62,17 @@ app = modal.App("sam2-app", image=image)
 # initializing the model and moving it to GPU.
 # The upshot is that model downloading and initialization only happen once upon container startup.
 # This significantly reduces cold start times and improves performance.
-@app.cls(gpu="any", timeout=600)
+# Note that we mount the local video file onto the Modal class, and then in the model initialization, we use ffmpeg to turn the video into a series of .jpg frames.
+@app.cls(
+    gpu="A100",
+    timeout=600,
+    mounts=[
+        modal.Mount.from_local_file(
+            local_path="06_gpu_and_ml/sam/cliff_jumping.mp4",
+            remote_path="/root/assets/cliff_jumping.mp4",
+        )
+    ],
+)
 class Model:
     # Model initialization
     @modal.build()
@@ -75,6 +83,28 @@ class Model:
 
         self.image_predictor = SAM2ImagePredictor.from_pretrained(MODEL_TYPE)
         self.video_predictor = SAM2VideoPredictor.from_pretrained(MODEL_TYPE)
+
+        self.convert_video_to_frames()
+
+    def convert_video_to_frames(self):
+        import os
+        import subprocess
+
+        # Define input video and output directory
+        input_video = (
+            "/root/assets/cliff_jumping.mp4"  # Replace with your video file
+        )
+
+        output_dir = "/root/assets/video_frames"
+
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Use ffmpeg to turn the input into frames
+        subprocess.run(
+            f"ffmpeg -i {input_video} -q:v 2 -start_number 0 {output_dir}/'%05d.jpg'",
+            shell=True,
+        )
 
     # Prompt-based mask generation for images
     @modal.method()
@@ -127,7 +157,7 @@ class Model:
         return frame_images
 
     @modal.method()
-    def generate_video_masks(self, frame_names, video_dir):
+    def generate_video_masks(self):
         import io
         import os
 
@@ -135,6 +165,17 @@ class Model:
         import numpy as np
         import torch
         from PIL import Image
+
+        # The directory on the image that contains the video frame files
+        video_dir = "/root/assets/video_frames"
+
+        # scan all the JPEG frame names in this directory
+        frame_names = [
+            p
+            for p in os.listdir(video_dir)
+            if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
+        ]
+        frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
 
         # We are hardcoding the input point and label here
         # In a real-world scenario, you would want to display the video
@@ -214,18 +255,16 @@ class Model:
 # One way is to conver the image to bytes and pass the bytes to the function.
 # Another way is to mount the image (or images) to the container.
 # In the image segmentation example below, the image is passed as bytes to the function.
-# In the video segmentation example on the other hand, the directory with all the frames is [auto-mounted](https://modal.com/docs/guide/mounting) to the container
+# In the video segmentation example on the other hand, we explicitly mount the .mp4 file to the container.
 @app.local_entrypoint()
 def main():
-    import os
-
     # Instantiate the model
     model = Model()
 
     # Image segmentation
 
     # Read the image as bytes
-    with open("06_gpu_and_ml/sam/assets/dog.jpg", "rb") as f:
+    with open("06_gpu_and_ml/sam/dog.jpg", "rb") as f:
         image_bytes = f.read()
 
     # Pass image bytes to the function
@@ -233,30 +272,17 @@ def main():
 
     # # Save the output image bytes to assets/ folder
     for i, image_bytes in enumerate(frame_images):
-        output_path = f"06_gpu_and_ml/sam/assets/image_output_{i}.png"
+        output_path = f"06_gpu_and_ml/sam/assets/image_output_{i}.jpg"
         print(f"Saving it to {output_path}")
         with open(output_path, "wb") as f:
             f.write(image_bytes)
 
     # # Video segmentation
 
-    # Directory that will be automounted to the container
-    video_dir = "06_gpu_and_ml/sam/assets/video_frames"
-
-    # scan all the JPEG frame names in this directory
-    frame_names = [
-        p
-        for p in os.listdir(video_dir)
-        if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
-    ]
-    frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
-
-    frame_images = model.generate_video_masks.remote(
-        frame_names=frame_names, video_dir=video_dir
-    )
+    frame_images = model.generate_video_masks.remote()
 
     for i, image_bytes in enumerate(frame_images):
-        output_path = f"06_gpu_and_ml/sam/assets/video_output_{i}.png"
+        output_path = f"06_gpu_and_ml/sam/assets/video_output_{i}.jpg"
         print(f"Saving it to {output_path}")
         with open(output_path, "wb") as f:
             f.write(image_bytes)
