@@ -83,14 +83,19 @@ jobs:
           echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
       - name: Post a comment with the preview URL
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GH_PAT }}
           script: |
             const deploymentUrl = `${{ steps.deploy_preview.outputs.DEPLOYMENT_URL }}`;
-            github.rest.issues.createComment({
+            const success_message = `🚀 The docs preview is ready! Check it out here: ${deploymentUrl}`;
+            const failure_message = "Something went wrong with the preview deployment.";
+
+            let comment = {
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 The docs preview is ready! Check it out here: ${deploymentUrl}`
-            });
+            }
+            comment["body"] = deploymentUrl ? success_message : failure_message;
+            github.rest.issues.createComment(comment)
