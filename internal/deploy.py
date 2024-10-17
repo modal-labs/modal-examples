@@ -85,7 +85,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     results = [
         deploy(
             deployable=bool(ex_mod.metadata.get("deploy")),
-            module_with_app=Path(ex_mod.filename),
+            module_with_app=Path(ex_mod.module),
             dry_run=arguments.dry_run,
             filter_pttrn=filter_pttrn,
         )
