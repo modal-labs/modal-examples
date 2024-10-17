@@ -22,9 +22,9 @@
 
 # # Setup
 
-# First, we set up the Modal image with the necessary dependencies, including PyTorch,
-# OpenCV, `huggingFace_hub`, Torchvision, and the SAM2 library.
-# We also install ffmpeg, which we will need to turn the .mp4 file into individual .jpg frames.
+# First, we set up the Modal image with the necessary dependencies, including `torch`,
+# `opencv`, `huggingFace_hub`, `torchvision`, and the SAM2 library.
+# We also install `ffmpeg`, which we will need to turn the `.mp4` file into individual `.jpg` frames.
 
 import modal
 
@@ -95,14 +95,17 @@ def show_points(coords, labels, ax, marker_size=375):
 # Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
 
-# We use `@modal.build()` and `@modal.enter() decorators here for optimization:
-# @modal.build() ensures this method runs during the container build process,
+# We use `@modal.build()` and `@modal.enter()` decorators here for optimization:
+# `@modal.build()`` ensures this method runs during the container build process,
 # downloading the model only once and caching it in the container image.
+#
 # `@modal.enter()` makes sure the method runs only once when a new container starts,
 # initializing the model and moving it to GPU.
+#
 # The upshot is that model downloading and initialization only happen once upon container startup.
 # This significantly reduces cold start times and improves performance.
-# Note that we mount the local video file onto the Modal class, and then in the model initialization, we use ffmpeg to turn the video into a series of .jpg frames.
+#
+# Note that we mount the local video file onto the Modal class, and then in the model initialization, we use ffmpeg to turn the video into a series of `.jpg` frames.
 @app.cls(
     gpu="A100",
     timeout=600,
@@ -291,11 +294,18 @@ class Model:
 
 # Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
 # to run the segmentation. This local entrypoint invokes the `generate_image_masks` and `generate_video_masks` methods.
-# Please note that there are several ways to pass the image from the local machine to the container running the Modal function.
-# One way is to conver the image to bytes and pass the bytes to the function.
-# Another way is to mount the image (or images) to the container.
+#
+# Please note that there are several ways to pass an image or video file (or any data file) from the local machine to the container running the Modal function.
+#
+# One way is to convert the file to bytes and pass the bytes to the function.
+#
+# Another way is to mount the file to the container.
+#
 # In the image segmentation example below, the image is passed as bytes to the function.
-# In the video segmentation example on the other hand, we explicitly mount the .mp4 file to the container.
+#
+# In the video segmentation example on the other hand, we explicitly mount the `.mp4` file to the container.
+#
+# The output masks are passed back to the local entrypoint from the Modal function and written to local files in the /assets folder.
 @app.local_entrypoint()
 def main():
     # Instantiate the model
