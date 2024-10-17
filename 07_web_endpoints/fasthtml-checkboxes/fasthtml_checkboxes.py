@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["modal", "serve", "07_web_endpoints/fasthtml_checkboxes/fasthtml_checkboxes.py"]
+# cmd: ["modal", "serve", "07_web_endpoints.fasthtml-checkboxes.fasthtml_checkboxes.py"]
 # mypy: ignore-errors
 # ---
 
@@ -23,7 +23,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import modal
-from constants import N_CHECKBOXES
+
+from .constants import N_CHECKBOXES
 
 app = modal.App("example-checkboxes")
 db = modal.Dict.from_name("example-checkboxes-db", create_if_missing=True)

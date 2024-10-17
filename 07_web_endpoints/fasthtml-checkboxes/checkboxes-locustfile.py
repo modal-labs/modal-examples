@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import random
 
 from constants import N_CHECKBOXES

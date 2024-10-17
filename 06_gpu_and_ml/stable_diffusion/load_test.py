@@ -11,30 +11,24 @@ else:
 
 
 image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.debian_slim(python_version="3.11")
     .pip_install("locust~=2.29.1")
     .env({"MODAL_WORKSPACE": workspace})
     .copy_local_file(
-        Path(__file__).parent / "checkboxes-locustfile.py",
+        Path(__file__).parent / "locustfile.py",
         remote_path="/root/locustfile.py",
     )
-    .copy_local_file(
-        Path(__file__).parent / "constants.py",
-        remote_path="/root/constants.py",
-    )
 )
-volume = modal.Volume.from_name(
-    "loadtest-checkboxes-results", create_if_missing=True
-)
+volume = modal.Volume.from_name("loadtest-flux-results", create_if_missing=True)
 remote_path = Path("/root") / "loadtests"
 OUT_DIRECTORY = (
     remote_path / datetime.utcnow().replace(microsecond=0).isoformat()
 )
 
-app = modal.App("loadtest-checkbox", image=image, volumes={remote_path: volume})
+app = modal.App("loadtest-flux", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = f"https://{workspace}--example-checkboxes-web.modal.run"
+host = f"https://{workspace}--example-flux-model-web.modal.run"
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",
