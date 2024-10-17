@@ -4,6 +4,7 @@
 # ---
 import random
 
+from bs4 import BeautifulSoup
 from constants import N_CHECKBOXES
 from locust import HttpUser, between, task
 
@@ -15,14 +16,17 @@ class CheckboxesUser(HttpUser):
         """
         Simulates a user loading the homepage and fetching the state of the checkboxes.
         """
-        self.client.get("/")
+        response = self.client.get("/")
+        soup = BeautifulSoup(response.text, "lxml")
+        checkbox = soup.find(id="cb-0")
+        self.id = checkbox["hx-post"].split("/")[-1]
 
     @task(10)
     def toggle_random_checkboxes(self):
         """
         Simulates a user toggling a random checkbox.
         """
-        n_checkboxes = random.binomialvariate(  # approximately poisson at 5
+        n_checkboxes = random.binomialvariate(  # approximately poisson at 10
             n=100,
             p=0.1,
         )
