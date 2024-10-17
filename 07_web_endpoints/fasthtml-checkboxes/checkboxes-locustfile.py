@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false
+# pytest: false
 # ---
 import random
 
