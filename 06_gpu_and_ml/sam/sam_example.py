@@ -26,6 +26,8 @@
 # `opencv`, `huggingFace_hub`, `torchvision`, and the SAM2 library.
 # We also install `ffmpeg`, which we will need to turn the `.mp4` file into individual `.jpg` frames.
 
+from pathlib import Path
+
 import modal
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
@@ -307,9 +309,13 @@ class Model:
 #
 # In the video segmentation example on the other hand, we explicitly mount the `.mp4` file to the container.
 #
-# The output masks are passed back to the local entrypoint from the Modal function and written to local files in the `/assets` folder.
+# The output masks are passed back to the local entrypoint from the Modal function and written to local files in `/tmp`.
 @app.local_entrypoint()
 def main():
+    dir = Path("/tmp/sam2-outputs")
+    if not dir.exists():
+        dir.mkdir(exist_ok=True, parents=True)
+
     # Instantiate the model
     model = Model()
 
@@ -324,7 +330,7 @@ def main():
 
     # # Save the output image bytes to assets/ folder
     for i, image_bytes in enumerate(frame_images):
-        output_path = f"06_gpu_and_ml/sam/assets/image_output_{i}.jpg"
+        output_path = dir / f"image_output_{i}.jpg"
         print(f"Saving it to {output_path}")
         with open(output_path, "wb") as f:
             f.write(image_bytes)
@@ -334,7 +340,7 @@ def main():
     frame_images = model.generate_video_masks.remote()
 
     for i, image_bytes in enumerate(frame_images):
-        output_path = f"06_gpu_and_ml/sam/assets/video_output_{i}.jpg"
+        output_path = dir / f"video_output_{i}.jpg"
         print(f"Saving it to {output_path}")
         with open(output_path, "wb") as f:
             f.write(image_bytes)
