@@ -84,16 +84,15 @@ def web():
             clients[client.id] = client
 
         # get current state of all checkboxes
-        async with checkbox_mutex:
-            checkbox_array = [
-                fh.CheckboxX(
-                    id=f"cb-{i}",
-                    checked=val,
-                    # when clicked, that checkbox will send a POST request to the server with its index
-                    hx_post=f"/checkbox/toggle/{i}/{client.id}",
-                )
-                for i, val in enumerate(checkboxes)
-            ]
+        checkbox_array = [
+            fh.CheckboxX(
+                id=f"cb-{i}",
+                checked=val,
+                # when clicked, that checkbox will send a POST request to the server with its index
+                hx_post=f"/checkbox/toggle/{i}/{client.id}",
+            )
+            for i, val in enumerate(checkboxes)
+        ]
 
         return (
             fh.Title(f"{N_CHECKBOXES // 1000}k Checkboxes"),
