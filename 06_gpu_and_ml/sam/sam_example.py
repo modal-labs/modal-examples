@@ -307,7 +307,7 @@ class Model:
 #
 # In the video segmentation example on the other hand, we explicitly mount the `.mp4` file to the container.
 #
-# The output masks are passed back to the local entrypoint from the Modal function and written to local files in the /assets folder.
+# The output masks are passed back to the local entrypoint from the Modal function and written to local files in the `/assets` folder.
 @app.local_entrypoint()
 def main():
     # Instantiate the model
