@@ -4,6 +4,12 @@ body {
     background-color: #1d1d1d;
 }
 
+.container {
+    padding: 2rem;
+    width: 100%;
+    max-width: 100%;
+}
+
 [type="checkbox"]:is(:checked, :checked:focus) {
     --pico-border-color: #7fee64;
     --pico-background-color: #7fee64;

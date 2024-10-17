@@ -18,8 +18,8 @@
 # Our example is inspired by [1 Million Checkboxes](https://onemillioncheckboxes.com/).
 
 import time
+from asyncio import Lock
 from pathlib import Path
-from threading import Lock
 from uuid import uuid4
 
 import modal
@@ -41,6 +41,7 @@ N_CHECKBOXES = 10_000  # feel free to increase, if you dare!
     mounts=[
         modal.Mount.from_local_file(css_path_local, remote_path=css_path_remote)
     ],
+    allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()
 def web():
@@ -61,9 +62,9 @@ def web():
         print("Initializing checkbox state.")
         checkboxes = [False] * N_CHECKBOXES
 
-    def on_shutdown():
+    async def on_shutdown():
         # Handle the shutdown event by persisting current state to modal dict
-        with checkbox_mutex:
+        async with checkbox_mutex:
             db["checkboxes"] = checkboxes
         print("Checkbox state persisted.")
 
@@ -76,14 +77,14 @@ def web():
 
     # handler run on initial page load
     @app.get("/")
-    def get():
+    async def get():
         # register a new client
         client = Client()
-        with clients_mutex:
+        async with clients_mutex:
             clients[client.id] = client
 
         # get current state of all checkboxes
-        with checkbox_mutex:
+        async with checkbox_mutex:
             checkbox_array = [
                 fh.CheckboxX(
                     id=f"cb-{i}",
@@ -114,11 +115,11 @@ def web():
 
     # users submitting checkbox toggles
     @app.post("/checkbox/toggle/{i}/{client_id}")
-    def toggle(i: int, client_id: str):
-        with checkbox_mutex:
+    async def toggle(i: int, client_id: str):
+        async with checkbox_mutex:
             checkboxes[i] = not checkboxes[i]
 
-        with clients_mutex:
+        async with clients_mutex:
             expired = []
             for client in clients.values():
                 if client.id == client_id:
@@ -138,10 +139,10 @@ def web():
 
     # clients polling for any outstanding diffs
     @app.get("/diffs/{client_id}")
-    def diffs(client_id: str):
+    async def diffs(client_id: str):
         # we use the `hx_swap_oob='true'` feature to
         # push updates only for the checkboxes that changed
-        with clients_mutex:
+        async with clients_mutex:
             client = clients.get(client_id, None)
             if client is None or len(client.diffs) == 0:
                 return
@@ -149,7 +150,7 @@ def web():
             client.heartbeat()
             diffs = client.pull_diffs()
 
-        with checkbox_mutex:
+        async with checkbox_mutex:
             diff_array = [
                 fh.CheckboxX(
                     id=f"cb-{i}",
