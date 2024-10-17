@@ -70,7 +70,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         python_version="3.11"
     )
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli==1.2.3")  # install comfy-cli
+    .pip_install("comfy-cli==1.2.7")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
@@ -102,6 +102,8 @@ image = (
     )
     # Add .run_commands(...) calls for any other models you want to download
 )
+
+# To download gated models that require a Hugging Face token (e.g. Flux Dev), add `--set-hf-api-token=<your_token>` to your `comfy model download` command.
 
 # #### Downloading custom nodes
 #
@@ -247,4 +249,3 @@ class ComfyUI:
 # - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. This will reduce overall response time, but will cost you more money. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
 # - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
-# - Currently `comfy-cli` doesn't support downloading models that require a huggingface token. Instead, you can use `huggingface_hub` library to download them.
