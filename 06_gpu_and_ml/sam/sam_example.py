@@ -20,15 +20,13 @@
 # | ![Figure 4](./video_output_3.png) | ![Figure 5](./video_output_4.png) | ![Figure 6](./video_output_5.png) |
 # | ![Figure 7](./video_output_6.png) | ![Figure 8](./video_output_7.png) | ![Figure 9](./video_output_8.png) |
 
-# # Setup
+# ## Setup
 
 # First, we set up the Modal image with the necessary dependencies, including `torch`,
 # `opencv`, `huggingFace_hub`, `torchvision`, and the SAM2 library.
 # We also install `ffmpeg`, which we will need to turn the `.mp4` file into individual `.jpg` frames.
 
 import modal
-
-# from .helper import show_mask, show_points
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
 
@@ -51,7 +49,9 @@ image = (
 )
 app = modal.App("sam2-app", image=image)
 
-# Next, we define some helper functions to show the masks and points on the images:
+# ## Helper functions
+#
+#  Next, we define some helper functions to show the masks and points on the images:
 
 
 def show_mask(mask, ax, obj_id=None, random_color=False):
@@ -92,11 +92,13 @@ def show_points(coords, labels, ax, marker_size=375):
     )
 
 
+# ## Model class
+#
 # Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
 
 # We use `@modal.build()` and `@modal.enter()` decorators here for optimization:
-# `@modal.build()`` ensures this method runs during the container build process,
+# `@modal.build()` ensures this method runs during the container build process,
 # downloading the model only once and caching it in the container image.
 #
 # `@modal.enter()` makes sure the method runs only once when a new container starts,
@@ -289,7 +291,7 @@ class Model:
         return frame_images
 
 
-# # Local entrypoint
+# ## Local entrypoint
 
 
 # Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
