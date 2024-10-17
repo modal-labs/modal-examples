@@ -4,9 +4,8 @@
 # ---
 import random
 
+from constants import N_CHECKBOXES
 from locust import HttpUser, between, task
-
-from .constants import N_CHECKBOXES
 
 
 class CheckboxesUser(HttpUser):
