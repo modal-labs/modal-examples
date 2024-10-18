@@ -34,7 +34,7 @@ OUT_DIRECTORY = (
 app = modal.App("loadtest-checkbox", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = f"https://{workspace}--example-checkboxes-web-dev.modal.run"
+host = f"https://{workspace}--example-checkboxes-web.modal.run"
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",
