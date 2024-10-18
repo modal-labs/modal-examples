@@ -3,7 +3,8 @@
 # lambda-test: false
 # ---
 
-class Tokenizer():
+
+class Tokenizer:
     def __init__(self, text):
         self.unique_chars = sorted(set(text))  # sorted to ensure consistent
         self.stoi = {c: i for i, c in enumerate(self.unique_chars)}

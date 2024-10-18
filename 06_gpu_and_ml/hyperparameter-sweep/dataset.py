@@ -6,7 +6,7 @@
 import torch
 
 
-class Dataset():
+class Dataset:
     """Manage text dataset and batching."""
 
     def __init__(
@@ -50,5 +50,3 @@ class Dataset():
             ]
         )
         return x.to(self.device), y.to(self.device)
-
-

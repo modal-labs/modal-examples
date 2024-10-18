@@ -177,6 +177,6 @@ class AttentionModel(nn.Module):
         chars = tokenizer.decode([x for x in tokens.tolist()])
 
         # Remove input text to get output
-        chars_out = chars[len(text):]
+        chars_out = chars[len(text) :]
 
         return "".join(chars_out)

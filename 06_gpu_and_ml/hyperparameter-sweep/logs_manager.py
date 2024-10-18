@@ -6,7 +6,7 @@
 from torch.utils.tensorboard import SummaryWriter
 
 
-class LogsManager():
+class LogsManager:
     def __init__(self, experiment_name, hparams, num_parameters, tb_log_path):
         self.model_name = (
             f"{experiment_name}"

@@ -201,7 +201,8 @@ def train_model(
 
     # TensorBoard logging & checkpointing prep
     logs_manager = LogsManager(
-        experiment_name, hparams, num_parameters, tb_log_path)
+        experiment_name, hparams, num_parameters, tb_log_path
+    )
     L.info(f"Model name: {logs_manager.model_name}")
 
     model_save_dir = model_save_path / experiment_name / logs_manager.model_name
@@ -210,14 +211,17 @@ def train_model(
         checkpoint = torch.load(str(model_save_dir / model_filename))
         am_best_model = not run_to_first_save
         if am_best_model:
-            make_best_symbolic_link(model_save_dir, model_filename, experiment_name)
+            make_best_symbolic_link(
+                model_save_dir, model_filename, experiment_name
+            )
         model.load_state_dict(checkpoint["model"])
         start_step = checkpoint["steps"] + 1
     else:
         model_save_dir.mkdir(parents=True, exist_ok=True)
         start_step = 0
         checkpoint = init_checkpoint(
-            model, tokenizer, optimizer, start_step, hparams)
+            model, tokenizer, optimizer, start_step, hparams
+        )
 
     checkpoint_path = model_save_dir / model_filename
 
@@ -299,18 +303,15 @@ def main(
     stop_early = True  # stop early so we can compare val losses
     print(f"Testing {len(hparams_list)} hyperparameter settings")
     n_nodes = len(hparams_list)
-    static_params = (experiment_name, stop_early, n_steps, n_steps_before_eval,
-        n_steps_before_checkpoint)
+    static_params = (
+        experiment_name,
+        stop_early,
+        n_steps,
+        n_steps_before_eval,
+        n_steps_before_checkpoint,
+    )
     for result in train_model.starmap(
-        [
-            (
-                i,
-                n_nodes,
-                h,
-                *static_params
-            )
-            for i, h in enumerate(hparams_list)
-        ],
+        [(i, n_nodes, h, *static_params) for i, h in enumerate(hparams_list)],
         order_outputs=False,
     ):
         # result = (node_rank, val_loss, hparams)
@@ -418,6 +419,7 @@ assets_path = Path(__file__).parent / "assets"
 # If the user does not specify an `experiment_name`, the latest experiment
 # is used.
 
+
 @app.cls(image=image, volumes={volume_path: volume}, gpu=gpu)
 class ModelInference:
     experiment_name: str = modal.parameter(default="")
@@ -442,21 +444,22 @@ class ModelInference:
         return [d.name for d in self.get_latest_available_model_dirs(n_last)]
 
     def load_model_impl(self):
-        if self.experiment_name != "": # User selected model:
+        if self.experiment_name != "":  # User selected model:
             use_model_dir = f"{model_save_path}/{self.experiment_name}"
-        else: # Pick latest
+        else:  # Pick latest
             use_model_dir = self.get_latest_available_model_dirs(1)[0]
 
         if self.use_model_dir == use_model_dir and self.is_fully_trained:
-            return # Already loaded fully trained model.
+            return  # Already loaded fully trained model.
 
-        print (f"Loading experiment: {Path(use_model_dir).name}...")
-        checkpoint = torch.load(
-            f"{use_model_dir}/{best_model_filename}")
+        print(f"Loading experiment: {Path(use_model_dir).name}...")
+        checkpoint = torch.load(f"{use_model_dir}/{best_model_filename}")
 
         self.use_model_dir = use_model_dir
         hparams = checkpoint["hparams"]
-        key = "unique_chars" if "unique_chars" in checkpoint else "chars" # Backwards compatibility
+        key = (
+            "unique_chars" if "unique_chars" in checkpoint else "chars"
+        )  # Backwards compatibility
         unique_chars = checkpoint[key]
         steps = checkpoint["steps"]
         val_loss = checkpoint["val_loss"]
@@ -472,7 +475,8 @@ class ModelInference:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.model = AttentionModel(
-            self.tokenizer.vocab_size, hparams, self.device)
+            self.tokenizer.vocab_size, hparams, self.device
+        )
         self.model.load_state_dict(checkpoint["model"])
         self.model.to(self.device)
 
@@ -533,6 +537,7 @@ def web_generate(request: GenerationRequest):
 # Second, we create a Gradio web UI for generating text via a graphical user interface in the browser.
 # That way our fellow team members and stakeholders can easily interact with the model and give feedback.
 
+
 @app.function(
     image=ui_image,
     concurrency_limit=1,
@@ -542,7 +547,6 @@ def web_generate(request: GenerationRequest):
 )
 @modal.asgi_app()
 def ui():
-
     import gradio as gr
     from gradio.routes import mount_gradio_app
 
@@ -551,7 +555,8 @@ def ui():
         if not text:
             text = "\n"
         generated = ModelInference(
-            experiment_name=experiment_name).generate.remote(text)
+            experiment_name=experiment_name
+        ).generate.remote(text)
         return text + generated
 
     example_prompts = [
@@ -575,7 +580,8 @@ def ui():
 
     n_last = 20
     experiment_names = (
-        ModelInference().get_latest_available_experiment_names.remote(n_last))
+        ModelInference().get_latest_available_experiment_names.remote(n_last)
+    )
     theme = gr.themes.Default(
         primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
     )
@@ -583,15 +589,15 @@ def ui():
     # add a Gradio UI around inference
     with gr.Blocks(theme=theme, css=css, title="SLM") as interface:
         # title
-        gr.Markdown(
-            "# GPT-style Shakespeare text generation."
-        )
+        gr.Markdown("# GPT-style Shakespeare text generation.")
 
         # Model Selection
         with gr.Row():
             gr.Markdown("## Model Version")
         with gr.Row():
-            experiment_dropdown = gr.Dropdown(experiment_names, label="Select Model Version")
+            experiment_dropdown = gr.Dropdown(
+                experiment_names, label="Select Model Version"
+            )
 
         # input and output
         with gr.Row():
@@ -615,7 +621,7 @@ def ui():
             generate_button.click(
                 fn=generate,
                 inputs=[input_box, experiment_dropdown],
-                outputs=output_box
+                outputs=output_box,
             )  # connect inputs and outputs with inference function
 
             gr.Button(  # shameless plug
@@ -629,8 +635,9 @@ def ui():
             # add in a few examples to inspire users
             for ii, prompt in enumerate(example_prompts):
                 btn = gr.Button(prompt, variant="secondary")
-                btn.click(fn=lambda idx=ii: example_prompts[idx],
-                outputs=input_box)
+                btn.click(
+                    fn=lambda idx=ii: example_prompts[idx], outputs=input_box
+                )
 
     # mount for execution on Modal
     return mount_gradio_app(
@@ -651,6 +658,7 @@ def ui():
 # consider a training framework like [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable)
 # or [Hugging Face](https://huggingface.co/transformers/main_classes/trainer.html).
 
+
 def training_loop(
     start_step,
     n_steps,
@@ -666,7 +674,6 @@ def training_loop(
     checkpoint_path,
     run_to_first_save,
 ):
-
     @torch.no_grad()
     def eval_model(model, dataset, tokenizer, n_eval_steps):
         """Evaluate model on train and validation data."""
@@ -714,8 +721,10 @@ def training_loop(
             # mark as finished if we hit n steps.
             checkpoint["finished_training"] = step >= n_steps
 
-            L.info(f"Saving checkpoint to {checkpoint_path}"
-                f"\t {checkpoint['finished_training']})")
+            L.info(
+                f"Saving checkpoint to {checkpoint_path}"
+                f"\t {checkpoint['finished_training']})"
+            )
             save_checkpoint(checkpoint, checkpoint_path)
 
             if run_to_first_save:
@@ -740,8 +749,10 @@ def setup_optimizer(model, learning_rate):
     """Set up the optimizer for the model."""
     return torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+
 # ### Miscellaneous
 # The remaining code includes small helper functions for training the model.
+
 
 def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
     """Download and read the dataset."""
@@ -753,6 +764,7 @@ def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
         volume.commit()
     return input_file_path.read_text()
 
+
 def make_best_symbolic_link(model_save_dir, model_filename, experiment_name):
     # create symlink to the best model so it's easy to find for web serving
     os.symlink(
@@ -760,6 +772,7 @@ def make_best_symbolic_link(model_save_dir, model_filename, experiment_name):
         str(model_save_path / experiment_name / best_model_filename),
     )
     volume.commit()  # commit the symlink
+
 
 def init_checkpoint(model, tokenizer, optimizer, start_step, hparams):
     return {
@@ -771,6 +784,7 @@ def init_checkpoint(model, tokenizer, optimizer, start_step, hparams):
         "hparams": hparams,
         "finished_training": False,
     }
+
 
 def log_evals(result, step, t_last, logs_manager):
     runtime_s = timer() - t_last
