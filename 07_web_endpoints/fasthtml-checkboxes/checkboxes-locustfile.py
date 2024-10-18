@@ -18,8 +18,8 @@ class CheckboxesUser(HttpUser):
         """
         response = self.client.get("/")
         soup = BeautifulSoup(response.text, "lxml")
-        checkbox = soup.find(id="cb-0")
-        self.id = checkbox["hx-post"].split("/")[-1]
+        main_div = soup.find('main')
+        self.id = main_div["hx-get"].split("/")[-1]
 
     @task(10)
     def toggle_random_checkboxes(self):
@@ -35,7 +35,7 @@ class CheckboxesUser(HttpUser):
                 N_CHECKBOXES * random.random() ** 2
             )  # Choose a random checkbox between 0 and 9999, more likely to be closer to 0
             self.client.post(
-                f"/checkbox/toggle/{checkbox_id}/{self.id}",
+                f"/checkbox/toggle/{checkbox_id}",
                 name="/checkbox/toggle",
             )
 
