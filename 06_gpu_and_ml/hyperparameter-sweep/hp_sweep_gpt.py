@@ -5,7 +5,7 @@
 
 # # Train an SLM from scratch with early-stopping grid search over hyperparameters
 
-# ![shakespeare](./shakespeare.png)
+# ![Split-Panel Image. Left: AI generated picture of Shakespeare. Right: SLM generated text](./shakespeare.png)
 
 # When you want a language model that performs well on your task, there are three options,
 # ordered by the degree of customization:
@@ -359,7 +359,7 @@ def main(
 # display the progress of our training across all 8 models. We'll use the latest
 # logs for the most recent experiment written to the Volume.
 
-# To ensure 1 unique color per experiment you can click the palette (🎨) icon
+# To ensure a unique color per experiment you can click the palette (🎨) icon
 # under Tensorboard > Time Series > Run and use the Regex:
 # `E(\d{4})-(\d{2})-(\d{2})-(\d{6})\.(\d{6})`
 
@@ -394,7 +394,7 @@ def monitor_training():
 
 # After training your TensorBoard UI will look something like this:
 
-# [[./tensorboard.png|alt=TensorBoard]]
+# ![8 lines on a graph, validation loss on y-axis, time step on x-axis. All lines go down over the first 1000 time steps, and one goes to 5000 time steps with a final loss of 1.52](./tensorboard.png)
 
 # Notice that there are 8 models training, and the one with the lowest
 # validation loss at step 600 continues training to 3000 steps.
@@ -648,7 +648,7 @@ def ui():
 
 
 # The Gradio UI will look something like this:
-# [[./gradio.png|alt=gradio]]
+# ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
 
 # ## Addenda
 # The remainder of this code is boilerplate code.
