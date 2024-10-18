@@ -89,7 +89,7 @@ def web():
                 id=f"cb-{i}",
                 checked=val,
                 # when clicked, that checkbox will send a POST request to the server with its index
-                hx_post=f"/checkbox/toggle/{i}/{client.id}",
+                hx_post=f"/checkbox/toggle/{i}",
             )
             for i, val in enumerate(checkboxes)
         ]
@@ -113,18 +113,14 @@ def web():
         )
 
     # users submitting checkbox toggles
-    @app.post("/checkbox/toggle/{i}/{client_id}")
-    async def toggle(i: int, client_id: str):
+    @app.post("/checkbox/toggle/{i}")
+    async def toggle(i: int):
         async with checkbox_mutex:
             checkboxes[i] = not checkboxes[i]
 
         async with clients_mutex:
             expired = []
             for client in clients.values():
-                if client.id == client_id:
-                    # ignore self; we keep our own diffs
-                    continue
-
                 # clean up old clients
                 if not client.is_active():
                     expired.append(client.id)
@@ -154,7 +150,7 @@ def web():
                 fh.CheckboxX(
                     id=f"cb-{i}",
                     checked=checkboxes[i],
-                    hx_post=f"/checkbox/toggle/{i}/{client_id}",
+                    hx_post=f"/checkbox/toggle/{i}",
                     hx_swap_oob="true",  # this allows us to push updates to arbitrary checkboxes matching the id
                 )
                 for i in diffs
@@ -179,10 +175,7 @@ class Client:
         self.inactive_deadline = time.time() + 30
 
     def add_diff(self, i):
-        if i in self.diffs:
-            # two toggles are equivalent to zero, so we just cancel the diff
-            self.diffs.remove(i)
-        else:
+        if i not in self.diffs:
             self.diffs.append(i)
 
     def pull_diffs(self):
