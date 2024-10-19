@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# args: ["--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
+# cmd: ["modal", "run", "06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt", "--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
 # ---
 
 # # Train an SLM from scratch with early-stopping grid search over hyperparameters
@@ -85,26 +85,10 @@ model_save_path = volume_path / "models"
 # The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
 
-# We also copy over the model definition files from the local machine. This
-# include `model.py` that defines the attention model, `dataset.py` that handles
-# data batching, `logs_manager.py` that manages TensorBoard logging, and
-# `tokenizer.py` that tokenizes the text data.
-
-image = (
-    Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "torch==2.1.2",
-        "tensorboard==2.17.1",
-        "numpy<2",
-    )
-    .copy_local_file(Path(__file__).parent / "model.py", "/root/model.py")
-    .copy_local_file(Path(__file__).parent / "dataset.py", "/root/dataset.py")
-    .copy_local_file(
-        Path(__file__).parent / "logs_manager.py", "/root/logs_manager.py"
-    )
-    .copy_local_file(
-        Path(__file__).parent / "tokenizer.py", "/root/tokenizer.py"
-    )
+image = Image.debian_slim(python_version="3.11").pip_install(
+    "torch==2.1.2",
+    "tensorboard==2.17.1",
+    "numpy<2",
 )
 
 # We'll spin up a separate container to monitor the training logs with TensorBoard.
@@ -122,6 +106,12 @@ ui_image = Image.debian_slim(python_version="3.11").pip_install(
 app_name = "example-hp-sweep-gpt"
 app = modal.App(app_name)
 
+# We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
+# using the `with image.imports` context manager.
+
+# We can also import our local code into the remote environment at the same time.
+# Here, we import utilities for defining our dataset, model, and monitoring.
+
 with image.imports():
     import glob
     import os
@@ -129,15 +119,17 @@ with image.imports():
 
     import tensorboard
     import torch
-    from dataset import Dataset
-    from logs_manager import LogsManager
-    from model import AttentionModel
-    from tokenizer import Tokenizer
+
+    from .dataset import Dataset
+    from .logs_manager import LogsManager
+    from .model import AttentionModel
+    from .tokenizer import Tokenizer
 
 # ## Training Function
 
-# Here we define the training function making sure to include the `image`,
-# `volume`, `gpu`, and `timeout` parameters.
+# Here we define the training function, wrapping it in a decorator
+# that specifies the infrastructural parameters, like the container `image` we want to use,
+# which `volume` to mount where, the `gpu` we're using, and so on.
 
 # Training consists of specifying optimization parameters, loading the
 # `dataset`, building the `model`, setting up TensorBoard logging &
@@ -171,7 +163,7 @@ def train_model(
 
     L.basicConfig(
         level=L.INFO,
-        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}/{n_nodes}] %(message)s\033[0m",
+        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}] %(message)s\033[0m",
         datefmt="%b %d %H:%M:%S",
     )
 
@@ -209,8 +201,8 @@ def train_model(
     if model_save_dir.exists():
         L.info("Loading model from checkpoint...")
         checkpoint = torch.load(str(model_save_dir / model_filename))
-        am_best_model = not run_to_first_save
-        if am_best_model:
+        is_best_model = not run_to_first_save
+        if is_best_model:
             make_best_symbolic_link(
                 model_save_dir, model_filename, experiment_name
             )
@@ -248,10 +240,8 @@ def train_model(
 
 # The main entry point coordinates the hyperparameter optimization.
 # First we specify the default hyperparameters for the model, taken from
-# [Karpathy's biggest model](https://www.youtube.com/watch?v=kCc8FmEb1nY&t=5976s),
-# which add up to 10 million total neural network parameters. For better
-# performance, you can increase the `context_size` and scale up the GPU
-# accordingly.
+# [Andrej Karpathy's walkthrough](https://www.youtube.com/watch?v=kCc8FmEb1nY&t=5976s).
+# For better performance, you can increase the `context_size` and scale up the GPU accordingly.
 
 
 @dataclass
@@ -263,15 +253,17 @@ class ModelHyperparameters:
     dropout: float = 0.2
 
 
-# Next we define the local entrypoint function.
+# Next we define the local entrypoint: the code we run locally to coordinate training.
+
 # It will train 8 models in parallel across 8 containers, each
 # with different hyperparameters, varying the number of heads (`n_heads`), the
-# `context_size` (called the block size in Karpathy lingo), and the dropout rate (`dropout`). To run in
-# parallel we need to use the [starmap function](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
+# `context_size` (called the "block size" by Karpathy), and the dropout rate (`dropout`). To run in
+# parallel we need to use the [`starmap` method](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
 
 # We train all of the models until the first checkpoint, and then stop early so we
-# can compare the validation losses. Then we'll restart training for the best
-# model and save it to the models directory.
+# can compare the validation losses.
+
+# Then we restart training for the best model and save it to the models directory.
 
 
 @app.local_entrypoint()
@@ -342,26 +334,29 @@ def main(
     )
 
 
-# After running `modal run hp_sweep_gpt.py` you should see output like this:
+# After running `modal run 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt` you should see output like this:
 # ```
-# Sep 16 21:20:39 INFO [hp_sweep_gpt.py.train_model:127] [Node 1/8]  Remote Device: cuda // GPU: A10G
-# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:149] [Node 1/8]  Num parameters: 10693697
-# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:156] [Node 1/8]  Model Name: E2024-0916-142031.618259_context_size=8_n_heads=1_dropout=0.1
-# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:225] [Node 1/8]      0) //  1.03s // Train Loss: 3.58 // Val Loss: 3.60
-# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:127] [Node 2/8]  Remote Device: cuda // GPU: A10G
+# Sep 16 21:20:39 INFO [hp_sweep_gpt.py.train_model:127] [Node 1]  Remote Device: cuda // GPU: A10G
+# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:149] [Node 1]  Num parameters: 10693697
+# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:156] [Node 1]  Model Name: E2024-0916-142031.618259_context_size=8_n_heads=1_dropout=0.1
+# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:225] [Node 1]      0) //  1.03s // Train Loss: 3.58 // Val Loss: 3.60
+# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:127] [Node 2]  Remote Device: cuda // GPU: A10G
 # ...
 # ```
 
-
 # ### Monitoring experiments with TensorBoard
 
-# To monitor our training we will create a TensorBoard WSGI web app, it will
+# To monitor our training we will create a TensorBoard WSGI web app, which will
 # display the progress of our training across all 8 models. We'll use the latest
 # logs for the most recent experiment written to the Volume.
 
 # To ensure a unique color per experiment you can click the palette (🎨) icon
 # under Tensorboard > Time Series > Run and use the Regex:
 # `E(\d{4})-(\d{2})-(\d{2})-(\d{6})\.(\d{6})`
+
+# After training your TensorBoard UI will look something like this:
+
+# ![8 lines on a graph, validation loss on y-axis, time step on x-axis. All lines go down over the first 1000 time steps, and one goes to 5000 time steps with a final loss of 1.52](./tensorboard.png)
 
 
 @app.function(image=monitoring_image, volumes={volume_path: volume})
@@ -392,29 +387,20 @@ def monitor_training():
     return wsgi_app
 
 
-# After training your TensorBoard UI will look something like this:
-
-# ![8 lines on a graph, validation loss on y-axis, time step on x-axis. All lines go down over the first 1000 time steps, and one goes to 5000 time steps with a final loss of 1.52](./tensorboard.png)
-
 # Notice that there are 8 models training, and the one with the lowest
 # validation loss at step 600 continues training to 3000 steps.
 
-# ## Serving the trained model as a web endpoint
+# ## Serving model as web endpoint
 
-# ### Setup
-
-# Initialize some variables for web serving:
-
-web_app = FastAPI()
-assets_path = Path(__file__).parent / "assets"
+# Because our weights are stored in a distributed Volume,
+# we can deploy an inference endpoint based off of them without any extra work --
+# and we can even check in on models while we're still training them!
 
 # ### Remote inference with Modal `Cls`es
 
-# Now we will create a class for running model inference.
-
-# The user of `ModelInference` can control which model is used by the
-# [modal.parameter](https://modal.com/docs/reference/modal.parameter#modalparameter) `experiment_name`.
-# Each unique choice creates a separate
+# We wrap our inference in a Modal `Cls` called `ModelInference`.
+# The user of `ModelInference` can control which model is used by providing the
+# `experiment_name`.  Each unique choice creates a separate
 # [auto-scaling deployment](https://modal.com/docs/guide/parameterized-functions).
 # If the user does not specify an `experiment_name`, the latest experiment
 # is used.
@@ -444,29 +430,29 @@ class ModelInference:
         return [d.name for d in self.get_latest_available_model_dirs(n_last)]
 
     def load_model_impl(self):
-        if self.experiment_name != "":  # User selected model:
+        if self.experiment_name != "":  # user selected model
             use_model_dir = f"{model_save_path}/{self.experiment_name}"
-        else:  # Pick latest
+        else:  # otherwise, pick latest
             use_model_dir = self.get_latest_available_model_dirs(1)[0]
 
         if self.use_model_dir == use_model_dir and self.is_fully_trained:
-            return  # Already loaded fully trained model.
+            return  # already loaded fully trained model.
 
         print(f"Loading experiment: {Path(use_model_dir).name}...")
         checkpoint = torch.load(f"{use_model_dir}/{best_model_filename}")
 
         self.use_model_dir = use_model_dir
         hparams = checkpoint["hparams"]
-        key = (
+        key = (  # for backwards compatibility
             "unique_chars" if "unique_chars" in checkpoint else "chars"
-        )  # Backwards compatibility
+        )
         unique_chars = checkpoint[key]
         steps = checkpoint["steps"]
         val_loss = checkpoint["val_loss"]
         self.is_fully_trained = checkpoint["finished_training"]
 
         print(
-            f"Loaded model with {steps} train steps "
+            f"Loaded model with {steps} train steps"
             f" and val loss of {val_loss:.2f}"
             f" (fully_trained={self.is_fully_trained})"
         )
@@ -496,7 +482,14 @@ class ModelInference:
         )
 
 
-# First, we create a simple POST web endpoint for generating text.
+# ### Adding a simple `web_endpoint`
+
+# The `ModelInference` class above is available for use
+# from any other Python environment with the right Modal credentials
+# and the `modal` package installed -- just use [`lookup`](https://modal.com/docs/reference/modal.Cls#lookup).
+
+# But we can also expose it as a web endpoint for easy access
+# from anywhere, including other programming languages or the command line.
 
 
 class GenerationRequest(BaseModel):
@@ -510,10 +503,11 @@ def web_generate(request: GenerationRequest):
     return {"output": output}
 
 
+# This endpoint can be deployed on Modal with `modal deploy`.
 # That will allow us to generate text via a simple `curl` command like this:
 
 # ```bash
-# curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate-dev.modal.run
+# curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate.modal.run
 # ```
 
 # which will return something like:
@@ -532,10 +526,22 @@ def web_generate(request: GenerationRequest):
 
 # It's not exactly Shakespeare, but at least it shows our model learned something!
 
+# You can choose which model to use by specifying the `experiment_name` in the query parameters of the request URL.
+
 # ### Serving a Gradio UI with `asgi_app`
 
-# Second, we create a Gradio web UI for generating text via a graphical user interface in the browser.
-# That way our fellow team members and stakeholders can easily interact with the model and give feedback.
+# Second, we create a Gradio web app for generating text via a graphical user interface in the browser.
+# That way our fellow team members and stakeholders can easily interact with the model and give feedback,
+# even when we're still training the model.
+
+# You should see the URL for this UI in the output of `modal deploy`
+# or on your [Modal app dashboard](https://modal.com/apps) for this app.
+
+# The Gradio UI will look something like this:
+# ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
+
+web_app = FastAPI()
+assets_path = Path(__file__).parent / "assets"
 
 
 @app.function(
@@ -647,13 +653,12 @@ def ui():
     )
 
 
-# The Gradio UI will look something like this:
-# ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
-
 # ## Addenda
-# The remainder of this code is boilerplate code.
+
+# The remainder of this code is boilerplate.
 
 # ### Training Loop
+
 # There's quite a lot of code for just the training loop! If you'd rather not write this stuff yourself,
 # consider a training framework like [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable)
 # or [Hugging Face](https://huggingface.co/transformers/main_classes/trainer.html).
