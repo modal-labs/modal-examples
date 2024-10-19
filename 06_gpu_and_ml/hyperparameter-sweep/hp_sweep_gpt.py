@@ -5,7 +5,7 @@
 
 # # Train an SLM from scratch with early-stopping grid search over hyperparameters
 
-# ![Split-Panel Image. Left: AI generated picture of Shakespeare. Right: SLM generated text](./shakespeare.png)
+# ![Split-Panel Image. Left: AI generated picture of Shakespeare. Right: SLM generated text](./shakespeare.jpg)
 
 # When you want a language model that performs well on your task, there are three options,
 # ordered by the degree of customization:
@@ -59,16 +59,17 @@ from modal import Image
 from pydantic import BaseModel
 
 MINUTES = 60  # seconds
+HOURS = 60 * MINUTES
 
 app_name = "example-hp-sweep-gpt"
 app = modal.App(app_name)
 
-# We'll use A10G GPUs for training which are able to train the model to recognizably improved performance
+# We'll use A10G GPUs for training, which are able to train the model to recognizably improved performance
 # in ~15 minutes while keeping costs under ~$1.
 
 gpu = "A10G"
 
-# ### Create a Volume to store weights and logs
+# ### Create a Volume to store data, weights, and logs
 
 # Since we'll be coordinating training across multiple machines we'll use a
 # single [Volume](https://modal.com/docs/guide/volumes)
@@ -137,7 +138,7 @@ with image.imports():
 
 
 @app.function(
-    image=image, volumes={volume_path: volume}, gpu=gpu, timeout=20 * MINUTES
+    image=image, volumes={volume_path: volume}, gpu=gpu, timeout=1 * HOURS
 )
 def train_model(
     node_rank,
@@ -260,10 +261,10 @@ class ModelHyperparameters:
 # `context_size` (called the "block size" by Karpathy), and the dropout rate (`dropout`). To run in
 # parallel we need to use the [`starmap` method](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
 
-# We train all of the models until the first checkpoint, and then stop early so we
+# We train all of the models until the first checkpoint and then stop early so we
 # can compare the validation losses.
 
-# Then we restart training for the best model and save it to the models directory.
+# Then we restart training for the best model and train it to completion.
 
 # You can kick off training with the following command:
 
@@ -281,6 +282,9 @@ class ModelHyperparameters:
 # Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:127] [Node 2]  Remote Device: cuda // GPU: A10G
 # ...
 # ```
+
+# The `local_entrypoint` code is below. Note that the arguments to it can also be passed via the command line.
+# Use `--help` for details.
 
 
 @app.local_entrypoint()
@@ -555,6 +559,7 @@ def web_generate(request: GenerationRequest):
 # or on your [Modal app dashboard](https://modal.com/apps) for this app.
 
 # The Gradio UI will look something like this:
+
 # ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
 
 web_app = FastAPI()
