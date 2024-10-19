@@ -68,7 +68,7 @@ app = modal.App(app_name)
 
 gpu = "A10G"
 
-# ### Create a Volume
+# ### Create a Volume to store weights and logs
 
 # Since we'll be coordinating training across multiple machines we'll use a
 # single [Volume](https://modal.com/docs/guide/volumes)
@@ -83,7 +83,7 @@ best_model_filename = "best_nano_gpt_model.pt"
 tb_log_path = volume_path / "tb_logs"
 model_save_path = volume_path / "models"
 
-# ### Defining container images
+# ### Define dependencies in container images
 
 # The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
@@ -125,7 +125,7 @@ with image.imports():
     from .model import AttentionModel
     from .tokenizer import Tokenizer
 
-# ## Training Function
+# ## Running SLM training on Modal
 
 # Here we define the training function, wrapping it in a decorator
 # that specifies the infrastructural parameters, like the container `image` we want to use,
@@ -407,7 +407,7 @@ def monitor_training():
 # Notice that there are 8 models training, and the one with the lowest
 # validation loss at step 600 continues training to 3000 steps.
 
-# ## Serving model as web endpoint
+# ## Serving SLMs on Modal during and after training
 
 # Because our weights are stored in a distributed Volume,
 # we can deploy an inference endpoint based off of them without any extra work --
