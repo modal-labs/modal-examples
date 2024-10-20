@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/sam/sam_example.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/sam/run_sam.py"]
 # deploy: true
 # ---
 
@@ -31,23 +31,23 @@ from pathlib import Path
 import modal
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
+SAM2_GIT_SHA = "c2ec8e14a185632b0a5d8b161928ceb50197eddc"
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "wget", "python3-opencv", "ffmpeg")
     .pip_install(
-        "torch",
-        "torchvision",
-        "opencv-python",
-        "pycocotools",
-        "matplotlib",
-        "onnxruntime",
-        "onnx",
-        "huggingface_hub",
-        "ffmpeg",
+        "torch~=2.4.1",
+        "torchvision==0.19.1",
+        "opencv-python==4.10.0.84",
+        "pycocotools~=2.0.8",
+        "matplotlib~=3.9.2",
+        "onnxruntime==1.19.2",
+        "onnx==1.17.0",
+        "huggingface_hub==0.25.2",
+        "ffmpeg==1.4",
+        f"git+https://github.com/facebookresearch/sam2.git@{SAM2_GIT_SHA}",
     )
-    .run_commands("git clone https://github.com/facebookresearch/sam2.git")
-    .run_commands("cd sam2 && pip install -e .")
 )
 app = modal.App("sam2-app", image=image)
 
@@ -95,27 +95,28 @@ def show_points(coords, labels, ax, marker_size=375):
 
 
 # ## Model class
-#
-# Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
+# Next, we define the `Model` class that will handle SAM2 operations for both image and video.
 
 # We use `@modal.build()` and `@modal.enter()` decorators here for optimization:
 # `@modal.build()` ensures this method runs during the container build process,
 # downloading the model only once and caching it in the container image.
-#
+
 # `@modal.enter()` makes sure the method runs only once when a new container starts,
 # initializing the model and moving it to GPU.
-#
+
 # The upshot is that model downloading and initialization only happen once upon container startup.
 # This significantly reduces cold start times and improves performance.
-#
+
 # Note that we mount the local video file onto the Modal class, and then in the model initialization, we use ffmpeg to turn the video into a series of `.jpg` frames.
+
+
 @app.cls(
     gpu="A100",
     timeout=600,
     mounts=[
         modal.Mount.from_local_file(
-            local_path="06_gpu_and_ml/sam/cliff_jumping.mp4",
+            local_path=Path(__file__).parent / "cliff_jumping.mp4",
             remote_path="/root/assets/cliff_jumping.mp4",
         )
     ],
@@ -298,49 +299,43 @@ class Model:
 
 # Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
 # to run the segmentation. This local entrypoint invokes the `generate_image_masks` and `generate_video_masks` methods.
-#
+
 # Please note that there are several ways to pass an image or video file (or any data file) from the local machine to the container running the Modal function.
-#
+
 # One way is to convert the file to bytes and pass the bytes to the function.
-#
+
 # Another way is to mount the file to the container.
-#
+
 # In the image segmentation example below, the image is passed as bytes to the function.
-#
+
 # In the video segmentation example on the other hand, we explicitly mount the `.mp4` file to the container.
-#
+
 # The output masks are passed back to the local entrypoint from the Modal function and written to local files in `/tmp`.
+
+
 @app.local_entrypoint()
 def main():
     dir = Path("/tmp/sam2-outputs")
-    if not dir.exists():
-        dir.mkdir(exist_ok=True, parents=True)
+    dir.mkdir(exist_ok=True, parents=True)
 
-    # Instantiate the model
     model = Model()
 
-    # Image segmentation
-
     # Read the image as bytes
-    with open("06_gpu_and_ml/sam/dog.jpg", "rb") as f:
-        image_bytes = f.read()
+    image_bytes = (Path(__file__).parent / "dog.jpg").read_bytes()
 
-    # Pass image bytes to the function
+    # Pass image bytes to the function, get back the output masks
     frame_images = model.generate_image_masks.remote(image_bytes)
 
-    # # Save the output image bytes to assets/ folder
+    # Save the output image bytes to assets/ folder
     for i, image_bytes in enumerate(frame_images):
-        output_path = dir / f"image_output_{i}.jpg"
-        print(f"Saving it to {output_path}")
-        with open(output_path, "wb") as f:
-            f.write(image_bytes)
+        output_path = dir / f"image_output_{str(i).zfill(3)}.jpg"
+        output_path.write_bytes(image_bytes)
+        print(f"Saved frame to {output_path}")
 
-    # # Video segmentation
-
+    # Run video segmentation
     frame_images = model.generate_video_masks.remote()
 
     for i, image_bytes in enumerate(frame_images):
-        output_path = dir / f"video_output_{i}.jpg"
+        output_path = dir / f"video_output_{str(i).zfill(3)}.jpg"
+        output_path.write_bytes(image_bytes)
         print(f"Saving it to {output_path}")
-        with open(output_path, "wb") as f:
-            f.write(image_bytes)
