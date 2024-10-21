@@ -23,9 +23,11 @@
 # including `GitPython`, which we'll use to download the dataset.
 
 import asyncio
+import multiprocessing
 import pathlib
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime
 from urllib.request import urlretrieve
 
@@ -47,9 +49,11 @@ volume = modal.Volume.from_name(
     "example-covid-datasette-cache-vol", create_if_missing=True
 )
 
+DB_FILENAME = "covid-19.db"
 VOLUME_DIR = "/cache-vol"
 REPORTS_DIR = pathlib.Path(VOLUME_DIR, "COVID-19")
-DB_PATH = pathlib.Path(VOLUME_DIR, "covid-19.db")
+DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
+
 
 # ## Getting a dataset
 #
@@ -81,10 +85,13 @@ def download_dataset(cache=True):
 
     print("Unpacking archive...")
     prefix = "COVID-19-master/csse_covid_19_data/csse_covid_19_daily_reports"
-    subprocess.run(
-        f"unzip /tmp/covid-19.zip {prefix}/* -d {REPORTS_DIR}", shell=True
-    )
-    subprocess.run(f"mv {REPORTS_DIR / prefix}/* {REPORTS_DIR}", shell=True)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        subprocess.run(
+            f"unzip /tmp/covid-19.zip {prefix}/* -d {tmpdir}", shell=True
+        )
+        REPORTS_DIR.mkdir(parents=True)
+        tmpdir_path = pathlib.Path(tmpdir)
+        subprocess.run(f"mv {tmpdir_path / prefix}/* {REPORTS_DIR}", shell=True)
 
     print("Committing the volume...")
     volume.commit()
@@ -105,8 +112,17 @@ def load_daily_reports():
         raise RuntimeError(
             f"Could not find any daily reports in {REPORTS_DIR}."
         )
+
+    # Preload report files to speed up sequential loading
+    pool = multiprocessing.Pool(128)
+    pool.map(preload_report, daily_reports)
+
     for filepath in daily_reports:
         yield from load_report(filepath)
+
+
+def preload_report(filepath):
+    filepath.read_bytes()
 
 
 def load_report(filepath):
@@ -171,23 +187,33 @@ def prep_db():
     print("Loading daily reports...")
     records = load_daily_reports()
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite_utils.Database(DB_PATH)
-    table = db["johns_hopkins_csse_daily_reports"]
+    # Update database in a local temp dir
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = pathlib.Path(tmpdir)
+        tmp_db_path = tmpdir_path / DB_FILENAME
+        if DB_PATH.exists():
+            shutil.copyfile(DB_PATH, tmp_db_path)
+        db = sqlite_utils.Database(tmp_db_path)
+        table = db["johns_hopkins_csse_daily_reports"]
 
-    batch_size = 100_000
-    for i, batch in enumerate(chunks(records, size=batch_size)):
-        truncate = True if i == 0 else False
-        table.insert_all(batch, batch_size=batch_size, truncate=truncate)
-        print(f"Inserted {len(batch)} rows into DB.")
+        batch_size = 100_000
+        for i, batch in enumerate(chunks(records, size=batch_size)):
+            truncate = True if i == 0 else False
+            table.insert_all(batch, batch_size=batch_size, truncate=truncate)
+            print(f"Inserted {len(batch)} rows into DB.")
 
-    table.create_index(["day"], if_not_exists=True)
-    table.create_index(["province_or_state"], if_not_exists=True)
-    table.create_index(["country_or_region"], if_not_exists=True)
+        table.create_index(["day"], if_not_exists=True)
+        table.create_index(["province_or_state"], if_not_exists=True)
+        table.create_index(["country_or_region"], if_not_exists=True)
+
+        db.close()
+
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(tmp_db_path, DB_PATH)
 
     print("Syncing DB with volume.")
     volume.commit()
-    db.close()
+    print("Volume changes committed.")
 
 
 # ## Keep it fresh
@@ -202,8 +228,6 @@ def refresh_db():
     print(f"Running scheduled refresh at {datetime.now()}")
     download_dataset.remote(cache=False)
     prep_db.remote()
-    volume.commit()
-    print("Volume changes committed.")
 
 
 # ## Web endpoint
