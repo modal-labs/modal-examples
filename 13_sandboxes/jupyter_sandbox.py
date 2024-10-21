@@ -6,7 +6,8 @@
 
 # # Run a Jupyter notebook in a Modal Sandbox
 #
-# This example demonstrates how to run a Jupyter notebook in a Modal [Sandbox](/docs/guide/sandbox).
+# This example demonstrates how to run a Jupyter notebook in a Modal
+# [Sandbox](https://modal.com/docs/guide/sandbox).
 
 import json
 import secrets
@@ -20,24 +21,27 @@ import modal
 app = modal.App.lookup("example-jupyter", create_if_missing=True)
 
 # We define a custom Docker image that has Jupyter and some other dependencies installed.
-# Using a custom image allows us to avoid re-installing these deps on every Sandbox startup.
+# Using a pre-defined image allows us to avoid re-installing packages on every Sandbox startup.
 
 image = (
     modal.Image.debian_slim(python_version="3.12").pip_install("jupyter~=1.1.0")
     # .pip_install("pandas", "numpy", "seaborn")  # Any other deps
 )
 
-# Since we'll be exposing a Jupyter server, we'll need to create a password.
-# We'll use secrets to store the token in a Modal Secret.
+# Since we'll be exposing a Jupyter server over the Internet, we need to create a password.
+# We'll use `secrets` from the standard library to create a token
+# and then store it in a Modal [Secret](https://modal.com/docs/guide/secrets).
 
 token = secrets.token_urlsafe(13)
 token_secret = modal.Secret.from_dict({"JUPYTER_TOKEN": token})
 
-# Now, we can start our sandbox. Note our use of the `encrypted_ports` argument, which
-# allows us to securely expose the Jupyter server to the public internet. We use
+# Now, we can start our Sandbox. Note our use of the `encrypted_ports` argument, which
+# allows us to securely expose the Jupyter server to the public Internet. We use
 # `modal.enable_output()` to print the Sandbox's image build logs to the console.
 
 JUPYTER_PORT = 8888
+
+print("🏖️  Creating sandbox")
 
 with modal.enable_output():
     sandbox = modal.Sandbox.create(
@@ -56,17 +60,21 @@ with modal.enable_output():
         app=app,
     )
 
-print(f"Sandbox ID: {sandbox.object_id}")
+print(f"🏖️  Sandbox ID: {sandbox.object_id}")
 
 # Finally, we can print out a URL that we can use to connect to our Jupyter server.
-# Note that we have to call [`Sandbox.tunnels`](/docs/reference/modal.Sandbox#tunnels) to get the
-# URL because the Sandbox is not publicly accessible until we do so.
+# Note that we have to call [`Sandbox.tunnels`](/docs/reference/modal.Sandbox#tunnels)
+# to get the URL. The Sandbox is not publicly accessible until we do so.
 
 tunnel = sandbox.tunnels()[JUPYTER_PORT]
 url = f"{tunnel.url}/?token={token}"
-print(f"Jupyter notebook is running at: {url}")
+print(f"🏖️  Jupyter notebook is running at: {url}")
 
-# We'll wait for the Jupyter server to be ready by checking its status endpoint.
+# Jupyter servers expose a [REST API](https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html)
+# that you can use for programmatic manipulation.
+
+# For example, we can check the server's status by
+# sending a GET request to the `/api/status` endpoint.
 
 
 def is_jupyter_up():
@@ -82,16 +90,19 @@ def is_jupyter_up():
     return False
 
 
+# We'll now wait for the Jupyter server to be ready by hitting that endpoint.
+
 timeout = 60  # seconds
 start_time = time.time()
 while time.time() - start_time < timeout:
     if is_jupyter_up():
-        print("Jupyter is up and running!")
+        print("🏖️  Jupyter is up and running!")
         break
     time.sleep(1)
 else:
-    print("Timed out waiting for Jupyter to start.")
+    print("🏖️  Timed out waiting for Jupyter to start.")
 
 
-# You can now open this URL in your browser to access the Jupyter notebook! When you're done,
-# terminate the sandbox using the UI or `Sandbox.from_id(sandbox.object_id).terminate()`.
+# You can now open this URL in your browser to access the Jupyter notebook!
+# When you're done, terminate the sandbox using from your [Modal dashboard](https://modal.com/apps)
+# or by running `Sandbox.from_id(sandbox.object_id).terminate()`.
