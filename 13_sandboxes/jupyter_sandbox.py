@@ -5,9 +5,11 @@
 # ---
 
 # # Run a Jupyter notebook in a Modal Sandbox
-#
+
 # This example demonstrates how to run a Jupyter notebook in a Modal
 # [Sandbox](https://modal.com/docs/guide/sandbox).
+
+# ## Setting up the Sandbox
 
 import json
 import secrets
@@ -27,6 +29,8 @@ image = (
     modal.Image.debian_slim(python_version="3.12").pip_install("jupyter~=1.1.0")
     # .pip_install("pandas", "numpy", "seaborn")  # Any other deps
 )
+
+# ## Starting a Jupyter server in a Sandbox
 
 # Since we'll be exposing a Jupyter server over the Internet, we need to create a password.
 # We'll use `secrets` from the standard library to create a token
@@ -62,7 +66,9 @@ with modal.enable_output():
 
 print(f"🏖️  Sandbox ID: {sandbox.object_id}")
 
-# Finally, we can print out a URL that we can use to connect to our Jupyter server.
+# ## Communicating with a Jupyter server
+
+# Next, we print out a URL that we can use to connect to our Jupyter server.
 # Note that we have to call [`Sandbox.tunnels`](/docs/reference/modal.Sandbox#tunnels)
 # to get the URL. The Sandbox is not publicly accessible until we do so.
 
@@ -104,5 +110,6 @@ else:
 
 
 # You can now open this URL in your browser to access the Jupyter notebook!
-# When you're done, terminate the sandbox using from your [Modal dashboard](https://modal.com/apps)
+
+# When you're done, terminate the sandbox using your [Modal dashboard](https://modal.com/sandboxes)
 # or by running `Sandbox.from_id(sandbox.object_id).terminate()`.
