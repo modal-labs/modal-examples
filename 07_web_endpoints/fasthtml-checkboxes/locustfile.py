@@ -18,7 +18,7 @@ class CheckboxesUser(HttpUser):
         """
         response = self.client.get("/")
         soup = BeautifulSoup(response.text, "lxml")
-        main_div = soup.find('main')
+        main_div = soup.find("main")
         self.id = main_div["hx-get"].split("/")[-1]
 
     @task(10)

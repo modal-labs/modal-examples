@@ -69,7 +69,7 @@ def web():
                     checked=False,
                     # when clicked, that checkbox will send a POST request to the server with its index
                     hx_post=f"/checkbox/toggle/{i}",
-                    hx_swap_oob="true", # allows us to later push diffs to arbitrary checkboxes by id
+                    hx_swap_oob="true",  # allows us to later push diffs to arbitrary checkboxes by id
                 )
             )
 
@@ -117,7 +117,7 @@ def web():
     async def toggle(i: int):
         async with checkbox_mutex:
             cb = checkboxes[i]
-            cb.checked = not cb.checked # hopefully we can do this!
+            cb.checked = not cb.checked
             checkboxes[i] = cb
 
         async with clients_mutex:
@@ -148,7 +148,7 @@ def web():
             diffs = client.pull_diffs()
 
         async with checkbox_mutex:
-            diff_array = [checkboxes[i]for i in diffs]
+            diff_array = [checkboxes[i] for i in diffs]
 
         return diff_array
 
@@ -171,7 +171,6 @@ class Client:
     def add_diff(self, i):
         if i not in self.diffs:
             self.diffs.append(i)
-
 
     def pull_diffs(self):
         # return a copy of the diffs and clear them
