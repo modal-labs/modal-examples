@@ -5,8 +5,10 @@
 # ---
 
 # # Running arbitrary code in a sandboxed environment
-#
-# This example demonstrates how to run arbitrary code in a Modal [Sandbox](/docs/guide/sandbox).
+
+# This example demonstrates how to run arbitrary code in a Modal [Sandbox](https://modal.com/docs/guide/sandbox).
+
+# ## Setting up a multi-language environment
 
 import modal
 
@@ -27,7 +29,9 @@ with modal.enable_output():
 
 print(f"Sandbox ID: {sandbox.object_id}")
 
-# We can now use [`Sandbox.exec`](/docs/reference/modal.Sandbox#exec) to run a few different
+# ## Running bash, Python, Node.js, Ruby, and PHP in a Sandbox
+
+# We can now use [`Sandbox.exec`](https://modal.com/docs/reference/modal.Sandbox#exec) to run a few different
 # commands in the Sandbox.
 
 bash_ps = sandbox.exec("echo", "hello from bash")
@@ -50,7 +54,7 @@ print()
 # hello from ruby
 # hello from php
 # ```
-#
+
 # We can use multiple languages in tandem to build complex applications.
 # Let's demonstrate this by piping data between Python and Node.js using bash. Here
 # we generate some random numbers with Python and sum them with Node.js.
@@ -74,7 +78,7 @@ print(result)
 # ```
 # The sum of the random numbers is: 501
 # ```
-#
+
 # For long-running processes, you can use stdout as an iterator to stream the output.
 
 slow_printer = sandbox.exec(
@@ -104,8 +108,9 @@ for line in slow_printer.stdout:
 # Line 9: 2024-10-21 15:30:57 +0000
 # Line 10: 2024-10-21 15:30:58 +0000
 # ```
-#
-# Since sandboxes are safe environments, we can run very dangerous code in them!
+
+# Since sandboxes are safely separated from the rest of our system,
+# we can run very dangerous code in them!
 
 sandbox.exec("rm", "-rf", "/", "--no-preserve-root")
 
