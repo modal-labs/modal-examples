@@ -4,9 +4,9 @@
 # mypy: ignore-errors
 # ---
 
-# # Deploy 10,000 multiplayer checkboxes on Modal with FastHTML
+# # Deploy 100,000 multiplayer checkboxes on Modal with FastHTML
 
-# ![Screenshot of FastHTML Checkboxes UI](./fasthtml-checkboxes-ui.png)
+# ![Screenshot of FastHTML Checkboxes UI](./ui.png)
 
 # This example shows how you can deploy a multiplayer checkbox game with FastHTML on Modal.
 
@@ -52,7 +52,7 @@ def web():
     clients = {}
     clients_mutex = Lock()
 
-    # We keep all checkbox states in memory during operation, and persist to modal dict across restarts
+    # We keep all checkbox fasthtml elements in memory during operation, and persist to modal dict across restarts
     checkboxes = db.get("checkboxes", [])
     checkbox_mutex = Lock()
 
@@ -60,7 +60,18 @@ def web():
         print("Restored checkbox state from previous session.")
     else:
         print("Initializing checkbox state.")
-        checkboxes = [False] * N_CHECKBOXES
+        checkboxes = []
+        for i in range(N_CHECKBOXES):
+            checkboxes.append(
+                fh.Input(
+                    id=f"cb-{i}",
+                    type="checkbox",
+                    checked=False,
+                    # when clicked, that checkbox will send a POST request to the server with its index
+                    hx_post=f"/checkbox/toggle/{i}",
+                    hx_swap_oob="true",  # allows us to later push diffs to arbitrary checkboxes by id
+                )
+            )
 
     async def on_shutdown():
         # Handle the shutdown event by persisting current state to modal dict
@@ -83,17 +94,6 @@ def web():
         async with clients_mutex:
             clients[client.id] = client
 
-        # get current state of all checkboxes
-        checkbox_array = [
-            fh.CheckboxX(
-                id=f"cb-{i}",
-                checked=val,
-                # when clicked, that checkbox will send a POST request to the server with its index
-                hx_post=f"/checkbox/toggle/{i}/{client.id}",
-            )
-            for i, val in enumerate(checkboxes)
-        ]
-
         return (
             fh.Title(f"{N_CHECKBOXES // 1000}k Checkboxes"),
             fh.Main(
@@ -101,7 +101,7 @@ def web():
                     f"{inflect.engine().number_to_words(N_CHECKBOXES).title()} Checkboxes"
                 ),
                 fh.Div(
-                    *checkbox_array,
+                    *checkboxes,
                     id="checkbox-array",
                 ),
                 cls="container",
@@ -113,18 +113,16 @@ def web():
         )
 
     # users submitting checkbox toggles
-    @app.post("/checkbox/toggle/{i}/{client_id}")
-    async def toggle(i: int, client_id: str):
+    @app.post("/checkbox/toggle/{i}")
+    async def toggle(i: int):
         async with checkbox_mutex:
-            checkboxes[i] = not checkboxes[i]
+            cb = checkboxes[i]
+            cb.checked = not cb.checked
+            checkboxes[i] = cb
 
         async with clients_mutex:
             expired = []
             for client in clients.values():
-                if client.id == client_id:
-                    # ignore self; we keep our own diffs
-                    continue
-
                 # clean up old clients
                 if not client.is_active():
                     expired.append(client.id)
@@ -150,15 +148,7 @@ def web():
             diffs = client.pull_diffs()
 
         async with checkbox_mutex:
-            diff_array = [
-                fh.CheckboxX(
-                    id=f"cb-{i}",
-                    checked=checkboxes[i],
-                    hx_post=f"/checkbox/toggle/{i}/{client_id}",
-                    hx_swap_oob="true",  # this allows us to push updates to arbitrary checkboxes matching the id
-                )
-                for i in diffs
-            ]
+            diff_array = [checkboxes[i] for i in diffs]
 
         return diff_array
 
@@ -179,10 +169,7 @@ class Client:
         self.inactive_deadline = time.time() + 30
 
     def add_diff(self, i):
-        if i in self.diffs:
-            # two toggles are equivalent to zero, so we just cancel the diff
-            self.diffs.remove(i)
-        else:
+        if i not in self.diffs:
             self.diffs.append(i)
 
     def pull_diffs(self):

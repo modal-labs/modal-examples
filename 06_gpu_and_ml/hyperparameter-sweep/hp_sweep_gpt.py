@@ -1,11 +1,11 @@
 # ---
 # deploy: true
-# args: ["--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
+# cmd: ["modal", "run", "06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt", "--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
 # ---
 
 # # Train an SLM from scratch with early-stopping grid search over hyperparameters
 
-# ![shakespeare](./shakespeare.png)
+# ![Split-Panel Image. Left: AI generated picture of Shakespeare. Right: SLM generated text](./shakespeare.jpg)
 
 # When you want a language model that performs well on your task, there are three options,
 # ordered by the degree of customization:
@@ -59,42 +59,40 @@ from modal import Image
 from pydantic import BaseModel
 
 MINUTES = 60  # seconds
+HOURS = 60 * MINUTES
 
-# We'll use A10G GPUs for training which are able to train the model to recognizably improved performance
+app_name = "example-hp-sweep-gpt"
+app = modal.App(app_name)
+
+# We'll use A10G GPUs for training, which are able to train the model to recognizably improved performance
 # in ~15 minutes while keeping costs under ~$1.
 
 gpu = "A10G"
 
-# ### Create a Volume
+# ### Create a Volume to store data, weights, and logs
 
 # Since we'll be coordinating training across multiple machines we'll use a
 # single [Volume](https://modal.com/docs/guide/volumes)
 # to store the `dataset`, checkpointed models, and TensorBoard logs.
 
 volume = modal.Volume.from_name(
-    "example-hp-sweep-gpt-volume", create_if_missing=True
+    "example-hp-sweep-gpt-volume-v2", create_if_missing=True
 )
 volume_path = Path("/vol/data")
 model_filename = "nano_gpt_model.pt"
 best_model_filename = "best_nano_gpt_model.pt"
 tb_log_path = volume_path / "tb_logs"
-save_path = volume_path / "models"
+model_save_path = volume_path / "models"
 
-# ### Defining container images
+# ### Define dependencies in container images
 
-# The container imagefor training  is based on Modal's default slim Debian Linux image with `torch`
+# The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
 
-# We also copy over the model definition files from the local machine.
-
-image = (
-    Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "torch==2.1.2",
-        "tensorboard==2.17.1",
-        "numpy<2",
-    )
-    .copy_local_file(Path(__file__).parent / "model.py", "/root/model.py")
+image = Image.debian_slim(python_version="3.11").pip_install(
+    "torch==2.1.2",
+    "tensorboard==2.17.1",
+    "numpy<2",
 )
 
 # We'll spin up a separate container to monitor the training logs with TensorBoard.
@@ -109,7 +107,11 @@ ui_image = Image.debian_slim(python_version="3.11").pip_install(
     "gradio~=4.44.0", "pydantic>=2", "fastapi==0.114.2"
 )
 
-app = modal.App("example-hp-sweep-gpt")
+# We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
+# using the `with image.imports` context manager.
+
+# We can also import our local code into the remote environment at the same time.
+# Here, we import utilities for defining our dataset, model, and monitoring.
 
 with image.imports():
     import glob
@@ -118,13 +120,17 @@ with image.imports():
 
     import tensorboard
     import torch
-    from model import AttentionModel, Dataset
-    from torch.utils.tensorboard import SummaryWriter
 
-# ## Training Function
+    from .dataset import Dataset
+    from .logs_manager import LogsManager
+    from .model import AttentionModel
+    from .tokenizer import Tokenizer
 
-# Here we define the training function making sure to include the `image`,
-# `volume`, `gpu`, and `timeout` parameters.
+# ## Running SLM training on Modal
+
+# Here we define the training function, wrapping it in a decorator
+# that specifies the infrastructural parameters, like the container `image` we want to use,
+# which `volume` to mount where, the `gpu` we're using, and so on.
 
 # Training consists of specifying optimization parameters, loading the
 # `dataset`, building the `model`, setting up TensorBoard logging &
@@ -132,7 +138,7 @@ with image.imports():
 
 
 @app.function(
-    image=image, volumes={volume_path: volume}, gpu=gpu, timeout=20 * MINUTES
+    image=image, volumes={volume_path: volume}, gpu=gpu, timeout=1 * HOURS
 )
 def train_model(
     node_rank,
@@ -149,100 +155,66 @@ def train_model(
     learning_rate = 3e-4
 
     n_eval_steps = 100
-    n_steps_before_eval = (
-        n_steps_before_eval
-        if n_steps_before_eval is not None
-        else int(n_steps / 8)  # eval eight times per run
-    )
-    n_steps_before_checkpoint = (
-        n_steps_before_checkpoint
-        if n_steps_before_checkpoint is not None
-        else int(n_steps / 4)  # save four times per run
-    )
+    if n_steps_before_eval is None:
+        n_steps_before_eval = int(n_steps / 8)  # eval eight times per run
+    if n_steps_before_checkpoint is None:
+        n_steps_before_checkpoint = int(n_steps / 4)  # save four times per run
 
     train_percent = 0.9
 
     L.basicConfig(
         level=L.INFO,
-        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}/{n_nodes}] %(message)s\033[0m",
+        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}] %(message)s\033[0m",
         datefmt="%b %d %H:%M:%S",
     )
 
     # use GPU if available
-    device = "cuda"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     L.info("Remote Device: %s // GPU: %s", device, gpu)
 
     input_file_path = volume_path / "shakespeare_char.txt"
     text = prepare_data(input_file_path, volume)
 
-    # construct dataset
+    # construct tokenizer & dataset
+    tokenizer = Tokenizer(text)
     dataset = Dataset(
-        text,
+        tokenizer.encode(text),
         train_percent,
         batch_size,
         hparams.context_size,
-        n_eval_steps,
         device,
     )
 
-    # build model
-    model = build_model(hparams, dataset.vocab_size, device)
+    # build the model
+    model = build_model(hparams, tokenizer.vocab_size, device)
     num_parameters = sum(p.numel() for p in model.parameters())
     L.info(f"Num parameters: {num_parameters}")
 
-    # setup optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    optimizer = setup_optimizer(model, learning_rate)
 
     # TensorBoard logging & checkpointing prep
-    model_name = (
-        f"{experiment_name}"
-        f"_context_size={hparams.context_size}_n_heads={hparams.n_heads}"
-        f"_dropout={hparams.dropout}"
+    logs_manager = LogsManager(
+        experiment_name, hparams, num_parameters, tb_log_path
     )
-    L.info(f"Model Name: {model_name}")
+    L.info(f"Model name: {logs_manager.model_name}")
 
-    # save logs to something like:
-    # volume/logs/E2024-01-01-000000.000000/
-    #   E2024-01-01-000000.000000_context=8_n_heads=1_dropout=0.0/train
-    model_log_dir = tb_log_path / f"{experiment_name}/{model_name}"
-    model_log_dir.mkdir(parents=True, exist_ok=True)
-    train_writer = SummaryWriter(log_dir=f"{model_log_dir}/train")
-    val_writer = SummaryWriter(log_dir=f"{model_log_dir}/val")
-
-    # save hyperparameters to TensorBoard for easy reference
-    pretty_hparams_str = "\n".join(
-        f"{k}: {v}" for k, v in hparams.__dict__.items()
-    )
-    pretty_hparams_str += f"\nNum parameters: {num_parameters}"
-    train_writer.add_text("Hyperparameters", pretty_hparams_str)
-
-    model_save_dir = save_path / experiment_name / model_name
+    model_save_dir = model_save_path / experiment_name / logs_manager.model_name
     if model_save_dir.exists():
         L.info("Loading model from checkpoint...")
         checkpoint = torch.load(str(model_save_dir / model_filename))
-        if not run_to_first_save:
-            # create symlink to the best model so it's easy to find for web serving
-            os.symlink(
-                str(model_save_dir / model_filename),
-                str(save_path / experiment_name / best_model_filename),
+        is_best_model = not run_to_first_save
+        if is_best_model:
+            make_best_symbolic_link(
+                model_save_dir, model_filename, experiment_name
             )
-            volume.commit()  # commit the symlink
-
         model.load_state_dict(checkpoint["model"])
         start_step = checkpoint["steps"] + 1
     else:
         model_save_dir.mkdir(parents=True, exist_ok=True)
         start_step = 0
-        # save metadata for training restarts and inference
-        checkpoint = {
-            "model": model.state_dict(),
-            "chars": dataset.chars,
-            "optimizer": optimizer.state_dict(),
-            "val_loss": float("inf"),
-            "steps": start_step,
-            "hparams": hparams,
-            "finished_training": False,
-        }
+        checkpoint = init_checkpoint(
+            model, tokenizer, optimizer, start_step, hparams
+        )
 
     checkpoint_path = model_save_dir / model_filename
 
@@ -251,11 +223,12 @@ def train_model(
         n_steps,
         n_steps_before_eval,
         n_steps_before_checkpoint,
+        n_eval_steps,
         dataset,
+        tokenizer,
         model,
         optimizer,
-        train_writer,
-        val_writer,
+        logs_manager,
         checkpoint,
         checkpoint_path,
         run_to_first_save,
@@ -264,12 +237,12 @@ def train_model(
     return node_rank, float(out["val"]), hparams
 
 
-# ## Launching a hyperparameter sweep from a `local_entrypoint`
+# ## Launch a hyperparameter sweep from a `local_entrypoint`
 
 # The main entry point coordinates the hyperparameter optimization.
 # First we specify the default hyperparameters for the model, taken from
-# [Karpathy's biggest model](https://www.youtube.com/watch?v=kCc8FmEb1nY&t=5976s),
-# which add up to 10 million total neural network parameters.
+# [Andrej Karpathy's walkthrough](https://www.youtube.com/watch?v=kCc8FmEb1nY&t=5976s).
+# For better performance, you can increase the `context_size` and scale up the GPU accordingly.
 
 
 @dataclass
@@ -281,15 +254,37 @@ class ModelHyperparameters:
     dropout: float = 0.2
 
 
-# Next we define the local entrypoint function.
+# Next we define the local entrypoint: the code we run locally to coordinate training.
+
 # It will train 8 models in parallel across 8 containers, each
 # with different hyperparameters, varying the number of heads (`n_heads`), the
-# `context_size` (called the block size in Karpathy lingo), and the dropout rate (`dropout`). To run in
-# parallel we need to use the [starmap function](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
+# `context_size` (called the "block size" by Karpathy), and the dropout rate (`dropout`). To run in
+# parallel we need to use the [`starmap` method](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
 
-# We train all of the models until the first checkpoint, and then stop early so we
-# can compare the validation losses. Then we'll restart training for the best
-# model and save it to the models directory.
+# We train all of the models until the first checkpoint and then stop early so we
+# can compare the validation losses.
+
+# Then we restart training for the best model and train it to completion.
+
+# You can kick off training with the following command:
+
+# ```bash
+# modal run 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt`
+# ```
+
+# The output will look something like this:
+
+# ```
+# Sep 16 21:20:39 INFO [hp_sweep_gpt.py.train_model:127] [Node 1]  Remote Device: cuda // GPU: A10G
+# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:149] [Node 1]  Num parameters: 10693697
+# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:156] [Node 1]  Model Name: E2024-0916-142031.618259_context_size=8_n_heads=1_dropout=0.1
+# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:225] [Node 1]      0) //  1.03s // Train Loss: 3.58 // Val Loss: 3.60
+# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:127] [Node 2]  Remote Device: cuda // GPU: A10G
+# ...
+# ```
+
+# The `local_entrypoint` code is below. Note that the arguments to it can also be passed via the command line.
+# Use `--help` for details.
 
 
 @app.local_entrypoint()
@@ -321,20 +316,15 @@ def main(
     stop_early = True  # stop early so we can compare val losses
     print(f"Testing {len(hparams_list)} hyperparameter settings")
     n_nodes = len(hparams_list)
+    static_params = (
+        experiment_name,
+        stop_early,
+        n_steps,
+        n_steps_before_eval,
+        n_steps_before_checkpoint,
+    )
     for result in train_model.starmap(
-        [
-            (
-                i,
-                n_nodes,
-                h,
-                experiment_name,
-                stop_early,
-                n_steps,
-                n_steps_before_eval,
-                n_steps_before_checkpoint,
-            )
-            for i, h in enumerate(hparams_list)
-        ],
+        [(i, n_nodes, h, *static_params) for i, h in enumerate(hparams_list)],
         order_outputs=False,
     ):
         # result = (node_rank, val_loss, hparams)
@@ -365,22 +355,29 @@ def main(
     )
 
 
-# After running `modal run hp_sweep_gpt.py` you should see output like this:
-# ```
-# Sep 16 21:20:39 INFO [hp_sweep_gpt.py.train_model:127] [Node 1/8]  Remote Device: cuda // GPU: A10G
-# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:149] [Node 1/8]  Num parameters: 10693697
-# Sep 16 21:20:40 INFO [hp_sweep_gpt.py.train_model:156] [Node 1/8]  Model Name: E2024-0916-142031.618259_context_size=8_n_heads=1_dropout=0.1
-# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:225] [Node 1/8]      0) //  1.03s // Train Loss: 3.58 // Val Loss: 3.60
-# Sep 16 21:20:41 INFO [hp_sweep_gpt.py.train_model:127] [Node 2/8]  Remote Device: cuda // GPU: A10G
-# ...
-# ```
+# ### Monitor experiments with TensorBoard
 
-
-# ### Monitoring experiments with TensorBoard
-
-# To monitor our training we will create a TensorBoard WSGI web app, it will
+# To monitor our training we will create a TensorBoard WSGI web app, which will
 # display the progress of our training across all 8 models. We'll use the latest
 # logs for the most recent experiment written to the Volume.
+
+# To ensure a unique color per experiment you can click the palette (🎨) icon
+# under TensorBoard > Time Series > Run and use the Regex:
+# `E(\d{4})-(\d{2})-(\d{2})-(\d{6})\.(\d{6})`
+
+# You can deploy this TensorBoard service by running
+
+# ```
+# modal deploy 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt
+# ```
+
+# and visit it at the URL that ends with `-monitor-training.modal.run`.
+
+# After training finishes, your TensorBoard UI will look something like this:
+
+# ![8 lines on a graph, validation loss on y-axis, time step on x-axis. All lines go down over the first 1000 time steps, and one goes to 5000 time steps with a final loss of 1.52](./tensorboard.png)
+
+# You can also find some sample text generated by the model in the "Text" tab.
 
 
 @app.function(image=monitoring_image, volumes={volume_path: volume})
@@ -397,15 +394,9 @@ def monitor_training():
         volume.reload()  # make sure we have the latest data.
         time.sleep(1)
 
-    # obtain the latest log path
-    tb_log_paths = glob.glob(f"{tb_log_path}/*")
-    latest_tb_log_path = max(tb_log_paths, key=os.path.getctime)
-    monitor_path = Path(latest_tb_log_path)
-    print(f"📈 Monitoring: {monitor_path.name}")
-
-    # start TensorBoard with the latest log path
+    # start TensorBoard server looking at all experiments
     board = tensorboard.program.TensorBoard()
-    board.configure(logdir=str(monitor_path))
+    board.configure(logdir=str(tb_log_path))
     (data_provider, deprecated_multiplexer) = board._make_data_provider()
     wsgi_app = tensorboard.backend.application.TensorBoardWSGIApp(
         board.flags,
@@ -417,90 +408,82 @@ def monitor_training():
     return wsgi_app
 
 
-# After training your TensorBoard UI will look something like this:
-
-# [[./tensorboard.png|alt=TensorBoard]]
-
 # Notice that there are 8 models training, and the one with the lowest
 # validation loss at step 600 continues training to 3000 steps.
 
-# ## Serving the trained model as a web endpoint
+# ## Serving SLMs on Modal during and after training
 
-# ### Setup
-
-# Initialize some variables for web serving:
-
-web_app = FastAPI()
-assets_path = Path(__file__).parent / "assets"
+# Because our weights are stored in a distributed Volume,
+# we can deploy an inference endpoint based off of them without any extra work --
+# and we can even check in on models while we're still training them!
 
 # ### Remote inference with Modal `Cls`es
 
-# Now we will create a class for running model inference.
-
-# We choose the latest experiment that has a "best" model checkpoint
-# and load that model for inference. In case training is still ongoing,
-# we check for updated models on the fly and load them if available.
+# We wrap our inference in a Modal `Cls` called `ModelInference`.
+# The user of `ModelInference` can control which model is used by providing the
+# `experiment_name`.  Each unique choice creates a separate
+# [auto-scaling deployment](https://modal.com/docs/guide/parameterized-functions).
+# If the user does not specify an `experiment_name`, the latest experiment
+# is used.
 
 
 @app.cls(image=image, volumes={volume_path: volume}, gpu=gpu)
 class ModelInference:
-    def build_encode_decode(self, chars):
-        # create funcs for converting text into digits (encode) and
-        # vice versa (decode)
-        stoi = {c: i for i, c in enumerate(chars)}
-        itos = {i: c for i, c in enumerate(chars)}
+    experiment_name: str = modal.parameter(default="")
 
-        def encode(s):
-            return [stoi[c] for c in s]
-
-        def decode(l):
-            return [itos[i] for i in l]
-
-        return encode, decode
-
-    def load_model_impl(self):
-        # loop through all model dirs and load the latest available model
-        save_model_dirs = glob.glob(f"{save_path}/*")
+    def get_latest_available_model_dirs(self, n_last):
+        """Find the latest models that have a best model checkpoint saved."""
+        save_model_dirs = glob.glob(f"{model_save_path}/*")
         sorted_model_dirs = sorted(
             save_model_dirs, key=os.path.getctime, reverse=True
         )
-        found_model = False
-        for latest_model_dir in sorted_model_dirs:
-            if self.use_model_dir == latest_model_dir and self.is_fully_trained:
-                return  # Already loaded
-            print(f"Attemping to load from: {latest_model_dir} ...")
-            try:
-                checkpoint = torch.load(
-                    f"{latest_model_dir}/{best_model_filename}"
-                )
-                print("Successfully loaded model.")
-                found_model = True
-                break
-            except Exception as e:
-                L.warning(f"Error loading model: {e}")
-        if not found_model:
-            raise Exception("No models ready for serving.")
 
-        self.use_model_dir = latest_model_dir
+        valid_model_dirs = []
+        for latest_model_dir in sorted_model_dirs:
+            if Path(f"{latest_model_dir}/{best_model_filename}").exists():
+                valid_model_dirs.append(Path(latest_model_dir))
+            if len(valid_model_dirs) >= n_last:
+                return valid_model_dirs
+        return valid_model_dirs
+
+    @modal.method()
+    def get_latest_available_experiment_names(self, n_last):
+        return [d.name for d in self.get_latest_available_model_dirs(n_last)]
+
+    def load_model_impl(self):
+        if self.experiment_name != "":  # user selected model
+            use_model_dir = f"{model_save_path}/{self.experiment_name}"
+        else:  # otherwise, pick latest
+            use_model_dir = self.get_latest_available_model_dirs(1)[0]
+
+        if self.use_model_dir == use_model_dir and self.is_fully_trained:
+            return  # already loaded fully trained model.
+
+        print(f"Loading experiment: {Path(use_model_dir).name}...")
+        checkpoint = torch.load(f"{use_model_dir}/{best_model_filename}")
+
+        self.use_model_dir = use_model_dir
         hparams = checkpoint["hparams"]
-        chars = checkpoint["chars"]
+        key = (  # for backwards compatibility
+            "unique_chars" if "unique_chars" in checkpoint else "chars"
+        )
+        unique_chars = checkpoint[key]
         steps = checkpoint["steps"]
         val_loss = checkpoint["val_loss"]
         self.is_fully_trained = checkpoint["finished_training"]
 
         print(
-            f"Loaded model with {steps} train steps "
+            f"Loaded model with {steps} train steps"
             f" and val loss of {val_loss:.2f}"
-            f" (fully_trained={self.is_fully_trained}"
+            f" (fully_trained={self.is_fully_trained})"
         )
 
-        # reconstruct encode/decode
-        vocab_size = len(chars)
-        self.encode, self.decode = self.build_encode_decode(chars)
-
+        self.tokenizer = Tokenizer(unique_chars)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.model = AttentionModel(vocab_size, hparams, self.device)
+        self.model = AttentionModel(
+            self.tokenizer.vocab_size, hparams, self.device
+        )
         self.model.load_state_dict(checkpoint["model"])
         self.model.to(self.device)
 
@@ -514,26 +497,20 @@ class ModelInference:
     def generate(self, prompt):
         self.load_model_impl()  # load updated model if available
 
-        # generate 1000 new characters from input prompt
         n_new_tokens = 1000
-        encoded_prompt = self.encode(prompt)
-        # create a torch tensor from the encoded prompt
-        torch_input = torch.tensor(encoded_prompt, dtype=torch.long)
-        torch_input = torch_input.view(1, len(torch_input))  # add batch dim
-        torch_input = torch_input.to(self.device)
-
-        # generate new tokens
-        gen_out = self.model.generate(torch_input, n_new_tokens)[0]  # 0th batch
-        # decode from digits to text
-        chars_out = self.decode([x for x in gen_out.tolist()])[
-            len(encoded_prompt) :
-        ]
-        # join the characters into a string and return
-        str_out = "".join(chars_out)
-        return str_out
+        return self.model.generate_from_text(
+            self.tokenizer, prompt, n_new_tokens
+        )
 
 
-# First, we create a simple POST web endpoint for generating text.
+# ### Adding a simple `web_endpoint`
+
+# The `ModelInference` class above is available for use
+# from any other Python environment with the right Modal credentials
+# and the `modal` package installed -- just use [`lookup`](https://modal.com/docs/reference/modal.Cls#lookup).
+
+# But we can also expose it as a web endpoint for easy access
+# from anywhere, including other programming languages or the command line.
 
 
 class GenerationRequest(BaseModel):
@@ -547,10 +524,11 @@ def web_generate(request: GenerationRequest):
     return {"output": output}
 
 
+# This endpoint can be deployed on Modal with `modal deploy`.
 # That will allow us to generate text via a simple `curl` command like this:
 
 # ```bash
-# curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate-dev.modal.run
+# curl -X POST -H 'Content-Type: application/json' --data-binary '{"prompt": "\n"}' https://your-workspace-name--modal-nano-gpt-web-generate.modal.run
 # ```
 
 # which will return something like:
@@ -569,15 +547,29 @@ def web_generate(request: GenerationRequest):
 
 # It's not exactly Shakespeare, but at least it shows our model learned something!
 
+# You can choose which model to use by specifying the `experiment_name` in the query parameters of the request URL.
+
 # ### Serving a Gradio UI with `asgi_app`
 
-# Second, we create a Gradio web UI for generating text via a graphical user interface in the browser.
-# That way our fellow team members and stakeholders can easily interact with the model and give feedback.
+# Second, we create a Gradio web app for generating text via a graphical user interface in the browser.
+# That way our fellow team members and stakeholders can easily interact with the model and give feedback,
+# even when we're still training the model.
+
+# You should see the URL for this UI in the output of `modal deploy`
+# or on your [Modal app dashboard](https://modal.com/apps) for this app.
+
+# The Gradio UI will look something like this:
+
+# ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
+
+web_app = FastAPI()
+assets_path = Path(__file__).parent / "assets"
 
 
 @app.function(
     image=ui_image,
     concurrency_limit=1,
+    volumes={volume_path: volume},
     allow_concurrent_inputs=1000,
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
@@ -587,10 +579,13 @@ def ui():
     from gradio.routes import mount_gradio_app
 
     # call out to the inference in a separate Modal environment with a GPU
-    def go(text=""):
+    def generate(text="", experiment_name=""):
         if not text:
             text = "\n"
-        return text + ModelInference().generate.remote(text)
+        generated = ModelInference(
+            experiment_name=experiment_name
+        ).generate.remote(text)
+        return text + generated
 
     example_prompts = [
         "DUKE OF YORK:\nWhere art thou Lucas?",
@@ -611,38 +606,50 @@ def ui():
     with open("/assets/index.css") as f:
         css = f.read()
 
+    n_last = 20
+    experiment_names = (
+        ModelInference().get_latest_available_experiment_names.remote(n_last)
+    )
     theme = gr.themes.Default(
         primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
     )
 
     # add a Gradio UI around inference
-    with gr.Blocks(theme=theme, css=css, title="Tiny LLM") as interface:
+    with gr.Blocks(theme=theme, css=css, title="SLM") as interface:
         # title
-        gr.Markdown(
-            "# Generate Shakespeare text using the prompt",
-        )
+        gr.Markdown("# GPT-style Shakespeare text generation.")
+
+        # Model Selection
+        with gr.Row():
+            gr.Markdown("## Model Version")
+        with gr.Row():
+            experiment_dropdown = gr.Dropdown(
+                experiment_names, label="Select Model Version"
+            )
 
         # input and output
         with gr.Row():
             with gr.Column():
                 gr.Markdown("## Input:")
-                inp = gr.Textbox(  # input text component
+                input_box = gr.Textbox(  # input text component
                     label="",
                     placeholder="Write some Shakespeare like text or keep it empty!",
                     lines=10,
                 )
             with gr.Column():
                 gr.Markdown("## Output:")
-                out = gr.Textbox(  # output text component
+                output_box = gr.Textbox(  # output text component
                     label="",
                     lines=10,
                 )
 
         # button to trigger inference and a link to Modal
         with gr.Row():
-            btn = gr.Button("Generate", variant="primary", scale=2)
-            btn.click(
-                fn=go, inputs=inp, outputs=out
+            generate_button = gr.Button("Generate", variant="primary", scale=2)
+            generate_button.click(
+                fn=generate,
+                inputs=[input_box, experiment_dropdown],
+                outputs=output_box,
             )  # connect inputs and outputs with inference function
 
             gr.Button(  # shameless plug
@@ -656,7 +663,9 @@ def ui():
             # add in a few examples to inspire users
             for ii, prompt in enumerate(example_prompts):
                 btn = gr.Button(prompt, variant="secondary")
-                btn.click(fn=lambda idx=ii: example_prompts[idx], outputs=inp)
+                btn.click(
+                    fn=lambda idx=ii: example_prompts[idx], outputs=input_box
+                )
 
     # mount for execution on Modal
     return mount_gradio_app(
@@ -666,29 +675,15 @@ def ui():
     )
 
 
-# The Gradio UI will look something like this:
-# [[./gradio.png|alt=gradio]]
-
 # ## Addenda
 
-# The remainder of this code is boilerplate for the training loop.
-# There's a lot! If you'd rather not write this stuff yourself,
+# The remainder of this code is boilerplate.
+
+# ### Training Loop
+
+# There's quite a lot of code for just the training loop! If you'd rather not write this stuff yourself,
 # consider a training framework like [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable)
 # or [Hugging Face](https://huggingface.co/transformers/main_classes/trainer.html).
-
-
-def log_evals(result, step, t_last, val_writer, train_writer):
-    runtime_s = timer() - t_last
-    L.info(
-        f"{step:5d}) // {runtime_s:>5.2f}s"
-        f" // Train Loss: {result['train']:.2f} // Val Loss:"
-        f" {result['val']:.2f}"
-    )
-    val_writer.add_scalar("Cross Entropy Loss", result["val"], step)
-    val_writer.add_text("Sample Output", result["sample"], step)
-    train_writer.flush()
-
-    return result
 
 
 def training_loop(
@@ -696,15 +691,35 @@ def training_loop(
     n_steps,
     n_steps_before_eval,
     n_steps_before_checkpoint,
+    n_eval_steps,
     dataset,
+    tokenizer,
     model,
     optimizer,
-    train_writer,
-    val_writer,
+    logs_manager,
     checkpoint,
     checkpoint_path,
     run_to_first_save,
 ):
+    @torch.no_grad()
+    def eval_model(model, dataset, tokenizer, n_eval_steps):
+        """Evaluate model on train and validation data."""
+        out = {}
+        model.eval()  # Turn off gradients
+        for split in ("train", "val"):
+            losses = torch.zeros(n_eval_steps)
+            for k in range(n_eval_steps):
+                xb, yb = dataset.get_batch(split)
+                logits, loss = model.forward(xb, yb)
+                losses[k] = loss
+            out[split] = losses.mean()
+
+        # Generate some output samples
+        out["sample"] = model.generate_from_text(tokenizer, "\n", 1000)
+
+        model.train()  # Turn on gradients
+        return out
+
     t_last = timer()
     for step in range(start_step, n_steps + 1):
         # sample a batch of data
@@ -717,13 +732,12 @@ def training_loop(
         optimizer.step()
 
         # log training loss
-        train_writer.add_scalar("Cross Entropy Loss", loss.item(), step)
+        logs_manager.add_train_scalar("Cross Entropy Loss", loss.item(), step)
 
         # evaluate model on validation set
         if step % n_steps_before_eval == 0:
-            out = dataset.eval_model(model)
-            log_evals(out, step, t_last, val_writer, train_writer)
-            volume.commit()
+            out = eval_model(model, dataset, tokenizer, n_eval_steps)
+            log_evals(out, step, t_last, logs_manager)
             t_last = timer()
 
         # save model with checkpoint information
@@ -734,7 +748,10 @@ def training_loop(
             # mark as finished if we hit n steps.
             checkpoint["finished_training"] = step >= n_steps
 
-            L.info(f"Saving checkpoint to {checkpoint_path}")
+            L.info(
+                f"Saving checkpoint to {checkpoint_path}"
+                f"\t {checkpoint['finished_training']})"
+            )
             save_checkpoint(checkpoint, checkpoint_path)
 
             if run_to_first_save:
@@ -748,6 +765,22 @@ def save_checkpoint(checkpoint, checkpoint_path):
     volume.commit()
 
 
+def build_model(hparams, vocab_size, device):
+    """Initialize the model and move it to the device."""
+    model = AttentionModel(vocab_size, hparams, device)
+    model.to(device)
+    return model
+
+
+def setup_optimizer(model, learning_rate):
+    """Set up the optimizer for the model."""
+    return torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+
+# ### Miscellaneous
+# The remaining code includes small helper functions for training the model.
+
+
 def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
     """Download and read the dataset."""
     volume.reload()
@@ -759,13 +792,37 @@ def prepare_data(input_file_path: Path, volume: modal.Volume) -> str:
     return input_file_path.read_text()
 
 
-def build_model(hparams, vocab_size, device):
-    """Initialize the model and move it to the device."""
-    model = AttentionModel(vocab_size, hparams, device)
-    model.to(device)
-    return model
+def make_best_symbolic_link(model_save_dir, model_filename, experiment_name):
+    # create symlink to the best model so it's easy to find for web serving
+    os.symlink(
+        str(model_save_dir / model_filename),
+        str(model_save_path / experiment_name / best_model_filename),
+    )
+    volume.commit()  # commit the symlink
 
 
-def setup_optimizer(model, learning_rate):
-    """Set up the optimizer for the model."""
-    return torch.optim.AdamW(model.parameters(), lr=learning_rate)
+def init_checkpoint(model, tokenizer, optimizer, start_step, hparams):
+    return {
+        "model": model.state_dict(),
+        "unique_chars": tokenizer.unique_chars,
+        "optimizer": optimizer.state_dict(),
+        "val_loss": float("inf"),
+        "steps": start_step,
+        "hparams": hparams,
+        "finished_training": False,
+    }
+
+
+def log_evals(result, step, t_last, logs_manager):
+    runtime_s = timer() - t_last
+    L.info(
+        f"{step:5d}) // {runtime_s:>5.2f}s"
+        f" // Train Loss: {result['train']:.2f} // Val Loss:"
+        f" {result['val']:.2f}"
+    )
+    logs_manager.add_val_scalar("Cross Entropy Loss", result["val"], step)
+    logs_manager.add_val_text("Sample Output", result["sample"], step)
+    logs_manager.flush()
+    volume.commit()  # Make sure TensorBoard container will see it.
+
+    return result
