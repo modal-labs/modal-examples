@@ -1,37 +1,31 @@
-# ---
-# cmd: ["modal", "run", "06_gpu_and_ml/sam/run_sam.py"]
-# deploy: true
-# ---
+# # Run Facebook's Segment Anything Model 2 (SAM 2) on Modal
 
-# # Run Facebook's Segment Anything Model 2 (SAM2) on Modal
-
-# This example demonstrates how to deploy Facebook's [SAM2](https://github.com/facebookresearch/sam2)
+# This example demonstrates how to deploy Facebook's [SAM 2](https://github.com/facebookresearch/sam2)
 # on Modal. SAM2 is a powerful, flexible image and video segmentation model that can be used
 # for various computer vision tasks like object detection, instance segmentation,
 # and even as a foundation for more complex computer vision applications.
 # SAM2 extends the capabilities of the original SAM to include video segmentation.
 
 # In particular, this example segments [this video](https://www.youtube.com/watch?v=WAz1406SjVw) of a man jumping off the cliff.
-# This is the output:
-#
-# | | | |
-# |---|---|---|
-# | ![Figure 1](./video_output_0.png) | ![Figure 2](./video_output_1.png) | ![Figure 3](./video_output_2.png) |
-# | ![Figure 4](./video_output_3.png) | ![Figure 5](./video_output_4.png) | ![Figure 6](./video_output_5.png) |
-# | ![Figure 7](./video_output_6.png) | ![Figure 8](./video_output_7.png) | ![Figure 9](./video_output_8.png) |
 
-# ## Setup
+# The output should look something like this:
 
-# First, we set up the Modal image with the necessary dependencies, including `torch`,
-# `opencv`, `huggingFace_hub`, `torchvision`, and the SAM2 library.
-# We also install `ffmpeg`, which we will need to turn the `.mp4` file into individual `.jpg` frames.
+# <video src="./video.mp4" width="600" height="400" controls></video>
+
+# ## Set up dependencies for SAM 2
+
+# First, we set up the necessary dependencies, including `torch`,
+# `opencv`, `huggingface_hub`, `torchvision`, and the `sam2` library.
+
+# We also install `ffmpeg`, which we will use to manipulate videos,
+# and a Python wrapper called `ffmpeg-python` for a clean interface.
 
 from pathlib import Path
 
 import modal
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
-SAM2_GIT_SHA = "c2ec8e14a185632b0a5d8b161928ceb50197eddc"
+SAM2_GIT_SHA = "c2ec8e14a185632b0a5d8b161928ceb50197eddc"  # pin commit! research code is fragile
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -45,199 +39,77 @@ image = (
         "onnxruntime==1.19.2",
         "onnx==1.17.0",
         "huggingface_hub==0.25.2",
-        "ffmpeg==1.4",
+        "ffmpeg-python==0.2.0",
         f"git+https://github.com/facebookresearch/sam2.git@{SAM2_GIT_SHA}",
     )
 )
 app = modal.App("sam2-app", image=image)
 
-# ## Helper functions
-#
-#  Next, we define some helper functions to show the masks and points on the images:
 
+# ## Wrapping the SAM 2 model in a Modal class
 
-def show_mask(mask, ax, obj_id=None, random_color=False):
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    if random_color:
-        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-    else:
-        cmap = plt.get_cmap("tab10")
-        cmap_idx = 0 if obj_id is None else obj_id
-        color = np.array([*cmap(cmap_idx)[:3], 0.6])
-    h, w = mask.shape[-2:]
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-    ax.imshow(mask_image)
-
-
-def show_points(coords, labels, ax, marker_size=375):
-    pos_points = coords[labels == 1]
-    neg_points = coords[labels == 0]
-    ax.scatter(
-        pos_points[:, 0],
-        pos_points[:, 1],
-        color="green",
-        marker="*",
-        s=marker_size,
-        edgecolor="white",
-        linewidth=1.25,
-    )
-    ax.scatter(
-        neg_points[:, 0],
-        neg_points[:, 1],
-        color="red",
-        marker="*",
-        s=marker_size,
-        edgecolor="white",
-        linewidth=1.25,
-    )
-
-
-# ## Model class
-
-# Next, we define the `Model` class that will handle SAM2 operations for both image and video.
+# Next, we define the `Model` class that will handle SAM 2 operations for both image and video.
 
 # We use `@modal.build()` and `@modal.enter()` decorators here for optimization:
+# they prevent us from downloading or initializing the model on every call.
+
 # `@modal.build()` ensures this method runs during the container build process,
 # downloading the model only once and caching it in the container image.
 
 # `@modal.enter()` makes sure the method runs only once when a new container starts,
 # initializing the model and moving it to GPU.
 
-# The upshot is that model downloading and initialization only happen once upon container startup.
-# This significantly reduces cold start times and improves performance.
 
-# Note that we mount the local video file onto the Modal class, and then in the model initialization, we use ffmpeg to turn the video into a series of `.jpg` frames.
+volume = modal.Volume.from_name("sam2-inputs", create_if_missing=True)
 
 
-@app.cls(
-    gpu="A100",
-    timeout=600,
-    mounts=[
-        modal.Mount.from_local_file(
-            local_path=Path(__file__).parent / "cliff_jumping.mp4",
-            remote_path="/root/assets/cliff_jumping.mp4",
-        )
-    ],
-)
+@app.cls(gpu="A100", volumes={"/root/videos": volume})
 class Model:
-    # Model initialization
     @modal.build()
     @modal.enter()
-    def download_model_to_folder(self):
-        from sam2.sam2_image_predictor import SAM2ImagePredictor
+    def initialize_model(self):
+        """Download and initialize model."""
         from sam2.sam2_video_predictor import SAM2VideoPredictor
 
-        self.image_predictor = SAM2ImagePredictor.from_pretrained(MODEL_TYPE)
         self.video_predictor = SAM2VideoPredictor.from_pretrained(MODEL_TYPE)
 
-        self.convert_video_to_frames()
-
-    def convert_video_to_frames(self):
-        import os
-        import subprocess
-
-        # Define input video and output directory
-        input_video = (
-            "/root/assets/cliff_jumping.mp4"  # Replace with your video file
-        )
-
-        output_dir = "/root/assets/video_frames"
-
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Use ffmpeg to turn the input into frames
-        subprocess.run(
-            f"ffmpeg -i {input_video} -q:v 2 -start_number 0 {output_dir}/'%05d.jpg'",
-            shell=True,
-        )
-
-    # Prompt-based mask generation for images
     @modal.method()
-    def generate_image_masks(self, image):
-        import io
-
-        import cv2
-        import matplotlib.pyplot as plt
-        import numpy as np
-        import torch
-
-        # Convert image bytes to numpy array
-        image = np.frombuffer(image, dtype=np.uint8)
-        image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
-        # We are hardcoding the input point and label here
-        # In a real-world scenario, you would want to display the image
-        # and allow the user to click on the image to select the point
-        input_point = np.array([[300, 250]])
-        input_label = np.array([1])
-
-        # Want to run the model on GPU
-        with torch.inference_mode(), torch.autocast(
-            "cuda", dtype=torch.bfloat16
-        ):
-            self.image_predictor.set_image(image)
-            masks, scores, logits = self.image_predictor.predict(
-                point_coords=input_point,
-                point_labels=input_label,
-                multimask_output=True,
-            )
-
-            # # Visualize the results
-            frame_images = []
-            for i, (mask, score) in enumerate(zip(masks, scores)):
-                plt.figure(figsize=(10, 10))
-                plt.imshow(image)
-                show_mask(mask, plt.gca())
-                show_points(input_point, input_label, plt.gca())
-                plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
-                plt.axis("off")
-
-                # Convert plot to PNG bytes
-                buf = io.BytesIO()
-                plt.savefig(buf, format="png")
-                buf.seek(0)
-                frame_images.append(buf.getvalue())
-                plt.close()
-
-        return frame_images
-
-    @modal.method()
-    def generate_video_masks(self):
-        import io
-        import os
-
-        import matplotlib.pyplot as plt
+    def generate_video_masks(
+        self, video="/root/videos/input.mp4", point_coords=None
+    ):
+        """Generate masks for a video."""
+        import ffmpeg
         import numpy as np
         import torch
         from PIL import Image
 
-        # The directory on the image that contains the video frame files
-        video_dir = "/root/assets/video_frames"
+        frames_dir = convert_video_to_frames(video)
 
-        # scan all the JPEG frame names in this directory
+        # scan all the JPEG files in this directory
         frame_names = [
             p
-            for p in os.listdir(video_dir)
-            if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
+            for p in frames_dir.iterdir()
+            if p.suffix in [".jpg", ".jpeg", ".JPG", ".JPEG"]
         ]
-        frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
+        frame_names.sort(key=lambda p: int(p.stem))
 
         # We are hardcoding the input point and label here
         # In a real-world scenario, you would want to display the video
         # and allow the user to click on the video to select the point
-        points = np.array([[250, 200]], dtype=np.float32)
-        # for labels, `1` means positive click and `0` means negative click
-        labels = np.array([1], np.int32)
+        if point_coords is None:
+            width, height = Image.open(frame_names[0]).size
+            point_coords = [[width // 2, height // 2]]
 
-        # Want to run the model on GPU
+        points = np.array(point_coords, dtype=np.float32)
+        # for labels, `1` means positive click and `0` means negative click
+        labels = np.array([1] * len(points), np.int32)
+
+        # run the model on GPU
         with torch.inference_mode(), torch.autocast(
             "cuda", dtype=torch.bfloat16
         ):
             self.inference_state = self.video_predictor.init_state(
-                video_path=video_dir
+                video_path=str(frames_dir)
             )
 
             # add new prompts and instantly get the output on the same frame
@@ -269,73 +141,135 @@ class Model:
                     for i, out_obj_id in enumerate(out_obj_ids)
                 }
 
-            # render the segmentation results every few frames
-            vis_frame_stride = 30
-            frame_images = []
-            for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
-                fig, ax = plt.subplots(figsize=(6, 4))
-                ax.set_title(f"frame {out_frame_idx}")
-                frame = Image.open(
-                    os.path.join(video_dir, frame_names[out_frame_idx])
-                )
-                ax.imshow(frame)
-                for out_obj_id, out_mask in video_segments[
-                    out_frame_idx
-                ].items():
-                    show_mask(out_mask, ax, obj_id=out_obj_id)
+        out_dir = Path("/root/mask_frames")
+        out_dir.mkdir(exist_ok=True)
 
-                # Convert plot to PNG bytes
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png")
-                buf.seek(0)
-                frame_images.append(buf.getvalue())
-                plt.close(fig)
+        vis_frame_stride = 5  # visualize every 5th frame
+        save_segmented_frames(
+            video_segments,
+            frames_dir,
+            out_dir,
+            frame_names,
+            stride=vis_frame_stride,
+        )
 
-        return frame_images
+        ffmpeg.input(
+            f"{out_dir}/frame_*.png",
+            pattern_type="glob",
+            framerate=30 / vis_frame_stride,
+        ).output(str(out_dir / "out.mp4"), format="mp4").run()
+
+        return (out_dir / "out.mp4").read_bytes()
 
 
-# ## Local entrypoint
-
+# ## Segmenting videos from the command line
 
 # Finally, we define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
-# to run the segmentation. This local entrypoint invokes the `generate_image_masks` and `generate_video_masks` methods.
+# to run the segmentation from our local machine's terminal.
 
-# Please note that there are several ways to pass an image or video file (or any data file) from the local machine to the container running the Modal function.
+# There are several ways to pass files between the local machine and the Modal Function.
 
-# One way is to convert the file to bytes and pass the bytes to the function.
+# One way is to upload the files onto a Modal [Volume](https://modal.com/docs/guide/volumes),
+# which acts as a distributed filesystem.
 
-# Another way is to mount the file to the container.
-
-# In the image segmentation example below, the image is passed as bytes to the function.
-
-# In the video segmentation example on the other hand, we explicitly mount the `.mp4` file to the container.
-
-# The output masks are passed back to the local entrypoint from the Modal function and written to local files in `/tmp`.
+# The other way is to convert the file to bytes and pass the bytes back and forth as the input or output of Python functions.
+# We use this method to get the video file with the segmentation results in it back to the local machine.
 
 
 @app.local_entrypoint()
-def main():
-    dir = Path("/tmp/sam2-outputs")
-    dir.mkdir(exist_ok=True, parents=True)
+def main(
+    input_video=Path(__file__).parent / "cliff_jumping.mp4",
+    x_point=250,
+    y_point=200,
+):
+    with volume.batch_upload(force=True) as batch:
+        batch.put_file(input_video, "input.mp4")
 
     model = Model()
 
-    # Read the image as bytes
-    image_bytes = (Path(__file__).parent / "dog.jpg").read_bytes()
+    if x_point is not None and y_point is not None:
+        point_coords = [[x_point, y_point]]
+    else:
+        point_coords = None
 
-    # Pass image bytes to the function, get back the output masks
-    frame_images = model.generate_image_masks.remote(image_bytes)
+    print(f"Running SAM 2 on {input_video}")
+    video_bytes = model.generate_video_masks.remote(point_coords=point_coords)
 
-    # Save the output image bytes to assets/ folder
-    for i, image_bytes in enumerate(frame_images):
-        output_path = dir / f"image_output_{str(i).zfill(3)}.jpg"
-        output_path.write_bytes(image_bytes)
-        print(f"Saved frame to {output_path}")
+    dir = Path("/tmp/sam2_outputs")
+    dir.mkdir(exist_ok=True, parents=True)
+    output_path = dir / "segmented_video.mp4"
+    output_path.write_bytes(video_bytes)
+    print(f"Saved output video to {output_path}")
 
-    # Run video segmentation
-    frame_images = model.generate_video_masks.remote()
 
-    for i, image_bytes in enumerate(frame_images):
-        output_path = dir / f"video_output_{str(i).zfill(3)}.jpg"
-        output_path.write_bytes(image_bytes)
-        print(f"Saving it to {output_path}")
+# ## Helper functions for SAM 2 inference
+
+# Above, we used some helper functions to for some of the details, like breaking the video into frames.
+# These are defined below.
+
+
+def convert_video_to_frames(self, input_video="/root/videos/input.mp4"):
+    import ffmpeg
+
+    input_video = Path(input_video)
+    output_dir = (  # output on local filesystem, not on the remote Volume
+        input_video.parent.parent / input_video.stem / "video_frames"
+    )
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    ffmpeg.input(input_video).output(
+        f"{output_dir}/%05d.jpg", qscale=2, start_number=0
+    ).run()
+
+    return output_dir
+
+
+def show_mask(mask, ax, obj_id=None, random_color=False):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    if random_color:
+        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+    else:
+        cmap = plt.get_cmap("tab10")
+        cmap_idx = 0 if obj_id is None else obj_id
+        color = np.array([*cmap(cmap_idx)[:3], 0.6])
+    h, w = mask.shape[-2:]
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    ax.imshow(mask_image)
+
+
+def save_segmented_frames(
+    video_segments, frames_dir, out_dir, frame_names, stride=5
+):
+    import io
+
+    import matplotlib.pyplot as plt
+    from PIL import Image
+
+    frames_dir, out_dir = Path(frames_dir), Path(out_dir)
+
+    frame_images = []
+    inches_per_px = 1 / plt.rcParams["figure.dpi"]
+    for out_frame_idx in range(0, len(frame_names), stride):
+        frame = Image.open(frames_dir / frame_names[out_frame_idx])
+        fig, ax = plt.subplots(
+            figsize=tuple(map(lambda px: px * inches_per_px, frame.size))
+        )
+        ax.axis("off")
+        ax.imshow(frame)
+
+        [
+            show_mask(mask, ax, obj_id=obj_id)
+            for (obj_id, mask) in video_segments[out_frame_idx].items()
+        ]
+
+        # Convert plot to PNG bytes
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+        buf.seek(0)
+        frame_images.append(buf.getvalue())
+        plt.close(fig)
+
+    for ii, frame in enumerate(frame_images):
+        (out_dir / f"frame_{str(ii).zfill(3)}.png").write_bytes(frame)
