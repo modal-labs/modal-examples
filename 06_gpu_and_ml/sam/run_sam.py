@@ -10,7 +10,7 @@
 
 # The output should look something like this:
 
-# <video src="./video.mp4" width="600" height="400" controls></video>
+# <video src="./segmented_video.mp4" width="600" height="400" controls></video>
 
 # ## Set up dependencies for SAM 2
 
@@ -157,7 +157,13 @@ class Model:
             f"{out_dir}/frame_*.png",
             pattern_type="glob",
             framerate=30 / vis_frame_stride,
-        ).output(str(out_dir / "out.mp4"), format="mp4").run()
+        ).filter(
+            "scale",
+            "trunc(iw/2)*2",
+            "trunc(ih/2)*2",  # round to even dimensions to encode for "dumb players", https://trac.ffmpeg.org/wiki/Encode/H.264#Encodingfordumbplayers
+        ).output(
+            str(out_dir / "out.mp4"), format="mp4", pix_fmt="yuv420p"
+        ).run()
 
         return (out_dir / "out.mp4").read_bytes()
 
@@ -253,8 +259,10 @@ def save_segmented_frames(
     inches_per_px = 1 / plt.rcParams["figure.dpi"]
     for out_frame_idx in range(0, len(frame_names), stride):
         frame = Image.open(frames_dir / frame_names[out_frame_idx])
+        width, height = frame.size
+        width, height = width - width % 2, height - height % 2
         fig, ax = plt.subplots(
-            figsize=tuple(map(lambda px: px * inches_per_px, frame.size))
+            figsize=(width * inches_per_px, height * inches_per_px)
         )
         ax.axis("off")
         ax.imshow(frame)
@@ -267,6 +275,7 @@ def save_segmented_frames(
         # Convert plot to PNG bytes
         buf = io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+        # fig.savefig(buf, format="png")
         buf.seek(0)
         frame_images.append(buf.getvalue())
         plt.close(fig)
