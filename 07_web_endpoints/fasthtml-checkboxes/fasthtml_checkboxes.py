@@ -4,7 +4,7 @@
 # mypy: ignore-errors
 # ---
 
-# # Deploy 10,000 multiplayer checkboxes on Modal with FastHTML
+# # Deploy 100,000 multiplayer checkboxes on Modal with FastHTML
 
 # ![Screenshot of FastHTML Checkboxes UI](./fasthtml-checkboxes-ui.png)
 
