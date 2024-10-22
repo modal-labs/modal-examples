@@ -91,19 +91,25 @@ model_image = model_image.run_function(
 
 # Running an inference service on Modal is as easy as writing inference in Python.
 
-# We just need to wrap that in
+# We just need to wrap that in a Modal App
 
 app = modal.App("chat-with-pdf")
 
+# To allow concurrent users, each user chat session state is stored in a modal.Dict
+sessions = modal.Dict.from_name("colqwen-chat-sessions", create_if_missing=True)
+class Session:
+    def __init__(self):
+        self.images = None
+        self.messages = []
+        self.pdf_embeddings = None
 
+# Here we define our on-GPU ColQwen2 service, which runs document indexing and inference
 @app.cls(
     image=model_image,
     gpu=modal.gpu.A100(size="80GB"),
     container_idle_timeout=10 * MINUTES,  # spin down when inactive
 )
 class Model:
-    # we stack the build and enter decorators here to ensure that the weights
-    # downloaded in from_pretrained are cached in the image
     @modal.build()
     @modal.enter()
     def load_models(self):
@@ -123,25 +129,35 @@ class Model:
             "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
         )
 
-        self.pdf_embeddings = None
-        self.images = None
-        self.messages = []
-
     @modal.method()
-    def index_pdf(self, images):
-        self.images = images
+    def index_pdf(self, session_id, images):
+        if session_id not in sessions:
+            sessions[session_id] = Session()
+
+        session = sessions[session_id]
+        session.images = images
+
         batch_images = self.colqwen2_processor.process_images(images).to(
             self.colqwen2_model.device
         )
-        self.pdf_embeddings = self.colqwen2_model(**batch_images)
+        pdf_embeddings = self.colqwen2_model(**batch_images)
+        session.pdf_embeddings = pdf_embeddings
+        # Update session state
+        sessions[session_id] = session
 
     @modal.method()
-    def respond_to_message(self, message):
+    def respond_to_message(self, session_id, message):
+        if session_id not in sessions:
+            sessions[session_id] = Session()
+        session = sessions[session_id]
+
         # nothing to chat about without a PDF!
-        if self.images is None:
+        if session.images is None:
             return "Please upload a PDF first"
-        elif self.pdf_embeddings is None:
+        elif session.pdf_embeddings is None:
             return "Indexing PDF..."
+
+        print("respond_to_message, session_id", session_id)
 
         # retrieve the most relevant image from the PDF for the input query
         def get_relevant_image(message):
@@ -150,10 +166,10 @@ class Model:
             ).to(self.colqwen2_model.device)
             query_embeddings = self.colqwen2_model(**batch_queries)
             scores = self.colqwen2_processor.score_multi_vector(
-                query_embeddings, self.pdf_embeddings
+                query_embeddings, session.pdf_embeddings
             )[0]
             max_index = max(range(len(scores)), key=lambda index: scores[index])
-            return self.images[max_index]
+            return session.images[max_index]
 
         # helper function to put message in the format chatbot
         def get_chatbot_message_with_image(message, image):
@@ -167,7 +183,7 @@ class Model:
 
         # helper function add messages to the conversation history in chatbot format
         def append_to_messages(message, user_type="user"):
-            self.messages.append(
+            session.messages.append(
                 {
                     "role": user_type,
                     "content": {"type": "text", "text": message},
@@ -178,7 +194,7 @@ class Model:
         def generate_response(message, image):
             chatbot_message = get_chatbot_message_with_image(message, image)
             query = self.qwen2_vl_processor.apply_chat_template(
-                [chatbot_message, *self.messages],
+                [chatbot_message, *session.messages],
                 tokenize=False,
                 add_generation_prompt=True,
             )
@@ -209,6 +225,10 @@ class Model:
         output_text = generate_response(message, relevant_image)
         append_to_messages(message, user_type="user")
         append_to_messages(output_text, user_type="assistant")
+
+        # Update session state
+        sessions[session_id] = session
+
         return output_text
 
 
@@ -251,32 +271,49 @@ web_image = (
 )
 @modal.asgi_app()
 def ui():
+    from functools import partial
+    import uuid
     import gradio as gr
     from gradio.routes import mount_gradio_app
     from gradio_pdf import PDF
     from pdf2image import convert_from_path
 
+
     model = Model()
 
-    def respond_to_message(message, _):
-        return model.respond_to_message.remote(message)
-
-    def upload_pdf(path):
-        images = convert_from_path(path)
-        model.index_pdf.remote(images)
-
     with gr.Blocks(theme="soft") as demo:
+        # Create a session ID for each user
+        session_id = gr.State("")
+
+        def upload_pdf(path, session_id):
+            print("upload_pdf received session_id", session_id)
+            # do something with the pdf
+            if session_id == "":
+                session_id = str(uuid.uuid4())
+                print("generated session_id", session_id)
+            return session_id
+
+        def respond_to_message(message, _, session_id):
+            print("respond_to_message received session_id", session_id)
+            return "hi"
+
         gr.Markdown("# Chat with PDF")
         with gr.Row():
             with gr.Column(scale=1):
                 gr.ChatInterface(
-                    fn=respond_to_message,
+                    fn=lambda msg, history: respond_to_message(msg, history, session_id),
                     retry_btn=None,
                     undo_btn=None,
                     clear_btn=None,
                 )
             with gr.Column(scale=1):
-                pdf = PDF(label="Upload a PDF")
-                pdf.upload(upload_pdf, pdf)
+                pdf = PDF(
+                    label="Upload a PDF",
+                )
+                pdf.upload(
+                    upload_pdf,
+                    [pdf, session_id],
+                    session_id,
+                )
 
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
