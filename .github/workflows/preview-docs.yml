@@ -77,6 +77,7 @@ jobs:
         id: deploy_preview
         working-directory: modal
         run: |
+          set -o pipefail
           export DEPLOYMENT_ID=${GITHUB_SHA::7}
           inv frontend-preview --skip-update --deployment-id $DEPLOYMENT_ID | tee output.txt
           DEPLOYMENT_URL=$(cat output.txt | grep "$DEPLOYMENT_ID" | grep "modal.run" | tail -n 1)
