@@ -269,7 +269,7 @@ class ModelHyperparameters:
 # You can kick off training with the following command:
 
 # ```bash
-# modal run 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt`
+# modal run 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt
 # ```
 
 # The output will look something like this:
