@@ -4,10 +4,20 @@
 # pytest: false
 # ---
 
-# # Building a stateful sandboxed code interpreter
-#
+# # Build a stateful, sandboxed code interpreter
+
 # This example demonstrates how to build a stateful code interpreter using a Modal
-# [Sandbox](/docs/guide/sandbox).
+# [Sandbox](https://modal.com/docs/guide/sandbox).
+
+# We'll create a Modal Sandbox that listens for code to execute and then
+# executes the code in a Python interpreter. Because we're running in a sandboxed
+# environment, we can safely use the "unsafe" `exec()` to execute the code.
+
+# ## Setting up a code interpreter in a Modal Sandbox
+
+# Our code interpreter uses a Python "driver program" to listen for code
+# sent in JSON format to its standard input (`stdin`), execute the code,
+# and then return the results in JSON format on standard output (`stdout`).
 
 import inspect
 import json
@@ -15,66 +25,53 @@ from typing import Any
 
 import modal
 
-# In this example, we'll create a Sandbox that listens for code to execute, and then
-# executes the code in a Python interpreter. Because we're running in a sandboxed
-# environment, we can "unsafely" use `exec()` to execute the code.
-#
-# This example uses a simple JSON protocol over the Sandbox's stdin/stdout to send
-# code to execute and get the results. First, we define the driver program that'll
-# run in the Sandbox.
-
 
 def driver_program():
     import json
     import sys
+    from contextlib import redirect_stderr, redirect_stdout
     from io import StringIO
 
-    # We'll use a global dictionary to store the state of the interpreter. For each
-    # command, we'll update the global state, execute the code, and then return the
-    # result.
+    # When you `exec` code in Python, you can pass in a dictionary
+    # that defines the global variables the code has access to.
+
+    # We'll use that to store state.
 
     globals: dict[str, Any] = {}
     while True:
-        command = json.loads(input())
-        code = command.get("code", None)
-        if code is None:
+        command = json.loads(input())  # read a line of JSON from stdin
+        if (code := command.get("code")) is None:
             print(json.dumps({"error": "No code to execute"}))
             continue
 
-        # Redirect stdout and stderr to capture the output of the code.
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
+        # Capture the executed code's outputs
+        stdout_io, stderr_io = StringIO(), StringIO()
+        with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
+            try:
+                exec(code, globals)
+            except Exception as e:
+                print(f"Execution Error: {e}", file=sys.stderr)
 
-        try:
-            exec(code, globals)
-        except Exception as e:
-            print(f"Execution Error: {e}", file=sys.stderr)
-
-        # Return the stdout and stderr of the code execution.
-        stdout = sys.stdout.getvalue()
-        stderr = sys.stderr.getvalue()
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-
-        print(json.dumps({"stdout": stdout, "stderr": stderr}), flush=True)
-
-
-# We want to execute this code in a Sandbox, so we'll need to convert the driver
-# function to a string and invoke it.
-
-driver_program_text = inspect.getsource(driver_program)
-driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
-
-# Now that we have the driver program, we can write a function to take a running
-# instance of the program and execute code in it. This function will print out stdout
-# in white and stderr in red.
+        print(
+            json.dumps(
+                {
+                    "stdout": stdout_io.getvalue(),
+                    "stderr": stderr_io.getvalue(),
+                }
+            ),
+            flush=True,
+        )
 
 
-def run_code(p: modal.Sandbox, code: str):
-    p.stdin.write(json.dumps({"code": code}))
-    p.stdin.write("\n")
-    p.stdin.drain()
-    next_line = next(iter(p.stdout))
+# Now that we have the driver program, we can write a function to take a Sandbox running
+# that program and execute code in it.
+
+
+def run_code(sb: modal.Sandbox, code: str):
+    sb.stdin.write(json.dumps({"code": code}))
+    sb.stdin.write("\n")
+    sb.stdin.drain()
+    next_line = next(iter(sb.stdout))
     result = json.loads(next_line)
     print(result["stdout"], end="")
     print("\033[91m" + result["stderr"] + "\033[0m", end="")
@@ -83,8 +80,17 @@ def run_code(p: modal.Sandbox, code: str):
 # We've got our driver program and our code runner. Now we can create a Sandbox
 # and run the driver program in it.
 
+# We have to convert the driver program to a string to pass it to the Sandbox.
+# Here we use `inspect.getsource` to get the source code as a string,
+# but you could also keep the driver program in a separate file and read it in.
+
+driver_program_text = inspect.getsource(driver_program)
+driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
+
 app = modal.App.lookup("code-interpreter", create_if_missing=True)
 sb = modal.Sandbox.create("python", "-c", driver_program_command, app=app)
+
+# ## Running code in a Modal Sandbox
 
 # Now we can execute some code in the Sandbox!
 
@@ -94,6 +100,9 @@ run_code(sb, "print('hello, world!')")
 # hello, world!
 # ```
 
+# The Sandbox and our code interpreter are stateful,
+# so we can define variables and use them in subsequent code.
+
 run_code(sb, "x = 10")
 run_code(sb, "y = 5")
 run_code(sb, "result = x + y")
@@ -102,8 +111,8 @@ run_code(sb, "print(f'The result is: {result}')")
 # ```
 # The result is: 15
 # ```
-#
-# We can also cause stderr output by causing an error.
+
+# We can also see errors when code fails.
 
 run_code(sb, "print('Attempting to divide by zero...')")
 run_code(sb, "1 / 0")
@@ -112,7 +121,7 @@ run_code(sb, "1 / 0")
 # Attempting to divide by zero...
 # <span style="color:red">Execution Error: division by zero</span>
 # ```
-#
-# Finally, we'll terminate the Sandbox.
+
+# Finally, let's clean up after ourselves and terminate the Sandbox.
 
 sb.terminate()
