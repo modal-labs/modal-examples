@@ -6,8 +6,11 @@
 # Note that the Mochi model, at time of writing,
 # requires several minutes on four H100s to produce
 # a high-quality clip of even a few seconds.
-# Check our [pricing page](https://modal.com/pricing)
-# to determine the cost before running this example at scale.
+# It also takes many minutes to boot up -- as long as half an hour.
+# To amortize work and improve the UX across multiple generations,
+# we additionally set deployed containers to stay warm for twenty minutes after they finish their last input
+# A single video generation can therefore cost over $10
+# at our ~$5/hr rate for H100s.
 
 # ## Setting up the environment for Mochi
 
@@ -54,13 +57,15 @@ with image.imports():
     from PIL import Image
     from tqdm import tqdm
 
-# ### Saving model weights and outputs
+# ## Saving model weights and outputs
 
 # Mochi weighs in at ~80 GB (~20B params, released in full 32bit precision)
 # and can take several minutes to generate videos.
 
 # On Modal, we save large or expensive-to-compute data to
-# [distributed Volumes](https://modal.com/docs/guide/volumes).
+# [distributed Volumes](https://modal.com/docs/guide/volumes)
+# so that they are accessible from any Modal Function
+# or downloadable via the Modal dashboard or CLI.
 
 model = modal.Volume.from_name("mochi-model", create_if_missing=True)
 outputs = modal.Volume.from_name("mochi-outputs", create_if_missing=True)
@@ -68,7 +73,21 @@ outputs = modal.Volume.from_name("mochi-outputs", create_if_missing=True)
 MODEL_PATH = "/model"  # remote path for saving the model
 OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 
-download_image = (
+# We download the model using the `hf-transfer`
+# library from Hugging Face.
+
+# This can takes five to thirty minutes, depending on traffic
+# and network speed.
+
+# If you want to launch the download first,
+# before running the rest of the code,
+# use the following command from the folder containing this file:
+
+# ```bash
+# modal run mochi::download_model
+# ```
+
+download_image = (  # different environment for download -- no heavy libraries, no GPU.
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "huggingface_hub",
@@ -96,24 +115,61 @@ def download_model(
     print("Model downloaded")
 
 
+# ## Running Mochi inference
+
+# We can trigger Mochi inference from our local machine by running the code in
+# the local entrypoint below.
+
+# It ensures the model is downloaded to a remote volume,
+# spins up a new replica to generate a video, also saved remotely,
+# and then downloads the video to the local machine.
+
+# You can trigger it with:
+
+# ```bash
+# modal run mochi
+# ```
+
+
+@app.local_entrypoint()
+def main(prompt: str = "A cat playing drums in a jazz ensemble"):
+    from pathlib import Path
+
+    mochi = Mochi()
+    local_dir = Path("/tmp/moshi")
+    local_dir.mkdir(exist_ok=True, parents=True)
+    download_model.remote()
+    remote_path = mochi.generate_video.remote(prompt=prompt)
+    local_path = local_dir / remote_path.name
+    local_path.write_bytes(bytes(outputs.read_file(remote_path.name)))
+    print("Video saved locally at", local_path)
+
+
+# The Mochi inference logic is defined in the Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions).
+
+# See [the Mochi GitHub repo](https://github.com/genmoai/models)
+# for more details on running Mochi.
+
+
 @app.cls(
     gpu=modal.gpu.H100(count=4),
     volumes={
         MODEL_PATH: model,
-        OUTPUTS_PATH: outputs,
-    },  # videos from mochi save to volume
+        OUTPUTS_PATH: outputs,  # videos are saved to (distributed) disk
+    },
+    # boot takes a while, so we keep the container warm for 20 minutes after the last call finishes
     timeout=1 * HOURS,
-    container_idle_timeout=20
-    * MINUTES,  # boot takes a while, so keeping it warm can actually save money vs booting every time
+    container_idle_timeout=20 * MINUTES,
 )
 class Mochi:
     @modal.enter()
     def load_model(self):
+        model.reload()
         ray.init()
-        MOCHI_DIR = MODEL_PATH
-        VAE_CHECKPOINT_PATH = f"{MOCHI_DIR}/vae.safetensors"
-        MODEL_CONFIG_PATH = f"{MOCHI_DIR}/dit-config.yaml"
-        MODEL_CHECKPOINT_PATH = f"{MOCHI_DIR}/dit.safetensors"
+        vae_stats_path = f"{MODEL_PATH}/vae_stats.json"
+        vae_checkpoint_path = f"{MODEL_PATH}/vae.safetensors"
+        model_config_path = f"{MODEL_PATH}/dit-config.yaml"
+        model_checkpoint_path = f"{MODEL_PATH}/dit.safetensors"
         num_gpus = torch.cuda.device_count()
         if num_gpus < 4:
             print(
@@ -122,45 +178,16 @@ class Mochi:
         print(f"Loading model to {num_gpus} GPUs. This can take 5-15 minutes.")
         self.model = MochiWrapper(
             num_workers=num_gpus,
-            vae_stats_path=f"{MOCHI_DIR}/vae_stats.json",
-            vae_checkpoint_path=VAE_CHECKPOINT_PATH,
-            dit_config_path=MODEL_CONFIG_PATH,
-            dit_checkpoint_path=MODEL_CHECKPOINT_PATH,
+            vae_stats_path=vae_stats_path,
+            vae_checkpoint_path=vae_checkpoint_path,
+            dit_config_path=model_config_path,
+            dit_checkpoint_path=model_checkpoint_path,
         )
         print("Model loaded")
 
     @modal.exit()
     def graceful_exit(self):
         ray.shutdown()
-
-    @staticmethod
-    def linear_quadratic_schedule(
-        num_steps, threshold_noise, linear_steps=None
-    ):
-        if linear_steps is None:
-            linear_steps = num_steps // 2
-        linear_sigma_schedule = [
-            i * threshold_noise / linear_steps for i in range(linear_steps)
-        ]
-        threshold_noise_step_diff = linear_steps - threshold_noise * num_steps
-        quadratic_steps = num_steps - linear_steps
-        quadratic_coef = threshold_noise_step_diff / (
-            linear_steps * quadratic_steps**2
-        )
-        linear_coef = (
-            threshold_noise / linear_steps
-            - 2 * threshold_noise_step_diff / (quadratic_steps**2)
-        )
-        const = quadratic_coef * (linear_steps**2)
-        quadratic_sigma_schedule = [
-            quadratic_coef * (i**2) + linear_coef * i + const
-            for i in range(linear_steps, num_steps)
-        ]
-        sigma_schedule = (
-            linear_sigma_schedule + quadratic_sigma_schedule + [1.0]
-        )
-        sigma_schedule = [1.0 - x for x in sigma_schedule]
-        return sigma_schedule
 
     @modal.method()
     def generate_video(
@@ -178,9 +205,7 @@ class Mochi:
 
         # sigma_schedule should be a list of floats of length (num_inference_steps + 1),
         # such that sigma_schedule[0] == 1.0 and sigma_schedule[-1] == 0.0 and monotonically decreasing.
-        sigma_schedule = self.linear_quadratic_schedule(
-            num_inference_steps, 0.025
-        )
+        sigma_schedule = linear_quadratic_schedule(num_inference_steps, 0.025)
 
         # cfg_schedule should be a list of floats of length num_inference_steps.
         # For simplicity, we just use the same cfg scale at all timesteps,
@@ -215,7 +240,6 @@ class Mochi:
         final_frames = rearrange(final_frames, "t b h w c -> b t h w c")
         final_frames = final_frames[0]
 
-        os.makedirs(OUTPUTS_PATH, exist_ok=True)
         output_path = os.path.join(
             OUTPUTS_PATH, f"output_{int(time.time())}.mp4"
         )
@@ -237,24 +261,32 @@ class Mochi:
             with open(json_path, "w") as f:
                 json.dump(args, f, indent=4)
 
-        print(f"Video generated at: {output_path}")
+        outputs.commit()
+        print(f"Video saved remotely at: {output_path}")
         return output_path
 
 
+# ## Serving a Gradio interface
+
+# We use [Gradio](https://gradio.app/) to create a simple interface
+# around the model. This Gradio UI is also adapted from the
+# [Mochi GitHub repo](https://github.com/genmoai/models).
+
+
 @app.function(
-    volumes={
+    volumes={  # Gradio's Video component expects a path, so we mount outputs rather than sending bytes
         OUTPUTS_PATH: outputs
-    },  # using the same outputs volume syncronizes Mochi instances with our gradio server
+    },
     image=modal.Image.debian_slim(python_version="3.11").pip_install(
         "gradio>=3.36.1", "fastapi"
     ),
     concurrency_limit=1,  # gradio has sticky sessions, so keep only one container
     allow_concurrent_inputs=1000,
-    timeout=1
-    * HOURS,  # allow long generations, especially for the calls that trigger Mochi boots
+    # allow long durations, especially for the calls that trigger Mochi boot
+    timeout=1 * HOURS,
 )
 @modal.asgi_app()
-def gradio_app():
+def gradio_ui():
     import gradio as gr
     from fastapi import FastAPI
     from gradio.routes import mount_gradio_app
@@ -318,8 +350,31 @@ def gradio_app():
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
 
 
-@app.local_entrypoint()
-def main():
-    mochi = Mochi()
-    download_model.remote()
-    mochi.generate_video.remote(prompt="A cat playing drums in a jazz ensemble")
+# ## Addenda
+
+# The remainder of the code in this file is utility code.
+
+
+def linear_quadratic_schedule(num_steps, threshold_noise, linear_steps=None):
+    if linear_steps is None:
+        linear_steps = num_steps // 2
+    linear_sigma_schedule = [
+        i * threshold_noise / linear_steps for i in range(linear_steps)
+    ]
+    threshold_noise_step_diff = linear_steps - threshold_noise * num_steps
+    quadratic_steps = num_steps - linear_steps
+    quadratic_coef = threshold_noise_step_diff / (
+        linear_steps * quadratic_steps**2
+    )
+    linear_coef = (
+        threshold_noise / linear_steps
+        - 2 * threshold_noise_step_diff / (quadratic_steps**2)
+    )
+    const = quadratic_coef * (linear_steps**2)
+    quadratic_sigma_schedule = [
+        quadratic_coef * (i**2) + linear_coef * i + const
+        for i in range(linear_steps, num_steps)
+    ]
+    sigma_schedule = linear_sigma_schedule + quadratic_sigma_schedule + [1.0]
+    sigma_schedule = [1.0 - x for x in sigma_schedule]
+    return sigma_schedule
