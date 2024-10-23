@@ -8,7 +8,10 @@ Current state:
 (T2VSynthMochiModel pid=198)     config_resolved.pop("_target_")
 (T2VSynthMochiModel pid=198) KeyError: '_target_'
 ```
+- to repro, run `modal run mochi`, there's a local entrypoint to call the class. I have yet to see it get through the enter function.
+
 - build seems to work, after much fiddling
 - model incredibly slow to iterate on. 15 min download, @enter time unknown due to crash
 - wrote but haven't tested Gradio app
+- to test Gradio app, run `modal serve mochi`
 - referenced genmoai code in comments at bottom of mochi.py for reference
