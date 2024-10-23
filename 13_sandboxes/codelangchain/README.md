@@ -21,7 +21,7 @@ the project's context and implementation. Check it out if you're curious!
 To run this app, you need to `pip install modal` and then create the following
 [secrets](https://modal.com/docs/guide/secrets):
 
-- `my-openai-secret` with an OpenAI API key, so that we can query OpenAI's
+- `openai-secret` with an OpenAI API key, so that we can query OpenAI's
   models to power the agent,
 - and `my-langsmith-secret` with a LangSmith API key, so that we can monitor the
   agent's behavior with LangSmith.

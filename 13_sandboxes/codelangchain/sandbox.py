@@ -10,7 +10,7 @@ def run(code: str):
         f"{COLOR['GREEN']}{code}{COLOR['ENDC']}",
         sep="\n",
     )
-    sb = app.spawn_sandbox(
+    sb = modal.Sandbox.create(
         "python",
         "-c",
         code,
@@ -18,9 +18,10 @@ def run(code: str):
         timeout=60 * 10,  # 10 minutes
         secrets=[
             modal.Secret.from_name(
-                "my-openai-secret"
+                "openai-secret"
             )  # could be a different secret!
         ],
+        app=app,
     )
 
     sb.wait()

@@ -22,10 +22,10 @@ agent_image = image.pip_install(
 )
 
 app = modal.App(
-    "code-langchain",
+    "example-code-langchain",
     image=image,
     secrets=[
-        modal.Secret.from_name("my-openai-secret"),
+        modal.Secret.from_name("openai-secret"),
         modal.Secret.from_name("my-langsmith-secret"),
     ],
 )
