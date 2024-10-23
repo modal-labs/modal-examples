@@ -1,6 +1,7 @@
 # ---
 # cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py"]
 # ---
+
 # # Generate videos from text prompts with Mochi
 
 # This example demonstrates how to run the [Mochi 1](https://github.com/genmoai/models)
@@ -10,10 +11,11 @@
 # requires several minutes on four H100s to produce
 # a high-quality clip of even a few seconds.
 # It also takes many minutes to boot up -- as long as half an hour.
-# To amortize work and improve the UX across multiple generations,
-# we additionally set deployed containers to stay warm for twenty minutes after they finish their last input
+
 # A single video generation can therefore cost over $10
-# at our ~$5/hr rate for H100s.
+# at our ~$5/hr rate for H100s!
+# Keep your eyes peeled for improved efficiency
+# as the open source community works on this new model.
 
 # ## Setting up the environment for Mochi
 
@@ -89,6 +91,10 @@ OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 # ```bash
 # modal run --detach mochi::download_model
 # ```
+
+# The `--detach` flag ensures the download will continue
+# even if you close your terminal or shut down your computer
+# while it's running.
 
 download_image = (  # different environment for download -- no heavy libraries, no GPU.
     modal.Image.debian_slim(python_version="3.11")
@@ -267,90 +273,6 @@ class Mochi:
         outputs.commit()
         print(f"Video saved remotely at: {output_path}")
         return output_path
-
-
-# ## Serving a Gradio interface
-
-# We use [Gradio](https://gradio.app/) to create a simple interface
-# around the model. This Gradio UI is also adapted from the
-# [Mochi GitHub repo](https://github.com/genmoai/models).
-
-
-@app.function(
-    volumes={  # Gradio's Video component expects a path, so we mount outputs rather than sending bytes
-        OUTPUTS_PATH: outputs
-    },
-    image=modal.Image.debian_slim(python_version="3.11").pip_install(
-        "gradio>=3.36.1", "fastapi"
-    ),
-    concurrency_limit=1,  # gradio has sticky sessions, so keep only one container
-    allow_concurrent_inputs=1000,
-    # allow long durations, especially for the calls that trigger Mochi boot
-    timeout=1 * HOURS,
-)
-@modal.asgi_app()
-def gradio_ui():
-    import gradio as gr
-    from fastapi import FastAPI
-    from gradio.routes import mount_gradio_app
-
-    mochi = Mochi()
-
-    with gr.Blocks() as demo:
-        gr.Markdown("Video Generator")
-        with gr.Row():
-            prompt = gr.Textbox(
-                label="Prompt",
-                value="A hand with delicate fingers picks up a bright yellow lemon from a wooden bowl filled with lemons and sprigs of mint against a peach-colored background. The hand gently tosses the lemon up and catches it, showcasing its smooth texture. A beige string bag sits beside the bowl, adding a rustic touch to the scene. Additional lemons, one halved, are scattered around the base of the bowl. The even lighting enhances the vibrant colors and creates a fresh, inviting atmosphere.",
-            )
-            negative_prompt = gr.Textbox(label="Negative Prompt", value="")
-            seed = gr.Number(label="Seed", value=1710977262, precision=0)
-        with gr.Row():
-            width = gr.Number(label="Width", value=848, precision=0)
-            height = gr.Number(label="Height", value=480, precision=0)
-            num_frames = gr.Number(
-                label="Number of Frames", value=163, precision=0
-            )
-        with gr.Row():
-            cfg_scale = gr.Number(label="CFG Scale", value=4.5)
-            num_inference_steps = gr.Number(
-                label="Number of Inference Steps", value=200, precision=0
-            )
-        btn = gr.Button("Generate Video")
-        output = gr.Video()
-
-        def generate():
-            output_path = mochi.generate_video.remote(
-                prompt,
-                negative_prompt,
-                width,
-                height,
-                num_frames,
-                seed,
-                cfg_scale,
-                num_inference_steps,
-            )
-            outputs.reload()
-            return output_path
-
-        btn.click(
-            mochi.generate_video.remote,  # call our remote Mochi service on click
-            inputs=[
-                prompt,
-                negative_prompt,
-                width,
-                height,
-                num_frames,
-                seed,
-                cfg_scale,
-                num_inference_steps,
-            ],
-            outputs=output,  # output path to the video
-        )
-
-    web_app = FastAPI()
-
-    return mount_gradio_app(app=web_app, blocks=demo, path="/")
 
 
 # ## Addenda
