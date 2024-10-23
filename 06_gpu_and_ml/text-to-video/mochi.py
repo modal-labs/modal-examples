@@ -84,7 +84,7 @@ OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 # use the following command from the folder containing this file:
 
 # ```bash
-# modal run mochi::download_model
+# modal run --detach mochi::download_model
 # ```
 
 download_image = (  # different environment for download -- no heavy libraries, no GPU.
@@ -127,7 +127,7 @@ def download_model(
 # You can trigger it with:
 
 # ```bash
-# modal run mochi
+# modal run --detach mochi
 # ```
 
 
@@ -139,9 +139,9 @@ def main(prompt: str = "A cat playing drums in a jazz ensemble"):
     local_dir = Path("/tmp/moshi")
     local_dir.mkdir(exist_ok=True, parents=True)
     download_model.remote()
-    remote_path = mochi.generate_video.remote(prompt=prompt)
+    remote_path = Path(mochi.generate_video.remote(prompt=prompt))
     local_path = local_dir / remote_path.name
-    local_path.write_bytes(bytes(outputs.read_file(remote_path.name)))
+    local_path.write_bytes(b"".join(outputs.read_file(remote_path.name)))
     print("Video saved locally at", local_path)
 
 
