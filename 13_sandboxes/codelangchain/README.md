@@ -3,10 +3,10 @@
 This example deploys a "code agent": a language model that can write and execute
 code in a flexible control flow aimed at completing a task or goal.
 
-The agent is designed to help write programs in the LangChain Expression
-Language (LCEL). And, naturally, it is implemented in LangChain, using the
-LangGraph library to structure the agent and the LangServe framework to turn it
-into a FastAPI app.
+The agent is designed to help programs using the Python standard library.
+
+It is implemented in LangChain, using the LangGraph library to structure the agent
+and the LangServe framework to turn it into a FastAPI app.
 
 We use Modal to turn that app into a web endpoint. We also use Modal to
 "sandbox" the agent's code execution, so that it can't accidentally (or when
@@ -52,7 +52,7 @@ The web application is defined in `app.py`.
 
 It wraps the `agent.py` module, which contains the LangChain agent's definition.
 To test the agent in isolation, run `modal run agent.py` in the terminal and
-provide a `--question` about LCEL as input.
+provide a `--question` about Python programming as input.
 
 Because the agent is a graph, it is defined by specifying nodes and edges, which
 are found in `nodes.py` and `edges.py`, respectively.
@@ -60,7 +60,7 @@ are found in `nodes.py` and `edges.py`, respectively.
 The logic for spinning up a `modal.Sandbox` to contain the agent's actions is in
 `sandbox.py`.
 
-The retrieval logic is very simple: all of the data from the LCEL docs is
+The retrieval logic is very simple: all of the data from the Python stdlib docs is
 retrieved and put at the beginning of the language model's prompt. You can find
 it in `retrieval.py`.
 

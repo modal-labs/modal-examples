@@ -1,15 +1,15 @@
 import sys
 from operator import itemgetter
 
-import sandbox
-from common import GraphState, agent_image, image
+from . import sandbox
+from .common import GraphState, image
 
 with image.imports():
     from langchain.output_parsers.openai_tools import PydanticToolsParser
     from langchain.prompts import PromptTemplate
-    from langchain_core.pydantic_v1 import BaseModel, Field
     from langchain_core.utils.function_calling import convert_to_openai_tool
     from langchain_openai import ChatOpenAI
+    from pydantic import BaseModel, Field
 
 
 class Nodes:
@@ -17,7 +17,7 @@ class Nodes:
         self.context = context
         self.debug = debug
         self.model = (
-            "gpt-4-0125-preview" if not self.debug else "gpt-3.5-turbo-0125"
+            "gpt-4o-2024-08-06" if not self.debug else "gpt-4o-mini-2024-07-18"
         )
         self.node_map = {
             "generate": self.generate,
@@ -28,7 +28,7 @@ class Nodes:
 
     def generate(self, state: GraphState) -> GraphState:
         """
-        Generate a code solution based on LCEL docs and the input question
+        Generate a code solution based on docs and the input question
         with optional feedback from code execution tests
 
         Args:
@@ -72,16 +72,13 @@ class Nodes:
 
         ## Prompt
         template = (
-            """You are a coding assistant with expertise in LCEL, LangChain expression language. \n
-        You are able to execute Python code in a sandbox environment that was constructed by chaining together the following two Dockerfile commands: \n
+            """You are a coding assistant with expertise in Python. \n
+        You are able to execute Python code in a sandbox environment.\n
         """
-            + f"{image.dockerfile_commands()}"
-            + "\n"
-            + f"{agent_image.dockerfile_commands()}"
             + """
             You are tasked with responding to the following user question: {question}
             Your response will be shown to the user.
-            Here is a full set of LCEL documentation:
+            Here is a full set of documentation:
             \n ------- \n
             {context}
             \n ------- \n

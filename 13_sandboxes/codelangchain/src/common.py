@@ -5,21 +5,20 @@ from typing import Dict, TypedDict
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
+PYTHON_VERSION = "3.11"
+
+image = modal.Image.debian_slim(python_version=PYTHON_VERSION).pip_install(
     "beautifulsoup4~=4.12.3",
-    "langchain==0.1.11",
-    "langgraph==0.0.26",
-    "langchain_community==0.0.27",
-    "langchain-openai==0.0.8",
-    "langserve[all]==0.0.46",
+    "langchain==0.3.4",
+    "langchain-core==0.3.12",
+    "langgraph==0.2.39",
+    "langchain-community==0.3.3",
+    "langchain-openai==0.2.3",
+    "langserve[all]==0.3.0",
 )
 
-agent_image = image.pip_install(
-    "chromadb==0.4.24",
-    "langchainhub==0.1.15",
-    "faiss-cpu~=1.8.0",
-    "tiktoken==0.6.0",
-)
+# change this image if you want the agent to give coding advice on other libraries!
+agent_image = modal.Image.debian_slim(python_version=PYTHON_VERSION)
 
 app = modal.App(
     "example-code-langchain",
@@ -43,6 +42,7 @@ class GraphState(TypedDict):
 
 
 os.environ["LANGCHAIN_PROJECT"] = "codelangchain"
+os.environ["LANGCHAIN_TRACING"] = "true"
 
 COLOR = {
     "HEADER": "\033[95m",

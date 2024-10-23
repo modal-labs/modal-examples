@@ -1,16 +1,19 @@
+# ---
+# cmd: ["modal", "run", "13_sandboxes.codelangchain.src.agent", "--question", "What are some new typing features in Python 3.11?"]
+# ---
 """Application serving logic for the CodeLangChain agent."""
 
-import agent
 import modal
-from agent import app, nodes
+import src.agent as agent
 from fastapi import FastAPI, responses
 from fastapi.middleware.cors import CORSMiddleware
+from src.agent import app
 
 # create a FastAPI app
 web_app = FastAPI(
     title="CodeLangChain Server",
     version="1.0",
-    description="Answers questions about LangChain Expression Language (LCEL).",
+    description="Answers questions about Python programming.",
 )
 
 
@@ -36,10 +39,8 @@ def serve():
         return {"keys": {"question": question, "iterations": 0}}
 
     def out(state: dict) -> str:
-        if "keys" in state:
-            return state["keys"]["response"]
-        elif "generate" in state:
-            return nodes.extract_response(state["generate"])
+        if "finish" in state[-1]:
+            return state[-1]["finish"]["keys"]["response"]
         else:
             return str(state)
 
