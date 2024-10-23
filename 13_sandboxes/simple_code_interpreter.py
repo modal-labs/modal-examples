@@ -94,11 +94,7 @@ sb = modal.Sandbox.create("python", "-c", driver_program_command, app=app)
 
 # Now we can execute some code in the Sandbox!
 
-run_code(sb, "print('hello, world!')")
-
-# ```
-# hello, world!
-# ```
+run_code(sb, "print('hello, world!')")  # hello, world!
 
 # The Sandbox and our code interpreter are stateful,
 # so we can define variables and use them in subsequent code.
@@ -106,21 +102,12 @@ run_code(sb, "print('hello, world!')")
 run_code(sb, "x = 10")
 run_code(sb, "y = 5")
 run_code(sb, "result = x + y")
-run_code(sb, "print(f'The result is: {result}')")
-
-# ```
-# The result is: 15
-# ```
+run_code(sb, "print(f'The result is: {result}')")  # The result is: 15
 
 # We can also see errors when code fails.
 
 run_code(sb, "print('Attempting to divide by zero...')")
-run_code(sb, "1 / 0")
-
-# ```
-# Attempting to divide by zero...
-# <span style="color:red">Execution Error: division by zero</span>
-# ```
+run_code(sb, "1 / 0")  # Execution Error: division by zero
 
 # Finally, let's clean up after ourselves and terminate the Sandbox.
 
