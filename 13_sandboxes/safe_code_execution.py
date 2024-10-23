@@ -4,16 +4,17 @@
 # pytest: false
 # ---
 
-# # Running arbitrary code in a sandboxed environment
+# # Run arbitrary code in a sandboxed environment
 
-# This example demonstrates how to run arbitrary code in a Modal [Sandbox](https://modal.com/docs/guide/sandbox).
+# This example demonstrates how to run arbitrary code
+# in multiple languages in a Modal [Sandbox](https://modal.com/docs/guide/sandbox).
 
 # ## Setting up a multi-language environment
 
-import modal
+# Sandboxes allow us to run any kind of code in a safe environment.
+# We'll use an image with a few different language runtimes to demonstrate this.
 
-# Sandboxes allow us to run any kind of code in a safe environment. We'll use an image with a few
-# different language runtimes to demonstrate this.
+import modal
 
 image = modal.Image.debian_slim(python_version="3.11").apt_install(
     "nodejs", "ruby", "php"
@@ -47,6 +48,8 @@ print(ruby_ps.stdout.read(), end="")
 print(php_ps.stdout.read(), end="")
 print()
 
+# The output should look something like
+
 # ```
 # hello from bash
 # hello from python
@@ -75,10 +78,6 @@ combined_process = sandbox.exec(
 result = combined_process.stdout.read().strip()
 print(result)
 
-# ```
-# The sum of the random numbers is: 501
-# ```
-
 # For long-running processes, you can use stdout as an iterator to stream the output.
 
 slow_printer = sandbox.exec(
@@ -96,25 +95,21 @@ slow_printer = sandbox.exec(
 for line in slow_printer.stdout:
     print(line, end="")
 
+# This should print something like
+
 # ```
 # Line 1: 2024-10-21 15:30:53 +0000
 # Line 2: 2024-10-21 15:30:54 +0000
-# Line 3: 2024-10-21 15:30:54 +0000
-# Line 4: 2024-10-21 15:30:55 +0000
-# Line 5: 2024-10-21 15:30:55 +0000
-# Line 6: 2024-10-21 15:30:56 +0000
-# Line 7: 2024-10-21 15:30:56 +0000
-# Line 8: 2024-10-21 15:30:57 +0000
-# Line 9: 2024-10-21 15:30:57 +0000
+# ...
 # Line 10: 2024-10-21 15:30:58 +0000
 # ```
 
-# Since sandboxes are safely separated from the rest of our system,
+# Since Sandboxes are safely separated from the rest of our system,
 # we can run very dangerous code in them!
 
-sandbox.exec("rm", "-rf", "/", "--no-preserve-root")
+sandbox.exec("rm", "-rfv", "/", "--no-preserve-root")
 
 # This command has deleted the entire filesystem, so we can't run any more commands.
-# Let's terminate the sandbox to finish the example.
+# Let's terminate the Sandbox to clean up after ourselves.
 
 sandbox.terminate()
