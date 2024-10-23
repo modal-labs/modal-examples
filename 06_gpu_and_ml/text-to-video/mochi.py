@@ -1,9 +1,31 @@
+# # Generate videos from text prompts with Mochi
+
+# This example demonstrates how to run the [Mochi 1](https://github.com/genmoai/models)
+# video generation model by [Genmo](https://www.genmo.ai/) on Modal.
+
+# Note that the Mochi model, at time of writing,
+# requires several minutes on four H100s to produce
+# a high-quality clip of even a few seconds.
+# Check our [pricing page](https://modal.com/pricing)
+# to determine the cost before running this example at scale.
+
+# ## Setting up the environment for Mochi
+
+# We start by defining the environment the model runs in.
+# We'll need the [full CUDA toolkit](https://modal.com/docs/guide/cuda),
+# [Flash Attention](https://arxiv.org/abs/2205.14135) for fast attention kernels,
+# and the Mochi model code.
+
 import json
 import os
 import tempfile
 import time
 
 import modal
+
+MINUTES = 60
+HOURS = 60 * MINUTES
+
 
 cuda_version = "12.3.1"  # should be no greater than host CUDA version
 flavor = "devel"  #  includes full CUDA toolkit
@@ -12,16 +34,16 @@ tag = f"{cuda_version}-{flavor}-{os_version}"
 
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
-    .entrypoint([]) # reduces nvidia log verbosity
+    .entrypoint([])
     .apt_install("git", "ffmpeg")
     .pip_install("torch==2.4.0", "packaging", "ninja", "wheel", "setuptools")
     .pip_install("flash-attn==2.6.3", extra_options="--no-build-isolation")
-    .pip_install("git+https://github.com/genmoai/models.git@075b6e36db58f1242921deff83a1066887b9c9e1")
+    .pip_install(
+        "git+https://github.com/genmoai/models.git@075b6e36db58f1242921deff83a1066887b9c9e1"
+    )
 )
 
 app = modal.App("example-mochi", image=image)
-model = modal.Volume.from_name("mochi-model", create_if_missing=True)
-outputs = modal.Volume.from_name("mochi-outputs", create_if_missing=True)
 
 with image.imports():
     import numpy as np
@@ -32,15 +54,19 @@ with image.imports():
     from PIL import Image
     from tqdm import tqdm
 
-# remote path for saving the model
-MODEL_PATH = "/model"
+# ### Saving model weights and outputs
 
-# remote path for saving video outputs
-OUTPUTS_PATH = "/outputs"
+# Mochi weighs in at ~80 GB (~20B params, released in full 32bit precision)
+# and can take several minutes to generate videos.
 
+# On Modal, we save large or expensive-to-compute data to
+# [distributed Volumes](https://modal.com/docs/guide/volumes).
 
-MINUTES = 60
-HOURS = 60 * MINUTES
+model = modal.Volume.from_name("mochi-model", create_if_missing=True)
+outputs = modal.Volume.from_name("mochi-outputs", create_if_missing=True)
+
+MODEL_PATH = "/model"  # remote path for saving the model
+OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 
 download_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -50,6 +76,7 @@ download_image = (
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
+
 
 @app.function(
     volumes={MODEL_PATH: model}, timeout=2 * HOURS, image=download_image
@@ -68,6 +95,7 @@ def download_model(
     )
     print("Model downloaded")
 
+
 @app.cls(
     gpu=modal.gpu.H100(count=4),
     volumes={
@@ -75,7 +103,8 @@ def download_model(
         OUTPUTS_PATH: outputs,
     },  # videos from mochi save to volume
     timeout=1 * HOURS,
-    container_idle_timeout=20*MINUTES, # boot takes a while, so keeping it warm can actually save money vs booting every time
+    container_idle_timeout=20
+    * MINUTES,  # boot takes a while, so keeping it warm can actually save money vs booting every time
 )
 class Mochi:
     @modal.enter()
@@ -99,7 +128,7 @@ class Mochi:
             dit_checkpoint_path=MODEL_CHECKPOINT_PATH,
         )
         print("Model loaded")
-    
+
     @modal.exit()
     def graceful_exit(self):
         ray.shutdown()
@@ -187,7 +216,9 @@ class Mochi:
         final_frames = final_frames[0]
 
         os.makedirs(OUTPUTS_PATH, exist_ok=True)
-        output_path = os.path.join(OUTPUTS_PATH, f"output_{int(time.time())}.mp4")
+        output_path = os.path.join(
+            OUTPUTS_PATH, f"output_{int(time.time())}.mp4"
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             frame_paths = []
@@ -219,7 +250,8 @@ class Mochi:
     ),
     concurrency_limit=1,  # gradio has sticky sessions, so keep only one container
     allow_concurrent_inputs=1000,
-    timeout=1 * HOURS, # allow long generations, especially for the calls that trigger Mochi boots
+    timeout=1
+    * HOURS,  # allow long generations, especially for the calls that trigger Mochi boots
 )
 @modal.asgi_app()
 def gradio_app():
@@ -283,11 +315,7 @@ def gradio_app():
 
     web_app = FastAPI()
 
-    return mount_gradio_app(
-        app=web_app,
-        blocks=demo,
-        path="/"
-    )
+    return mount_gradio_app(app=web_app, blocks=demo, path="/")
 
 
 @app.local_entrypoint()
