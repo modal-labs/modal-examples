@@ -1,6 +1,5 @@
 # ---
 # pytest: false
-# lambda-test: false
 # ---
 
 

@@ -1,6 +1,5 @@
 # ---
 # pytest: false
-# lambda-test: false
 # ---
 
 from torch.utils.tensorboard import SummaryWriter

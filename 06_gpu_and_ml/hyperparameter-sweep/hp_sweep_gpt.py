@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["modal", "run", "06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt", "--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
+# cmd: ["modal", "run", "06_gpu_and_ml/hyperparameter-sweep/hp_sweep_gpt.py", "--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
 # ---
 
 # # Train an SLM from scratch with early-stopping grid search over hyperparameters
@@ -72,8 +72,8 @@ gpu = "A10G"
 # ### Create a Volume to store data, weights, and logs
 
 # Since we'll be coordinating training across multiple machines we'll use a
-# single [Volume](https://modal.com/docs/guide/volumes)
-# to store the `dataset`, checkpointed models, and TensorBoard logs.
+# distributed [Volume](https://modal.com/docs/guide/volumes)
+# to store the data, checkpointed models, and TensorBoard logs.
 
 volume = modal.Volume.from_name(
     "example-hp-sweep-gpt-volume-v2", create_if_missing=True
@@ -95,6 +95,15 @@ image = Image.debian_slim(python_version="3.11").pip_install(
     "numpy<2",
 )
 
+# We also have some local dependencies that we'll need to import into the remote environment.
+# We mount them onto the remote container.
+
+mounts = [
+    modal.Mount.from_local_dir(
+        Path(__file__).parent / "src", remote_path=Path("/root/src")
+    )
+]
+
 # We'll spin up a separate container to monitor the training logs with TensorBoard.
 
 monitoring_image = Image.debian_slim(python_version="3.11").pip_install(
@@ -110,9 +119,6 @@ ui_image = Image.debian_slim(python_version="3.11").pip_install(
 # We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
 # using the `with image.imports` context manager.
 
-# We can also import our local code into the remote environment at the same time.
-# Here, we import utilities for defining our dataset, model, and monitoring.
-
 with image.imports():
     import glob
     import os
@@ -120,11 +126,10 @@ with image.imports():
 
     import tensorboard
     import torch
-
-    from .dataset import Dataset
-    from .logs_manager import LogsManager
-    from .model import AttentionModel
-    from .tokenizer import Tokenizer
+    from src.dataset import Dataset
+    from src.logs_manager import LogsManager
+    from src.model import AttentionModel
+    from src.tokenizer import Tokenizer
 
 # ## Running SLM training on Modal
 
@@ -138,7 +143,11 @@ with image.imports():
 
 
 @app.function(
-    image=image, volumes={volume_path: volume}, gpu=gpu, timeout=1 * HOURS
+    image=image,
+    mounts=mounts,
+    volumes={volume_path: volume},
+    gpu=gpu,
+    timeout=1 * HOURS,
 )
 def train_model(
     node_rank,
