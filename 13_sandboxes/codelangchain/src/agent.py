@@ -10,26 +10,34 @@ Replace this with something that retrieves your documentation and adjust the pro
 
 You can test the agent from the command line with `modal run agent.py --question` followed by your query"""
 
-import edges
-import nodes
-import retrieval
-from common import app
+from . import edges, nodes, retrieval
+from .common import PYTHON_VERSION, app
+
+default_question = (
+    f"What are some new Python features in Python {PYTHON_VERSION}?"
+)
 
 
 @app.local_entrypoint()
-def main(question: str = "How do I build a RAG pipeline?", debug: bool = False):
-    """Sends a question to the LCEL code generation agent.
+def main(
+    question: str = default_question,
+    debug: bool = False,
+):
+    """Sends a question to the Pytohn code generation agent.
 
     Switch to debug mode for shorter context and smaller model."""
     if debug:
-        if question == "How do I build a RAG pipeline?":
+        if question == default_question:
             question = "gm king, how are you?"
-    print(go.remote(question, debug=debug)["keys"]["response"])
+    print(go.remote(question, debug=debug))
 
 
 @app.function()
-def go(question: str = "How do I build a RAG pipeline?", debug: bool = False):
-    """Compiles the LCEL code generation agent graph and runs it, returning the result."""
+def go(
+    question: str = default_question,
+    debug: bool = False,
+):
+    """Compiles the Python code generation agent graph and runs it, returning the result."""
     graph = construct_graph(debug=debug)
     runnable = graph.compile()
     result = runnable.invoke(
@@ -37,12 +45,13 @@ def go(question: str = "How do I build a RAG pipeline?", debug: bool = False):
         config={"recursion_limit": 50},
     )
 
-    return result
+    return result["keys"]["response"]
 
 
 def construct_graph(debug=False):
-    from common import GraphState
     from langgraph.graph import StateGraph
+
+    from .common import GraphState
 
     context = retrieval.retrieve_docs(debug=debug)
 

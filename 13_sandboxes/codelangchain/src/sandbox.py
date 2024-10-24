@@ -1,7 +1,8 @@
 """Defines the logic for running agent code in a sandbox."""
 
 import modal
-from common import COLOR, agent_image, app
+
+from .common import COLOR, agent_image, app
 
 
 def run(code: str):
@@ -10,17 +11,14 @@ def run(code: str):
         f"{COLOR['GREEN']}{code}{COLOR['ENDC']}",
         sep="\n",
     )
-    sb = app.spawn_sandbox(
+    sb = modal.Sandbox.create(
         "python",
         "-c",
         code,
         image=agent_image,
         timeout=60 * 10,  # 10 minutes
-        secrets=[
-            modal.Secret.from_name(
-                "my-openai-secret"
-            )  # could be a different secret!
-        ],
+        # no secrets -- so agent cannot e.g. run up an OpenAI bill
+        app=app,
     )
 
     sb.wait()

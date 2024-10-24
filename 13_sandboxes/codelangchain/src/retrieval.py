@@ -1,11 +1,11 @@
 """Just as a constant function is _technically_ a polynomial, so too is injecting the same information every time _technically_ RAG."""
 
-from common import COLOR
+from .common import COLOR, PYTHON_VERSION
 
-lcel_docs_url = "https://python.langchain.com/docs/expression_language/"
+docs_url = f"https://docs.python.org/{PYTHON_VERSION}/"
 
 
-def retrieve_docs(url: str = lcel_docs_url, debug=False):
+def retrieve_docs(url: str = docs_url, debug=False):
     from bs4 import BeautifulSoup as Soup
     from langchain_community.document_loaders.recursive_url_loader import (
         RecursiveUrlLoader,
@@ -15,8 +15,8 @@ def retrieve_docs(url: str = lcel_docs_url, debug=False):
         f"{COLOR['HEADER']}📜: Retrieving documents from {url}{COLOR['ENDC']}"
     )
     loader = RecursiveUrlLoader(
-        url=lcel_docs_url,
-        max_depth=20 // (int(debug) + 1),  # retrieve fewer docs in debug mode
+        url=docs_url,
+        max_depth=2 // (int(debug) + 1),  # retrieve fewer docs in debug mode
         extractor=lambda x: Soup(x, "html.parser").text,
     )
     docs = loader.load()

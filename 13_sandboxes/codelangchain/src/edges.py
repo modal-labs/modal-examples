@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-from common import GraphState
+from .common import GraphState
 
 EXPECTED_NODES = [
     "generate",
