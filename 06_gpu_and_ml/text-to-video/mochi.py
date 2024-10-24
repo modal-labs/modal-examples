@@ -172,7 +172,7 @@ def main(
     from pathlib import Path
 
     mochi = Mochi()
-    local_dir = Path("/tmp/moshi")
+    local_dir = Path("/tmp/mochi")
     local_dir.mkdir(exist_ok=True, parents=True)
     download_model.remote()
     remote_path = Path(
