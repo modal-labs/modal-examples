@@ -7,15 +7,24 @@
 # This example demonstrates how to run the [Mochi 1](https://github.com/genmoai/models)
 # video generation model by [Genmo](https://www.genmo.ai/) on Modal.
 
+# Here's one that we generated, inspired by our logo:
+
+# <center>
+# <video controls autoplay loop muted>
+# <source src="https://modal-public-assets.s3.us-east-1.amazonaws.com/modal-logo-splat.mp4" type="video/mp4" />
+# </video>
+# </center>
+
 # Note that the Mochi model, at time of writing,
 # requires several minutes on four H100s to produce
 # a high-quality clip of even a few seconds.
-# It also takes many minutes to boot up -- as long as half an hour.
+# It also takes a five to ten minutes to boot up.
+# So a single video generation therefore costs about $2
+# at our ~$5/hr rate for H100s.
 
-# A single video generation can therefore cost over $10
-# at our ~$5/hr rate for H100s!
 # Keep your eyes peeled for improved efficiency
 # as the open source community works on this new model.
+# We welcome PRs to improve the performance of this example!
 
 # ## Setting up the environment for Mochi
 
@@ -28,6 +37,7 @@ import json
 import os
 import tempfile
 import time
+from pathlib import Path
 
 import modal
 
@@ -75,11 +85,12 @@ with image.imports():
 model = modal.Volume.from_name("mochi-model", create_if_missing=True)
 outputs = modal.Volume.from_name("mochi-outputs", create_if_missing=True)
 
-MODEL_PATH = "/model"  # remote path for saving the model
+MODEL_CACHE = Path("/root/.cache")  # remote path for saving the model
 OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 
 # We download the model using the `hf-transfer`
-# library from Hugging Face.
+# library from Hugging Face and additionally download
+# the text encoder (Google's T5 XXL) using `transformers`.
 
 # This can takes five to thirty minutes, depending on traffic
 # and network speed.
@@ -96,32 +107,45 @@ OUTPUTS_PATH = "/outputs"  # remote path for saving video outputs
 # even if you close your terminal or shut down your computer
 # while it's running.
 
-download_image = (  # different environment for download -- no heavy libraries, no GPU.
+download_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "huggingface_hub",
         "hf-transfer",
+        "torch",
+        "transformers",
+        "sentencepiece",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
 
 
 @app.function(
-    volumes={MODEL_PATH: model}, timeout=2 * HOURS, image=download_image
+    volumes={MODEL_CACHE: model}, timeout=2 * HOURS, image=download_image
 )
 def download_model(
     model_revision: str = "8e9673c5349979457e515fddd38911df6b4ca07f",
 ):
-    model.reload()
-    print("Downloading Mochi model")
     from huggingface_hub import snapshot_download
+    from transformers import T5EncoderModel, T5Tokenizer
+
+    model.reload()
+    print("🍡 downloading Mochi model")
 
     snapshot_download(
         repo_id="genmo/mochi-1-preview",
-        local_dir=MODEL_PATH,
+        local_dir=MODEL_CACHE / "mochi-1-preview",
         revision=model_revision,
     )
-    print("Model downloaded")
+    print("🍡 model downloaded")
+
+    print("🍡 downloading text encoder")
+
+    T5Tokenizer.from_pretrained("google/t5-v1_1-xxl", legacy=False)
+    T5EncoderModel.from_pretrained("google/t5-v1_1-xxl")
+
+    model.commit()
+    print("🍡 text encoder downloaded")
 
 
 # ## Running Mochi inference
@@ -151,10 +175,25 @@ def main(prompt: str = "A cat playing drums in a jazz ensemble"):
     remote_path = Path(mochi.generate_video.remote(prompt=prompt))
     local_path = local_dir / remote_path.name
     local_path.write_bytes(b"".join(outputs.read_file(remote_path.name)))
-    print("Video saved locally at", local_path)
+    print("🍡 video saved locally at", local_path)
 
 
-# The Mochi inference logic is defined in the Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions).
+# To deploy Mochi, run
+# ```bash
+# modal deploy mochi
+# ```
+
+# And then use it from another Python process that has access to your Modal credentials:
+
+# ```python
+# import modal
+#
+# Mochi = modal.Cls.lookup("example-mochi", "Mochi")
+# remote_path = Mochi().generate_video.remote(prompt="A cat playing drums in a jazz ensemble")
+# ```
+
+
+# The Mochi inference logic is defined in the Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions) below.
 
 # See [the Mochi GitHub repo](https://github.com/genmoai/models)
 # for more details on running Mochi.
@@ -163,7 +202,7 @@ def main(prompt: str = "A cat playing drums in a jazz ensemble"):
 @app.cls(
     gpu=modal.gpu.H100(count=4),
     volumes={
-        MODEL_PATH: model,
+        MODEL_CACHE: model,
         OUTPUTS_PATH: outputs,  # videos are saved to (distributed) disk
     },
     # boot takes a while, so we keep the container warm for 20 minutes after the last call finishes
@@ -175,16 +214,19 @@ class Mochi:
     def load_model(self):
         model.reload()
         ray.init()
-        vae_stats_path = f"{MODEL_PATH}/vae_stats.json"
-        vae_checkpoint_path = f"{MODEL_PATH}/vae.safetensors"
-        model_config_path = f"{MODEL_PATH}/dit-config.yaml"
-        model_checkpoint_path = f"{MODEL_PATH}/dit.safetensors"
+        model_path = MODEL_CACHE / "mochi-1-preview"
+        vae_stats_path = f"{model_path}/vae_stats.json"
+        vae_checkpoint_path = f"{model_path}/vae.safetensors"
+        model_config_path = f"{model_path}/dit-config.yaml"
+        model_checkpoint_path = f"{model_path}/dit.safetensors"
         num_gpus = torch.cuda.device_count()
         if num_gpus < 4:
             print(
-                f"WARNING: Mochi requires at least 4xH100 GPUs, but only {num_gpus} GPU(s) are available."
+                f"🍡 WARNING: Mochi requires at least 4xH100 GPUs, but only {num_gpus} GPU(s) are available."
             )
-        print(f"Loading model to {num_gpus} GPUs. This can take 5-15 minutes.")
+        print(
+            f"🍡 loading model to {num_gpus} GPUs. This can take 5-15 minutes."
+        )
         self.model = MochiWrapper(
             num_workers=num_gpus,
             vae_stats_path=vae_stats_path,
@@ -192,7 +234,7 @@ class Mochi:
             dit_config_path=model_config_path,
             dit_checkpoint_path=model_checkpoint_path,
         )
-        print("Model loaded")
+        print("🍡 model loaded")
 
     @modal.exit()
     def graceful_exit(self):
