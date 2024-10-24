@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py", "--num-inference-steps", "64"]
 # ---
 
 # # Generate videos from text prompts with Mochi
@@ -165,14 +165,21 @@ def download_model(
 
 
 @app.local_entrypoint()
-def main(prompt: str = "A cat playing drums in a jazz ensemble"):
+def main(
+    prompt: str = "A cat playing drums in a jazz ensemble",
+    num_inference_steps: int = 200,
+):
     from pathlib import Path
 
     mochi = Mochi()
     local_dir = Path("/tmp/moshi")
     local_dir.mkdir(exist_ok=True, parents=True)
     download_model.remote()
-    remote_path = Path(mochi.generate_video.remote(prompt=prompt))
+    remote_path = Path(
+        mochi.generate_video.remote(
+            prompt=prompt, num_inference_steps=num_inference_steps
+        )
+    )
     local_path = local_dir / remote_path.name
     local_path.write_bytes(b"".join(outputs.read_file(remote_path.name)))
     print("🍡 video saved locally at", local_path)
@@ -250,7 +257,7 @@ class Mochi:
         num_frames=163,
         seed=12345,
         cfg_scale=4.5,
-        num_inference_steps=64,
+        num_inference_steps=200,
     ):
         # credit: https://github.com/genmoai/models/blob/7c7d33c49d53bbf939fd6676610e949f3008b5a8/src/mochi_preview/infer.py#L63
 
