@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py", "--num_inference_steps", "64"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py", "--num-inference-steps", "64"]
 # ---
 
 # # Generate videos from text prompts with Mochi
