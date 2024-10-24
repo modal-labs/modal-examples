@@ -103,133 +103,133 @@ class Session:
         self.messages = []
         self.pdf_embeddings = None
 
-# Here we define our on-GPU ColQwen2 service, which runs document indexing and inference
-@app.cls(
-    image=model_image,
-    gpu=modal.gpu.A100(size="80GB"),
-    container_idle_timeout=10 * MINUTES,  # spin down when inactive
-)
-class Model:
-    @modal.build()
-    @modal.enter()
-    def load_models(self):
-        self.colqwen2_model = ColQwen2.from_pretrained(
-            "vidore/colqwen2-v0.1",
-            torch_dtype=torch.bfloat16,
-            device_map="cuda:0",
-        )
-        self.colqwen2_processor = ColQwen2Processor.from_pretrained(
-            "vidore/colqwen2-v0.1"
-        )
-        self.qwen2_vl_model = Qwen2VLForConditionalGeneration.from_pretrained(
-            "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
-        )
-        self.qwen2_vl_model.to("cuda:0")
-        self.qwen2_vl_processor = AutoProcessor.from_pretrained(
-            "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
-        )
+# # Here we define our on-GPU ColQwen2 service, which runs document indexing and inference
+# @app.cls(
+#     image=model_image,
+#     gpu=modal.gpu.A100(size="80GB"),
+#     container_idle_timeout=10 * MINUTES,  # spin down when inactive
+# )
+# class Model:
+#     @modal.build()
+#     @modal.enter()
+#     def load_models(self):
+#         self.colqwen2_model = ColQwen2.from_pretrained(
+#             "vidore/colqwen2-v0.1",
+#             torch_dtype=torch.bfloat16,
+#             device_map="cuda:0",
+#         )
+#         self.colqwen2_processor = ColQwen2Processor.from_pretrained(
+#             "vidore/colqwen2-v0.1"
+#         )
+#         self.qwen2_vl_model = Qwen2VLForConditionalGeneration.from_pretrained(
+#             "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
+#         )
+#         self.qwen2_vl_model.to("cuda:0")
+#         self.qwen2_vl_processor = AutoProcessor.from_pretrained(
+#             "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
+#         )
 
-    @modal.method()
-    def index_pdf(self, session_id, images):
-        if session_id not in sessions:
-            sessions[session_id] = Session()
+#     @modal.method()
+#     def index_pdf(self, session_id, images):
+#         if session_id not in sessions:
+#             sessions[session_id] = Session()
 
-        session = sessions[session_id]
-        session.images = images
+#         session = sessions[session_id]
+#         session.images = images
 
-        batch_images = self.colqwen2_processor.process_images(images).to(
-            self.colqwen2_model.device
-        )
-        pdf_embeddings = self.colqwen2_model(**batch_images)
-        session.pdf_embeddings = pdf_embeddings
-        # Update session state
-        sessions[session_id] = session
+#         batch_images = self.colqwen2_processor.process_images(images).to(
+#             self.colqwen2_model.device
+#         )
+#         pdf_embeddings = self.colqwen2_model(**batch_images)
+#         session.pdf_embeddings = pdf_embeddings
+#         # Update session state
+#         sessions[session_id] = session
 
-    @modal.method()
-    def respond_to_message(self, session_id, message):
-        if session_id not in sessions:
-            sessions[session_id] = Session()
-        session = sessions[session_id]
+#     @modal.method()
+#     def respond_to_message(self, session_id, message):
+#         if session_id not in sessions:
+#             sessions[session_id] = Session()
+#         session = sessions[session_id]
 
-        # nothing to chat about without a PDF!
-        if session.images is None:
-            return "Please upload a PDF first"
-        elif session.pdf_embeddings is None:
-            return "Indexing PDF..."
+#         # nothing to chat about without a PDF!
+#         if session.images is None:
+#             return "Please upload a PDF first"
+#         elif session.pdf_embeddings is None:
+#             return "Indexing PDF..."
 
-        print("respond_to_message, session_id", session_id)
+#         print("respond_to_message, session_id", session_id)
 
-        # retrieve the most relevant image from the PDF for the input query
-        def get_relevant_image(message):
-            batch_queries = self.colqwen2_processor.process_queries(
-                [message]
-            ).to(self.colqwen2_model.device)
-            query_embeddings = self.colqwen2_model(**batch_queries)
-            scores = self.colqwen2_processor.score_multi_vector(
-                query_embeddings, session.pdf_embeddings
-            )[0]
-            max_index = max(range(len(scores)), key=lambda index: scores[index])
-            return session.images[max_index]
+#         # retrieve the most relevant image from the PDF for the input query
+#         def get_relevant_image(message):
+#             batch_queries = self.colqwen2_processor.process_queries(
+#                 [message]
+#             ).to(self.colqwen2_model.device)
+#             query_embeddings = self.colqwen2_model(**batch_queries)
+#             scores = self.colqwen2_processor.score_multi_vector(
+#                 query_embeddings, session.pdf_embeddings
+#             )[0]
+#             max_index = max(range(len(scores)), key=lambda index: scores[index])
+#             return session.images[max_index]
 
-        # helper function to put message in the format chatbot
-        def get_chatbot_message_with_image(message, image):
-            return {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": message},
-                ],
-            }
+#         # helper function to put message in the format chatbot
+#         def get_chatbot_message_with_image(message, image):
+#             return {
+#                 "role": "user",
+#                 "content": [
+#                     {"type": "image", "image": image},
+#                     {"type": "text", "text": message},
+#                 ],
+#             }
 
-        # helper function add messages to the conversation history in chatbot format
-        def append_to_messages(message, user_type="user"):
-            session.messages.append(
-                {
-                    "role": user_type,
-                    "content": {"type": "text", "text": message},
-                }
-            )
+#         # helper function add messages to the conversation history in chatbot format
+#         def append_to_messages(message, user_type="user"):
+#             session.messages.append(
+#                 {
+#                     "role": user_type,
+#                     "content": {"type": "text", "text": message},
+#                 }
+#             )
 
-        # pass the query and retrieved image along with conversation history into the VLM for a response
-        def generate_response(message, image):
-            chatbot_message = get_chatbot_message_with_image(message, image)
-            query = self.qwen2_vl_processor.apply_chat_template(
-                [chatbot_message, *session.messages],
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-            image_inputs, _ = process_vision_info([chatbot_message])
-            inputs = self.qwen2_vl_processor(
-                text=[query],
-                images=image_inputs,
-                padding=True,
-                return_tensors="pt",
-            )
-            inputs = inputs.to("cuda:0")
+#         # pass the query and retrieved image along with conversation history into the VLM for a response
+#         def generate_response(message, image):
+#             chatbot_message = get_chatbot_message_with_image(message, image)
+#             query = self.qwen2_vl_processor.apply_chat_template(
+#                 [chatbot_message, *session.messages],
+#                 tokenize=False,
+#                 add_generation_prompt=True,
+#             )
+#             image_inputs, _ = process_vision_info([chatbot_message])
+#             inputs = self.qwen2_vl_processor(
+#                 text=[query],
+#                 images=image_inputs,
+#                 padding=True,
+#                 return_tensors="pt",
+#             )
+#             inputs = inputs.to("cuda:0")
 
-            generated_ids = self.qwen2_vl_model.generate(
-                **inputs, max_new_tokens=128
-            )
-            generated_ids_trimmed = [
-                out_ids[len(in_ids) :]
-                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-            ]
-            output_text = self.qwen2_vl_processor.batch_decode(
-                generated_ids_trimmed,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False,
-            )[0]
-            return output_text
+#             generated_ids = self.qwen2_vl_model.generate(
+#                 **inputs, max_new_tokens=128
+#             )
+#             generated_ids_trimmed = [
+#                 out_ids[len(in_ids) :]
+#                 for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+#             ]
+#             output_text = self.qwen2_vl_processor.batch_decode(
+#                 generated_ids_trimmed,
+#                 skip_special_tokens=True,
+#                 clean_up_tokenization_spaces=False,
+#             )[0]
+#             return output_text
 
-        relevant_image = get_relevant_image(message)
-        output_text = generate_response(message, relevant_image)
-        append_to_messages(message, user_type="user")
-        append_to_messages(output_text, user_type="assistant")
+#         relevant_image = get_relevant_image(message)
+#         output_text = generate_response(message, relevant_image)
+#         append_to_messages(message, user_type="user")
+#         append_to_messages(output_text, user_type="assistant")
 
-        # Update session state
-        sessions[session_id] = session
+#         # Update session state
+#         sessions[session_id] = session
 
-        return output_text
+#         return output_text
 
 
 # ## A hosted Gradio interface
@@ -278,30 +278,26 @@ def ui():
     from gradio_pdf import PDF
     from pdf2image import convert_from_path
 
+    # model = Model()
 
-    model = Model()
+    def upload_pdf(path):
+        pass
+        # print("upload_pdf received session_id", session_id)
+        # # do something with the pdf
+        # if session_id == "":
+        #     session_id = str(uuid.uuid4())
+        #     print("generated session_id", session_id)
+        # return session_id
+
+    def echo(message, history):
+        return message
 
     with gr.Blocks(theme="soft") as demo:
-        # Create a session ID for each user
-        session_id = gr.State("")
-
-        def upload_pdf(path, session_id):
-            print("upload_pdf received session_id", session_id)
-            # do something with the pdf
-            if session_id == "":
-                session_id = str(uuid.uuid4())
-                print("generated session_id", session_id)
-            return session_id
-
-        def respond_to_message(message, _, session_id):
-            print("respond_to_message received session_id", session_id)
-            return "hi"
-
         gr.Markdown("# Chat with PDF")
         with gr.Row():
             with gr.Column(scale=1):
                 gr.ChatInterface(
-                    fn=lambda msg, history: respond_to_message(msg, history, session_id),
+                    fn=echo,
                     retry_btn=None,
                     undo_btn=None,
                     clear_btn=None,
@@ -310,10 +306,11 @@ def ui():
                 pdf = PDF(
                     label="Upload a PDF",
                 )
-                pdf.upload(
-                    upload_pdf,
-                    [pdf, session_id],
-                    session_id,
-                )
+                pdf.upload(upload_pdf, pdf)
 
+        # demo.launch()
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
+
+
+# if __name__ == "__main__":
+#     ui()
