@@ -9,7 +9,11 @@
 
 # Here's one that we generated, inspired by our logo:
 
-# ![green prisms go splat](https://modal-public-assets.s3.us-east-1.amazonaws.com/modal-logo-splat.mp4)
+# <center>
+# <video controls autoplay loop muted>
+# <source src="https://modal-public-assets.s3.us-east-1.amazonaws.com/modal-logo-splat.mp4" type="video/mp4" />
+# </video>
+# </center>
 
 # Note that the Mochi model, at time of writing,
 # requires several minutes on four H100s to produce
@@ -189,7 +193,7 @@ def main(prompt: str = "A cat playing drums in a jazz ensemble"):
 # ```
 
 
-# The Mochi inference logic is defined in the Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions).
+# The Mochi inference logic is defined in the Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions) below.
 
 # See [the Mochi GitHub repo](https://github.com/genmoai/models)
 # for more details on running Mochi.
