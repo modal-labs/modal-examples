@@ -250,7 +250,7 @@ class Mochi:
         num_frames=163,
         seed=12345,
         cfg_scale=4.5,
-        num_inference_steps=64,
+        num_inference_steps=200,
     ):
         # credit: https://github.com/genmoai/models/blob/7c7d33c49d53bbf939fd6676610e949f3008b5a8/src/mochi_preview/infer.py#L63
 
