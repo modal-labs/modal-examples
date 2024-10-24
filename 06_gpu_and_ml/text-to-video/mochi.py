@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py", "--num_inference_steps", "64"]
 # ---
 
 # # Generate videos from text prompts with Mochi
@@ -165,14 +165,21 @@ def download_model(
 
 
 @app.local_entrypoint()
-def main(prompt: str = "A cat playing drums in a jazz ensemble"):
+def main(
+    prompt: str = "A cat playing drums in a jazz ensemble",
+    num_inference_steps: int = 200,
+):
     from pathlib import Path
 
     mochi = Mochi()
     local_dir = Path("/tmp/moshi")
     local_dir.mkdir(exist_ok=True, parents=True)
     download_model.remote()
-    remote_path = Path(mochi.generate_video.remote(prompt=prompt))
+    remote_path = Path(
+        mochi.generate_video.remote(
+            prompt=prompt, num_inference_steps=num_inference_steps
+        )
+    )
     local_path = local_dir / remote_path.name
     local_path.write_bytes(b"".join(outputs.read_file(remote_path.name)))
     print("🍡 video saved locally at", local_path)
