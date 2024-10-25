@@ -97,11 +97,14 @@ app = modal.App("chat-with-pdf")
 
 # To allow concurrent users, each user chat session state is stored in a modal.Dict
 sessions = modal.Dict.from_name("colqwen-chat-sessions", create_if_missing=True)
+
+
 class Session:
     def __init__(self):
         self.images = None
         self.messages = []
         self.pdf_embeddings = None
+
 
 # Here we define our on-GPU ColQwen2 service, which runs document indexing and inference
 @app.cls(
@@ -133,7 +136,6 @@ class Model:
     def index_pdf(self, session_id, images):
         if session_id not in sessions:
             sessions[session_id] = Session()
-
 
         session = sessions[session_id]
         session.images = images
@@ -270,7 +272,6 @@ web_image = (
 )
 @modal.asgi_app()
 def ui():
-    from functools import partial
     import uuid
     import gradio as gr
     from gradio.routes import mount_gradio_app
@@ -309,14 +310,6 @@ def ui():
                 pdf = PDF(
                     label="Upload a PDF",
                 )
-                pdf.upload(
-                    upload_pdf,
-                    [pdf, session_id],
-                    session_id
-                )
+                pdf.upload(upload_pdf, [pdf, session_id], session_id)
 
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
-
-
-# if __name__ == "__main__":
-#     ui()
