@@ -26,10 +26,11 @@ MINUTES = 60  # seconds
 
 # ## Downloading the Model
 
-# Vision-language models (VLMs) for embedding and generation add another layer of simplification 
+# Vision-language models (VLMs) for embedding and generation add another layer of simplification
 # to RAG apps based on vector search: we only need one model.
 # Here, we use the Qwen2-VL-2B-Instruct model from Alibaba.
 # The function below downloads the model from the Hugging Face Hub.
+
 
 def download_model(model_dir, model_name, model_revision):
     from huggingface_hub import snapshot_download
@@ -43,6 +44,7 @@ def download_model(model_dir, model_name, model_revision):
         ignore_patterns=["*.pt", "*.bin"],  # using safetensors
     )
     move_cache()
+
 
 # ## Building the image
 
@@ -95,6 +97,7 @@ app = modal.App("chat-with-pdf")
 # To allow concurrent users, each user chat session state is stored in a modal.Dict
 sessions = modal.Dict.from_name("colqwen-chat-sessions", create_if_missing=True)
 
+
 class Session:
     def __init__(self):
         self.images = None
@@ -110,7 +113,7 @@ class Session:
     container_idle_timeout=10 * MINUTES,  # spin down when inactive
 )
 class Model:
-    @modal.build() 
+    @modal.build()
     @modal.enter()
     def load_models(self):
         self.colqwen2_model = ColQwen2.from_pretrained(
@@ -131,7 +134,6 @@ class Model:
 
     @modal.method()
     def index_pdf(self, session_id, images):
-
         # We store concurrent user chat sessions in a modal.Dict
 
         # For simplicity, we assume that each session only runs one request at a time
@@ -273,6 +275,8 @@ web_image = (
         "pdf2image==1.17.0",
     )
 )
+
+
 @app.function(
     image=web_image,
     keep_warm=1,
