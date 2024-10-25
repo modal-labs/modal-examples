@@ -159,9 +159,9 @@ class Model:
 
     @modal.method()
     def respond_to_message(self, session_id, message):
-        if session_id not in sessions:
-            sessions[session_id] = Session()
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+        if session is None:
+            session = Session()
 
         # Nothing to chat about without a PDF!
         if session.images is None:
