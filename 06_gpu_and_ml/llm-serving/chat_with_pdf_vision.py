@@ -279,7 +279,6 @@ web_image = (
 
 @app.function(
     image=web_image,
-    keep_warm=1,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
