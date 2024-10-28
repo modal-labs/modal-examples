@@ -1,8 +1,8 @@
 """Just as a constant function is _technically_ a polynomial, so too is injecting the same information every time _technically_ RAG."""
 
-from .common import COLOR, PYTHON_VERSION
+from .common import COLOR
 
-docs_url = f"https://docs.python.org/{PYTHON_VERSION}/"
+docs_url = "https://huggingface.co/docs/transformers/index"
 
 
 def retrieve_docs(url: str = docs_url, debug=False):

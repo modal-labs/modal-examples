@@ -27,13 +27,13 @@ To run this app, you need to `pip install modal` and then create the following
   agent's behavior with LangSmith.
 
 Head to the
-[secret creation dashboard](https://modal.com/charles-modal-labs/secrets/create)
+[secret creation dashboard](https://modal.com/secrets/)
 and follow the instructions for each secret type.
 
 Then, you can deploy the app with:
 
 ```bash
-modal deploy app.py
+modal deploy codelangchain.py
 ```
 
 Navigate to the URL that appears in the output and you'll be dropped into an
@@ -44,11 +44,11 @@ You can also navigate to the `/docs` path to see OpenAPI/Swagger docs, for
 everything you'd need to see how to incorporate the agent into your downstream
 applications via API requests.
 
-When developing the app, use `modal serve app.py` to get a hot-reloading server.
+When developing the app, use `modal serve codelangchain.py` to get a hot-reloading server.
 
 ## Repo structure
 
-The web application is defined in `app.py`.
+The web application is defined in `codelangchain.py`.
 
 It wraps the `agent.py` module, which contains the LangChain agent's definition.
 To test the agent in isolation, run `modal run agent.py` in the terminal and
@@ -56,9 +56,6 @@ provide a `--question` about Python programming as input.
 
 Because the agent is a graph, it is defined by specifying nodes and edges, which
 are found in `nodes.py` and `edges.py`, respectively.
-
-The logic for spinning up a `modal.Sandbox` to contain the agent's actions is in
-`sandbox.py`.
 
 The retrieval logic is very simple: all of the data from the Python stdlib docs is
 retrieved and put at the beginning of the language model's prompt. You can find

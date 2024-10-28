@@ -1,13 +1,13 @@
 # ---
-# cmd: ["modal", "run", "13_sandboxes.codelangchain.src.agent", "--question", "What are some new typing features in Python 3.11?"]
+# pytest: false
 # ---
 """Application serving logic for the CodeLangChain agent."""
 
+import agent
 import modal
-import src.agent as agent
+from agent import app, create_sandbox
 from fastapi import FastAPI, responses
 from fastapi.middleware.cors import CORSMiddleware
-from src.agent import app
 
 # create a FastAPI app
 web_app = FastAPI(
@@ -39,12 +39,14 @@ def serve():
         return {"keys": {"question": question, "iterations": 0}}
 
     def out(state: dict) -> str:
-        if "finish" in state[-1]:
+        if "finish" in state:
+            return state["finish"]["keys"]["response"]
+        elif len(state) > 0 and "finish" in state[-1]:
             return state[-1]["finish"]["keys"]["response"]
         else:
             return str(state)
 
-    graph = agent.construct_graph(debug=False).compile()
+    graph = agent.construct_graph(create_sandbox(), debug=False).compile()
 
     chain = RunnableLambda(inp) | graph | RunnableLambda(out)
 

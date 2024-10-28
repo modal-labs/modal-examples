@@ -1,7 +1,7 @@
 """Shared information: image definitions and common utilities."""
 
 import os
-from typing import Dict, TypedDict
+from typing import Any, Dict, TypedDict
 
 import modal
 
@@ -17,18 +17,6 @@ image = modal.Image.debian_slim(python_version=PYTHON_VERSION).pip_install(
     "langserve[all]==0.3.0",
 )
 
-# change this image if you want the agent to give coding advice on other libraries!
-agent_image = modal.Image.debian_slim(python_version=PYTHON_VERSION)
-
-app = modal.App(
-    "example-code-langchain",
-    image=image,
-    secrets=[
-        modal.Secret.from_name("openai-secret"),
-        modal.Secret.from_name("my-langsmith-secret"),
-    ],
-)
-
 
 class GraphState(TypedDict):
     """
@@ -38,7 +26,7 @@ class GraphState(TypedDict):
         keys: A dictionary where each key is a string.
     """
 
-    keys: Dict[str, any]
+    keys: Dict[str, Any]
 
 
 os.environ["LANGCHAIN_PROJECT"] = "codelangchain"
