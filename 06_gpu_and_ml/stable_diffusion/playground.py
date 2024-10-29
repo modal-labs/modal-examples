@@ -27,6 +27,9 @@ image = (
         "transformers~=4.38.1",
         "accelerate==0.27.2",
         "safetensors==0.4.2",
+        "fastapi[standard]==0.115.4",
+        "pydantic==2.9.2",
+        "starlette==0.41.2",
     )
 )
 

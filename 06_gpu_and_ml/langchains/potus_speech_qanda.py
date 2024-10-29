@@ -34,6 +34,10 @@ image = modal.Image.debian_slim().pip_install(
     "langchain~=0.0.138",
     "openai~=0.27.4",
     "tiktoken==0.3.0",
+    # web app packages
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.2",
+    "starlette==0.41.2",
 )
 app = modal.App(
     name="example-langchain-qanda",

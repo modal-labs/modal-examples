@@ -242,7 +242,7 @@ from fastapi import FastAPI
 
 web_app = FastAPI()
 web_image = modal.Image.debian_slim().pip_install(
-    "gradio~=4.29.0", "pillow~=10.2.0"
+    "fastapi[standard]==0.115.4", "gradio~=4.29.0", "pillow~=10.2.0"
 )
 
 

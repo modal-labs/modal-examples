@@ -33,6 +33,8 @@ app = modal.App(name="example-fastai-wandb-gradio-cifar10-demo")
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "fastai~=2.7.9",
     "gradio~=4.29.0",
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.1",
     "httpx~=0.24.1",
     # When using pip PyTorch is not automatically installed by fastai.
     "torch~=1.12.1",

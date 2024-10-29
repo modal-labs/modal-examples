@@ -34,7 +34,7 @@
 import modal
 
 vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "vllm==0.6.3post1"
+    "vllm==0.6.3post1", "fastapi[standard]==0.115.4"
 )
 
 # ## Download the model weights

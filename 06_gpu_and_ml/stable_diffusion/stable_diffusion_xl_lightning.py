@@ -14,7 +14,12 @@ import modal
 app = modal.App("stable-diffusion-xl-lightning")
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "diffusers==0.26.3", "transformers~=4.37.2", "accelerate==0.27.2"
+    "diffusers==0.26.3",
+    "transformers~=4.37.2",
+    "accelerate==0.27.2",
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.2",
+    "starlette==0.41.2",
 )
 
 base = "stabilityai/stable-diffusion-xl-base-1.0"

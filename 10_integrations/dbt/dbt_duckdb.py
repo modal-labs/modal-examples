@@ -45,6 +45,7 @@ dbt_image = (  # start from a slim Linux image
         "dbt-duckdb~=1.8.1",  # dbt and duckdb and a connector
         "pandas~=2.2.2",  # dataframes
         "pyarrow~=16.1.0",  # columnar data lib
+        "fastapi[standard]~=0.115.4",  # web app
     )
     .env(  # configure DBT environment variables
         {
