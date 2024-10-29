@@ -6,9 +6,9 @@
 # ---
 # # Stable Diffusion CLI
 #
-# This example shows Stable Diffusion 1.5 with a number of optimizations
-# that makes it run faster on Modal. The example takes about 10s to cold start
-# and about 1.0s per image generated.
+# This example shows Stable Diffusion 3.5 Medium with a number of optimizations
+# that makes it run faster on Modal. The example takes about 30s to cold start
+# and about 6.0s per image generated.
 #
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
@@ -19,7 +19,6 @@
 #
 # As mentioned, we use a few optimizations to run this faster:
 #
-# * Use [run_function](/docs/reference/modal.Image#run_function) to download the model while building the container image
 # * Use a [container lifecycle method](https://modal.com/docs/guide/lifecycle-functions) to initialize the model on container startup
 # * Use A10G GPUs
 # * Use 16 bit floating point math
@@ -43,28 +42,32 @@ app = modal.App("stable-diffusion-cli")
 #
 # Your model will be running remotely inside a container. We will be installing
 # all the model dependencies in the next step. We will also be "baking the model"
-# into the image by running a Python function as a part of building the image.
+# into the image by downloading the weights as part of image build.
 # This lets us start containers much faster, since all the data that's needed is
 # already inside the image.
 
-model_id = "Jiali/stable-diffusion-1.5"
+model_id = "stabilityai/stable-diffusion-3.5-medium"
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    "accelerate==0.29.2",
-    "diffusers==0.15.1",
-    "ftfy==6.2.0",
-    "safetensors==0.4.2",
-    "torch==2.2.2",
-    "torchvision",
-    "transformers~=4.25.1",
-    "triton~=2.2.0",
-    "xformers==0.0.25post1",
+tag = "12.6.2-cudnn-devel-ubuntu22.04"
+
+image = modal.Image.from_registry(
+    f"nvidia/cuda:{tag}", add_python="3.10"
+).pip_install(
+    "accelerate==0.33.0",
+    "diffusers==0.31.0",
+    # "ftfy==6.3.1",
+    # "safetensors==0.4.4",
+    "sentencepiece==0.2.0",
+    "torch==2.5.0",
+    "torchvision==0.20.0",
+    "transformers~=4.44.0",
+    # "triton~=3.1.0",
+    # "xformers==0.0.28.post2",
 )
 
 with image.imports():
     import diffusers
     import torch
-
 
 # ## Using container lifecycle methods
 #
@@ -80,39 +83,32 @@ with image.imports():
 # 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
 # generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
-# This is our Modal function. The function runs through the `StableDiffusionPipeline` pipeline.
+# This is our Modal function. The function runs through the `StableDiffusion3Pipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
 
 
-@app.cls(image=image, gpu="A10G")
+@app.cls(
+    image=image,
+    gpu="A10G",
+    secrets=[modal.Secret.from_name("huggingface-secret-ren")],
+    timeout=6000,
+)
 class StableDiffusion:
     @modal.build()
     @modal.enter()
     def initialize(self):
-        scheduler = diffusers.DPMSolverMultistepScheduler.from_pretrained(
-            model_id,
-            subfolder="scheduler",
-            solver_order=2,
-            prediction_type="epsilon",
-            thresholding=False,
-            algorithm_type="dpmsolver++",
-            solver_type="midpoint",
-            denoise_final=True,  # important if steps are <= 10
-            low_cpu_mem_usage=True,
-            device_map="auto",
+        self.pipe = diffusers.StableDiffusion3Pipeline.from_pretrained(
+            "stabilityai/stable-diffusion-3.5-medium",
+            torch_dtype=torch.bfloat16,
         )
-        self.pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            model_id,
-            scheduler=scheduler,
-            low_cpu_mem_usage=True,
-            device_map="auto",
-        )
-        self.pipe.enable_xformers_memory_efficient_attention()
 
     @modal.method()
     def run_inference(
         self, prompt: str, steps: int = 20, batch_size: int = 4
     ) -> list[bytes]:
+        # Move the pipeline to CUDA
+        self.pipe.to("cuda")
+
         with torch.inference_mode():
             with torch.autocast("cuda"):
                 images = self.pipe(
