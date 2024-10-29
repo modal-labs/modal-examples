@@ -7,7 +7,8 @@
 # # Stable Diffusion CLI
 #
 # This example shows Stable Diffusion 3.5 Medium with a number of optimizations
-# that makes it run faster on Modal. The example takes about 30s to cold start
+# that makes it run faster on Modal. Stable Diffusion 3.5 Medium has 2.5B parameters, compared to Stable Diffusion 1.5's ~1B.
+# The example takes about 30s to cold start
 # and about 6.0s per image generated.
 #
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
