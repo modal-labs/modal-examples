@@ -6,7 +6,7 @@
 # ---
 # # Stable Diffusion CLI
 #
-# This example shows Stable Diffusion 3.5 Medium with a number of optimizations
+# This example shows Stable Diffusion 3.5 Large Turbo with a number of optimizations
 # that makes it run faster on Modal. Stable Diffusion 3.5 Medium has 2.5B parameters, compared to Stable Diffusion 1.5's ~1B.
 # The example takes about 30s to cold start
 # and about 6.0s per image generated.
@@ -56,14 +56,10 @@ image = modal.Image.from_registry(
 ).pip_install(
     "accelerate==0.33.0",
     "diffusers==0.31.0",
-    # "ftfy==6.3.1",
-    # "safetensors==0.4.4",
     "sentencepiece==0.2.0",
     "torch==2.5.0",
     "torchvision==0.20.0",
     "transformers~=4.44.0",
-    # "triton~=3.1.0",
-    # "xformers==0.0.28.post2",
 )
 
 with image.imports():
@@ -110,8 +106,6 @@ class StableDiffusion:
         # Move the pipeline to CUDA
         self.pipe.to("cuda")
 
-        # with torch.inference_mode():
-        #     with torch.autocast("cuda"):
         images = self.pipe(
             [prompt] * batch_size,
             num_inference_steps=steps,
