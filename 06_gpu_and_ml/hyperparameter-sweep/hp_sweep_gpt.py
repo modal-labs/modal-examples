@@ -112,7 +112,7 @@ monitoring_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 # We'll serve a simple web endpoint
 web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi[standard]==0.114.2", "pydantic==2.9.1", "starlette==0.41.2"
+    "fastapi[standard]==0.115.4", "pydantic==2.9.1", "starlette==0.41.2"
 )
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
