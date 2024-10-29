@@ -29,6 +29,7 @@ import modal
 image = modal.Image.debian_slim().pip_install(
     "Pillow~=10.1.0",
     "diffusers~=0.24.0",
+    "huggingface-hub~=0.25.2",
     "transformers~=4.35.2",  # This is needed for `import torch`
     "accelerate~=0.25.0",  # Allows `device_map="auto"``, which allows computation of optimized device_map
     "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
