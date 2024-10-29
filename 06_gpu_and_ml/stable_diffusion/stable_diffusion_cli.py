@@ -47,12 +47,11 @@ app = modal.App("stable-diffusion-cli")
 # This lets us start containers much faster, since all the data that's needed is
 # already inside the image.
 
-model_id = "stabilityai/stable-diffusion-3.5-medium"
-
-tag = "12.6.2-cudnn-devel-ubuntu22.04"
+model_id = "stabilityai/stable-diffusion-3.5-large-turbo"
+cuda_tag = "12.6.2-cudnn-devel-ubuntu22.04"
 
 image = modal.Image.from_registry(
-    f"nvidia/cuda:{tag}", add_python="3.10"
+    f"nvidia/cuda:{cuda_tag}", add_python="3.10"
 ).pip_install(
     "accelerate==0.33.0",
     "diffusers==0.31.0",
@@ -95,7 +94,7 @@ class StableDiffusion:
     @modal.enter()
     def initialize(self):
         self.pipe = diffusers.StableDiffusion3Pipeline.from_pretrained(
-            "stabilityai/stable-diffusion-3.5-large-turbo",
+            model_id,
             torch_dtype=torch.bfloat16,
         )
 
