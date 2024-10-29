@@ -13,10 +13,10 @@
 #
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
-# For instance, here are 9 images produced by the prompt
-# `A 1600s oil painting of the New York City skyline`
+# For instance, here are 4 images produced by the prompt
+# `A princess riding on a pony`
 #
-# ![stable diffusion montage](./stable_diffusion_montage.png)
+# ![stable diffusion montage](./stable-diffusion-montage-princess.jpg)
 #
 # As mentioned, we use a few optimizations to run this faster:
 #
@@ -90,7 +90,7 @@ with image.imports():
 
 @app.cls(
     image=image,
-    gpu="A10G",
+    gpu="A100",
     secrets=[modal.Secret.from_name("huggingface-secret-ren")],
     timeout=6000,
 )
@@ -99,7 +99,7 @@ class StableDiffusion:
     @modal.enter()
     def initialize(self):
         self.pipe = diffusers.StableDiffusion3Pipeline.from_pretrained(
-            "stabilityai/stable-diffusion-3.5-medium",
+            "stabilityai/stable-diffusion-3.5-large-turbo",
             torch_dtype=torch.bfloat16,
         )
 
@@ -110,13 +110,13 @@ class StableDiffusion:
         # Move the pipeline to CUDA
         self.pipe.to("cuda")
 
-        with torch.inference_mode():
-            with torch.autocast("cuda"):
-                images = self.pipe(
-                    [prompt] * batch_size,
-                    num_inference_steps=steps,
-                    guidance_scale=7.0,
-                ).images
+        # with torch.inference_mode():
+        #     with torch.autocast("cuda"):
+        images = self.pipe(
+            [prompt] * batch_size,
+            num_inference_steps=steps,
+            guidance_scale=0.0,
+        ).images
 
         # Convert to PNG bytes
         image_output = []
@@ -135,9 +135,9 @@ class StableDiffusion:
 
 @app.local_entrypoint()
 def entrypoint(
-    prompt: str = "A 1600s oil painting of the New York City skyline",
+    prompt: str = "A princess riding on a pony",
     samples: int = 5,
-    steps: int = 10,
+    steps: int = 4,
     batch_size: int = 1,
 ):
     print(
