@@ -398,6 +398,9 @@ def main(question: str = None, pdf_path: str = None, session_id: str = None):
 
 
 web_image = pdf_image.pip_install(
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.2",
+    "starlette==0.41.2",
     "gradio==4.44.1",
     "pillow==10.4.0",
     "gradio-pdf==0.0.15",

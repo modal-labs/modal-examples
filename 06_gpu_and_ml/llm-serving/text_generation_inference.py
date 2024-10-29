@@ -85,7 +85,7 @@ tgi_image = (
         download_model,
         timeout=3600,
     )
-    .pip_install("text-generation")
+    .pip_install("fastapi[standard]", "text-generation")
 )
 
 

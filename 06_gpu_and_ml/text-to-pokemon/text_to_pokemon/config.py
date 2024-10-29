@@ -202,6 +202,7 @@ image = (
         "torch",
         "transformers",
         "scipy",
+        "fastapi[standard]",
     )
     .run_function(load_stable_diffusion_pokemon_model)
 )

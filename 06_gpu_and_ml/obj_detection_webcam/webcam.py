@@ -190,6 +190,7 @@ async def predict(request: Request):
 
 
 @app.function(
+    image=modal.Image.debian_slim().pip_install("fastapi[standard]"),
     mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
 @modal.asgi_app()

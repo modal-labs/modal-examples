@@ -1,11 +1,14 @@
 """Shared information: image definitions and common utilities."""
 
 import os
-from typing import Dict, TypedDict
+from typing import Any, Dict, TypedDict
 
 import modal
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.2",
+    "starlette==0.41.2",
     "beautifulsoup4~=4.12.3",
     "langchain==0.1.11",
     "langgraph==0.0.26",
@@ -39,7 +42,7 @@ class GraphState(TypedDict):
         keys: A dictionary where each key is a string.
     """
 
-    keys: Dict[str, any]
+    keys: Dict[str, Any]
 
 
 os.environ["LANGCHAIN_PROJECT"] = "codelangchain"

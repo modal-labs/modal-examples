@@ -558,9 +558,14 @@ def main():
 # We can use `modal.web_endpoint` and `app.function` to turn any Python function into a web API.
 #
 # This API wrapper doesn't need all the dependencies of the core inference service,
-# so we switch images here to a basic Linux image, `debian_slim`, which has everything we need.
+# so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack
 
-web_image = modal.Image.debian_slim(python_version="3.10")
+web_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+    "fastapi[standard]==0.115.4",
+    "pydantic==2.9.2",
+    "starlette==0.41.2",
+)
+
 
 # From there, we can take the same remote generation logic we used in `main`
 # and serve it with only a few more lines of code.

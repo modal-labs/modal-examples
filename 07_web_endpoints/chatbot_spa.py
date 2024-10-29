@@ -56,7 +56,8 @@ with gpu_image.imports():
 
 
 @app.function(
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
+    image=modal.Image.debian_slim().pip_install("fastapi[standard]"),
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def transformer():

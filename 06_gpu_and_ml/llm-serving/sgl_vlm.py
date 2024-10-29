@@ -80,6 +80,9 @@ vlm_image = (
         "sglang[all]==0.1.17",
         "transformers==4.40.2",
         "numpy<2",
+        "fastapi[standard]==0.115.4",
+        "pydantic==2.9.2",
+        "starlette==0.41.2",
     )
     .run_function(  # download the model by running a Python function
         download_model_to_image
