@@ -47,6 +47,8 @@ app = modal.App("stable-diffusion-cli")
 # already inside the image.
 
 model_id = "adamo1139/stable-diffusion-3.5-large-turbo-ungated"
+model_revision_id = "9ad870ac0b0e5e48ced156bb02f85d324b7275d2"
+
 cuda_tag = "12.6.2-cudnn-devel-ubuntu22.04"
 
 image = modal.Image.from_registry(
@@ -93,6 +95,8 @@ class StableDiffusion:
     def initialize(self):
         self.pipe = diffusers.StableDiffusion3Pipeline.from_pretrained(
             model_id,
+            revision=model_revision_id,
+            trust_remote_code=True,
             torch_dtype=torch.bfloat16,
         )
 
