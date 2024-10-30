@@ -6,10 +6,10 @@
 # ---
 # # Stable Diffusion CLI
 #
-# This example shows Stable Diffusion 3.5 Large Turbo with a number of optimizations
-# that makes it run faster on Modal. Stable Diffusion 3.5 Medium has 2.5B parameters, compared to Stable Diffusion 1.5's ~1B.
-# The example takes about 30s to cold start
-# and about 6.0s per image generated.
+# This example shows [Stable Diffusion 3.5 Large Turbo](https://huggingface.co/stabilityai/stable-diffusion-3.5-large-turbo) with a number of optimizations
+# that makes it run faster on Modal. Stable Diffusion 3.5 Large Turbo has 8B parameters, compared to Stable Diffusion 1.5's ~1B.
+# The example takes about 80s to cold start
+# and about 2.4s per image generated.
 #
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
@@ -21,7 +21,7 @@
 # As mentioned, we use a few optimizations to run this faster:
 #
 # * Use a [container lifecycle method](https://modal.com/docs/guide/lifecycle-functions) to initialize the model on container startup
-# * Use A10G GPUs
+# * Use A100 GPUs
 # * Use 16 bit floating point math
 
 
@@ -29,7 +29,6 @@
 from __future__ import annotations
 
 import io
-import time
 from pathlib import Path
 
 import modal
@@ -47,7 +46,7 @@ app = modal.App("stable-diffusion-cli")
 # This lets us start containers much faster, since all the data that's needed is
 # already inside the image.
 
-model_id = "stabilityai/stable-diffusion-3.5-large-turbo"
+model_id = "adamo1139/stable-diffusion-3.5-large-turbo-ungated"
 cuda_tag = "12.6.2-cudnn-devel-ubuntu22.04"
 
 image = modal.Image.from_registry(
@@ -75,9 +74,9 @@ with image.imports():
 # class that also has lifecycle methods (decorated with `@enter()` and/or `@exit()`).
 #
 # We have also have applied a few model optimizations to make the model run
-# faster. On an A10G, the model takes about 6.5s to load into memory, and then
-# 1.6s per generation on average. On a T4, it takes 13s to load and 3.7s per
-# generation. Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
+# faster. On an A100, the model takes about
+# 2.4s per generation on average.
+# Other optimizations are also available [here](https://huggingface.co/docs/diffusers/optimization/fp16#memory-and-speed).
 
 # This is our Modal function. The function runs through the `StableDiffusion3Pipeline` pipeline.
 # It sends the PIL image back to our CLI where we save the resulting image in a local file.
@@ -86,7 +85,6 @@ with image.imports():
 @app.cls(
     image=image,
     gpu="A100",
-    secrets=[modal.Secret.from_name("huggingface-secret-ren")],
     timeout=6000,
 )
 class StableDiffusion:
@@ -129,10 +127,12 @@ class StableDiffusion:
 @app.local_entrypoint()
 def entrypoint(
     prompt: str = "A princess riding on a pony",
-    samples: int = 5,
+    samples: int = 500,
     steps: int = 4,
     batch_size: int = 1,
 ):
+    import time
+
     print(
         f"prompt => {prompt}, steps => {steps}, samples => {samples}, batch_size => {batch_size}"
     )
@@ -142,6 +142,7 @@ def entrypoint(
         dir.mkdir(exist_ok=True, parents=True)
 
     sd = StableDiffusion()
+
     for i in range(samples):
         t0 = time.time()
         images = sd.run_inference.remote(prompt, steps, batch_size)
@@ -161,9 +162,9 @@ def entrypoint(
 #
 # ## Performance
 #
-# This example can generate pictures in about a second, with startup time of about 10s for the first picture.
+# This example can generate pictures in about a second, with startup time of about 80s for the first picture.
 #
 # See distribution of latencies below. This data was gathered by running 500 requests in sequence (meaning only
-# the first request incurs a cold start). As you can see, the 90th percentile is 1.2s and the 99th percentile is 2.30s.
+# the first request incurs a cold start). As you can see, both the mean and the 90th percentile is ~2.4s.
 #
-# ![latencies](./stable_diffusion_latencies.png)
+# ![latencies](./ecdf_inference_times.png)
