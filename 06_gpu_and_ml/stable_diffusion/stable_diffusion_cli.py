@@ -8,13 +8,13 @@
 #
 # This example shows [Stable Diffusion 3.5 Large Turbo](https://huggingface.co/stabilityai/stable-diffusion-3.5-large-turbo) with a number of optimizations
 # that makes it run faster on Modal. Stable Diffusion 3.5 Large Turbo has 8B parameters, compared to Stable Diffusion 1.5's ~1B.
-# The example takes about 80s to cold start
-# and about 2.4s per image generated.
+# The example takes about ~80s to cold start
+# and ~2.4s per image generated.
 #
 # To use the XL 1.0 model, see the example posted [here](/docs/examples/stable_diffusion_xl).
 #
 # For instance, here are 4 images produced by the prompt
-# `A princess riding on a pony`
+# `A princess riding on a pony`.
 #
 # ![stable diffusion montage](./stable-diffusion-montage-princess.jpg)
 #
@@ -127,7 +127,7 @@ class StableDiffusion:
 @app.local_entrypoint()
 def entrypoint(
     prompt: str = "A princess riding on a pony",
-    samples: int = 500,
+    samples: int = 9,
     steps: int = 4,
     batch_size: int = 1,
 ):
