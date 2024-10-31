@@ -1,10 +1,18 @@
+# ---
+# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/ip_adapater/ip_adapter_example.py"]
+# ---
+
 import subprocess
 
 import modal
-from comfyui.comfy_base_image import image
 
 image = (  # build up a Modal Image to run ComfyUI, step by step
-    image.run_commands(  # download the WAS Node Suite custom node pack
+    modal.Image.debian_slim(  # start from basic Linux with Python
+        python_version="3.11"
+    )
+    .apt_install("git")  # install git to clone ComfyUI
+    .pip_install("comfy-cli==1.2.7")  # install comfy-cli
+    .run_commands(  # download the WAS Node Suite custom node pack
         "comfy node install ComfyUI_IPAdapter_plus"
     )
     .run_commands("apt install -y wget")
