@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/ip_adapater/ip_adapter_example.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/ip_adapter/ip_adapter_example.py"]
 # ---
 
 import subprocess
