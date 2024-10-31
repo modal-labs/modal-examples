@@ -12,6 +12,9 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     )
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("comfy-cli==1.2.7")  # install comfy-cli
+    .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
+        "comfy --skip-prompt install --nvidia"
+    )
     .run_commands(  # download the ComfyUI Essentials custom node pack
         "comfy node install ComfyUI-KJNodes"
     )
