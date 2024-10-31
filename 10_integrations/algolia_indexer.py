@@ -43,19 +43,26 @@ CONFIG = {
     "index_name": "modal_docs",
     "custom_settings": {
         "separatorsToIndex": "._",
+        "synonyms": [["cls", "class"]],
     },
+    "stop_urls": [
+        "https://modal.com/docs/reference/modal.Stub",
+    ],
     "start_urls": [
         {
             "url": "https://modal.com/docs/guide",
             "selectors_key": "default",
+            "page_rank": 2,
         },
         {
             "url": "https://modal.com/docs/examples",
             "selectors_key": "examples",
+            "page_rank": 1,
         },
         {
             "url": "https://modal.com/docs/reference",
             "selectors_key": "reference",
+            "page_rank": 1,
         },
     ],
     "selectors": {
