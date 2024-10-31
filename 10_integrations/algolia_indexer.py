@@ -39,22 +39,62 @@ app = modal.App("example-algolia-indexer")
 
 CONFIG = {
     "index_name": "modal_docs",
+    "custom_settings": {
+        "separatorsToIndex": "._",
+        "synonyms": [["cls", "class"]],
+    },
+    "stop_urls": [
+        "https://modal.com/docs/reference/modal.Stub",
+    ],
     "start_urls": [
-        {"url": "https://modal.com/docs/guide", "page_rank": 2},
-        {"url": "https://modal.com/docs/examples", "page_rank": 1},
-        {"url": "https://modal.com/docs/reference", "page_rank": 1},
+        {
+            "url": "https://modal.com/docs/guide",
+            "selectors_key": "default",
+            "page_rank": 2,
+        },
+        {
+            "url": "https://modal.com/docs/examples",
+            "selectors_key": "examples",
+            "page_rank": 1,
+        },
+        {
+            "url": "https://modal.com/docs/reference",
+            "selectors_key": "reference",
+            "page_rank": 1,
+        },
     ],
     "selectors": {
-        "lvl0": {
-            "selector": ".sidebar .active",
-            "default_value": "Documentation",
-            "global": True,
+        "default": {
+            "lvl0": {
+                "selector": "header .navlink-active",
+                "global": True,
+            },
+            "lvl1": "article h1",
+            "lvl2": "article h2",
+            "lvl3": "article h3",
+            "text": "article p,article ol,article ul,article pre",
         },
-        "lvl1": "article h1",
-        "lvl2": "article h2",
-        "lvl3": "article h3",
-        "lvl4": "article h4",
-        "text": "article p,article ol,article ul,article pre",
+        "examples": {
+            "lvl0": {
+                "selector": "header .navlink-active",
+                "global": True,
+            },
+            "lvl1": "article h1",
+            "text": "article p,article ol,article ul,article pre",
+        },
+        "reference": {
+            "lvl0": {
+                "selector": "//div[contains(@class, 'sidebar')]//a[contains(@class, 'active')]//preceding::a[contains(@class, 'header')][1]",
+                "type": "xpath",
+                "global": True,
+                "default_value": "",
+                "skip": {"when": {"value": ""}},
+            },
+            "lvl1": "article h1",
+            "lvl2": "article h2",
+            "lvl3": "article h3",
+            "text": "article p,article ol,article ul,article pre",
+        },
     },
 }
 
