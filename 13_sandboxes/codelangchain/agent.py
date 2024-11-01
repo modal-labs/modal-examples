@@ -4,18 +4,27 @@
 # pytest: false
 # ---
 
-# # Building a coding agent with Sandboxes and LangGraph
+# # Build a coding agent with Modal Sandboxes and LangGraph
 
 # This example demonstrates how to build a coding agent that can generate and evaluate Python code, using
 # documentation from the web to inform its approach.
-#
+
 # This agent is built with [LangGraph](https://github.com/langchain-ai/langgraph), a library for building
-# directed graphs of computation. LangGraph allows us to define a graph of nodes and edges, where nodes
+# directed graphs of computation popular with AI agent developers.
+# LangGraph allows us to define a graph of nodes and edges, where nodes
 # represent actions and edges represent transitions between actions.
+
+# ## Setup
 
 import modal
 from src import edges, nodes, retrieval
 from src.common import COLOR, PYTHON_VERSION, image
+
+# You will need two [Modal Secrets](https://modal.com/docs/guide/secrets) to run this example:
+# one to access the OpenAI API and another to access the Langsmith API for logging the agent's behavior.
+
+# To create them, head to the [Secrets dashboard](https://modal.com/secrets), select "Create new secret",
+# and
 
 app = modal.App(
     "example-code-langchain",
@@ -27,8 +36,8 @@ app = modal.App(
 )
 
 # ## Creating a Sandbox
-#
-# We execute the agent in a Modal [Sandbox](https://modal.com/docs/guide/sandbox), which allows us to
+
+# We execute the agent's code in a Modal [Sandbox](https://modal.com/docs/guide/sandbox), which allows us to
 # run arbitrary code in a safe environment. In this example, we want to use the [transformers](https://huggingface.co/docs/transformers/index)
 # library to generate text with a pre-trained model. Let's create a Sandbox with the necessary dependencies.
 
@@ -52,8 +61,8 @@ def create_sandbox() -> modal.Sandbox:
 
 
 # We also need a way to run our code in the sandbox. For this, we'll write a simple wrapper
-# around the `exec` method. We use exec because it allows us to run code without spinning up a
-# new container - we can quickly reuse the same container for multiple runs.
+# around the Modal Sandox `exec` method. We use `exec` because it allows us to run code without spinning up a
+# new container - we can reuse the same container for multiple runs, preserving state.
 
 
 def run(code: str, sb: modal.Sandbox) -> tuple[str, str]:
@@ -78,12 +87,14 @@ def run(code: str, sb: modal.Sandbox) -> tuple[str, str]:
 
 
 # ## Constructing the Graph
-#
+
 # Now that we have the sandbox to execute code in, we can construct our graph. Our graph is
-# defined in the `edges` and `nodes` modules, but its shape is simple: it has a starting node
-# `generate` which generates code based off documentation. It then checks both the code's
-# imports and runs the generated code to check for errors. If there are no errors, it will
-# return the generated code; otherwise, it will retry up to 3 times before giving up.
+# defined in the `edges` and `nodes` modules
+# [associated with this example](https://github.com/modal-labs/modal-examples/tree/main/13_sandboxes/codelangchain).
+
+# The idea is simple: it has a starting node `generate` that generates code based off documentation.
+# It then checks both the code's imports and runs the generated code to check for errors.
+# If there are no errors, it will return the generated code; otherwise, it will retry up to 3 times before giving up.
 
 
 def construct_graph(sandbox: modal.Sandbox, debug: bool = False):
@@ -111,11 +122,11 @@ def construct_graph(sandbox: modal.Sandbox, debug: bool = False):
 
 
 # ## Setting up the Graph
-#
-# We now set up the graph and compile it. See the graph module for details
-# on the shape of the graph and the nodes we've defined.
 
-DEFAULT_QUESTION = "Do some text generation with a transformer model."
+# We now set up the graph and compile it. See the `src` module for details
+# on the content of the graph and the nodes we've defined.
+
+DEFAULT_QUESTION = "How do I generate Python code using a pre-trained model from the transformers library?"
 
 
 @app.function()
@@ -139,7 +150,7 @@ def go(
 
 
 # ## Running the Graph
-#
+
 # Let's call the agent from the command line!
 
 
@@ -159,8 +170,8 @@ def main(
 
 
 # If things are working properly, you should see output like the following:
-#
-# ```
+
+# ```bash
 # $ modal run agent.py --question "generate some cool output with transformers"
 # ---DECISION: FINISH---
 # ---FINISHING---

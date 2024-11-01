@@ -1,5 +1,6 @@
 # ---
 # pytest: false
+# cmd: ["modal", "serve", "13_sandboxes.codelangchain.codelangchain"]
 # ---
 """Application serving logic for the CodeLangChain agent."""
 

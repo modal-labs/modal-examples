@@ -3,8 +3,6 @@
 This example deploys a "code agent": a language model that can write and execute
 code in a flexible control flow aimed at completing a task or goal.
 
-The agent is designed to help programs using the Python standard library.
-
 It is implemented in LangChain, using the LangGraph library to structure the agent
 and the LangServe framework to turn it into a FastAPI app.
 
@@ -57,7 +55,7 @@ provide a `--question` about Python programming as input.
 Because the agent is a graph, it is defined by specifying nodes and edges, which
 are found in `nodes.py` and `edges.py`, respectively.
 
-The retrieval logic is very simple: all of the data from the Python stdlib docs is
+The retrieval logic is very simple: all of the data from the relevant docs is
 retrieved and put at the beginning of the language model's prompt. You can find
 it in `retrieval.py`.
 
