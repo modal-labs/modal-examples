@@ -6,13 +6,14 @@
 
 # # Build a coding agent with Modal Sandboxes and LangGraph
 
-# This example demonstrates how to build a coding agent that can generate and evaluate Python code, using
+# This example demonstrates how to build an LLM coding "agent" that can generate and evaluate Python code, using
 # documentation from the web to inform its approach.
 
-# This agent is built with [LangGraph](https://github.com/langchain-ai/langgraph), a library for building
-# directed graphs of computation popular with AI agent developers.
-# LangGraph allows us to define a graph of nodes and edges, where nodes
-# represent actions and edges represent transitions between actions.
+# Naturally, we use the agent to generate code that runs language models.
+
+# The agent is built with [LangGraph](https://github.com/langchain-ai/langgraph), a library for building
+# directed graphs of computation popular with AI agent developers,
+# and uses models from the OpenAI API.
 
 # ## Setup
 
@@ -21,10 +22,10 @@ from src import edges, nodes, retrieval
 from src.common import COLOR, PYTHON_VERSION, image
 
 # You will need two [Modal Secrets](https://modal.com/docs/guide/secrets) to run this example:
-# one to access the OpenAI API and another to access the Langsmith API for logging the agent's behavior.
+# one to access the OpenAI API and another to access the LangSmith API for logging the agent's behavior.
 
 # To create them, head to the [Secrets dashboard](https://modal.com/secrets), select "Create new secret",
-# and
+# and use the provided templates for OpenAI and Lang~smith.
 
 app = modal.App(
     "example-code-langchain",
@@ -43,7 +44,8 @@ app = modal.App(
 
 
 def create_sandbox() -> modal.Sandbox:
-    # Change this image if you want the agent to give coding advice on other libraries!
+    # Change this image (and the retrieval logic in the retrieval module)
+    # if you want the agent to give coding advice on other libraries!
     agent_image = modal.Image.debian_slim(
         python_version=PYTHON_VERSION
     ).pip_install(
@@ -62,7 +64,7 @@ def create_sandbox() -> modal.Sandbox:
 
 # We also need a way to run our code in the sandbox. For this, we'll write a simple wrapper
 # around the Modal Sandox `exec` method. We use `exec` because it allows us to run code without spinning up a
-# new container - we can reuse the same container for multiple runs, preserving state.
+# new container. And we can reuse the same container for multiple runs, preserving state.
 
 
 def run(code: str, sb: modal.Sandbox) -> tuple[str, str]:
