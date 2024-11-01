@@ -86,7 +86,8 @@ assets_path = Path(__file__).parent / "doc_ocr_frontend"
 
 
 @app.function(
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")]
+    image=modal.Image.debian_slim().pip_install("fastapi[standard]==0.115.4"),
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def wrapper():

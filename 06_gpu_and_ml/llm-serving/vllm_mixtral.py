@@ -216,10 +216,12 @@ from pathlib import Path
 
 import modal
 
+frontend_image = modal.Image.debian_slim().pip_install("fastapi[standard]")
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 
 
 @app.function(
+    image=frontend_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,

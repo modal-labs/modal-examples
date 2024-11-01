@@ -55,7 +55,6 @@ from pathlib import Path
 import modal
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from modal import Image
 from pydantic import BaseModel
 
 MINUTES = 60  # seconds
@@ -89,7 +88,7 @@ model_save_path = volume_path / "models"
 # The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
 
-image = Image.debian_slim(python_version="3.11").pip_install(
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "torch==2.1.2",
     "tensorboard==2.17.1",
     "numpy<2",
@@ -106,15 +105,19 @@ mounts = [
 
 # We'll spin up a separate container to monitor the training logs with TensorBoard.
 
-monitoring_image = Image.debian_slim(python_version="3.11").pip_install(
+monitoring_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "tensorboard==2.17.1"
+)
+
+
+# We'll serve a simple web endpoint
+web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "fastapi[standard]==0.115.4", "pydantic==2.9.1", "starlette==0.41.2"
 )
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
 
-ui_image = Image.debian_slim(python_version="3.11").pip_install(
-    "gradio~=4.44.0", "pydantic>=2", "fastapi==0.114.2"
-)
+ui_image = web_image.pip_install("gradio~=4.44.0")
 
 # We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
 # using the `with image.imports` context manager.
@@ -526,7 +529,7 @@ class GenerationRequest(BaseModel):
     prompt: str
 
 
-@app.function()
+@app.function(image=web_image)
 @modal.web_endpoint(method="POST", docs=True)
 def web_generate(request: GenerationRequest):
     output = ModelInference().generate.remote(request.prompt)

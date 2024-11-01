@@ -200,6 +200,9 @@ def download_demo_files() -> None:
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
+        "fastapi[standard]==0.115.4",
+        "pydantic==2.9.1",
+        "starlette==0.41.2",
         "gradio==3.16.2",
         "albumentations==1.3.0",
         "opencv-contrib-python",

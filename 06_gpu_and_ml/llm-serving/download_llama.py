@@ -5,8 +5,8 @@ import modal
 
 MODELS_DIR = "/llamas"
 
-DEFAULT_NAME = "neuralmagic/Llama-3.2-3B-Instruct-quantized.w8a8"
-DEFAULT_REVISION = "1c42cac61b517e84efa30e3e90f00076045d5a89"
+DEFAULT_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
+DEFAULT_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
 
 volume = modal.Volume.from_name("llamas", create_if_missing=True)
 

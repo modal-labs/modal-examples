@@ -11,14 +11,16 @@
 
 # ## Setting up the Sandbox
 
+# All Sandboxes are associated with an App.
+
+# We look up our app by name, creating it if it doesn't exist.
+
 import json
 import secrets
 import time
 import urllib.request
 
 import modal
-
-# All Sandboxes are associated with an App. We look up our app by name, creating it if it doesn't exist.
 
 app = modal.App.lookup("example-jupyter", create_if_missing=True)
 
@@ -62,6 +64,7 @@ with modal.enable_output():
         timeout=5 * 60,  # 5 minutes
         image=image,
         app=app,
+        gpu=None,  # add a GPU if you need it!
     )
 
 print(f"🏖️  Sandbox ID: {sandbox.object_id}")
@@ -69,7 +72,7 @@ print(f"🏖️  Sandbox ID: {sandbox.object_id}")
 # ## Communicating with a Jupyter server
 
 # Next, we print out a URL that we can use to connect to our Jupyter server.
-# Note that we have to call [`Sandbox.tunnels`](/docs/reference/modal.Sandbox#tunnels)
+# Note that we have to call [`Sandbox.tunnels`](https://modal.com/docs/reference/modal.Sandbox#tunnels)
 # to get the URL. The Sandbox is not publicly accessible until we do so.
 
 tunnel = sandbox.tunnels()[JUPYTER_PORT]

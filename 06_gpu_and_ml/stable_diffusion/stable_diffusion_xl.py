@@ -37,10 +37,14 @@ sdxl_image = (
     )
     .pip_install(
         "diffusers==0.26.3",
+        "huggingface-hub~=0.25.2",
         "invisible_watermark==0.2.0",
         "transformers~=4.38.2",
         "accelerate==0.27.2",
         "safetensors==0.4.2",
+        "fastapi[standard]==0.115.4",
+        "pydantic==2.9.2",
+        "starlette==0.41.2",
     )
 )
 

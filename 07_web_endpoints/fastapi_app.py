@@ -13,9 +13,9 @@ import modal
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
 
+image = modal.Image.debian_slim().pip_install("fastapi[standard]", "pydantic")
+app = modal.App("example-fastapi-app", image=image)
 web_app = FastAPI()
-app = modal.App("example-fastapi-app")
-image = modal.Image.debian_slim()
 
 
 class Item(BaseModel):
@@ -36,7 +36,7 @@ async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
     return item
 
 
-@app.function(image=image)
+@app.function()
 @modal.asgi_app()
 def fastapi_app():
     return web_app
