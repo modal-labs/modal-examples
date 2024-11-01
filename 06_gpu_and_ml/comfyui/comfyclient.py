@@ -1,5 +1,5 @@
 # ---
-# cmd: ["python", "06_gpu_and_ml/comfyui/comfyclient.py", "--url", "https://modal-labs--example-comfyui-ui.modal.run", "--prompt", "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"]
+# cmd: ["python", "06_gpu_and_ml/comfyui/comfyclient.py", "--url", "https://modal-labs--example-comfyui-comfyui-api.modal.run", "--prompt", "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"]
 # output-directory: "/tmp/comfyui"
 # ---
 
