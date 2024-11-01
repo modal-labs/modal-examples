@@ -1,12 +1,12 @@
 # ---
 # cmd: ["modal", "run", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
-# tags: ["use-case-sandboxed-code-execution"]
+# tags: ["featured", "use-case-sandboxed-code-execution"]
 # pytest: false
 # ---
 
 # # Build a coding agent with Modal Sandboxes and LangGraph
 
-# This example demonstrates how to build an LLM coding "agent" that can generate and evaluate Python code, using
+# This example demonstrates how to build an LLM coding "agent" that can generate and execute Python code, using
 # documentation from the web to inform its approach.
 
 # Naturally, we use the agent to generate code that runs language models.
@@ -26,7 +26,7 @@ from .src.common import COLOR, PYTHON_VERSION, image
 # one to access the OpenAI API and another to access the LangSmith API for logging the agent's behavior.
 
 # To create them, head to the [Secrets dashboard](https://modal.com/secrets), select "Create new secret",
-# and use the provided templates for OpenAI and Lang~smith.
+# and use the provided templates for OpenAI and LangSmith.
 
 app = modal.App(
     "example-code-langchain",
@@ -40,7 +40,7 @@ app = modal.App(
 # ## Creating a Sandbox
 
 # We execute the agent's code in a Modal [Sandbox](https://modal.com/docs/guide/sandbox), which allows us to
-# run arbitrary code in a safe environment. In this example, we want to use the [transformers](https://huggingface.co/docs/transformers/index)
+# run arbitrary code in a safe environment. In this example, we will use the [`transformers`](https://huggingface.co/docs/transformers/index)
 # library to generate text with a pre-trained model. Let's create a Sandbox with the necessary dependencies.
 
 
@@ -60,6 +60,7 @@ def create_sandbox(app) -> modal.Sandbox:
         app=app,
         # Modal sandboxes support GPUs!
         gpu="T4",
+        # you can also pass secrets here -- note that the main app's secrets are not shared
     )
 
 
@@ -89,15 +90,18 @@ def run(code: str, sb: modal.Sandbox) -> tuple[str, str]:
     return stdout, stderr
 
 
-# ## Constructing the Graph
+# ## Constructing the agent's graph
 
-# Now that we have the sandbox to execute code in, we can construct our graph. Our graph is
+# Now that we have the sandbox to execute code in, we can construct our agent's graph. Our graph is
 # defined in the `edges` and `nodes` modules
 # [associated with this example](https://github.com/modal-labs/modal-examples/tree/main/13_sandboxes/codelangchain).
+# Nodes are actions that change the state. Edges are transitions between nodes.
 
-# The idea is simple: it has a starting node `generate` that generates code based off documentation.
-# It then checks both the code's imports and runs the generated code to check for errors.
-# If there are no errors, it will return the generated code; otherwise, it will retry up to 3 times before giving up.
+# The idea is simple: we start at the node `generate`, which invokes the LLM to generate code based off documentation.
+# The generated code is executed (in the sandbox) as part of an edge called `check_code_execution`
+# and then the outputs are passed to the LLM for evaluation (the `evaluate_execution` node).
+# If the LLM determines that the code has executed correctly -- which might mean that the code raised an exception! --
+# we pass along the `decide_to_finish` edge and finish.
 
 
 def construct_graph(sandbox: modal.Sandbox, debug: bool = False):
@@ -124,8 +128,6 @@ def construct_graph(sandbox: modal.Sandbox, debug: bool = False):
 
     return graph
 
-
-# ## Setting up the Graph
 
 # We now set up the graph and compile it. See the `src` module for details
 # on the content of the graph and the nodes we've defined.
@@ -155,7 +157,16 @@ def go(
 
 # ## Running the Graph
 
-# Let's call the agent from the command line!
+# Now let's call the agent from the command line!
+
+# We define a `local_entrypoint` that runs locally and triggers execution on Modal.
+
+# You can invoke it by executing following command from a folder that contains the `codelangchain` directory
+# [from our examples repo](https://github.com/modal-labs/modal-examples/tree/main/13_sandboxes/codelangchain):
+
+# ```bash
+# modal run codelangchain.agent --question "How do I run a pre-trained model from the transformers library?"
+# ```
 
 
 @app.local_entrypoint()
