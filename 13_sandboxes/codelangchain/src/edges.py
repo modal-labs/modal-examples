@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-from common import GraphState
+from .common import GraphState
 
 EXPECTED_NODES = [
     "generate",
@@ -27,8 +27,9 @@ def enrich(graph):
             "generate": "generate",
         },
     )
+    graph.add_edge("check_code_execution", "evaluate_execution")
     graph.add_conditional_edges(
-        "check_code_execution",
+        "evaluate_execution",
         EDGE_MAP["decide_to_finish"],
         {
             "finish": "finish",
@@ -75,12 +76,12 @@ def decide_to_finish(state: GraphState) -> str:
         str: Next node to call
     """
 
-    print("---DECIDE TO TEST CODE EXECUTION---")
+    print("---DECIDE TO FINISH---")
     state_dict = state["keys"]
-    error = state_dict["error"]
+    evaluation = state_dict["evaluation"]
     iter = state_dict["iterations"]
 
-    if error == "None" or iter >= 3:
+    if evaluation.decision == "finish" or iter >= 3:
         print("---DECISION: FINISH---")
         return "finish"
     else:
