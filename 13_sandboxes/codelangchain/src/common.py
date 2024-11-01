@@ -14,7 +14,6 @@ image = modal.Image.debian_slim(python_version=PYTHON_VERSION).pip_install(
     "langgraph==0.2.39",
     "langchain-community==0.3.3",
     "langchain-openai==0.2.3",
-    "langserve[all]==0.3.0",
 )
 
 

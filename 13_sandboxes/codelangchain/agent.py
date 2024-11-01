@@ -18,8 +18,9 @@
 # ## Setup
 
 import modal
-from src import edges, nodes, retrieval
-from src.common import COLOR, PYTHON_VERSION, image
+
+from .src import edges, nodes, retrieval
+from .src.common import COLOR, PYTHON_VERSION, image
 
 # You will need two [Modal Secrets](https://modal.com/docs/guide/secrets) to run this example:
 # one to access the OpenAI API and another to access the LangSmith API for logging the agent's behavior.
@@ -43,7 +44,7 @@ app = modal.App(
 # library to generate text with a pre-trained model. Let's create a Sandbox with the necessary dependencies.
 
 
-def create_sandbox() -> modal.Sandbox:
+def create_sandbox(app) -> modal.Sandbox:
     # Change this image (and the retrieval logic in the retrieval module)
     # if you want the agent to give coding advice on other libraries!
     agent_image = modal.Image.debian_slim(
@@ -101,7 +102,8 @@ def run(code: str, sb: modal.Sandbox) -> tuple[str, str]:
 
 def construct_graph(sandbox: modal.Sandbox, debug: bool = False):
     from langgraph.graph import StateGraph
-    from src.common import GraphState
+
+    from .src.common import GraphState
 
     # Crawl the transformers documentation to inform our code generation
     context = retrieval.retrieve_docs(debug=debug)
@@ -137,7 +139,7 @@ def go(
     debug: bool = False,
 ):
     """Compiles the Python code generation agent graph and runs it, returning the result."""
-    sb = create_sandbox()
+    sb = create_sandbox(app)
 
     graph = construct_graph(sb, debug=debug)
     runnable = graph.compile()
