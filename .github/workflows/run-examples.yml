@@ -24,6 +24,7 @@ env:
   MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
   MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
   MODAL_ENVIRONMENT: main
+  MODAL_IMAGE_BUILDER_VERSION: "2024.10"
 
 jobs:
   # Output all changed files in a JSON format compatible with GitHub Actions job matrices
