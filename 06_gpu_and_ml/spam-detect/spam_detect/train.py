@@ -204,3 +204,4 @@ def train_model(model_type: str):
 if __name__ == "__main__":
     with app.run():
         train_model(model_type="NAIVE_BAYES")
+# Comment to force rebuild

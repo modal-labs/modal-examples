@@ -64,3 +64,4 @@ async def web_poll(function_id: str):
 @modal.asgi_app()
 def fastapi_app():
     return web_app
+# Comment to force rebuild

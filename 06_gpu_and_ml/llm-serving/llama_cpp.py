@@ -73,3 +73,4 @@ def llama_cpp_inference(
 @app.local_entrypoint()
 def main(prompt: str = None, num_output_tokens: int = None):
     llama_cpp_inference.remote(prompt, num_output_tokens)
+# Comment to force rebuild

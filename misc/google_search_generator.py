@@ -35,3 +35,4 @@ def scrape(query):
 def main(query: str = "modal"):
     for url in scrape.remote_gen(query):
         print(url)
+# Comment to force rebuild

@@ -25,3 +25,4 @@ app = modal.App(name="example-spam-detect-llm", image=image)
 volume = modal.Volume.from_name(
     "example-spam-detect-vol", create_if_missing=True
 )
+# Comment to force rebuild

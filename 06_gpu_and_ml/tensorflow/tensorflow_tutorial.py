@@ -198,3 +198,4 @@ def main(just_run: bool = False):
                 time.sleep(1)
         except KeyboardInterrupt:
             print("Terminating app")
+# Comment to force rebuild

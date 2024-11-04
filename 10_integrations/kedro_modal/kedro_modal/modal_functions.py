@@ -92,3 +92,4 @@ def sync_app(project_path, project_name):
     )(sync_data)
     remote_destination_path = Path("/kedro-storage/data")
     return app, remote_source_path, remote_destination_path
+# Comment to force rebuild

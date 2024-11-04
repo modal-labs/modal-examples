@@ -144,3 +144,4 @@ def main():
         image = urllib.request.urlopen(receipt_url).read()
         print(f"running OCR on sample from URL {receipt_url}")
     print(parse_receipt.remote(image))
+# Comment to force rebuild

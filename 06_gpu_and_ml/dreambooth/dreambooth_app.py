@@ -535,3 +535,4 @@ def run(  # add more config params here to make training configurable
         Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
     )
     train.remote(instance_example_urls, config)
+# Comment to force rebuild

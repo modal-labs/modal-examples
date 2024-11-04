@@ -60,3 +60,4 @@ def main(
     force_download: bool = False,
 ):
     download_model.remote(model_name, model_revision, force_download)
+# Comment to force rebuild

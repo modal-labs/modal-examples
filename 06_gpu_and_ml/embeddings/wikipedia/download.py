@@ -36,3 +36,4 @@ def download_dataset():
 @app.local_entrypoint()
 def main():
     download_dataset.remote()
+# Comment to force rebuild

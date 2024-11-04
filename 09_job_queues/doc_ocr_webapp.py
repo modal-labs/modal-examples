@@ -124,3 +124,4 @@ def wrapper():
 # your browser 🎉 .
 #
 # ![receipt parser processed](./receipt_parser_frontend_2.jpg)
+# Comment to force rebuild

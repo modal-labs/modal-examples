@@ -35,3 +35,4 @@ class WebsiteUser(locust.HttpUser):
         response.raise_for_status()
         if random.random() < 0.01:
             logging.info(response.json()["choices"][0]["message"]["content"])
+# Comment to force rebuild

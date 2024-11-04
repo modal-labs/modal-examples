@@ -47,3 +47,4 @@ def test_json():
     examples = json.loads(data)
     assert isinstance(examples, list)
     assert len(examples) > 0
+# Comment to force rebuild

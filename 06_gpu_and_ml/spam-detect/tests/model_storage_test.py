@@ -68,3 +68,4 @@ def test_load_model_corrupted_data(tmp_path):
             sha256_hash=bogus_hash,
             destination_root=tmp_path,
         )
+# Comment to force rebuild

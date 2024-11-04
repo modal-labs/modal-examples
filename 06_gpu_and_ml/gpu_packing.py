@@ -111,3 +111,4 @@ async def main(n_requests: int = 100):
     async for result in server.predict.map.aio(sentences):
         pass
     print(f"Inference took {time.time() - t0:.4f}s\n")
+# Comment to force rebuild

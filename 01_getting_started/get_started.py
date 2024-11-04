@@ -12,3 +12,4 @@ def square(x):
 @app.local_entrypoint()
 def main():
     print("the square is", square.remote(42))
+# Comment to force rebuild

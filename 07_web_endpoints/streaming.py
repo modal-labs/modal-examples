@@ -102,3 +102,4 @@ def mapped():
 # curl --no-buffer https://modal-labs--example-fastapi-streaming-hook.modal.run
 # curl --no-buffer https://modal-labs--example-fastapi-streaming-mapped.modal.run
 # ````
+# Comment to force rebuild

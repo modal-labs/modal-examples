@@ -104,3 +104,4 @@ def generate_response(
 def test_response(message: str):
     _, response = generate_response.remote(message)
     print(response)
+# Comment to force rebuild

@@ -92,3 +92,4 @@ def model(dbt, session):
         pa.field("review_sentiment", pa.string())
     )
     return pa.RecordBatchReader.from_batches(new_schema, batch_iter)
+# Comment to force rebuild

@@ -34,3 +34,4 @@ def serve():
         return fh.Div(fh.P("Hello World!"), hx_get="/change")
 
     return app
+# Comment to force rebuild

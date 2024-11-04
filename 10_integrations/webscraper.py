@@ -80,3 +80,4 @@ def daily_scrape():
 @app.local_entrypoint()
 def run():
     scrape.remote()
+# Comment to force rebuild

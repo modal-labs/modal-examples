@@ -52,3 +52,4 @@ def flask_app():
         return generate_rows.remote(), {"Content-Type": "text/csv"}
 
     return web_app
+# Comment to force rebuild

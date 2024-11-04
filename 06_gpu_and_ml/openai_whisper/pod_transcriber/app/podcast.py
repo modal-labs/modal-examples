@@ -314,3 +314,4 @@ def _merge_segments(left: Segment, right: Segment) -> Segment:
         "start": left["start"],
         "end": right["end"],
     }
+# Comment to force rebuild

@@ -244,3 +244,4 @@ def get_train_loader(data_dir):
     dataset = MNIST(data_dir, download=True, transform=ToTensor())
     train_loader = utils.data.DataLoader(dataset, num_workers=4)
     return train_loader
+# Comment to force rebuild

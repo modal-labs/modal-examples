@@ -130,3 +130,4 @@ def main(
 # ```
 # modal run stable_diffusion_xl_turbo.py --prompt="harry potter, glasses, wizard" --image-path="dog.png"
 # ```
+# Comment to force rebuild

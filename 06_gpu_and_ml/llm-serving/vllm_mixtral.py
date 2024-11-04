@@ -262,3 +262,4 @@ def vllm_mixtral():
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
     )
     return web_app
+# Comment to force rebuild

@@ -340,3 +340,4 @@ def full_job():
     with open("benchmarks.json", "a") as f:
         benchmark = embed_dataset.remote(batch_size=batch_size)
         f.write(json.dumps(benchmark, indent=2) + "\n")
+# Comment to force rebuild

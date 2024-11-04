@@ -171,3 +171,4 @@ def entrypoint(
 
 def slugify(s: str) -> str:
     return "".join(c if c.isalnum() else "-" for c in s).strip("-")
+# Comment to force rebuild

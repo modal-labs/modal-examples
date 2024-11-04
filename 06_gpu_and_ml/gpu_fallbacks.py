@@ -45,3 +45,4 @@ def local(count: int = 32):
         *[f"{gpu.rjust(32)}: {'🔥' * ct}" for gpu, ct in gpu_counter.items()],
         sep="\n",
     )
+# Comment to force rebuild

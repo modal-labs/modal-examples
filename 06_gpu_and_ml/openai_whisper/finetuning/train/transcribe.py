@@ -99,3 +99,4 @@ def whisper_transcribe_audio(
 
 if __name__ == "__main__":
     download_model_locally(run_id=sys.argv[1])
+# Comment to force rebuild

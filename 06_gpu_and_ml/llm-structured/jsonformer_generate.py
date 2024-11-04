@@ -99,3 +99,4 @@ def main():
 
     result = generate.remote(prompt, json_schema)
     print(result)
+# Comment to force rebuild

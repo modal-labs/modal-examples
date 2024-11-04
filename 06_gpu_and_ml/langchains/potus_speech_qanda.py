@@ -247,3 +247,4 @@ def cli(query: str, show_sources: bool = False):
 # If you edit the code while running `modal serve`, the app will redeploy automatically, which is helpful for iterating quickly on your app.
 #
 # Once you're ready to deploy to production, use `modal deploy`.
+# Comment to force rebuild

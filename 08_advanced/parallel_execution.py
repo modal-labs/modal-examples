@@ -46,3 +46,4 @@ def main():
         modal.functions.gather(step1.spawn("bar"), step2.spawn(0))
     except ValueError as exc:
         assert str(exc) == "custom error"
+# Comment to force rebuild

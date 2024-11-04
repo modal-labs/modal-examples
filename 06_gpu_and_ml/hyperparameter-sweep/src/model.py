@@ -179,3 +179,4 @@ class AttentionModel(nn.Module):
         chars_out = chars[len(text) :]
 
         return "".join(chars_out)
+# Comment to force rebuild

@@ -104,3 +104,4 @@ def list_models() -> None:
 if __name__ == "__main__":
     print("USAGE: modal run spam_detect.model_registry [FUNCTION]")
     raise SystemExit(1)
+# Comment to force rebuild

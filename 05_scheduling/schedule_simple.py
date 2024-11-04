@@ -42,3 +42,4 @@ if __name__ == "__main__":
     with modal.enable_output():
         with app.run():
             time.sleep(60)
+# Comment to force rebuild

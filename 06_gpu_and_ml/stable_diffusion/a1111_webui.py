@@ -81,3 +81,4 @@ accelerate launch \
         --port {PORT}
 """
     subprocess.Popen(START_COMMAND, shell=True)
+# Comment to force rebuild

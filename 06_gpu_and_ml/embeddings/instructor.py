@@ -71,3 +71,4 @@ def run():
     model = InstructorModel()
     similarities = model.compare.remote(sentences_a, sentences_b)
     print(similarities)
+# Comment to force rebuild

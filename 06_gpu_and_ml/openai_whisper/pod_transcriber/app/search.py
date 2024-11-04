@@ -163,3 +163,4 @@ def build_search_index(records: list[SearchRecord], v):
         search_dict.append(qdict)
 
     return search_dict
+# Comment to force rebuild

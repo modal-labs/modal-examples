@@ -352,3 +352,4 @@ def linear_quadratic_schedule(num_steps, threshold_noise, linear_steps=None):
     sigma_schedule = linear_sigma_schedule + quadratic_sigma_schedule + [1.0]
     sigma_schedule = [1.0 - x for x in sigma_schedule]
     return sigma_schedule
+# Comment to force rebuild

@@ -322,3 +322,4 @@ def as_slug(name):
     s = str(name).strip().replace(" ", "-")
     s = re.sub(r"(?u)[^-\w.]", "", s)
     return s
+# Comment to force rebuild

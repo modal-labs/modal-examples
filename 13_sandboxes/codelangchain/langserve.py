@@ -84,3 +84,4 @@ def serve():
 
     # return the FastAPI app and Modal will deploy it for us
     return web_app
+# Comment to force rebuild

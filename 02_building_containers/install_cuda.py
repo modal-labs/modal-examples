@@ -57,3 +57,4 @@ def main():
     nvidia_smi.remote()
     torch_cuda.remote()
     nvcc_version.remote()
+# Comment to force rebuild

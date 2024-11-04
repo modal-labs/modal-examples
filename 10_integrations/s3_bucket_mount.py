@@ -200,3 +200,4 @@ def main():
     with open(path, "wb") as file:
         print(f"Saving figure to {path}")
         file.write(figure)
+# Comment to force rebuild

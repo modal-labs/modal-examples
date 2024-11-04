@@ -270,3 +270,4 @@ def optimize(pipe, compile=True):
     print("🔦 finished torch compilation")
 
     return pipe
+# Comment to force rebuild

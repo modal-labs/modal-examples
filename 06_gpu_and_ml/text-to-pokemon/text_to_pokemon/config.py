@@ -207,3 +207,4 @@ image = (
     .run_function(load_stable_diffusion_pokemon_model)
 )
 app = modal.App(name="example-text-to-pokemon", image=image)
+# Comment to force rebuild

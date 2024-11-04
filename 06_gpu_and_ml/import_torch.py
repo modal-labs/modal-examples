@@ -32,3 +32,4 @@ if __name__ == "__main__":
     with app.run():
         gpu_function.remote()
     print("Full time spent:", time.time() - t0)
+# Comment to force rebuild

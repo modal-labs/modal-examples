@@ -39,3 +39,4 @@ def get_logger():
             False  # Prevent the modal client from double-logging.
         )
     return logger
+# Comment to force rebuild

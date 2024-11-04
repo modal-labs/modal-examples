@@ -64,3 +64,4 @@ def reset(metadata):
     )
     with app.run() as app:
         app.sync_data(source_path, destination_path, reset=True)
+# Comment to force rebuild

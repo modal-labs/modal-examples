@@ -52,3 +52,4 @@ class CheckboxesUser(HttpUser):
         """
         self.id = str(random.randint(1, 9999))
         self.load_homepage()
+# Comment to force rebuild

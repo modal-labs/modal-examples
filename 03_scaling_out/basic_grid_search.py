@@ -47,3 +47,4 @@ def main():
     # Do a basic hyperparameter search
     best_score, best_k = max(fit_knn.map(range(1, 100)))
     print("Best k = %3d, score = %.4f" % (best_k, best_score))
+# Comment to force rebuild
