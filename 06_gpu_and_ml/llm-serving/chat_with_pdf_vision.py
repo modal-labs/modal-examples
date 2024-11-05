@@ -285,7 +285,7 @@ class Model:
     def generate_response(self, message, session, image):
         chatbot_message = get_chatbot_message_with_image(message, image)
         query = self.qwen2_vl_processor.apply_chat_template(
-            [chatbot_message, *session.messages],
+            [*session.messages, chatbot_message],
             tokenize=False,
             add_generation_prompt=True,
         )
@@ -299,7 +299,7 @@ class Model:
         inputs = inputs.to("cuda:0")
 
         generated_ids = self.qwen2_vl_model.generate(
-            **inputs, max_new_tokens=128
+            **inputs, max_new_tokens=512
         )
         generated_ids_trimmed = [
             out_ids[len(in_ids) :]
