@@ -67,11 +67,11 @@ def driver_program():
 # that program and execute code in it.
 
 
-def run_code(sb: modal.Sandbox, code: str):
-    sb.stdin.write(json.dumps({"code": code}))
-    sb.stdin.write("\n")
-    sb.stdin.drain()
-    next_line = next(iter(sb.stdout))
+def run_code(p: modal.container_process.ContainerProcess, code: str):
+    p.stdin.write(json.dumps({"code": code}))
+    p.stdin.write("\n")
+    p.stdin.drain()
+    next_line = next(iter(p.stdout))
     result = json.loads(next_line)
     print(result["stdout"], end="")
     print("\033[91m" + result["stderr"] + "\033[0m", end="")
@@ -88,26 +88,27 @@ driver_program_text = inspect.getsource(driver_program)
 driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
 
 app = modal.App.lookup("code-interpreter", create_if_missing=True)
-sb = modal.Sandbox.create("python", "-c", driver_program_command, app=app)
+sb = modal.Sandbox.create(app=app)
+p = sb.exec("python", "-c", driver_program_command)
 
 # ## Running code in a Modal Sandbox
 
 # Now we can execute some code in the Sandbox!
 
-run_code(sb, "print('hello, world!')")  # hello, world!
+run_code(p, "print('hello, world!')")  # hello, world!
 
 # The Sandbox and our code interpreter are stateful,
 # so we can define variables and use them in subsequent code.
 
-run_code(sb, "x = 10")
-run_code(sb, "y = 5")
-run_code(sb, "result = x + y")
-run_code(sb, "print(f'The result is: {result}')")  # The result is: 15
+run_code(p, "x = 10")
+run_code(p, "y = 5")
+run_code(p, "result = x + y")
+run_code(p, "print(f'The result is: {result}')")  # The result is: 15
 
 # We can also see errors when code fails.
 
-run_code(sb, "print('Attempting to divide by zero...')")
-run_code(sb, "1 / 0")  # Execution Error: division by zero
+run_code(p, "print('Attempting to divide by zero...')")
+run_code(p, "1 / 0")  # Execution Error: division by zero
 
 # Finally, let's clean up after ourselves and terminate the Sandbox.
 
