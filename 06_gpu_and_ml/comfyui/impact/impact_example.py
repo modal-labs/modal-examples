@@ -22,9 +22,8 @@ image = (
     .apt_install(  # opengl dependencies
         "libgl1-mesa-glx", "libglib2.0-0"
     )
-    .run_commands(  # install civit ai model (you need to create a Modal Secret with your Civit AI token)
-        "comfy --skip-prompt model download --url https://civitai.com/api/download/models/146134 --relative-path models/checkpoints --set-civitai-api-token $CIVIT_AI_TOKEN",
-        secrets=[modal.Secret.from_name("civitai-token")],
+    .run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned.safetensors --relative-path models/checkpoints",
     )
 )
 

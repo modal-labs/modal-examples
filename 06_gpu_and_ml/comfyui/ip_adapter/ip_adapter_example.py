@@ -28,9 +28,8 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .run_commands(  # download the IP-Adapter model
         "comfy --skip-prompt model download --url https://huggingface.co/h94/IP-Adapter/resolve/main/models/ip-adapter_sd15.safetensors --relative-path models/ipadapter"
     )
-    .run_commands(  # download the Civitai model
-        "comfy --skip-prompt model download --url https://civitai.com/api/download/models/128713 --relative-path models/checkpoints --set-civitai-api-token $CIVIT_AI_TOKEN",
-        secrets=[modal.Secret.from_name("civitai-token")],
+    .run_commands(
+        "comfy --skip-prompt model download --url https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned.safetensors --relative-path models/checkpoints",
     )
 )
 
