@@ -63,8 +63,8 @@ def driver_program():
         )
 
 
-# Now that we have the driver program, we can write a function to take a Sandbox running
-# that program and execute code in it.
+# Now that we have the driver program, we can write a function to take a
+# `ContainerProcess` that is running the driver program and execute code in it.
 
 
 def run_code(sb: modal.Sandbox, code: str):
