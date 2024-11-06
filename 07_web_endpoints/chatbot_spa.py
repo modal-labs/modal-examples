@@ -18,10 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
-import fastapi
 import modal
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 assets_path = Path(__file__).parent / "chatbot_spa"
 app = modal.App("example-chatbot-spa")
@@ -61,6 +58,10 @@ with gpu_image.imports():
 )
 @modal.asgi_app()
 def transformer():
+    import fastapi
+    from fastapi.responses import JSONResponse
+    from fastapi.staticfiles import StaticFiles
+
     app = fastapi.FastAPI()
 
     @app.post("/chat")

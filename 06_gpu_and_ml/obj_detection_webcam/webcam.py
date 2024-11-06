@@ -34,8 +34,6 @@ import io
 from pathlib import Path
 
 import modal
-from fastapi import FastAPI, Request, Response
-from fastapi.staticfiles import StaticFiles
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
@@ -165,28 +163,7 @@ class ObjectDetection:
 # We also serve a static html page which contains some tiny bit of Javascript to
 # capture the webcam feed and send it to Modal.
 
-web_app = FastAPI()
 static_path = Path(__file__).with_name("webcam").resolve()
-
-
-# The endpoint for the prediction function takes an image as a
-# [data URI](https://en.wikipedia.org/wiki/Data_URI_scheme)
-# and returns another image, also as a data URI:
-
-
-@web_app.post("/predict")
-async def predict(request: Request):
-    # Takes a webcam image as a datauri, returns a bounding box image as a datauri
-    body = await request.body()
-    img_data_in = base64.b64decode(body.split(b",")[1])  # read data-uri
-    img_data_out = ObjectDetection().detect.remote(img_data_in)
-    output_data = b"data:image/png;base64," + base64.b64encode(img_data_out)
-    return Response(content=output_data)
-
-
-# ## Exposing the web server
-#
-# Let's take the Fast API app and expose it to Modal.
 
 
 @app.function(
@@ -195,6 +172,24 @@ async def predict(request: Request):
 )
 @modal.asgi_app()
 def fastapi_app():
+    from fastapi import FastAPI, Request, Response
+    from fastapi.staticfiles import StaticFiles
+
+    web_app = FastAPI()
+
+    # The endpoint for the prediction function takes an image as a
+    # [data URI](https://en.wikipedia.org/wiki/Data_URI_scheme)
+    # and returns another image, also as a data URI:
+
+    @web_app.post("/predict")
+    async def predict(request: Request):
+        # Takes a webcam image as a datauri, returns a bounding box image as a datauri
+        body = await request.body()
+        img_data_in = base64.b64decode(body.split(b",")[1])  # read data-uri
+        img_data_out = ObjectDetection().detect.remote(img_data_in)
+        output_data = b"data:image/png;base64," + base64.b64encode(img_data_out)
+        return Response(content=output_data)
+
     web_app.mount("/", StaticFiles(directory="/assets", html=True))
     return web_app
 
