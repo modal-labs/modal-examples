@@ -8,7 +8,7 @@
     export let highlighted;
 </script>
 
-<li class="autocomplete-items" class:autocomplete-active={highlighted} on:click>
+<li class="autocomplete-items" class:autocomplete-active={highlighted} on:click on:keyup>
     {@html itemLabel}
 </li>
 
