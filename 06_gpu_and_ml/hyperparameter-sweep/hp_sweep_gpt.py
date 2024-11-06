@@ -53,8 +53,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import modal
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 MINUTES = 60  # seconds
@@ -87,8 +85,11 @@ model_save_path = volume_path / "models"
 
 # The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
+base_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "pydantic==2.9.1"
+)
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
+torch_image = base_image.pip_install(
     "torch==2.1.2",
     "tensorboard==2.17.1",
     "numpy<2",
@@ -103,26 +104,18 @@ mounts = [
     )
 ]
 
-# We'll spin up a separate container to monitor the training logs with TensorBoard.
-
-monitoring_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "tensorboard==2.17.1"
-)
-
-
 # We'll serve a simple web endpoint
-web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi[standard]==0.115.4", "pydantic==2.9.1", "starlette==0.41.2"
+web_image = base_image.pip_install(
+    "fastapi[standard]==0.115.4", "starlette==0.41.2"
 )
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
-
 ui_image = web_image.pip_install("gradio~=4.44.0")
 
 # We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
 # using the `with image.imports` context manager.
 
-with image.imports():
+with torch_image.imports():
     import glob
     import os
     from timeit import default_timer as timer
@@ -146,7 +139,7 @@ with image.imports():
 
 
 @app.function(
-    image=image,
+    image=torch_image,
     mounts=mounts,
     volumes={volume_path: volume},
     gpu=gpu,
@@ -393,7 +386,7 @@ def main(
 
 
 @app.function(
-    image=monitoring_image,
+    image=torch_image,
     volumes={volume_path: volume},
     allow_concurrent_inputs=1000,
 )
@@ -443,7 +436,7 @@ def monitor_training():
 # is used.
 
 
-@app.cls(image=image, volumes={volume_path: volume}, gpu=gpu)
+@app.cls(image=torch_image, volumes={volume_path: volume}, gpu=gpu)
 class ModelInference:
     experiment_name: str = modal.parameter(default="")
 
@@ -583,8 +576,6 @@ def web_generate(request: GenerationRequest):
 # The Gradio UI will look something like this:
 
 # ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
-
-web_app = FastAPI()
 assets_path = Path(__file__).parent / "assets"
 
 
@@ -598,6 +589,8 @@ assets_path = Path(__file__).parent / "assets"
 @modal.asgi_app()
 def ui():
     import gradio as gr
+    from fastapi import FastAPI
+    from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
 
     # call out to the inference in a separate Modal environment with a GPU
@@ -615,6 +608,8 @@ def ui():
         "CLARENCE:\nFair is foul and foul is fair, but who are you?",
         "Brevity is the soul of wit, so what is the soul of foolishness?",
     ]
+
+    web_app = FastAPI()
 
     # custom styles: an icon, a background, and a theme
     @web_app.get("/favicon.ico", include_in_schema=False)

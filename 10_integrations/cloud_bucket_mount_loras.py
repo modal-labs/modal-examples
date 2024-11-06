@@ -238,9 +238,6 @@ def main(
 # To set up your own, run `modal deploy cloud_bucket_mount_loras.py` and navigate to the URL it prints out.
 # If you're playing with the code, use `modal serve` instead to see changes live.
 
-from fastapi import FastAPI
-
-web_app = FastAPI()
 web_image = modal.Image.debian_slim().pip_install(
     "fastapi[standard]==0.115.4", "gradio~=4.29.0", "pillow~=10.2.0"
 )
@@ -262,6 +259,7 @@ def ui():
     import io
 
     import gradio as gr
+    from fastapi import FastAPI
     from gradio.routes import mount_gradio_app
     from PIL import Image
 
@@ -314,7 +312,7 @@ def ui():
         allow_flagging="never",
     )
 
-    return mount_gradio_app(app=web_app, blocks=iface, path="/")
+    return mount_gradio_app(app=FastAPI(), blocks=iface, path="/")
 
 
 def as_slug(name):
