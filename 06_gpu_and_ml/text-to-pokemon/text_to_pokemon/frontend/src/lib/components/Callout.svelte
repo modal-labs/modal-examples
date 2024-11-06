@@ -40,10 +40,6 @@
         margin-right: 0.5em;
     }
 
-    .callout p {
-        margin: 0;
-    }
-
     .callout {
         display: inline-flex;
         align-items: center;
