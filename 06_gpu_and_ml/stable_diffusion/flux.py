@@ -37,23 +37,28 @@ cuda_dev_image = modal.Image.from_registry(
 
 diffusers_commit_sha = "81cf3b2f155f1de322079af28f625349ee21ec6b"
 
-flux_image = cuda_dev_image.apt_install(
-    "git",
-    "libglib2.0-0",
-    "libsm6",
-    "libxrender1",
-    "libxext6",
-    "ffmpeg",
-    "libgl1",
-).pip_install(
-    "invisible_watermark==0.2.0",
-    "transformers==4.44.0",
-    "accelerate==0.33.0",
-    "safetensors==0.4.4",
-    "sentencepiece==0.2.0",
-    "torch==2.5.0",
-    f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
-    "numpy<2",
+flux_image = (
+    cuda_dev_image.apt_install(
+        "git",
+        "libglib2.0-0",
+        "libsm6",
+        "libxrender1",
+        "libxext6",
+        "ffmpeg",
+        "libgl1",
+    )
+    .pip_install(
+        "invisible_watermark==0.2.0",
+        "transformers==4.44.0",
+        "huggingface_hub[hf_transfer]==0.26.2",
+        "accelerate==0.33.0",
+        "safetensors==0.4.4",
+        "sentencepiece==0.2.0",
+        "torch==2.5.0",
+        f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
+        "numpy<2",
+    )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
 
 # Later, we'll also use `torch.compile` to increase the speed further.
@@ -208,7 +213,7 @@ def main(
 # _Super schnell_!
 
 # Compilation takes up to twenty minutes on first iteration.
-# As of time of writing in October 2024,
+# As of time of writing in late 2024,
 # the compilation artifacts cannot be fully serialized,
 # so some compilation work must be re-executed every time a new container is started.
 # That includes when scaling up an existing deployment or the first time a Function is invoked with `modal run`.
