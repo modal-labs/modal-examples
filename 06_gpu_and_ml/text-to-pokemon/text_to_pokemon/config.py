@@ -199,6 +199,7 @@ image = (
         "colorgram.py",
         "diffusers~=0.11.1",
         "ftfy",
+        "huggingface_hub~=0.21.1",
         "torch",
         "transformers",
         "scipy",

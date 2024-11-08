@@ -152,7 +152,6 @@ def fastapi_app():
 @app.function(
     image=inpaint.cv_image,
     volumes={config.CACHE_DIR: volume},
-    interactive=False,
 )
 def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
     """
