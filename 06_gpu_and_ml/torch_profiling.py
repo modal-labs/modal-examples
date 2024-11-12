@@ -283,6 +283,14 @@ class VolumeMiddleware:
         return self.app(environ, start_response)
 
 
+# You can deploy the TensorBoard server defined below with the following command:
+# ```bash
+# modal deploy torch_profiling
+# ```
+
+# and you can find your server at the URL printed to the terminal.
+
+
 @app.function(
     volumes={TRACE_DIR: traces},
     image=tb_image,
