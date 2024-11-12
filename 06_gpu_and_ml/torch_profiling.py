@@ -82,12 +82,12 @@ def underutilize(scale=1):
         scale * 100, scale * 100, device="cuda"
     )
 
-    class Record:  # 🐌 1: creating a Python object in the hot loop
-        def __init__(self, value):
-            self.value = value
-
     for ii in range(10):
         x = x @ x
+
+        class Record:  # 🐌 1: heavy Python work in the hot loop
+            def __init__(self, value):
+                self.value = value
 
         records.append(Record(ii))
 
