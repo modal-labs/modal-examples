@@ -1,6 +1,6 @@
 # # Tracing and profiling GPU-accelerated PyTorch programs on Modal
 
-# GPUs are  high-performance computing devices. For high-performance computing,
+# GPUs are high-performance computing devices. For high-performance computing,
 # tools for measuring and investigating performance are as critical
 # as tools for testing and confirming correctness in typical software.
 
@@ -294,8 +294,9 @@ class VolumeMiddleware:
 @app.function(
     volumes={TRACE_DIR: traces},
     image=tb_image,
-    concurrency_limit=1,
-    container_idle_timeout=5 * 60,  # five minutes
+    concurrency_limit=1,  # single replica
+    allow_concurrent_inputs=100,  # 100 concurrent request threads
+    container_idle_timeout=5 * 60,  # five minute idle time
 )
 @modal.wsgi_app()
 def tensorboard():
