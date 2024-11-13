@@ -308,7 +308,7 @@ def generate_sweep_configs(sweep_config: SweepConfig):
 @app.function(
     image=image,
     gpu=modal.gpu.A100(  # fine-tuning is VRAM-heavy and requires an A100 GPU
-        count=1
+        count=1, size="80GB"
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
