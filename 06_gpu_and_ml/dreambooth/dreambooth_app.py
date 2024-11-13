@@ -528,8 +528,6 @@ class Model:
         image = self.pipe(
             text,
             num_inference_steps=config.num_inference_steps,
-            height=1024,  # Set height to 1024 to match training images
-            width=1024,  # Set width to 1024 to match training images
         ).images[0]
 
         return image
@@ -681,5 +679,4 @@ def run(  # add more config params here to make training configurable
     max_train_steps: int = 250,
 ):
     config = TrainConfig(max_train_steps=max_train_steps)
-    print("got to here")
     train.remote(config)
