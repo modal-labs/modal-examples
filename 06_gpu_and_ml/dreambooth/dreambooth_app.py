@@ -33,6 +33,7 @@
 # By installing Modal, we already brought in the FastAPI library we'll use to serve our app,
 # so we import it here.
 
+import itertools
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,10 +55,11 @@ app = modal.App(name="example-dreambooth-flux")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
-    "datasets~=2.13.0",
+    "datasets==3.1.0",
     "ftfy~=6.1.0",
-    "gradio~=4.29.0",
+    "gradio~=4.44.1",
     "fastapi[standard]==0.115.4",
+    "numpy==1.26.4",
     "pydantic==2.9.2",
     "starlette==0.41.2",
     "smart_open~=6.4.0",
@@ -78,7 +80,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # see [the docs](https://modal.com/docs/guide/custom-container) for more details.
 
 GIT_SHA = (
-    "e649678bf55aeaa4b60bd1f68b1ee726278c0304"  # specify the commit to fetch
+    "2541d141d5ffa9c94a7e8f5ca7f4ada26bad811d"  # specify the commit to fetch
 )
 
 image = (
@@ -103,10 +105,10 @@ class SharedConfig:
     """Configuration information shared across project components."""
 
     # The instance name is the "proper noun" we're teaching the model
-    instance_name: str = "Qwerty"
+    instance_name: str = "Heroicon"
     # That proper noun is usually a member of some class (person, bird),
     # and sharing that information with the model helps it generalize better.
-    class_name: str = "Golden Retriever"
+    class_name: str = "style"
     # identifier for pretrained models on Hugging Face
     model_name: str = "black-forest-labs/FLUX.1-dev"
 
@@ -133,7 +135,9 @@ def download_models():
 
     config = SharedConfig()
 
-    DiffusionPipeline.from_pretrained(config.model_name)
+    print("make a change")
+
+    DiffusionPipeline.from_pretrained(config.model_name, force_download=True)
     move_cache()
 
 
@@ -216,7 +220,7 @@ def load_images(image_urls: list[str]) -> Path:
 # This example can optionally use [Weights & Biases](https://wandb.ai) to track all of this training information.
 # Just sign up for an account, switch the flag below, and add your API key as a [Modal secret](https://modal.com/docs/guide/secrets).
 
-USE_WANDB = False
+USE_WANDB = True
 
 # You can see an example W&B dashboard [here](https://wandb.ai/cfrye59/dreambooth-lora-sd-xl).
 # Check out [this run](https://wandb.ai/cfrye59/dreambooth-lora-sd-xl/runs/ca3v1lsh?workspace=user-cfrye59),
@@ -236,17 +240,16 @@ USE_WANDB = False
 class TrainConfig(SharedConfig):
     """Configuration for the finetuning step."""
 
+    # HuggingFace Hub dataset
+    dataset_name = "linoyts/3d_icon"
+    caption_column = "prompt"
+
     # training prompt looks like `{PREFIX} {INSTANCE_NAME} the {CLASS_NAME} {POSTFIX}`
-    prefix: str = "a photo of"
+    prefix: str = ""
     postfix: str = ""
 
-    # locator for plaintext file with urls for images of target instance
-    instance_example_urls_file: str = str(
-        Path(__file__).parent / "instance_example_urls.txt"
-    )
-
     # Hyperparameters/constants from the huggingface training example
-    resolution: int = 512
+    resolution: int = 1024
     train_batch_size: int = 3
     rank: int = 16  # lora rank
     gradient_accumulation_steps: int = 1
@@ -258,27 +261,70 @@ class TrainConfig(SharedConfig):
     seed: int = 117
 
 
+@dataclass
+class SweepConfig:
+    """Configuration for hyperparameter sweep"""
+
+    # Sweep parameters
+    learning_rates = [1e-4, 5e-4, 1e-3]
+    train_steps = [500, 1000, 1500, 2000]
+    ranks = [4, 8, 16]
+
+    # Test prompts for evaluation
+    test_prompts = [
+        "3d icon of a sailboat in the style of TOK",
+        "3d icon of a medieval knight in the style of TOK",
+        "3d icon of a princess in the style of TOK",
+        "3d icon of the mcdonalds sign in the style of TOK",
+        "3d icon of sailor moon in the style of TOK",
+    ]
+
+
+def generate_sweep_configs(sweep_config: SweepConfig):
+    """Generate all combinations of hyperparameters"""
+    param_combinations = list(
+        itertools.product(
+            sweep_config.learning_rates,
+            sweep_config.train_steps,
+            sweep_config.ranks,
+        )
+    )
+
+    return [
+        {
+            "learning_rate": lr,
+            "max_train_steps": steps,
+            "rank": rank,
+            "pretrained_model_name": sweep_config.pretrained_model_name,
+            "instance_prompt": sweep_config.instance_prompt,
+            "dataset_name": sweep_config.dataset_name,
+            "caption_column": sweep_config.caption_column,
+            "resolution": sweep_config.resolution,
+        }
+        for lr, steps, rank in param_combinations
+    ]
+
+
 @app.function(
     image=image,
     gpu=modal.gpu.A100(  # fine-tuning is VRAM-heavy and requires an A100 GPU
-        count=1, size="80GB"
+        count=1
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
     secrets=[
-        modal.Secret.from_name("my-wandb-secret"),
+        modal.Secret.from_name("wandb"),
         modal.Secret.from_name("huggingface"),
     ]
     if USE_WANDB
     else [modal.Secret.from_name("huggingface")],
 )
-def train(instance_example_urls, config):
+def train(config):
     import subprocess
 
     from accelerate.utils import write_basic_config
 
     # load data locally
-    img_path = load_images(instance_example_urls)
 
     # set up hugging face accelerate library for fast training
     write_basic_config(mixed_precision="bf16")
@@ -312,9 +358,10 @@ def train(instance_example_urls, config):
             "examples/dreambooth/train_dreambooth_lora_flux.py",
             "--mixed_precision=bf16",  # half-precision floats most of the time for faster training
             f"--pretrained_model_name_or_path={config.model_name}",
-            f"--instance_data_dir={img_path}",
+            f"--dataset_name={config.dataset_name}",
+            f"--caption_column={config.caption_column}",
             f"--output_dir={MODEL_DIR}",
-            f"--instance_prompt={prompt}",
+            "--instance_prompt='3d icon in the style of TOK'",
             f"--resolution={config.resolution}",
             f"--train_batch_size={config.train_batch_size}",
             f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
@@ -335,6 +382,43 @@ def train(instance_example_urls, config):
             if USE_WANDB
             else []
         ),
+        # _exec_subprocess(
+        #     [
+        #         "accelerate",
+        #         "launch",
+        #         "examples/advanced_diffusion_training/train_dreambooth_lora_flux_advanced.py",
+        #         "--mixed_precision=bf16",  # half-precisi  on floats most of the time for faster training
+        #         f"--pretrained_model_name_or_path={config.model_name}",
+        #         f"--dataset_name={config.dataset_name}",
+        #         "--instance_prompt='3d icon in the style of TOK'",
+        #         f"--caption_column={config.caption_column}",
+        #         f"--output_dir={MODEL_DIR}",
+        #         f"--resolution={config.resolution}",
+        #         f"--train_batch_size={config.train_batch_size}",
+        #         f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
+        #         "--gradient_checkpointing",
+        #         f"--learning_rate={sweep_config.learning_rate}",
+        #         f"--lr_scheduler={config.lr_scheduler}",
+        #         f"--lr_warmup_steps={config.lr_warmup_steps}",
+        #         f"--max_train_steps={sweep_config.max_train_steps}",
+        #         f"--checkpointing_steps={config.checkpointing_steps}",
+        #         f"--seed={config.seed}",  # increased reproducibility by seeding the RNG
+        #         "--text_encoder_lr=1.0",
+        #         "--optimizer='prodigy'",
+        #         "--train_text_encoder_ti",
+        #         "--train_text_encoder_ti_frac=0.5",
+        #         f"--rank={sweep_config.rank}",
+        #     ]
+        #     + (
+        #         [
+        #             "--report_to=wandb",
+        #             # validation output tracking is useful, but currently broken for Flux LoRA training
+        #             # f"--validation_prompt={prompt} in space",  # simple test prompt
+        #             # f"--validation_epochs={config.max_train_steps // 5}",
+        #         ]
+        #         if USE_WANDB
+        #         else []
+        #     ),
     )
     # The trained model information has been output to the volume mounted at `MODEL_DIR`.
     # To persist this data for use in our web app, we 'commit' the changes
@@ -355,6 +439,42 @@ def train(instance_example_urls, config):
 # so that the fine-tuned model created  by `train` is available to us.
 
 
+def evaluate_model(model_dir, config):
+    """Load trained model and evaluate on test prompts"""
+    import torch
+    import wandb
+    from diffusers import AutoPipelineForText2Image
+    from safetensors.torch import load_file
+
+    # Load model with LoRA weights
+    pipe = AutoPipelineForText2Image.from_pretrained(
+        config["pretrained_model_name"],
+        torch_dtype=torch.bfloat16,
+    ).to("cuda")
+
+    pipe.load_lora_weights(
+        model_dir, weight_name="pytorch_lora_weights.safetensors"
+    )
+
+    # Load textual inversion embeddings
+    embedding_path = f"{model_dir}/model_emb.safetensors"
+    state_dict = load_file(embedding_path)
+    pipe.load_textual_inversion(
+        state_dict["clip_l"],
+        token=["<s0>", "<s1>"],
+        text_encoder=pipe.text_encoder,
+        tokenizer=pipe.tokenizer,
+    )
+
+    # Generate images for test prompts
+    sweep_config = SweepConfig()
+    for prompt in sweep_config.test_prompts:
+        image = pipe(prompt).images[0]
+        wandb.log({f"test_image/{prompt}": wandb.Image(image)})
+
+    return pipe
+
+
 @app.cls(image=image, gpu="A100", volumes={MODEL_DIR: volume})
 class Model:
     @modal.enter()
@@ -362,25 +482,54 @@ class Model:
         import torch
         from diffusers import DiffusionPipeline
 
-        config = TrainConfig()
-
         # Reload the modal.Volume to ensure the latest state is accessible.
         volume.reload()
 
         # set up a hugging face inference pipeline using our model
         pipe = DiffusionPipeline.from_pretrained(
-            config.model_name,
+            MODEL_DIR,
             torch_dtype=torch.bfloat16,
         ).to("cuda")
         pipe.load_lora_weights(MODEL_DIR)
         self.pipe = pipe
+        # import torch
+        # from diffusers import AutoPipelineForText2Image
+        # from safetensors.torch import load_file
+
+        # config = TrainConfig()
+
+        # # Reload the modal.Volume to ensure the latest state is accessible.
+        # volume.reload()
+
+        # # set up a hugging face inference pipeline using our model
+        # pipe = AutoPipelineForText2Image.from_pretrained(
+        #     config.model_name,
+        #     torch_dtype=torch.bfloat16,
+        # ).to("cuda")
+        # pipe.load_lora_weights(
+        #     MODEL_DIR, weight_name="pytorch_lora_weights.safetensors"
+        # )
+
+        # embedding_path = "/model/model_emb.safetensors"
+
+        # state_dict = load_file(embedding_path)
+        # # load embeddings of text_encoder 1 (CLIP ViT-L/14)
+        # pipe.load_textual_inversion(
+        #     state_dict["clip_l"],
+        #     token=["<s0>", "<s1>"],
+        #     text_encoder=pipe.text_encoder,
+        #     tokenizer=pipe.tokenizer,
+        # )
+
+        # self.pipe = pipe
 
     @modal.method()
     def inference(self, text, config):
         image = self.pipe(
             text,
             num_inference_steps=config.num_inference_steps,
-            guidance_scale=config.guidance_scale,
+            height=1024,  # Set height to 1024 to match training images
+            width=1024,  # Set width to 1024 to match training images
         ).images[0]
 
         return image
@@ -413,7 +562,7 @@ assets_path = Path(__file__).parent / "assets"
 class AppConfig(SharedConfig):
     """Configuration information for inference."""
 
-    num_inference_steps: int = 50
+    num_inference_steps: int = 25
     guidance_scale: float = 6
 
 
@@ -432,6 +581,7 @@ def fastapi_app():
     def go(text=""):
         if not text:
             text = example_prompts[0]
+        print(text, config)
         return Model().inference.remote(text, config)
 
     # set up AppConfig
@@ -531,7 +681,5 @@ def run(  # add more config params here to make training configurable
     max_train_steps: int = 250,
 ):
     config = TrainConfig(max_train_steps=max_train_steps)
-    instance_example_urls = (
-        Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
-    )
-    train.remote(instance_example_urls, config)
+    print("got to here")
+    train.remote(config)
