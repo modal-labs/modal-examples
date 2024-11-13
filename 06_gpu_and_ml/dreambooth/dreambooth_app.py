@@ -2,79 +2,81 @@
 # deploy: true
 # tags: ["use-case-image-video-3d", "use-case-finetuning", "featured"]
 # ---
-#
-# # Custom Pet Art from Flux with Hugging Face and Gradio
-#
+
+# # Train a character LoRA for Flux with Hugging Face and Gradio
+
 # This example finetunes the [Flux.1-dev model](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 # on images of a pet (by default, a puppy named Qwerty)
 # using a technique called textual inversion from [the "Dreambooth" paper](https://dreambooth.github.io/).
 # Effectively, it teaches a general image generation model a new "proper noun",
 # allowing for the personalized generation of art and photos.
-#
+# We supplement textual inversion with low-rank adaptation (LoRA)
+# for increased efficiency during training.
+
 # It then makes the model shareable with others -- without costing $25/day for a GPU server--
 # by hosting a [Gradio app](https://gradio.app/) on Modal.
-#
+
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu) Modal functions and classes for compute-intensive work,
-# [volumes](https://modal.com/docs/guide/volumes) for storage,
+# [GPU-accelerated](https://modal.com/docs/guide/gpu) Modal Functions and Clses for compute-intensive work,
+# [Volumes](https://modal.com/docs/guide/volumes) for storage,
 # and [web endpoints](https://modal.com/docs/guide/webhooks) for serving.
-#
+
 # And with some light customization, you can use it to generate images of your pet!
-#
+
 # ![Gradio.app image generation interface](./gradio-image-generate.png)
-#
+
 # You can find a video walkthrough of this example on the Modal YouTube channel
 # [here](https://www.youtube.com/watch?v=df-8fiByXMI).
-#
+
 # ## Imports and setup
-#
+
 # We start by importing the necessary libraries and setting up the environment.
-# By installing Modal, we already brought in the FastAPI library we'll use to serve our app,
-# so we import it here.
 
 from dataclasses import dataclass
 from pathlib import Path
 
 import modal
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
 
 # ## Building up the environment
-#
+
 # Machine learning environments are complex, and the dependencies can be hard to manage.
-# Modal makes creating and working with environments easy via containers and container images.
-#
+# Modal makes creating and working with environments easy via
+# [containers and container images](https://modal.com/docs/guide/custom-container).
+
 # We start from a base image and specify all of our dependencies.
 # We'll call out the interesting ones as they come up below.
 # Note that these dependencies are not installed locally
-# -- they are only installed in the remote environment where our app runs.
+# -- they are only installed in the remote environment where our Modal App runs.
 
 app = modal.App(name="example-dreambooth-flux")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
     "datasets~=2.13.0",
-    "ftfy~=6.1.0",
-    "gradio~=4.29.0",
     "fastapi[standard]==0.115.4",
+    "ftfy~=6.1.0",
+    "gradio~=5.5.0",
+    "huggingface-hub==0.26.2",
+    "hf_transfer==0.1.8",
+    "numpy<2",
+    "peft==0.11.1",
     "pydantic==2.9.2",
-    "starlette==0.41.2",
-    "smart_open~=6.4.0",
-    "transformers~=4.41.2",
     "sentencepiece>=0.1.91,!=0.1.92",
+    "smart_open~=6.4.0",
+    "starlette==0.41.2",
+    "transformers~=4.41.2",
     "torch~=2.2.0",
     "torchvision~=0.16",
     "triton~=2.2.0",
-    "peft==0.11.1",
     "wandb==0.17.6",
 )
 
 # ### Downloading scripts and installing a git repo with `run_commands`
-#
+
 # We'll use an example script from the `diffusers` library to train the model.
 # We acquire it from GitHub and install it in our environment with a series of commands.
-# The container environments Modal functions run in are highly flexible --
+# The container environments Modal Functions run in are highly flexible --
 # see [the docs](https://modal.com/docs/guide/custom-container) for more details.
 
 GIT_SHA = (
@@ -92,8 +94,9 @@ image = (
         "cd /root && pip install -e .",
     )
 )
+
 # ### Configuration with `dataclass`es
-#
+
 # Machine learning apps often have a lot of configuration information.
 # We collect up all of our configuration into dataclasses to avoid scattering special/magic values throughout code.
 
@@ -111,45 +114,14 @@ class SharedConfig:
     model_name: str = "black-forest-labs/FLUX.1-dev"
 
 
-# ### Downloading weights with `run_function`
-#
-# Not everything we need for an ML app like Pet Dreambooth is available as a Python package
-# or even on GitHub. Sometimes, there is nothing to be done but to execute some code inside the environment.
-# We can do this on Modal with `run_function`.
-#
-# In our case, we use it to download the pretrained model weights for the Stable Diffusion XL model
-# that we'll be finetuning.
-#
-# Note that access to the Flux.1-dev model on Hugging Face is
-# [gated by a license agreement](https://huggingface.co/docs/hub/en/models-gated) which
-# you must agree to [here](https://huggingface.co/black-forest-labs/FLUX.1-dev).
-# After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
-# with the name `huggingface` following the instructions in the template.
+# ### Storing data created by our app with `modal.Volume`
 
-
-def download_models():
-    from diffusers import DiffusionPipeline
-    from transformers.utils import move_cache
-
-    config = SharedConfig()
-
-    DiffusionPipeline.from_pretrained(config.model_name)
-    move_cache()
-
-
-image = image.run_function(
-    download_models, secrets=[modal.Secret.from_name("huggingface")]
-)
-
-
-# ### Storing data generated by our app with `modal.Volume`
-#
 # The tools we've used so far work well for fetching external information,
 # which defines the environment our app runs in,
 # but what about data that we create or modify during the app's execution?
-# A persisted `modal.Volume` can store and share data across Modal apps or runs of the same app.
-#
-# We'll use one to store the fine-tuned weights we create during training
+# A persisted [`modal.Volume`](https://modal.com/docs/guide/volumes) can store and share data across Modal Apps and Functions.
+
+# We'll use one to store both the original and fine-tuned weights we create during training
 # and then load them back in for inference.
 
 volume = modal.Volume.from_name(
@@ -157,10 +129,42 @@ volume = modal.Volume.from_name(
 )
 MODEL_DIR = "/model"
 
+# Note that access to the Flux.1-dev model on Hugging Face is
+# [gated by a license agreement](https://huggingface.co/docs/hub/en/models-gated) which
+# you must agree to [here](https://huggingface.co/black-forest-labs/FLUX.1-dev).
+# After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
+# with the name `huggingface` following the instructions in the template.
 
-# ### Load finetuning dataset
-#
-# Part of the magic of the Dreambooth approach is that we only need 3-10 images for finetuning.
+huggingface_secret = modal.Secret.from_name("huggingface")
+
+image = image.env(
+    {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
+)
+
+
+@app.function(
+    volumes={MODEL_DIR: volume},
+    image=image,
+    secrets=[huggingface_secret],
+    timeout=600,  # 10 minutes
+)
+def download_models(config):
+    import torch
+    from diffusers import DiffusionPipeline
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(
+        config.model_name,
+        local_dir=MODEL_DIR,
+        ignore_patterns=["*.pt", "*.bin"],  # using safetensors
+    )
+
+    DiffusionPipeline.from_pretrained(MODEL_DIR, torch_dtype=torch.bfloat16)
+
+
+# ### Load fine-tuning dataset
+
+# Part of the magic of the low-rank fine-tuning is that we only need 3-10 images for fine-tuning.
 # So we can fetch just a few images, stored on consumer platforms like Imgur or Google Drive,
 # whenever we need them -- no need for expensive, hard-to-maintain data pipelines.
 
@@ -181,38 +185,38 @@ def load_images(image_urls: list[str]) -> Path:
     return img_path
 
 
-# ## Finetuning a text-to-image model
-#
+# ## Low-Rank Adapation (LoRA) fine-tuning for a text-to-image model
+
 # The base model we start from is trained to do a sort of "reverse [ekphrasis](https://en.wikipedia.org/wiki/Ekphrasis)":
 # it attempts to recreate a visual work of art or image from only its description.
-#
+
 # We can use the model to synthesize wholly new images
 # by combining the concepts it has learned from the training data.
-#
-# We use a pretrained model, the XL version of Stability AI's Stable Diffusion.
-# In this example, we "finetune" SDXL, making only small adjustments to the weights.
+
+# We use a pretrained model, the Flux model from Black Forest Labs.
+# In this example, we "finetune" Flux, making only small adjustments to the weights.
 # Furthermore, we don't change all the weights in the model.
 # Instead, using a technique called [_low-rank adaptation_](https://arxiv.org/abs/2106.09685),
 # we change a much smaller matrix that works "alongside" the existing weights, nudging the model in the direction we want.
-#
+
 # We can get away with such a small and simple training process because we're just teach the model the meaning of a single new word: the name of our pet.
-#
+
 # The result is a model that can generate novel images of our pet:
 # as an astronaut in space, as painted by Van Gogh or Bastiat, etc.
-#
+
 # ### Finetuning with Hugging Face 🧨 Diffusers and Accelerate
-#
+
 # The model weights, training libraries, and training script are all provided by [🤗 Hugging Face](https://huggingface.co).
-#
+
 # You can kick off a training job with the command `modal run dreambooth_app.py::app.train`.
 # It should take about ten minutes.
-#
+
 # Training machine learning models takes time and produces a lot of metadata --
 # metrics for performance and resource utilization,
 # metrics for model quality and training stability,
 # and model inputs and outputs like images and text.
 # This is especially important if you're fiddling around with the configuration parameters.
-#
+
 # This example can optionally use [Weights & Biases](https://wandb.ai) to track all of this training information.
 # Just sign up for an account, switch the flag below, and add your API key as a [Modal secret](https://modal.com/docs/guide/secrets).
 
@@ -222,10 +226,10 @@ USE_WANDB = False
 # Check out [this run](https://wandb.ai/cfrye59/dreambooth-lora-sd-xl/runs/ca3v1lsh?workspace=user-cfrye59),
 # which [despite having high GPU utilization](https://wandb.ai/cfrye59/dreambooth-lora-sd-xl/runs/ca3v1lsh/system)
 # suffered from numerical instability during training and produced only black images -- hard to debug without experiment management logs!
-#
+
 # You can read more about how the values in `TrainConfig` are chosen and adjusted [in this blog post on Hugging Face](https://huggingface.co/blog/dreambooth).
 # To run training on images of your own pet, upload the images to separate URLs and edit the contents of the file at `TrainConfig.instance_example_urls_file` to point to them.
-#
+
 # Tip: if the results you're seeing don't match the prompt too well, and instead produce an image
 # of your subject without taking the prompt into account, the model has likely overfit. In this case, repeat training with a lower
 # value of `max_train_steps`. If you used W&B, look back at results earlier in training to determine where to stop.
@@ -260,7 +264,7 @@ class TrainConfig(SharedConfig):
 
 @app.function(
     image=image,
-    gpu=modal.gpu.A100(  # fine-tuning is VRAM-heavy and requires an A100 GPU
+    gpu=modal.gpu.A100(  # fine-tuning is VRAM-heavy and requires a high-VRAM GPU
         count=1, size="80GB"
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
@@ -311,7 +315,7 @@ def train(instance_example_urls, config):
             "launch",
             "examples/dreambooth/train_dreambooth_lora_flux.py",
             "--mixed_precision=bf16",  # half-precision floats most of the time for faster training
-            f"--pretrained_model_name_or_path={config.model_name}",
+            f"--pretrained_model_name_or_path={MODEL_DIR}",
             f"--instance_data_dir={img_path}",
             f"--output_dir={MODEL_DIR}",
             f"--instance_prompt={prompt}",
@@ -343,12 +347,12 @@ def train(instance_example_urls, config):
 
 
 # ## Running our model
-#
-# To generate images from prompts using our fine-tuned model, we define a Modal function called `inference`.
-#
+
+# To generate images from prompts using our fine-tuned model, we define a Modal Function called `inference`.
+
 # Naively, this would seem to be a bad fit for the flexible, serverless infrastructure of Modal:
 # wouldn't you need to include the steps to load the model and spin it up in every function call?
-#
+
 # In order to initialize the model just once on container startup,
 # we use Modal's [container lifecycle](https://modal.com/docs/guide/lifecycle-functions) features, which require the function to be part
 # of a class. Note that the `modal.Volume` we saved the model to is mounted here as well,
@@ -362,14 +366,12 @@ class Model:
         import torch
         from diffusers import DiffusionPipeline
 
-        config = TrainConfig()
-
         # Reload the modal.Volume to ensure the latest state is accessible.
         volume.reload()
 
         # set up a hugging face inference pipeline using our model
         pipe = DiffusionPipeline.from_pretrained(
-            config.model_name,
+            MODEL_DIR,
             torch_dtype=torch.bfloat16,
         ).to("cuda")
         pipe.load_lora_weights(MODEL_DIR)
@@ -387,26 +389,23 @@ class Model:
 
 
 # ## Wrap the trained model in a Gradio web UI
-#
+
 # [Gradio](https://gradio.app) makes it super easy to expose a model's functionality
 # in an easy-to-use, responsive web interface.
-#
+
 # This model is a text-to-image generator,
 # so we set up an interface that includes a user-entry text box
 # and a frame for displaying images.
-#
+
 # We also provide some example text inputs to help
 # guide users and to kick-start their creative juices.
-#
+
 # And we couldn't resist adding some Modal style to it as well!
-#
+
 # You can deploy the app on Modal with the command
 # `modal deploy dreambooth_app.py`.
 # You'll be able to come back days, weeks, or months later and find it still ready to go,
 # even though you don't have to pay for a server to run while you're not using it.
-
-web_app = FastAPI()
-assets_path = Path(__file__).parent / "assets"
 
 
 @dataclass
@@ -415,6 +414,9 @@ class AppConfig(SharedConfig):
 
     num_inference_steps: int = 50
     guidance_scale: float = 6
+
+
+assets_path = Path(__file__).parent / "assets"
 
 
 @app.function(
@@ -426,7 +428,11 @@ class AppConfig(SharedConfig):
 @modal.asgi_app()
 def fastapi_app():
     import gradio as gr
+    from fastapi import FastAPI
+    from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
+
+    web_app = FastAPI()
 
     # Call out to the inference in a separate Modal environment with a GPU
     def go(text=""):
@@ -473,10 +479,12 @@ def fastapi_app():
 
     # add a gradio UI around inference
     with gr.Blocks(
-        theme=theme, css=css, title="Pet Dreambooth on Modal"
+        theme=theme,
+        css=css,
+        title=f"Generate images of {config.instance_name} on Modal",
     ) as interface:
         gr.Markdown(
-            f"# Dream up images of {instance_phrase}.\n\n{description}",
+            f"# Generate images of {instance_phrase}.\n\n{description}",
         )
         with gr.Row():
             inp = gr.Textbox(  # input text component
@@ -513,16 +521,17 @@ def fastapi_app():
     )
 
 
-# ## Running your own Dreambooth from the command line
-#
+# ## Running your fine-tuned model from the command line
+
 # You can use the `modal` command-line interface to set up, customize, and deploy this app:
-#
+
 # - `modal run dreambooth_app.py` will train the model. Change the `instance_example_urls_file` to point to your own pet's images.
 # - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-modal-serve) the Gradio interface at a temporary location. Great for iterating on code!
 # - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#interactive-shell) in our image. Great for debugging environment issues.
-#
-# Remember, once you've trained your own fine-tuned model, you can deploy it using `modal deploy dreambooth_app.py`.
-#
+
+# Remember, once you've trained your own fine-tuned model, you can deploy it permanently -- for no cost when it is not being used! --
+# using `modal deploy dreambooth_app.py`.
+
 # If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-dreambooth-flux-fastapi-app.modal.run).
 
 
@@ -530,8 +539,12 @@ def fastapi_app():
 def run(  # add more config params here to make training configurable
     max_train_steps: int = 250,
 ):
+    print("🎨 loading model")
+    download_models.remote(SharedConfig())
+    print("🎨 setting up training")
     config = TrainConfig(max_train_steps=max_train_steps)
     instance_example_urls = (
         Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
     )
     train.remote(instance_example_urls, config)
+    print("🎨 training finished")
