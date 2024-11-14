@@ -147,7 +147,7 @@ def download_models():
 
 
 # To run the download step, run `modal run 06_gpu_and_ml/comfyui/comfyapp.py::download_models`.
-# By leveraging [hf_transfer](https://huggingface.co/docs/huggingface_hub/en/guides/download#faster-downloads), Modal starmap for parallelism, and Volumes, Flux image build time drops from ~10 minutes to ~25 seconds.
+# By leveraging [hf_transfer](https://huggingface.co/docs/huggingface_hub/en/guides/download#faster-downloads), Modal starmap for parallelism, and Volumes, image build time drops from ~10 minutes to ~25 seconds.
 
 # ## Running ComfyUI interactively and as an API on Modal
 #
