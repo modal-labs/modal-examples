@@ -28,8 +28,8 @@ import time
 import modal
 
 dockerhub_image = modal.Image.from_registry(
-    "tensorflow/tensorflow:2.12.0-gpu",
-).pip_install("protobuf==3.20.*")
+    "tensorflow/tensorflow:2.15.0-gpu",
+)
 
 app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 
