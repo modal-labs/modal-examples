@@ -24,31 +24,24 @@ import modal
 # ## Define container dependencies
 #
 # The `app.py` script imports three third-party packages, so we include these in the example's
-# image definition.
-
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2"
-)
-
-app = modal.App(name="example-modal-streamlit", image=image)
-
-# ## Mounting the `app.py` script
-#
-# We can just mount the `app.py` script inside the container at a pre-defined path using a Modal
-# [`Mount`](https://modal.com/docs/guide/local-data#mounting-directories).
+# image definition and then attach the app.py file itself to the image
 
 streamlit_script_local_path = Path(__file__).parent / "app.py"
 streamlit_script_remote_path = Path("/root/app.py")
+
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2"
+).attach_local_file(
+    streamlit_script_local_path,
+    streamlit_script_remote_path,
+)
+
+app = modal.App(name="example-modal-streamlit", image=image)
 
 if not streamlit_script_local_path.exists():
     raise RuntimeError(
         "app.py not found! Place the script with your streamlit app in the same directory."
     )
-
-streamlit_script_mount = modal.Mount.from_local_file(
-    streamlit_script_local_path,
-    streamlit_script_remote_path,
-)
 
 # ## Spawning the Streamlit server
 #
@@ -58,7 +51,6 @@ streamlit_script_mount = modal.Mount.from_local_file(
 
 @app.function(
     allow_concurrent_inputs=100,
-    mounts=[streamlit_script_mount],
 )
 @modal.web_server(8000)
 def run():

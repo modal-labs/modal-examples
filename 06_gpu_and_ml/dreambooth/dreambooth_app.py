@@ -141,7 +141,6 @@ image = image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
 )
 
-
 @app.function(
     volumes={MODEL_DIR: volume},
     image=image,
@@ -416,14 +415,16 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 6
 
 
-assets_path = Path(__file__).parent / "assets"
-
+# attach local web assets
+image_with_assets = image.attach_local_dir(
+    Path(__file__).parent / "assets",
+    remote_path="/assets"
+)
 
 @app.function(
-    image=image,
+    image=image_with_assets,
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def fastapi_app():
