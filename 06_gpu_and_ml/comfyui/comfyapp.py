@@ -75,6 +75,11 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
+    .attach_local_file(
+        Path(__file__).parent / "workflow_api.json",
+        "/root/workflow_api.json",
+        copy=True,
+    )
 )
 
 # #### Downloading models
@@ -172,13 +177,7 @@ def ui():
 @app.cls(
     allow_concurrent_inputs=10,
     container_idle_timeout=300,
-    gpu="A10G",
-    mounts=[
-        modal.Mount.from_local_file(
-            Path(__file__).parent / "workflow_api.json",
-            "/root/workflow_api.json",
-        ),
-    ],
+    gpu="A10G"
 )
 class ComfyUI:
     @modal.enter()
