@@ -33,7 +33,7 @@
   "9": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": ["26", 0]
+      "images": ["28", 0]
     },
     "class_type": "SaveImage",
     "_meta": {
@@ -116,28 +116,11 @@
   },
   "25": {
     "inputs": {
-      "noise_seed": 857914953840122
+      "noise_seed": 229383932224230
     },
     "class_type": "RandomNoise",
     "_meta": {
       "title": "RandomNoise"
-    }
-  },
-  "26": {
-    "inputs": {
-      "action": "crop to ratio",
-      "smaller_side": 0,
-      "larger_side": 0,
-      "scale_factor": 2,
-      "resize_mode": "any",
-      "side_ratio": "1:1",
-      "crop_pad_position": 0.5,
-      "pad_feathering": 20,
-      "pixels": ["8", 0]
-    },
-    "class_type": "ImageResize",
-    "_meta": {
-      "title": "Image Resize"
     }
   },
   "27": {
@@ -147,6 +130,21 @@
     "class_type": "PreviewImage",
     "_meta": {
       "title": "Preview Image"
+    }
+  },
+  "28": {
+    "inputs": {
+      "mode": "rescale",
+      "supersample": "true",
+      "resampling": "lanczos",
+      "rescale_factor": 2,
+      "resize_width": 2048,
+      "resize_height": 2048,
+      "image": ["8", 0]
+    },
+    "class_type": "Image Resize",
+    "_meta": {
+      "title": "Image Resize"
     }
   }
 }
