@@ -5,10 +5,10 @@
 # deploy: true
 # ---
 
-# # Run Stable Diffusion 3.5 Large Turbo from the command line
+# # Run Stable Diffusion 3.5 Large Turbo as a CLI, API, and web UI
 
 # This example shows how to run [Stable Diffusion 3.5 Large Turbo](https://huggingface.co/stabilityai/stable-diffusion-3.5-large-turbo) on Modal
-# and generate images from your local command line.
+# to generate images from your local command line, via an API, and as a web UI.
 
 # Inference takes about one minute to cold start,
 # at which point images are generated at a rate of one image every 1-2 seconds
@@ -141,6 +141,11 @@ class Inference:
 
 # You can also provide a `seed` to make sampling more deterministic.
 
+# Run it with
+# ```bash
+# modal run stable_diffusion_cli.py
+# ```
+
 
 @app.local_entrypoint()
 def entrypoint(
@@ -187,7 +192,7 @@ def entrypoint(
 
 # ## Generating Stable Diffusion images in a web UI
 
-# Here we ship a simple web application that exposes a front-end (written in Alpine.js) for
+# Lastly, we add a simple web application that exposes a front-end (written in Alpine.js) for
 # our image generation backend.
 
 # The `Inference` class will serve multiple users from its own shared pool of warm GPU containers automatically.
