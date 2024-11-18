@@ -34,6 +34,9 @@ class Example(BaseModel):
     cli_args: Optional[list] = None  # Full command line args to run it
     stem: Optional[str] = None  # stem of path
     tags: Optional[list[str]] = None  # metadata tags for the example
+    env: Optional[
+        dict[str, str]
+    ] = None  # environment variables for the example
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -119,6 +122,7 @@ def gather_example_files(
                 cmd = metadata.get("cmd", ["modal", "run", repo_filename])
                 args = metadata.get("args", [])
                 tags = metadata.get("tags", [])
+                env = metadata.get("env", dict())
                 yield Example(
                     type=ExampleType.MODULE,
                     filename=filename_abs,
@@ -128,6 +132,7 @@ def gather_example_files(
                     cli_args=(cmd + args),
                     stem=Path(filename_abs).stem,
                     tags=tags,
+                    env=env,
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
                 yield Example(

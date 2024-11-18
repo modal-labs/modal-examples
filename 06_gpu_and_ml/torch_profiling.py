@@ -1,5 +1,7 @@
 # # Tracing and profiling GPU-accelerated PyTorch programs on Modal
 
+# ![A PyTorch trace loaded into ui.perfetto.dev](https://modal-public-assets.s3.amazonaws.com/tmpx_2c9bl5_c5aa7ab0.webp)
+
 # GPUs are high-performance computing devices. For high-performance computing,
 # tools for measuring and investigating performance are as critical
 # as tools for testing and confirming correctness in typical software.
@@ -8,6 +10,9 @@
 # built-in profiler, which captures events on both CPUs & GPUs. We also show
 # how to host TensorBoard, which includes useful visualizations and
 # performance improvement suggestions.
+
+# For a live walkthrough, check out
+# [this video on our YouTube channel](https://www.youtube.com/watch?v=4cesQJLyHA8).
 
 # ## Saving traces to a Modal Volume
 
