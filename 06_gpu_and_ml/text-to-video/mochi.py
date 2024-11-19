@@ -112,6 +112,7 @@ class Mochi:
         for char in string.punctuation:
             prompt = prompt.replace(char, "")
         prompt = prompt.replace(" ", "_")
+        prompt = prompt[:230] # since filenames can't be longer than 255 characters
         mp4_name = str(int(time.time())) + "_" + prompt + ".mp4"
         
         export_to_video(frames, Path(OUTPUTS_PATH) /  mp4_name)
@@ -156,11 +157,11 @@ def main(
     
     mochi = Mochi()
     mp4_name = mochi.generate.remote(
-        prompt=prompt, 
-        negative_prompt=negative_prompt,
-        num_inference_steps=num_inference_steps, 
-        guidance_scale=guidance_scale,
-        num_frames=num_frames,
+        prompt=str(prompt), 
+        negative_prompt=str(negative_prompt),
+        num_inference_steps=int(num_inference_steps), 
+        guidance_scale=float(guidance_scale),
+        num_frames=int(num_frames),
     )
     print("🍡 video saved to volume at "+mp4_name)
 
