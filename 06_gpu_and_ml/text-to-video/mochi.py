@@ -115,6 +115,7 @@ class Mochi:
         mp4_name = str(int(time.time())) + "_" + prompt + ".mp4"
         
         export_to_video(frames, Path(OUTPUTS_PATH) /  mp4_name)
+        outputs.commit()
         return mp4_name
 
 # ## Running Mochi inference
