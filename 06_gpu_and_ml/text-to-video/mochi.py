@@ -27,8 +27,9 @@
 
 # ## Setting up the environment for Mochi
 
-# At the time of writing, Mochi is supported natively in the [Diffusers](https://github.com/huggingface/diffusers) library.
-# We'll need to install install diffusers from source to get these latest features.
+# At the time of writing, Mochi is supported natively in the [`diffusers`](https://github.com/huggingface/diffusers) library,
+but only in a pre-release version.
+# So we'll need to install `diffusers` and `transformers` from source.
 
 import string
 import time
