@@ -30,11 +30,11 @@
 # At the time of writing, Mochi is supported natively in the [Diffusers](https://github.com/huggingface/diffusers) library.
 # We'll need to install install diffusers from source to get these latest features.
 
-import modal
-
-import time
 import string
+import time
 from pathlib import Path
+
+import modal
 
 app = modal.App()
 
@@ -138,7 +138,6 @@ def download_model(revision="83359d26a7e2bbe200ecbfda8ebff850fd03b545"):
 class Mochi:
     @modal.enter()
     def load_model(self):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         # our HF_HOME env var points to the model volume as the cache
         self.pipe = MochiPipeline.from_pretrained(
             "genmo/mochi-1-preview",
