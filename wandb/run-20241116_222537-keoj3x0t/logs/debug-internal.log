@@ -1,0 +1,19 @@
+{"time":"2024-11-16T22:25:37.190529-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-16T22:25:37.19056-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241116_222537-keoj3x0t/logs/debug-core.log"}
+{"time":"2024-11-16T22:25:37.300949-05:00","level":"INFO","msg":"created new stream","id":"keoj3x0t"}
+{"time":"2024-11-16T22:25:37.300985-05:00","level":"INFO","msg":"stream: started","id":"keoj3x0t"}
+{"time":"2024-11-16T22:25:37.300997-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"keoj3x0t"}}
+{"time":"2024-11-16T22:25:37.301034-05:00","level":"INFO","msg":"sender: started","stream_id":"keoj3x0t"}
+{"time":"2024-11-16T22:25:37.301002-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"keoj3x0t"}}
+{"time":"2024-11-16T22:25:37.45836-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-16T22:26:33.34751-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-16T22:26:33.350904-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-16T22:26:33.488038-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-16T22:26:33.488241-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-16T22:26:34.050311-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-16T22:26:34.227691-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-16T22:26:35.250426-05:00","level":"INFO","msg":"stream: closing","id":"keoj3x0t"}
+{"time":"2024-11-16T22:26:35.250517-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"keoj3x0t"}}
+{"time":"2024-11-16T22:26:35.250552-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"keoj3x0t"}}
+{"time":"2024-11-16T22:26:35.250576-05:00","level":"INFO","msg":"sender: closed","stream_id":"keoj3x0t"}
+{"time":"2024-11-16T22:26:35.251-05:00","level":"INFO","msg":"stream: closed","id":"keoj3x0t"}

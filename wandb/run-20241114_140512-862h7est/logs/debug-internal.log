@@ -1,0 +1,19 @@
+{"time":"2024-11-14T14:05:12.249329-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-14T14:05:12.249375-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241114_140512-862h7est/logs/debug-core.log"}
+{"time":"2024-11-14T14:05:12.403387-05:00","level":"INFO","msg":"created new stream","id":"862h7est"}
+{"time":"2024-11-14T14:05:12.404307-05:00","level":"INFO","msg":"stream: started","id":"862h7est"}
+{"time":"2024-11-14T14:05:12.405346-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"862h7est"}}
+{"time":"2024-11-14T14:05:12.404852-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"862h7est"}}
+{"time":"2024-11-14T14:05:12.40579-05:00","level":"INFO","msg":"sender: started","stream_id":"862h7est"}
+{"time":"2024-11-14T14:05:12.643915-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-14T14:06:23.173628-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-14T14:06:23.176099-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-14T14:06:23.310031-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-14T14:06:23.310171-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-14T14:06:23.589042-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-14T14:06:23.727713-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-14T14:06:24.793037-05:00","level":"INFO","msg":"stream: closing","id":"862h7est"}
+{"time":"2024-11-14T14:06:24.79344-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"862h7est"}}
+{"time":"2024-11-14T14:06:24.79363-05:00","level":"INFO","msg":"sender: closed","stream_id":"862h7est"}
+{"time":"2024-11-14T14:06:24.793525-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"862h7est"}}
+{"time":"2024-11-14T14:06:24.796194-05:00","level":"INFO","msg":"stream: closed","id":"862h7est"}

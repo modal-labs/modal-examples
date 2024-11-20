@@ -1,0 +1,19 @@
+{"time":"2024-11-16T18:38:08.491144-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-16T18:38:08.491176-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241116_183808-mafxwydr/logs/debug-core.log"}
+{"time":"2024-11-16T18:38:08.601627-05:00","level":"INFO","msg":"created new stream","id":"mafxwydr"}
+{"time":"2024-11-16T18:38:08.601671-05:00","level":"INFO","msg":"stream: started","id":"mafxwydr"}
+{"time":"2024-11-16T18:38:08.601703-05:00","level":"INFO","msg":"sender: started","stream_id":"mafxwydr"}
+{"time":"2024-11-16T18:38:08.601709-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"mafxwydr"}}
+{"time":"2024-11-16T18:38:08.601678-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"mafxwydr"}}
+{"time":"2024-11-16T18:38:08.806829-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-16T18:39:10.751737-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-16T18:39:10.752349-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-16T18:39:10.928063-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-16T18:39:10.928099-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-16T18:39:11.199476-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-16T18:39:11.677211-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-16T18:39:12.700114-05:00","level":"INFO","msg":"stream: closing","id":"mafxwydr"}
+{"time":"2024-11-16T18:39:12.700144-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"mafxwydr"}}
+{"time":"2024-11-16T18:39:12.700183-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"mafxwydr"}}
+{"time":"2024-11-16T18:39:12.700193-05:00","level":"INFO","msg":"sender: closed","stream_id":"mafxwydr"}
+{"time":"2024-11-16T18:39:12.700822-05:00","level":"INFO","msg":"stream: closed","id":"mafxwydr"}

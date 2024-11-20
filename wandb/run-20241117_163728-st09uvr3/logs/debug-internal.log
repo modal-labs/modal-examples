@@ -1,0 +1,19 @@
+{"time":"2024-11-17T16:37:28.454678-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-17T16:37:28.454705-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241117_163728-st09uvr3/logs/debug-core.log"}
+{"time":"2024-11-17T16:37:28.562159-05:00","level":"INFO","msg":"created new stream","id":"st09uvr3"}
+{"time":"2024-11-17T16:37:28.562205-05:00","level":"INFO","msg":"stream: started","id":"st09uvr3"}
+{"time":"2024-11-17T16:37:28.562202-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"st09uvr3"}}
+{"time":"2024-11-17T16:37:28.562204-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"st09uvr3"}}
+{"time":"2024-11-17T16:37:28.562226-05:00","level":"INFO","msg":"sender: started","stream_id":"st09uvr3"}
+{"time":"2024-11-17T16:37:28.816796-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-17T16:38:29.999057-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-17T16:38:29.999464-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-17T16:38:30.14625-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-17T16:38:30.146266-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-17T16:38:30.409766-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-17T16:38:30.556493-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-17T16:38:31.577979-05:00","level":"INFO","msg":"stream: closing","id":"st09uvr3"}
+{"time":"2024-11-17T16:38:31.578026-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"st09uvr3"}}
+{"time":"2024-11-17T16:38:31.578075-05:00","level":"INFO","msg":"sender: closed","stream_id":"st09uvr3"}
+{"time":"2024-11-17T16:38:31.578058-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"st09uvr3"}}
+{"time":"2024-11-17T16:38:31.578292-05:00","level":"INFO","msg":"stream: closed","id":"st09uvr3"}

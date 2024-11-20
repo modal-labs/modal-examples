@@ -1,0 +1,19 @@
+{"time":"2024-11-15T10:01:31.151054-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-15T10:01:31.151174-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241115_100131-yf9mjtjs/logs/debug-core.log"}
+{"time":"2024-11-15T10:01:31.303092-05:00","level":"INFO","msg":"created new stream","id":"yf9mjtjs"}
+{"time":"2024-11-15T10:01:31.303235-05:00","level":"INFO","msg":"stream: started","id":"yf9mjtjs"}
+{"time":"2024-11-15T10:01:31.303276-05:00","level":"INFO","msg":"sender: started","stream_id":"yf9mjtjs"}
+{"time":"2024-11-15T10:01:31.303285-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"yf9mjtjs"}}
+{"time":"2024-11-15T10:01:31.303259-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"yf9mjtjs"}}
+{"time":"2024-11-15T10:01:31.475293-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-15T10:02:59.793378-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-15T10:02:59.797112-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-15T10:02:59.933155-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-15T10:02:59.93334-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-15T10:03:00.267183-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-15T10:03:00.457334-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-15T10:03:01.482134-05:00","level":"INFO","msg":"stream: closing","id":"yf9mjtjs"}
+{"time":"2024-11-15T10:03:01.482174-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"yf9mjtjs"}}
+{"time":"2024-11-15T10:03:01.482209-05:00","level":"INFO","msg":"sender: closed","stream_id":"yf9mjtjs"}
+{"time":"2024-11-15T10:03:01.482193-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"yf9mjtjs"}}
+{"time":"2024-11-15T10:03:01.482399-05:00","level":"INFO","msg":"stream: closed","id":"yf9mjtjs"}

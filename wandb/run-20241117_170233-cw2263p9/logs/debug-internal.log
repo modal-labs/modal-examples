@@ -1,0 +1,19 @@
+{"time":"2024-11-17T17:02:33.341777-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-17T17:02:33.341856-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241117_170233-cw2263p9/logs/debug-core.log"}
+{"time":"2024-11-17T17:02:33.449002-05:00","level":"INFO","msg":"created new stream","id":"cw2263p9"}
+{"time":"2024-11-17T17:02:33.449039-05:00","level":"INFO","msg":"stream: started","id":"cw2263p9"}
+{"time":"2024-11-17T17:02:33.449047-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"cw2263p9"}}
+{"time":"2024-11-17T17:02:33.449044-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"cw2263p9"}}
+{"time":"2024-11-17T17:02:33.449061-05:00","level":"INFO","msg":"sender: started","stream_id":"cw2263p9"}
+{"time":"2024-11-17T17:02:33.635326-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-17T17:03:41.54648-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-17T17:03:41.547034-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-17T17:03:41.698677-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-17T17:03:41.69888-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-17T17:03:41.970526-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-17T17:03:42.149882-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-17T17:03:43.185995-05:00","level":"INFO","msg":"stream: closing","id":"cw2263p9"}
+{"time":"2024-11-17T17:03:43.18606-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"cw2263p9"}}
+{"time":"2024-11-17T17:03:43.186099-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"cw2263p9"}}
+{"time":"2024-11-17T17:03:43.186107-05:00","level":"INFO","msg":"sender: closed","stream_id":"cw2263p9"}
+{"time":"2024-11-17T17:03:43.186292-05:00","level":"INFO","msg":"stream: closed","id":"cw2263p9"}

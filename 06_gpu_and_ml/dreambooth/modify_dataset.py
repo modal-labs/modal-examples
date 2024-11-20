@@ -1,5 +1,5 @@
 import huggingface_hub
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 
 # Authenticate with Hugging Face (replace "YOUR_API_TOKEN" with your actual token)
 huggingface_hub.login("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")
@@ -17,7 +17,7 @@ def modify_caption(example):
     # Example modification (appends " - modified" to each caption)
     example[
         "text"
-    ] = f"an HCON, a black and white miminalist icon of {example['text'].replace('an icon of', '')}"
+    ] = f"an HCON, a black and white minimalist icon of {example['text'].replace('an icon of', '')}"
     return example
 
 
@@ -28,10 +28,10 @@ modified_dataset = dataset.map(modify_caption)
 print(modified_dataset["train"][0])
 
 # Grab only the first 25 rows
-modified_dataset["train"][:25]
+my_modified_dataset = Dataset.from_dict(modified_dataset["train"][:25])
 
 # Save the modified dataset to re-upload it
 # You may need to change "your_modified_dataset_name" to an appropriate unique name
-modified_dataset.push_to_hub("heroicons-subset-25-images")
+my_modified_dataset.push_to_hub("heroicons-subset-25-images")
 
 print("Dataset re-uploaded successfully!")

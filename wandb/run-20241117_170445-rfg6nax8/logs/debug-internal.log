@@ -1,0 +1,19 @@
+{"time":"2024-11-17T17:04:45.650534-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-17T17:04:45.650562-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241117_170445-rfg6nax8/logs/debug-core.log"}
+{"time":"2024-11-17T17:04:45.756811-05:00","level":"INFO","msg":"created new stream","id":"rfg6nax8"}
+{"time":"2024-11-17T17:04:45.756857-05:00","level":"INFO","msg":"stream: started","id":"rfg6nax8"}
+{"time":"2024-11-17T17:04:45.756858-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"rfg6nax8"}}
+{"time":"2024-11-17T17:04:45.75688-05:00","level":"INFO","msg":"sender: started","stream_id":"rfg6nax8"}
+{"time":"2024-11-17T17:04:45.756856-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"rfg6nax8"}}
+{"time":"2024-11-17T17:04:45.942484-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-17T17:05:50.792823-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-17T17:05:50.793265-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-17T17:05:50.953092-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-17T17:05:50.953114-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-17T17:05:51.214405-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-17T17:05:51.374952-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-17T17:05:52.408387-05:00","level":"INFO","msg":"stream: closing","id":"rfg6nax8"}
+{"time":"2024-11-17T17:05:52.408428-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"rfg6nax8"}}
+{"time":"2024-11-17T17:05:52.408452-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"rfg6nax8"}}
+{"time":"2024-11-17T17:05:52.408504-05:00","level":"INFO","msg":"sender: closed","stream_id":"rfg6nax8"}
+{"time":"2024-11-17T17:05:52.40869-05:00","level":"INFO","msg":"stream: closed","id":"rfg6nax8"}

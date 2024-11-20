@@ -1,0 +1,33 @@
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Current SDK version is 0.18.6
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Configure stats pid to 72118
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Loading settings from /Users/yirenlu/.config/wandb/settings
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Loading settings from /Users/yirenlu/modal-examples/wandb/settings
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Loading settings from environment variables: {}
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Applying setup settings: {'mode': None, '_disable_service': None}
+2024-11-17 17:14:19,191 WARNING MainThread:72118 [wandb_setup.py:_flush():79] Could not save program above cwd: /opt/homebrew/bin/modal
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Inferring run settings from compute environment: {'program_relpath': None, 'program_abspath': '/opt/homebrew/bin/modal', 'program': '/opt/homebrew/bin/modal'}
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_setup.py:_flush():79] Applying login settings: {}
+2024-11-17 17:14:19,191 INFO    MainThread:72118 [wandb_init.py:_log_setup():533] Logging user logs to /Users/yirenlu/modal-examples/wandb/run-20241117_171419-ioww3tpm/logs/debug.log
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:_log_setup():534] Logging internal logs to /Users/yirenlu/modal-examples/wandb/run-20241117_171419-ioww3tpm/logs/debug-internal.log
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:init():619] calling init triggers
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:init():626] wandb.init called with sweep_config: {}
+config: {}
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:init():669] starting backend
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:init():673] sending inform_init request
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [backend.py:_multiprocessing_setup():104] multiprocessing start_methods=spawn,fork,forkserver, using: spawn
+2024-11-17 17:14:19,192 INFO    MainThread:72118 [wandb_init.py:init():686] backend started and connected
+2024-11-17 17:14:19,195 INFO    MainThread:72118 [wandb_init.py:init():781] updated telemetry
+2024-11-17 17:14:19,212 INFO    MainThread:72118 [wandb_init.py:init():814] communicating run to backend with 90.0 second timeout
+2024-11-17 17:14:19,524 INFO    MainThread:72118 [wandb_init.py:init():867] starting run threads in backend
+2024-11-17 17:14:19,670 INFO    MainThread:72118 [wandb_run.py:_console_start():2451] atexit reg
+2024-11-17 17:14:19,670 INFO    MainThread:72118 [wandb_run.py:_redirect():2299] redirect: wrap_raw
+2024-11-17 17:14:19,671 INFO    MainThread:72118 [wandb_run.py:_redirect():2364] Wrapping output streams.
+2024-11-17 17:14:19,671 INFO    MainThread:72118 [wandb_run.py:_redirect():2389] Redirects installed.
+2024-11-17 17:14:19,671 INFO    MainThread:72118 [wandb_init.py:init():911] run started, returning control to user process
+2024-11-17 17:15:24,339 INFO    MainThread:72118 [wandb_run.py:_finish():2146] finishing run yirenlu92-frindle/flux-lora-sweep-heroicons-11-17/ioww3tpm
+2024-11-17 17:15:24,340 INFO    MainThread:72118 [wandb_run.py:_atexit_cleanup():2414] got exitcode: 0
+2024-11-17 17:15:24,340 INFO    MainThread:72118 [wandb_run.py:_restore():2396] restore
+2024-11-17 17:15:24,340 INFO    MainThread:72118 [wandb_run.py:_restore():2402] restore done
+2024-11-17 17:15:25,937 INFO    MainThread:72118 [wandb_run.py:_footer_history_summary_info():3963] rendering history
+2024-11-17 17:15:25,937 INFO    MainThread:72118 [wandb_run.py:_footer_history_summary_info():3995] rendering summary
+2024-11-17 17:15:25,940 INFO    MainThread:72118 [wandb_run.py:_footer_sync_info():3922] logging synced files

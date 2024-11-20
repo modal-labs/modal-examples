@@ -1,0 +1,19 @@
+{"time":"2024-11-14T14:06:24.813863-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-14T14:06:24.813919-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241114_140624-zo0xqx7c/logs/debug-core.log"}
+{"time":"2024-11-14T14:06:24.955273-05:00","level":"INFO","msg":"created new stream","id":"zo0xqx7c"}
+{"time":"2024-11-14T14:06:24.955389-05:00","level":"INFO","msg":"stream: started","id":"zo0xqx7c"}
+{"time":"2024-11-14T14:06:24.955461-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"zo0xqx7c"}}
+{"time":"2024-11-14T14:06:24.955618-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"zo0xqx7c"}}
+{"time":"2024-11-14T14:06:24.955732-05:00","level":"INFO","msg":"sender: started","stream_id":"zo0xqx7c"}
+{"time":"2024-11-14T14:06:25.147433-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-14T14:07:32.115482-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-14T14:07:32.119246-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-14T14:07:32.354982-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-14T14:07:32.355389-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-14T14:07:32.609023-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-14T14:07:32.743114-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-14T14:07:34.248972-05:00","level":"INFO","msg":"stream: closing","id":"zo0xqx7c"}
+{"time":"2024-11-14T14:07:34.249263-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"zo0xqx7c"}}
+{"time":"2024-11-14T14:07:34.249316-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"zo0xqx7c"}}
+{"time":"2024-11-14T14:07:34.249382-05:00","level":"INFO","msg":"sender: closed","stream_id":"zo0xqx7c"}
+{"time":"2024-11-14T14:07:34.249559-05:00","level":"INFO","msg":"stream: closed","id":"zo0xqx7c"}

@@ -1,0 +1,42 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit",
+  "python": "3.11.9",
+  "startedAt": "2024-11-17T02:51:55.976157Z",
+  "args": [
+    "run",
+    "--detach",
+    "06_gpu_and_ml/dreambooth/dreambooth_app.py"
+  ],
+  "program": "/opt/homebrew/bin/modal",
+  "git": {
+    "remote": "git@github.com:modal-labs/modal-examples.git",
+    "commit": "ff324968b67faa06723a8925aa9e388c58b62672"
+  },
+  "email": "yiren@tryfrindle.com",
+  "root": "/Users/yirenlu/modal-examples",
+  "host": "Yirens-MacBook-Air.local",
+  "username": "yirenlu",
+  "executable": "/opt/homebrew/opt/python@3.11/bin/python3.11",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "245107195904",
+      "used": "210766614528"
+    }
+  },
+  "memory": {
+    "total": "8589934592"
+  },
+  "cpu": {
+    "count": 8,
+    "countLogical": 8
+  },
+  "apple": {
+    "name": "Apple M3",
+    "ecpuCores": 4,
+    "pcpuCores": 4,
+    "gpuCores": 10,
+    "memoryGb": 8
+  }
+}

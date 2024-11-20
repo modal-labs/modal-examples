@@ -1,0 +1,19 @@
+{"time":"2024-11-14T13:49:15.566341-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-14T13:49:15.566486-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241114_134915-3usnawvo/logs/debug-core.log"}
+{"time":"2024-11-14T13:49:15.675469-05:00","level":"INFO","msg":"created new stream","id":"3usnawvo"}
+{"time":"2024-11-14T13:49:15.675497-05:00","level":"INFO","msg":"stream: started","id":"3usnawvo"}
+{"time":"2024-11-14T13:49:15.675505-05:00","level":"INFO","msg":"sender: started","stream_id":"3usnawvo"}
+{"time":"2024-11-14T13:49:15.6755-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"3usnawvo"}}
+{"time":"2024-11-14T13:49:15.67553-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"3usnawvo"}}
+{"time":"2024-11-14T13:49:15.884746-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-14T13:52:21.031403-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-14T13:52:21.109378-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-14T13:52:22.045186-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-14T13:52:25.767785-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-14T13:52:26.880685-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-14T13:52:26.944959-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-14T13:52:31.663554-05:00","level":"INFO","msg":"stream: closing","id":"3usnawvo"}
+{"time":"2024-11-14T13:52:31.664283-05:00","level":"INFO","msg":"sender: closed","stream_id":"3usnawvo"}
+{"time":"2024-11-14T13:52:31.664368-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"3usnawvo"}}
+{"time":"2024-11-14T13:52:31.664254-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"3usnawvo"}}
+{"time":"2024-11-14T13:52:31.669242-05:00","level":"INFO","msg":"stream: closed","id":"3usnawvo"}

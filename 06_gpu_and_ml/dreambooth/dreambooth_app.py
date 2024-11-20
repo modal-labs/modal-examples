@@ -135,8 +135,6 @@ def download_models():
 
     config = SharedConfig()
 
-    print("make a change")
-
     DiffusionPipeline.from_pretrained(config.model_name, force_download=True)
     move_cache()
 
@@ -157,7 +155,8 @@ image = image.run_function(
 # and then load them back in for inference.
 
 volume = modal.Volume.from_name(
-    "dreambooth-finetuning-volume-flux", create_if_missing=True
+    "dreambooth-finetuning-volume-flux-hypersweep-heroicons-11-17",
+    create_if_missing=True,
 )
 MODEL_DIR = "/model"
 
@@ -241,53 +240,80 @@ class TrainConfig(SharedConfig):
     """Configuration for the finetuning step."""
 
     # HuggingFace Hub dataset
-    dataset_name = "linoyts/3d_icon"
-    caption_column = "prompt"
+    # dataset_name = "linoyts/3d_icon"
+    dataset_name = "yirenlu/heroicons-subset-25-images"
+    # caption_column = "prompt"
+    caption_column = "text"
+
+    instance_prompt = "an HCON, in the style of TOK"
+    # instance_prompt = "3dicon, in the style of TOK"
 
     # training prompt looks like `{PREFIX} {INSTANCE_NAME} the {CLASS_NAME} {POSTFIX}`
     prefix: str = ""
     postfix: str = ""
 
     # Hyperparameters/constants from the huggingface training example
-    resolution: int = 1024
-    train_batch_size: int = 3
+    # resolution: int = 1024
+    resolution: int = 512
+    train_batch_size: int = 1
     rank: int = 16  # lora rank
     gradient_accumulation_steps: int = 1
     learning_rate: float = 4e-4
     lr_scheduler: str = "constant"
     lr_warmup_steps: int = 0
-    max_train_steps: int = 500
+    max_train_steps: int = 2000
     checkpointing_steps: int = 1000
-    seed: int = 117
+    seed: int = 0
 
 
 @dataclass
-class SweepConfig:
+class SweepConfig(TrainConfig):
     """Configuration for hyperparameter sweep"""
 
     # Sweep parameters
-    learning_rates = [1e-4, 5e-4, 1e-3]
-    train_steps = [500, 1000, 1500, 2000]
-    ranks = [4, 8, 16]
+    learning_rates = [2e-4]
+    # train_steps = [1000, 1500, 3000, 4000]
+    train_steps = [4000]
+    # ranks = [4, 8, 16]
+    ranks = [16]
 
     # Test prompts for evaluation
-    test_prompts = [
-        "3d icon of a sailboat in the style of TOK",
-        "3d icon of a medieval knight in the style of TOK",
-        "3d icon of a princess in the style of TOK",
-        "3d icon of the mcdonalds sign in the style of TOK",
-        "3d icon of sailor moon in the style of TOK",
+    threedicon_test_prompts = [
+        "3d icon of the nike logo in the style of TOK",
+        "3d icon of a mcdonalds sign in the style of TOK",
+        "3d icon of a Google sign in the style of TOK",
+        "3d icon of the mercedes benz sign in the style of TOK",
+    ]
+
+    heroicon_test_prompts = [
+        # "An HCON, a black and white minimalist icon of a sailboat",
+        # "An HCON, a black and white minimalist icon of a watch",
+        # "An HCON, a black and white minimalist icon of a bear",
+        # "An HCON, a black and white minimalist icon of the mcdonalds sign",
+        # "An HCON, a black and white minimalist icon of a book",
+        # "An HCON, a black and white minimalist icon of a cellphone",
+        # "An HCON, a black and white minimalist icon of a water bottle",
+        # "An HCON, a black and white minimalist icon that represents the international monetary system",
+        # "An HCON, a black and white minimalist icon of a macbook pro laptop",
+        # "An HCON, a black and white minimalist icon of a tiara",
+        # "An HCON, a black and white minimalist icon of mountain peaks",
+        # "An HCON, a black and white minimalist icon of wifi",
+        # "An HCON, a black and white minimalist icon of a finger",
+        "An HCON, a black and white minimalist icon of a golden retriever",
+        "An HCON, a black and white minimalist icon of a tent",
+        "An HCON, a black and white minimalist icon of an iphone",
+        "An HCON, a black and white minimalist icon of a castle",
+        "An HCON, a black and white minimalist icon of a dress",
+        "An HCON, a black and white minimalist icon of a cocktail",
     ]
 
 
 def generate_sweep_configs(sweep_config: SweepConfig):
     """Generate all combinations of hyperparameters"""
-    param_combinations = list(
-        itertools.product(
-            sweep_config.learning_rates,
-            sweep_config.train_steps,
-            sweep_config.ranks,
-        )
+    param_combinations = itertools.product(
+        sweep_config.learning_rates,
+        sweep_config.train_steps,
+        sweep_config.ranks,
     )
 
     return [
@@ -295,11 +321,19 @@ def generate_sweep_configs(sweep_config: SweepConfig):
             "learning_rate": lr,
             "max_train_steps": steps,
             "rank": rank,
-            "pretrained_model_name": sweep_config.pretrained_model_name,
+            "model_name": sweep_config.model_name,
             "instance_prompt": sweep_config.instance_prompt,
             "dataset_name": sweep_config.dataset_name,
             "caption_column": sweep_config.caption_column,
             "resolution": sweep_config.resolution,
+            "train_batch_size": sweep_config.train_batch_size,
+            "gradient_accumulation_steps": sweep_config.gradient_accumulation_steps,
+            "lr_scheduler": sweep_config.lr_scheduler,
+            "lr_warmup_steps": sweep_config.lr_warmup_steps,
+            "checkpointing_steps": sweep_config.checkpointing_steps,
+            "seed": sweep_config.seed,
+            "output_dir": Path(MODEL_DIR)
+            / f"lr_{lr}_steps_{steps}_rank_{rank}",
         }
         for lr, steps, rank in param_combinations
     ]
@@ -311,7 +345,7 @@ def generate_sweep_configs(sweep_config: SweepConfig):
         count=1, size="80GB"
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
-    timeout=1800,  # 30 minutes
+    timeout=7200,  # 30 minutes
     secrets=[
         modal.Secret.from_name("wandb"),
         modal.Secret.from_name("huggingface"),
@@ -328,10 +362,6 @@ def train(config):
 
     # set up hugging face accelerate library for fast training
     write_basic_config(mixed_precision="bf16")
-
-    # define the training prompt
-    instance_phrase = f"{config.instance_name} the {config.class_name}"
-    prompt = f"{config.prefix} {instance_phrase} {config.postfix}".strip()
 
     # the model training is packaged as a script, so we have to execute it as a subprocess, which adds some boilerplate
     def _exec_subprocess(cmd: list[str]):
@@ -357,73 +387,38 @@ def train(config):
             "launch",
             "examples/dreambooth/train_dreambooth_lora_flux.py",
             "--mixed_precision=bf16",  # half-precision floats most of the time for faster training
-            f"--pretrained_model_name_or_path={config.model_name}",
-            f"--dataset_name={config.dataset_name}",
-            f"--caption_column={config.caption_column}",
-            f"--output_dir={MODEL_DIR}",
-            "--instance_prompt='3d icon in the style of TOK'",
-            f"--resolution={config.resolution}",
-            f"--train_batch_size={config.train_batch_size}",
-            f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-            f"--learning_rate={config.learning_rate}",
-            f"--lr_scheduler={config.lr_scheduler}",
-            f"--lr_warmup_steps={config.lr_warmup_steps}",
-            f"--max_train_steps={config.max_train_steps}",
-            f"--checkpointing_steps={config.checkpointing_steps}",
-            f"--seed={config.seed}",  # increased reproducibility by seeding the RNG
+            f"--pretrained_model_name_or_path={config['model_name']}",
+            f"--dataset_name={config['dataset_name']}",
+            f"--caption_column={config['caption_column']}",
+            f"--output_dir={config['output_dir']}",
+            f"--instance_prompt={config['instance_prompt']}",
+            f"--resolution={config['resolution']}",
+            f"--train_batch_size={config['train_batch_size']}",
+            f"--gradient_accumulation_steps={config['gradient_accumulation_steps']}",
+            f"--learning_rate={config['learning_rate']}",
+            f"--lr_scheduler={config['lr_scheduler']}",
+            f"--lr_warmup_steps={config['lr_warmup_steps']}",
+            f"--max_train_steps={config['max_train_steps']}",
+            f"--checkpointing_steps={config['checkpointing_steps']}",
+            f"--rank={config['rank']}",
+            f"--seed={config['seed']}",  # increased reproducibility by seeding the RNG
         ]
         + (
             [
                 "--report_to=wandb",
                 # validation output tracking is useful, but currently broken for Flux LoRA training
                 # f"--validation_prompt={prompt} in space",  # simple test prompt
-                # f"--validation_epochs={config.max_train_steps // 5}",
+                # f"--validation_epochs={config['max_train_steps'] // 5}",
             ]
             if USE_WANDB
             else []
         ),
-        # _exec_subprocess(
-        #     [
-        #         "accelerate",
-        #         "launch",
-        #         "examples/advanced_diffusion_training/train_dreambooth_lora_flux_advanced.py",
-        #         "--mixed_precision=bf16",  # half-precisi  on floats most of the time for faster training
-        #         f"--pretrained_model_name_or_path={config.model_name}",
-        #         f"--dataset_name={config.dataset_name}",
-        #         "--instance_prompt='3d icon in the style of TOK'",
-        #         f"--caption_column={config.caption_column}",
-        #         f"--output_dir={MODEL_DIR}",
-        #         f"--resolution={config.resolution}",
-        #         f"--train_batch_size={config.train_batch_size}",
-        #         f"--gradient_accumulation_steps={config.gradient_accumulation_steps}",
-        #         "--gradient_checkpointing",
-        #         f"--learning_rate={sweep_config.learning_rate}",
-        #         f"--lr_scheduler={config.lr_scheduler}",
-        #         f"--lr_warmup_steps={config.lr_warmup_steps}",
-        #         f"--max_train_steps={sweep_config.max_train_steps}",
-        #         f"--checkpointing_steps={config.checkpointing_steps}",
-        #         f"--seed={config.seed}",  # increased reproducibility by seeding the RNG
-        #         "--text_encoder_lr=1.0",
-        #         "--optimizer='prodigy'",
-        #         "--train_text_encoder_ti",
-        #         "--train_text_encoder_ti_frac=0.5",
-        #         f"--rank={sweep_config.rank}",
-        #     ]
-        #     + (
-        #         [
-        #             "--report_to=wandb",
-        #             # validation output tracking is useful, but currently broken for Flux LoRA training
-        #             # f"--validation_prompt={prompt} in space",  # simple test prompt
-        #             # f"--validation_epochs={config.max_train_steps // 5}",
-        #         ]
-        #         if USE_WANDB
-        #         else []
-        #     ),
     )
     # The trained model information has been output to the volume mounted at `MODEL_DIR`.
     # To persist this data for use in our web app, we 'commit' the changes
     # to the volume.
     volume.commit()
+    return config
 
 
 # ## Running our model
@@ -439,44 +434,16 @@ def train(config):
 # so that the fine-tuned model created  by `train` is available to us.
 
 
-def evaluate_model(model_dir, config):
-    """Load trained model and evaluate on test prompts"""
-    import torch
-    import wandb
-    from diffusers import AutoPipelineForText2Image
-    from safetensors.torch import load_file
-
-    # Load model with LoRA weights
-    pipe = AutoPipelineForText2Image.from_pretrained(
-        config["pretrained_model_name"],
-        torch_dtype=torch.bfloat16,
-    ).to("cuda")
-
-    pipe.load_lora_weights(
-        model_dir, weight_name="pytorch_lora_weights.safetensors"
-    )
-
-    # Load textual inversion embeddings
-    embedding_path = f"{model_dir}/model_emb.safetensors"
-    state_dict = load_file(embedding_path)
-    pipe.load_textual_inversion(
-        state_dict["clip_l"],
-        token=["<s0>", "<s1>"],
-        text_encoder=pipe.text_encoder,
-        tokenizer=pipe.tokenizer,
-    )
-
-    # Generate images for test prompts
-    sweep_config = SweepConfig()
-    for prompt in sweep_config.test_prompts:
-        image = pipe(prompt).images[0]
-        wandb.log({f"test_image/{prompt}": wandb.Image(image)})
-
-    return pipe
+# def evaluate_model(hyperparameter_model_dir, wandb_run):
+#     """Load trained model and evaluate on test prompts"""
+#     import wandb
 
 
 @app.cls(image=image, gpu="A100", volumes={MODEL_DIR: volume})
 class Model:
+    def __init__(self, hyperparameter_model_dir):
+        self.hyperparameter_model_dir = hyperparameter_model_dir
+
     @modal.enter()
     def load_model(self):
         import torch
@@ -487,10 +454,10 @@ class Model:
 
         # set up a hugging face inference pipeline using our model
         pipe = DiffusionPipeline.from_pretrained(
-            MODEL_DIR,
+            "black-forest-labs/FLUX.1-dev",
             torch_dtype=torch.bfloat16,
         ).to("cuda")
-        pipe.load_lora_weights(MODEL_DIR)
+        pipe.load_lora_weights(f"{MODEL_DIR}/{self.hyperparameter_model_dir}")
         self.pipe = pipe
         # import torch
         # from diffusers import AutoPipelineForText2Image
@@ -530,7 +497,7 @@ class Model:
             num_inference_steps=config.num_inference_steps,
         ).images[0]
 
-        return image
+        return (image, text)
 
 
 # ## Wrap the trained model in a Gradio web UI
@@ -678,5 +645,54 @@ def fastapi_app():
 def run(  # add more config params here to make training configurable
     max_train_steps: int = 250,
 ):
-    config = TrainConfig(max_train_steps=max_train_steps)
-    train.remote(config)
+    import wandb
+
+    sweep_config = SweepConfig()
+    app_config = AppConfig()
+    configs = generate_sweep_configs(sweep_config)
+
+    results_by_rank = {}  # Dictionary to store results for each rank
+
+    # Use Modal's starmap to run training in parallel
+    with wandb.init(
+        project="flux-lora-sweep-heroicons-11-17",
+        name="clean_sweep_2e-4",
+    ) as run:
+        for config in train.map(configs):
+            if (
+                config["learning_rate"] != 2e-4
+            ):  # Filter for the specific learning rate
+                continue
+
+            hyperparameter_model_dir = f"lr_{config['learning_rate']}_steps_{config['max_train_steps']}_rank_{config['rank']}"
+            for image, prompt in Model(
+                hyperparameter_model_dir
+            ).inference.starmap(
+                [(x, app_config) for x in sweep_config.heroicon_test_prompts]
+            ):
+                rank = config["rank"]
+                steps = config["max_train_steps"]
+
+                if rank not in results_by_rank:
+                    results_by_rank[rank] = {}
+
+                if prompt not in results_by_rank[rank]:
+                    results_by_rank[rank][prompt] = {}
+
+                results_by_rank[rank][prompt][steps] = wandb.Image(image)
+
+        # Log a separate table for each rank
+        for rank, prompt_data in results_by_rank.items():
+            my_table = wandb.Table(
+                columns=["Prompt"]
+                + [str(steps) for steps in sweep_config.train_steps],
+                data=[],
+            )
+            for prompt in sweep_config.heroicon_test_prompts:
+                row = [prompt]
+                for steps in sweep_config.train_steps:
+                    row.append(
+                        prompt_data.get(prompt, {}).get(steps, None)
+                    )  # Get image or None if not available
+                my_table.add_data(*row)
+            run.log({f"results_table_rank_{rank}": my_table})

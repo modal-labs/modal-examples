@@ -1,0 +1,19 @@
+{"time":"2024-11-16T18:00:11.265653-05:00","level":"INFO","msg":"using version","core version":"0.18.6"}
+{"time":"2024-11-16T18:00:11.268066-05:00","level":"INFO","msg":"created symlink","path":"/Users/yirenlu/modal-examples/wandb/run-20241116_180011-c1uuntak/logs/debug-core.log"}
+{"time":"2024-11-16T18:00:11.382924-05:00","level":"INFO","msg":"created new stream","id":"c1uuntak"}
+{"time":"2024-11-16T18:00:11.382972-05:00","level":"INFO","msg":"stream: started","id":"c1uuntak"}
+{"time":"2024-11-16T18:00:11.382974-05:00","level":"INFO","msg":"handler: started","stream_id":{"value":"c1uuntak"}}
+{"time":"2024-11-16T18:00:11.383015-05:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"c1uuntak"}}
+{"time":"2024-11-16T18:00:11.383041-05:00","level":"INFO","msg":"sender: started","stream_id":"c1uuntak"}
+{"time":"2024-11-16T18:00:11.594996-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-11-16T18:01:14.871407-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-11-16T18:01:14.871853-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-11-16T18:01:15.270176-05:00","level":"WARN","msg":"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job"}
+{"time":"2024-11-16T18:01:15.271732-05:00","level":"INFO","msg":"sender: sendDefer: no job artifact to save"}
+{"time":"2024-11-16T18:01:15.584358-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-11-16T18:01:15.73069-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2024-11-16T18:01:16.74943-05:00","level":"INFO","msg":"stream: closing","id":"c1uuntak"}
+{"time":"2024-11-16T18:01:16.749465-05:00","level":"INFO","msg":"handler: closed","stream_id":{"value":"c1uuntak"}}
+{"time":"2024-11-16T18:01:16.749497-05:00","level":"INFO","msg":"sender: closed","stream_id":"c1uuntak"}
+{"time":"2024-11-16T18:01:16.749484-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":{"value":"c1uuntak"}}
+{"time":"2024-11-16T18:01:16.749898-05:00","level":"INFO","msg":"stream: closed","id":"c1uuntak"}
