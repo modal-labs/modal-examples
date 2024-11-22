@@ -2,53 +2,53 @@
 # deploy: true
 # tags: ["use-case-lm-inference"]
 # ---
+
 # # Serverless TensorRT-LLM (LLaMA 3 8B)
-#
+
 # In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
-# at a total throughput of roughly 4,500 output tokens per second on a single NVIDIA A100 40GB GPU.
-# At [Modal's on-demand rate](https://modal.com/pricing) of ~$4/hr, that's under $0.20 per million tokens --
+# at very high throughput.
+
+# We achieve a total throughput of over 25,000 output tokens per second on a single NVIDIA H100 GPU.
+# At [Modal's on-demand rate](https://modal.com/pricing) of ~$4.50/hr, that's under $0.05 per million tokens --
 # on auto-scaling infrastructure and served via a customizable API.
-#
-# Additional optimizations like speculative sampling and FP8 quantization can further improve throughput.
-# For more on the throughput levels that are possible with TensorRT-LLM for different combinations
-# of model, hardware, and workload, see the
-# [official benchmarks](https://github.com/NVIDIA/TensorRT-LLM/blob/71d8d4d3dc655671f32535d6d2b60cab87f36e87/docs/source/performance.md).
-#
+
+# Additional optimizations like speculative sampling can further improve throughput.
+
 # ## Overview
-#
+
 # This guide is intended to document two things:
 # the general process for building TensorRT-LLM on Modal
 # and a specific configuration for serving the LLaMA 3 8B model.
-#
+
 # ### Build process
-#
+
 # Any given TensorRT-LLM service requires a multi-stage build process,
 # starting from model weights and ending with a compiled engine.
 # Because that process touches many sharp-edged high-performance components
 # across the stack, it can easily go wrong in subtle and hard-to-debug ways
 # that are idiosyncratic to specific systems.
 # And debugging GPU workloads is expensive!
-#
+
 # This example builds an entire service from scratch, from downloading weight tensors
 # to responding to requests, and so serves as living, interactive documentation of a TensorRT-LLM
 # build process that works on Modal.
-#
+
 # ### Engine configuration
-#
+
 # TensorRT-LLM is the Lamborghini of inference engines: it achieves seriously
 # impressive performance, but only if you tune it carefully.
 # We carefully document the choices we made here and point to additional resources
 # so you know where and how you might adjust the parameters for your use case.
-#
+
 # ## Installing TensorRT-LLM
-#
+
 # To run TensorRT-LLM, we must first install it. Easier said than done!
-#
+
 # In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # All Modal containers have access to GPU drivers via the underlying host environment,
 # but we still need to install the software stack on top of the drivers, from the CUDA runtime up.
-#
-# We start from the official `nvidia/cuda:12.1.1-devel-ubuntu22.04` image,
+
+# We start from an official `nvidia/cuda` image,
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
 
@@ -58,8 +58,9 @@ import modal
 import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
-    "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.10"
-)
+    "nvidia/cuda:12.4.1-devel-ubuntu22.04",
+    add_python="3.10",  # TRT-LLM requires Python 3.10
+).entrypoint([])  # remove verbose logging by base image on entry
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
@@ -68,7 +69,7 @@ tensorrt_image = modal.Image.from_registry(
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).pip_install(
-    "tensorrt_llm==0.10.0.dev2024042300",
+    "tensorrt_llm==0.14.0",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -76,21 +77,21 @@ tensorrt_image = tensorrt_image.apt_install(
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
 # a number of calls to methods on the `modal.Image`. If you're familiar with
 # Dockerfiles, you can think of this as a Pythonic interface to instructions like `RUN` and `CMD`.
-#
+
 # End-to-end, this step takes five minutes.
 # If you're reading this from top to bottom,
 # you might want to stop here and execute the example
 # with `modal run trtllm_llama.py`
 # so that it runs in the background while you read the rest.
-#
+
 # ## Downloading the Model
-#
+
 # Next, we download the model we want to serve. In this case, we're using the instruction-tuned
 # version of Meta's LLaMA 3 8B model.
 # We use the function below to download the model from the Hugging Face Hub.
 
 MODEL_DIR = "/root/model/model_input"
-MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"
+MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
 MODEL_REVISION = "b1532e4dee724d9ba63fe17496f298254d87ca64"  # pin model revisions to prevent unexpected changes!
 
 
@@ -117,11 +118,11 @@ def download_model():
 MINUTES = 60  # seconds
 tensorrt_image = (  # update the image by downloading the model we're using
     tensorrt_image.pip_install(  # add utilities for downloading the model
-        "hf-transfer==0.1.6",
-        "huggingface_hub==0.22.2",
+        "hf-transfer==0.1.8",
+        "huggingface_hub==0.26.2",
         "requests~=2.31.0",
     )
-    .env(  # hf-transfer: faster downloads, but fewer comforts
+    .env(  # hf-transfer for faster downloads
         {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
     )
     .run_function(  # download the model
@@ -130,93 +131,103 @@ tensorrt_image = (  # update the image by downloading the model we're using
     )
 )
 
-# ## Configuring the model
-#
-# Now that we have the model downloaded, we need to convert it to a format that TensorRT-LLM can use.
-# We use a convenience script provided by the TensorRT-LLM team.
+# ## Quantization
+
+# The amount of GPU RAM on a single card is a tight constraint for most LLMs:
+# RAM is measured in billions of bytes and models have billions of parameters.
+# The performance cliff if you need to spill to CPU memory is steep,
+# so all of those parameters must fit in the GPU memory,
+# along with other things like the KV cache.
+
+# The simplest way to reduce LLM inference's RAM requirements is to make the model's parameters smaller,
+# to fit their values in a smaller number of bits, like four or eight. This is known as _quantization_.
+
+# We use a quantization script provided by the TensorRT-LLM team.
 # This script takes a few minutes to run.
 
-GIT_HASH = "71d8d4d3dc655671f32535d6d2b60cab87f36e87"
-CHECKPOINT_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/llama/convert_checkpoint.py"
+GIT_HASH = "b0880169d0fb8cd0363049d91aa548e58a41be07"
+CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/quantization/quantize.py"
 
-# TensorRT-LLM requires that a GPU be present to load the model, even though it isn't used directly during this conversion process.
-# We'll use a single A100-40GB GPU for this example, but we have also tested it successfully with A10G, A100-80GB, and H100 GPUs.
-#
-# The most important feature to track when selecting hardware to run on is GPU RAM:
-# larger models, longer sequences, and bigger batches all require more memory,
-# We tuned all three to maximize throughput on this example.
-#
-# The amount of GPU RAM on a single card is a tight constraint for most LLMs:
-# RAM is measured in tens of gigabytes and
-# models have billions of floating point parameters,
-# each consuming one to four bytes of memory.
-# The performance cliff if you need to spill to CPU memory is steep,
-# so the only solution is to split the model across multiple GPUs.
-# This is particularly important when serving larger models (e.g. 70B or 8x22B).
+# NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
+# are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format (`qformat`).
+# These GPUs are capable of twice as many floating point operations per second in 8bit as in 16bit --
+# about a trillion per second on an H100.
 
 N_GPUS = 1  # Heads up: this example has not yet been tested with multiple GPUs
-GPU_CONFIG = modal.gpu.A100(count=N_GPUS)
+GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
 
-# This is also the point where we specify the data type for this model.
-# We use IEEE 754-compliant half-precision floats, (`float16`), because we found that it resulted in marginally higher throughput,
-# but the model is provided in Google's
-# [`bfloat16` format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format).
-# On the latest Ada Lovelace chips, you might use `float8` to reduce GPU RAM usage and speed up inference,
-# but note that the FP8 format is very new, so expect rough edges.
+DTYPE = "float16"  # format we download in, regular fp16
+QFORMAT = "fp8"  # format we quantize the weights to
+KV_CACHE_DTYPE = "fp8"  # format we quantize the KV cache to
 
-DTYPE = "float16"
+# Quantization is lossy, but the impact on model quality can be minimized by
+# tuning the quantization parameters based on target outputs.
+
+CALIB_SIZE = "512"  # size of calibration dataset
 
 # We put that all together with another invocation of `.run_commands`.
 
+QUANTIZATION_ARGS = f"--dtype={DTYPE} --qformat={QFORMAT} --kv_cache_dtype={KV_CACHE_DTYPE} --calib_size={CALIB_SIZE}"
+
 CKPT_DIR = "/root/model/model_ckpt"
-tensorrt_image = (  # update the image by converting the model to TensorRT format
-    tensorrt_image.run_commands(  # takes ~5 minutes
+tensorrt_image = (  # update the image by quantizing the model
+    tensorrt_image.run_commands(  # takes ~2 minutes
         [
-            f"wget {CHECKPOINT_SCRIPT_URL} -O /root/convert_checkpoint.py",
-            f"python /root/convert_checkpoint.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR}"
-            + f" --tp_size={N_GPUS} --dtype={DTYPE}",
+            f"wget {CONVERSION_SCRIPT_URL} -O /root/convert.py",
+            f"python /root/convert.py --model_dir={MODEL_DIR} --output_dir={CKPT_DIR}"
+            + f" --tp_size={N_GPUS}"
+            + f" {QUANTIZATION_ARGS}",
         ],
-        gpu=GPU_CONFIG,  # GPU must be present to load tensorrt_llm
+        gpu=GPU_CONFIG,
     )
 )
 
 # ## Compiling the engine
-#
+
 # TensorRT-LLM achieves its high throughput primarily by compiling the model:
 # making concrete choices of CUDA kernels to execute for each operation.
 # These kernels are much more specific than `matrix_multiply` or `softmax` --
 # they have names like `maxwell_scudnn_winograd_128x128_ldg1_ldg4_tile148t_nt`.
 # They are optimized for the specific types and shapes of tensors that the model uses
 # and for the specific hardware that the model runs on.
-#
+
 # That means we need to know all of that information a priori --
 # more like the original TensorFlow, which defined static graphs, than like PyTorch,
 # which builds up a graph of kernels dynamically at runtime.
-#
-# This extra layer of constraint on our LLM service is precisely
+
+# This extra layer of constraint on our LLM service is an important part of
 # what allows TensorRT-LLM to achieve its high throughput.
-#
+
 # So we need to specify things like the maximum batch size and the lengths of inputs and outputs.
 # The closer these are to the actual values we'll use in production, the better the throughput we'll get.
 
+# Since we want to maximize the throughput, assuming we had a constant workload,
+# we set the batch size to the largest value we can fit in GPU RAM.
+# Quantization helps us again here, since it allows us to fit more tokens in the same RAM.
+
 MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
+MAX_NUM_TOKENS = 2**17
 MAX_BATCH_SIZE = (
-    128  # better throughput at larger batch sizes, limited by GPU RAM
+    1024  # better throughput at larger batch sizes, limited by GPU RAM
 )
 ENGINE_DIR = "/root/model/model_output"
 
-SIZE_ARGS = f"--max_batch_size={MAX_BATCH_SIZE} --max_input_len={MAX_INPUT_LEN} --max_output_len={MAX_OUTPUT_LEN}"
+SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} --max_batch_size={MAX_BATCH_SIZE}"
 
 # There are many additional options you can pass to `trtllm-build` to tune the engine for your specific workload.
 # You can find the document we used for LLaMA
-# [here](https://github.com/NVIDIA/TensorRT-LLM/tree/66ef1df492f7bc9c8eeb01d7e14db01838e3f0bd/examples/llama),
+# [here](https://github.com/NVIDIA/TensorRT-LLM/tree/b0880169d0fb8cd0363049d91aa548e58a41be07/examples/llama),
 # which you can use to adjust the arguments to fit your workloads,
 # e.g. adjusting rotary embeddings and block sizes for longer contexts.
-#
-# We selected plugins that accelerate two core components of the model: dense matrix multiplication and attention.
-# You can read more about the plugin options [here](https://fetch.ai/blog/advancing-llm-optimization).
+# We also recommend the [official TRT-LLM best practices guide](https://nvidia.github.io/TensorRT-LLM/performance/perf-best-practices.html).
 
-PLUGIN_ARGS = f"--gemm_plugin={DTYPE} --gpt_attention_plugin={DTYPE}"
+# To make best use of our 8bit floating point hardware, and the weights and KV cache we have quantized,
+# we activate the 8bit floating point fused multi-head attention plugin.
+
+# Because we are targeting maximum throughput, we do not activate the low latency 8bit floating point matrix multiplication plugin
+# or the 8bit floating point matrix multiplication (`gemm`) plugin, which documentation indicates target smaller batch sizes.
+
+PLUGIN_ARGS = "--use_fp8_context_fmha enable"
 
 # We put all of this together with another invocation of `.run_commands`.
 
@@ -224,7 +235,7 @@ tensorrt_image = (  # update the image by building the TensorRT engine
     tensorrt_image.run_commands(  # takes ~5 minutes
         [
             f"trtllm-build --checkpoint_dir {CKPT_DIR} --output_dir {ENGINE_DIR}"
-            + f" --tp_size={N_GPUS} --workers={N_GPUS}"
+            + f" --workers={N_GPUS}"
             + f" {SIZE_ARGS}"
             + f" {PLUGIN_ARGS}"
         ],
@@ -234,21 +245,20 @@ tensorrt_image = (  # update the image by building the TensorRT engine
     )
 )
 
-# ## Serving inference at thousands of tokens per second
-#
+# ## Serving inference at tens of thousands of tokens per second
+
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
 app = modal.App(
     f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
 )
 
-# Thanks to our custom container runtime system, even this
-# large, many gigabyte container boots in seconds.
-#
+# Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
+
 # At container start time, we boot up the engine, which completes in under 30 seconds.
 # Container starts are triggered when Modal scales up your infrastructure,
 # like the first time you run this code or the first time a request comes in after a period of inactivity.
-#
+
 # Container lifecycles in Modal are managed via our `Cls` interface, so we define one below
 # to manage the engine and run inference.
 # For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
@@ -257,6 +267,7 @@ app = modal.App(
 @app.cls(
     gpu=GPU_CONFIG,
     container_idle_timeout=10 * MINUTES,
+    image=tensorrt_image,
 )
 class Model:
     @modal.enter()
@@ -289,6 +300,7 @@ class Model:
             engine_dir=f"{ENGINE_DIR}",
             lora_dir=None,
             rank=tensorrt_llm.mpi_rank(),  # this will need to be adjusted to use multiple GPUs
+            max_output_len=MAX_OUTPUT_LEN,
         )
 
         self.model = ModelRunner.from_dir(**runner_kwargs)
@@ -375,7 +387,7 @@ class Model:
                 "\n\n",
                 sep=COLOR["ENDC"],
             )
-            time.sleep(0.01)  # to avoid log truncation
+            time.sleep(0.05)  # to avoid log truncation
 
         print(
             f"{COLOR['HEADER']}{COLOR['GREEN']}Generated {num_tokens} tokens from {MODEL_ID} in {duration_s:.1f} seconds,"
@@ -386,22 +398,25 @@ class Model:
 
 
 # ## Calling our inference function
-#
+
 # Now, how do we actually run the model?
-#
+
 # There are two basic methods: from Python via our SDK or from anywhere, by setting up an API.
-#
+
 # ### Calling inference from Python
-#
+
 # To run our `Model`'s `.generate` method from Python, we just need to call it --
 # with `.remote` appended to run it on Modal.
-#
+
 # We wrap that logic in a `local_entrypoint` so you can run it from the command line with
 # ```bash
 # modal run trtllm_llama.py
 # ```
-#
-# For simplicity, we hard-code a batch of 128 questions to ask the model.
+
+# For simplicity, we hard-code a batch of 128 questions to ask the model,
+# and then bulk it up to a batch size of 1024 by appending seven distinct prefixes.
+# These prefixes ensure KV cache misses for the remainder of the generations,
+# to keep the benchmark closer to what can be expected in a real workload.
 
 
 @app.local_entrypoint()
@@ -547,6 +562,19 @@ def main():
         "What is TensorRT? What role does it play in neural network inference?",
     ]
 
+    prefixes = [
+        "Hi! ",
+        "Hello! ",
+        "Hi. ",
+        "Hello. ",
+        "Hi: ",
+        "Hello: ",
+        "Greetings. ",
+    ]
+    # prepending any string that causes a tokenization change is enough to invalidate KV cache
+    for ii, prefix in enumerate(prefixes):
+        questions += [prefix + question for question in questions[:128]]
+
     model = Model()
     model.generate.remote(questions)
     # if you're calling this service from another Python project,
@@ -554,11 +582,11 @@ def main():
 
 
 # ### Calling inference via an API
-#
+
 # We can use `modal.web_endpoint` and `app.function` to turn any Python function into a web API.
-#
+
 # This API wrapper doesn't need all the dependencies of the core inference service,
-# so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack
+# so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack.
 
 web_image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "fastapi[standard]==0.115.4",
@@ -587,16 +615,16 @@ def generate_web(data: GenerateRequest) -> list[str]:
 
 # To set our function up as a web endpoint, we need to run this file --
 # with `modal serve` to create a hot-reloading development server or `modal deploy` to deploy it to production.
-#
+
 # ```bash
 # modal serve trtllm_llama.py
 # ```
-#
+
 # The URL for the endpoint appears in the output of the `modal serve` or `modal deploy` command.
 # Add `/docs` to the end of this URL to see the interactive Swagger documentation for the endpoint.
-#
+
 # You can also test the endpoint by sending a POST request with `curl` from another terminal:
-#
+
 # ```bash
 # curl -X POST url-from-output-of-modal-serve-here \
 # -H "Content-Type: application/json" \
@@ -604,11 +632,11 @@ def generate_web(data: GenerateRequest) -> list[str]:
 #     "prompts": ["Tell me a joke", "Describe a dream you had recently", "Share your favorite childhood memory"]
 # }' | python -m json.tool # python for pretty-printing, optional
 # ```
-#
-# And now you have a high-throughput, low-latency, autoscaling API for serving LLaMA 3 8B completions!
-#
+
+# And now you have a high-throughput, low-latency, autoscaling API for serving LLM completions!
+
 # ## Footer
-#
+
 # The rest of the code in this example is utility code.
 
 
