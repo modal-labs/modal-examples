@@ -17,7 +17,7 @@
 # Below are four images produced by the prompt
 # "A princess riding on a pony".
 
-# ![stable diffusion montage](./stable-diffusion-montage-princess.jpg)
+# ![stable diffusion montage](https://modal-cdn.com/cdnbot/sd-montage-princess-yxu2vnbl_e896a9c0.webp)
 
 # ## Basic setup
 
@@ -33,7 +33,7 @@ MINUTES = 60
 # All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
-app = modal.App("example-stable-diffusion-cli")
+app = modal.App("example-text-to-image")
 
 # ## Configuring dependencies
 
@@ -142,9 +142,12 @@ class Inference:
 # You can also provide a `seed` to make sampling more deterministic.
 
 # Run it with
+
 # ```bash
-# modal run stable_diffusion_cli.py
+# modal run text_to_image.py
 # ```
+
+# and pass `--help` to see more options.
 
 
 @app.local_entrypoint()
@@ -190,19 +193,38 @@ def entrypoint(
             output_path.write_bytes(image_bytes)
 
 
+# ## Generating Stable Diffusion images via an API
+
+# The Modal `Cls` above also included a [`web_endpoint`](https://modal.com/docs/examples/basic_web),
+# which adds a simple web API to the inference method.
+
+# To try it out, run
+
+# ```bash
+# modal deploy text_to_image.py
+# ```
+
+# copy the printed URL ending in `inference-web.modal.run`,
+# and add `/docs` to the end. This will bring up the interactive
+# Swagger/OpenAPI docs for the endpoint.
+
 # ## Generating Stable Diffusion images in a web UI
 
-# Lastly, we add a simple web application that exposes a front-end (written in Alpine.js) for
+# Lastly, we add a simple front-end web UI (written in Alpine.js) for
 # our image generation backend.
 
-# The `Inference` class will serve multiple users from its own shared pool of warm GPU containers automatically.
+# This is also deployed by running
 
-# We can deploy this with `modal deploy stable_diffusion_cli.py`.
+# ```bash
+# modal deploy text_to_image.py.
+# ```
+
+# The `Inference` class will serve multiple users from its own auto-scaling pool of warm GPU containers automatically.
 
 frontend_path = Path(__file__).parent / "frontend"
 
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "jinja2", "fastapi[standard]==0.115.4"
+    "jinja2==3.1.4", "fastapi[standard]==0.115.4"
 )
 
 
