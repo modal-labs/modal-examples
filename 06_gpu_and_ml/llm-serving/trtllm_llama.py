@@ -151,7 +151,7 @@ CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/
 # NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
 # are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format (`qformat`).
 # These GPUs are capable of twice as many floating point operations per second in 8bit as in 16bit --
-# about a trillion per second on an H100.
+# about two quadrillion per second on an H100 SXM.
 
 N_GPUS = 1  # Heads up: this example has not yet been tested with multiple GPUs
 GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
