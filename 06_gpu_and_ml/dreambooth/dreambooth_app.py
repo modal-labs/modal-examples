@@ -547,7 +547,10 @@ def fastapi_app():
         if not text:
             text = example_prompts[0]
         print(text, config)
-        return Model().inference.remote(text, config)
+        image, prompt = Model("lr_0.0002_steps_4000_rank_16").inference.remote(
+            text, config
+        )
+        return image
 
     # set up AppConfig
     config = AppConfig()
@@ -556,10 +559,10 @@ def fastapi_app():
 
     example_prompts = [
         f"{instance_phrase}",
-        f"a painting of {instance_phrase.title()} With A Pearl Earring, by Vermeer",
-        f"oil painting of {instance_phrase} flying through space as an astronaut",
-        f"a painting of {instance_phrase} in cyberpunk city. character design by cory loftis. volumetric light, detailed, rendered in octane",
-        f"drawing of {instance_phrase} high quality, cartoon, path traced, by studio ghibli and don bluth",
+        "An HCON, a black and white minimalist icon of a girl with a Pearl earring, by Vermeer",
+        f"An HCON, a black and white minimalist icon of a man {instance_phrase} flying through space as an astronaut",
+        "An HCON, a black and white minimalist icon that represents New York City",
+        "An HCON, a black and white minimalist icon of Steve Jobs",
     ]
 
     modal_docs_url = "https://modal.com/docs"
@@ -588,15 +591,15 @@ def fastapi_app():
 
     # add a gradio UI around inference
     with gr.Blocks(
-        theme=theme, css=css, title="Pet Dreambooth on Modal"
+        theme=theme, css=css, title="Heroicons Dreambooth on Modal"
     ) as interface:
         gr.Markdown(
-            f"# Dream up images of {instance_phrase}.\n\n{description}",
+            "# Dream up images in the style of Heroicon icons",
         )
         with gr.Row():
             inp = gr.Textbox(  # input text component
                 label="",
-                placeholder=f"Describe the version of {instance_phrase} you'd like to see",
+                placeholder="Describe what you would like to see in Heroicon style",
                 lines=10,
             )
             out = gr.Image(  # output image component
