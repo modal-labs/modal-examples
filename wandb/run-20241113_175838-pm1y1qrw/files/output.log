@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/yirenlu/modal-examples/06_gpu_and_ml/dreambooth/dreambooth_app.py", line 652, in run
-    f"lr_{config['learning_rate']}_steps_{config['max_trainsteps']}_rank_{config['rank']}",
-                                          ~~~~~~^^^^^^^^^^^^^^^^^^
-KeyError: 'max_trainsteps'
