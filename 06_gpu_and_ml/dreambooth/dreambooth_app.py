@@ -240,20 +240,16 @@ class TrainConfig(SharedConfig):
     """Configuration for the finetuning step."""
 
     # HuggingFace Hub dataset
-    # dataset_name = "linoyts/3d_icon"
     dataset_name = "yirenlu/heroicons-subset-25-images"
-    # caption_column = "prompt"
     caption_column = "text"
 
     instance_prompt = "an HCON, in the style of TOK"
-    # instance_prompt = "3dicon, in the style of TOK"
 
     # training prompt looks like `{PREFIX} {INSTANCE_NAME} the {CLASS_NAME} {POSTFIX}`
     prefix: str = ""
     postfix: str = ""
 
     # Hyperparameters/constants from the huggingface training example
-    # resolution: int = 1024
     resolution: int = 512
     train_batch_size: int = 1
     rank: int = 16  # lora rank
@@ -286,19 +282,19 @@ class SweepConfig(TrainConfig):
     ]
 
     heroicon_test_prompts = [
-        # "An HCON, a black and white minimalist icon of a sailboat",
-        # "An HCON, a black and white minimalist icon of a watch",
-        # "An HCON, a black and white minimalist icon of a bear",
-        # "An HCON, a black and white minimalist icon of the mcdonalds sign",
-        # "An HCON, a black and white minimalist icon of a book",
-        # "An HCON, a black and white minimalist icon of a cellphone",
-        # "An HCON, a black and white minimalist icon of a water bottle",
-        # "An HCON, a black and white minimalist icon that represents the international monetary system",
-        # "An HCON, a black and white minimalist icon of a macbook pro laptop",
-        # "An HCON, a black and white minimalist icon of a tiara",
-        # "An HCON, a black and white minimalist icon of mountain peaks",
-        # "An HCON, a black and white minimalist icon of wifi",
-        # "An HCON, a black and white minimalist icon of a finger",
+        "An HCON, a black and white minimalist icon of a sailboat",
+        "An HCON, a black and white minimalist icon of a watch",
+        "An HCON, a black and white minimalist icon of a bear",
+        "An HCON, a black and white minimalist icon of the mcdonalds sign",
+        "An HCON, a black and white minimalist icon of a book",
+        "An HCON, a black and white minimalist icon of a cellphone",
+        "An HCON, a black and white minimalist icon of a water bottle",
+        "An HCON, a black and white minimalist icon that represents the international monetary system",
+        "An HCON, a black and white minimalist icon of a macbook pro laptop",
+        "An HCON, a black and white minimalist icon of a tiara",
+        "An HCON, a black and white minimalist icon of mountain peaks",
+        "An HCON, a black and white minimalist icon of wifi",
+        "An HCON, a black and white minimalist icon of a finger",
         "An HCON, a black and white minimalist icon of a golden retriever",
         "An HCON, a black and white minimalist icon of a tent",
         "An HCON, a black and white minimalist icon of an iphone",
@@ -459,36 +455,6 @@ class Model:
         ).to("cuda")
         pipe.load_lora_weights(f"{MODEL_DIR}/{self.hyperparameter_model_dir}")
         self.pipe = pipe
-        # import torch
-        # from diffusers import AutoPipelineForText2Image
-        # from safetensors.torch import load_file
-
-        # config = TrainConfig()
-
-        # # Reload the modal.Volume to ensure the latest state is accessible.
-        # volume.reload()
-
-        # # set up a hugging face inference pipeline using our model
-        # pipe = AutoPipelineForText2Image.from_pretrained(
-        #     config.model_name,
-        #     torch_dtype=torch.bfloat16,
-        # ).to("cuda")
-        # pipe.load_lora_weights(
-        #     MODEL_DIR, weight_name="pytorch_lora_weights.safetensors"
-        # )
-
-        # embedding_path = "/model/model_emb.safetensors"
-
-        # state_dict = load_file(embedding_path)
-        # # load embeddings of text_encoder 1 (CLIP ViT-L/14)
-        # pipe.load_textual_inversion(
-        #     state_dict["clip_l"],
-        #     token=["<s0>", "<s1>"],
-        #     text_encoder=pipe.text_encoder,
-        #     tokenizer=pipe.tokenizer,
-        # )
-
-        # self.pipe = pipe
 
     @modal.method()
     def inference(self, text, config):
