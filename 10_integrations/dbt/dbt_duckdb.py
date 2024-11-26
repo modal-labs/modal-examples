@@ -42,7 +42,6 @@ TARGET_PATH = "/root/target"
 # [the `dbt-duckdb` docs](https://github.com/jwills/dbt-duckdb#configuring-your-profile).
 
 
-
 # We also define the environment our application will run in --
 # a container image, as in Docker.
 # See [this guide](https://modal.com/docs/guide/custom-container) for details.
@@ -65,9 +64,7 @@ dbt_image = (  # start from a slim Linux image
     )
     # Here we add all local code and configuration into the Modal Image
     # so that it will be available when we run DBT on Modal.
-    .add_local_dir(
-        LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
-    )
+    .add_local_dir(LOCAL_DBT_PROJECT, remote_path=PROJ_PATH)
     .add_local_file(
         local_path=LOCAL_DBT_PROJECT / "profiles.yml",
         remote_path=f"{PROFILES_PATH}/profiles.yml",
@@ -163,8 +160,8 @@ def create_source_data():
 # below, we import the `dbt` library's `dbtRunner` to pass commands from our
 # Python code, running on Modal, the same way we'd pass commands on a command line.
 #
-# Note that this Modal Function has access to our AWS Secret,
-# the `mount`ed local files with our DBT project and profiles,
+# Note that this Modal Function has access to our AWS S3 Secret,
+# the local files associated with our DBT project and profiles,
 # and a remote Modal Volume that acts as a distributed file system.
 
 

@@ -91,7 +91,7 @@ image = (
 # ### Downloading models
 
 # You can also use comfy-cli to download models, but for this example we'll download the Flux models directly from Hugging Face into a Modal Volume.
-# Then on container start, we'll mount our models into the ComfyUI models directory.
+# Then on container start, we'll mount our models Volume into the ComfyUI models directory.
 # This allows us to avoid re-downloading the models every time you rebuild your image.
 
 image = (
