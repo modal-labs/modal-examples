@@ -2,7 +2,7 @@
 # lambda-test: false
 # tags: ["featured"]
 # ---
-# # Cron job in the Cloud to search Hacker News
+# # Run cron jobs in the cloud to search Hacker News
 
 # In this example, we use Modal to deploy a cron job that periodically queries Hacker News for
 # new posts matching a given search term, and posts the results to Slack.

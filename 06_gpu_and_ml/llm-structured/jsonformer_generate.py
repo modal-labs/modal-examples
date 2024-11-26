@@ -1,7 +1,7 @@
 # ---
 # lambda-test: false
 # ---
-# # Structured output generation with JSONFormer
+# # Structured output generation with Jsonformer
 #
 # [Jsonformer](https://github.com/1rgs/jsonformer) is a tool that generates structured synthetic data using LLMs.
 # You provide a JSON spec and it generates a JSON object following the spec. It's a
