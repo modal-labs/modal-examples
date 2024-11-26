@@ -206,5 +206,6 @@ image = (
         "fastapi[standard]",
     )
     .run_function(load_stable_diffusion_pokemon_model)
+    .add_local_dir(local_path=ASSETS_PATH, remote_path="/assets")
 )
 app = modal.App(name="example-text-to-pokemon", image=image)
