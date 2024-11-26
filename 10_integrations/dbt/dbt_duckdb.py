@@ -34,6 +34,15 @@ PROJ_PATH = "/root/dbt"  # remote paths
 PROFILES_PATH = "/root/dbt_profile"
 TARGET_PATH = "/root/target"
 
+# Most of the DBT code and configuration is taken directly from the classic
+# [Jaffle Shop](https://github.com/dbt-labs/jaffle_shop) demo and modified to support
+# using `dbt-duckdb` with an S3 bucket.
+#
+# The DBT `profiles.yml` configuration is taken from
+# [the `dbt-duckdb` docs](https://github.com/jwills/dbt-duckdb#configuring-your-profile).
+
+
+
 # We also define the environment our application will run in --
 # a container image, as in Docker.
 # See [this guide](https://modal.com/docs/guide/custom-container) for details.
@@ -54,27 +63,18 @@ dbt_image = (  # start from a slim Linux image
             "DBT_TARGET_PATH": TARGET_PATH,
         }
     )
+    # Here we add all local code and configuration into the Modal Image
+    # so that it will be available when we run DBT on Modal.
+    .add_local_dir(
+        LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
+    )
+    .add_local_file(
+        local_path=LOCAL_DBT_PROJECT / "profiles.yml",
+        remote_path=f"{PROFILES_PATH}/profiles.yml",
+    )
 )
 
 app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
-
-# Most of the DBT code and configuration is taken directly from the classic
-# [Jaffle Shop](https://github.com/dbt-labs/jaffle_shop) demo and modified to support
-# using `dbt-duckdb` with an S3 bucket.
-#
-# The DBT `profiles.yml` configuration is taken from
-# [the `dbt-duckdb` docs](https://github.com/jwills/dbt-duckdb#configuring-your-profile).
-#
-# Here we mount all this local code and configuration into the Modal Function
-# so that it will be available when we run DBT on Modal.
-
-dbt_project = modal.Mount.from_local_dir(
-    LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
-)
-dbt_profiles = modal.Mount.from_local_file(
-    local_path=LOCAL_DBT_PROJECT / "profiles.yml",
-    remote_path=Path(PROFILES_PATH, "profiles.yml"),
-)
 dbt_target = modal.Volume.from_name("dbt-target-vol", create_if_missing=True)
 
 # We'll also need to authenticate with AWS to store data in S3.
@@ -128,7 +128,6 @@ s3_secret = modal.Secret.from_name("modal-examples-aws-user")
 
 
 @app.function(
-    mounts=[dbt_project],
     secrets=[s3_secret],
 )
 def create_source_data():
@@ -171,7 +170,6 @@ def create_source_data():
 
 @app.function(
     secrets=[s3_secret],
-    mounts=[dbt_project, dbt_profiles],
     volumes={TARGET_PATH: dbt_target},
 )
 def run(command: str) -> None:
@@ -273,7 +271,6 @@ def serve_dbt_docs():
 @app.function(
     schedule=modal.Period(days=1),
     secrets=[s3_secret],
-    mounts=[dbt_project, dbt_profiles],
     volumes={TARGET_PATH: dbt_target},
 )
 def daily_build() -> None:
