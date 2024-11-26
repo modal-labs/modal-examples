@@ -50,7 +50,7 @@
 import logging as L
 import urllib.request
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import modal
 from pydantic import BaseModel
@@ -75,7 +75,7 @@ gpu = "A10G"
 volume = modal.Volume.from_name(
     "example-hp-sweep-gpt-volume", create_if_missing=True
 )
-volume_path = Path("/vol/data")
+volume_path = PosixPath("/vol/data")
 model_filename = "nano_gpt_model.pt"
 best_model_filename = "best_nano_gpt_model.pt"
 tb_log_path = volume_path / "tb_logs"
@@ -93,16 +93,10 @@ torch_image = base_image.pip_install(
     "torch==2.1.2",
     "tensorboard==2.17.1",
     "numpy<2",
-)
+).add_local_dir(Path(__file__).parent / "src", remote_path="/root/src")
 
 # We also have some local dependencies that we'll need to import into the remote environment.
 # We mount them onto the remote container.
-
-mounts = [
-    modal.Mount.from_local_dir(
-        Path(__file__).parent / "src", remote_path=Path("/root/src")
-    )
-]
 
 # We'll serve a simple web endpoint
 web_image = base_image.pip_install(
@@ -110,7 +104,11 @@ web_image = base_image.pip_install(
 )
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
-ui_image = web_image.pip_install("gradio~=4.44.0")
+assets_path = Path(__file__).parent / "assets"
+ui_image = web_image.pip_install("gradio~=4.44.0").add_local_dir(
+    assets_path, remote_path="/assets"
+)
+
 
 # We can also "pre-import" libraries that will be used by the functions we run on Modal in a given image
 # using the `with image.imports` context manager.
@@ -140,7 +138,6 @@ with torch_image.imports():
 
 @app.function(
     image=torch_image,
-    mounts=mounts,
     volumes={volume_path: volume},
     gpu=gpu,
     timeout=1 * HOURS,
@@ -576,7 +573,6 @@ def web_generate(request: GenerationRequest):
 # The Gradio UI will look something like this:
 
 # ![Image of Gradio Web App. Top shows model selection dropdown. Left side shows input prompt textbox. Right side shows SLM generated output. Bottom has button for starting generation process](./gradio.png)
-assets_path = Path(__file__).parent / "assets"
 
 
 @app.function(
@@ -584,7 +580,6 @@ assets_path = Path(__file__).parent / "assets"
     concurrency_limit=1,
     volumes={volume_path: volume},
     allow_concurrent_inputs=1000,
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def ui():

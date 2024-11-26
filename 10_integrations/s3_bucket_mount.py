@@ -24,7 +24,7 @@
 # the relevant AWS credentials with your Modal apps.
 
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import modal
 
@@ -38,8 +38,8 @@ secret = modal.Secret.from_name(
     required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
 )
 
-MOUNT_PATH: Path = Path("/bucket")
-YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
+MOUNT_PATH = PosixPath("/bucket")
+YELLOW_TAXI_DATA_PATH = MOUNT_PATH / "yellow_taxi"
 
 
 # The dependencies installed above are not available locally. The following block instructs Modal

@@ -129,13 +129,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
     return samples_data
 
 
-@app.function(
-    mounts=[
-        modal.Mount.from_local_dir(
-            local_path=config.ASSETS_PATH, remote_path="/assets"
-        )
-    ],
-)
+@app.function()
 @modal.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles
