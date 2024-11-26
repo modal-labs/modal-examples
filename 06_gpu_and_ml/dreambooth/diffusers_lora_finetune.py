@@ -416,9 +416,10 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 6
 
 
-# attach local web assets
 image_with_assets = image.add_local_dir(
-    Path(__file__).parent / "assets", remote_path="/assets"
+    # Add local web assets to the image
+    Path(__file__).parent / "assets",
+    remote_path="/assets",
 )
 
 
