@@ -182,12 +182,13 @@ def main():
 # You can try our deployment [here](https://modal-labs--tgi-mixtral.modal.run).
 
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
-frontend_image = modal.Image.debian_slim().pip_install("fastapi[standard]")
-
+frontend_image = (
+        modal.Image.debian_slim().pip_install("fastapi[standard]")
+            .add_local_dir(frontend_path, remote_path="/assets")
+)
 
 @app.function(
     image=frontend_image,
-    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
     timeout=60 * 10,
