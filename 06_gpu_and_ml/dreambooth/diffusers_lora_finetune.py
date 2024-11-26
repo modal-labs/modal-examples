@@ -3,7 +3,7 @@
 # tags: ["use-case-image-video-3d", "use-case-finetuning", "featured"]
 # ---
 
-# # Train a character LoRA for Flux with Hugging Face and Gradio
+# # Create a character LoRA for Flux with Hugging Face and Gradio
 
 # This example finetunes the [Flux.1-dev model](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 # on images of a pet (by default, a puppy named Qwerty)

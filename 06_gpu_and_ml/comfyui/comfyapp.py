@@ -5,18 +5,14 @@
 #
 # # Run Flux on ComfyUI interactively and as an API
 #
-# [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is an open-source Stable Diffusion GUI with a graph/nodes based interface that allows you to design and execute advanced image generation pipelines.
+# [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is an open-source diffusion model platform with a graph/nodes interface that allows you to design and execute advanced image generation pipelines.
 
-# Flux is a family of cutting-edge text-to-image models created by [black forest labs](https://huggingface.co/black-forest-labs), rapidly gaining popularity due to their exceptional image quality.
 #
 # In this example, we show you how to
 #
-# 1. run Flux on ComfyUI interactively to develop workflows
+# 1. run the [Flux](https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux) diffusion model on ComfyUI interactively to develop workflows
 #
 # 2. serve a Flux ComfyUI workflow as an API
-#
-# Combining the UI and the API in a single app makes it easy to iterate on your workflow even after deployment.
-# Simply head to the interactive UI, make your changes, export the JSON, and redeploy the app.
 #
 # ## Quickstart
 #
@@ -28,13 +24,17 @@
 # ![example comfyui image](./flux_gen_image.jpeg)
 #
 # To serve the workflow in this example as an API:
-# 1. Stand up the ComfyUI server in development mode:
+# 1. Download the Flux models to a Modal [Volume](/docs/guide/volumes):
+# ```bash
+# modal run 06_gpu_and_ml/comfyui/comfyapp.py::download_models
+# ```
+#
+# 2. Stand up the ComfyUI server in development mode:
 # ```bash
 # modal serve 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
-# Note: if you're running this for the first time, it will take several minutes to build the image, since we have to download the Flux models (>20GB) to the container. Successive calls will reuse this prebuilt image.
 #
-# 2. In another terminal, run inference:
+# 3. In another terminal, run inference:
 # ```bash
 # python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace $(modal profile current) --prompt "neon green sign that says Modal"
 # ```
@@ -53,9 +53,6 @@ from typing import Dict
 import modal
 
 # ### Building up the environment
-#
-# ComfyUI setups can be complex, with a lot of custom nodes and models to manage.
-# We'll use [`comfy-cli`](https://github.com/Comfy-Org/comfy-cli) to manage the installation of ComfyUI, its dependencies, models, and custom nodes.
 #
 # We start from a base image and specify all of our dependencies.
 # We'll call out the interesting ones as they come up below.
@@ -81,70 +78,81 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         copy=True,
     )
 )
-
-# #### Downloading models
-#
-# We'll download the Flux models using `comfy-cli`.
-# ComfyUI will look for these models in the `models` subdirectory under specific subdirectories
-# (e.g. `vae`, `unet`, `clip`, etc.), so we need to download them into the correct location.
-#
-# You can run multiple commands using comma separated commands in `.run_commands()`.
-# But here we opt to split them up to allow for more granular layer caching in the Modal Image.
-# By appending a model install using `.run_commands(...)` at the end of this build step we ensure
-# that the previous steps remain un-changed and will be cached, avoiding unnecessary re-runs.
-
-image = (
-    image.run_commands(
-        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors --relative-path models/clip"
-    )
-    .run_commands(
-        "comfy --skip-prompt model download --url https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors --relative-path models/clip"
-    )
-    .run_commands(
-        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors --relative-path models/vae"
-    )
-    .run_commands(
-        "comfy --skip-prompt model download --url https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors --relative-path models/unet"
-    )
-    # Add .run_commands(...) calls for any other models you want to download
-)
-
-# To download gated models that require a Hugging Face token (e.g. Flux Dev), add `--set-hf-api-token=<your_token>` to your `comfy model download` command.
-
-# #### Downloading custom nodes
-#
-# We'll download custom nodes using `comfy-cli` too.
-# Alternatively, you can install them by cloning the git repositories to your `/root/comfy/ComfyUI/custom_nodes`
-# directory and installing the required dependencies manually.
-#
-# Similarly to models, we opt to split the custom node installation into separate `.run_commands(...)` calls
-# to allow for more granular layer caching.
-
+# ### Downloading custom nodes
+# We'll use `comfy-cli` to download custom nodes, in this case the popular WAS Node Suite pack.
 image = (
     image.run_commands(  # download a custom node
-        "comfy node install image-resize-comfyui"
+        "comfy node install was-node-suite-comfyui"
     )
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
 
-# #### Adding more dependencies
-#
-# To add more dependencies, models or custom nodes without having to rebuild the entire image
-# it's recommended to append them at the end of your image build rather than modifying previous steps.
-# This allows you to cache all previous steps and only build the new steps when you make changes to the image.
+# See [this post](/blog/comfyui-custom-nodes) for more on how to install custom nodes on Modal.
+# ### Downloading models
+
+# You can also use comfy-cli to download models, but for this example we'll download the Flux models directly from Hugging Face into a Modal Volume.
+# Then on container start, we'll mount our models into the ComfyUI models directory.
+# This allows us to avoid re-downloading the models every time you rebuild your image.
 
 image = (
-    image  # Add any additional steps here
-    # .run_commands(...)
-    # .pip_install(...)
-    # .apt_install(...)
+    # install huggingface_hub with hf_transfer support to speed up downloads
+    image.pip_install("huggingface_hub[hf_transfer]==0.26.2")
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .run_commands(  # needs to be empty for Volume mount to work
+        "rm -rf /root/comfy/ComfyUI/models"
+    )
 )
 
-# #### Create the app
-#
 # We create the app and specify the image we built above.
 
 app = modal.App(name="example-comfyui", image=image)
+
+#
+# First we need to run a function to download the Flux models to a Modal Volume.
+
+vol = modal.Volume.from_name("comfyui-models", create_if_missing=True)
+
+
+@app.function(
+    volumes={"/root/models": vol},
+)
+def hf_download(repo_id: str, filename: str, model_type: str):
+    from huggingface_hub import hf_hub_download
+
+    hf_hub_download(
+        repo_id=repo_id,
+        filename=filename,
+        local_dir=f"/root/models/{model_type}",
+    )
+
+
+# We can kick off the model downloads in parallel using [`starmap`](/docs/reference/modal.Function#starmap).
+@app.local_entrypoint()
+def download_models():
+    models_to_download = [
+        # format is (huggingface repo_id, the model filename, comfyui models subdirectory we want to save the model in)
+        (
+            "black-forest-labs/FLUX.1-schnell",
+            "ae.safetensors",
+            "vae",
+        ),
+        (
+            "black-forest-labs/FLUX.1-schnell",
+            "flux1-schnell.safetensors",
+            "unet",
+        ),
+        (
+            "comfyanonymous/flux_text_encoders",
+            "t5xxl_fp8_e4m3fn.safetensors",
+            "clip",
+        ),
+        ("comfyanonymous/flux_text_encoders", "clip_l.safetensors", "clip"),
+    ]
+    list(hf_download.starmap(models_to_download))
+
+
+# To run the download step, run `modal run 06_gpu_and_ml/comfyui/comfyapp.py::download_models`.
+# By leveraging [hf_transfer](https://huggingface.co/docs/huggingface_hub/en/guides/download#faster-downloads), Modal starmap for parallelism, and Volumes, image build time drops from ~10 minutes to ~25 seconds.
 
 # ## Running ComfyUI interactively and as an API on Modal
 #
@@ -157,6 +165,7 @@ app = modal.App(name="example-comfyui", image=image)
     container_idle_timeout=30,
     timeout=1800,
     gpu="A10G",
+    volumes={"/root/comfy/ComfyUI/models": vol},
 )
 @modal.web_server(8000, startup_timeout=60)
 def ui():
@@ -177,7 +186,8 @@ def ui():
 @app.cls(
     allow_concurrent_inputs=10,
     container_idle_timeout=300,
-    gpu="A10G"
+    gpu="A10G",
+    volumes={"/root/comfy/ComfyUI/models": vol},
 )
 class ComfyUI:
     @modal.enter()
@@ -246,6 +256,6 @@ class ComfyUI:
 # Then, redeploy the app with this new workflow by running `modal deploy 06_gpu_and_ml/comfyui/comfyapp.py` again.
 #
 # ## Further optimizations
-# - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. This will reduce overall response time, but will cost you more money. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
+# - To decrease inference latency, you can process multiple inputs in parallel by setting `allow_concurrent_inputs=1`, which will run each input on its own container. See our [Scaling ComfyUI](https://modal.com/blog/scaling-comfyui) blog post for more details.
 # - If you're noticing long startup times for the ComfyUI server (e.g. >30s), this is likely due to too many custom nodes being loaded in. Consider breaking out your deployments into one App per unique combination of models and custom nodes.
 # - For those who prefer to run a ComfyUI workflow directly as a Python script, see [this blog post](https://modal.com/blog/comfyui-prototype-to-production).
