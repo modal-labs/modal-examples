@@ -51,22 +51,21 @@ dbt_image = (  # start from a slim Linux image
             "DB_PATH": DB_PATH,
         }
     )
-    # We mount the local code and configuration into the Modal Function
+    # We add the local code and configuration into the image
     # so that it will be available when we run dbt
-    # and create a volume so that we can persist our data.
+    .add_local_dir(
+        LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
+    )
+    .add_local_file(
+        local_path=LOCAL_DBT_PROJECT / "profiles.yml",
+        remote_path=f"{PROFILES_PATH}/profiles.yml",
+    )
 )
 
 app = modal.App("duckdb-dbt-inference", image=dbt_image)
 
 
-
-dbt_project = modal.Mount.from_local_dir(
-    LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
-)
-dbt_profiles = modal.Mount.from_local_file(
-    local_path=LOCAL_DBT_PROJECT / "profiles.yml",
-    remote_path=pathlib.Path(PROFILES_PATH, "profiles.yml"),
-)
+# Create a modal.Volume so that we can persist our data
 dbt_vol = modal.Volume.from_name("dbt-inference-vol", create_if_missing=True)
 
 # ## Run dbt in a serverless Modal Function
@@ -85,7 +84,6 @@ dbt_vol = modal.Volume.from_name("dbt-inference-vol", create_if_missing=True)
 
 
 @app.function(
-    mounts=[dbt_project, dbt_profiles],
     volumes={VOL_PATH: dbt_vol},
 )
 def dbt_run() -> None:
@@ -97,8 +95,8 @@ def dbt_run() -> None:
     os.makedirs(DB_PATH, exist_ok=True)
     os.makedirs(TARGET_PATH, exist_ok=True)
 
-    # Remember to either deploy this yourself in your environment
-    # or change to another web endpoint you have
+    # Remember to either deploy the llama dependency app in your environment
+    # first, or change this to use another web endpoint you have:
     ref = modal.Function.lookup(
         "example-trtllm-Meta-Llama-3-8B-Instruct", "generate_web"
     )
