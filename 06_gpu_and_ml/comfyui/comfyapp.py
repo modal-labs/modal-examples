@@ -75,7 +75,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
-    .attach_local_file(
+    .add_local_file(
         Path(__file__).parent / "workflow_api.json",
         "/root/workflow_api.json",
         copy=True,

@@ -416,7 +416,7 @@ class AppConfig(SharedConfig):
 
 
 # attach local web assets
-image_with_assets = image.attach_local_dir(
+image_with_assets = image.add_local_dir(
     Path(__file__).parent / "assets",
     remote_path="/assets"
 )
