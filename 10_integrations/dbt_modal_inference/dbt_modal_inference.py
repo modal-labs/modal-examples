@@ -51,13 +51,14 @@ dbt_image = (  # start from a slim Linux image
             "DB_PATH": DB_PATH,
         }
     )
+    # We mount the local code and configuration into the Modal Function
+    # so that it will be available when we run dbt
+    # and create a volume so that we can persist our data.
 )
 
 app = modal.App("duckdb-dbt-inference", image=dbt_image)
 
-# We mount the local code and configuration into the Modal Function
-# so that it will be available when we run dbt
-# and create a volume so that we can persist our data.
+
 
 dbt_project = modal.Mount.from_local_dir(
     LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
