@@ -2,7 +2,7 @@
 # args: ["--no-quick-check"]
 # tags: ["use-case-image-video-3d", "use-case-finetuning"]
 # ---
-# # Fine-Tuning and Inference for Computer Vision with YOLO
+# # Fine-tune open source YOLO models for object detection
 #
 # Example by [@Erik-Dunteman](https://github.com/erik-dunteman) and [@AnirudhRahul](https://github.com/AnirudhRahul/).
 

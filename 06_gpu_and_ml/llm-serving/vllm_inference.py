@@ -5,7 +5,7 @@
 # tags: ["use-case-lm-inference", "featured"]
 # ---
 
-# # Run an OpenAI-Compatible vLLM Server
+# # Run OpenAI-compatible LLM inference with LLaMA 3.1-8B and vLLM
 
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
 # This has complicated their interface far beyond "text-in, text-out".

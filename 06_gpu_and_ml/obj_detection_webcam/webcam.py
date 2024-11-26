@@ -3,7 +3,7 @@
 # deploy: true
 # tags: ["use-case-image-video-3d", "featured"]
 # ---
-# # Machine learning model inference endpoint that uses the webcam
+# # Real-time object detection via webcam
 #
 # This example creates a web endpoint that uses a Huggingface model for object detection.
 #

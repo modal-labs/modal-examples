@@ -4,7 +4,7 @@
 # tags: ["use-case-image-video-3d", "featured"]
 # ---
 
-# # Run Flux fast with `torch.compile` on Hopper GPUs
+# # Run Flux fast on H100s with `torch.compile`
 
 # In this guide, we'll run Flux as fast as possible on Modal using open source tools.
 # We'll use `torch.compile` and NVIDIA H100 GPUs.
