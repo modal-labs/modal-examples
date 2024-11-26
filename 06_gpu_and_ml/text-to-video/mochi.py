@@ -2,7 +2,7 @@
 # cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/mochi.py", "--num-inference-steps", "64"]
 # ---
 
-# # Generate videos from text prompts with Mochi
+# # Text-to-video AI with Mochi
 
 # This example demonstrates how to run the [Mochi 1](https://github.com/genmoai/models)
 # video generation model by [Genmo](https://www.genmo.ai/) on Modal.
