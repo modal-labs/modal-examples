@@ -183,9 +183,11 @@ def main():
 
 frontend_path = Path(__file__).parent.parent / "llm-frontend"
 frontend_image = (
-        modal.Image.debian_slim().pip_install("fastapi[standard]")
-            .add_local_dir(frontend_path, remote_path="/assets")
+    modal.Image.debian_slim()
+    .pip_install("fastapi[standard]")
+    .add_local_dir(frontend_path, remote_path="/assets")
 )
+
 
 @app.function(
     image=frontend_image,

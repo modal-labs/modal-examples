@@ -53,9 +53,7 @@ dbt_image = (  # start from a slim Linux image
     )
     # We add the local code and configuration into the image
     # so that it will be available when we run dbt
-    .add_local_dir(
-        LOCAL_DBT_PROJECT, remote_path=PROJ_PATH
-    )
+    .add_local_dir(LOCAL_DBT_PROJECT, remote_path=PROJ_PATH)
     .add_local_file(
         local_path=LOCAL_DBT_PROJECT / "profiles.yml",
         remote_path=f"{PROFILES_PATH}/profiles.yml",

@@ -141,6 +141,7 @@ image = image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
 )
 
+
 @app.function(
     volumes={MODEL_DIR: volume},
     image=image,
@@ -417,9 +418,9 @@ class AppConfig(SharedConfig):
 
 # attach local web assets
 image_with_assets = image.add_local_dir(
-    Path(__file__).parent / "assets",
-    remote_path="/assets"
+    Path(__file__).parent / "assets", remote_path="/assets"
 )
+
 
 @app.function(
     image=image_with_assets,

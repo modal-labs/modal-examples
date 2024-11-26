@@ -206,9 +206,10 @@ frontend_path = Path(__file__).parent.parent / "llm-frontend"
 # Create an image with fastapi and the local web assets added to /assets
 webapp_image = (
     modal.Image.debian_slim()
-        .pip_install("fastapi[standard]")
-        .add_local_dir(frontend_path, remote_path="/assets")
+    .pip_install("fastapi[standard]")
+    .add_local_dir(frontend_path, remote_path="/assets")
 )
+
 
 @app.function(
     image=webapp_image,
