@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/instructor_generate"
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Structured Data Extraction using `instructor`

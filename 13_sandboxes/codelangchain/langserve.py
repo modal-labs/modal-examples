@@ -1,6 +1,7 @@
 # ---
 # pytest: false
 # cmd: ["modal", "serve", "13_sandboxes.codelangchain.langserve"]
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Deploy LangChain and LangGraph applications with LangServe

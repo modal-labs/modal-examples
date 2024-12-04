@@ -1,6 +1,7 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3

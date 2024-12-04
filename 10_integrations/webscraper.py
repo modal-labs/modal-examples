@@ -1,3 +1,7 @@
+# ---
+# env: {"MODAL_ENVIRONMENT": "main"}
+# ---
+
 # # Web Scraping on Modal
 
 # This example shows how you can scrape links from a website and post them to a Slack channel using Modal.

@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Create a character LoRA for Flux with Hugging Face and Gradio
