@@ -406,17 +406,6 @@ def protein_fold_fastapi_app():
         path="/",
     )
 
-@app.local_entrypoint()
-def main():
-    sequence = (
-        "AMFSKVNNQKMLEDCFYIRKKVFVEEQGIPEESEIDEYESESIHLIGYDNGQPVATARIRPINETTVKI"
-        "ERVAVMKSHRGQGMGRMLMQAVESLAKDEGFYVATMNAQCHAIPFYESLNFKMRGNIFLEEGIEHIEMT"
-        "KKLT"
-    )
-    esm_protein = Model().inference.remote(sequence)
-    L.info(esm_protein)
-
-
 # ## Addenda
 
 # The remainder of this code is boilerplate.
