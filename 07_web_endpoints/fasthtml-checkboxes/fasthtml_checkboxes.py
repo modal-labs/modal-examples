@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "serve", "07_web_endpoints.fasthtml-checkboxes.fasthtml_checkboxes"]
+# deploy: true
 # mypy: ignore-errors
 # ---
 
