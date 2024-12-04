@@ -242,8 +242,8 @@ def protein_fold_fastapi_app():
         )
 
         maybe_stale_pdb_id = maybe_stale_pdb_id.strip()
-        pdb_sequence = get_sequence(maybe_stale_pdb_id)
-        if pdb_sequence == sequence:
+        maybe_stale_sequence = get_sequence(maybe_stale_pdb_id)
+        if maybe_stale_sequence == sequence:
             pdb_id = maybe_stale_pdb_id
             L.info(f"Constructing HTML for RCSB entry for {pdb_id}")
             pdb_string, residue_id_to_sse = extract_pdb_and_residues(pdb_id)
@@ -280,8 +280,8 @@ def protein_fold_fastapi_app():
     )
 
     example_pdbs = [
-        "Insulin [1ZNI]",
         "Myoglobin [1MBO]",
+        "Insulin [1ZNI]",
         "Hemoglobin [1GZX]",
         "GFP [1EMA]",
         "Collagen [1CGD]",
