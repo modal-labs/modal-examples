@@ -1,7 +1,6 @@
 # ---
 # deploy: true
 # cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Publish custom metrics with Prometheus Pushgateway
