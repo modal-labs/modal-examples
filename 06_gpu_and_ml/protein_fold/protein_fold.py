@@ -1,5 +1,4 @@
 # ---
-# deploy: True
 # cmd: ["modal", "serve", "06_gpu_and_ml/protein_fold/protein_fold.py"]
 # output-directory: "/tmp/protein-fold"
 # ---
@@ -76,7 +75,7 @@ PDBS_PATH = VOLUME_PATH / "pdbs"
 
 
 esm3_image = (
-    modal.Image.debian_slim(python_version="3.12").pip_install(
+    modal.Image.debian_slim(python_version="3.11").pip_install(
         "esm==3.0.5",
         "torch==2.4.1",
         "huggingface_hub[hf_transfer]==0.26.2",
@@ -90,7 +89,7 @@ esm3_image = (
 
 
 web_app_image = (
-    modal.Image.debian_slim(python_version="3.12").pip_install(
+    modal.Image.debian_slim(python_version="3.11").pip_install(
         "esm==3.0.5",
         "gradio~=4.44.0",
         "biotite==0.41.2",
