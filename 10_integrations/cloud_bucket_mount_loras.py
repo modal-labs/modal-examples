@@ -45,7 +45,7 @@ LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
 # the container `Image`. The line below constructs an image
 # with the dependencies we need -- no need to install them locally.
 
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "huggingface_hub==0.21.4",
     "transformers==4.38.2",
     "diffusers==0.26.3",
@@ -238,8 +238,10 @@ def main(
 # To set up your own, run `modal deploy cloud_bucket_mount_loras.py` and navigate to the URL it prints out.
 # If you're playing with the code, use `modal serve` instead to see changes live.
 
-web_image = modal.Image.debian_slim().pip_install(
-    "fastapi[standard]==0.115.4", "gradio~=4.29.0", "pillow~=10.2.0"
+web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "fastapi[standard]==0.115.4",
+    "gradio~=5.7.1",
+    "pillow~=10.2.0",
 )
 
 
