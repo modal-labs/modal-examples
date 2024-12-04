@@ -1,6 +1,7 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/llm-serving/vllm_inference.py"]
 # pytest: false
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Run OpenAI-compatible LLM inference with LLaMA 3.1-8B and vLLM

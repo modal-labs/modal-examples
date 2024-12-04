@@ -1,5 +1,6 @@
 # ---
 # args: ["--no-quick-check"]
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Fine-tune open source YOLO models for object detection

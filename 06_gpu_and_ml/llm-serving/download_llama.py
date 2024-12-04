@@ -1,6 +1,8 @@
 # ---
 # args: ["--force-download"]
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
+
 import modal
 
 MODELS_DIR = "/llamas"

@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Write to Google Sheets from Postgres

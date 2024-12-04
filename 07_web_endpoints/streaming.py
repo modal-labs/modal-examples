@@ -1,6 +1,7 @@
 # ---
 # cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Deploy FastAPI app with streaming results with Modal

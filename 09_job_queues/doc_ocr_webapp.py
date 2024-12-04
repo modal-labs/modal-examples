@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # cmd: ["modal", "serve", "09_job_queues/doc_ocr_webapp.py"]
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 #
 # # Document OCR web app

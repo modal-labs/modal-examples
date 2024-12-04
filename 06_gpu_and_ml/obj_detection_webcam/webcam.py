@@ -1,6 +1,7 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/obj_detection_webcam/webcam.py"]
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Real-time object detection via webcam
