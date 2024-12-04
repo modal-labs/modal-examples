@@ -2,30 +2,31 @@
 # cmd: ["modal", "serve", "06_gpu_and_ml/obj_detection_webcam/webcam.py"]
 # deploy: true
 # ---
+
 # # Real-time object detection via webcam
-#
+
 # This example creates a web endpoint that uses a Huggingface model for object detection.
-#
+
 # The web endpoint takes an image from their webcam, and sends it to a Modal web endpoint.
 # The Modal web endpoint in turn calls a Modal function that runs the actual model.
-#
+
 # If you run this, it will look something like this:
 #
 # ![webcam](./webcam.png)
-#
+
 # ## Live demo
-#
+
 # [Take a look at the deployed app](https://modal-labs--example-webcam-object-detection-fastapi-app.modal.run/).
-#
+
 # A couple of caveats:
 # * This is not optimized for latency: every prediction takes about 1s, and
 #   there's an additional overhead on the first prediction since the containers
 #   have to be started and the model initialized.
 # * This doesn't work on iPhone unfortunately due to some issues with HTML5
 #   webcam components
-#
+
 # ## Code
-#
+
 # Starting with imports:
 
 import base64
@@ -38,7 +39,7 @@ import modal
 # which is a package Huggingface uses for all their models, but also
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
-#
+
 # This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
 # once at image build time using the `@build` hook and saved into the image. 'Baking'
 # models into the `modal.Image` at build time provided the fastest cold start.
@@ -60,16 +61,18 @@ image = (
 
 
 # ## Prediction function
-#
+
 # The object detection function has a few different features worth mentioning:
-#
+
 # * There's a container initialization step in the method decorated with `@enter()`,
 #   which runs on every container start. This lets us load the model only once per
 #   container, so that it's reused for subsequent function calls.
+
 # * Above we stored the model in the container image. This lets us download the model only
 #   when the image is (re)built, and not everytime the function is called.
+
 # * We're running it on multiple CPUs for extra performance
-#
+
 # Note that the function takes an image and returns a new image.
 # The input image is from the webcam
 # The output image is an image with all the bounding boxes and labels on them,
@@ -152,13 +155,13 @@ class ObjectDetection:
 
 
 # ## Defining the web interface
-#
+
 # To keep things clean, we define the web endpoints separate from the prediction
 # function. This will introduce a tiny bit of extra latency (every web request
 # triggers a Modal function call which will call another Modal function) but in
 # practice the overhead is much smaller than the overhead of running the prediction
 # function etc.
-#
+
 # We also serve a static html page which contains some tiny bit of Javascript to
 # capture the webcam feed and send it to Modal.
 
@@ -194,9 +197,9 @@ def fastapi_app():
 
 
 # ## Running this locally
-#
+
 # You can run this as an ephemeral app, by running
-#
+
 # ```shell
 # modal serve webcam.py
 # ```

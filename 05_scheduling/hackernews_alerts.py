@@ -1,13 +1,14 @@
 # ---
 # lambda-test: false
 # ---
+
 # # Run cron jobs in the cloud to search Hacker News
 
 # In this example, we use Modal to deploy a cron job that periodically queries Hacker News for
 # new posts matching a given search term, and posts the results to Slack.
 
 # ## Import and define the app
-#
+
 # Let's start off with imports, and defining a Modal app.
 
 import os
@@ -23,12 +24,12 @@ app = modal.App("example-hn-bot")
 slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 # ## Defining the function and importing the secret
-#
+
 # Our Slack bot will need access to a bot token. We can use Modal's [Secrets](/secrets) interface to accomplish this.
 # To quickly create a Slack bot secret, navigate to the [create secret](/secrets/create) page, select the Slack secret template
 # from the list options, and follow the instructions in the "Where to find the credentials?" panel.
 # Name your secret `hn-bot-slack`, so that the code in this example still works.
-#
+
 # Now, we define the function `post_to_slack`, which simply instantiates the Slack client using our token,
 # and then uses it to post a message to a given channel name.
 
@@ -44,7 +45,7 @@ async def post_to_slack(message: str):
 
 
 # ## Searching Hacker News
-#
+
 # We are going to use Algolia's [Hacker News Search API](https://hn.algolia.com/api) to query for posts
 # matching a given search term in the past X days. Let's define our search term and query period.
 
@@ -82,11 +83,11 @@ def search_hackernews():
 
 
 # ## Test running
-#
+
 # We can now test run our scheduled function as follows: `modal run hackernews_alerts.py::app.search_hackernews`
 
 # ## Defining the schedule and deploying
-#
+
 # Let's define a function that will be called by Modal every day
 
 
