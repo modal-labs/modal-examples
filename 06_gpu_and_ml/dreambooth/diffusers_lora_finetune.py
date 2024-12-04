@@ -132,7 +132,7 @@ MODEL_DIR = "/model"
 # [gated by a license agreement](https://huggingface.co/docs/hub/en/models-gated) which
 # you must agree to [here](https://huggingface.co/black-forest-labs/FLUX.1-dev).
 # After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
-# with the name `huggingface` following the instructions in the template.
+# with the name `huggingface-secret` following the instructions in the template.
 
 huggingface_secret = modal.Secret.from_name(
     "huggingface-secret", required_keys=["HF_TOKEN"]
