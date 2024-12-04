@@ -1,4 +1,5 @@
 # ---
+# deploy: true
 # cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfyapp.py"]
 # ---
 #
