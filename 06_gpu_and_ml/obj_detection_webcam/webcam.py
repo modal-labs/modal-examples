@@ -1,7 +1,6 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/obj_detection_webcam/webcam.py"]
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Real-time object detection via webcam
@@ -12,12 +11,12 @@
 # The Modal web endpoint in turn calls a Modal function that runs the actual model.
 
 # If you run this, it will look something like this:
-#
+
 # ![webcam](./webcam.png)
 
 # ## Live demo
 
-# [Take a look at the deployed app](https://modal-labs--example-webcam-object-detection-fastapi-app.modal.run/).
+# [Take a look at the deployed app](https://modal-labs-examples--example-webcam-object-detection.modal.run/).
 
 # A couple of caveats:
 # * This is not optimized for latency: every prediction takes about 1s, and
@@ -42,15 +41,14 @@ import modal
 # and a system font for drawing.
 
 # This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# once at image build time using the `@build` hook and saved into the image. 'Baking'
-# models into the `modal.Image` at build time provided the fastest cold start.
+# once at image build time using the `@build` hook and saved into the image.
 
 model_repo_id = "facebook/detr-resnet-50"
 
 
 app = modal.App("example-webcam-object-detection")
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install(
         "huggingface-hub==0.16.4",
         "Pillow",
@@ -173,7 +171,7 @@ static_path = Path(__file__).with_name("webcam").resolve()
     image=modal.Image.debian_slim().pip_install("fastapi[standard]"),
     mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
 )
-@modal.asgi_app()
+@modal.asgi_app(label="example-webcam-object-detection")
 def fastapi_app():
     from fastapi import FastAPI, Request, Response
     from fastapi.staticfiles import StaticFiles

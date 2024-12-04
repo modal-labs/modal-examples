@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Build your own data warehouse with DuckDB, DBT, and Modal
@@ -258,9 +257,9 @@ def serve_dbt_docs():
 # ```
 
 # If you navigate to the output URL, you should see something like
-# [![example dbt docs](./dbt_docs.png)](https://modal-labs--example-dbt-duckdb-s3-serve-dbt-docs.modal.run)
+# [![example dbt docs](./dbt_docs.png)](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run)
 
-# You can also check out our instance of the docs [here](https://modal-labs--example-dbt-duckdb-s3-serve-dbt-docs.modal.run).
+# You can also check out our instance of the docs [here](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run).
 # The app will be served "serverlessly" -- it will automatically scale up or down
 # during periods of increased or decreased usage, and you won't be charged at all
 # when it has scaled to zero.

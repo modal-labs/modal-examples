@@ -1,7 +1,3 @@
-# ---
-# env: {"MODAL_ENVIRONMENT": "main"}
-# ---
-
 import os
 from datetime import datetime
 from pathlib import Path
@@ -10,9 +6,10 @@ import modal
 
 if modal.is_local():
     workspace = modal.config._profile
-    environment = os.environ["MODAL_ENVIRONMENT"]
+    environment = modal.config.config["environment"]
 else:
     workspace = os.environ["MODAL_WORKSPACE"]
+    environment = os.environ["MODAL_ENVIRONMENT"]
 
 
 image = (
