@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/instructor_generate"
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Structured Data Extraction using `instructor`
@@ -46,7 +45,7 @@ app = modal.App(
     image=image,
     secrets=[
         modal.Secret.from_name(
-            "my-anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
+            "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
         )
     ],
 )

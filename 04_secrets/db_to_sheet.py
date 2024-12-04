@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Write to Google Sheets from Postgres
@@ -21,7 +20,7 @@
 
 # First we will enter our database credentials. The easiest way to do this is to click **New
 # secret** and select the **Postgres compatible** Secret preset and fill in the requested
-# information. Then we press **Next** and name our Secret `example-postgres-secret` and click **Create**.
+# information. Then we press **Next** and name our Secret `postgres-secret` and click **Create**.
 
 # ### Google Sheets/GCP
 
@@ -52,7 +51,7 @@
 # 8. A json key file should be downloaded to your computer at this point. Copy the contents of that
 #    file and use it as the value for the `SERVICE_ACCOUNT_JSON` field in your new secret.
 
-# We'll name this other Secret `"my-gsheets-secret"`.
+# We'll name this other Secret `"gsheets-secret"`.
 
 # Now you can access the values of your Secrets from Modal Functions that you annotate with the
 # corresponding `modal.Secret`s, e.g.:
@@ -64,7 +63,7 @@ import modal
 app = modal.App("example-db-to-sheet")
 
 
-@app.function(secrets=[modal.Secret.from_name("example-postgres-secret")])
+@app.function(secrets=[modal.Secret.from_name("postgres-secret")])
 def show_host():
     # automatically filled from the specified secret
     print("Host is " + os.environ["PGHOST"])
@@ -76,7 +75,7 @@ def show_host():
 # You can additionally specify
 
 pg_secret = modal.Secret.from_name(
-    "example-postgres-secret",
+    "postgres-secret",
     required_keys=["PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"],
 )
 
@@ -225,7 +224,7 @@ pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     image=pygsheets_image,
     secrets=[
         modal.Secret.from_name(
-            "my-gsheets-secret", required_keys=["SERVICE_ACCOUNT_JSON"]
+            "gsheets-secret", required_keys=["SERVICE_ACCOUNT_JSON"]
         )
     ],
 )

@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Build your own data warehouse with DuckDB, DBT, and Modal

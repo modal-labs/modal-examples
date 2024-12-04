@@ -1,7 +1,6 @@
 # ---
 # deploy: true
 # lambda-test: false
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 #
 # This scripts demonstrates how to ingest the famous ImageNet (https://www.image-net.org/)

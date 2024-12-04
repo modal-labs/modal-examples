@@ -1,7 +1,6 @@
 # ---
 # pytest: false
 # cmd: ["modal", "serve", "13_sandboxes.codelangchain.langserve"]
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Deploy LangChain and LangGraph applications with LangServe
@@ -33,7 +32,7 @@ image = image.pip_install("langserve[all]==0.3.0")
             "openai-secret", required_keys=["OPENAI_API_KEY"]
         ),
         modal.Secret.from_name(
-            "my-langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]
+            "langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]
         ),
     ],
 )
