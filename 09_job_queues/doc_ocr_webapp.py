@@ -109,7 +109,7 @@ def wrapper():
 # ```
 
 # Modal watches all the mounted files and updates the app if anything changes.
-# See [these docs](https://modal.com/docs/guide/mounting#automount)
+# See [these docs](https://modal.com/docs/guide/webhooks#developing-with-modal-serve)
 # for more details.
 
 # ## Deploy
