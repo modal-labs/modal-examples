@@ -3,10 +3,12 @@
 # For PDB file formatting and conventions refer to:
 # https://www.biostat.jhsph.edu/~iruczins/teaching/260.655/links/pdbformat.pdf
 
-import py3Dmol
+
+from dataclasses import dataclass
 import logging as L
 import numpy as np
-from dataclasses import dataclass
+import py3Dmol
+
 
 @dataclass
 class pLDDTBands:
@@ -15,7 +17,7 @@ class pLDDTBands:
     name: str
     color: str
 
-class py3DMolViewWrapper(object):
+class py3DMolViewWrapper:
     def __init__(self):
         # Color & Ranges AlphaFold colab
         self.pLDDT_bands = [
@@ -34,7 +36,7 @@ class py3DMolViewWrapper(object):
             'a' : magenta_hex,  # Alpha Helix
             'b': gold_hex,      # Beta Sheet
             'c': white_hex,     # Coil
-            '': black_hex}      # Loop?
+            '': black_hex}      # Loop
 
     #################################
     ### Secondary Structures Plot ###
@@ -64,13 +66,8 @@ class py3DMolViewWrapper(object):
         view = py3Dmol.view(width=width, height=height)
         view.addModel(pdb_string, "pdb")
 
-        lowest_residue_id = self.setup_secondary_structures_plot(
-            pdb_string, residue_id_to_sse)
-
         color_map = {rid : self.secondary_structure_to_color[sse]
             for rid, sse in residue_id_to_sse.items()}
-        print (lowest_residue_id)
-        print (color_map)
 
         view.setStyle(
             {"cartoon":
@@ -78,7 +75,6 @@ class py3DMolViewWrapper(object):
                     {"prop": "resi", # refers to residual index in pdb_string
                      "map": color_map}}})
         view.zoomTo()
-        # TODO: pdb_string sometimes creates invalid HTML (missing ')')
         return view._make_html()
 
     ###############################
@@ -134,7 +130,6 @@ class py3DMolViewWrapper(object):
         assert num_residues == len(residue_pLDDTs), (
             f"{num_residues} != {len(residue_pLDDTs)}")
 
-
         new_pdb_string = '\n'.join(new_lines)
         return new_pdb_string
 
@@ -155,5 +150,4 @@ class py3DMolViewWrapper(object):
                      'map': color_map}}})
 
         view.zoomTo()
-        # TODO: pdb_string sometimes creates invalid HTML (missing ')')
         return view._make_html()
