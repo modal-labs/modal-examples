@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # tags: ["use-case-lm-inference", "use-case-image-video-3d"]
 # ---
 # # Run LLaVA-Next on SGLang for Visual QA

@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # cmd: ["modal", "serve", "07_web_endpoints/count_faces.py"]
 # ---
 

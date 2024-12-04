@@ -1,7 +1,3 @@
-# ---
-# deploy: true
-# ---
-
 # # Chat with PDF: RAG with ColQwen2
 
 # In this example, we demonstrate how to use the the [ColQwen2](https://huggingface.co/vidore/colqwen2-v0.1) model to build a simple

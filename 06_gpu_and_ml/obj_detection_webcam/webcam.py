@@ -16,7 +16,7 @@
 #
 # ## Live demo
 #
-# [Take a look at the deployed app](https://modal-labs-example-webcam-object-detection-fastapi-app.modal.run/).
+# [Take a look at the deployed app](https://modal-labs--example-webcam-object-detection-fastapi-app.modal.run/).
 #
 # A couple of caveats:
 # * This is not optimized for latency: every prediction takes about 1s, and

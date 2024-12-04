@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # tags: ["use-case-lm-inference"]
 # ---
 
