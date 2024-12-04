@@ -1,3 +1,7 @@
+# ---
+# env: {"MODAL_ENVIRONMENT": "main"}
+# ---
+
 # # LLM inference within your data warehouse using dbt python models
 #
 # In this example we demonstrate how you could combine [dbt's python models](https://docs.getdbt.com/docs/build/python-models)

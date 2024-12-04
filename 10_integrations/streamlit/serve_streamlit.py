@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # cmd: ["modal", "serve", "10_integrations/streamlit/serve_streamlit.py"]
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 #
 # # Run and share Streamlit apps

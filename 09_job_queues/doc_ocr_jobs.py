@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Document OCR job queue
