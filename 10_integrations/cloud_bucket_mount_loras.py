@@ -1,7 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3
@@ -17,7 +16,7 @@
 
 # By the end of this example, we've deployed a "playground" app where anyone with a browser can try
 # out these custom models. That's the power of Modal: custom, autoscaling AI applications, deployed in seconds.
-# You can try out our deployment [here](https://modal-labs--loras-galore-ui.modal.run).
+# You can try out our deployment [here](https://modal-labs-examples--loras-galore-ui.modal.run).
 
 # ## Basic setup
 
@@ -86,7 +85,7 @@ app = modal.App(
 # We went with 800 MiB, but feel free to adapt to what works best for you.
 
 
-@app.function()
+@app.function(secrets=[bucket_secret])
 def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
     api = huggingface_hub.HfApi()
 

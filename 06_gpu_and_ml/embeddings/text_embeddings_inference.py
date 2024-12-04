@@ -1,6 +1,5 @@
 # ---
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/text_embeddings_inference.py::embed_dataset"]
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Run TextEmbeddingsInference (TEI) on Modal
@@ -118,7 +117,7 @@ def download_data():
         "bigquery-public-data.hacker_news.full",
         max_results=100_000,
     )
-    df = iterator.to_dataframe(progress_bar_type="tqdm")
+    df = iterator.to_dataframe(progress_bar_type="tqdm").dropna()
 
     df["id"] = df["id"].astype(int)
     df["text"] = df["text"].apply(lambda x: x[:512])

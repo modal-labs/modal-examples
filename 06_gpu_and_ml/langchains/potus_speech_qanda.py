@@ -1,6 +1,5 @@
 # ---
 # args: ["--query", "How many oil barrels were released from reserves?"]
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Retrieval-augmented generation (RAG) for question-answering with LangChain

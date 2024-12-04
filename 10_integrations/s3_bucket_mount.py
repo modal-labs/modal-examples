@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/s3_bucket_mount"
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Analyze NYC yellow taxi data with DuckDB on Parquet files from S3
