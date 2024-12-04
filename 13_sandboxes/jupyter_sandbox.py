@@ -1,6 +1,5 @@
 # ---
 # cmd: ["python", "13_sandboxes/jupyter_sandbox.py"]
-# tags: ["use-case-sandboxed-code-execution"]
 # pytest: false
 # ---
 

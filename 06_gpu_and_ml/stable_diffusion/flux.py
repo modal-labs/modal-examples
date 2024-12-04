@@ -1,7 +1,6 @@
 # ---
 # output-directory: "/tmp/flux"
 # args: ["--no-compile"]
-# tags: ["use-case-image-video-3d", "featured"]
 # ---
 
 # # Run Flux fast on H100s with `torch.compile`

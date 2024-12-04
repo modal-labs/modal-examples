@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
-# tags: ["use-case-image-video-3d"]
 # ---
 
 # # Transform images with SDXL Turbo

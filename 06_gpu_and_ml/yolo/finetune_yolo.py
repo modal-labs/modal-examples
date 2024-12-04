@@ -1,6 +1,5 @@
 # ---
 # args: ["--no-quick-check"]
-# tags: ["use-case-image-video-3d", "use-case-finetuning"]
 # ---
 # # Fine-tune open source YOLO models for object detection
 #
