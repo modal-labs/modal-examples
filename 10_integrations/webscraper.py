@@ -1,7 +1,3 @@
-# ---
-# runtimes: ["runc", "gvisor"]
-# ---
-
 # # Web Scraping on Modal
 
 # This example shows how you can scrape links from a website and post them to a Slack channel using Modal.
@@ -49,7 +45,11 @@ slack_sdk_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 
 @app.function(
     image=slack_sdk_image,
-    secrets=[modal.Secret.from_name("scraper-slack-secret")],
+    secrets=[
+        modal.Secret.from_name(
+            "scraper-slack-secret", required_keys=["SLACK_BOT_TOKEN"]
+        )
+    ],
 )
 def bot_token_msg(channel, message):
     import slack_sdk

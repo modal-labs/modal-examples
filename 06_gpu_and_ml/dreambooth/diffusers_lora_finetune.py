@@ -134,7 +134,9 @@ MODEL_DIR = "/model"
 # After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
 # with the name `huggingface` following the instructions in the template.
 
-huggingface_secret = modal.Secret.from_name("huggingface")
+huggingface_secret = modal.Secret.from_name(
+    "huggingface", required_keys=["HF_TOKEN"]
+)
 
 image = image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
@@ -268,12 +270,16 @@ class TrainConfig(SharedConfig):
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
-    secrets=[
-        modal.Secret.from_name("my-wandb-secret"),
-        modal.Secret.from_name("huggingface"),
-    ]
-    if USE_WANDB
-    else [modal.Secret.from_name("huggingface")],
+    secrets=[huggingface_secret]
+    + (
+        [
+            modal.Secret.from_name(
+                "my-wandb-secret", required_keys=["WANDB_API_KEY"]
+            )
+        ]
+        if USE_WANDB
+        else []
+    ),
 )
 def train(instance_example_urls, config):
     import subprocess

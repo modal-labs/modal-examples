@@ -87,7 +87,13 @@ class DatasetConfig:
         return f"{self.workspace_id}/{self.project_id}/{self.version}"
 
 
-@app.function(secrets=[modal.Secret.from_name("roboflow-api-key")])
+@app.function(
+    secrets=[
+        modal.Secret.from_name(
+            "roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"]
+        )
+    ]
+)
 def download_dataset(config: DatasetConfig):
     import os
 

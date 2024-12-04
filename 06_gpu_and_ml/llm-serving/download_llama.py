@@ -27,7 +27,10 @@ HOURS = 60 * MINUTES
 
 
 app = modal.App(
-    image=image, secrets=[modal.Secret.from_name("huggingface-secret")]
+    image=image,
+    secrets=[
+        modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
+    ],
 )
 
 

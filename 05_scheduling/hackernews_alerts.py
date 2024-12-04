@@ -35,7 +35,12 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 
 @app.function(
-    image=slack_sdk_image, secrets=[modal.Secret.from_name("hn-bot-slack")]
+    image=slack_sdk_image,
+    secrets=[
+        modal.Secret.from_name(
+            "hn-bot-slack", required_keys=["SLACK_BOT_TOKEN"]
+        )
+    ],
 )
 async def post_to_slack(message: str):
     import slack_sdk
