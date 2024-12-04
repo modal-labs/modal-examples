@@ -1,6 +1,5 @@
 # ---
 # args: ["--force-download"]
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 import modal
@@ -30,9 +29,9 @@ HOURS = 60 * MINUTES
 
 app = modal.App(
     image=image,
-    secrets=[
-        modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
-    ],
+    # secrets=[  # add a Hugging Face Secret if you need to download a gated model
+    #     modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
+    # ],
 )
 
 
