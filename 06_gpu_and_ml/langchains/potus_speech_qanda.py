@@ -1,6 +1,5 @@
 # ---
 # args: ["--query", "How many oil barrels were released from reserves?"]
-# deploy: true
 # env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
@@ -232,7 +231,7 @@ def cli(query: str, show_sources: bool = False):
 # ```bash
 # curl --get \
 #   --data-urlencode "query=What did the president say about Justice Breyer" \
-#   https://modal-labs--example-langchain-qanda-web.modal.run
+#   https://modal-labs--example-langchain-qanda-web.modal.run # your URL here
 # ```
 
 # ```json

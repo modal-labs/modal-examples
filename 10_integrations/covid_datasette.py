@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Publish interactive datasets with Datasette
@@ -9,7 +8,7 @@
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is COVID-19 case data from Johns Hopkins University which is refreshed daily.
-# Try it out for yourself [here](https://modal-labs--example-covid-datasette-ui.modal.run).
+# Try it out for yourself [here](https://modal-labs-examples--example-covid-datasette-ui.modal.run).
 
 # Some Modal features it uses:
 

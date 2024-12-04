@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 
 # # Document OCR job queue
@@ -15,7 +14,7 @@
 # Our job queue will handle a single task: running OCR transcription for images.
 # We'll make use of a pre-trained Document Understanding model using the
 # [`donut`](https://github.com/clovaai/donut) package. Try
-# it out for yourself [here](https://modal-labs--example-doc-ocr-webapp-wrapper.modal.run/).
+# it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
 # ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
 
