@@ -19,7 +19,7 @@
 # In this guide, we will show how you can use Outlines to enforce a JSON schema on the output of Mistral-7B.
 
 # ## Build image
-#
+
 #  First, you'll want to build an image and install the relevant Python dependencies:
 # `outlines` and a Hugging Face inference stack.
 
@@ -37,7 +37,7 @@ outlines_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 
 # ## Download the model
-#
+
 # Next, we download the Mistral 7B model from Hugging Face.
 # We do this as part of the definition of our Modal Image so that
 # we don't need to download it every time our inference function is run.
