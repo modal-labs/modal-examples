@@ -40,9 +40,9 @@
 # ## Basic Setup
 
 import logging as L
-import modal
 from pathlib import Path
-import time
+
+import modal
 
 MINUTES = 60  # seconds
 
@@ -105,21 +105,22 @@ web_app_image = (
 
 
 with esm3_image.imports():
+    import torch
     from esm.models.esm3 import ESM3
     from esm.sdk.api import ESM3InferenceClient, ESMProtein, GenerationConfig
-    import torch
 
 
 with web_app_image.imports():
-    from py3DmolWrapper import py3DMolViewWrapper
-
     import os
 
     import biotite.database.rcsb as rcsb
     import biotite.structure as b_structure
     import biotite.structure.io.pdbx as pdbx
     from biotite.structure.io.pdbx import CIFFile
+
     from esm.sdk.api import ESMProtein
+
+    from py3DmolWrapper import py3DMolViewWrapper
 
 # ## Defining a `Model` inference class for ESM3
 
@@ -209,10 +210,9 @@ assets_path = Path(__file__).parent / "assets"
 )
 @modal.asgi_app()
 def protein_fold_fastapi_app():
+    import gradio as gr
     from fastapi import FastAPI
     from fastapi.responses import FileResponse
-
-    import gradio as gr
     from gradio.routes import mount_gradio_app
 
     width, height = 400, 400

@@ -4,8 +4,9 @@
 # https://www.biostat.jhsph.edu/~iruczins/teaching/260.655/links/pdbformat.pdf
 
 
-from dataclasses import dataclass
 import logging as L
+from dataclasses import dataclass
+
 import numpy as np
 import py3Dmol
 
