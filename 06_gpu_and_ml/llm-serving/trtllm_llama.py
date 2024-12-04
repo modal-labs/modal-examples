@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# tags: ["use-case-lm-inference"]
 # ---
 
 # # Serverless TensorRT-LLM (LLaMA 3 8B)

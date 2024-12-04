@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# tags: ["use-case-image-video-3d", "use-case-finetuning", "featured"]
 # ---
 
 # # Create a character LoRA for Flux with Hugging Face and Gradio

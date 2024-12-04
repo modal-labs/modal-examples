@@ -1,6 +1,3 @@
-# ---
-# tags: ["use-case-lm-inference"]
-# ---
 # # Enforcing JSON outputs on LLMs
 
 # [Outlines](https://github.com/outlines-dev/outlines) is a tool that lets you control the generation of language models to make their output more predictable.

@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/instructor_generate"
-# tags: ["use-case-lm-inference"]
 # ---
 
 # # Structured Data Extraction using `instructor`

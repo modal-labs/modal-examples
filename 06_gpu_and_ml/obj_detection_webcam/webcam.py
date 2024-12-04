@@ -1,7 +1,6 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/obj_detection_webcam/webcam.py"]
 # deploy: true
-# tags: ["use-case-image-video-3d", "featured"]
 # ---
 # # Real-time object detection via webcam
 #

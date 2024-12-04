@@ -1,7 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
 # deploy: true
-# tags: ["use-case-image-video-3d"]
 # ---
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3
 #

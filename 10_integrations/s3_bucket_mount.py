@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/s3_bucket_mount"
-# tags: ["use-case-job-queues-batch", "featured"]
 # ---
 # # Analyze NYC yellow taxi data with DuckDB on Parquet files from S3
 #

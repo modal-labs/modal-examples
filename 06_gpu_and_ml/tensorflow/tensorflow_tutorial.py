@@ -1,7 +1,5 @@
 # ---
 # args: ["--just-run"]
-# runtimes: ["runc", "gvisor"]
-# tags: ["use-case-image-video-3d"]
 # ---
 # # TensorFlow tutorial
 #

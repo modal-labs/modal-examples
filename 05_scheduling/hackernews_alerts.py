@@ -1,6 +1,5 @@
 # ---
 # lambda-test: false
-# tags: ["featured"]
 # ---
 # # Run cron jobs in the cloud to search Hacker News
 

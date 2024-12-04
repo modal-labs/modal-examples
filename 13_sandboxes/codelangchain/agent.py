@@ -1,6 +1,5 @@
 # ---
 # cmd: ["modal", "run", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
-# tags: ["featured", "use-case-sandboxed-code-execution"]
 # pytest: false
 # env: {"MODAL_AUTOMOUNT": "True"}
 # ---

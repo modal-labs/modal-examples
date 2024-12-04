@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/render"
-# tags: ["use-case-image-video-3d"]
 # ---
 # # Render a video with Blender on many GPUs or CPUs in parallel
 #

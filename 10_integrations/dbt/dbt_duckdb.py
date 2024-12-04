@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# tags: ["use-case-job-queues-batch"]
 # ---
 # # Build your own data warehouse with DuckDB, DBT, and Modal
 #

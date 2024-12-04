@@ -1,6 +1,5 @@
 # ---
 # cmd: ["python", "13_sandboxes/safe_code_execution.py"]
-# tags: ["use-case-sandboxed-code-execution"]
 # pytest: false
 # ---
 

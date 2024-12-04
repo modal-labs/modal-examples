@@ -1,7 +1,6 @@
 # ---
 # deploy: true
 # args: ["--query", "How many oil barrels were released from reserves?"]
-# tags: ["featured"]
 # ---
 
 # # Retrieval-augmented generation (RAG) for question-answering with LangChain

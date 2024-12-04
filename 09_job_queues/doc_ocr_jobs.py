@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# tags: ["use-case-image-video-3d", "use-case-job-queues-batch", "featured"]
 # ---
 #
 # # Document OCR job queue
