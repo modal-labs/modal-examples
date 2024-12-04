@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 # Wrapper class for py3DMol package to make coloring easier
 
 # For PDB file formatting and conventions refer to:
