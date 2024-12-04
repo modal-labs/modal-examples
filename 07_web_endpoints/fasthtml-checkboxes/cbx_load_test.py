@@ -10,6 +10,7 @@ import modal
 
 if modal.is_local():
     workspace = modal.config._profile
+    environment = os.environ["MODAL_ENVIRONMENT"]
 else:
     workspace = os.environ["MODAL_WORKSPACE"]
 
@@ -17,7 +18,7 @@ else:
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("locust~=2.29.1", "beautifulsoup4~=4.12.3", "lxml~=5.3.0")
-    .env({"MODAL_WORKSPACE": workspace})
+    .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .copy_local_file(
         Path(__file__).parent / "cbx_locustfile.py",
         remote_path="/root/locustfile.py",
@@ -38,7 +39,7 @@ OUT_DIRECTORY = (
 app = modal.App("loadtest-checkbox", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = f"https://{workspace}--example-checkboxes-web.modal.run"
+host = f"https://{workspace}{'-' + environment if environment else ''}--example-checkboxes-web.modal.run"
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",
