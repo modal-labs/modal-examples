@@ -82,5 +82,5 @@ def run():
 # modal deploy serve_streamlit.py
 # ```
 #
-# If successful, this will print a URL for your app, that you can navigate to from
+# If successful, this will print a URL for your app that you can navigate to from
 # your browser 🎉 .

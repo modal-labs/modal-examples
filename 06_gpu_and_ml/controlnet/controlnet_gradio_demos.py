@@ -1,6 +1,5 @@
 # ---
 # cmd: ["modal", "serve", "06_gpu_and_ml/controlnet/controlnet_gradio_demos.py"]
-# deploy: false
 # tags: ["use-case-image-video-3d", "featured"]
 # ---
 #
