@@ -39,7 +39,7 @@ def deploy(
             shlex.split(deploy_command),
             cwd=module_with_app.parent,
             capture_output=True,
-            env=(env or {}) | os.environ,
+            env=os.environ | (env or {}),
         )
         if r.returncode != 0:
             print(
