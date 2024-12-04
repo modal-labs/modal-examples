@@ -81,9 +81,12 @@ dbt_target = modal.Volume.from_name("dbt-target-vol", create_if_missing=True)
 
 # We'll also need to authenticate with AWS to store data in S3.
 
-s3_secret = modal.Secret.from_name("modal-examples-aws-user")
+s3_secret = modal.Secret.from_name(
+    "modal-examples-aws-user",
+    required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"],
+)
 
-# Create this Secret using the "AWS" template at https://modal.com/secrets/create.
+# Create this Secret using the "AWS" template from the [Secrets dashboard](https://modal.com/secrets).
 # Below we will use the provided credentials in a Modal Function to create an S3 bucket and
 # populate it with `.parquet` data, so be sure to provide credentials for a user
 # with permission to create S3 buckets and read & write data from them.

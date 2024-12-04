@@ -35,7 +35,10 @@ import modal
 # click on the AWS card, then fill in the fields with the AWS key and secret created
 # previously. Name the Secret `s3-bucket-secret`.
 
-bucket_secret = modal.Secret.from_name("s3-bucket-secret")
+bucket_secret = modal.Secret.from_name(
+    "s3-bucket-secret",
+    required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+)
 
 MOUNT_PATH: Path = Path("/mnt/bucket")
 LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
