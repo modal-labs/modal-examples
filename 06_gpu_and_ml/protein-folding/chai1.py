@@ -66,6 +66,7 @@ def main(
 ):
     print("🧬 checking inference dependencies")
     download_inference_dependencies.remote(force=force_redownload)
+
     if fasta_file is None:
         fasta_file = here / "data" / "chai1_default_input.fasta"
     print(f"🧬 running Chai inference on {fasta_file}")
@@ -79,6 +80,7 @@ def main(
     if run_id is None:
         run_id = hashlib.sha256(uuid4().bytes).hexdigest()[:8]  # short id
     print(f"🧬 running inference with {run_id=}")
+
     results = chai1_inference.remote(fasta_content, inference_config, run_id)
 
     if output_dir is None:
@@ -129,7 +131,7 @@ chai_model_volume = (
 models_dir = Path("/models/chai1")
 
 # The details of how we handle the download here (e.g. running concurrently for extra speed)
-# are in the [Addenda](#Addenda).
+# are in the [Addenda](#addenda).
 
 image = image.env(  # update the environment variables in the image to...
     {
