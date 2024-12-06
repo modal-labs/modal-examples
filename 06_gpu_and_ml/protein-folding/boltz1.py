@@ -202,9 +202,9 @@ def find_msas(boltz_yaml_path: Path) -> list[MSA]:
     """Finds the MSA data in a YAML file in the Boltz input format.
 
     See https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md for details."""
-    from ruamel.yaml import YAML
+    import yaml
 
-    data = YAML(typ="safe").load(boltz_yaml_path)
+    data = yaml.safe_load(boltz_yaml_path.read_text())
     data_dir = boltz_yaml_path.parent
 
     sequences = data["sequences"]
