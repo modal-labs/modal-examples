@@ -1,11 +1,14 @@
 # # Fold proteins with Boltz-1
 
-# Boltz-1 is a fully open source (that means training code too!) protein folding
-# model that matches the SOTA performance of closed source models like AlphaFold3. It was
-# created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-1/), which
-# is a research center focused on applying AI to solve big problems in healthcare.
+# Boltz-1 is an open source molecular structure prediction model that matches the performance of closed source models like AlphaFold 3.
+# It was created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-1/).
+# For details, see [their technical report](https://gcorso.github.io/assets/boltz1.pdf).
+
+# Here, we demonstrate how to run Boltz-1 on Modal.
 
 # ## Setup
+
+from dataclasses import dataclass
 from pathlib import Path
 
 import modal
@@ -26,10 +29,17 @@ app = modal.App(name="example-boltz1-inference")
 # ```
 
 # This will set up the environment for running Boltz-1 inference in Modal's cloud,
-# run it, and then save the results locally. The results are returned
-# are a tarball of many files including a
+# run it, and then save the results locally as a [tarball](https://computing.help.inf.ed.ac.uk/FAQ/whats-tarball-or-how-do-i-unpack-or-create-tgz-or-targz-file).
+# That tarball archive contains, among other things, the predicted structure as a
 # [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File),
-# which you can render with the online [Molstar Viewer](https://molstar.org/).
+# which you can render with the online [Molstar Viewer](https://molstar.org/viewer).
+
+# You can pass any options for the [`boltz predict` command line tool](https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md)
+# as a string, like
+
+# ``` shell
+# modal run boltz1 --args "--sampling_steps 10"
+# ```
 
 # To see more options, run the command with the `--help` flag.
 
@@ -38,24 +48,24 @@ app = modal.App(name="example-boltz1-inference")
 
 @app.local_entrypoint()
 def main(
-    force_redownload: bool = False,
+    force_download: bool = False, input_yaml_path: str = None, args: str = ""
 ):
-    print("checking inference dependencies")
-    download_inference_dependencies.remote(force=force_redownload)
+    print("🧬 loading model remotely")
+    download_model.remote(force_download)
 
-    msa_path = here / "data" / "boltz1_seq1.a3m"
-    msadata = open(msa_path).read()
+    if input_yaml_path is None:
+        input_yaml_path = here / "data" / "boltz1_ligand.yaml"
+    input_yaml = input_yaml_path.read_text()
 
-    ligand_path = here / "data" / "boltz1_ligand.yaml"
-    ligandyaml = open(ligand_path).read()
+    msas = find_msas(input_yaml_path)
 
-    print(f"running boltz with\n\tLigand: {ligand_path}\n\tMSA: {msa_path}")
-    output = boltz1_inference.remote(msadata, ligandyaml)
+    print(f"🧬 running boltz with input from {input_yaml_path}")
+    output = boltz1_inference.remote(input_yaml, msas)
 
-    output_path = here / "data" / "boltz1_result.tar.gz"
-    print(f"locally writing output tar to {output_path}")
-    with open(output_path, "wb") as f:
-        f.write(output)
+    output_path = Path("/tmp") / "boltz1" / "boltz1_result.tar.gz"
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+    print(f"🧬 writing output to {output_path}")
+    output_path.write_bytes(output)
 
 
 # ## Installing Boltz-1 Python dependencies on Modal
@@ -68,18 +78,9 @@ def main(
 
 # Here, we do it in a few lines, using the `uv` package manager for extra speed.
 
-image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .run_commands(
-        "uv pip install --system --compile-bytecode boltz==0.3.2 hf_transfer==0.1.8"
-    )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+image = modal.Image.debian_slim(python_version="3.12").run_commands(
+    "uv pip install --system --compile-bytecode boltz==0.3.2"
 )
-
-# We also add `os` to the image imports for running the `boltz` binary.
-
-with image.imports():
-    import os
 
 # ## Storing Boltz-1 model weights on Modal with Volumes
 
@@ -91,6 +92,7 @@ with image.imports():
 # we load them onto a [Modal Volume](https://modal.com/docs/guide/volumes).
 # A Modal Volume is a file system that all of your code running on Modal (or elsewhere!) can access.
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
+# For details on how we download the weights in this case, see the [Addenda](#addenda).
 
 boltz_model_volume = modal.Volume.from_name(
     "boltz1-models", create_if_missing=True
@@ -103,96 +105,131 @@ models_dir = Path("/models/boltz1")
 # We provide that decorator with some arguments that describe the infrastructure our code needs to run:
 # the Volume we created, the Image we defined, and of course a fast GPU!
 
-# Note that Boltz-1 takes a ligand yaml file path as input that includes
-# an amino acid sequence as well as a path to an MSA file. We create these
-# files paths in the function below so they can be picked up by the inference code.
+# Note that the `boltz` command-line tool we use takes the path to a
+# [specially-formatted YAML file](https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md)
+# that includes definitions of molecules to predict the structures of and optionally paths to
+# [Multiple Sequence Alignment](https://en.wikipedia.org/wiki/Multiple_sequence_alignment) (MSA) files
+# for any protein molecules. See the [Addenda](#addenda) for details.
 
 
 @app.function(
     image=image,
     volumes={models_dir: boltz_model_volume},
     timeout=10 * MINUTES,
-    gpu="A100",
+    gpu="H100",
 )
-def boltz1_inference(msadata, ligandyaml):
-    ligand_filename = "ligand.yaml"
-    temp_filename = "temp.tar.gz"
+def boltz1_inference(
+    boltz_input_yaml: str, msas: list["MSA"], args=""
+) -> bytes:
+    import shlex
+    import subprocess
 
-    Path("./seq1.a3m").write_text(msadata)
-    Path(f"./{ligand_filename}").write_text(ligandyaml)
+    input_path = Path("input.yaml")
+    input_path.write_text(boltz_input_yaml)
 
-    print(f"predicting using boltz model {models_dir}")
-    os.system(f"boltz predict {ligand_filename} --cache={models_dir}")
+    for msa in msas:
+        msa.path.write_text(msa.data)
 
-    print(f"creating tar file {temp_filename} of outputs")
-    os.system(f"tar czvf {temp_filename} boltz_results_ligand")
+    args = shlex.split(args)
 
-    print(f"converting {temp_filename} to bytes for returning")
-    output = open(f"./{temp_filename}", "rb").read()
-    return output
+    print(f"🧬 predicting structure using boltz model from {models_dir}")
+    subprocess.run(
+        ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
+        check=True,
+    )
+
+    print("🧬 packaging up outputs")
+    output_bytes = package_outputs(
+        f"boltz_results_{input_path.with_suffix('').name}"
+    )
+
+    return output_bytes
 
 
 # ## Addenda
 
 # Above, we glossed over just how we got hold of the model weights --
-# the `local_entrypoint` just called a function named `download_inference_dependencies`.
+# the `local_entrypoint` just called a function named `download_model`.
 
-# Here's that function's implementation.
+# Here's the implementation of that function. For details, see our
+# [guide to storing model weights on Modal](https://modal.com/docs/guide/model-weights).
 
-# A couple highlights:
-
-# - This Modal Function has a different Image and doesn't use a GPU. Modal helps you
-# separate the concerns, and the costs, of your infrastructure's components.
-
-# - We use the `async` keyword here so that we can run the download for each model file
-# as a separate task, concurrently. We don't need to worry about this use of `async`
-# spreading to the rest of our code -- Modal launches just this Function in an async runtime.
+download_image = (
+    modal.Image.debian_slim()
+    .pip_install("huggingface_hub[hf_transfer]==0.26.3")
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # and enable it
+)
 
 
 @app.function(
     volumes={models_dir: boltz_model_volume},
     timeout=20 * MINUTES,
-    image=modal.Image.debian_slim().pip_install("requests"),
+    image=download_image,
 )
-async def download_inference_dependencies(force=False):
-    import asyncio
+def download_model(
+    force_download: bool = False,
+    revision: str = "7c1d83b779e4c65ecc37dfdf0c6b2788076f31e1",
+):
+    from huggingface_hub import snapshot_download
 
-    import aiohttp
+    snapshot_download(
+        repo_id="boltz-community/boltz-1",
+        revision=revision,
+        local_dir=models_dir,
+        force_download=force_download,
+    )
+    boltz_model_volume.commit()
 
-    base_url = "https://huggingface.co/boltz-community/boltz-1/resolve/e01950840c2a2ec881695f26e994a73b417af0b2/"  # sic
-    inference_dependencies = [
-        "boltz1.ckpt",
-        "ccd.pkl",
-    ]
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-    }
-
-    # launch downloads concurrently
-    async with aiohttp.ClientSession(headers=headers) as session:
-        tasks = []
-        for dep in inference_dependencies:
-            if not force:
-                print(f"🧬 checking {dep}")
-            local_path = models_dir / dep
-            if force or not local_path.exists():
-                url = base_url + dep
-                print(f"🧬 downloading {dep}")
-                tasks.append(download_file(session, url, local_path))
-            else:
-                print("🧬 found, skipping")
-
-        # run all of the downloads and await their completion
-        await asyncio.gather(*tasks)
-
-    boltz_model_volume.commit()  # ensures models are visible on remote filesystem before exiting, otherwise takes a few seconds, racing with inference
+    print(f"🧬 model downloaded to {models_dir}")
 
 
-async def download_file(session, url: str, local_path: Path):
-    async with session.get(url) as response:
-        response.raise_for_status()
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(local_path, "wb") as f:
-            while chunk := await response.content.read(8192):
-                f.write(chunk)
+# Additionally, the YAML format accepted by the `boltz predict` command
+# includes the option to specify the sequence alignments for any input
+# `protein` via a path to an MSA file (in the "aligned-FASTA" format,
+# [`.a3m`](https://yanglab.qd.sdu.edu.cn/trRosetta/msa_format.html)).
+
+# To ensure these files are available to the Modal Function running remotely,
+# we parse the YAML file and extract the paths to and data from the MSA files.
+
+
+@dataclass
+class MSA:
+    data: str
+    path: Path
+
+
+def find_msas(boltz_yaml_path: Path) -> list[MSA]:
+    """Finds the MSA data in a YAML file in the Boltz input format.
+
+    See https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md for details."""
+    from ruamel.yaml import YAML
+
+    data = YAML(typ="safe").load(boltz_yaml_path)
+    data_dir = boltz_yaml_path.parent
+
+    sequences = data["sequences"]
+    msas = []
+    for sequence in sequences:
+        if protein := sequence.get("protein"):
+            if msa_path := protein.get("msa"):
+                if msa_path == "empty":  # special value
+                    continue
+                if not msa_path.startswith("."):
+                    raise ValueError(
+                        f"Must specify MSA paths relative to the input yaml path, but got {msa_path}"
+                    )
+                msa_data = (data_dir / Path(msa_path).name).read_text()
+                msas.append(MSA(msa_data, Path(msa_path)))
+    return msas
+
+
+def package_outputs(output_dir: str) -> bytes:
+    import io
+    import tarfile
+
+    tar_buffer = io.BytesIO()
+
+    with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+        tar.add(output_dir, arcname=output_dir)
+
+    return tar_buffer.getvalue()
