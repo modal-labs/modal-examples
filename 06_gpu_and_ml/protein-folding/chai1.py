@@ -232,7 +232,7 @@ def chai1_inference(
 # - This Modal Function can access the model weights Volume, like the inference Function,
 # but it can't access the model predictions Volume.
 
-# - This Modal Function has a different Image and doesn't use a GPU. Modal helps you
+# - This Modal Function has a different Image (the default!) and doesn't use a GPU. Modal helps you
 # separate the concerns, and the costs, of your infrastructure's components.
 
 # - We use the `async` keyword here so that we can run the download for each model file
@@ -240,10 +240,7 @@ def chai1_inference(
 # spreading to the rest of our code -- Modal launches just this Function in an async runtime.
 
 
-@app.function(
-    volumes={models_dir: chai_model_volume},
-    image=modal.Image.debian_slim().pip_install("requests"),
-)
+@app.function(volumes={models_dir: chai_model_volume})
 async def download_inference_dependencies(force=False):
     import asyncio
 
@@ -267,15 +264,11 @@ async def download_inference_dependencies(force=False):
     async with aiohttp.ClientSession(headers=headers) as session:
         tasks = []
         for dep in inference_dependencies:
-            if not force:
-                print(f"🧬 checking {dep}")
             local_path = models_dir / dep
             if force or not local_path.exists():
                 url = base_url + dep
                 print(f"🧬 downloading {dep}")
                 tasks.append(download_file(session, url, local_path))
-            else:
-                print("🧬 found, skipping")
 
         # run all of the downloads and await their completion
         await asyncio.gather(*tasks)
