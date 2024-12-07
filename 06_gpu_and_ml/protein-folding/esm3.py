@@ -1,9 +1,9 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/protein-folding/protein_fold.py"]
-# output-directory: "/tmp/protein-fold"
+# cmd: ["modal", "serve", "06_gpu_and_ml/protein-folding/esm3.py"]
+# output-directory: "/tmp/esm3"
 # ---
 
-# # Protein Fold sequences with ESM3
+# # Fold proteins with ESM3
 
 # If you haven't heard of [AlphaFold](https://deepmind.google/technologies/alphafold/)
 # or [ESM3](https://github.com/facebookresearch/esm), you've likely been living under a
@@ -190,13 +190,15 @@ class Model:
 # we will specifically create a Gradio web app that allows us to visualize
 # the 3D structure output of the ESM3 model as well as any known structures from
 # the RCSB Protein Data Bank. In addition, to understand the confidence level
-# of the ESM3 output, we'll include a visualization of the [pLDDT](https://www.ebi.ac.uk/training/online/courses/alphafold/inputs-and-outputs/evaluating-alphafolds-predicted-structures-using-confidence-scores/plddt-understanding-local-confidence/) (predicted Local Distance Difference Test) scores
+# of the ESM3 output, we'll include a visualization of the
+# [pLDDT](https://www.ebi.ac.uk/training/online/courses/alphafold/inputs-and-outputs/evaluating-alphafolds-predicted-structures-using-confidence-scores/plddt-understanding-local-confidence/)
+# (predicted Local Distance Difference Test) scores
 # for each residue (amino acid) in the folded protein structure.
 
 # You should see the URL for this UI in the output of `modal deploy`
 # or on your [Modal app dashboard](https://modal.com/apps) for this app.
 
-assets_path = Path(__file__).parent / "assets"
+assets_path = Path(__file__).parent / "frontend"
 
 
 @app.function(
