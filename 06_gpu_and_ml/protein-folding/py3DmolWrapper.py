@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false
+# pytest: false
 # ---
 # Wrapper class for py3DMol package to make coloring easier
 
@@ -21,15 +22,16 @@ class pLDDTBands:
     name: str
     color: str
 
+
 class py3DMolViewWrapper:
     def __init__(self):
         # Color & Ranges AlphaFold colab
         self.pLDDT_bands = [
-            pLDDTBands(0, 50, 'Very low', '#FF7D45'),
-            pLDDTBands(50, 70, 'Low', '#FFDB13'),
-            pLDDTBands(70, 90, 'Confident', '#65CBF3'),
-            pLDDTBands(90, 100, 'Very High', '#0053D6')
-            ]
+            pLDDTBands(0, 50, "Very low", "#FF7D45"),
+            pLDDTBands(50, 70, "Low", "#FFDB13"),
+            pLDDTBands(70, 90, "Confident", "#65CBF3"),
+            pLDDTBands(90, 100, "Very High", "#0053D6"),
+        ]
 
         # Colors from RCSB convention
         magenta_hex = "#ff00ff"
@@ -37,19 +39,19 @@ class py3DMolViewWrapper:
         white_hex = "#ffffff"
         black_hex = "#000000"
         self.secondary_structure_to_color = {
-            'a' : magenta_hex,  # Alpha Helix
-            'b': gold_hex,      # Beta Sheet
-            'c': white_hex,     # Coil
-            '': black_hex}      # Loop
+            "a": magenta_hex,  # Alpha Helix
+            "b": gold_hex,  # Beta Sheet
+            "c": white_hex,  # Coil
+            "": black_hex,
+        }  # Loop
 
     #################################
     ### Secondary Structures Plot ###
     #################################
-    def setup_secondary_structures_plot(self,
-            pdb_string, residue_id_to_sse):
+    def setup_secondary_structures_plot(self, pdb_string, residue_id_to_sse):
         residue_ids = set([])
-        for line in pdb_string.split('\n'):
-            if line.startswith('ATOM'):
+        for line in pdb_string.split("\n"):
+            if line.startswith("ATOM"):
                 residue_ids.add(int(line[22:26]))
 
         num_residues = len(residue_ids)
@@ -65,19 +67,27 @@ class py3DMolViewWrapper:
 
         return lowest_residue_id
 
-    def build_html_with_secondary_structure(self,
-            width, height, pdb_string, residue_id_to_sse):
+    def build_html_with_secondary_structure(
+        self, width, height, pdb_string, residue_id_to_sse
+    ):
         view = py3Dmol.view(width=width, height=height)
         view.addModel(pdb_string, "pdb")
 
-        color_map = {rid : self.secondary_structure_to_color[sse]
-            for rid, sse in residue_id_to_sse.items()}
+        color_map = {
+            rid: self.secondary_structure_to_color[sse]
+            for rid, sse in residue_id_to_sse.items()
+        }
 
         view.setStyle(
-            {"cartoon":
-                {"colorscheme":
-                    {"prop": "resi", # refers to residual index in pdb_string
-                     "map": color_map}}})
+            {
+                "cartoon": {
+                    "colorscheme": {
+                        "prop": "resi",  # refers to residual index in pdb_string
+                        "map": color_map,
+                    }
+                }
+            }
+        )
         view.zoomTo()
         return view._make_html()
 
@@ -87,12 +97,11 @@ class py3DMolViewWrapper:
     def pLDDT_to_band(self, pLDDT):
         for band_index in range(len(self.pLDDT_bands)):
             band = self.pLDDT_bands[band_index]
-            if (band.low <= pLDDT and pLDDT < band.high):
+            if band.low <= pLDDT and pLDDT < band.high:
                 return band_index
         raise Exception("Invalid pLDDT: {pLDDT}")
 
-    def setup_pLDDTs_plot(
-            self, pdb_string, residue_pLDDTs):
+    def setup_pLDDTs_plot(self, pdb_string, residue_pLDDTs):
         """Make a new pdb string with b_factors set to pLDDT band index.
 
         pdb_string: string
@@ -116,12 +125,12 @@ class py3DMolViewWrapper:
         # Copy the pdb but change the b_factors
         residue_ids = set([])
         new_lines = []
-        lines = pdb_string.split('\n')
+        lines = pdb_string.split("\n")
         for line in lines:
-            if line.startswith('ATOM'):
+            if line.startswith("ATOM"):
                 res_id = int(line[22:26])
                 residue_ids.add(res_id)
-                new_b_factor = f'{residue_pLDDT_bands[res_id-1]:6.2f}'
+                new_b_factor = f"{residue_pLDDT_bands[res_id-1]:6.2f}"
 
                 new_line = line[:60] + new_b_factor + line[66:]
                 new_lines.append(new_line)
@@ -131,10 +140,11 @@ class py3DMolViewWrapper:
         # Sanity checking
         assert len(new_lines) == len(lines)
         num_residues = len(residue_ids)
-        assert num_residues == len(residue_pLDDTs), (
-            f"{num_residues} != {len(residue_pLDDTs)}")
+        assert num_residues == len(
+            residue_pLDDTs
+        ), f"{num_residues} != {len(residue_pLDDTs)}"
 
-        new_pdb_string = '\n'.join(new_lines)
+        new_pdb_string = "\n".join(new_lines)
         return new_pdb_string
 
     def build_html_with_pLDDTs(self, width, height, pdb_string, residue_pLDDTs):
@@ -145,13 +155,19 @@ class py3DMolViewWrapper:
         view.addModel(new_pdb_string, "pdb")
 
         # Map each band to a color and color the plot.
-        color_map = {i : self.pLDDT_bands[i].color
-            for i in range(len(self.pLDDT_bands))}
+        color_map = {
+            i: self.pLDDT_bands[i].color for i in range(len(self.pLDDT_bands))
+        }
         view.setStyle(
-            {"cartoon":
-                {"colorscheme":
-                    {'prop': 'b', # refers to b_factor in pdb_string
-                     'map': color_map}}})
+            {
+                "cartoon": {
+                    "colorscheme": {
+                        "prop": "b",  # refers to b_factor in pdb_string
+                        "map": color_map,
+                    }
+                }
+            }
+        )
 
         view.zoomTo()
         return view._make_html()
