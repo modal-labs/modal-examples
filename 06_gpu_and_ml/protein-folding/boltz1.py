@@ -8,16 +8,11 @@
 
 # ## Setup
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import modal
 
-here = Path(__file__).parent  # the directory of this file
-
-MINUTES = 60  # seconds
-
-app = modal.App(name="example-boltz1-inference")
+app = modal.App(name="boltz")
 
 # ## Fold a protein from the command line
 
@@ -48,24 +43,23 @@ app = modal.App(name="example-boltz1-inference")
 
 @app.local_entrypoint()
 def main(
-    force_download: bool = False, input_yaml_path: str = None, args: str = ""
+    force_download: bool = False, input: str = None, args: str = ""
 ):
     print("🧬 loading model remotely")
     download_model.remote(force_download)
+    input1=Path(input).resolve()
+    if input is None:
+        print("Provide input yaml by --input")
+    input_yaml = input1.read_text()
 
-    if input_yaml_path is None:
-        input_yaml_path = here / "data" / "boltz1_ligand.yaml"
-    input_yaml = input_yaml_path.read_text()
-
-    msas = find_msas(input_yaml_path)
-
-    print(f"🧬 running boltz with input from {input_yaml_path}")
-    output = boltz1_inference.remote(input_yaml, msas)
-
-    output_path = Path("/tmp") / "boltz1" / "boltz1_result.tar.gz"
+    print(f"🧬 running boltz with input from {input}")
+    output=boltz1_inference.remote(input_yaml)
+    output_path = Path(f"boltz_{input1.stem}_result.zip")
     output_path.parent.mkdir(exist_ok=True, parents=True)
     print(f"🧬 writing output to {output_path}")
     output_path.write_bytes(output)
+    print("DONE! 🎉")
+
 
 
 # ## Installing Boltz-1 Python dependencies on Modal
@@ -78,8 +72,10 @@ def main(
 
 # Here, we do it in a few lines, using the `uv` package manager for extra speed.
 
-image = modal.Image.debian_slim(python_version="3.12").run_commands(
-    "uv pip install --system --compile-bytecode boltz==0.3.2"
+image =( 
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("uv")
+    .run_commands("uv pip install --system --compile-bytecode boltz==0.3.2")
 )
 
 # ## Storing Boltz-1 model weights on Modal with Volumes
@@ -115,33 +111,27 @@ models_dir = Path("/models/boltz1")
 @app.function(
     image=image,
     volumes={models_dir: boltz_model_volume},
-    timeout=10 * MINUTES,
-    gpu="H100",
+    gpu="L4",
+    timeout=86400
 )
 def boltz1_inference(
-    boltz_input_yaml: str, msas: list["MSA"], args=""
-) -> bytes:
+    boltz_input_yaml: str,args=""):
     import shlex
     import subprocess
 
     input_path = Path("input.yaml")
     input_path.write_text(boltz_input_yaml)
 
-    for msa in msas:
-        msa.path.write_text(msa.data)
 
     args = shlex.split(args)
 
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
-        ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
+        ["boltz", "predict", input_path, "--cache", str(models_dir),"--use_msa_server"] + args,
         check=True,
     )
-
     print("🧬 packaging up outputs")
-    output_bytes = package_outputs(
-        f"boltz_results_{input_path.with_suffix('').name}"
-    )
+    output_bytes = package_outputs(f"boltz_results_{input_path.with_suffix('').name}")
 
     return output_bytes
 
@@ -163,7 +153,6 @@ download_image = (
 
 @app.function(
     volumes={models_dir: boltz_model_volume},
-    timeout=20 * MINUTES,
     image=download_image,
 )
 def download_model(
@@ -191,45 +180,18 @@ def download_model(
 # To ensure these files are available to the Modal Function running remotely,
 # we parse the YAML file and extract the paths to and data from the MSA files.
 
-
-@dataclass
-class MSA:
-    data: str
-    path: Path
-
-
-def find_msas(boltz_yaml_path: Path) -> list[MSA]:
-    """Finds the MSA data in a YAML file in the Boltz input format.
-
-    See https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md for details."""
-    import yaml
-
-    data = yaml.safe_load(boltz_yaml_path.read_text())
-    data_dir = boltz_yaml_path.parent
-
-    sequences = data["sequences"]
-    msas = []
-    for sequence in sequences:
-        if protein := sequence.get("protein"):
-            if msa_path := protein.get("msa"):
-                if msa_path == "empty":  # special value
-                    continue
-                if not msa_path.startswith("."):
-                    raise ValueError(
-                        f"Must specify MSA paths relative to the input yaml path, but got {msa_path}"
-                    )
-                msa_data = (data_dir / Path(msa_path).name).read_text()
-                msas.append(MSA(msa_data, Path(msa_path)))
-    return msas
-
-
 def package_outputs(output_dir: str) -> bytes:
     import io
-    import tarfile
+    import os
+    import zipfile
 
-    tar_buffer = io.BytesIO()
+    zip_buffer = io.BytesIO()
 
-    with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
-        tar.add(output_dir, arcname=output_dir)
+    with zipfile.ZipFile(zip_buffer, mode="w") as zipf:
+        for root, _, files in os.walk(output_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, output_dir)
+                zipf.write(file_path, arcname=arcname)
 
-    return tar_buffer.getvalue()
+    return zip_buffer.getvalue()
