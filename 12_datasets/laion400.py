@@ -33,17 +33,21 @@ import modal
 bucket_creds = modal.Secret.from_name(
     "aws-s3-modal-examples-datasets", environment_name="main"
 )
+
 bucket_name = "modal-examples-datasets"
+
 volume = modal.CloudBucketMount(
     bucket_name,
     secret=bucket_creds,
 )
+
 image = (
     modal.Image.debian_slim()
     .apt_install("wget")
     .pip_install("img2dataset~=1.45.0")
 )
-app = modal.App("example-laoin400-dataset-import", image=image)
+
+app = modal.App("example-laion400-dataset-import", image=image)
 
 
 def start_monitoring_disk_space(interval: int = 30) -> None:

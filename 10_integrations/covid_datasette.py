@@ -1,23 +1,25 @@
 # ---
 # deploy: true
-# runtimes: ["runc", "gvisor"]
-# tags: ["use-case-job-queues-batch"]
 # ---
+
 # # Publish interactive datasets with Datasette
-#
+
 # ![Datasette user interface](./covid_datasette_ui.png)
-#
+
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is COVID-19 case data from Johns Hopkins University which is refreshed daily.
-# Try it out for yourself at [here](https://modal-labs--example-covid-datasette-ui.modal.run).
-#
+# Try it out for yourself [here](https://modal-labs-examples--example-covid-datasette-ui.modal.run).
+
 # Some Modal features it uses:
+
 # * Volumes: a persisted volume lets us store and grow the published dataset over time.
+
 # * Scheduled functions: the underlying dataset is refreshed daily, so we schedule a function to run daily.
+
 # * Web endpoints: exposes the Datasette application for web browser interaction and API requests.
-#
+
 # ## Basic setup
-#
+
 # Let's get started writing code.
 # For the Modal container image we need a few Python packages,
 # including `GitPython`, which we'll use to download the dataset.
@@ -41,7 +43,7 @@ datasette_image = (
 )
 
 # ## Persistent dataset storage
-#
+
 # To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To achieve this we use a [`Volume`](/docs/guide/volumes).
 
@@ -56,11 +58,11 @@ DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 
 # ## Getting a dataset
-#
+
 # Johns Hopkins has been publishing up-to-date COVID-19 pandemic data on GitHub since early February 2020, and
 # as of late September 2022 daily reporting is still rolling in. Their dataset is what this example will use to
 # show off Modal and Datasette's capabilities.
-#
+
 # The full git repository size for the dataset is over 6GB, but we only need to shallow clone around 300MB.
 
 
@@ -100,7 +102,7 @@ def download_dataset(cache=True):
 
 
 # ## Data munging
-#
+
 # This dataset is no swamp, but a bit of data cleaning is still in order. The following two
 # functions read a handful of `.csv` files and clean the data, before inserting it into
 # SQLite.
@@ -159,12 +161,12 @@ def load_report(filepath):
 
 
 # ## Inserting into SQLite
-#
+
 # With the CSV processing out of the way, we're ready to create an SQLite DB and feed data into it.
 # Importantly, the `prep_db` function mounts the same volume used by `download_dataset()`, and
 # rows are batch inserted with progress logged after each batch, as the full COVID-19 has millions
 # of rows and does take some time to be fully inserted.
-#
+
 # A more sophisticated implementation would only load new data instead of performing a full refresh,
 # but we're keeping things simple for this example!
 
@@ -217,7 +219,7 @@ def prep_db():
 
 
 # ## Keep it fresh
-#
+
 # Johns Hopkins commits new data to the dataset repository every day, so we set up
 # a [scheduled](/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
@@ -231,7 +233,7 @@ def refresh_db():
 
 
 # ## Web endpoint
-#
+
 # Hooking up the SQLite database to a Modal webhook is as simple as it gets.
 # The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return its app server.
@@ -252,12 +254,12 @@ def ui():
 
 
 # ## Publishing to the web
-#
+
 # Run this script using `modal run covid_datasette.py` and it will create the database.
-#
+
 # You can then use `modal serve covid_datasette.py` to create a short-lived web URL
 # that exists until you terminate the script.
-#
+
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
 # Just run `modal deploy covid_datasette.py`.
 

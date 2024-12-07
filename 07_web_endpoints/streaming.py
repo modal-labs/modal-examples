@@ -1,9 +1,9 @@
 # ---
 # cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
-# deploy: true
 # ---
 
-# # Deploy FastAPI app with streaming results with Modal
+# # Deploy a FastAPI app with streaming responses
+
 # This example shows how you can deploy a [FastAPI](https://fastapi.tiangolo.com/) app with Modal that streams results back to the client.
 
 import asyncio
@@ -31,7 +31,7 @@ async def fake_video_streamer():
 
 
 # ASGI app with streaming handler.
-#
+
 # This `fastapi_app` also uses the fake video streamer async generator,
 # passing it directly into `StreamingResponse`.
 
@@ -86,19 +86,14 @@ def mapped():
     )
 
 
-# A collection of basic examples of a webhook streaming response.
-#
-#
-# ```
+# To try for yourself, run
+
+# ```shell
 # modal serve streaming.py
 # ```
-#
-# To try out the webhook, ensure that your client is not buffering the server response
+
+# and then send requests to the URLs that appear in the terminal output.
+
+# Make sure that your client is not buffering the server response
 # until it gets newline (\n) characters. By default browsers and `curl` are buffering,
 # though modern browsers should respect the "text/event-stream" content type header being set.
-#
-# ```shell
-# curl --no-buffer https://modal-labs--example-fastapi-streaming-fastapi-app.modal.run
-# curl --no-buffer https://modal-labs--example-fastapi-streaming-hook.modal.run
-# curl --no-buffer https://modal-labs--example-fastapi-streaming-mapped.modal.run
-# ````

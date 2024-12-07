@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # cmd: ["modal", "run", "06_gpu_and_ml/hyperparameter-sweep/hp_sweep_gpt.py", "--n-steps", "200", "--n-steps-before-checkpoint", "50", "--n-steps-before-eval", "50"]
 # ---
 

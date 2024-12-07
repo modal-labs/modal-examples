@@ -27,9 +27,12 @@ Fields:
 - `args`: Arguments to pass to the command. Default is `[]`.
 - `lambda-test`: If `true`, the example is tested with the cli command provided
   in `cmd`. If `false`, it is not. Default is `true`. Note that this controls
-  execution in the CI/CD of this repo and in the mointor-based testing.
+  execution in the CI/CD of this repo and in the monitor-based testing.
 - `runtimes`: Control which runtimes the example is executed on in synthetic
   monitoring. Default is `["runc", "gvisor"]`.
+- `env`: A dictionary of environment variables to include when testing.
+  Default is `{}`, but note that the environment can be modified in the CI/CD of this repo
+  or in the monitor-based testing.
 
 Below is an example frontmatter for deploying a web app. Note that here we
 `modal serve` in the test so as to not deploy to prod when testing. Note that in
@@ -51,9 +54,6 @@ When a PR is opened, any changed examples are run via GitHub Actions.
 This workflow is intended to catch errors at the time a PR is made -- incuding
 both errors in the example and issues with the execution of the example in the
 monitoring system.
-
-This component is new as of early summer 2024, so there may be rough edges.
-Issue reports and fixes especially welcome!
 
 #### Continual Monitoring
 

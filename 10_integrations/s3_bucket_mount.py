@@ -1,24 +1,24 @@
 # ---
 # output-directory: "/tmp/s3_bucket_mount"
-# tags: ["use-case-job-queues-batch", "featured"]
 # ---
+
 # # Analyze NYC yellow taxi data with DuckDB on Parquet files from S3
-#
+
 # This example shows how to use Modal for a classic data science task: loading table-structured data into cloud stores,
 # analyzing it, and plotting the results.
-#
+
 # In particular, we'll load public NYC taxi ride data into S3 as Parquet files,
 # then run SQL queries on it with DuckDB.
-#
+
 # We'll mount the S3 bucket in a Modal app with [`CloudBucketMount`](https://modal.com/docs/reference/modal.CloudBucketMount).
 # We will write to and then read from that bucket, in each case using
 # Modal's [parallel execution features](https://modal.com/docs/guide/scale) to handle many files at once.
-#
+
 # ## Basic setup
-#
+
 # You will need to have an S3 bucket and AWS credentials to run this example. Refer to the documentation
 # for the exact [IAM permissions](https://modal.com/docs/guide/cloud-bucket-mounts#iam-permissions) your credentials will need.
-#
+
 # After you are done creating a bucket and configuring IAM settings,
 # you now need to create a [`Secret`](https://modal.com/docs/guide/secrets) to share
 # the relevant AWS credentials with your Modal apps.
@@ -41,24 +41,26 @@ secret = modal.Secret.from_name(
 MOUNT_PATH: Path = Path("/bucket")
 YELLOW_TAXI_DATA_PATH: Path = MOUNT_PATH / "yellow_taxi"
 
-
 # The dependencies installed above are not available locally. The following block instructs Modal
 # to only import them inside the container.
+
 with image.imports():
     import duckdb
     import requests
 
 
 # ## Download New York City's taxi data
-#
+
 # NYC makes data about taxi rides publicly available. The city's [Taxi & Limousine Commission (TLC)](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
 # publishes files in the Parquet format. Files are organized by year and month.
-#
+
 # We are going to download all available files and store them in an S3 bucket. We do this by
 # attaching a `modal.CloudBucketMount` with the S3 bucket name and its respective credentials.
 # The files in the bucket will then be available at `MOUNT_PATH`.
-#
+
 # As we'll see below, this operation can be massively sped up by running it in parallel on Modal.
+
+
 @app.function(
     volumes={
         MOUNT_PATH: modal.CloudBucketMount(
@@ -86,10 +88,12 @@ def download_data(year: int, month: int) -> str:
 
 
 # ## Analyze data with DuckDB
-#
+
 # [DuckDB](https://duckdb.org/) is an analytical database with rich support for Parquet files.
 # It is also very fast. Below, we define a Modal Function that aggregates yellow taxi trips
 # within a month (each file contains all the rides from a specific month).
+
+
 @app.function(
     volumes={
         MOUNT_PATH: modal.CloudBucketMount(
@@ -123,10 +127,12 @@ def aggregate_data(path: str) -> list[tuple[datetime, int]]:
 
 
 # ## Plot daily taxi rides
-#
+
 # Finally, we want to plot our results.
 # The plot created shows the number of yellow taxi rides per day in NYC.
 # This function runs remotely, on Modal, so we don't need to install plotting libraries locally.
+
+
 @app.function()
 def plot(dataset) -> bytes:
     import io
@@ -158,7 +164,7 @@ def plot(dataset) -> bytes:
 
 
 # ## Run everything
-#
+
 # The `@app.local_entrypoint()` defines what happens when we run our Modal program locally.
 # We invoke it from the CLI by calling `modal run s3_bucket_mount.py`.
 # We first call `download_data()` and `starmap` (named because it's kind of like `map(*args)`)
@@ -167,12 +173,14 @@ def plot(dataset) -> bytes:
 # Parquet file paths. Then, we call `aggregate_data()` with `map` on that list. These files are
 # also read from our S3 bucket. So one function writes files to S3 and the other
 # reads files from S3 in; both run across many files in parallel.
-#
+
 # Finally, we call `plot` to generate the following figure:
 #
 # ![Number of NYC yellow taxi trips by weekday, 2018-2023](./nyc_yellow_taxi_trips_s3_mount.png)
-#
+
 # This program should run in less than 30 seconds.
+
+
 @app.local_entrypoint()
 def main():
     # List of tuples[year, month].

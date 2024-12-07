@@ -1,0 +1,6 @@
+{
+    "num_trunk_recycles": 1,
+    "num_diffn_timesteps": 10,
+    "seed": 42,
+    "use_esm_embeddings": true
+}

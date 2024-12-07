@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/instructor_generate"
-# tags: ["use-case-lm-inference"]
 # ---
 
 # # Structured Data Extraction using `instructor`
@@ -39,11 +38,16 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 
 # This example uses models from Anthropic, so if you want to run it yourself,
-# you'll need to set up a Modal [`Secret`](https://modal.com/docs/guide/secrets)
-# called `my-anthropic-secret` for your OpenAI API key.
+# you'll need an Anthropic API key and a Modal [`Secret`](https://modal.com/docs/guide/secrets)
+# called `my-anthropic-secret` to hold share it with your Modal Functions.
 
 app = modal.App(
-    image=image, secrets=[modal.Secret.from_name("my-anthropic-secret")]
+    image=image,
+    secrets=[
+        modal.Secret.from_name(
+            "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
+        )
+    ],
 )
 
 # ## Running Modal functions from the command line
@@ -122,7 +126,7 @@ class ExampleMetadataExtraction(BaseModel):
     )
     tags: list[
         Literal[
-            "use-case-inference-llms",
+            "use-case-inference-lms",
             "use-case-inference-audio",
             "use-case-inference-images-video-3d",
             "use-case-finetuning",

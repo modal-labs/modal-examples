@@ -1,6 +1,3 @@
-# ---
-# tags: ["use-case-lm-inference"]
-# ---
 # # Run `llama.cpp` on Modal
 
 # [`llama.cpp`](https://github.com/ggerganov/llama.cpp) is a C++ library for running LLM inference.

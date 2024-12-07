@@ -13,7 +13,7 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
-      MODAL_ENVIRONMENT: main
+      MODAL_ENVIRONMENT: examples
 
     steps:
       - uses: actions/checkout@v3
