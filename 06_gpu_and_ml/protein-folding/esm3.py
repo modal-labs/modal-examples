@@ -16,7 +16,7 @@
 # If you're new to protein folding check out the next section for a brief
 # overview, otherwise you can skip to [the next section](#basic-setup).
 
-# ## What is Protein Folding?
+# ## What is protein folding?
 
 # A protein's three-dimensional shape determines it's function in the body,
 # i.e. everything from catalyzing biochemical reactions to building cellular
@@ -89,14 +89,18 @@ esm3_image = (
 # residues from PDBs, and `py3Dmol` for visualizing the 3D structures.
 
 
-web_app_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "esm==3.0.5",
-    "gradio~=4.44.0",
-    "biotite==0.41.2",
-    "pydssp==0.9.0",
-    "py3Dmol==2.4.0",
-    "torch==2.4.1",
-    "fastapi[standard]==0.115.4",
+web_app_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "esm==3.0.5",
+        "gradio~=4.44.0",
+        "biotite==0.41.2",
+        "pydssp==0.9.0",
+        "py3Dmol==2.4.0",
+        "torch==2.4.1",
+        "fastapi[standard]==0.115.4",
+    )
+    .add_local_python_source("py3DmolWrapper")
 )
 
 
@@ -152,9 +156,9 @@ class Model:
         self.setup_model()
         self.model.to("cuda")
 
-        # Enable half precision for faster inference
-        self.model = self.model.half()
-        torch.backends.cuda.matmul.allow_tf32 = True
+        # speed up inference with
+        self.model = self.model.half()  # low precision
+        torch.backends.cuda.matmul.allow_tf32 = True  # Tensor Cores
 
         self.max_steps = 250
         L.info(f"Setting max ESM steps to: {self.max_steps}")
@@ -206,10 +210,15 @@ assets_path = Path(__file__).parent / "frontend"
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
     volumes={VOLUME_PATH: volume},
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
+    mounts=[
+        modal.Mount.from_local_dir(assets_path, remote_path="/assets"),
+        modal.Mount.from_local_file(
+            assets_path / "favicon.svg", remote_path="/assets/favicon.svg"
+        ),
+    ],
 )
 @modal.asgi_app()
-def protein_fold_fastapi_app():
+def ui():
     import gradio as gr
     from fastapi import FastAPI
     from fastapi.responses import FileResponse
@@ -254,7 +263,7 @@ def protein_fold_fastapi_app():
             )
         else:
             L.info("Sequence structure is unknown, generating HTML as such.")
-            rcsb_sse_html = "<h3>Folding Structure of Sequence not found.</h3>"
+            rcsb_sse_html = "<h3>Ground truth structure not found.</h3>"
 
         return [
             postprocess_html(h)
@@ -290,13 +299,10 @@ def protein_fold_fastapi_app():
         "Ribonuclease A [5RSA]",
     ]
 
-    # Number the examples.
-    example_pdbs = [f"{i+1}) {x}" for i, x in enumerate(example_pdbs)]
-
     with gr.Blocks(
-        theme=theme, css=css, title="ESM3 Protein Folding"
+        theme=theme, css=css, title="Fold proteins with ESM3", js=always_dark()
     ) as interface:
-        gr.Markdown("# Fold Proteins using ESM3 Fold")
+        gr.Markdown("# Fold proteins with ESM3")
 
         with gr.Row():
             with gr.Column():
@@ -309,7 +315,9 @@ def protein_fold_fastapi_app():
                     "Retrieve Sequence from PDB ID", variant="primary"
                 )
 
-                pdb_link_button = gr.Button(value="Open PDB page for ID")
+                pdb_link_button = gr.Button(
+                    value="Read more about this protein in the Protein Data Bank"
+                )
                 rcsb_link = "https://www.rcsb.org/structure/"
                 pdb_link_button.click(
                     fn=None,
@@ -348,15 +356,14 @@ def protein_fold_fastapi_app():
             label="Enter a sequence or retrieve it from a PDB ID",
             placeholder="e.g. 'MVTRLE...', 'GKQEG...', etc.",
         )
-        run_esm_button = gr.Button(
-            "Run ESM3 Fold on Sequence", variant="primary"
-        )
+        run_esm_button = gr.Button("Fold", variant="primary")
 
         htmls = []
         legend_height = 100
         with gr.Row():
+            # first: Predicted secondary structure
             with gr.Column():
-                gr.Markdown("## ESM3 Prediction - Secondary Structs")
+                gr.Markdown("## Predicted secondary structures")
                 gr.Image(  # output image component
                     height=legend_height,
                     width=width,
@@ -367,9 +374,9 @@ def protein_fold_fastapi_app():
                 )
                 htmls.append(gr.HTML())
 
-            # Column 2: ESM Prediction with Confidence coloring.
+            # then: Prediction colored by confidence
             with gr.Column():
-                gr.Markdown("## ESM3 Prediction - PLTT Confidence")
+                gr.Markdown("## Prediction confidence (PLDDT)")
                 gr.Image(  # output image component
                     height=legend_height,
                     width=width,
@@ -380,9 +387,9 @@ def protein_fold_fastapi_app():
                 )
                 htmls.append(gr.HTML())
 
-            # Column 3: Crystalized form of Protein if available.
+            # lastly: ground truth structure from crystallography
             with gr.Column():
-                gr.Markdown("## Crystalized Structure from RCSB's PDB")
+                gr.Markdown("## Ground truth")
                 gr.Image(  # output image component
                     height=legend_height,
                     width=width,
@@ -502,3 +509,16 @@ def postprocess_html(html):
         f"""srcdoc='{html_wrapped}'></iframe>"""
     )
     return iframe_html
+
+
+def always_dark():
+    return """
+    function refresh() {
+        const url = new URL(window.location);
+
+        if (url.searchParams.get('__theme') !== 'dark') {
+            url.searchParams.set('__theme', 'dark');
+            window.location.href = url.href;
+        }
+    }
+    """
