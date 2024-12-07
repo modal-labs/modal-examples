@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/protein_fold/protein_fold.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/protein-folding/protein_fold.py"]
 # output-directory: "/tmp/protein-fold"
 # ---
 
