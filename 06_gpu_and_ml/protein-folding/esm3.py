@@ -210,12 +210,7 @@ assets_path = Path(__file__).parent / "frontend"
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
     volumes={VOLUME_PATH: volume},
-    mounts=[
-        modal.Mount.from_local_dir(assets_path, remote_path="/assets"),
-        modal.Mount.from_local_file(
-            assets_path / "favicon.svg", remote_path="/assets/favicon.svg"
-        ),
-    ],
+    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def ui():
