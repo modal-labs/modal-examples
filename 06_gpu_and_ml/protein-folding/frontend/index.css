@@ -1,0 +1,15 @@
+/* Bit of Modal Labs color scheming for the Gradio.app UI
+
+from https://github.com/modal-labs/modal-examples */
+
+a {
+  text-decoration: inherit !important;
+}
+
+gradio-app {
+  background-image: url(/assets/background.svg) !important;
+  background-repeat: no-repeat !important;
+  background-size 100% auto;
+  padding-top: 3%;
+  background-color: black;
+}
