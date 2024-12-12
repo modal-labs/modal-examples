@@ -25,7 +25,7 @@ import modal
 
 MINUTES = 60  # seconds
 
-app = modal.App("example-protein-fold")
+app = modal.App("example-esm3-dashboard")
 
 # ### Create a Volume to store cached ESM3 model and Entrez sequence data
 
@@ -35,7 +35,9 @@ app = modal.App("example-protein-fold")
 # support that yet. Instead we'll use the `HF_HOME` environment variable to
 # point to the volume.
 
-volume = modal.Volume.from_name("example-protein-fold", create_if_missing=True)
+volume = modal.Volume.from_name(
+    "example-esm3-dashboard", create_if_missing=True
+)
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
 DATA_PATH = VOLUME_PATH / "data"
@@ -64,14 +66,11 @@ esm3_image = (
 # UniProt accession numbers.
 
 
-web_app_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "gradio~=4.44.0",
-        "biotite==0.41.2",
-        "torch==2.4.1",
-        "fastapi[standard]==0.115.4",
-    )
+web_app_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "gradio~=4.44.0",
+    "biotite==0.41.2",
+    "torch==2.4.1",
+    "fastapi[standard]==0.115.4",
 )
 
 
@@ -80,12 +79,12 @@ web_app_image = (
 
 
 with esm3_image.imports():
+    import tempfile
+
+    import gemmi
     import torch
     from esm.models.esm3 import ESM3
     from esm.sdk.api import ESM3InferenceClient, ESMProtein, GenerationConfig
-
-    import gemmi
-    import tempfile
 
 with web_app_image.imports():
     import biotite.database.entrez as entrez
@@ -140,8 +139,7 @@ class Model:
 
         print(f"Running ESM3 inference with num_steps={num_steps}")
         esm_protein = self.model.generate(
-            ESMProtein(sequence=sequence),
-            self.get_generation_config(num_steps)
+            ESMProtein(sequence=sequence), self.get_generation_config(num_steps)
         )
 
         print("Checking for errors in output")
@@ -159,12 +157,13 @@ class Model:
 @app.local_entrypoint()
 def main():
     # s = ("VLSE")
-    s = ("VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG")
+    s = "VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG"
     mmcif_buffer = Model().inference.remote(s)
 
     mmcif_buffer.seek(0)
-    Path('output.mmcif').write_bytes(mmcif_buffer.read())
+    Path("output.mmcif").write_bytes(mmcif_buffer.read())
     breakpoint()
+
 
 # ### Serving a Gradio UI with an `asgi_app`
 
@@ -191,6 +190,7 @@ def main():
 
 assets_path = Path(__file__).parent / "frontend"
 
+
 @app.function(
     image=web_app_image,
     concurrency_limit=1,
@@ -200,12 +200,12 @@ assets_path = Path(__file__).parent / "frontend"
 )
 @modal.asgi_app()
 def ui():
+    import base64
+
     import gradio as gr
     from fastapi import FastAPI
     from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
-
-    import base64
 
     def run_esm(sequence):
         sequence = sequence.strip()
@@ -213,13 +213,14 @@ def ui():
         print("Running ESM")
         mmcif_buffer = Model().inference.remote(sequence)
 
-        print("Converting bytes to base64 for HTML generation.")
-        mmcif_content = mmcif_buffer.read().decode()  # Convert bytes to string
+        print("Converting mmCIF bytes to base64 for HTML generation.")
+        mmcif_content = mmcif_buffer.read().decode()
         mmcif_base64 = base64.b64encode(mmcif_content.encode()).decode()
 
         return get_molstar_html(mmcif_base64)
 
     web_app = FastAPI()
+
     # custom styles: an icon, a background, and a theme
     @web_app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
@@ -237,8 +238,10 @@ def ui():
     )
 
     with gr.Blocks(
-        theme=theme, css=css, title="Visualize ESM3 Folded Proteins",
-        js=always_dark()
+        theme=theme,
+        css=css,
+        title="Visualize ESM3 Folded Proteins",
+        js=always_dark(),
     ) as interface:
         gr.Markdown("# Visualize ESM3 Folded Proteins")
 
@@ -247,7 +250,7 @@ def ui():
                 gr.Markdown("## Enter UniProt ID ")
                 uniprot_num_box = gr.Textbox(
                     label="Enter UniProt ID or select one on the right",
-                    placeholder="e.g. P02768, P69905,  etc."
+                    placeholder="e.g. P02768, P69905,  etc.",
                 )
                 get_sequence_button = gr.Button(
                     "Retrieve Sequence from UniProt ID", variant="primary"
@@ -264,6 +267,7 @@ def ui():
 
             with gr.Column():
                 example_uniprots = get_uniprot_examples()
+
                 def extract_uniprot_num(example_idx):
                     uniprot = example_uniprots[example_idx]
                     return uniprot[uniprot.index("[") + 1 : uniprot.index("]")]
@@ -272,7 +276,9 @@ def ui():
                 with gr.Row():
                     half_len = int(len(example_uniprots) / 2)
                     with gr.Column():
-                        for i, uniprot in enumerate(example_uniprots[:half_len]):
+                        for i, uniprot in enumerate(
+                            example_uniprots[:half_len]
+                        ):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
                                 fn=lambda j=i: extract_uniprot_num(j),
@@ -280,10 +286,14 @@ def ui():
                             )
 
                     with gr.Column():
-                        for i, uniprot in enumerate(example_uniprots[half_len:]):
+                        for i, uniprot in enumerate(
+                            example_uniprots[half_len:]
+                        ):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
-                                fn=lambda j=i + half_len: extract_uniprot_num(j),
+                                fn=lambda j=i + half_len: extract_uniprot_num(
+                                    j
+                                ),
                                 outputs=uniprot_num_box,
                             )
 
@@ -323,6 +333,7 @@ def ui():
 # will allow us to fetch [fasta](https://en.wikipedia.org/wiki/FASTA_format)
 # sequence files from the [National Center for Biotechnology Information (NCBI) Entrez database](https://www.ncbi.nlm.nih.gov/Web/Search/entrezfs.html).
 
+
 def get_sequence(uniprot_num: str) -> str:
     try:
         uniprot_num = uniprot_num.strip()
@@ -340,10 +351,12 @@ def get_sequence(uniprot_num: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 # ### Supporting functions for the gradio app
 
 # The following code is a mix of javascript for the uniprot website link,
 # html & javascript for wrapping molstar, UniProt examples, gradio coloring.
+
 
 def get_js_for_uniprot_link():
     url = "https://www.uniprot.org/uniprotkb/"
