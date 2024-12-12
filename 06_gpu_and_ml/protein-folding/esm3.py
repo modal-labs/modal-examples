@@ -5,6 +5,8 @@
 
 # # Visualizing Protein Folding with ESM3 and Mol*
 
+# ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./frontend/gradio_ui.png)
+
 # The world is full of hundreds of millions of genetic sequences, but we only
 # know the three-dimensional structure of a few hundred thousand of them.
 # Thankfully we have machine learning models like Evolutionary Scale's [ESM3](https://github.com/facebookresearch/esm)
@@ -83,6 +85,7 @@ with esm3_image.imports():
     from esm.sdk.api import ESM3InferenceClient, ESMProtein, GenerationConfig
 
     import gemmi
+    import tempfile
 
 with web_app_image.imports():
     import biotite.database.entrez as entrez
@@ -106,65 +109,61 @@ with web_app_image.imports():
     timeout=20 * MINUTES,
 )
 class Model:
-    def setup_model(self):
+    @modal.enter()
+    def enter(self):
         self.model: ESM3InferenceClient = ESM3.from_pretrained(
             "esm3_sm_open_v1"
         )
-
-    @modal.build()
-    def build(self):
-        self.setup_model()
-
-    @modal.enter()
-    def enter(self):
-        self.setup_model()
         self.model.to("cuda")
 
-        # speed up inference with
-        self.model = self.model.half()  # low precision
-        torch.backends.cuda.matmul.allow_tf32 = True  # Tensor Cores
+        print("Using half precision and Tensor Cores for fast ESM3 inference")
+        self.model = self.model.half()
+        torch.backends.cuda.matmul.allow_tf32 = True
 
         self.max_steps = 250
         print(f"Setting max ESM steps to: {self.max_steps}")
 
-    def convert_protein_to_CIF(self, esm_protein, output_path):
-        print("Converting ESMProtein into basic CIF file")
+    def convert_protein_to_MMCIF(self, esm_protein, output_path):
         structure = gemmi.read_pdb_string(esm_protein.to_pdb_string())
         doc = structure.make_mmcif_document()
         doc.write_file(str(output_path), gemmi.cif.WriteOptions())
 
-    @modal.method()
-    def inference(self, sequence: str) -> bool:
-        num_steps = min(len(sequence), self.max_steps)
-        structure_generation_config = GenerationConfig(
+    def get_generation_config(self, num_steps):
+        return GenerationConfig(
             track="structure",
             num_steps=num_steps,
         )
+
+    @modal.method()
+    def inference(self, sequence: str) -> bool:
+        num_steps = min(len(sequence), self.max_steps)
+
         print(f"Running ESM3 inference with num_steps={num_steps}")
         esm_protein = self.model.generate(
-            ESMProtein(sequence=sequence), structure_generation_config
+            ESMProtein(sequence=sequence),
+            self.get_generation_config(num_steps)
         )
 
-        print("Checking for errors in output.")
+        print("Checking for errors in output")
         if hasattr(esm_protein, "error_msg"):
             raise ValueError(esm_protein.error_msg)
 
-        self.convert_protein_to_CIF(esm_protein, VOLUME_PATH / "output.mmcif")
+        print("Converting ESMProtein into MMCIF file")
+        save_path = Path(tempfile.mktemp() + ".mmcif")
+        self.convert_protein_to_MMCIF(esm_protein, save_path)
 
-        with open(VOLUME_PATH / "output.mmcif", 'rb') as f:
-            cif_buffer = io.BytesIO(f.read())
-        return cif_buffer
+        print("Returning MMCIF bytes")
+        return io.BytesIO(save_path.read_bytes())
 
 
 @app.local_entrypoint()
 def main():
     # s = ("VLSE")
     s = ("VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG")
-    cif_buffer = Model().inference.remote(s)
+    mmcif_buffer = Model().inference.remote(s)
 
-    cif_buffer.seek(0)
-    with open('output.mmcif', 'wb') as f:
-        f.write(cif_buffer.read())
+    mmcif_buffer.seek(0)
+    Path('output.mmcif').write_bytes(mmcif_buffer.read())
     breakpoint()
 
 # ### Serving a Gradio UI with an `asgi_app`
@@ -206,24 +205,19 @@ def ui():
     from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
 
-    import tempfile
     import base64
 
     def run_esm(sequence):
         sequence = sequence.strip()
 
         print("Running ESM")
-        cif_buffer = Model().inference.remote(sequence)
+        mmcif_buffer = Model().inference.remote(sequence)
 
-        temp_path = tempfile.mktemp() + ".mmcif"
-        with open(temp_path, 'wb') as f:
-            f.write(cif_buffer.read())
+        print("Converting bytes to base64 for HTML generation.")
+        mmcif_content = mmcif_buffer.read().decode()  # Convert bytes to string
+        mmcif_base64 = base64.b64encode(mmcif_content.encode()).decode()
 
-        with open(temp_path, 'r') as f:
-            cif_content = f.read()
-
-        cif_base64 = base64.b64encode(cif_content.encode()).decode()
-        return get_molstar_html(cif_base64)
+        return get_molstar_html(mmcif_base64)
 
     web_app = FastAPI()
     # custom styles: an icon, a background, and a theme
@@ -334,7 +328,7 @@ def get_sequence(uniprot_num: str) -> str:
         uniprot_num = uniprot_num.strip()
         fasta_path = DATA_PATH / f"{uniprot_num}.fasta"
 
-        print(f"Fetching {fasta_path} from the entrez database.")
+        print(f"Fetching {fasta_path} from the entrez database")
         entrez.fetch_single_file(
             uniprot_num, fasta_path, db_name="protein", ret_type="fasta"
         )
@@ -357,12 +351,11 @@ def get_js_for_uniprot_link():
     return f"""(uni_id) => {{ window.open("{url}" + uni_id + "{end}") }}"""
 
 
-def get_molstar_html(cif_base64):
+def get_molstar_html(mmcif_base64):
     return f"""
-	<h2> V4 </h2>
     <iframe
         id="molstar_frame"
-        style="width: 1000px; height: 800px; border: none;"
+        style="width: 1400px; height: 600px; border: none;"
         srcdoc='
             <!DOCTYPE html>
             <html>
@@ -371,7 +364,7 @@ def get_molstar_html(cif_base64):
                     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@rcsb/rcsb-molstar/build/dist/viewer/rcsb-molstar.css">
                 </head>
                 <body>
-                    <div id="protein-viewer" style="width: 800px; height: 600px; position: center"></div>
+                    <div id="protein-viewer" style="width: 1200px; height: 400px; position: center"></div>
                     <script>
                         console.log("Initializing viewer...");
                         (async function() {{
@@ -379,11 +372,11 @@ def get_molstar_html(cif_base64):
                             const viewer = new rcsbMolstar.Viewer("protein-viewer");
 
                             // CIF data in base64
-                            const cifData = "{cif_base64}";
+                            const mmcifData = "{mmcif_base64}";
 
                             // Convert base64 to blob
                             const blob = new Blob(
-                                [atob(cifData)],
+                                [atob(mmcifData)],
                                 {{ type: "text/plain" }}
                             );
 
