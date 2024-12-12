@@ -5,7 +5,7 @@
 
 # # Visualizing Protein Folding with ESM3 and Mol*
 
-# ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./frontend/gradio_ui.png)
+# ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./gradio_ui.png)
 
 # The world is full of hundreds of millions of genetic sequences, but we only
 # know the three-dimensional structure of a few hundred thousand of them.
@@ -336,6 +336,8 @@ def ui():
 
 def get_sequence(uniprot_num: str) -> str:
     try:
+        DATA_PATH.mkdir(parents=True, exist_ok=True)
+
         uniprot_num = uniprot_num.strip()
         fasta_path = DATA_PATH / f"{uniprot_num}.fasta"
 
