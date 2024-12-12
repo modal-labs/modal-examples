@@ -3,44 +3,20 @@
 # output-directory: "/tmp/esm3"
 # ---
 
-# # Fold proteins with ESM3
+# # Visualizing Protein Folding with ESM3 and Mol*
 
-# If you haven't heard of [AlphaFold](https://deepmind.google/technologies/alphafold/)
-# or [ESM3](https://github.com/facebookresearch/esm), you've likely been living under a
-# rock, it's time to come out! Protein folding is all the rage in the world of
-# bioinformatics and ML. In this example, we'll show you how to
-# use ESM3 to predict the three-dimensional structure of a protein from its raw
-# amino acid sequence. As a bonus, we'll also show you how to visualize the results using
-# [py3DMol](https://3dmol.org/).
+# The world is full of hundreds of millions of genetic sequences, but we only
+# know the three-dimensional structure of a few hundred thousand of them.
+# Thankfully we have machine learning models like Evolutionary Scale's [ESM3](https://github.com/facebookresearch/esm)
+# that can predict the structure of any sequence which we'll investigate here.
 
-# If you're new to protein folding check out the next section for a brief
-# overview, otherwise you can skip to [the next section](#basic-setup).
-
-# ## What is protein folding?
-
-# A protein's three-dimensional shape determines it's function in the body,
-# i.e. everything from catalyzing biochemical reactions to building cellular
-# structures. To develop new drugs and treatments for diseases, researchers
-# need to understand how potential drugs bind to target proteins in the human
-# body and thus need to predict their three-dimensional structure from their
-# raw amino acid sequence.
-
-# Historically determining the protein structure of a single sequence could
-# take years of wet-lab experiments and millions of dollars, but with the advent
-# of deep protein folding models like Meta's ESM3, a quality approximation can be
-# done in seconds for a few cents on Modal.
-
-# The bioinformatics community has created a number of resources for managing
-# protein data, including the [Research Collaboratory for Structural Bioinformatics](https://www.rcsb.org/) (RCSB) which stores the known structure of over 200,000 proteins.
-# These sets of proteins structures are known as Protein Data Banks (PDB).
-# We'll also be using the open source [Biotite](https://www.biotite-python.org/)
-# library to help us extract sequences and residues from PDBs. Biotite was
-# created by Patrick Kunzmann and members of the Protein Bioinformatics lab
-# at Rub University Bochum in Germany.
+# In this example, we'll also show how you can use Modal to go beyond
+# running the latest protein folding model by buildng tools around it for
+# your team of scientists and stakeholders to understand the analyze the results.
 
 # ## Basic Setup
 
-import logging as L
+import io
 from pathlib import Path
 
 import modal
@@ -49,58 +25,51 @@ MINUTES = 60  # seconds
 
 app = modal.App("example-protein-fold")
 
-# We'll use A10G GPUs for inference, which are able to generate 3D structures
-# in seconds for a few cents.
+# ### Create a Volume to store cached ESM3 model and Entrez sequence data
 
-gpu = "A10G"
-
-# ### Create a Volume to store cached pdb data
-
-# To minimize htting the RCSB server for pdb data we'll cache pdb data on a modal
-# [Volume](https://modal.com/docs/guide/volumes) so we never have to read the
-# same data twice.
-
+# To minimize cold start times we'll store the ESM3 model weights on a Modal
+# [Volume](https://modal.com/docs/guide/volumes). Normally, we would do that
+# through the `cache_dir` argument of `from_pretrained` but ESM3 doesn't
+# support that yet. Instead we'll use the `HF_HOME` environment variable to
+# point to the volume.
 
 volume = modal.Volume.from_name("example-protein-fold", create_if_missing=True)
-VOLUME_PATH = Path("/vol/data")
-PDBS_PATH = VOLUME_PATH / "pdbs"
-
+VOLUME_PATH = Path("/vol")
+MODELS_PATH = VOLUME_PATH / "models"
+DATA_PATH = VOLUME_PATH / "data"
 
 # ### Define dependencies in container images
 
 # The container image for inference is based on Modal's default slim Debian
-# Linux image with `esm` for loading and running the model, and `hf_transfer`
+# Linux image with `esm` for loading and running the model, `gemmi` for
+# managing protein structure file conversions, and `hf_transfer`
 # for a higher bandwidth download of the model weights from hugging face.
-
 
 esm3_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "esm==3.0.5",
+        "esm==3.1.1",
         "torch==2.4.1",
+        "gemmi==0.7.0",
         "huggingface_hub[hf_transfer]==0.26.2",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": str(MODELS_PATH)})
 )
 
 
 # We'll also define a web app image as a frontend for the entire system that
-# includes `gradio` for building a UI, `biotite` for extracting sequences and
-# residues from PDBs, and `py3Dmol` for visualizing the 3D structures.
+# includes `gradio` for building a UI and `biotite` for extracting sequences from
+# UniProt accession numbers.
 
 
 web_app_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "esm==3.0.5",
         "gradio~=4.44.0",
         "biotite==0.41.2",
-        "pydssp==0.9.0",
-        "py3Dmol==2.4.0",
         "torch==2.4.1",
         "fastapi[standard]==0.115.4",
     )
-    .add_local_python_source("py3DmolWrapper")
 )
 
 
@@ -113,32 +82,27 @@ with esm3_image.imports():
     from esm.models.esm3 import ESM3
     from esm.sdk.api import ESM3InferenceClient, ESMProtein, GenerationConfig
 
+    import gemmi
 
 with web_app_image.imports():
-    import os
-
-    import biotite.database.rcsb as rcsb
-    import biotite.structure as b_structure
-    import biotite.structure.io.pdbx as pdbx
-    from biotite.structure.io.pdbx import CIFFile
-    from esm.sdk.api import ESMProtein  # noqa: F811
-    from py3DmolWrapper import py3DMolViewWrapper
+    import biotite.database.entrez as entrez
+    import biotite.sequence.io.fasta as fasta
 
 # ## Defining a `Model` inference class for ESM3
 
 # Next, we map the model's setup and inference code onto Modal.
 
-# 1. To ensure the cached image includes the model weights, we download them in a
-# method decorated with `@build`, this reduces cold boot times.
-# 2. For any additional setup code that involves CPU or GPU RAM we put in a
-# method deocrated with `@enter` which runs on container start.
-# 3. To run the actual inference, we put it in a method decorated with `@method`
+# 1. For setup code that only needs to run once, we put it in a method
+# deocrated with `@enter` which runs on container start.
+# 2. To run the actual inference, we put it in a method decorated with `@method`
+# 3. We'll utilize an A10 GPU here for speedy inference.
 
 
 @app.cls(
     image=esm3_image,
+    volumes={VOLUME_PATH: volume},
     secrets=[modal.Secret.from_name("huggingface-secret")],
-    gpu=gpu,
+    gpu="A10G",
     timeout=20 * MINUTES,
 )
 class Model:
@@ -161,7 +125,13 @@ class Model:
         torch.backends.cuda.matmul.allow_tf32 = True  # Tensor Cores
 
         self.max_steps = 250
-        L.info(f"Setting max ESM steps to: {self.max_steps}")
+        print(f"Setting max ESM steps to: {self.max_steps}")
+
+    def convert_protein_to_CIF(self, esm_protein, output_path):
+        print("Converting ESMProtein into basic CIF file")
+        structure = gemmi.read_pdb_string(esm_protein.to_pdb_string())
+        doc = structure.make_mmcif_document()
+        doc.write_file(str(output_path), gemmi.cif.WriteOptions())
 
     @modal.method()
     def inference(self, sequence: str) -> bool:
@@ -170,40 +140,57 @@ class Model:
             track="structure",
             num_steps=num_steps,
         )
-        L.info(f"Running ESM3 inference with num_steps={num_steps}")
+        print(f"Running ESM3 inference with num_steps={num_steps}")
         esm_protein = self.model.generate(
             ESMProtein(sequence=sequence), structure_generation_config
         )
 
-        L.info("Checking for errors...")
+        print("Checking for errors in output.")
         if hasattr(esm_protein, "error_msg"):
             raise ValueError(esm_protein.error_msg)
 
-        L.info("Moving all data off GPU before returning to caller...")
-        esm_protein.ptm = esm_protein.ptm.to("cpu")
-        return esm_protein
+        self.convert_protein_to_CIF(esm_protein, VOLUME_PATH / "output.mmcif")
 
+        with open(VOLUME_PATH / "output.mmcif", 'rb') as f:
+            cif_buffer = io.BytesIO(f.read())
+        return cif_buffer
+
+
+@app.local_entrypoint()
+def main():
+    # s = ("VLSE")
+    s = ("VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG")
+    cif_buffer = Model().inference.remote(s)
+
+    cif_buffer.seek(0)
+    with open('output.mmcif', 'wb') as f:
+        f.write(cif_buffer.read())
+    breakpoint()
 
 # ### Serving a Gradio UI with an `asgi_app`
 
-# The `ModelInference` class above is available for use
-# from any other Python environment with the right Modal credentials
-# and the `modal` package installed -- just use [`lookup`](https://modal.com/docs/reference/modal.Cls#lookup).
+# In this section we'll create web interface tools around the ESM3 model
+# that can help scientists and stakeholders understand the results of the model.
 
-# But we can also expose it via a web app using the `@asgi_app` decorator. Here
-# we will specifically create a Gradio web app that allows us to visualize
-# the 3D structure output of the ESM3 model as well as any known structures from
-# the RCSB Protein Data Bank. In addition, to understand the confidence level
-# of the ESM3 output, we'll include a visualization of the
-# [pLDDT](https://www.ebi.ac.uk/training/online/courses/alphafold/inputs-and-outputs/evaluating-alphafolds-predicted-structures-using-confidence-scores/plddt-understanding-local-confidence/)
-# (predicted Local Distance Difference Test) scores
-# for each residue (amino acid) in the folded protein structure.
+# First, we'll visualize the results using [Mol* (Molstar)](https://molstar.org/).
+# Mol* is a rich tool that allows you to visualize amino acid residues, secondary
+# structures, the final positions of each residue, and much more.
+
+# Second, we'll create links to lookup the metadata and structure of known
+# proteins using the [Universal Protein Resource](https://www.uniprot.org/)
+# database from the UniProt consortium which is supported by the European
+# Bioinformatics Institute (EMBL-EBI), the National Human Genome Research
+# Institute (NHGRI), and the Swiss Institute of Bioinformatics (SIB). UniProt
+# also a hub that links to many other databases like RCSB Protein Data Bank.
+
+# Finally, we'll use the [Biotite](https://www.biotite-python.org/) library to
+# help pull sequence data, in the form of
+# [fasta](https://en.wikipedia.org/wiki/FASTA_format) files from UniProt.
 
 # You should see the URL for this UI in the output of `modal deploy`
 # or on your [Modal app dashboard](https://modal.com/apps) for this app.
 
 assets_path = Path(__file__).parent / "frontend"
-
 
 @app.function(
     image=web_app_image,
@@ -219,54 +206,26 @@ def ui():
     from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
 
-    width, height = 400, 400
+    import tempfile
+    import base64
 
-    def extract_data(esm_protein):
-        residue_pLDDTs = (100 * esm_protein.plddt).tolist()
-        atoms = esm_protein.to_protein_chain().atom_array
-        residue_id_to_sse = extract_residues(atoms)
-        return residue_pLDDTs, residue_id_to_sse
-
-    def run_esm(sequence, maybe_stale_pdb_id):
-        L.info("Removing whitespace from text input")
+    def run_esm(sequence):
         sequence = sequence.strip()
 
-        L.info("Running ESM")
-        esm_protein: ESMProtein = Model().inference.remote(sequence)
-        residue_pLDDTs, residue_id_to_sse = extract_data(esm_protein)
+        print("Running ESM")
+        cif_buffer = Model().inference.remote(sequence)
 
-        L.info("Constructing HTML for ESM3 prediction with residues.")
-        esm_sse_html = py3DMolViewWrapper().build_html_with_secondary_structure(
-            width, height, esm_protein.to_pdb_string(), residue_id_to_sse
-        )
+        temp_path = tempfile.mktemp() + ".mmcif"
+        with open(temp_path, 'wb') as f:
+            f.write(cif_buffer.read())
 
-        L.info("Constructing HTML for ESM3 prediction with confidence.")
-        esm_pLDDT_html = py3DMolViewWrapper().build_html_with_pLDDTs(
-            width, height, esm_protein.to_pdb_string(), residue_pLDDTs
-        )
+        with open(temp_path, 'r') as f:
+            cif_content = f.read()
 
-        maybe_stale_pdb_id = maybe_stale_pdb_id.strip()
-        maybe_stale_sequence = get_sequence(maybe_stale_pdb_id)
-        if maybe_stale_sequence == sequence:
-            pdb_id = maybe_stale_pdb_id
-            L.info(f"Constructing HTML for RCSB entry for {pdb_id}")
-            pdb_string, residue_id_to_sse = extract_pdb_and_residues(pdb_id)
-            rcsb_sse_html = (
-                py3DMolViewWrapper().build_html_with_secondary_structure(
-                    width, height, pdb_string, residue_id_to_sse
-                )
-            )
-        else:
-            L.info("Sequence structure is unknown, generating HTML as such.")
-            rcsb_sse_html = "<h3>Ground truth structure not found.</h3>"
-
-        return [
-            postprocess_html(h)
-            for h in (esm_sse_html, esm_pLDDT_html, rcsb_sse_html)
-        ]
+        cif_base64 = base64.b64encode(cif_content.encode()).decode()
+        return get_molstar_html(cif_base64)
 
     web_app = FastAPI()
-
     # custom styles: an icon, a background, and a theme
     @web_app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
@@ -283,123 +242,73 @@ def ui():
         primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
     )
 
-    example_pdbs = [
-        "Myoglobin [1MBO]",
-        "Insulin [1ZNI]",
-        "Hemoglobin [1GZX]",
-        "GFP [1EMA]",
-        "Collagen [1CGD]",
-        "Antibody / Immunoglobulin G [1IGT]",
-        "Actin [1ATN]",
-        "Ribonuclease A [5RSA]",
-    ]
-
     with gr.Blocks(
-        theme=theme, css=css, title="Fold proteins with ESM3", js=always_dark()
+        theme=theme, css=css, title="Visualize ESM3 Folded Proteins",
+        js=always_dark()
     ) as interface:
-        gr.Markdown("# Fold proteins with ESM3")
+        gr.Markdown("# Visualize ESM3 Folded Proteins")
 
         with gr.Row():
             with gr.Column():
-                gr.Markdown("## Custom PDB ID")
-                pdb_id_box = gr.Textbox(
-                    label="Enter PDB ID or select one on the right",
-                    placeholder="e.g. '5JQ4', '1MBO', '1TPO', etc.",
+                gr.Markdown("## Enter UniProt ID ")
+                uniprot_num_box = gr.Textbox(
+                    label="Enter UniProt ID or select one on the right",
+                    placeholder="e.g. P02768, P69905,  etc."
                 )
                 get_sequence_button = gr.Button(
-                    "Retrieve Sequence from PDB ID", variant="primary"
+                    "Retrieve Sequence from UniProt ID", variant="primary"
                 )
 
-                pdb_link_button = gr.Button(
-                    value="Read more about this protein in the Protein Data Bank"
+                uniprot_link_button = gr.Button(
+                    value="View protein on UniProt website"
                 )
-                rcsb_link = "https://www.rcsb.org/structure/"
-                pdb_link_button.click(
+                uniprot_link_button.click(
                     fn=None,
-                    inputs=pdb_id_box,
-                    js=f"""(pdb_id) => {{ window.open("{rcsb_link}" + pdb_id) }}""",
+                    inputs=uniprot_num_box,
+                    js=get_js_for_uniprot_link(),
                 )
 
             with gr.Column():
+                example_uniprots = get_uniprot_examples()
+                def extract_uniprot_num(example_idx):
+                    uniprot = example_uniprots[example_idx]
+                    return uniprot[uniprot.index("[") + 1 : uniprot.index("]")]
 
-                def extract_pdb_id(example_idx):
-                    pdb = example_pdbs[example_idx]
-                    return pdb[pdb.index("[") + 1 : pdb.index("]")]
-
-                half_len = int(len(example_pdbs) / 2)
-
-                gr.Markdown("## Example PDB IDs")
+                gr.Markdown("## Example UniProt Accession Numbers")
                 with gr.Row():
+                    half_len = int(len(example_uniprots) / 2)
                     with gr.Column():
-                        for i, pdb in enumerate(example_pdbs[:half_len]):
-                            btn = gr.Button(pdb, variant="secondary")
+                        for i, uniprot in enumerate(example_uniprots[:half_len]):
+                            btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
-                                fn=lambda j=i: extract_pdb_id(j),
-                                outputs=pdb_id_box,
+                                fn=lambda j=i: extract_uniprot_num(j),
+                                outputs=uniprot_num_box,
                             )
 
                     with gr.Column():
-                        for i, pdb in enumerate(example_pdbs[half_len:]):
-                            btn = gr.Button(pdb, variant="secondary")
+                        for i, uniprot in enumerate(example_uniprots[half_len:]):
+                            btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
-                                fn=lambda j=i + half_len: extract_pdb_id(j),
-                                outputs=pdb_id_box,
+                                fn=lambda j=i + half_len: extract_uniprot_num(j),
+                                outputs=uniprot_num_box,
                             )
 
-        gr.Markdown("## Sequence")
+        gr.Markdown("## Enter Sequence")
         sequence_box = gr.Textbox(
-            label="Enter a sequence or retrieve it from a PDB ID",
-            placeholder="e.g. 'MVTRLE...', 'GKQEG...', etc.",
+            label="Enter a sequence or retrieve it from a UniProt ID",
+            placeholder="e.g. MVTRLE..., GKQEG..., etc.",
         )
-        run_esm_button = gr.Button("Fold", variant="primary")
-
-        htmls = []
-        legend_height = 100
-        with gr.Row():
-            # first: Predicted secondary structure
-            with gr.Column():
-                gr.Markdown("## Predicted secondary structures")
-                gr.Image(  # output image component
-                    height=legend_height,
-                    width=width,
-                    value="/assets/secondaryStructureLegend.png",
-                    show_download_button=False,
-                    show_label=False,
-                    show_fullscreen_button=False,
-                )
-                htmls.append(gr.HTML())
-
-            # then: Prediction colored by confidence
-            with gr.Column():
-                gr.Markdown("## Prediction confidence (PLDDT)")
-                gr.Image(  # output image component
-                    height=legend_height,
-                    width=width,
-                    value="/assets/plddtLegend2.png",
-                    show_download_button=False,
-                    show_label=False,
-                    show_fullscreen_button=False,
-                )
-                htmls.append(gr.HTML())
-
-            # lastly: ground truth structure from crystallography
-            with gr.Column():
-                gr.Markdown("## Ground truth")
-                gr.Image(  # output image component
-                    height=legend_height,
-                    width=width,
-                    value="/assets/secondaryStructureLegend.png",
-                    show_download_button=False,
-                    show_label=False,
-                    show_fullscreen_button=False,
-                )
-                htmls.append(gr.HTML())
-
         get_sequence_button.click(
-            fn=get_sequence, inputs=[pdb_id_box], outputs=[sequence_box]
+            fn=get_sequence, inputs=[uniprot_num_box], outputs=[sequence_box]
         )
+
+        run_esm_button = gr.Button("Run ESM3 Folding", variant="primary")
+
+        gr.Markdown("## ESM3 Predicted Structure")
+        molstar_html = gr.HTML()
+
         run_esm_button.click(
-            fn=run_esm, inputs=[sequence_box, pdb_id_box], outputs=htmls
+            fn=run_esm, inputs=sequence_box, outputs=molstar_html
         )
 
     # mount for execution on Modal
@@ -414,96 +323,98 @@ def ui():
 
 # The remainder of this code is boilerplate.
 
-# ### Extracting Sequences and Residues from PDBs
+# ### Extracting Sequences from UniProt Accession Numbers
 
-# A fair amount of code is required to extract sequences and residue
-# information from pdb strings. We build several helper functions for it below.
+# To retrieve sequence information we'll utilize the `biotite` library which
+# will allow us to fetch [fasta](https://en.wikipedia.org/wiki/FASTA_format)
+# sequence files from the [National Center for Biotechnology Information (NCBI) Entrez database](https://www.ncbi.nlm.nih.gov/Web/Search/entrezfs.html).
 
-# There is more complex code for running py3Dmol which you can find in
-# the `py3DmolWrapper.py` file.
-
-
-def fetch_pdb_if_necessary(pdb_id, pdb_type):
-    """Fetch PDB from RCSB if not already cached."""
-
-    assert pdb_type in ("pdb", "pdbx")
-
-    file_path = PDBS_PATH / f"{pdb_id}.{pdb_type}"
-    if not os.path.exists(file_path):
-        L.info(f"Loading PDB {file_path} from server...")
-        rcsb.fetch(pdb_id, pdb_type, str(PDBS_PATH))
-    return file_path
-
-
-def get_sequence(pdb_id):
+def get_sequence(uniprot_num: str) -> str:
     try:
-        pdb_id = pdb_id.strip()
-        pdbx_file_path = fetch_pdb_if_necessary(pdb_id, "pdbx")
+        uniprot_num = uniprot_num.strip()
+        fasta_path = DATA_PATH / f"{uniprot_num}.fasta"
 
-        structure = pdbx.get_structure(CIFFile.read(pdbx_file_path), model=1)
-
-        amino_sequences, _ = b_structure.to_sequence(
-            structure[b_structure.filter_amino_acids(structure)]
+        print(f"Fetching {fasta_path} from the entrez database.")
+        entrez.fetch_single_file(
+            uniprot_num, fasta_path, db_name="protein", ret_type="fasta"
         )
+        fasta_file = fasta.FastaFile.read(fasta_path)
 
-        sequence = "".join([str(s) for s in amino_sequences])
-        return sequence
+        protein_sequence = fasta.get_sequence(fasta_file)
+        return str(protein_sequence)
 
     except Exception as e:
         return f"Error: {e}"
 
+# ### Supporting functions for the gradio app
 
-def extract_residues(atoms):
-    residue_secondary_structures = b_structure.annotate_sse(atoms)
-    residue_ids = b_structure.get_residues(atoms)[0]
-    residue_id_to_sse = {}
-    for residue_id, sse in zip(residue_ids, residue_secondary_structures):
-        residue_id_to_sse[int(residue_id)] = sse
-    return residue_id_to_sse
+# The following code is a mix of javascript for the uniprot website link,
+# html & javascript for wrapping molstar, UniProt examples, gradio coloring.
 
-
-def extract_pdb_and_residues(pdb_id):
-    pdb_file_path = fetch_pdb_if_necessary(pdb_id, "pdb")
-    pdb_string = Path(pdb_file_path).read_text()
-
-    pdbx_file_path = fetch_pdb_if_necessary(pdb_id, "pdbx")
-    structure = pdbx.get_structure(CIFFile.read(pdbx_file_path), model=1)
-    atoms = structure[b_structure.filter_amino_acids(structure)]
-    residue_id_to_sse = extract_residues(atoms)
-
-    return pdb_string, residue_id_to_sse
+def get_js_for_uniprot_link():
+    url = "https://www.uniprot.org/uniprotkb/"
+    end = "/entry#structure"
+    return f"""(uni_id) => {{ window.open("{url}" + uni_id + "{end}") }}"""
 
 
-# The remaining code includes small helper functions for cleaning up HTML
-# generated by py3DMol for viewing on a webpage.
+def get_molstar_html(cif_base64):
+    return f"""
+	<h2> V4 </h2>
+    <iframe
+        id="molstar_frame"
+        style="width: 1000px; height: 800px; border: none;"
+        srcdoc='
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <script src="https://cdn.jsdelivr.net/npm/@rcsb/rcsb-molstar/build/dist/viewer/rcsb-molstar.js"></script>
+                    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@rcsb/rcsb-molstar/build/dist/viewer/rcsb-molstar.css">
+                </head>
+                <body>
+                    <div id="protein-viewer" style="width: 800px; height: 600px; position: center"></div>
+                    <script>
+                        console.log("Initializing viewer...");
+                        (async function() {{
+                            // Create plugin instance
+                            const viewer = new rcsbMolstar.Viewer("protein-viewer");
+
+                            // CIF data in base64
+                            const cifData = "{cif_base64}";
+
+                            // Convert base64 to blob
+                            const blob = new Blob(
+                                [atob(cifData)],
+                                {{ type: "text/plain" }}
+                            );
+
+                            // Create object URL
+                            const url = URL.createObjectURL(blob);
+
+                            try {{
+                                // Load structure
+                                await viewer.loadStructureFromUrl(url, "mmcif");
+                            }} catch (error) {{
+                                console.error("Error loading structure:", error);
+                            }}
+                      }})();
+                    </script>
+                </body>
+            </html>
+        '>
+    </iframe>"""
 
 
-def remove_nested_quotes(html):
-    """Remove triple nested quotes in HEADER"""
-    if html.find("HEADER") == -1:
-        return html
-
-    i = html.index("HEADER")
-    j = html[i:].index('"pdb");') + i - len('",')
-    header_html = html[i:j]
-    for delete_me in ("\\'", '\\"', "'", '"'):
-        header_html = header_html.replace(delete_me, "")
-    html = html[:i] + header_html + html[j:]
-    return html
-
-
-def postprocess_html(html):
-    html = remove_nested_quotes(html)
-    html = html.replace("'", '"')
-
-    L.info("Wrapping py3DMol HTML in iframe so we can view multiple HTMLs.")
-    html_wrapped = f"""<!DOCTYPE html><html>{html}</html>"""
-    iframe_html = (
-        f"""<iframe style="width: 100%; height: 400px;" """
-        f"""allow="midi; display-capture;" frameborder="0" """
-        f"""srcdoc='{html_wrapped}'></iframe>"""
-    )
-    return iframe_html
+def get_uniprot_examples():
+    return [
+        "Albumin [P02768]",
+        "Insulin [P01308]",
+        "Hemoglobin [P69905]",
+        "Lysozyme [P61626]",
+        "BRCA1 [P38398]",
+        "Immunoglobulin [P01857]",
+        "Actin [P60709]",
+        "Ribonuclease [P07998]",
+    ]
 
 
 def always_dark():
