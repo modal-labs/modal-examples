@@ -13,7 +13,7 @@
 # that can predict the structure of any sequence which we'll investigate here.
 
 # In this example, we'll also show how you can use Modal to go beyond
-# running the latest protein folding model by buildng tools around it for
+# just running the latest protein folding model by building tools around it for
 # your team of scientists and stakeholders to understand the analyze the results.
 
 # ## Basic Setup
@@ -30,9 +30,9 @@ app = modal.App("example-esm3-dashboard")
 # ### Create a Volume to store cached ESM3 model and Entrez sequence data
 
 # To minimize cold start times we'll store the ESM3 model weights on a Modal
-# [Volume](https://modal.com/docs/guide/volumes). Normally, we would do that
+# [Volume](https://modal.com/docs/guide/volumes). Normally we would do that
 # through the `cache_dir` argument of `from_pretrained` but ESM3 doesn't
-# support that yet. Instead we'll use the `HF_HOME` environment variable to
+# support that yet. Instead, we'll use the `HF_HOME` environment variable to
 # point to the volume.
 
 volume = modal.Volume.from_name(
@@ -95,9 +95,9 @@ with web_app_image.imports():
 # Next, we map the model's setup and inference code onto Modal.
 
 # 1. For setup code that only needs to run once, we put it in a method
-# deocrated with `@enter` which runs on container start.
+# decorated with `@enter` which runs on container start.
 # 2. To run the actual inference, we put it in a method decorated with `@method`
-# 3. We'll utilize an A10 GPU here for speedy inference.
+# 3. We'll utilize an A10G GPU here for speedy inference.
 
 
 @app.cls(
