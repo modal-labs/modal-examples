@@ -1,6 +1,5 @@
 # ---
 # cmd: ["modal", "run", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
-# tags: ["featured", "use-case-sandboxed-code-execution"]
 # pytest: false
 # env: {"MODAL_AUTOMOUNT": "True"}
 # ---
@@ -33,8 +32,12 @@ app = modal.App(
     "example-code-langchain",
     image=image,
     secrets=[
-        modal.Secret.from_name("openai-secret"),
-        modal.Secret.from_name("my-langsmith-secret"),
+        modal.Secret.from_name(
+            "openai-secret", required_keys=["OPENAI_API_KEY"]
+        ),
+        modal.Secret.from_name(
+            "langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]
+        ),
     ],
 )
 

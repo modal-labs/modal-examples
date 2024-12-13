@@ -1,24 +1,24 @@
 # ---
 # output-directory: "/tmp/render"
-# tags: ["use-case-image-video-3d"]
 # ---
+
 # # Render a video with Blender on many GPUs or CPUs in parallel
-#
+
 # This example shows how you can render an animated 3D scene using
 # [Blender](https://www.blender.org/)'s Python interface.
-#
+
 # You can run it on CPUs to scale out on one hundred containers
 # or run it on GPUs to get higher throughput per node.
 # Even for this simple scene, GPUs render 10x faster than CPUs.
-#
+
 # The final render looks something like this:
-#
+
 # <center>
 # <video controls autoplay loop muted>
 # <source src="https://modal-public-assets.s3.amazonaws.com/modal-blender-video.mp4" type="video/mp4">
 # </video>
 # </center>
-#
+
 # ## Defining a Modal app
 
 from pathlib import Path
@@ -42,9 +42,9 @@ rendering_image = (
 )
 
 # ## Rendering a single frame
-#
+
 # We define a function that renders a single frame. We'll scale this function out on Modal later.
-#
+
 # Functions in Modal are defined along with their hardware and their dependencies.
 # This function can be run with GPU acceleration or without it, and we'll use a global flag in the code to switch between the two.
 
@@ -87,7 +87,7 @@ def render(blend_file: bytes, frame_number: int = 0) -> bytes:
 
 
 # ### Rendering with acceleration
-#
+
 # We can configure the rendering process to use GPU acceleration with NVIDIA CUDA.
 # We select the [Cycles rendering engine](https://www.cycles-renderer.org/), which is compatible with CUDA,
 # and then activate the GPU.
@@ -124,7 +124,7 @@ def configure_rendering(ctx, with_gpu: bool):
 
 
 # ## Combining frames into a video
-#
+
 # Rendering 3D images is fun, and GPUs can make it faster, but rendering 3D videos is better!
 # We add another function to our app, running on a different, simpler container image
 # and different hardware, to combine the frames into a video.
@@ -161,19 +161,19 @@ def combine(frames_bytes: list[bytes], fps: int = FPS) -> bytes:
 
 
 # ## Rendering in parallel in the cloud from the comfort of the command line
-#
+
 # With these two functions defined, we need only a few more lines to run our rendering at scale on Modal.
-#
+
 # First, we need a function that coordinates our functions to `render` frames and `combine` them.
 # We decorate that function with `@app.local_entrypoint` so that we can run it with `modal run blender_video.py`.
-#
+
 # In that function, we use `render.map` to map the `render` function over the range of frames,
 # so that the logo will spin in the final video.
-#
+
 # We collect the bytes from each frame into a `list` locally and then send it to `combine` with `.remote`.
-#
+
 # The bytes for the video come back to our local machine, and we write them to a file.
-#
+
 # The whole rendering process (for 4 seconds of 1080p 60 FPS video) takes about five minutes to run on 10 A10G GPUs,
 # with a per-frame latency of about 10 seconds, and about five minutes to run on 100 CPUs, with a per-frame latency of about one minute.
 

@@ -1,23 +1,23 @@
 # ---
 # output-directory: "/tmp/stable-diffusion-xl"
 # deploy: true
-# tags: ["use-case-image-video-3d"]
 # ---
+
 # # LoRAs Galore: Create a LoRA Playground with Modal, Gradio, and S3
-#
+
 # This example shows how to mount an S3 bucket in a Modal app using [`CloudBucketMount`](https://modal.com/docs/reference/modal.CloudBucketMount).
 # We will download a bunch of LoRA adapters from the [HuggingFace Hub](https://huggingface.co/models) into our S3 bucket
 # then read from that bucket, on the fly, when doing inference.
-#
+
 # By default, we use the [IKEA instructions LoRA](https://huggingface.co/ostris/ikea-instructions-lora-sdxl) as an example,
 # which produces the following image when prompted to generate "IKEA instructions for building a GPU rig for deep learning":
-#
+
 # ![IKEA instructions for building a GPU rig for deep learning](./ikea-instructions-for-building-a-gpu-rig-for-deep-learning.png)
-#
+
 # By the end of this example, we've deployed a "playground" app where anyone with a browser can try
 # out these custom models. That's the power of Modal: custom, autoscaling AI applications, deployed in seconds.
-# You can try out our deployment [here](https://modal-labs--loras-galore-ui.modal.run).
-#
+# You can try out our deployment [here](https://modal-labs-examples--loras-galore-ui.modal.run).
+
 # ## Basic setup
 
 import io
@@ -29,13 +29,16 @@ import modal
 
 # You will need to have an S3 bucket and AWS credentials to run this example. Refer to the documentation
 # for the detailed [IAM permissions](https://modal.com/docs/guide/cloud-bucket-mounts#iam-permissions) those credentials will need.
-#
+
 # After you are done creating a bucket and configuring IAM settings,
 # you now need to create a [Modal Secret](https://modal.com/docs/guide/secrets). Navigate to the "Secrets" tab and
 # click on the AWS card, then fill in the fields with the AWS key and secret created
 # previously. Name the Secret `s3-bucket-secret`.
 
-bucket_secret = modal.Secret.from_name("s3-bucket-secret")
+bucket_secret = modal.Secret.from_name(
+    "s3-bucket-secret",
+    required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+)
 
 MOUNT_PATH: Path = Path("/mnt/bucket")
 LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
@@ -45,7 +48,7 @@ LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
 # the container `Image`. The line below constructs an image
 # with the dependencies we need -- no need to install them locally.
 
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "huggingface_hub==0.21.4",
     "transformers==4.38.2",
     "diffusers==0.26.3",
@@ -62,6 +65,7 @@ with image.imports():
 # We attach the S3 bucket to all the Modal functions in this app by mounting it on the filesystem they see,
 # passing a `CloudBucketMount` to the `volumes` dictionary argument. We can read and write to this mounted bucket
 # (almost) as if it were a local directory.
+
 app = modal.App(
     "loras-galore",
     image=image,
@@ -75,11 +79,13 @@ app = modal.App(
 
 
 # ## Acquiring LoRA weights
-#
+
 # `search_loras()` will use the Hub API to search for LoRAs. We limit LoRAs
 # to a maximum size to avoid downloading very large model weights.
 # We went with 800 MiB, but feel free to adapt to what works best for you.
-@app.function()
+
+
+@app.function(secrets=[bucket_secret])
 def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
     api = huggingface_hub.HfApi()
 
@@ -146,12 +152,14 @@ def download_lora(repository_id: str) -> Optional[str]:
 
 
 # ## Inference with LoRAs
-#
+
 # We define a `StableDiffusionLoRA` class to organize our inference code.
 # We load Stable Diffusion XL 1.0 as a base model, then, when doing inference,
 # we load whichever LoRA the user specifies from the S3 bucket.
 # For more on the decorators we use on the methods below to speed up building and booting,
 # check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-hooks).
+
+
 @app.cls(gpu="a10g")  # A10G GPUs are great for inference
 class StableDiffusionLoRA:
     pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
@@ -191,12 +199,14 @@ class StableDiffusionLoRA:
 
 
 # ## Try it locally!
-#
+
 # To use our inference code from our local command line, we add a `local_entrypoint` to our `app`.
 # Run it using `modal run cloud_bucket_mount_loras.py`, and pass `--help`
 # to see the available options.
-#
+
 # The inference code will run on our machines, but the results will be available on yours.
+
+
 @app.local_entrypoint()
 def main(
     limit: int = 100,
@@ -238,8 +248,10 @@ def main(
 # To set up your own, run `modal deploy cloud_bucket_mount_loras.py` and navigate to the URL it prints out.
 # If you're playing with the code, use `modal serve` instead to see changes live.
 
-web_image = modal.Image.debian_slim().pip_install(
-    "fastapi[standard]==0.115.4", "gradio~=4.29.0", "pillow~=10.2.0"
+web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "fastapi[standard]==0.115.4",
+    "gradio~=5.7.1",
+    "pillow~=10.2.0",
 )
 
 

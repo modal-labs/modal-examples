@@ -23,7 +23,7 @@ env:
   TERMINFO: /etc/terminfo
   MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
   MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
-  MODAL_ENVIRONMENT: main
+  MODAL_ENVIRONMENT: examples
 
 jobs:
   # Output all changed files in a JSON format compatible with GitHub Actions job matrices

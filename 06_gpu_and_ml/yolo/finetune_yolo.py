@@ -1,17 +1,20 @@
 # ---
 # args: ["--no-quick-check"]
-# tags: ["use-case-image-video-3d", "use-case-finetuning"]
 # ---
-# # Fine-Tuning and Inference for Computer Vision with YOLO
-#
+
+# # Fine-tune open source YOLO models for object detection
+
 # Example by [@Erik-Dunteman](https://github.com/erik-dunteman) and [@AnirudhRahul](https://github.com/AnirudhRahul/).
 
 # The popular "You Only Look Once" (YOLO) model line provides high-quality object detection in an economical package.
 # In this example, we use the [YOLOv10](https://docs.ultralytics.com/models/yolov10/) model, released on May 23, 2024.
-#
+
 # We will:
+
 # - Download two custom datasets from the [Roboflow](https://roboflow.com/) computer vision platform: a dataset of birds and a dataset of bees
+
 # - Fine-tune the model on those datasets, in parallel, using the [Ultralytics package](https://docs.ultralytics.com/)
+
 # - Run inference with the fine-tuned models on single images and on streaming frames
 
 # For commercial use, be sure to consult the [Ultralytics software license options](https://docs.ultralytics.com/#yolo-licenses-how-is-ultralytics-yolo-licensed),
@@ -54,15 +57,18 @@ app = modal.App("yolo-finetune", image=image, volumes={volume_path: volume})
 
 
 # ## Download a dataset
-#
+
 # We'll be downloading our data from the [Roboflow](https://roboflow.com/) computer vision platform, so to follow along you'll need to:
+
 # - Create a free account on [Roboflow](https://app.roboflow.com/)
+
 # - [Generate a Private API key](https://app.roboflow.com/settings/api)
+
 # - Set up a Modal [Secret](https://modal.com/docs/guide/secrets) called `roboflow-api-key` in the Modal UI [here](https://modal.com/secrets),
 # setting the `ROBOFLOW_API_KEY` to the value of your API key.
-#
+
 # You're also free to bring your own dataset with a config in YOLOv10-compatible yaml format.
-#
+
 # We'll be training on the medium size model, but you're free to experiment with [other model sizes](https://docs.ultralytics.com/models/yolov10/#model-variants).
 
 
@@ -81,7 +87,13 @@ class DatasetConfig:
         return f"{self.workspace_id}/{self.project_id}/{self.version}"
 
 
-@app.function(secrets=[modal.Secret.from_name("roboflow-api-key")])
+@app.function(
+    secrets=[
+        modal.Secret.from_name(
+            "roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"]
+        )
+    ]
+)
 def download_dataset(config: DatasetConfig):
     import os
 
@@ -156,9 +168,9 @@ def train(
 
 
 # ## Run inference on single inputs and on streams
-#
+
 # We demonstrate two different ways to run inference -- on single images and on a stream of images.
-#
+
 # The images we use for inference are loaded from the test set, which was added to our Volume when we downloaded the dataset.
 # Each image read takes ~50ms, and inference can take ~5ms, so the disk read would be our biggest bottleneck if we just looped over the image paths.
 # To avoid it, we parallelize the disk reads across many workers using Modal's [`.map`](https://modal.com/docs/guide/scale),
@@ -247,16 +259,16 @@ class Inference:
 
 
 # ## Running the example
-#
+
 # We'll kick off our parallel training jobs and run inference from the command line.
-#
+
 # ```bash
 # modal run finetune_yolo.py
 # ```
-#
+
 # This runs the training in `quick_check` mode, useful for debugging the pipeline and getting a feel for it.
 # To do a longer run that actually meaningfully improves performance, use:
-#
+
 # ```bash
 # modal run finetune_yolo.py --no-quick-check
 # ```
@@ -338,7 +350,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
 
 
 # ## Addenda
-#
+
 # The rest of the code in this example is utility code.
 
 warnings.filterwarnings(  # filter warning from the terminal image library

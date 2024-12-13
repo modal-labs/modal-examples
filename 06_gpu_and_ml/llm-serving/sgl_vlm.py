@@ -1,22 +1,18 @@
-# ---
-# deploy: true
-# tags: ["use-case-lm-inference", "use-case-image-video-3d"]
-# ---
 # # Run LLaVA-Next on SGLang for Visual QA
-#
+
 # Vision-Language Models (VLMs) are like LLMs with eyes:
 # they can generate text based not just on other text,
 # but on images as well.
-#
+
 # This example shows how to run a VLM on Modal using the
 # [SGLang](https://github.com/sgl-project/sglang) library.
-#
+
 # Here's a sample inference, with the image rendered directly in the terminal:
-#
+
 # ![Sample output answering a question about a photo of the Statue of Liberty](https://modal-public-assets.s3.amazonaws.com/sgl_vlm_qa_sol.png)
-#
+
 # ## Setup
-#
+
 # First, we'll import the libraries we need locally
 # and define some constants.
 
@@ -31,7 +27,7 @@ import requests
 # VLMs are generally larger than LLMs with the same cognitive capability.
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
 # We find that inference for a single input takes about 3-4 seconds on an A10G.
-#
+
 # You can customize the GPU type and count using the `GPU_TYPE` and `GPU_COUNT` environment variables.
 # If you want to see the model really rip, try an `"a100-80gb"` or an `"h100"`
 # on a large batch.
@@ -93,14 +89,14 @@ vlm_image = (
 )
 
 # ## Defining a Visual QA service
-#
+
 # Running an inference service on Modal is as easy as writing inference in Python.
-#
+
 # The code below adds a modal `Cls` to an `App` that runs the VLM.
-#
+
 # We define a method `generate` that takes a URL for an image URL and a question
 # about the image as inputs and returns the VLM's answer.
-#
+
 # By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
 # so it can be accessed over the public internet from any client.
 
@@ -192,15 +188,15 @@ class Model:
 
 # Now, we can send this Modal Function a POST request with an image and a question
 # and get back an answer.
-#
+
 # The code below will start up the inference service
 # so that it can be run from the terminal as a one-off,
 # like a local script would be, using `modal run`:
-#
+
 # ```bash
 # modal run sgl_vlm.py
 # ```
-#
+
 # By default, we hit the endpoint twice to demonstrate how much faster
 # the inference is once the server is running.
 
@@ -228,21 +224,21 @@ def main(image_url=None, question=None, twice=True):
 
 
 # ## Deployment
-#
+
 # To set this up as a long-running, but serverless, service, we can deploy it to Modal:
-#
+
 # ```bash
 # modal deploy sgl_vlm.py
 # ```
-#
+
 # And then send requests from anywhere. See the [docs](https://modal.com/docs/guide/webhook-urls)
 # for details on the `web_url` of the function, which also appears in the terminal output
 # when running `modal deploy`.
-#
+
 # You can also find interactive documentation for the endpoint at the `/docs` route of the web endpoint URL.
 
 # ## Addenda
-#
+
 # The rest of the code in this example is just utility code.
 
 warnings.filterwarnings(  # filter warning from the terminal image library

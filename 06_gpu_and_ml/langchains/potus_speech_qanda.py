@@ -1,7 +1,5 @@
 # ---
-# deploy: true
 # args: ["--query", "How many oil barrels were released from reserves?"]
-# tags: ["featured"]
 # ---
 
 # # Retrieval-augmented generation (RAG) for question-answering with LangChain
@@ -48,7 +46,11 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 app = modal.App(
     name="example-langchain-qanda",
     image=image,
-    secrets=[modal.Secret.from_name("openai-secret")],
+    secrets=[
+        modal.Secret.from_name(
+            "openai-secret", required_keys=["OPENAI_API_KEY"]
+        )
+    ],
 )
 
 retriever = None  # embedding index that's relatively expensive to compute, so caching with global var.
@@ -228,7 +230,7 @@ def cli(query: str, show_sources: bool = False):
 # ```bash
 # curl --get \
 #   --data-urlencode "query=What did the president say about Justice Breyer" \
-#   https://modal-labs--example-langchain-qanda-web.modal.run
+#   https://modal-labs--example-langchain-qanda-web.modal.run # your URL here
 # ```
 
 # ```json

@@ -1,6 +1,5 @@
 # ---
 # cmd: ["python", "13_sandboxes/simple_code_interpreter.py"]
-# tags: ["use-case-sandboxed-code-execution"]
 # pytest: false
 # ---
 

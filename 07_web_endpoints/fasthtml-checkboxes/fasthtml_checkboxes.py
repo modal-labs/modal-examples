@@ -1,12 +1,12 @@
 # ---
-# deploy: true
 # cmd: ["modal", "serve", "07_web_endpoints.fasthtml-checkboxes.fasthtml_checkboxes"]
+# deploy: true
 # mypy: ignore-errors
 # ---
 
 # # Deploy 100,000 multiplayer checkboxes on Modal with FastHTML
 
-# ![Screenshot of FastHTML Checkboxes UI](./ui.png)
+# [![Screenshot of FastHTML Checkboxes UI](./ui.png)](https://modal-labs-examples--example-checkboxes-web.modal.run)
 
 # This example shows how you can deploy a multiplayer checkbox game with FastHTML on Modal.
 

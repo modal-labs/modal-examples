@@ -1,8 +1,9 @@
 # ---
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/text_embeddings_inference.py::embed_dataset"]
 # ---
+
 # # Run TextEmbeddingsInference (TEI) on Modal
-#
+
 # This example runs the [Text Embedding Inference (TEI)](https://github.com/huggingface/text-embeddings-inference) toolkit on the Hacker News BigQuery public dataset.
 
 import json
@@ -116,9 +117,9 @@ def download_data():
         "bigquery-public-data.hacker_news.full",
         max_results=100_000,
     )
-    df = iterator.to_dataframe(progress_bar_type="tqdm")
+    df = iterator.to_dataframe(progress_bar_type="tqdm").dropna()
+
     df["id"] = df["id"].astype(int)
-    # TODO: better chunking / splitting.
     df["text"] = df["text"].apply(lambda x: x[:512])
 
     data = list(zip(df["id"], df["text"]))

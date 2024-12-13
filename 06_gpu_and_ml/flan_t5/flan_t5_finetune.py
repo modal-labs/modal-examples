@@ -1,24 +1,18 @@
-# ---
-# runtimes: ["runc", "gvisor"]
-# tags: ["use-case-finetuning", "use-case-lm-inference"]
-# ---
-#
 # # Finetuning Flan-T5
-#
+
 # Example by [@anishpdalal](https://github.com/anishpdalal)
-#
+
 # [Flan-T5](https://huggingface.co/docs/transformers/model_doc/flan-t5) is a highly versatile model that's been instruction-tuned to
 # perform well on a variety of text-based tasks such as question answering and summarization. There are smaller model variants available which makes
 # Flan-T5 a great base model to use for finetuning on a specific instruction dataset with just a single GPU. In this example, we'll
 # finetune Flan-T5 on the [Extreme Sum ("XSum")](https://huggingface.co/datasets/xsum) dataset to summarize news articles.
 
 # ## Defining dependencies
-#
+
 # The example uses the `dataset` package from HuggingFace to load the xsum dataset. It also uses the `transformers`
 # and `accelerate` packages with a PyTorch backend to finetune and serve the model. Finally, we also
 # install `tensorboard` and serve it via a web app. All packages are installed into a Debian Slim base image
 # using the `pip_install` function.
-#
 
 from pathlib import Path
 
@@ -41,12 +35,12 @@ app = modal.App(name="example-news-summarizer", image=image)
 output_vol = modal.Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption
-#
+
 # As this finetuning job is long-running it's possible that it experiences a preemption.
 # The training code is robust to pre-emption events by periodically saving checkpoints and restoring
 # from checkpoint on restart. But it's also helpful to observe in logs when a preemption restart has occurred,
 # so we track restarts with a `modal.Dict`.
-#
+
 # See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
 
 restart_tracker_dict = modal.Dict.from_name(
@@ -67,7 +61,7 @@ def track_restarts(restart_tracker: modal.Dict) -> int:
 
 
 # ## Finetuning Flan-T5 on XSum dataset
-#
+
 # Each row in the dataset has a `document` (input news article) and `summary` column.
 
 
@@ -194,10 +188,11 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
 
 
 # ## Monitoring Finetuning with Tensorboard
-#
+
 # Tensorboard is an application for visualizing training loss. In this example we
 # serve it as a Modal WSGI app.
-#
+
+
 @app.function(volumes={VOL_MOUNT_PATH: output_vol})
 @modal.wsgi_app()
 def monitor():
@@ -265,17 +260,17 @@ def main():
 
 
 # ## Run via the CLI
-# Invoke model finetuning use the provided command below
-#
+
+# Trigger model finetuning using the following command:
+
 # ```bash
 # modal run --detach flan_t5_finetune.py::finetune --num-train-epochs=1 --size-percentage=10
 # View the tensorboard logs at https://<username>--example-news-summarizer-monitor-dev.modal.run
 # ```
-#
-# Invoke finetuned model inference via local entrypoint
-#
+
+# Then, you can invoke inference via the `local_entrypoint` with this command:
+
 # ```bash
 # modal run flan_t5_finetune.py
 # World number one Tiger Woods missed the cut at the US Open as he failed to qualify for the final round of the event in Los Angeles.
 # ```
-#

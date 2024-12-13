@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# tags: ["use-case-image-video-3d", "use-case-finetuning", "featured"]
 # ---
 
 # # Create a character LoRA for Flux with Hugging Face and Gradio
@@ -133,9 +132,11 @@ MODEL_DIR = "/model"
 # [gated by a license agreement](https://huggingface.co/docs/hub/en/models-gated) which
 # you must agree to [here](https://huggingface.co/black-forest-labs/FLUX.1-dev).
 # After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
-# with the name `huggingface` following the instructions in the template.
+# with the name `huggingface-secret` following the instructions in the template.
 
-huggingface_secret = modal.Secret.from_name("huggingface")
+huggingface_secret = modal.Secret.from_name(
+    "huggingface-secret", required_keys=["HF_TOKEN"]
+)
 
 image = image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
@@ -218,7 +219,7 @@ def load_images(image_urls: list[str]) -> Path:
 # This is especially important if you're fiddling around with the configuration parameters.
 
 # This example can optionally use [Weights & Biases](https://wandb.ai) to track all of this training information.
-# Just sign up for an account, switch the flag below, and add your API key as a [Modal secret](https://modal.com/docs/guide/secrets).
+# Just sign up for an account, switch the flag below, and add your API key as a [Modal Secret](https://modal.com/secrets).
 
 USE_WANDB = False
 
@@ -269,12 +270,16 @@ class TrainConfig(SharedConfig):
     ),
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
-    secrets=[
-        modal.Secret.from_name("my-wandb-secret"),
-        modal.Secret.from_name("huggingface"),
-    ]
-    if USE_WANDB
-    else [modal.Secret.from_name("huggingface")],
+    secrets=[huggingface_secret]
+    + (
+        [
+            modal.Secret.from_name(
+                "wandb-secret", required_keys=["WANDB_API_KEY"]
+            )
+        ]
+        if USE_WANDB
+        else []
+    ),
 )
 def train(instance_example_urls, config):
     import subprocess

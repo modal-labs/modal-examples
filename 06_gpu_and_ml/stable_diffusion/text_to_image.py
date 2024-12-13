@@ -1,8 +1,6 @@
 # ---
 # output-directory: "/tmp/stable-diffusion"
 # args: ["--prompt", "A 1600s oil painting of the New York City skyline"]
-# tags: ["use-case-image-video-3d"]
-# deploy: true
 # ---
 
 # # Run Stable Diffusion 3.5 Large Turbo as a CLI, API, and web UI

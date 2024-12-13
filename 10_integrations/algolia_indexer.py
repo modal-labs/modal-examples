@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# env: {"MODAL_ENVIRONMENT": "main"}
 # ---
 # # Algolia docsearch crawler
 #
@@ -102,9 +103,9 @@ CONFIG = {
 #
 # If you don't already have one, sign up for an account on [Algolia](https://www.algolia.com/). Set up
 # a project and create an API key with `write` access to your index, and with the ACL permissions
-# `addObject`, `editSettings` and `deleteIndex`. Now, create a secret on the Modal [Secrets](/secrets)
+# `addObject`, `editSettings` and `deleteIndex`. Now, create a Secret on the Modal [Secrets](https://modal.com/secrets)
 # page with the `API_KEY` and `APPLICATION_ID` you just created. You can name this anything you want,
-# we named it `algolia-secret`.
+# but we named it `algolia-secret` and so that's what the code below expects.
 
 # ## The actual function
 #
@@ -139,23 +140,23 @@ def crawl_webhook():
 
 
 # ## Deploy the indexer
-#
+
 # That's all the code we need! To deploy your application, run
-#
+
 # ```shell
 # modal deploy algolia_indexer.py
 # ```
-#
+
 # If successful, this will print a URL for your new webhook, that you can hit using
 # `curl` or a browser. Logs from webhook invocations can be found from the [apps](/apps)
 # page.
-#
+
 # The indexed contents can be found at https://www.algolia.com/apps/APP_ID/explorer/browse/, for your
 # APP_ID. Once you're happy with the results, you can [set up the `docsearch` package with your
 # website](https://docsearch.algolia.com/docs/docsearch-v3/), and create a search component that uses this index.
 
 # ## Entrypoint for development
-#
+
 # To make it easier to test this, we also have an entrypoint for when you run
 # `modal run algolia_indexer.py`
 
