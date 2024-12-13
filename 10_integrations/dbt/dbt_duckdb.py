@@ -68,7 +68,7 @@ dbt_image = (  # start from a slim Linux image
     .add_local_file(
         LOCAL_DBT_PROJECT / "profiles.yml",
         remote_path=f"{PROFILES_PATH}/profiles.yml",
-    ),
+    )
 )
 
 app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
