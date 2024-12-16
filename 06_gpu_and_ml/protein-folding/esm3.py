@@ -308,6 +308,7 @@ def ui():
         path="/",
     )
 
+
 # ## Folding from the command line
 
 # If you want to quickly run the ESM3 model without the web interface, you can
@@ -320,6 +321,7 @@ def ui():
 # This will run the same inference code above on Modal. The results are
 # returned in the [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File)
 # format, which you can render with the online [Molstar Viewer](https://molstar.org/).
+
 
 @app.local_entrypoint()
 def main(
@@ -343,7 +345,6 @@ def main(
 
     print(f"writing results to {output_path}")
     output_path.write_bytes(results_buffer.read())
-
 
 
 # ## Addenda
