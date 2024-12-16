@@ -1,9 +1,4 @@
-# ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/protein-folding/esm3.py"]
-# output-directory: "/tmp/esm3"
-# ---
-
-# # Visualizing Protein Folding with ESM3 and Mol*
+# # Visualizing Protein Folding with ESM3 and Molstar
 
 # ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./gradio_ui.png)
 
@@ -14,7 +9,7 @@
 
 # In this example, we'll also show how you can use Modal to go beyond
 # just running the latest protein folding model by building tools around it for
-# your team of scientists and stakeholders to understand the analyze the results.
+# your team of scientists to understand the analyze the results.
 
 # ## Basic Setup
 
@@ -32,8 +27,8 @@ app = modal.App("example-esm3-dashboard")
 # To minimize cold start times we'll store the ESM3 model weights on a Modal
 # [Volume](https://modal.com/docs/guide/volumes). Normally we would do that
 # through the `cache_dir` argument of `from_pretrained` but ESM3 doesn't
-# support that yet. Instead, we'll use the `HF_HOME` environment variable to
-# point to the volume.
+# support that yet. Instead, we'll use [Hugging Face's](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables)
+# `HF_HOME` environment variable to point to the volume.
 
 volume = modal.Volume.from_name(
     "example-esm3-dashboard", create_if_missing=True
@@ -115,12 +110,12 @@ class Model:
         )
         self.model.to("cuda")
 
-        print("Using half precision and Tensor Cores for fast ESM3 inference")
+        print("using half precision and tensor cores for fast ESM3 inference")
         self.model = self.model.half()
         torch.backends.cuda.matmul.allow_tf32 = True
 
         self.max_steps = 250
-        print(f"Setting max ESM steps to: {self.max_steps}")
+        print(f"setting max ESM steps to: {self.max_steps}")
 
     def convert_protein_to_MMCIF(self, esm_protein, output_path):
         structure = gemmi.read_pdb_string(esm_protein.to_pdb_string())
@@ -137,32 +132,21 @@ class Model:
     def inference(self, sequence: str) -> bool:
         num_steps = min(len(sequence), self.max_steps)
 
-        print(f"Running ESM3 inference with num_steps={num_steps}")
+        print(f"running ESM3 inference with num_steps={num_steps}")
         esm_protein = self.model.generate(
             ESMProtein(sequence=sequence), self.get_generation_config(num_steps)
         )
 
-        print("Checking for errors in output")
+        print("checking for errors in output")
         if hasattr(esm_protein, "error_msg"):
             raise ValueError(esm_protein.error_msg)
 
-        print("Converting ESMProtein into MMCIF file")
+        print("converting ESMProtein into MMCIF file")
         save_path = Path(tempfile.mktemp() + ".mmcif")
         self.convert_protein_to_MMCIF(esm_protein, save_path)
 
-        print("Returning MMCIF bytes")
+        print("returning MMCIF bytes")
         return io.BytesIO(save_path.read_bytes())
-
-
-@app.local_entrypoint()
-def main():
-    # s = ("VLSE")
-    s = "VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGYQG"
-    mmcif_buffer = Model().inference.remote(s)
-
-    mmcif_buffer.seek(0)
-    Path("output.mmcif").write_bytes(mmcif_buffer.read())
-    breakpoint()
 
 
 # ### Serving a Gradio UI with an `asgi_app`
@@ -171,19 +155,21 @@ def main():
 # that can help scientists and stakeholders understand the results of the model.
 
 # First, we'll visualize the results using [Mol* (Molstar)](https://molstar.org/).
-# Mol* is a rich tool that allows you to visualize amino acid residues, secondary
-# structures, the final positions of each residue, and much more.
+# Mol* is a open-source toolkit for visualizing and analyzing large-scale
+# molecular data, including secondary structures and residue-specific positions
+# of proteins.
 
 # Second, we'll create links to lookup the metadata and structure of known
 # proteins using the [Universal Protein Resource](https://www.uniprot.org/)
 # database from the UniProt consortium which is supported by the European
 # Bioinformatics Institute (EMBL-EBI), the National Human Genome Research
 # Institute (NHGRI), and the Swiss Institute of Bioinformatics (SIB). UniProt
-# also a hub that links to many other databases like RCSB Protein Data Bank.
+# is also a hub that links to many other databases like the RCSB Protein
+# Data Bank.
 
-# Finally, we'll use the [Biotite](https://www.biotite-python.org/) library to
-# help pull sequence data, in the form of
-# [fasta](https://en.wikipedia.org/wiki/FASTA_format) files from UniProt.
+# To pull sequence data, we'll use the [Biotite](https://www.biotite-python.org/)
+# library to pull [fasta](https://en.wikipedia.org/wiki/FASTA_format) files from
+# UniProt which contain labelled sequences.
 
 # You should see the URL for this UI in the output of `modal deploy`
 # or on your [Modal app dashboard](https://modal.com/apps) for this app.
@@ -321,6 +307,43 @@ def ui():
         blocks=interface,
         path="/",
     )
+
+# ## Folding from the command line
+
+# If you want to quickly run the ESM3 model without the web interface, you can
+# run it from the command line like this:
+
+# ```shell
+# modal run chai1
+# ```
+
+# This will run the same inference code above on Modal. The results are
+# returned in the [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File)
+# format, which you can render with the online [Molstar Viewer](https://molstar.org/).
+
+@app.local_entrypoint()
+def main(
+    sequence: str = None,
+    output_dir: str = None,
+):
+    if sequence is None:
+        print("using sequence for insulin [P01308]")
+        sequence = (
+            "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRR"
+            "YLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
+        )
+
+    if output_dir is None:
+        output_dir = Path("/tmp/esm3")
+        output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "output.mmcif"
+
+    print("starting inference on Modal")
+    results_buffer = Model().inference.remote(sequence)
+
+    print(f"writing results to {output_path}")
+    output_path.write_bytes(results_buffer.read())
+
 
 
 # ## Addenda
