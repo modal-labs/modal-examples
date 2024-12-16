@@ -1,4 +1,4 @@
-# # Visualizing Protein Folding with ESM3 and Molstar
+# # Visualizing protein folding with ESM3 and Molstar
 
 # ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./gradio_ui.png)
 
