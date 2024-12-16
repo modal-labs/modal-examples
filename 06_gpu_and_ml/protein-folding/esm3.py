@@ -149,7 +149,7 @@ class Model:
         return io.BytesIO(save_path.read_bytes())
 
 
-# ### Serving a Gradio UI with an `asgi_app`
+# ## Serving a Gradio UI with an `asgi_app`
 
 # In this section we'll create web interface tools around the ESM3 model
 # that can help scientists and stakeholders understand the results of the model.
