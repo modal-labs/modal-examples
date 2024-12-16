@@ -315,12 +315,12 @@ def ui():
 # run it from the command line like this:
 
 # ```shell
-# modal run chai1
+# modal run esm3
 # ```
 
 # This will run the same inference code above on Modal. The results are
 # returned in the [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File)
-# format, which you can render with the online [Molstar Viewer](https://molstar.org/).
+# format, which you can render with the online [Molstar Viewer](https://molstar.org/viewer/).
 
 
 @app.local_entrypoint()
@@ -381,7 +381,7 @@ def get_sequence(uniprot_num: str) -> str:
 # ### Supporting functions for the gradio app
 
 # The following code is a mix of javascript for the uniprot website link,
-# html & javascript for wrapping molstar, UniProt examples, gradio coloring.
+# html & javascript for wrapping molstar, UniProt examples, and gradio coloring.
 
 
 def get_js_for_uniprot_link():
