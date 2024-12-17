@@ -421,14 +421,17 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 6
 
 
-assets_path = Path(__file__).parent / "assets"
+image_with_assets = image.add_local_dir(
+    # Add local web assets to the image
+    Path(__file__).parent / "assets",
+    remote_path="/assets",
+)
 
 
 @app.function(
-    image=image,
+    image=image_with_assets,
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def fastapi_app():
