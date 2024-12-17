@@ -23,6 +23,7 @@ import json
 from typing import Any
 
 import modal
+import modal.container_process
 
 
 def driver_program():

@@ -168,8 +168,9 @@ static_path = Path(__file__).with_name("webcam").resolve()
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("fastapi[standard]"),
-    mounts=[modal.Mount.from_local_dir(static_path, remote_path="/assets")],
+    image=modal.Image.debian_slim()
+    .pip_install("fastapi[standard]")
+    .add_local_dir(static_path, remote_path="/assets")
 )
 @modal.asgi_app(label="example-webcam-object-detection")
 def fastapi_app():

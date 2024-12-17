@@ -75,28 +75,31 @@ async def poll_results(call_id: str):
     return result
 
 
-# Finally, we mount the static files for our front-end. We've made [a simple React
+# Specify a container image containing the version of fastapi we want to use to serve
+# our web app
+fast_api_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "fastapi[standard]==0.115.4"
+)
+
+# Finally, we add the static files for our front-end. We've made [a simple React
 # app](https://github.com/modal-labs/modal-examples/tree/main/09_job_queues/doc_ocr_frontend)
-# that hits the two endpoints defined above. To package these files with our app, first
-# we get the local assets path, and then create a modal [`Mount`](https://modal.com/docs/guide/local-data#mounting-directories)
-# that mounts this directory at `/assets` inside our container. Then, we instruct FastAPI to [serve
+# that hits the two endpoints defined above. To package these files with our app, we use
+# add_local_dir with the local directory of the assets, and specify that we want them
+# in the `/assets` directory inside our container (the `remote_path`). Then, we instruct FastAPI to [serve
 # this static file directory](https://fastapi.tiangolo.com/tutorial/static-files/) at our root path.
 
-assets_path = Path(__file__).parent / "doc_ocr_frontend"
-
-
-@app.function(
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
-        "fastapi[standard]==0.115.4"
-    ),
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
+local_assets_path = Path(__file__).parent / "doc_ocr_frontend"
+ocr_app_image = fast_api_image.add_local_dir(
+    local_assets_path, remote_path="/assets"
 )
+
+
+@app.function(image=ocr_app_image)
 @modal.asgi_app()
 def wrapper():
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
     )
-
     return web_app
 
 

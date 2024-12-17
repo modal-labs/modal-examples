@@ -30,17 +30,14 @@ app = modal.App("example-checkboxes")
 db = modal.Dict.from_name("example-checkboxes-db", create_if_missing=True)
 
 css_path_local = Path(__file__).parent / "styles.css"
-css_path_remote = Path("/assets/styles.css")
+css_path_remote = "/assets/styles.css"
 
 
 @app.function(
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
-        "python-fasthtml==0.6.9", "inflect~=7.4.0"
-    ),
+    image=modal.Image.debian_slim(python_version="3.12")
+    .pip_install("python-fasthtml==0.6.9", "inflect~=7.4.0")
+    .add_local_file(css_path_local, remote_path=css_path_remote),
     concurrency_limit=1,  # we currently maintain state in memory, so we restrict the server to one worker
-    mounts=[
-        modal.Mount.from_local_file(css_path_local, remote_path=css_path_remote)
-    ],
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

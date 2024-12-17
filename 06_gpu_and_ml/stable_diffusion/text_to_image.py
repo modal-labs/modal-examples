@@ -221,14 +221,15 @@ def entrypoint(
 
 frontend_path = Path(__file__).parent / "frontend"
 
-web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "jinja2==3.1.4", "fastapi[standard]==0.115.4"
+web_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("jinja2==3.1.4", "fastapi[standard]==0.115.4")
+    .add_local_dir(frontend_path, remote_path="/assets")
 )
 
 
 @app.function(
     image=web_image,
-    mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()
