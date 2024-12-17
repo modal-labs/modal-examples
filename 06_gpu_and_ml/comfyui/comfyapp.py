@@ -72,6 +72,11 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
+    .add_local_file(
+        Path(__file__).parent / "workflow_api.json",
+        "/root/workflow_api.json",
+        copy=True,
+    )
 )
 # ### Downloading custom nodes
 # We'll use `comfy-cli` to download custom nodes, in this case the popular WAS Node Suite pack.
@@ -86,7 +91,7 @@ image = (
 # ### Downloading models
 
 # You can also use comfy-cli to download models, but for this example we'll download the Flux models directly from Hugging Face into a Modal Volume.
-# Then on container start, we'll mount our models into the ComfyUI models directory.
+# Then on container start, we'll mount our models Volume into the ComfyUI models directory.
 # This allows us to avoid re-downloading the models every time you rebuild your image.
 
 image = (
@@ -182,12 +187,6 @@ def ui():
     allow_concurrent_inputs=10,
     container_idle_timeout=300,
     gpu="A10G",
-    mounts=[
-        modal.Mount.from_local_file(
-            Path(__file__).parent / "workflow_api.json",
-            "/root/workflow_api.json",
-        ),
-    ],
     volumes={"/root/comfy/ComfyUI/models": vol},
 )
 class ComfyUI:

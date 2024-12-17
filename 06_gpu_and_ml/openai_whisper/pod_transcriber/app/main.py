@@ -93,9 +93,7 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @app.function(
-    mounts=[
-        modal.Mount.from_local_dir(config.ASSETS_PATH, remote_path="/assets")
-    ],
+    image=app_image.add_local_dir(config.ASSETS_PATH, remote_path="/assets"),
     network_file_systems={config.CACHE_DIR: volume},
     keep_warm=2,
 )
@@ -112,9 +110,7 @@ def fastapi_app():
     return web_app
 
 
-@app.function(
-    image=app_image,
-)
+@app.function()
 def search_podcast(name):
     from gql import gql
 
