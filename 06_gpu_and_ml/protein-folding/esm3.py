@@ -129,7 +129,7 @@ class Model:
         )
 
     @modal.method()
-    def inference(self, sequence: str) -> bool:
+    def inference(self, sequence: str):
         num_steps = min(len(sequence), self.max_steps)
 
         print(f"running ESM3 inference with num_steps={num_steps}")
