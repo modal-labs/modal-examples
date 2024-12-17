@@ -1,18 +1,23 @@
-# # Visualizing protein folding with ESM3 and Molstar
+# # Build a protein folding dashboard with ESM3, Molstar, and Gradio
 
-# ![Image of Gradio UI for ESM3. Includes input sequence text box and Molstar viewiing of 3D protein structure](./gradio_ui.png)
+# ![Image of dashboard UI for ESM3 protein folding](https://modal-cdn.com/example-esm3-ui.png)
 
-# The world is full of hundreds of millions of genetic sequences, but we only
-# know the three-dimensional structure of a few hundred thousand of them.
-# Thankfully we have machine learning models like Evolutionary Scale's [ESM3](https://github.com/facebookresearch/esm)
-# that can predict the structure of any sequence which we'll investigate here.
+# There are perhaps a quadrillion distinct proteins on the planet Earth,
+# each one a marvel of nanotechnology discovered by painstaking evolution.
+# We know the amino acid sequence of nearly a billion but we only
+# know the three-dimensional structure of a few hundred thousand,
+# gathered by slow, difficult observational methods like X-ray crystallography.
+# Built upon this data are machine learning models like
+# Evolutionary Scale's [ESM3](https://github.com/facebookresearch/esm)
+# that can predict the structure of any sequence in seconds.
 
-# In this example, we'll also show how you can use Modal to go beyond
-# just running the latest protein folding model by building tools around it for
-# your team of scientists to understand the analyze the results.
+# In this example, we'll show how you can use Modal to not
+# just run the latest protein-folding model but also build tools around it for
+# you and your team of scientists to understand and analyze the results.
 
 # ## Basic Setup
 
+import base64
 import io
 from pathlib import Path
 
@@ -22,13 +27,13 @@ MINUTES = 60  # seconds
 
 app = modal.App("example-esm3-dashboard")
 
-# ### Create a Volume to store cached ESM3 model and Entrez sequence data
+# ### Create a Volume to store ESM3 model weights and Entrez sequence data
 
-# To minimize cold start times we'll store the ESM3 model weights on a Modal
-# [Volume](https://modal.com/docs/guide/volumes). Normally we would do that
-# through the `cache_dir` argument of `from_pretrained` but ESM3 doesn't
-# support that yet. Instead, we'll use [Hugging Face's](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables)
-# `HF_HOME` environment variable to point to the volume.
+# To minimize cold start times, we'll store the ESM3 model weights on a Modal
+# [Volume](https://modal.com/docs/guide/volumes).
+# For patterns and best practices for storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+# We'll use this same distributed storage primitive to store sequence data.
 
 volume = modal.Volume.from_name(
     "example-esm3-dashboard", create_if_missing=True
@@ -39,10 +44,10 @@ DATA_PATH = VOLUME_PATH / "data"
 
 # ### Define dependencies in container images
 
-# The container image for inference is based on Modal's default slim Debian
+# The container image for structure inference is based on Modal's default slim Debian
 # Linux image with `esm` for loading and running the model, `gemmi` for
 # managing protein structure file conversions, and `hf_transfer`
-# for a higher bandwidth download of the model weights from hugging face.
+# for faster downloading of the model weights from Hugging Face.
 
 esm3_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -55,17 +60,21 @@ esm3_image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": str(MODELS_PATH)})
 )
 
+# We'll also define a separate image, with different dependencies,
+# for the part of our app that hosts the dashboard.
+# This helps reduce the complexity of Python dependency management
+# by "walling off" the different parts, e.g. separating
+# functions that depend on finicky ML packages
+# from those that depend on pedantic web packages.
+# Dependencies include `gradio` for building a web UI in Python and
+# `biotite` for extracting sequences from UniProt accession numbers.
 
-# We'll also define a web app image as a frontend for the entire system that
-# includes `gradio` for building a UI and `biotite` for extracting sequences from
-# UniProt accession numbers.
+# You can read more about how to configure container images on Modal in
+# [this guide](https://modal.com/docs/guide/images).
 
 
 web_app_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "gradio~=4.44.0",
-    "biotite==0.41.2",
-    "torch==2.4.1",
-    "fastapi[standard]==0.115.4",
+    "gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4"
 )
 
 
@@ -79,20 +88,23 @@ with esm3_image.imports():
     import gemmi
     import torch
     from esm.models.esm3 import ESM3
-    from esm.sdk.api import ESM3InferenceClient, ESMProtein, GenerationConfig
+    from esm.sdk.api import ESMProtein, GenerationConfig
 
 with web_app_image.imports():
     import biotite.database.entrez as entrez
     import biotite.sequence.io.fasta as fasta
+    from fastapi import FastAPI
 
-# ## Defining a `Model` inference class for ESM3
+# ## Define a `Model` inference class for ESM3
 
 # Next, we map the model's setup and inference code onto Modal.
 
 # 1. For setup code that only needs to run once, we put it in a method
-# decorated with `@enter` which runs on container start.
-# 2. To run the actual inference, we put it in a method decorated with `@method`
-# 3. We'll utilize an A10G GPU here for speedy inference.
+# decorated with `@enter`, which runs on container start. For details,
+# see [this guide](https://modal.com/docs/guide/cold-start).
+# 2. The rest of the inference code goes in a method decorated with `@method`.
+# 3. We accelerate the compute-intensive inference with a GPU, specifically an A10G.
+# For more on using GPUs on Modal, see [this guide](https://modal.com/docs/guide/gpu).
 
 
 @app.cls(
@@ -105,9 +117,7 @@ with web_app_image.imports():
 class Model:
     @modal.enter()
     def enter(self):
-        self.model: ESM3InferenceClient = ESM3.from_pretrained(
-            "esm3_sm_open_v1"
-        )
+        self.model = ESM3.from_pretrained("esm3_sm_open_v1")
         self.model.to("cuda")
 
         print("using half precision and tensor cores for fast ESM3 inference")
@@ -123,10 +133,7 @@ class Model:
         doc.write_file(str(output_path), gemmi.cif.WriteOptions())
 
     def get_generation_config(self, num_steps):
-        return GenerationConfig(
-            track="structure",
-            num_steps=num_steps,
-        )
+        return GenerationConfig(track="structure", num_steps=num_steps)
 
     @modal.method()
     def inference(self, sequence: str):
@@ -149,26 +156,61 @@ class Model:
         return io.BytesIO(save_path.read_bytes())
 
 
-# ## Serving a Gradio UI with an `asgi_app`
+# ## Serve a dashboard as an `asgi_app`
 
-# In this section we'll create web interface tools around the ESM3 model
-# that can help scientists and stakeholders understand the results of the model.
+# In this section we'll create a web interface around the ESM3 model
+# that can help scientists and stakeholders understand and interrogate the results of the model.
 
-# First, we'll visualize the results using [Mol* (Molstar)](https://molstar.org/).
-# Mol* is a open-source toolkit for visualizing and analyzing large-scale
-# molecular data, including secondary structures and residue-specific positions
-# of proteins.
+# You can deploy this UI, along with the backing inference endpoint,
+# with the following command:
+
+# ```bash
+# modal deploy esm3.py
+# ```
+
+# ### Integrating Modal Functions
+
+# The integration between our dashboard and our inference backend
+# is made simple by the Modal SDK:
+# because the definition of the `Model` class is available in the same Python
+# context as the defintion of the web UI,
+# we can instantiate an instance and call its methods with `.remote`.
+
+# The inference runs in a GPU-accelerated container with all of ESM3's
+# dependencies, while this code executes in a CPU-only container
+# with only our web dependencies.
+
+
+def run_esm(sequence: str) -> str:
+    sequence = sequence.strip()
+
+    print("running ESM")
+    mmcif_buffer = Model().inference.remote(sequence)
+
+    print("converting mmCIF bytes to base64 for compatibility with HTML")
+    mmcif_content = mmcif_buffer.read().decode()
+    mmcif_base64 = base64.b64encode(mmcif_content.encode()).decode()
+
+    return get_molstar_html(mmcif_base64)
+
+
+# ### Building a UI in Python with Gradio
+
+# We'll visualize the results using [Mol* ](https://molstar.org/).
+# Mol* (pronounced "molstar") is an open-source toolkit for
+# visualizing and analyzing large-scale molecular data, including secondary structures
+# and residue-specific positions of proteins.
 
 # Second, we'll create links to lookup the metadata and structure of known
 # proteins using the [Universal Protein Resource](https://www.uniprot.org/)
 # database from the UniProt consortium which is supported by the European
-# Bioinformatics Institute (EMBL-EBI), the National Human Genome Research
-# Institute (NHGRI), and the Swiss Institute of Bioinformatics (SIB). UniProt
-# is also a hub that links to many other databases like the RCSB Protein
+# Bioinformatics Institute, the National Human Genome Research
+# Institute, and the Swiss Institute of Bioinformatics. UniProt
+# is also a hub that links to many other databases, like the RCSB Protein
 # Data Bank.
 
 # To pull sequence data, we'll use the [Biotite](https://www.biotite-python.org/)
-# library to pull [fasta](https://en.wikipedia.org/wiki/FASTA_format) files from
+# library to pull [FASTA](https://en.wikipedia.org/wiki/FASTA_format) files from
 # UniProt which contain labelled sequences.
 
 # You should see the URL for this UI in the output of `modal deploy`
@@ -179,35 +221,20 @@ assets_path = Path(__file__).parent / "frontend"
 
 @app.function(
     image=web_app_image,
-    concurrency_limit=1,
-    allow_concurrent_inputs=1000,
+    concurrency_limit=1,  # Gradio requires sticky sessions
+    allow_concurrent_inputs=1000,  # but can handle many async inputs
     volumes={VOLUME_PATH: volume},
     mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def ui():
-    import base64
-
     import gradio as gr
-    from fastapi import FastAPI
     from fastapi.responses import FileResponse
     from gradio.routes import mount_gradio_app
 
-    def run_esm(sequence):
-        sequence = sequence.strip()
-
-        print("Running ESM")
-        mmcif_buffer = Model().inference.remote(sequence)
-
-        print("Converting mmCIF bytes to base64 for HTML generation.")
-        mmcif_content = mmcif_buffer.read().decode()
-        mmcif_base64 = base64.b64encode(mmcif_content.encode()).decode()
-
-        return get_molstar_html(mmcif_base64)
-
     web_app = FastAPI()
 
-    # custom styles: an icon, a background, and a theme
+    # custom styles: an icon, a background, and some CSS
     @web_app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         return FileResponse("/assets/favicon.svg")
@@ -216,20 +243,18 @@ def ui():
     async def background():
         return FileResponse("/assets/background.svg")
 
-    with open("/assets/index.css") as f:
-        css = f.read()
+    css = Path("/assets/index.css").read_text()
 
     theme = gr.themes.Default(
         primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
     )
 
+    title = "Predict & Visualize Protein Structures"
+
     with gr.Blocks(
-        theme=theme,
-        css=css,
-        title="Visualize ESM3 Folded Proteins",
-        js=always_dark(),
+        theme=theme, css=css, title=title, js=always_dark()
     ) as interface:
-        gr.Markdown("# Visualize ESM3 Folded Proteins")
+        gr.Markdown(f"# {title}")
 
         with gr.Row():
             with gr.Column():
@@ -286,7 +311,7 @@ def ui():
         gr.Markdown("## Enter Sequence")
         sequence_box = gr.Textbox(
             label="Enter a sequence or retrieve it from a UniProt ID",
-            placeholder="e.g. MVTRLE..., GKQEG..., etc.",
+            placeholder="e.g. MVTRLE..., PVTTIMHALL..., etc.",
         )
         get_sequence_button.click(
             fn=get_sequence, inputs=[uniprot_num_box], outputs=[sequence_box]
@@ -301,12 +326,8 @@ def ui():
             fn=run_esm, inputs=sequence_box, outputs=molstar_html
         )
 
-    # mount for execution on Modal
-    return mount_gradio_app(
-        app=web_app,
-        blocks=interface,
-        path="/",
-    )
+    # return a FastAPI app for Modal to serve
+    return mount_gradio_app(app=web_app, blocks=interface, path="/")
 
 
 # ## Folding from the command line
@@ -378,23 +399,23 @@ def get_sequence(uniprot_num: str) -> str:
         return f"Error: {e}"
 
 
-# ### Supporting functions for the gradio app
+# ### Supporting functions for the Gradio app
 
-# The following code is a mix of javascript for the uniprot website link,
-# html & javascript for wrapping molstar, UniProt examples, and gradio coloring.
+# The following Python code is used to enhance the Gradio app,
+# mostly by generating some extra HTML & JS and handling styling.
 
 
 def get_js_for_uniprot_link():
     url = "https://www.uniprot.org/uniprotkb/"
     end = "/entry#structure"
-    return f"""(uni_id) => {{ window.open("{url}" + uni_id + "{end}") }}"""
+    return f"""(uni_id) => {{ if (!uni_id) return; window.open("{url}" + uni_id + "{end}"); }}"""
 
 
 def get_molstar_html(mmcif_base64):
     return f"""
     <iframe
         id="molstar_frame"
-        style="width: 1400px; height: 600px; border: none;"
+        style="width: 100%; height: 600px; border: none;"
         srcdoc='
             <!DOCTYPE html>
             <html>
