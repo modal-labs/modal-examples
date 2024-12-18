@@ -213,7 +213,9 @@ class Model:
                 )
 
                 # Create temporary file for GLB output
-                with tempfile.NamedTemporaryFile(suffix=".glb", delete=False) as temp_glb:
+                with tempfile.NamedTemporaryFile(
+                    suffix=".glb", delete=False
+                ) as temp_glb:
                     # Export the mesh to GLB format
                     glb.export(temp_glb.name)
                     temp_glb.flush()
@@ -229,7 +231,9 @@ class Model:
                     return Response(
                         content=glb_bytes,
                         media_type="model/gltf-binary",
-                        headers={"Content-Disposition": "attachment; filename=output.glb"},
+                        headers={
+                            "Content-Disposition": "attachment; filename=output.glb"
+                        },
                     )
 
             else:
