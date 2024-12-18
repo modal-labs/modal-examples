@@ -421,7 +421,7 @@ class AppConfig(SharedConfig):
     guidance_scale: float = 6
 
 
-image_with_assets = image.add_local_dir(
+web_image = image.add_local_dir(
     # Add local web assets to the image
     Path(__file__).parent / "assets",
     remote_path="/assets",
@@ -429,7 +429,7 @@ image_with_assets = image.add_local_dir(
 
 
 @app.function(
-    image=image_with_assets,
+    image=web_image,
     concurrency_limit=1,
     allow_concurrent_inputs=1000,
 )

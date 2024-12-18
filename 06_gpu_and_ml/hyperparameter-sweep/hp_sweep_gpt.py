@@ -92,12 +92,16 @@ torch_image = base_image.pip_install(
     "torch==2.1.2",
     "tensorboard==2.17.1",
     "numpy<2",
-).add_local_dir(Path(__file__).parent / "src", remote_path="/root/src")
+)
 
 # We also have some local dependencies that we'll need to import into the remote environment.
-# We mount them onto the remote container.
+# We add them into the remote container.
 
-# We'll serve a simple web endpoint
+torch_image = torch_image.add_local_dir(
+    Path(__file__).parent / "src", remote_path="/root/src"
+)
+
+# We'll serve a simple web endpoint:
 web_image = base_image.pip_install(
     "fastapi[standard]==0.115.4", "starlette==0.41.2"
 )

@@ -25,7 +25,7 @@ import modal
 # ## Define container dependencies
 
 # The `app.py` script imports three third-party packages, so we include these in the example's
-# image definition and then add the app.py file itself to the image.
+# image definition and then add the `app.py` file itself to the image.
 
 streamlit_script_local_path = Path(__file__).parent / "app.py"
 streamlit_script_remote_path = "/root/app.py"
