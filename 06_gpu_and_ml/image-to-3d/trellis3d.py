@@ -1,7 +1,6 @@
-"This example originally contributed by @sandeeppatra96 and @patraxo on GitHub"
+from pathlib import Path
 import logging
 import tempfile
-from pathlib import Path
 import traceback
 
 import modal
@@ -68,7 +67,7 @@ trellis_image = (
     # Step 2: Install PyTorch first as it's required by several dependencies
     .pip_install(
         "torch==2.4.0",
-        "torchvision==0.15.2",
+        "torchvision==0.16.0+cu121",  # Updated to match CUDA 12.1 compatibility
         extra_options="--index-url https://download.pytorch.org/whl/cu121",  # Ensure CUDA version matches
     )
     # Step 3: Install Kaolin which requires pre-installed PyTorch
@@ -274,48 +273,47 @@ class Model:
 
 @app.local_entrypoint()
 def main(
-    image_url: str = "https://raw.githubusercontent.com/IDEA-Research/TRELLIS/main/assets/demo_images/demo_1.jpg",
-    simplify: float = 0.95,
-    texture_size: int = 512,
-    sparse_sampling_steps: int = 2,
-    sparse_sampling_cfg: float = 7.5,
-    slat_sampling_steps: int = 2,
-    slat_sampling_cfg: float = 3,
-    seed: int = 42,
-    output_format: str = "glb",
+    image_path: str = "https://raw.githubusercontent.com/sandeeppatra96/trellis/main/assets/test_images/test_image.jpg",
+    output_dir: str = None,
 ):
-    print(
-        f"image_url => {image_url}",
-        f"simplify => {simplify}",
-        f"texture_size => {texture_size}",
-        f"sparse_sampling_steps => {sparse_sampling_steps}",
-        f"sparse_sampling_cfg => {sparse_sampling_cfg}",
-        f"slat_sampling_steps => {slat_sampling_steps}",
-        f"slat_sampling_cfg => {slat_sampling_cfg}",
-        f"seed => {seed}",
-        f"output_format => {output_format}",
-        sep="\n",
-    )
+    """Generate a 3D model from an image.
 
+    Args:
+        image_path: URL or local path to the input image
+        output_dir: Optional output directory. If not provided, uses a temporary directory.
+    """
     # Create output directory
-    output_dir = Path("/tmp/trellis-3d")
-    output_dir.mkdir(exist_ok=True, parents=True)
+    if output_dir:
+        output_path = Path(output_dir)
+    else:
+        output_path = Path(tempfile.mkdtemp())
+    output_path.mkdir(exist_ok=True, parents=True)
 
-    # Initialize model and generate 3D model
+    # Initialize model and generate 3D output
     model = Model()
-    output_bytes = model.process_image.remote(
-        image_url,
-        simplify=simplify,
-        texture_size=texture_size,
-        sparse_sampling_steps=sparse_sampling_steps,
-        sparse_sampling_cfg=sparse_sampling_cfg,
-        slat_sampling_steps=slat_sampling_steps,
-        slat_sampling_cfg=slat_sampling_cfg,
-        seed=seed,
-        output_format=output_format,
-    )
+    model.initialize()
 
-    # Save output file
-    output_path = output_dir / "output.glb"
-    output_path.write_bytes(output_bytes)
-    print(f"Saved output to {output_path}")
+    try:
+        # Download image if it's a URL
+        if image_path.startswith(("http://", "https://")):
+            response = requests.get(image_path)
+            response.raise_for_status()
+            image_data = response.content
+            input_path = output_path / "input.jpg"
+            input_path.write_bytes(image_data)
+            image_path = str(input_path)
+
+        # Generate 3D model
+        output_file = output_path / "output.glb"
+        model.generate(image_path, str(output_file))
+
+        print(f"3D model generated successfully at: {output_file}")
+        print("You can view the model at https://glb.ee/")
+
+        # Return bytes for potential further processing
+        return output_file.read_bytes()
+
+    except Exception as e:
+        print(f"Error generating 3D model: {e}")
+        traceback.print_exc()
+        raise
