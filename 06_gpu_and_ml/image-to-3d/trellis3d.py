@@ -263,14 +263,3 @@ class Model:
             seed=42,
             output_format="glb",
         )
-
-
-@app.command()
-def main():
-    """Command for testing the example."""
-    model = Model()
-    model.test.remote()
-
-
-if __name__ == "__main__":
-    main()
