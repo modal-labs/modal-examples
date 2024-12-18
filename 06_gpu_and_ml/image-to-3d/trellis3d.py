@@ -1,5 +1,4 @@
 import logging
-import tempfile
 import traceback
 from pathlib import Path
 
@@ -167,7 +166,6 @@ class Model:
         output_format: str,
     ):
         import io
-        import os
 
         from PIL import Image
 
