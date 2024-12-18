@@ -2,7 +2,6 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/image-to-3d/trellis3d.py", "--image-path", "path/to/image.jpg"]
 # ---
 
-import io
 import logging
 from pathlib import Path
 
