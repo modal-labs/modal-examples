@@ -71,7 +71,7 @@ trellis_image = (
     .pip_install(
         "torch==2.1.2",  # Updated to match CUDA 12.4 compatibility
         "torchvision==0.16.2",
-        extra_options="--index-url https://download.pytorch.org/whl/cu124",
+        extra_index_url=["https://download.pytorch.org/whl/cu124"],
     )
     # Step 3: Install Kaolin and its dependencies
     .pip_install(
