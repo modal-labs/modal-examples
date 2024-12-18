@@ -22,49 +22,35 @@ image = (
         "libglib2.0-0",
         "libgomp1",
     )
-    # Step 1: Install PyTorch with CUDA 12.4 first
+    # First install PyTorch with CUDA 12.4 support, required by downstream dependencies
     .pip_install(
         "torch==2.1.2",
         "torchvision==0.16.2",
-        extra_index_url="https://download.pytorch.org/whl/cu124",
+        extra_index_url="https://download.pytorch.org/whl/cu124",  # Updated to CUDA 12.4
     )
-    # Step 2: Install Kaolin (requires PyTorch to be installed first)
-    .pip_install("kaolin==0.15.0")
-    # Step 3: Install TRELLIS dependencies
+    # Install Kaolin after PyTorch is installed
     .pip_install(
-        "numpy",
-        "opencv-python",
-        "trimesh",
-        "matplotlib",
-        "scipy",
-        "scikit-image",
-        "requests",
-        "warp-lang",
-        "ipyevents",
-        "easydict",
-        "einops",
-        "xatlas",
-        "pytorch3d",  # Required by TRELLIS
-        "pytorch-lightning",  # Required by TRELLIS
-        "wandb",  # Required by TRELLIS
-        "tqdm",  # Required by TRELLIS
-        "safetensors",  # Required by TRELLIS
-        "huggingface-hub",  # Required by TRELLIS
+        "kaolin==0.15.0",
+        "pytorch-lightning==2.1.3",
+        "pytorch3d==0.7.5",
     )
-    # Step 4: Clone and install TRELLIS
-    .run_commands(
-        f"git clone https://github.com/JeffreyXiang/TRELLIS.git {TRELLIS_DIR}",
-        f"cd {TRELLIS_DIR} && pip install -e .",
-        # Verify installation
-        "python3 -c 'from trellis.pipelines import TrellisImageTo3DPipeline'",
+    # Install TRELLIS and its dependencies
+    .pip_install(
+        "git+https://github.com/KAIST-Visual-AI-Group/TRELLIS.git",
+        "opencv-python==4.8.1.78",
+        "safetensors==0.4.1",
+        "wandb==0.16.1",
+        "spconv-cu124",  # Updated to CUDA 12.4 version
     )
+    .env({"PYTHONPATH": "/root", "CUDA_HOME": "/usr/local/cuda-12.4"})
 )
 
-stub = modal.Stub(name="example-trellis-3d")
+app = modal.App(name="example-trellis-3d")
 
-@stub.cls(gpu="A10G", image=image)
+@app.cls(gpu="A10G", image=image)
 class Model:
-    def __enter__(self):
+    @modal.enter()
+    def enter(self):
         from trellis.pipelines import TrellisImageTo3DPipeline
 
         self.pipeline = TrellisImageTo3DPipeline.from_pretrained(
@@ -103,21 +89,24 @@ class Model:
     def generate(self, image_path):
         return self.process_image(image_path)
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def main(image_path: str = "path/to/image.jpg"):
     """Generate a 3D model from an input image.
 
     Args:
         image_path: Path to the input image file.
     """
+    # Create output directory
+    output_dir = Path("/tmp/trellis-3d")
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    # Generate 3D model
     model = Model()
     output = model.generate.remote(image_path)
 
-    # Save output to temporary directory following text_to_image.py pattern
-    output_dir = Path("/tmp/trellis-3d")
-    output_dir.mkdir(exist_ok=True, parents=True)
+    # Save output to temporary directory
     output_path = output_dir / "output.glb"
     output_path.write_bytes(output)
 
-    logger.info(f"Output saved to {output_path}")
+    print(f"Output saved to {output_path}")
     return str(output_path)
