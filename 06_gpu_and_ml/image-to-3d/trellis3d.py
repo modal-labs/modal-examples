@@ -1,5 +1,4 @@
 import logging
-import os
 import tempfile
 import traceback
 from pathlib import Path
