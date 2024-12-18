@@ -1,20 +1,18 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/image-to-3d/trellis3d.py", "--image-path", "path/to/image.jpg"]
+# output-directory: "/tmp/trellis-3d"
+# args: ["--image-path", "path/to/image.jpg"]
 # ---
 
-import logging
+import time
 from pathlib import Path
 
 import modal
 
 TRELLIS_DIR = "/root/TRELLIS"
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Build our image with all dependencies
 image = (
-    modal.Image.conda()
+    modal.Image.micromamba()
     .apt_install(
         "git",
         "libgl1-mesa-glx",
@@ -22,7 +20,7 @@ image = (
         "libgomp1",
     )
     # First install PyTorch with CUDA 12.4 support
-    .conda_install(
+    .micromamba_install(
         "pytorch",
         "torchvision",
         "pytorch-cuda=12.4",
@@ -70,8 +68,6 @@ class Model:
             bytes: The generated GLB file as bytes
         """
         import cv2
-        import numpy as np
-        from PIL import Image
 
         # Load and preprocess image
         image = cv2.imread(image_path)
@@ -103,17 +99,25 @@ def main(
         image_path: Path to the input image
         output_name: Name of the output GLB file
     """
-    # Create output directory
-    output_dir = Path("/tmp/trellis-output")
+    print(
+        f"image_path => {image_path}",
+        f"output_name => {output_name}",
+        sep="\n",
+    )
+
+    output_dir = Path("/tmp/trellis-3d")
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    # Process image and generate 3D model
+    start = time.time()
+    print("Generating 3D model...", end=" ", flush=True)
     model = Model()
     glb_bytes = model.process_image(image_path)
+    duration = time.time() - start
+    print(f"done in {duration:.3f}s")
 
-    # Save the GLB file
     output_path = output_dir / output_name
+    print(f"Saving output to {output_path}")
     output_path.write_bytes(glb_bytes)
 
-    print(f"✓ Generated 3D model saved to {output_path}")
+    print("\n✓ Model generated successfully!")
     print("You can view the model at https://glb.ee")
