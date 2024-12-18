@@ -14,24 +14,25 @@ logger = logging.getLogger(__name__)
 
 # Build our image with all dependencies
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.conda()
     .apt_install(
         "git",
         "libgl1-mesa-glx",
         "libglib2.0-0",
         "libgomp1",
     )
-    # First install PyTorch with CUDA 12.4 support, required by downstream dependencies
-    .pip_install(
-        "torch==2.1.2",
-        "torchvision==0.16.2",
-        extra_index_url="https://download.pytorch.org/whl/cu124",  # Updated to CUDA 12.4
+    # First install PyTorch with CUDA 12.4 support
+    .conda_install(
+        "pytorch",
+        "torchvision",
+        "pytorch-cuda=12.4",
+        "pytorch3d",
+        channels=["pytorch3d", "pytorch", "nvidia", "conda-forge"],
     )
-    # Install Kaolin after PyTorch is installed
+    # Install Kaolin after PyTorch
     .pip_install(
         "git+https://github.com/NVIDIAGameWorks/kaolin.git",  # Install from source for CUDA 12.4 support
         "pytorch-lightning==2.1.3",
-        "pytorch3d==0.7.5",
     )
     # Install TRELLIS and its dependencies
     .pip_install(
@@ -39,7 +40,7 @@ image = (
         "opencv-python==4.8.1.78",
         "safetensors==0.4.1",
         "wandb==0.16.1",
-        "spconv-cu124",  # Updated to CUDA 12.4 version
+        "spconv-cu124",  # Using CUDA 12.4 version
     )
     .env({"PYTHONPATH": "/root", "CUDA_HOME": "/usr/local/cuda-12.4"})
 )
@@ -49,29 +50,34 @@ app = modal.App(name="example-trellis-3d")
 
 @app.cls(gpu="A10G", image=image)
 class Model:
-    @modal.enter()
-    def enter(self):
+    def __enter__(self):
+        """Load TRELLIS pipeline on container startup."""
         from trellis.pipelines import TrellisImageTo3DPipeline
 
         self.pipeline = TrellisImageTo3DPipeline.from_pretrained(
             "KAIST-Visual-AI-Group/TRELLIS",
             cache_dir="/root/.cache/trellis",
         )
+        return self
 
-    def process_image(self, image_path):
+    def process_image(self, image_path: str) -> bytes:
+        """Process an image and return GLB file bytes.
+
+        Args:
+            image_path: Path to the input image file
+
+        Returns:
+            bytes: The generated GLB file as bytes
+        """
         import cv2
         import numpy as np
         from PIL import Image
 
         # Load and preprocess image
-        image = Image.open(image_path)
-        image = np.array(image)
-        if len(image.shape) == 2:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        elif image.shape[2] == 4:
-            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Generate 3D model
+        # Generate 3D model with optimized parameters
         output = self.pipeline(
             image=image,
             simplify=0.02,
@@ -85,29 +91,29 @@ class Model:
         )
         return output
 
-    @modal.method()
-    def generate(self, image_path):
-        return self.process_image(image_path)
-
 
 @app.local_entrypoint()
-def main(image_path: str = "path/to/image.jpg"):
-    """Generate a 3D model from an input image.
+def main(
+    image_path: str = "path/to/image.jpg",
+    output_name: str = "output.glb",
+):
+    """Generate a 3D model from an image using TRELLIS.
 
     Args:
-        image_path: Path to the input image file.
+        image_path: Path to the input image
+        output_name: Name of the output GLB file
     """
-    # Create output directory in /tmp following Modal examples pattern
-    output_dir = Path("/tmp/trellis-3d")
+    # Create output directory
+    output_dir = Path("/tmp/trellis-output")
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    # Generate 3D model
+    # Process image and generate 3D model
     model = Model()
-    output = model.generate.remote(image_path)
+    glb_bytes = model.process_image(image_path)
 
-    # Save output GLB file using write_bytes
-    output_path = output_dir / "output.glb"
-    output_path.write_bytes(output)
+    # Save the GLB file
+    output_path = output_dir / output_name
+    output_path.write_bytes(glb_bytes)
 
-    print(f"Output saved to {output_path}")
-    return str(output_path)
+    print(f"✓ Generated 3D model saved to {output_path}")
+    print("You can view the model at https://glb.ee")
