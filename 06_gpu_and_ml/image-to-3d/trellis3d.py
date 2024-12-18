@@ -87,13 +87,15 @@ trellis_image = (
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
         "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
-        extra_options="--no-build-isolation"  # Required for flash-attn
+        extra_options="--no-build-isolation",  # Required for flash-attn
     )
-    .env({
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For faster model downloads
-        "ATTN_BACKEND": "flash-attn",      # Using flash-attn for better performance
-        "SPCONV_ALGO": "native",           # For consistent behavior
-    })
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For faster model downloads
+            "ATTN_BACKEND": "flash-attn",  # Using flash-attn for better performance
+            "SPCONV_ALGO": "native",  # For consistent behavior
+        }
+    )
     .entrypoint([])
     .run_function(clone_repository)
 )
