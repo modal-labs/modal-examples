@@ -86,10 +86,7 @@ with image.imports():
     from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-@app.cls(
-    cpu=4,
-    image=image,
-)
+@app.cls(image=image)
 class ObjectDetection:
     @modal.build()
     def download_model(self):
@@ -168,8 +165,8 @@ static_path = Path(__file__).with_name("webcam").resolve()
 
 
 @app.function(
-    image=modal.Image.debian_slim()
-    .pip_install("fastapi[standard]")
+    image=modal.Image.debian_slim(python_version="3.12")
+    .pip_install("fastapi[standard]==0.115.4")
     .add_local_dir(static_path, remote_path="/assets")
 )
 @modal.asgi_app(label="example-webcam-object-detection")
