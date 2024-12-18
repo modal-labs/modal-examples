@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 import traceback
 from pathlib import Path
@@ -6,6 +7,8 @@ from pathlib import Path
 import modal
 import requests
 from fastapi import HTTPException, Request, Response, status
+
+logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,21 +71,26 @@ trellis_image = (
     )
     # Step 2: Install PyTorch first as it's required by several dependencies
     .pip_install(
-        "torch==2.1.0",
-        "torchvision==0.16.0+cu121",  # Updated to match CUDA 12.1 compatibility
-        extra_options="--index-url https://download.pytorch.org/whl/cu121",  # Ensure CUDA version matches
+        "torch==2.1.0",  # Pinned to exact version required by torchvision
+        "torchvision==0.16.0+cu121",
+        extra_options="--index-url https://download.pytorch.org/whl/cu121",
     )
-    # Step 3: Install Kaolin which requires pre-installed PyTorch
+    # Step 3: Install Kaolin and its dependencies in the correct order
+    .pip_install(
+        "pygltflib==1.16.1",  # Required by Kaolin for GLTF file handling
+        "usd-core==23.11",  # Required by Kaolin for USD file handling
+    )
+    # Step 4: Install Kaolin after its dependencies
     .pip_install(
         "git+https://github.com/NVIDIAGameWorks/kaolin.git",
-        extra_options="--no-deps",  # Install without dependencies to avoid conflicts
+        extra_options="--no-deps",  # Install without dependencies since we installed them above
     )
-    # Step 4: Install flash-attention separately with CUDA support
+    # Step 5: Install flash-attention separately with CUDA support
     .pip_install(
         "flash-attn==2.6.3",
         extra_options="--no-build-isolation",
     )
-    # Step 5: Install the rest of the dependencies
+    # Step 6: Install the rest of the dependencies
     .pip_install(
         # ML dependencies
         "xformers==0.0.23.post1",
@@ -205,31 +213,25 @@ class Model:
                     texture_size=texture_size,
                 )
 
-                temp_glb = tempfile.NamedTemporaryFile(
-                    suffix=".glb", delete=False
-                )
-                temp_path = temp_glb.name
-                logger.info(f"Exporting mesh to: {temp_path}")
-                glb.export(temp_path)
-                temp_glb.close()
+                # Create temporary file for GLB output
+                with tempfile.NamedTemporaryFile(suffix=".glb", delete=False) as temp_glb:
+                    # Export the mesh to GLB format
+                    glb.export(temp_glb.name)
+                    temp_glb.flush()
 
-                try:
-                    with open(temp_path, "rb") as file:
-                        content = file.read()
-                        if os.path.exists(temp_path):
-                            os.unlink(temp_path)
-                            logger.info("Temp file cleaned up")
-                        return Response(
-                            content=content,
-                            media_type="model/gltf-binary",
-                            headers={
-                                "Content-Disposition": "attachment; filename=output.glb",
-                            },
-                        )
-                except Exception as e:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-                    raise e
+                    # Read the exported GLB file
+                    glb_bytes = Path(temp_glb.name).read_bytes()
+
+                    # Clean up the temporary file
+                    if os.path.exists(temp_glb.name):
+                        os.unlink(temp_glb.name)
+
+                    # Return the GLB file bytes
+                    return Response(
+                        content=glb_bytes,
+                        media_type="model/gltf-binary",
+                        headers={"Content-Disposition": "attachment; filename=output.glb"},
+                    )
 
             else:
                 raise HTTPException(
@@ -275,76 +277,39 @@ class Model:
 
 @app.local_entrypoint()
 def main(
-    image_path: str = "https://raw.githubusercontent.com/sandeeppatra96/trellis/main/assets/test_images/test_image.jpg",
-    output_dir: str = None,
-    simplify: float = 0.95,
-    texture_size: int = 1024,
-    sparse_sampling_steps: int = 12,
-    sparse_sampling_cfg: float = 7.5,
-    slat_sampling_steps: int = 12,
-    slat_sampling_cfg: int = 3,
-    seed: int = 42,
+    image_url: str = "https://raw.githubusercontent.com/microsoft/TRELLIS/main/assets/demo/demo_image.jpg",
+    output_filename: str = "output.glb",
 ):
-    """Generate a 3D model from an image.
+    """Generate a 3D model from an input image.
 
     Args:
-        image_path: URL or local path to the input image
-        output_dir: Optional output directory. If not provided, uses a temporary directory
-        simplify: Mesh simplification factor (0-1)
-        texture_size: Size of the output texture
-        sparse_sampling_steps: Number of steps for sparse structure sampling
-        sparse_sampling_cfg: CFG strength for sparse structure sampling
-        slat_sampling_steps: Number of steps for SLAT sampling
-        slat_sampling_cfg: CFG strength for SLAT sampling
-        seed: Random seed for reproducibility
+        image_url: URL of the input image
+        output_filename: Name of the output GLB file
     """
-    print(
-        f"image_path => {image_path}",
-        f"output_dir => {output_dir}",
-        f"simplify => {simplify}",
-        f"texture_size => {texture_size}",
-        f"sparse_sampling_steps => {sparse_sampling_steps}",
-        f"sparse_sampling_cfg => {sparse_sampling_cfg}",
-        f"slat_sampling_steps => {slat_sampling_steps}",
-        f"slat_sampling_cfg => {slat_sampling_cfg}",
-        f"seed => {seed}",
-        sep="\n",
-    )
-
-    # Create output directory
-    if output_dir:
-        output_path = Path(output_dir)
-    else:
-        output_path = Path(tempfile.mkdtemp())
-    output_path.mkdir(exist_ok=True, parents=True)
-
-    # Initialize model
-    model = Model()
-    model.initialize()
+    # Create temporary directory for outputs
+    output_dir = Path("/tmp/trellis3d")
+    output_dir.mkdir(exist_ok=True, parents=True)
+    output_path = output_dir / output_filename
 
     try:
-        # Process image and generate 3D model
-        result = model.process_image(
-            image_url=image_path,
-            simplify=simplify,
-            texture_size=texture_size,
-            sparse_sampling_steps=sparse_sampling_steps,
-            sparse_sampling_cfg=sparse_sampling_cfg,
-            slat_sampling_steps=slat_sampling_steps,
-            slat_sampling_cfg=slat_sampling_cfg,
-            seed=seed,
-            output_format="glb",
-        )
+        # Download and process image
+        response = requests.get(image_url)
+        response.raise_for_status()
+        image_bytes = response.content
 
-        # Save the result
-        output_file = output_path / "output.glb"
-        output_file.write_bytes(result.body)
-        print(f"3D model generated successfully at: {output_file}")
-        print("You can view the model at https://glb.ee/")
+        # Generate 3D model
+        model = Model()
+        glb_bytes = model.generate.remote(image_bytes)
 
-        return output_file.read_bytes()
+        # Save output file
+        output_path.write_bytes(glb_bytes)
+        logger.info(f"Generated 3D model saved to: {output_path}")
 
+        return str(output_path)
     except Exception as e:
-        logger.error(f"Error generating 3D model: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise
+        logger.error(f"Error generating 3D model: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate 3D model: {str(e)}",
+        )
