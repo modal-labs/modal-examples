@@ -1,10 +1,10 @@
+import io
 import logging
 import traceback
 from pathlib import Path
 
 import modal
 import requests
-from fastapi import HTTPException, Request, Response, status
 
 logger = logging.getLogger(__name__)
 
@@ -69,56 +69,52 @@ trellis_image = (
     )
     # Step 2: Install PyTorch first as it's required by several dependencies
     .pip_install(
-        "torch==2.1.0",  # Pinned to exact version required by torchvision
-        "torchvision==0.16.0+cu121",
-        extra_options="--index-url https://download.pytorch.org/whl/cu121",
+        "torch==2.1.2",  # Updated to match CUDA 12.4 compatibility
+        "torchvision==0.16.2",
+        extra_options="--index-url https://download.pytorch.org/whl/cu124",
     )
-    # Step 3: Install NVIDIA libraries and ML tools
+    # Step 3: Install Kaolin and its dependencies
     .pip_install(
-        "flash-attn==2.6.3",
-        "xformers",
+        "kaolin==0.15.0",
         "warp-lang",  # Required by kaolin physics module
         "ipyevents",  # Optional but removes warnings
-        extra_options="--no-build-isolation",
+        extra_index_url=[
+            "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.0_cu124/",
+        ],
     )
-    # Step 4: Install Kaolin after its dependencies
+    # Step 4: Install TRELLIS dependencies with spconv-cu118 (latest available version)
     .pip_install(
-        "git+https://github.com/NVIDIAGameWorks/kaolin.git",
-    )
-    # Step 5: Install the rest of the dependencies
-    .pip_install(
-        # ML dependencies
-        "numpy",
-        "pillow",
-        "imageio",
-        "onnxruntime",
-        "trimesh",
-        "safetensors",
         "easydict",
-        "scipy",
-        "tqdm",
         "einops",
-        "hf_transfer",
-        "opencv-python-headless",
-        "largesteps",
-        "spconv-cu122",  # Updated to CUDA 12.2
-        "rembg",
-        "imageio-ffmpeg",
-        "xatlas",
-        "pyvista",
-        "pymeshfix",
-        "igraph",
         "fastapi[standard]==0.115.6",
         "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
-        "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
+        "hf_transfer",
         "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
+        "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
+        "igraph",
+        "imageio",
+        "imageio-ffmpeg",
+        "largesteps",
+        "numpy",
+        "onnxruntime",
+        "opencv-python-headless",
+        "pillow",
+        "pymeshfix",
+        "pyvista",
+        "rembg",
+        "safetensors",
+        "scipy",
+        "spconv-cu118",  # Latest available version, CUDA 11.8 compatible
+        "tqdm",
+        "trimesh",
+        "xatlas",
+        extra_options="--no-build-isolation",
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For faster model downloads
-            "ATTN_BACKEND": "flash-attn",  # Using flash-attn for better performance
-            "SPCONV_ALGO": "native",  # For consistent behavior
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "SPCONV_ALGO": "native",
         }
     )
     .run_function(clone_repository)
@@ -128,191 +124,96 @@ app = modal.App(name="example-trellis-3d")
 
 
 @app.cls(
-    image=trellis_image,
     gpu=modal.gpu.L4(count=1),
-    timeout=1 * HOURS,
-    container_idle_timeout=1 * MINUTES,
+    timeout=60 * 60,
+    container_idle_timeout=60,
 )
 class Model:
     @modal.enter()
-    @modal.build()
     def initialize(self):
         import sys
-
         sys.path.append(TRELLIS_DIR)
 
         from trellis.pipelines import TrellisImageTo3DPipeline
 
-        try:
-            self.pipe = TrellisImageTo3DPipeline.from_pretrained(MODEL_NAME)
-            self.pipe.cuda()
-            logger.info("TRELLIS model initialized successfully")
-        except Exception as e:
-            error_msg = f"Error during model initialization: {str(e)}"
-            logger.error(error_msg)
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            raise
+        self.pipeline = TrellisImageTo3DPipeline.from_pretrained(
+            "KAIST-Visual-AI-Group/TRELLIS",
+            cache_dir="/root/.cache/trellis",
+        )
 
     def process_image(
         self,
         image_url: str,
-        simplify: float,
-        texture_size: int,
-        sparse_sampling_steps: int,
-        sparse_sampling_cfg: float,
-        slat_sampling_steps: int,
-        slat_sampling_cfg: int,
-        seed: int,
-        output_format: str,
+        simplify: float = 0.02,
+        texture_size: int = 1024,
+        sparse_sampling_steps: int = 20,
+        sparse_sampling_cfg: float = 7.5,
+        slat_sampling_steps: int = 20,
+        slat_sampling_cfg: int = 7,
+        seed: int = 42,
+        output_format: str = "glb",
     ):
-        import io
-
+        import cv2
+        import numpy as np
         from PIL import Image
 
         try:
             response = requests.get(image_url)
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to download image from provided URL",
-                )
-
             image = Image.open(io.BytesIO(response.content))
+            image = np.array(image)
+            if len(image.shape) == 2:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            elif image.shape[2] == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
 
-            logger.info("Starting model inference...")
-            outputs = self.pipe.run(
-                image,
+            output = self.pipeline(
+                image=image,
+                simplify=simplify,
+                texture_size=texture_size,
+                sparse_sampling_steps=sparse_sampling_steps,
+                sparse_sampling_cfg=sparse_sampling_cfg,
+                slat_sampling_steps=slat_sampling_steps,
+                slat_sampling_cfg=slat_sampling_cfg,
                 seed=seed,
-                sparse_structure_sampler_params={
-                    "steps": sparse_sampling_steps,
-                    "cfg_strength": sparse_sampling_cfg,
-                },
-                slat_sampler_params={
-                    "steps": slat_sampling_steps,
-                    "cfg_strength": slat_sampling_cfg,
-                },
+                output_format=output_format,
             )
-            logger.info("Model inference completed successfully")
-
-            if output_format == "glb":
-                from trellis.utils import postprocessing_utils
-
-                glb = postprocessing_utils.to_glb(
-                    outputs["gaussian"][0],
-                    outputs["mesh"][0],
-                    simplify=simplify,
-                    texture_size=texture_size,
-                )
-
-                # Create output directory for temporary files
-                output_dir = Path("/tmp/trellis-temp")
-                output_dir.mkdir(exist_ok=True, parents=True)
-                output_path = output_dir / "temp.glb"
-
-                # Export the mesh to GLB format
-                glb.export(str(output_path))
-
-                # Read the GLB file
-                glb_bytes = output_path.read_bytes()
-
-                # Clean up temporary file
-                output_path.unlink()
-
-                # Return the GLB file bytes
-                return Response(
-                    content=glb_bytes,
-                    media_type="model/gltf-binary",
-                    headers={
-                        "Content-Disposition": "attachment; filename=output.glb"
-                    },
-                )
-
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Unsupported output format: {output_format}",
-                )
+            return output
 
         except Exception as e:
-            error_msg = f"Error during processing: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"Error processing image: {str(e)}")
             logger.error(f"Traceback: {traceback.format_exc()}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg,
-            )
+            raise
 
-    @modal.web_endpoint(method="GET", docs=True)
-    async def generate(
-        self,
-        request: Request,
-        image_url: str,
-        simplify: float = 0.95,
-        texture_size: int = 1024,
-        sparse_sampling_steps: int = 12,
-        sparse_sampling_cfg: float = 7.5,
-        slat_sampling_steps: int = 12,
-        slat_sampling_cfg: int = 3,
-        seed: int = 42,
-        output_format: str = "glb",
-    ):
+    @modal.method()
+    def generate(self, image_url: str, output_format: str = "glb") -> bytes:
         return self.process_image(
-            image_url,
-            simplify,
-            texture_size,
-            sparse_sampling_steps,
-            sparse_sampling_cfg,
-            slat_sampling_steps,
-            slat_sampling_cfg,
-            seed,
-            output_format,
+            image_url=image_url,
+            output_format=output_format,
         )
 
 
 @app.local_entrypoint()
 def main(
-    image_url: str = "https://raw.githubusercontent.com/KAIST-Visual-AI-Group/TRELLIS/main/assets/demo_images/00.png",
-    simplify: float = 0.02,
-    texture_size: int = 1024,
-    sparse_sampling_steps: int = 20,
-    sparse_sampling_cfg: float = 7.5,
-    slat_sampling_steps: int = 20,
-    slat_sampling_cfg: int = 7,
-    seed: int = 42,
+    image_path: str = "https://raw.githubusercontent.com/sandeeppatra/trellis/main/assets/images/dog.png",
     output_format: str = "glb",
 ):
-    """Generate 3D mesh from input image.
+    """Generate a 3D model from an input image.
 
     Args:
-        image_url: URL of the input image
-        simplify: Mesh simplification factor (0-1)
-        texture_size: Size of the output texture
-        sparse_sampling_steps: Number of steps for sparse structure sampling
-        sparse_sampling_cfg: CFG strength for sparse structure sampling
-        slat_sampling_steps: Number of steps for SLAT sampling
-        slat_sampling_cfg: CFG strength for SLAT sampling
-        seed: Random seed for reproducibility
-        output_format: Output format (currently only 'glb' is supported)
+        image_path: Path to input image or URL
+        output_format: Output format, either 'glb' or 'obj'
+
+    Returns:
+        None. Saves the output file to disk and prints its location.
     """
-    # Create output directory
-    output_dir = Path("/tmp/trellis-output")
+    model = Model()
+    output = model.generate.remote(image_path, output_format)
+
+    output_dir = Path("/tmp/trellis3d")
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    # Initialize and run model
-    model = Model()
-    result = model.process_image(
-        image_url=image_url,
-        simplify=simplify,
-        texture_size=texture_size,
-        sparse_sampling_steps=sparse_sampling_steps,
-        sparse_sampling_cfg=sparse_sampling_cfg,
-        slat_sampling_steps=slat_sampling_steps,
-        slat_sampling_cfg=slat_sampling_cfg,
-        seed=seed,
-        output_format=output_format,
-    )
+    output_path = output_dir / f"output.{output_format}"
+    output_path.write_bytes(output)
 
-    # Save output file
-    output_path = output_dir / "output.glb"
-    output_path.write_bytes(result.body)
-    print(f"Saved output to {output_path}")
+    print(f"\nOutput saved to: {output_path}")
+    print("You can view the GLB file at https://glb.ee/")
