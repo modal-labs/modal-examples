@@ -132,6 +132,7 @@ class Model:
     @modal.enter()
     def initialize(self):
         import sys
+
         sys.path.append(TRELLIS_DIR)
 
         from trellis.pipelines import TrellisImageTo3DPipeline
