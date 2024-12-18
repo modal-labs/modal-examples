@@ -59,28 +59,32 @@ trellis_image = (
         "NVCC_PATH": "/usr/local/cuda/bin/nvcc",
         "PATH": "/usr/local/cuda/bin:${PATH}",
     })
-    # Step 1: Install PyTorch first as it's required by several dependencies
+    # Step 1: Install core Python packages needed for building
     .pip_install(
-        "torch==2.4.0",
         "packaging==23.2",
         "wheel==0.42.0",
         "setuptools==69.0.3",
-        extra_options="--no-build-isolation",  # Required for flash-attn
     )
-    # Step 2: Install Kaolin which requires pre-installed PyTorch
+    # Step 2: Install PyTorch first as it's required by several dependencies
+    .pip_install(
+        "torch==2.4.0",
+        "torchvision==0.15.2",
+        extra_options="--index-url https://download.pytorch.org/whl/cu121",  # Ensure CUDA version matches
+    )
+    # Step 3: Install Kaolin which requires pre-installed PyTorch
     .pip_install(
         "git+https://github.com/NVIDIAGameWorks/kaolin.git",
+        extra_options="--no-deps",  # Install without dependencies to avoid conflicts
     )
-    # Step 3: Install flash-attention separately with CUDA support
+    # Step 4: Install flash-attention separately with CUDA support
     .pip_install(
         "flash-attn==2.6.3",
         extra_options="--no-build-isolation",
     )
-    # Step 4: Install the rest of the dependencies
+    # Step 5: Install the rest of the dependencies
     .pip_install(
         # ML dependencies
         "xformers==0.0.23.post1",
-        "torchvision==0.15.2",
         "safetensors==0.4.1",
         "huggingface-hub==0.20.3",
         # 3D processing dependencies
