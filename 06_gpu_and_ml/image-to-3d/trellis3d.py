@@ -1,7 +1,7 @@
-from pathlib import Path
 import logging
 import tempfile
 import traceback
+from pathlib import Path
 
 import modal
 import requests
@@ -53,11 +53,13 @@ trellis_image = (
         "ninja-build",
         "cuda-nvcc-12-4",  # Added CUDA compiler
     )
-    .env({
-        "CUDA_HOME": "/usr/local/cuda",
-        "NVCC_PATH": "/usr/local/cuda/bin/nvcc",
-        "PATH": "/usr/local/cuda/bin:${PATH}",
-    })
+    .env(
+        {
+            "CUDA_HOME": "/usr/local/cuda",
+            "NVCC_PATH": "/usr/local/cuda/bin/nvcc",
+            "PATH": "/usr/local/cuda/bin:${PATH}",
+        }
+    )
     # Step 1: Install core Python packages needed for building
     .pip_install(
         "packaging==23.2",
@@ -275,13 +277,40 @@ class Model:
 def main(
     image_path: str = "https://raw.githubusercontent.com/sandeeppatra96/trellis/main/assets/test_images/test_image.jpg",
     output_dir: str = None,
+    simplify: float = 0.95,
+    texture_size: int = 1024,
+    sparse_sampling_steps: int = 12,
+    sparse_sampling_cfg: float = 7.5,
+    slat_sampling_steps: int = 12,
+    slat_sampling_cfg: int = 3,
+    seed: int = 42,
 ):
     """Generate a 3D model from an image.
 
     Args:
         image_path: URL or local path to the input image
-        output_dir: Optional output directory. If not provided, uses a temporary directory.
+        output_dir: Optional output directory. If not provided, uses a temporary directory
+        simplify: Mesh simplification factor (0-1)
+        texture_size: Size of the output texture
+        sparse_sampling_steps: Number of steps for sparse structure sampling
+        sparse_sampling_cfg: CFG strength for sparse structure sampling
+        slat_sampling_steps: Number of steps for SLAT sampling
+        slat_sampling_cfg: CFG strength for SLAT sampling
+        seed: Random seed for reproducibility
     """
+    print(
+        f"image_path => {image_path}",
+        f"output_dir => {output_dir}",
+        f"simplify => {simplify}",
+        f"texture_size => {texture_size}",
+        f"sparse_sampling_steps => {sparse_sampling_steps}",
+        f"sparse_sampling_cfg => {sparse_sampling_cfg}",
+        f"slat_sampling_steps => {slat_sampling_steps}",
+        f"slat_sampling_cfg => {slat_sampling_cfg}",
+        f"seed => {seed}",
+        sep="\n",
+    )
+
     # Create output directory
     if output_dir:
         output_path = Path(output_dir)
@@ -289,31 +318,33 @@ def main(
         output_path = Path(tempfile.mkdtemp())
     output_path.mkdir(exist_ok=True, parents=True)
 
-    # Initialize model and generate 3D output
+    # Initialize model
     model = Model()
     model.initialize()
 
     try:
-        # Download image if it's a URL
-        if image_path.startswith(("http://", "https://")):
-            response = requests.get(image_path)
-            response.raise_for_status()
-            image_data = response.content
-            input_path = output_path / "input.jpg"
-            input_path.write_bytes(image_data)
-            image_path = str(input_path)
+        # Process image and generate 3D model
+        result = model.process_image(
+            image_url=image_path,
+            simplify=simplify,
+            texture_size=texture_size,
+            sparse_sampling_steps=sparse_sampling_steps,
+            sparse_sampling_cfg=sparse_sampling_cfg,
+            slat_sampling_steps=slat_sampling_steps,
+            slat_sampling_cfg=slat_sampling_cfg,
+            seed=seed,
+            output_format="glb",
+        )
 
-        # Generate 3D model
+        # Save the result
         output_file = output_path / "output.glb"
-        model.generate(image_path, str(output_file))
-
+        output_file.write_bytes(result.body)
         print(f"3D model generated successfully at: {output_file}")
         print("You can view the model at https://glb.ee/")
 
-        # Return bytes for potential further processing
         return output_file.read_bytes()
 
     except Exception as e:
-        print(f"Error generating 3D model: {e}")
-        traceback.print_exc()
+        logger.error(f"Error generating 3D model: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
