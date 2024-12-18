@@ -1,6 +1,7 @@
 "This example originally contributed by @sandeeppatra96 and @patraxo on GitHub"
 import logging
 import tempfile
+from pathlib import Path
 import traceback
 
 import modal
@@ -31,8 +32,12 @@ def clone_repository():
     )
 
 
-# The specific version of torch==2.4.0 to circumvent the flash attention wheel build error
-
+# Multi-step installation is required due to dependency ordering:
+# 1. PyTorch must be installed first as it's required by several ML libraries
+# 2. CUDA development tools are needed for building flash-attn
+# 3. Kaolin requires a pre-installed PyTorch
+# 4. Flash-attention needs special handling due to CUDA compilation
+# 5. The rest of the dependencies can be installed together
 trellis_image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.10")
     .apt_install(
@@ -47,24 +52,43 @@ trellis_image = (
         "libxrender1",
         "libxext6",
         "ninja-build",
+        "cuda-nvcc-12-4",  # Added CUDA compiler
     )
+    .env({
+        "CUDA_HOME": "/usr/local/cuda",
+        "NVCC_PATH": "/usr/local/cuda/bin/nvcc",
+        "PATH": "/usr/local/cuda/bin:${PATH}",
+    })
+    # Step 1: Install PyTorch first as it's required by several dependencies
     .pip_install(
-        # Core dependencies
         "torch==2.4.0",
         "packaging==23.2",
-        "ninja==1.11.1",
         "wheel==0.42.0",
         "setuptools==69.0.3",
-        # ML dependencies
+        extra_options="--no-build-isolation",  # Required for flash-attn
+    )
+    # Step 2: Install Kaolin which requires pre-installed PyTorch
+    .pip_install(
+        "git+https://github.com/NVIDIAGameWorks/kaolin.git",
+    )
+    # Step 3: Install flash-attention separately with CUDA support
+    .pip_install(
         "flash-attn==2.6.3",
+        extra_options="--no-build-isolation",
+    )
+    # Step 4: Install the rest of the dependencies
+    .pip_install(
+        # ML dependencies
         "xformers==0.0.23.post1",
+        "torchvision==0.15.2",
+        "safetensors==0.4.1",
+        "huggingface-hub==0.20.3",
         # 3D processing dependencies
         "numpy==1.26.3",
         "pillow==10.2.0",
         "imageio==2.33.1",
         "onnxruntime==1.16.3",
         "trimesh==4.0.5",
-        "safetensors==0.4.1",
         "easydict==1.11",
         "scipy==1.11.4",
         "tqdm==4.66.1",
@@ -74,20 +98,16 @@ trellis_image = (
         "largesteps==0.3.0",
         "spconv-cu118==2.3.6",  # Keep cu118 as it's not yet available for CUDA 12.4
         "rembg==2.0.50",
-        "torchvision==0.15.2",
         "imageio-ffmpeg==0.4.9",
         "xatlas==0.0.8",
         "pyvista==0.42.3",
         "pymeshfix==0.16.2",
         "igraph==0.11.3",
-        "huggingface-hub==0.20.3",
         "fastapi[standard]==0.115.6",
         "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
-        "git+https://github.com/NVIDIAGameWorks/kaolin.git",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
         "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
-        extra_options="--no-build-isolation",  # Required for flash-attn
     )
     .env(
         {
@@ -96,7 +116,6 @@ trellis_image = (
             "SPCONV_ALGO": "native",  # For consistent behavior
         }
     )
-    .entrypoint([])
     .run_function(clone_repository)
 )
 
@@ -261,8 +280,26 @@ def main(
     seed: int = 42,
     output_format: str = "glb",
 ):
+    print(
+        f"image_url => {image_url}",
+        f"simplify => {simplify}",
+        f"texture_size => {texture_size}",
+        f"sparse_sampling_steps => {sparse_sampling_steps}",
+        f"sparse_sampling_cfg => {sparse_sampling_cfg}",
+        f"slat_sampling_steps => {slat_sampling_steps}",
+        f"slat_sampling_cfg => {slat_sampling_cfg}",
+        f"seed => {seed}",
+        f"output_format => {output_format}",
+        sep="\n",
+    )
+
+    # Create output directory
+    output_dir = Path("/tmp/trellis-3d")
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    # Initialize model and generate 3D model
     model = Model()
-    model.generate.remote(
+    output_bytes = model.process_image.remote(
         image_url,
         simplify=simplify,
         texture_size=texture_size,
@@ -273,3 +310,8 @@ def main(
         seed=seed,
         output_format=output_format,
     )
+
+    # Save output file
+    output_path = output_dir / "output.glb"
+    output_path.write_bytes(output_bytes)
+    print(f"Saved output to {output_path}")
