@@ -1,3 +1,6 @@
+# ---
+# method: "Model.test"
+# ---
 "This example originally contributed by @sandeeppatra96 and @patraxo on GitHub"
 import logging
 import tempfile
