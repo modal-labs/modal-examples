@@ -68,7 +68,7 @@ trellis_image = (
     )
     # Step 2: Install PyTorch first as it's required by several dependencies
     .pip_install(
-        "torch==2.4.0",
+        "torch==2.1.0",
         "torchvision==0.16.0+cu121",  # Updated to match CUDA 12.1 compatibility
         extra_options="--index-url https://download.pytorch.org/whl/cu121",  # Ensure CUDA version matches
     )
@@ -100,7 +100,7 @@ trellis_image = (
         "einops==0.7.0",
         "hf_transfer==0.1.4",
         "opencv-python-headless==4.9.0.80",
-        "largesteps==0.3.0",
+        "largesteps==0.2.2",  # Updated to latest available version
         "spconv-cu118==2.3.6",  # Keep cu118 as it's not yet available for CUDA 12.4
         "rembg==2.0.50",
         "imageio-ffmpeg==0.4.9",
