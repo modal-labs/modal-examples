@@ -46,6 +46,7 @@ image = (
 
 app = modal.App(name="example-trellis-3d")
 
+
 @app.cls(gpu="A10G", image=image)
 class Model:
     @modal.enter()
@@ -87,6 +88,7 @@ class Model:
     @modal.method()
     def generate(self, image_path):
         return self.process_image(image_path)
+
 
 @app.local_entrypoint()
 def main(image_path: str = "path/to/image.jpg"):
