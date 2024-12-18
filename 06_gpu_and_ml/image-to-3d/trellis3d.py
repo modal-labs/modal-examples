@@ -1,124 +1,58 @@
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml/image-to-3d/trellis3d.py"]
+# ---
+
 import io
 import logging
+import modal
 import traceback
 from pathlib import Path
 
-import modal
-import requests
-
-logger = logging.getLogger(__name__)
+TRELLIS_DIR = "/root/TRELLIS"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REPO_URL = "https://github.com/microsoft/TRELLIS.git"
-MODEL_NAME = "JeffreyXiang/TRELLIS-image-large"
-TRELLIS_DIR = "/trellis"
-MINUTES = 60
-HOURS = 60 * MINUTES
-
-cuda_version = "12.4.0"
-flavor = "base"
-os_version = "ubuntu22.04"
-tag = f"{cuda_version}-{flavor}-{os_version}"
-
-
-def clone_repository():
-    import subprocess
-
-    subprocess.run(
-        ["git", "clone", "--recurse-submodules", REPO_URL, TRELLIS_DIR],
-        check=True,
-    )
-
-
-# Multi-step installation is required due to dependency ordering:
-# 1. PyTorch must be installed first as it's required by several ML libraries
-# 2. CUDA development tools are needed for building flash-attn
-# 3. Kaolin requires a pre-installed PyTorch
-# 4. Flash-attention needs special handling due to CUDA compilation
-# 5. The rest of the dependencies can be installed together
-trellis_image = (
-    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.10")
+# Build our image with all dependencies
+image = (
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install(
         "git",
-        "ffmpeg",
-        "cmake",
-        "clang",
-        "build-essential",
         "libgl1-mesa-glx",
         "libglib2.0-0",
         "libgomp1",
-        "libxrender1",
-        "libxext6",
-        "ninja-build",
-        "cuda-nvcc-12-4",  # Added CUDA compiler
     )
-    .env(
-        {
-            "CUDA_HOME": "/usr/local/cuda",
-            "NVCC_PATH": "/usr/local/cuda/bin/nvcc",
-            "PATH": "/usr/local/cuda/bin:${PATH}",
-        }
-    )
-    # Step 1: Install core Python packages needed for building
+    # Step 1: Install PyTorch with CUDA 12.4 first
     .pip_install(
-        "packaging==23.2",
-        "wheel==0.42.0",
-        "setuptools==69.0.3",
-        "requests==2.31.0",  # Required for HTTP requests
-    )
-    # Step 2: Install PyTorch first as it's required by several dependencies
-    .pip_install(
-        "torch==2.1.2",  # Updated to match CUDA 12.4 compatibility
+        "torch==2.1.2",
         "torchvision==0.16.2",
-        extra_index_url=["https://download.pytorch.org/whl/cu124"],
+        extra_index_url="https://download.pytorch.org/whl/cu124",
     )
-    # Step 3: Install Kaolin and its dependencies
+    # Step 2: Install Kaolin (requires PyTorch to be installed first)
+    .pip_install("kaolin==0.15.0")
+    # Step 3: Install other dependencies
     .pip_install(
-        "kaolin==0.15.0",
-        "warp-lang",  # Required by kaolin physics module
-        "ipyevents",  # Optional but removes warnings
-        extra_index_url=[
-            "https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.1.0_cu124/",
-        ],
-    )
-    # Step 4: Install TRELLIS dependencies with spconv-cu118 (latest available version)
-    .pip_install(
+        "numpy",
+        "opencv-python",
+        "trimesh",
+        "matplotlib",
+        "scipy",
+        "scikit-image",
+        "requests",
+        "warp-lang",
+        "ipyevents",
         "easydict",
         "einops",
-        "fastapi[standard]==0.115.6",
-        "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
-        "hf_transfer",
-        "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
-        "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
-        "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
-        "igraph",
-        "imageio",
-        "imageio-ffmpeg",
-        "largesteps",
-        "numpy",
-        "onnxruntime",
-        "opencv-python-headless",
-        "pillow",
-        "pymeshfix",
-        "pyvista",
-        "rembg",
-        "safetensors",
-        "scipy",
-        "spconv-cu118",  # Latest available version, CUDA 11.8 compatible
-        "tqdm",
-        "trimesh",
         "xatlas",
-        extra_options="--no-build-isolation",
     )
-    .env(
-        {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            "SPCONV_ALGO": "native",
-        }
+    # Step 4: Clone TRELLIS and install its dependencies
+    .run_commands(
+        f"git clone https://github.com/JeffreyXiang/TRELLIS.git {TRELLIS_DIR}",
+        f"cd {TRELLIS_DIR} && pip install -r requirements.txt",
+        f"cd {TRELLIS_DIR} && pip install -e .",
     )
-    .run_function(clone_repository)
+    # Step 5: Set environment variables for TRELLIS
+    .env({"PYTHONPATH": TRELLIS_DIR})
 )
 
 app = modal.App(name="example-trellis-3d")
@@ -132,10 +66,13 @@ app = modal.App(name="example-trellis-3d")
 class Model:
     @modal.enter()
     def initialize(self):
+        import os
         import sys
 
+        # Add TRELLIS to Python path
         sys.path.append(TRELLIS_DIR)
 
+        # Import TRELLIS after adding to Python path
         from trellis.pipelines import TrellisImageTo3DPipeline
 
         self.pipeline = TrellisImageTo3DPipeline.from_pretrained(
@@ -157,6 +94,7 @@ class Model:
     ):
         import cv2
         import numpy as np
+        import requests  # Import requests here after it's installed
         from PIL import Image
 
         try:
@@ -196,26 +134,42 @@ class Model:
 
 @app.local_entrypoint()
 def main(
-    image_path: str = "https://raw.githubusercontent.com/sandeeppatra/trellis/main/assets/images/dog.png",
-    output_format: str = "glb",
+    image_url: str = "https://raw.githubusercontent.com/scikit-image/scikit-image/main/skimage/data/astronaut.png",
+    output_filename: str = "output.glb",
 ):
-    """Generate a 3D model from an input image.
+    """Generate a 3D model from an image.
 
     Args:
-        image_path: Path to input image or URL
-        output_format: Output format, either 'glb' or 'obj'
-
-    Returns:
-        None. Saves the output file to disk and prints its location.
+        image_url: URL of the input image
+        output_filename: Name of the output GLB file
     """
-    model = Model()
-    output = model.generate.remote(image_path, output_format)
+    import os
+    import requests
+    from pathlib import Path
 
-    output_dir = Path("/tmp/trellis3d")
+    # Create temporary directories
+    output_dir = Path("/tmp/trellis-output")
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = output_dir / f"output.{output_format}"
-    output_path.write_bytes(output)
+    # Download and process image
+    response = requests.get(image_url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to download image from {image_url}")
 
-    print(f"\nOutput saved to: {output_path}")
-    print("You can view the GLB file at https://glb.ee/")
+    # Process image and generate 3D model
+    model = Model()
+    try:
+        # Call generate remotely using Modal's remote execution
+        glb_bytes = model.generate.remote(response.content)
+
+        # Save output file
+        output_path = output_dir / output_filename
+        output_path.write_bytes(glb_bytes)
+        print(f"Generated 3D model saved to {output_path}")
+
+        # Return file path for convenience
+        return str(output_path)
+    except Exception as e:
+        print(f"Error generating 3D model: {str(e)}")
+        print(traceback.format_exc())
+        raise
