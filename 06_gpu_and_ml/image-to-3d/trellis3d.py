@@ -247,3 +247,30 @@ class Model:
             seed,
             output_format,
         )
+
+    @modal.method()
+    def test(self):
+        """Test method for CI to verify the example works."""
+        test_url = "https://raw.githubusercontent.com/microsoft/TRELLIS/main/assets/examples/chair.png"
+        return self.process_image(
+            image_url=test_url,
+            simplify=0.95,
+            texture_size=512,
+            sparse_sampling_steps=2,
+            sparse_sampling_cfg=7.5,
+            slat_sampling_steps=2,
+            slat_sampling_cfg=3,
+            seed=42,
+            output_format="glb",
+        )
+
+
+@app.command()
+def main():
+    """Command for testing the example."""
+    model = Model()
+    model.test.remote()
+
+
+if __name__ == "__main__":
+    main()
