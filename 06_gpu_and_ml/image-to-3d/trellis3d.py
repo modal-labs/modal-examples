@@ -4,9 +4,9 @@
 
 import io
 import logging
-import modal
 import traceback
-from pathlib import Path
+
+import modal
 
 TRELLIS_DIR = "/root/TRELLIS"
 
@@ -66,7 +66,6 @@ app = modal.App(name="example-trellis-3d")
 class Model:
     @modal.enter()
     def initialize(self):
-        import os
         import sys
 
         # Add TRELLIS to Python path
@@ -143,9 +142,9 @@ def main(
         image_url: URL of the input image
         output_filename: Name of the output GLB file
     """
-    import os
-    import requests
     from pathlib import Path
+
+    import requests
 
     # Create temporary directories
     output_dir = Path("/tmp/trellis-output")
