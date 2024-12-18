@@ -16,8 +16,8 @@ TRELLIS_DIR = "/trellis"
 MINUTES = 60
 HOURS = 60 * MINUTES
 
-cuda_version = "12.2.0"
-flavor = "devel"
+cuda_version = "12.4.0"
+flavor = "base"
 os_version = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{os_version}"
 
@@ -48,57 +48,52 @@ trellis_image = (
         "libxext6",
         "ninja-build",
     )
-    .pip_install("packaging", "ninja", "torch==2.4.0", "wheel", "setuptools")
-    .env(
-        {
-            # "MAX_JOBS": "16", # in case flash attention takes more time to build
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            "CC": "clang",
-            "CXX": "clang++",
-            "CUDAHOSTCXX": "clang++",
-            "CUDA_HOME": "/usr/local/cuda-12.2",
-            "CPATH": "/usr/local/cuda-12.2/targets/x86_64-linux/include",
-            "LIBRARY_PATH": "/usr/local/cuda-12.2/targets/x86_64-linux/lib64",
-            "LD_LIBRARY_PATH": "/usr/local/cuda-12.2/targets/x86_64-linux/lib64",
-            "CFLAGS": "-Wno-narrowing",
-            "CXXFLAGS": "-Wno-narrowing",
-            "ATTN_BACKEND": "flash-attn",  # or 'xformers'
-            "SPCONV_ALGO": "native",  # or 'auto'
-        }
-    )
-    .pip_install("flash-attn==2.6.3", extra_options="--no-build-isolation")
     .pip_install(
+        # Core dependencies
+        "torch==2.4.0",
+        "packaging==23.2",
+        "ninja==1.11.1",
+        "wheel==0.42.0",
+        "setuptools==69.0.3",
+        # ML dependencies
+        "flash-attn==2.6.3",
+        "xformers==0.0.23.post1",
+        # 3D processing dependencies
+        "numpy==1.26.3",
+        "pillow==10.2.0",
+        "imageio==2.33.1",
+        "onnxruntime==1.16.3",
+        "trimesh==4.0.5",
+        "safetensors==0.4.1",
+        "easydict==1.11",
+        "scipy==1.11.4",
+        "tqdm==4.66.1",
+        "einops==0.7.0",
+        "hf_transfer==0.1.4",
+        "opencv-python-headless==4.9.0.80",
+        "largesteps==0.3.0",
+        "spconv-cu118==2.3.6",  # Keep cu118 as it's not yet available for CUDA 12.4
+        "rembg==2.0.50",
+        "torchvision==0.15.2",
+        "imageio-ffmpeg==0.4.9",
+        "xatlas==0.0.8",
+        "pyvista==0.42.3",
+        "pymeshfix==0.16.2",
+        "igraph==0.11.3",
+        "huggingface-hub==0.20.3",
+        "fastapi[standard]==0.115.6",
         "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
-        "numpy",
-        "pillow",
-        "imageio",
-        "onnxruntime",
-        "trimesh",
-        "safetensors",
-        "easydict",
-        "scipy",
-        "tqdm",
-        "einops",
-        "xformers",
-        "hf_transfer",
-        "opencv-python-headless",
-        "largesteps",
-        "spconv-cu118",
-        "rembg",
-        "torchvision",
-        "imageio-ffmpeg",
-        "xatlas",
-        "pyvista",
-        "pymeshfix",
-        "igraph",
         "git+https://github.com/NVIDIAGameWorks/kaolin.git",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
-        # "git+https://github.com/NVlabs/nvdiffrast.git", # build failed
-        "huggingface-hub",
         "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
+        extra_options="--no-build-isolation"  # Required for flash-attn
     )
-    .pip_install("fastapi[standard]==0.115.6")
+    .env({
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For faster model downloads
+        "ATTN_BACKEND": "flash-attn",      # Using flash-attn for better performance
+        "SPCONV_ALGO": "native",           # For consistent behavior
+    })
     .entrypoint([])
     .run_function(clone_repository)
 )
