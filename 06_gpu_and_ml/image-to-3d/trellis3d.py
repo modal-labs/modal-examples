@@ -66,6 +66,7 @@ trellis_image = (
         "packaging==23.2",
         "wheel==0.42.0",
         "setuptools==69.0.3",
+        "requests==2.31.0",  # Required for HTTP requests
     )
     # Step 2: Install PyTorch first as it's required by several dependencies
     .pip_install(
