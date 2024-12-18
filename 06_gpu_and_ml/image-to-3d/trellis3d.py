@@ -1,6 +1,3 @@
-# ---
-# method: "Model.test"
-# ---
 "This example originally contributed by @sandeeppatra96 and @patraxo on GitHub"
 import logging
 import tempfile
@@ -251,18 +248,28 @@ class Model:
             output_format,
         )
 
-    @modal.method()
-    def test(self):
-        """Test method for CI to verify the example works."""
-        test_url = "https://raw.githubusercontent.com/microsoft/TRELLIS/main/assets/examples/chair.png"
-        return self.process_image(
-            image_url=test_url,
-            simplify=0.95,
-            texture_size=512,
-            sparse_sampling_steps=2,
-            sparse_sampling_cfg=7.5,
-            slat_sampling_steps=2,
-            slat_sampling_cfg=3,
-            seed=42,
-            output_format="glb",
-        )
+
+@app.local_entrypoint()
+def main(
+    image_url: str = "https://raw.githubusercontent.com/IDEA-Research/TRELLIS/main/assets/demo_images/demo_1.jpg",
+    simplify: float = 0.95,
+    texture_size: int = 512,
+    sparse_sampling_steps: int = 2,
+    sparse_sampling_cfg: float = 7.5,
+    slat_sampling_steps: int = 2,
+    slat_sampling_cfg: float = 3,
+    seed: int = 42,
+    output_format: str = "glb",
+):
+    model = Model()
+    model.generate.remote(
+        image_url,
+        simplify=simplify,
+        texture_size=texture_size,
+        sparse_sampling_steps=sparse_sampling_steps,
+        sparse_sampling_cfg=sparse_sampling_cfg,
+        slat_sampling_steps=slat_sampling_steps,
+        slat_sampling_cfg=slat_sampling_cfg,
+        seed=seed,
+        output_format=output_format,
+    )
