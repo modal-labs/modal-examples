@@ -74,47 +74,41 @@ trellis_image = (
         "torchvision==0.16.0+cu121",
         extra_options="--index-url https://download.pytorch.org/whl/cu121",
     )
-    # Step 3: Install Kaolin and its dependencies in the correct order
+    # Step 3: Install NVIDIA libraries and ML tools
     .pip_install(
-        "pygltflib==1.16.1",  # Required by Kaolin for GLTF file handling
-        "usd-core==23.11",  # Required by Kaolin for USD file handling
+        "flash-attn==2.6.3",
+        "xformers",
+        "warp-lang",  # Required by kaolin physics module
+        "ipyevents",  # Optional but removes warnings
+        extra_options="--no-build-isolation",
     )
     # Step 4: Install Kaolin after its dependencies
     .pip_install(
         "git+https://github.com/NVIDIAGameWorks/kaolin.git",
-        extra_options="--no-deps",  # Install without dependencies since we installed them above
     )
-    # Step 5: Install flash-attention separately with CUDA support
-    .pip_install(
-        "flash-attn==2.6.3",
-        extra_options="--no-build-isolation",
-    )
-    # Step 6: Install the rest of the dependencies
+    # Step 5: Install the rest of the dependencies
     .pip_install(
         # ML dependencies
-        "xformers==0.0.23.post1",
-        "safetensors==0.4.1",
-        "huggingface-hub==0.20.3",
-        # 3D processing dependencies
-        "numpy==1.26.3",
-        "pillow==10.2.0",
-        "imageio==2.33.1",
-        "onnxruntime==1.16.3",
-        "trimesh==4.0.5",
-        "easydict==1.11",
-        "scipy==1.11.4",
-        "tqdm==4.66.1",
-        "einops==0.7.0",
-        "hf_transfer==0.1.4",
-        "opencv-python-headless==4.9.0.80",
-        "largesteps==0.2.2",  # Updated to latest available version
-        "spconv-cu118==2.3.6",  # Keep cu118 as it's not yet available for CUDA 12.4
-        "rembg==2.0.50",
-        "imageio-ffmpeg==0.4.9",
-        "xatlas==0.0.8",
-        "pyvista==0.42.3",
-        "pymeshfix==0.16.2",
-        "igraph==0.11.3",
+        "numpy",
+        "pillow",
+        "imageio",
+        "onnxruntime",
+        "trimesh",
+        "safetensors",
+        "easydict",
+        "scipy",
+        "tqdm",
+        "einops",
+        "hf_transfer",
+        "opencv-python-headless",
+        "largesteps",
+        "spconv-cu122",  # Updated to CUDA 12.2
+        "rembg",
+        "imageio-ffmpeg",
+        "xatlas",
+        "pyvista",
+        "pymeshfix",
+        "igraph",
         "fastapi[standard]==0.115.6",
         "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/nvdiffrast-0.3.3-cp310-cp310-linux_x86_64.whl",
