@@ -212,29 +212,28 @@ class Model:
                     texture_size=texture_size,
                 )
 
-                # Create temporary file for GLB output
-                with tempfile.NamedTemporaryFile(
-                    suffix=".glb", delete=False
-                ) as temp_glb:
-                    # Export the mesh to GLB format
-                    glb.export(temp_glb.name)
-                    temp_glb.flush()
+                # Create output directory for temporary files
+                output_dir = Path("/tmp/trellis-temp")
+                output_dir.mkdir(exist_ok=True, parents=True)
+                output_path = output_dir / "temp.glb"
 
-                    # Read the exported GLB file
-                    glb_bytes = Path(temp_glb.name).read_bytes()
+                # Export the mesh to GLB format
+                glb.export(str(output_path))
 
-                    # Clean up the temporary file
-                    if os.path.exists(temp_glb.name):
-                        os.unlink(temp_glb.name)
+                # Read the GLB file
+                glb_bytes = output_path.read_bytes()
 
-                    # Return the GLB file bytes
-                    return Response(
-                        content=glb_bytes,
-                        media_type="model/gltf-binary",
-                        headers={
-                            "Content-Disposition": "attachment; filename=output.glb"
-                        },
-                    )
+                # Clean up temporary file
+                output_path.unlink()
+
+                # Return the GLB file bytes
+                return Response(
+                    content=glb_bytes,
+                    media_type="model/gltf-binary",
+                    headers={
+                        "Content-Disposition": "attachment; filename=output.glb"
+                    },
+                )
 
             else:
                 raise HTTPException(
@@ -280,39 +279,48 @@ class Model:
 
 @app.local_entrypoint()
 def main(
-    image_url: str = "https://raw.githubusercontent.com/microsoft/TRELLIS/main/assets/demo/demo_image.jpg",
-    output_filename: str = "output.glb",
+    image_url: str = "https://raw.githubusercontent.com/KAIST-Visual-AI-Group/TRELLIS/main/assets/demo_images/00.png",
+    simplify: float = 0.02,
+    texture_size: int = 1024,
+    sparse_sampling_steps: int = 20,
+    sparse_sampling_cfg: float = 7.5,
+    slat_sampling_steps: int = 20,
+    slat_sampling_cfg: int = 7,
+    seed: int = 42,
+    output_format: str = "glb",
 ):
-    """Generate a 3D model from an input image.
+    """Generate 3D mesh from input image.
 
     Args:
         image_url: URL of the input image
-        output_filename: Name of the output GLB file
+        simplify: Mesh simplification factor (0-1)
+        texture_size: Size of the output texture
+        sparse_sampling_steps: Number of steps for sparse structure sampling
+        sparse_sampling_cfg: CFG strength for sparse structure sampling
+        slat_sampling_steps: Number of steps for SLAT sampling
+        slat_sampling_cfg: CFG strength for SLAT sampling
+        seed: Random seed for reproducibility
+        output_format: Output format (currently only 'glb' is supported)
     """
-    # Create temporary directory for outputs
-    output_dir = Path("/tmp/trellis3d")
+    # Create output directory
+    output_dir = Path("/tmp/trellis-output")
     output_dir.mkdir(exist_ok=True, parents=True)
-    output_path = output_dir / output_filename
 
-    try:
-        # Download and process image
-        response = requests.get(image_url)
-        response.raise_for_status()
-        image_bytes = response.content
+    # Initialize and run model
+    model = Model()
+    result = model.process_image(
+        image_url=image_url,
+        simplify=simplify,
+        texture_size=texture_size,
+        sparse_sampling_steps=sparse_sampling_steps,
+        sparse_sampling_cfg=sparse_sampling_cfg,
+        slat_sampling_steps=slat_sampling_steps,
+        slat_sampling_cfg=slat_sampling_cfg,
+        seed=seed,
+        output_format=output_format,
+    )
 
-        # Generate 3D model
-        model = Model()
-        glb_bytes = model.generate.remote(image_bytes)
-
-        # Save output file
-        output_path.write_bytes(glb_bytes)
-        logger.info(f"Generated 3D model saved to: {output_path}")
-
-        return str(output_path)
-    except Exception as e:
-        logger.error(f"Error generating 3D model: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate 3D model: {str(e)}",
-        )
+    # Save output file
+    output_path = output_dir / "output.glb"
+    output_path.write_bytes(result.body)
+    print(f"Saved output to {output_path}")
