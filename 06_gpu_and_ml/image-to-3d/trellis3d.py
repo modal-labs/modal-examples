@@ -29,7 +29,7 @@ image = (
     )
     # Install Kaolin after PyTorch is installed
     .pip_install(
-        "kaolin==0.15.0",
+        "git+https://github.com/NVIDIAGameWorks/kaolin.git",  # Install from source for CUDA 12.4 support
         "pytorch-lightning==2.1.3",
         "pytorch3d==0.7.5",
     )
@@ -97,7 +97,7 @@ def main(image_path: str = "path/to/image.jpg"):
     Args:
         image_path: Path to the input image file.
     """
-    # Create output directory
+    # Create output directory in /tmp following Modal examples pattern
     output_dir = Path("/tmp/trellis-3d")
     output_dir.mkdir(exist_ok=True, parents=True)
 
@@ -105,7 +105,7 @@ def main(image_path: str = "path/to/image.jpg"):
     model = Model()
     output = model.generate.remote(image_path)
 
-    # Save output to temporary directory
+    # Save output GLB file using write_bytes
     output_path = output_dir / "output.glb"
     output_path.write_bytes(output)
 
