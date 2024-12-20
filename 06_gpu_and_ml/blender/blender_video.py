@@ -61,7 +61,7 @@ WITH_GPU = True  # try changing this to False to run rendering massively in para
 
 
 @app.function(
-    gpu="A10G" if WITH_GPU else None,
+    gpu="L40S" if WITH_GPU else None,
     # default limits on Modal free tier
     concurrency_limit=10 if WITH_GPU else 100,
     image=rendering_image,
@@ -174,8 +174,8 @@ def combine(frames_bytes: list[bytes], fps: int = FPS) -> bytes:
 
 # The bytes for the video come back to our local machine, and we write them to a file.
 
-# The whole rendering process (for 4 seconds of 1080p 60 FPS video) takes about five minutes to run on 10 A10G GPUs,
-# with a per-frame latency of about 10 seconds, and about five minutes to run on 100 CPUs, with a per-frame latency of about one minute.
+# The whole rendering process (for four seconds of 1080p 60 FPS video) takes about three minutes to run on 10 L40S GPUs,
+# with a per-frame latency of about six seconds, and about five minutes to run on 100 CPUs, with a per-frame latency of about one minute.
 
 
 @app.local_entrypoint()
