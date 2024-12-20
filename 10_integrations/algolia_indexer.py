@@ -46,6 +46,7 @@ CONFIG = {
     },
     "stop_urls": [
         "https://modal.com/docs/reference/modal.Stub",
+        "https://modal.com/gpu-glossary",
     ],
     "start_urls": [
         {
