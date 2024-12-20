@@ -9,7 +9,7 @@
 
 # You can run it on CPUs to scale out on one hundred containers
 # or run it on GPUs to get higher throughput per node.
-# Even for this simple scene, GPUs render 10x faster than CPUs.
+# Even for this simple scene, GPUs render >10x faster than CPUs.
 
 # The final render looks something like this:
 
