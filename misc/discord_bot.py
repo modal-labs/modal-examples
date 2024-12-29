@@ -177,7 +177,7 @@ def web_app():
             interaction_token = data["token"]
 
             # Kick off request asynchronously, send value when we have it
-            weather = get_weather_forecast_for_city.spawn(city, interaction_token, app_id)
+            get_weather_forecast_for_city.spawn(city, interaction_token, app_id)
 
             return {
                 "type": 5,  # respond immediately with defer message
