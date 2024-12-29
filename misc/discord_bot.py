@@ -5,7 +5,7 @@
 
 # In this example we will build a discord bot that given a city as input, tells us the weather in the city for that day
 # We can do this using slash commands](https://discord.com/developers/docs/interactions/application-commands)
-# a feature that lets you register a text command on Discord that triggers a custom webhook when a user interacts with it. 
+# a feature that lets you register a text command on Discord that triggers a custom webhook when a user interacts with it.
 # We handle all our Discord events in a [FastAPI app](https://fastapi.tiangolo.com/). Luckily,
 # we can deploy this app easily and serverlessly using Modal’s
 # [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
@@ -21,9 +21,9 @@
 # 2. On the portal, go to **Applications** and create a new application by
 #    clicking **New Application** in the top right next to your profile picture.
 # 3. Create a custom[create a custom Modal secret](/docs/guide/secrets) for your Discord bot.
-#    On Modal's secret creation page, select 'Discord'. Copy your Discord application’s 
+#    On Modal's secret creation page, select 'Discord'. Copy your Discord application’s
 #    **Public Key** (in **General Information**) and paste the value of the public key
-#    as the value of the `DISCORD_PUBLIC_KEY` environment variable. 
+#    as the value of the `DISCORD_PUBLIC_KEY` environment variable.
 #    Name this secret `weather-discord-secret`.
 
 #### Register a Slash Command
@@ -72,12 +72,13 @@
 
 # Let's get the imports out of the way and define an [`App`](https://modal.com/docs/reference/modal.App)
 
-from modal import App, Secret, asgi_app, Image
 import json
+
+from modal import App, Image, Secret, asgi_app
 
 app = App("discord-weather-bot")
 
-# We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and 
+# We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and
 # the [FastAPI](https://fastapi.tiangolo.com/) package installed.
 
 image = Image.debian_slim(python_version="3.8").pip_install("python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0")
@@ -91,25 +92,25 @@ image = Image.debian_slim(python_version="3.8").pip_install("python-weather==2.0
 
 @app.function(image = image)
 async def get_weather_forecast_for_city(city: str, interaction_token, application_id):
-    from python_weather import Client, RequestError, Error, IMPERIAL
     import aiohttp
+    from python_weather import IMPERIAL, Client, Error, RequestError
 
     interaction_url = f"https://discord.com/api/v10/webhooks/{application_id}/{interaction_token}/messages/@original"
     async with Client(unit=IMPERIAL) as client:
         try:
             weather = await client.get(city)
             daily_forecasts = "\n".join([f"Date: {daily.date}, Highest temperature: {daily.highest_temperature}°F, Lowest Temperature: {daily.lowest_temperature}°F" for daily in weather])
-            message = f"The forecast for {weather.location} is as follows:\n{daily_forecasts}"  
+            message = f"The forecast for {weather.location} is as follows:\n{daily_forecasts}"
         except RequestError:
             message = "An error occurred, issue with connecting to weather api"
         except Error:
-            message = "An error occurred, please check city name"            
-    
+            message = "An error occurred, please check city name"
+
     json_payload = {"content": message}
     async with aiohttp.ClientSession() as session:
         async with session.patch(interaction_url, json=json_payload) as resp:
             print(await resp.text())
-    
+
 # We now define an asgi app using the Modal ASGI syntax [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps).
 
 @app.function(
@@ -120,7 +121,7 @@ async def get_weather_forecast_for_city(city: str, interaction_token, applicatio
 )
 @asgi_app()
 def web_app():
-    from fastapi import FastAPI, Request, HTTPException
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
 
     web_app = FastAPI()
@@ -136,10 +137,11 @@ def web_app():
 
     @web_app.post("/get_weather_forecast")
     async def get_weather_forecast_api(request: Request):
-        
-        from nacl.signing import VerifyKey
-        from nacl.exceptions import BadSignatureError
+
         import os
+
+        from nacl.exceptions import BadSignatureError
+        from nacl.signing import VerifyKey
 
 
         # Verify the request using the Discord public key
@@ -156,7 +158,7 @@ def web_app():
             verify_key.verify(message, bytes.fromhex(signature))
         except BadSignatureError:
             raise HTTPException(status_code=401, detail="Invalid request")
-        
+
 
         # Parse request
         data = json.loads(body.decode())
@@ -173,7 +175,7 @@ def web_app():
 
             app_id = data["application_id"]
             interaction_token = data["token"]
-                                             
+
             # Kick off request asynchronously, send value when we have it
             weather = get_weather_forecast_for_city.spawn(city, interaction_token, app_id)
 
