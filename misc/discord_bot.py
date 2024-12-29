@@ -37,7 +37,7 @@
 # **General Information**.
 
 
-#```shell
+# ```shell
 # BOT_TOKEN='replace_with_bot_token'
 # CLIENT_ID='replace_with_client_token'
 # curl -X POST \
@@ -55,7 +55,7 @@
 #     }
 #   ]
 # }' "https://discord.com/api/v10/applications/$CLIENT_ID/commands"
-#```
+# ```
 
 
 # This will register a Slash Command for your bot named `get_weather`, and has a
@@ -81,7 +81,9 @@ app = App("discord-weather-bot")
 # We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and
 # the [FastAPI](https://fastapi.tiangolo.com/) package installed.
 
-image = Image.debian_slim(python_version="3.8").pip_install("python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0")
+image = Image.debian_slim(python_version="3.8").pip_install(
+    "python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0"
+)
 
 # We define a function that uses the python_weather library to get the weather of a city
 # Note that since Discord requires an interaction response within 3 seconds, we
@@ -90,8 +92,11 @@ image = Image.debian_slim(python_version="3.8").pip_install("python-weather==2.0
 # Discord within the time limit. We then update our response with the results once
 # the model has finished running. The
 
-@app.function(image = image)
-async def get_weather_forecast_for_city(city: str, interaction_token, application_id):
+
+@app.function(image=image)
+async def get_weather_forecast_for_city(
+    city: str, interaction_token, application_id
+):
     import aiohttp
     from python_weather import IMPERIAL, Client, Error, RequestError
 
@@ -99,7 +104,12 @@ async def get_weather_forecast_for_city(city: str, interaction_token, applicatio
     async with Client(unit=IMPERIAL) as client:
         try:
             weather = await client.get(city)
-            daily_forecasts = "\n".join([f"Date: {daily.date}, Highest temperature: {daily.highest_temperature}°F, Lowest Temperature: {daily.lowest_temperature}°F" for daily in weather])
+            daily_forecasts = "\n".join(
+                [
+                    f"Date: {daily.date}, Highest temperature: {daily.highest_temperature}°F, Lowest Temperature: {daily.lowest_temperature}°F"
+                    for daily in weather
+                ]
+            )
             message = f"The forecast for {weather.location} is as follows:\n{daily_forecasts}"
         except RequestError:
             message = "An error occurred, issue with connecting to weather api"
@@ -111,13 +121,14 @@ async def get_weather_forecast_for_city(city: str, interaction_token, applicatio
         async with session.patch(interaction_url, json=json_payload) as resp:
             print(await resp.text())
 
+
 # We now define an asgi app using the Modal ASGI syntax [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps).
+
 
 @app.function(
     secrets=[Secret.from_name("advay-discord-secret")],
-    keep_warm=1, # eliminates risk of container startup making discord ack time too long
-    image = image
-
+    keep_warm=1,  # eliminates risk of container startup making discord ack time too long
+    image=image,
 )
 @asgi_app()
 def web_app():
@@ -137,12 +148,10 @@ def web_app():
 
     @web_app.post("/get_weather_forecast")
     async def get_weather_forecast_api(request: Request):
-
         import os
 
         from nacl.exceptions import BadSignatureError
         from nacl.signing import VerifyKey
-
 
         # Verify the request using the Discord public key
         public_key = os.getenv("DISCORD_PUBLIC_KEY")
@@ -159,7 +168,6 @@ def web_app():
         except BadSignatureError:
             raise HTTPException(status_code=401, detail="Invalid request")
 
-
         # Parse request
         data = json.loads(body.decode())
         if data.get("type") == 1:  # ack ping from Discord
@@ -171,7 +179,6 @@ def web_app():
                 name = option["name"]
                 if name == "city":
                     city = option["value"]
-
 
             app_id = data["application_id"]
             interaction_token = data["token"]
@@ -186,6 +193,7 @@ def web_app():
         raise HTTPException(status_code=400, detail="Bad request")
 
     return web_app
+
 
 #### Deploy the Modal web endpoint
 # You can deploy this app by running the following command from your root
