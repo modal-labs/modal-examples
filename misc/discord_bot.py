@@ -1,7 +1,10 @@
 # ---
 # lambda-test: false
+# deploy: true
 # ---
-# # Create a Discord bot on modal
+# # Create a Discord Bot on Modal
+
+# (quick links: [try it out on Discord](https://discord.gg/nR96BxPu))
 
 # In this example we will build a discord bot that given a city as input, tells us the weather in the city for that day
 # We can do this using slash commands](https://discord.com/developers/docs/interactions/application-commands)
