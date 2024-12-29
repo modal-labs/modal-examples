@@ -215,10 +215,3 @@ def web_app():
 # server if needed) and click **Authorize**. Now you can open your Discord server
 # and type `/{name of your slash command}` - your bot should be connected and
 # ready for you to use!
-
-
-
-
-
-
-
