@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 # # Create a Discord bot on modal
 
 # In this example we will build a discord bot that given a city as input, tells us the weather in the city for that day
@@ -77,7 +80,7 @@ app = App("discord-weather-bot")
 # We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and 
 # the [FastAPI](https://fastapi.tiangolo.com/) package installed.
 
-image = Image.debian_slim().pip_install("python-weather==2.0.7", "fastapi[standard]", "pynacl==1.5.0")
+image = Image.debian_slim(python_version="3.8").pip_install("python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0")
 
 # We define a function that uses the python_weather library to get the weather of a city
 # Note that since Discord requires an interaction response within 3 seconds, we
