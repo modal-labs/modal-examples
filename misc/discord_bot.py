@@ -37,7 +37,7 @@
 # **General Information**.
 
 
-# ```shell
+# ``` shell
 # BOT_TOKEN='replace_with_bot_token'
 # CLIENT_ID='replace_with_client_token'
 # curl -X POST \
@@ -199,7 +199,7 @@ def web_app():
 # You can deploy this app by running the following command from your root
 # directory:
 
-# ```shell
+# ``` shell
 # modal deploy discord_bot.py
 # ```
 
