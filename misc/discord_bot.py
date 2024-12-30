@@ -1,6 +1,5 @@
 # ---
 # lambda-test: false
-# deploy: true
 # ---
 # # Create a Discord Bot on Modal
 
