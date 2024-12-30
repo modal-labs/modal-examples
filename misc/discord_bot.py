@@ -83,7 +83,7 @@ app = App("discord-weather-bot")
 # We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and
 # the [FastAPI](https://fastapi.tiangolo.com/) package installed.
 
-image = Image.debian_slim(python_version="3.8").pip_install(
+image = Image.debian_slim(python_version="3.11").pip_install(
     "python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0"
 )
 
