@@ -42,7 +42,7 @@ n_proc_per_node = 1
     ],
 )
 @modal.experimental.clustered(size=n_nodes)
-def main():
+def demo():
     from torch.distributed.run import parse_args, run
 
     cluster_info = modal.experimental.get_cluster_info()
