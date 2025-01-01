@@ -8,6 +8,7 @@
 # Let's get the imports out of the way and define an [`App`](https://modal.com/docs/reference/modal.App).
 
 import os
+from pathlib import Path
 
 import modal
 import modal.experimental
@@ -21,7 +22,7 @@ app = modal.App("example-simple-torch-cluster", image=image)
 # with one GPU per container. These cluster configurations are helpful for testing, but typically
 # you'll want to run a cluster with 8 GPUs per container, each GPU serving its own local 'worker' process.
 
-gpu = False
+gpu = True
 # https://pytorch.org/docs/stable/distributed.html#which-backend-to-use
 backend = "gloo" if not gpu else "nccl"
 # The number of containers (i.e. nodes) in the cluster. This can be between 1 and 8.
@@ -29,8 +30,10 @@ n_nodes = 4
 # Typically this matches the number of GPUs per container.
 n_proc_per_node = 1
 
+TRACE_DIR = Path("/traces")
+traces = modal.Volume.from_name("example-traces", create_if_missing=True)
 
-@app.function(
+config = dict(
     gpu=modal.gpu.A100() if gpu else None,
     mounts=[
         # Mount the script that performs the actual distributed computation.
@@ -40,9 +43,12 @@ n_proc_per_node = 1
             "simple_torch_cluster_script.py", remote_path="/root/script.py"
         )
     ],
+
 )
+
+@app.function(**config, volumes={TRACE_DIR: traces})
 @modal.experimental.clustered(size=n_nodes)
-def main():
+def demo():
     from torch.distributed.run import parse_args, run
 
     cluster_info = modal.experimental.get_cluster_info()

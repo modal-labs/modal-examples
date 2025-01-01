@@ -1,6 +1,6 @@
 import argparse
 import os
-
+from pathlib import Path
 import torch
 import torch.distributed as dist
 
@@ -10,6 +10,8 @@ WORLD_SIZE = int(os.environ["WORLD_SIZE"])
 WORLD_RANK = int(os.environ["RANK"])
 # The master (or leader) rank is always 0 with torch.distributed.run.
 MASTER_RANK = 0
+
+TRACE_DIR = Path("/traces")
 
 # This `run` function performs a simple distributed data transfer between containers
 # using the specified distributed communication backend.
@@ -84,4 +86,62 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     init_processes(backend=args.backend)
-    run(backend=args.backend)
+
+    from uuid import uuid4
+
+    import torch
+
+    function_name = "demo"
+    label = None
+    steps = 3
+    schedule = None
+    record_shapes = False
+    profile_memory = False
+    with_stack = False
+    print_rows = 10
+
+    output_dir = (
+        TRACE_DIR
+        / (function_name + (f"_{label}" if label else ""))
+        / str(uuid4())
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if schedule is None:
+        if steps < 3:
+            raise ValueError(
+                "Steps must be at least 3 when using default schedule"
+            )
+        schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
+
+    schedule = torch.profiler.schedule(**schedule)
+
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        schedule=schedule,
+        record_shapes=record_shapes,
+        profile_memory=profile_memory,
+        with_stack=with_stack,
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(output_dir),
+    ) as prof:
+        for _ in range(steps):
+            run(backend=args.backend)
+            prof.step()
+
+    if print_rows:
+        print(
+            prof.key_averages().table(
+                sort_by="cuda_time_total", row_limit=print_rows
+            )
+        )
+
+    trace_path = sorted(
+        output_dir.glob("**/*.pt.trace.json"),
+        key=lambda pth: pth.stat().st_mtime,
+        reverse=True,
+    )[0]
+
+    print(f"trace saved to {trace_path.relative_to(TRACE_DIR)}")
