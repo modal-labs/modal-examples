@@ -62,8 +62,17 @@ def run(backend):
 # This is done by calling `dist.init_process_group` with the specified backend.
 #
 # See https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group for more details.
+from contextlib import contextmanager
+
+
+@contextmanager
 def init_processes(backend):
-    dist.init_process_group(backend, rank=WORLD_RANK, world_size=WORLD_SIZE)
+    try:
+        dist.init_process_group(backend, rank=WORLD_RANK, world_size=WORLD_SIZE)
+        yield
+    finally:
+        # Remove this if it causes program to hang. ref: https://github.com/pytorch/pytorch/issues/75097.
+        dist.destroy_process_group()
 
 if __name__ == "__main__":
     # This is a minimal CLI interface adhering to the requirements of torch.distributed.run (torchrun).
@@ -83,5 +92,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    init_processes(backend=args.backend)
-    run(backend=args.backend)
+    with init_processes(backend=args.backend):
+        run(backend=args.backend)
