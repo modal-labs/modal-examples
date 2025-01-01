@@ -50,7 +50,9 @@ def demo():
     main_addr = cluster_info.container_ips[0]
     world_size = len(cluster_info.container_ips)
     task_id = os.environ["MODAL_TASK_ID"]
-    print(f"hello from {container_rank=}, {main_addr=}, {world_size=}, {task_id=}")
+    print(
+        f"hello from {container_rank=}, {main_addr=}, {world_size=}, {task_id=}"
+    )
 
     run(
         parse_args(
