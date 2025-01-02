@@ -6,7 +6,7 @@
 # (quick links: [try it out on Discord](https://discord.gg/nR96BxPu))
 
 # In this example we will build a discord bot that given a city as input, tells us the weather in the city for that day
-# We can do this using slash commands](https://discord.com/developers/docs/interactions/application-commands)
+# We can do this using [slash commands](https://discord.com/developers/docs/interactions/application-commands)
 # a feature that lets you register a text command on Discord that triggers a custom webhook when a user interacts with it.
 # We handle all our Discord events in a [FastAPI app](https://fastapi.tiangolo.com/). Luckily,
 # we can deploy this app easily and serverlessly using Modal’s
@@ -28,7 +28,7 @@
 #    as the value of the `DISCORD_PUBLIC_KEY` environment variable.
 #    Name this secret `weather-discord-secret`.
 
-#### Register a Slash Command
+# ## Register a Slash Command
 
 # Next, we’re going to register a command for our Discord app via an HTTP
 # endpoint.
@@ -65,7 +65,7 @@
 # command structure can be found in the Discord docs
 # [here](https://discord.com/developers/docs/interactions/application-commands).
 
-#### Defining the asgi app with modal
+# ## Defining the asgi app with modal
 
 # We now create a `POST /get_weather` endpoint using [FastAPI](https://fastapi.tiangolo.com/) and Modal's
 # [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator to handle
@@ -128,7 +128,7 @@ async def get_weather_forecast_for_city(
 
 
 @app.function(
-    secrets=[Secret.from_name("advay-discord-secret")],
+    secrets=[Secret.from_name("weather-discord-secret")],
     keep_warm=1,  # eliminates risk of container startup making discord ack time too long
     image=image,
 )
@@ -197,7 +197,7 @@ def web_app():
     return web_app
 
 
-#### Deploy the Modal web endpoint
+# ## Deploy the Modal web endpoint
 # You can deploy this app by running the following command from your root
 # directory:
 
@@ -213,7 +213,7 @@ def web_app():
 # endpoint is valid, it will properly save and you can start receiving
 # interactions via this web endpoint.
 
-#### Finish setting up Discord bot
+# ## Finish setting up Discord bot
 
 # To start using the Slash Command you just set up, you need to invite the bot to
 # a Discord server. To do so, go to your application's **OAuth2** section on the
