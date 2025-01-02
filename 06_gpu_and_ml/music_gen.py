@@ -18,9 +18,10 @@
 
 # ## Setting up the image and dependencies
 
-from modal import Image, App, method, gpu, enter, asgi_app
-from pathlib import Path
 import io
+from pathlib import Path
+
+from modal import App, Image, asgi_app, enter, gpu, method
 
 app = App("musicgen")
 
@@ -29,14 +30,16 @@ MAX_SEGMENT_DURATION = 30
 
 def download_models() -> None:
     from audiocraft.models import MusicGen
+
     MusicGen.get_pretrained("large")
     MusicGen.get_pretrained("melody")
+
 
 image = (
     Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
     .pip_install(
-        "torch==2.1.0", # version needed for audiocraft,
+        "torch==2.1.0",  # version needed for audiocraft,
         "pydub==0.25.1",
         "numpy<2",
         "git+https://github.com/facebookresearch/audiocraft.git@v1.3.0",
@@ -54,7 +57,8 @@ with image.imports():
 # [`generate`] function processing the user input and generating audio as bytes that we can
 # save to a file later.
 
-@app.cls(gpu=gpu.A10G(), image = image)
+
+@app.cls(gpu=gpu.A10G(), image=image)
 class Audiocraft:
     @enter()
     def init(self):
@@ -118,7 +122,9 @@ class Audiocraft:
         # check file format
         _, file_extension = url.rsplit(".", 1)
         if file_extension.lower() not in ["mp3", "wav"]:
-            raise ValueError(f"Invalid file format. Only .mp3 and .wav are supported.")
+            raise ValueError(
+                "Invalid file format. Only .mp3 and .wav are supported."
+            )
 
         _, filepath = url.rsplit("/", 1)
         response = requests.get(url)
@@ -129,7 +135,9 @@ class Audiocraft:
                 file.write(response.content)
             print("File downloaded successfully.")
         else:
-            raise Exception(f"Error: {response.status_code} - {response.reason}")
+            raise Exception(
+                f"Error: {response.status_code} - {response.reason}"
+            )
         melody_waveform, sr = torchaudio.load(filepath)
 
         # checking duration of audio and clipping to first 30 secs if too long
@@ -149,7 +157,9 @@ class Audiocraft:
     ):
         output = None
         segment_duration = (
-            MAX_SEGMENT_DURATION if duration > MAX_SEGMENT_DURATION else duration
+            MAX_SEGMENT_DURATION
+            if duration > MAX_SEGMENT_DURATION
+            else duration
         )
         overlap = 10
 
@@ -220,8 +230,11 @@ class Audiocraft:
 
 # We can trigger MusicGen inference from our local machine by running the code in the local entrypoint below.
 
+
 @app.local_entrypoint()
-def main(prompt: str, duration: int = 10, format: str = "wav", melody_url: str = ""):
+def main(
+    prompt: str, duration: int = 10, format: str = "wav", melody_url: str = ""
+):
     dir = Path("/tmp/audiocraft")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
@@ -242,12 +255,12 @@ def main(prompt: str, duration: int = 10, format: str = "wav", melody_url: str =
     with open(output_path, "wb") as f:
         f.write(clip.read())
 
+
 # You can trigger it with:
 # ``` shell
 # modal run music_gen.py --prompt="metallica meets sabrina carpenter"
 # ```
 # and optionally pass in a melody and a format
-
 
 
 # ## A hosted Gradio interface
@@ -291,22 +304,28 @@ def ui():
     temp_dir = Path("/tmp/audiocraft")
     temp_dir.mkdir(exist_ok=True, parents=True)
 
-    def generate_music(prompt: str, duration: int = 10, format: str = "wav", melody_url: str = ""):
-        clip_audio_bytes, melody_clip_audio_bytes = model.generate.remote(prompt, duration, format, melody_url)
-        
+    def generate_music(
+        prompt: str,
+        duration: int = 10,
+        format: str = "wav",
+        melody_url: str = "",
+    ):
+        clip_audio_bytes, melody_clip_audio_bytes = model.generate.remote(
+            prompt, duration, format, melody_url
+        )
+
         # Create a unique filename for this generation
         clip_file = f"{temp_dir}/generated_music_{uuid.uuid4()}.{format}"
         # Save bytes to temporary file that Gradio can serve
         with open(clip_file, "wb") as f:
             f.write(clip_audio_bytes.read())
 
-
         melody_clip_file = None
         if melody_clip_audio_bytes is not None:
             melody_clip_file = f"{temp_dir}/melody_clip{uuid.uuid4()}.{format}"
             with open(melody_clip_file, "wb") as f:
                 f.write(melody_clip_audio_bytes.read())
-            
+
         return clip_file, melody_clip_file
 
     with gr.Blocks(theme="soft") as demo:
@@ -314,34 +333,28 @@ def ui():
         with gr.Row():
             with gr.Column():
                 prompt = gr.Textbox(label="Prompt")
-                duration = gr.Number(label="Duration (seconds)", value=10, minimum=1, maximum=30)
+                duration = gr.Number(
+                    label="Duration (seconds)", value=10, minimum=1, maximum=30
+                )
                 format = gr.Radio(["wav", "mp3"], label="Format", value="wav")
-                melody_url = gr.Text(label="Optional Melody URL", placeholder="Enter URL to melody audio file (.mp3 or .wav)", value="")
+                melody_url = gr.Text(
+                    label="Optional Melody URL",
+                    placeholder="Enter URL to melody audio file (.mp3 or .wav)",
+                    value="",
+                )
                 btn = gr.Button("Generate")
             with gr.Column():
                 clip_output = gr.Audio(label="Generated Music", autoplay=True)
-                melody_clip_output = gr.Audio(label="Melody Clip", autoplay=True, visible= (melody_url.value != ""))
-        
+                melody_clip_output = gr.Audio(
+                    label="Melody Clip",
+                    autoplay=True,
+                    visible=(melody_url.value != ""),
+                )
+
         btn.click(
             generate_music,
             inputs=[prompt, duration, format, melody_url],
-            outputs=[clip_output, melody_clip_output]
+            outputs=[clip_output, melody_clip_output],
         )
 
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
