@@ -1,5 +1,6 @@
 # ---
-# deploy: true
+# lambda-test: false
+# args: ["--prompt", "Metallica meets Sabrina Carpenter"
 # ---
 
 # # Create your own music samples with MusicGen
@@ -35,10 +36,10 @@ image = (
     Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
     .pip_install(
-        "torch",
-        "soundfile",
-        "pydub",
-        "git+https://github.com/facebookresearch/audiocraft.git",
+        "torch==2.1.0", # version needed for audiocraft,
+        "pydub==0.25.1",
+        "numpy<2",
+        "git+https://github.com/facebookresearch/audiocraft.git@v1.3.0",
     )
     .run_function(download_models, gpu="any")
 )
@@ -76,7 +77,6 @@ class Audiocraft:
         log_clipping: bool = True,
     ) -> io.BytesIO:
         from audiocraft.data.audio_utils import i16_pcm, normalize_audio
-        import soundfile as sf
         from pydub import AudioSegment
 
         assert wav.dtype.is_floating_point, "wav is not floating point"
@@ -227,7 +227,7 @@ def main(prompt: str, duration: int = 10, format: str = "wav", melody_url: str =
         dir.mkdir(exist_ok=True, parents=True)
 
     audiocraft = Audiocraft()
-    melody_clip, clip = audiocraft.generate.remote(
+    clip, melody_clip = audiocraft.generate.remote(
         prompt, duration=duration, format=format, melody_url=melody_url
     )
 
