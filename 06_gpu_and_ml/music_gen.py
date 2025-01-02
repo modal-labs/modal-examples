@@ -22,8 +22,12 @@ import io
 from pathlib import Path
 
 from modal import App, Image, asgi_app, enter, gpu, method
+import modal
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 app = App("musicgen")
+web_app = FastAPI()
 
 MAX_SEGMENT_DURATION = 30
 
@@ -358,3 +362,49 @@ def ui():
         )
 
     return mount_gradio_app(app=web_app, blocks=demo, path="/")
+
+
+# -------------------------------------------------------------------
+# Web-API
+# -------------------------------------------------------------------
+
+@app.function(image=image)
+@modal.asgi_app()
+def fastapi_app():
+    return web_app
+
+@web_app.post("/predict")
+async def generate_music(prompt: str, duration: int = 10, format: str = "wav", melody_url: str = ""):
+        import uuid
+        model = Audiocraft()
+
+        # Create a temporary directory for audio files
+        temp_dir = Path("/tmp/audiocraft")
+        temp_dir.mkdir(exist_ok=True, parents=True)
+
+        clip_audio_bytes, melody_clip_audio_bytes = model.generate.remote(
+            prompt, duration, format, melody_url
+        )
+
+        # Create a unique filename for this generation
+        clip_file = f"{temp_dir}/generated_music_{uuid.uuid4()}.{format}"
+        # Save bytes to temporary file that Gradio can serve
+        with open(clip_file, "wb") as f:
+            f.write(clip_audio_bytes.read())
+
+        # Instead of saving melody_clip_file locally, we should upload to an object storage bucket (e.g. S3) 
+        # and then return the URL to the bucket to the client.
+    
+        melody_clip_file = None
+        if melody_clip_audio_bytes is not None:
+            melody_clip_file = f"{temp_dir}/melody_clip{uuid.uuid4()}.{format}"
+            with open(melody_clip_file, "wb") as f:
+                f.write(melody_clip_audio_bytes.read())
+
+        #return clip_file, melody_clip_file
+        response_data = {
+            "generated_audio_url": str(clip_file),
+            "melody_audio_url": str(melody_clip_file) if melody_clip_file else None
+            }
+        
+        return JSONResponse(content=response_data)
