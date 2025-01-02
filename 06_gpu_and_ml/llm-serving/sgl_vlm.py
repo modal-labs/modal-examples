@@ -55,6 +55,7 @@ MODEL_CHAT_TEMPLATE = "qwen2-vl"
 def download_model_to_image():
     import transformers
     from huggingface_hub import snapshot_download
+
     snapshot_download(
         MODEL_PATH,
         revision=MODEL_REVISION,
@@ -80,7 +81,7 @@ vlm_image = (
     )
     .run_commands(
         "pip install 'sglang[all]==0.4.1' --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
-    ) # as per sglang website: https://sgl-project.github.io/start/install.html
+    )  # as per sglang website: https://sgl-project.github.io/start/install.html
     .run_function(  # download the model by running a Python function
         download_model_to_image
     )
