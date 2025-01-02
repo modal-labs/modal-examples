@@ -41,13 +41,13 @@ SGL_LOG_LEVEL = "error"  # try "debug" or "info" if you have issues
 
 MINUTES = 60  # seconds
 
-# We use a [LLaVA-NeXT](https://huggingface.co/docs/transformers/en/model_doc/llava_next)
-# model built on top of Meta's LLaMA 3 8B.
+# We use a [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+# made by Alibaba
 
-MODEL_PATH = "lmms-lab/llama3-llava-next-8b"
-MODEL_REVISION = "e7e6a9fd5fd75d44b32987cba51c123338edbede"
-TOKENIZER_PATH = "lmms-lab/llama3-llava-next-8b-tokenizer"
-MODEL_CHAT_TEMPLATE = "llama-3-instruct"
+MODEL_PATH = "Qwen/Qwen2-VL-7B-Instruct"
+MODEL_REVISION = "a7a06a1cc11b4514ce9edcde0e3ca1d16e5ff2fc"
+TOKENIZER_PATH = "Qwen/Qwen2-VL-7B-Instruct"
+MODEL_CHAT_TEMPLATE = "qwen2-vl"
 
 # We download it from the Hugging Face Hub using the Python function below.
 
@@ -55,7 +55,6 @@ MODEL_CHAT_TEMPLATE = "llama-3-instruct"
 def download_model_to_image():
     import transformers
     from huggingface_hub import snapshot_download
-
     snapshot_download(
         MODEL_PATH,
         revision=MODEL_REVISION,
@@ -73,13 +72,15 @@ def download_model_to_image():
 vlm_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(  # add sglang and some Python dependencies
-        "sglang[all]==0.1.17",
-        "transformers==4.40.2",
+        "transformers==4.47.1",
         "numpy<2",
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.2",
         "starlette==0.41.2",
     )
+    .run_commands(
+        "pip install 'sglang[all]==0.4.1' --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
+    ) # as per sglang website: https://sgl-project.github.io/start/install.html
     .run_function(  # download the model by running a Python function
         download_model_to_image
     )
