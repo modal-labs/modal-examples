@@ -1,6 +1,6 @@
 # ---
 # lambda-test: false
-# args: ["--prompt", "Metallica meets Sabrina Carpenter"
+# args: ["--prompt", "Metallica meets Sabrina Carpenter"]
 # ---
 
 # # Create your own music samples with MusicGen
