@@ -70,8 +70,7 @@ except modal.exception.NotFoundError:
 
 # Modal offers [first-class support for ASGI (and WSGI) apps](https://modal.com/docs/guide/webhooks). We just need to decorate a function that returns the app
 # with `@modal.asgi_app()` (or `@modal.wsgi_app()`) and then add it to the Modal app with the `app.function` decorator.
-
-# The function below first imports the FastAPI router from the vLLM library, then adds authentication compatible with OpenAI client libraries. You might also add more routes here.
+# To provide security, we use [Webhook token authentication](https://modal.com/docs/guide/webhook-proxy-auth).
 
 # Then, the function creates an `AsyncLLMEngine`, the core of the vLLM server. It's responsible for loading the model, running inference, and serving responses.
 
@@ -81,7 +80,6 @@ except modal.exception.NotFoundError:
 app = modal.App("example-vllm-openai-compatible")
 
 N_GPU = 1  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
-TOKEN = "super-secret-token"  # auth token. for production use, replace with a modal.Secret
 
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
@@ -95,7 +93,9 @@ HOURS = 60 * MINUTES
     allow_concurrent_inputs=1000,
     volumes={MODELS_DIR: volume},
 )
-@modal.asgi_app()
+@modal.asgi_app(
+    requires_proxy_auth=True
+)  # security: Webhook token auth for external requests
 def serve():
     import fastapi
     import vllm.entrypoints.openai.api_server as api_server
@@ -119,34 +119,7 @@ def serve():
         docs_url="/docs",
     )
 
-    # security: CORS middleware for external requests
-    http_bearer = fastapi.security.HTTPBearer(
-        scheme_name="Bearer Token",
-        description="See code for authentication details.",
-    )
-    web_app.add_middleware(
-        fastapi.middleware.cors.CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # security: inject dependency on authed routes
-    async def is_authenticated(api_key: str = fastapi.Security(http_bearer)):
-        if api_key.credentials != TOKEN:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
-        return {"username": "authenticated_user"}
-
-    router = fastapi.APIRouter(dependencies=[fastapi.Depends(is_authenticated)])
-
-    # wrap vllm's router in auth router
-    router.include_router(api_server.router)
-    # add authed vllm to our fastAPI app
-    web_app.include_router(router)
+    web_app.include_router(api_server.router)
 
     engine_args = AsyncEngineArgs(
         model=MODELS_DIR + "/" + MODEL_NAME,
