@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/render"
+# args: ["--frame-skip", "2"]
 # ---
 
 # # Render a video with Blender on many GPUs or CPUs in parallel
@@ -133,18 +134,12 @@ combination_image = modal.Image.debian_slim(python_version="3.11").apt_install(
     "ffmpeg"
 )
 
-# The video has a few parameters, which we set here.
-
-FPS = 60
-FRAME_COUNT = 250
-FRAME_SKIP = 1  # increase this to skip frames and speed up rendering
-
 # The function to combine the frames into a video takes a sequence of byte sequences, one for each rendered frame,
 # and converts them into a single sequence of bytes, the MP4 file.
 
 
 @app.function(image=combination_image)
-def combine(frames_bytes: list[bytes], fps: int = FPS) -> bytes:
+def combine(frames_bytes: list[bytes], fps: int = 60) -> bytes:
     import subprocess
     import tempfile
 
@@ -167,8 +162,10 @@ def combine(frames_bytes: list[bytes], fps: int = FPS) -> bytes:
 # First, we need a function that coordinates our functions to `render` frames and `combine` them.
 # We decorate that function with `@app.local_entrypoint` so that we can run it with `modal run blender_video.py`.
 
-# In that function, we use `render.map` to map the `render` function over the range of frames,
-# so that the logo will spin in the final video.
+# In that function, we use `render.map` to map the `render` function over the range of frames.
+
+# We give the `local_entrypoint` two parameters to control the render -- the number of frames to render and how many frames to skip.
+# These demonstrate a basic pattern for controlling Functions on Modal from a local client.
 
 # We collect the bytes from each frame into a `list` locally and then send it to `combine` with `.remote`.
 
@@ -179,14 +176,14 @@ def combine(frames_bytes: list[bytes], fps: int = FPS) -> bytes:
 
 
 @app.local_entrypoint()
-def main():
+def main(frame_count: int = 250, frame_skip: int = 1):
     output_directory = Path("/tmp") / "render"
     output_directory.mkdir(parents=True, exist_ok=True)
 
     input_path = Path(__file__).parent / "IceModal.blend"
     blend_bytes = input_path.read_bytes()
     args = [
-        (blend_bytes, frame) for frame in range(1, FRAME_COUNT + 1, FRAME_SKIP)
+        (blend_bytes, frame) for frame in range(1, frame_count + 1, frame_skip)
     ]
     images = list(render.starmap(args))
     for i, image in enumerate(images):
