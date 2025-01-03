@@ -34,7 +34,7 @@ import modal
 from pydantic import BaseModel, Field
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "instructor~=1.0.0", "anthropic~=0.23.1"
+    "instructor~=1.7.2", "anthropic==0.42.0"
 )
 
 # This example uses models from Anthropic, so if you want to run it yourself,
