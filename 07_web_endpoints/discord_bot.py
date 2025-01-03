@@ -27,7 +27,7 @@
 #    login with your Discord account.
 # 2. On the portal, go to **Applications** and create a new application by
 #    clicking **New Application** in the top right next to your profile picture.
-# 3. [Create a custom Modal secret](https://modal.com/docs/guide/secrets) for your Discord bot.
+# 3. [Create a custom Modal Secret](https://modal.com/docs/guide/secrets) for your Discord bot.
 #    On Modal's secret creation page, select 'Discord'. Copy your Discord application’s
 #    **Public Key** (in **General Information**) and paste the value of the public key
 #    as the value of the `DISCORD_PUBLIC_KEY` environment variable.
