@@ -1,16 +1,16 @@
 # # Fast Whisper inference using dynamic batching
-#
+
 # In this example, we demonstrate how to run [dynamically batched inference](https://modal.com/docs/guide/dynamic-batching)
 # for OpenAI's speech recognition model, [Whisper](https://openai.com/index/whisper/), on Modal.
 # Batching multiple audio samples together or batching chunks of a single audio sample can help to achieve a 2.8x increase
 # in inference throughput on an A10G!
-#
+
 # We will be running the [Whisper Large V3](https://huggingface.co/openai/whisper-large-v3) model.
 # To run [any of the other HuggingFace Whisper models](https://huggingface.co/models?search=openai/whisper),
 # simply replace the `MODEL_NAME` and `MODEL_REVISION` variables.
-#
+
 # ## Setup
-#
+
 # Let's start by importing the Modal client and defining the model that we want to serve.
 
 import os
@@ -23,7 +23,7 @@ MODEL_REVISION = "afda370583db9c5359511ed5d989400a6199dfe1"
 
 
 # ## Define a container image
-#
+
 # We’ll start with Modal's baseline `debian_slim` image and install the relevant libraries.
 
 image = (
@@ -46,26 +46,25 @@ app = modal.App("example-whisper-batched-inference", image=image)
 
 
 # ## The model class
-#
+
 # The inference function is best represented using Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
-#
+
 # We define a `@modal.build` method to download the model and a `@modal.enter` method to load the model.
 # `build` downloads the model from HuggingFace just once when our app is first run or deployed
 # and `enter` loads the model into memory just once when our inference function is first invoked.
-#
+
 # We also define a `transcribe` method that uses the `@modal.batched` decorator to enable dynamic batching.
 # This allows us to invoke the function with individual audio samples, and the function will automatically batch them
 # together before running inference. Batching is critical for making good use of the GPU, since GPUs are designed
 # for running parallel operations at high throughput.
-#
+
 # The `max_batch_size` parameter limits the maximum number of audio samples combined into a single batch.
 # We used a `max_batch_size` of `64`, the largest power-of-2 batch size that can be accommodated by the 24 A10G GPU memory.
 # This number will vary depending on the model and the GPU you are using.
-#
+
 # The `wait_ms` parameter sets the maximum time to wait for more inputs before running the batched transcription.
 # To tune this parameter, you can set it to the target latency of your application minus the execution time of an inference batch.
 # This allows the latency of any request to stay within your target latency.
-#
 
 
 @app.cls(
@@ -134,9 +133,10 @@ class Model:
 
 
 # ## Transcribe a dataset
+
 # In this example, we use the [librispeech_asr_dummy dataset](https://huggingface.co/datasets/hf-internal-testing/librispeech_asr_dummy)
 # from Hugging Face's Datasets library to test the model.
-#
+
 # We use [`map.aio`](/docs/reference/modal.Function#map) to asynchronously map over the audio files.
 # This allows us to invoke the batched transcription method on each audio sample in parallel.
 
@@ -155,7 +155,7 @@ async def transcribe_hf_dataset(dataset_name):
 
 
 # ## Run the model
-#
+
 # We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps)
 # to run the transcription. You can run this locally with `modal run batched_whisper.py`.
 
