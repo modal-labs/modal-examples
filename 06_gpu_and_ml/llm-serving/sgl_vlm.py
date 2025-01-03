@@ -1,4 +1,4 @@
-# # Run LLaVA-Next on SGLang for Visual QA
+# # Run Qwen2-VL on SGLang for Visual QA
 
 # Vision-Language Models (VLMs) are like LLMs with eyes:
 # they can generate text based not just on other text,
@@ -78,10 +78,11 @@ vlm_image = (
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.2",
         "starlette==0.41.2",
+        "torch==2.4.0",
+        "sglang[all]==0.4.1",
+        # as per sglang website: https://sgl-project.github.io/start/install.html
+        extra_options="--find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
     )
-    .run_commands(
-        "pip install 'sglang[all]==0.4.1' --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
-    )  # as per sglang website: https://sgl-project.github.io/start/install.html
     .run_function(  # download the model by running a Python function
         download_model_to_image
     )
