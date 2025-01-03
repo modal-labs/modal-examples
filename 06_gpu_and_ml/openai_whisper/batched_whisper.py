@@ -29,14 +29,14 @@ MODEL_REVISION = "afda370583db9c5359511ed5d989400a6199dfe1"
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "torch",
-        "transformers",
-        "hf-transfer",
-        "huggingface_hub",
+        "torch==2.5.1",
+        "transformers==4.47.1",
+        "hf-transfer==0.1.8",
+        "huggingface_hub==0.27.0",
         "librosa==0.10.2",
         "soundfile==0.12.1",
-        "accelerate",
-        "datasets",
+        "accelerate==1.2.1",
+        "datasets==3.2.0",
     )
     # Use the barebones `hf-transfer` package for maximum download speeds. No progress bar, but expect 700MB/s.
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
