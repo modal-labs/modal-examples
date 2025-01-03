@@ -41,7 +41,7 @@ SGL_LOG_LEVEL = "error"  # try "debug" or "info" if you have issues
 
 MINUTES = 60  # seconds
 
-# We use a [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+# We use the [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
 # made by Alibaba
 
 MODEL_PATH = "Qwen/Qwen2-VL-7B-Instruct"
