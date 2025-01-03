@@ -1,16 +1,21 @@
 # ---
 # lambda-test: false
 # ---
-# # Create a Discord Bot on Modal
+
+# # Serve a Discord Bot on Modal
 
 # (quick links: [try it out on Discord](https://discord.gg/nR96BxPu))
 
-# In this example we will build a discord bot that given a city as input, tells us the weather in the city for that day
-# We can do this using [slash commands](https://discord.com/developers/docs/interactions/application-commands)
-# a feature that lets you register a text command on Discord that triggers a custom webhook when a user interacts with it.
-# We handle all our Discord events in a [FastAPI app](https://fastapi.tiangolo.com/). Luckily,
-# we can deploy this app easily and serverlessly using Modal’s
-# [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
+# In this example we will demonstrate how to build a Discord bot that uses
+# [slash commands](https://discord.com/developers/docs/interactions/application-commands)
+# and serve it from Modal.
+
+# Slash commands send information from Discord server members to a service at a URL.
+# Here, we set up a simple [FastAPI app](https://fastapi.tiangolo.com/)
+# to run that service and deploy it easily and serverlessly using Modal’s
+# [`@asgi_app`](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
+
+# As our example application, we build a simple weather service.
 
 # ## Create a Discord app
 
@@ -22,7 +27,7 @@
 #    login with your Discord account.
 # 2. On the portal, go to **Applications** and create a new application by
 #    clicking **New Application** in the top right next to your profile picture.
-# 3. Create a custom[create a custom Modal secret](/docs/guide/secrets) for your Discord bot.
+# 3. [Create a custom Modal secret](https://modal.com/docs/guide/secrets) for your Discord bot.
 #    On Modal's secret creation page, select 'Discord'. Copy your Discord application’s
 #    **Public Key** (in **General Information**) and paste the value of the public key
 #    as the value of the `DISCORD_PUBLIC_KEY` environment variable.
@@ -68,7 +73,7 @@
 # ## Defining the asgi app with modal
 
 # We now create a `POST /get_weather` endpoint using [FastAPI](https://fastapi.tiangolo.com/) and Modal's
-# [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator to handle
+# [@asgi_app](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator to handle
 # interactions with our Discord app (so that every time a user does a slash
 # command, we can respond to it).
 
@@ -76,23 +81,22 @@
 
 import json
 
-from modal import App, Image, Secret, asgi_app
+import modal
 
-app = App("discord-weather-bot")
+app = modal.App("example-discord-weather-bot")
 
-# We define an [image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package, and
+# We define an [Image](https://modal.com/docs/guide/images) that has the [`python-weather`](https://github.com/null8626/python-weather) package and
 # the [FastAPI](https://fastapi.tiangolo.com/) package installed.
 
-image = Image.debian_slim(python_version="3.11").pip_install(
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "python-weather==2.0.7", "fastapi[standard]==0.115.4", "pynacl==1.5.0"
 )
 
-# We define a function that uses the python_weather library to get the weather of a city
+# We define a function that uses the `python_weather` library to get the weather of a city
 # Note that since Discord requires an interaction response within 3 seconds, we
-# use [`spawn`](/docs/reference/modal.Function#spawn) to kick off
+# use [`spawn`](https://modal.com/docs/reference/modal.Function#spawn) to kick off
 # `get_weather_for_city`as a background task from the asgi app while returning a `defer` message to
-# Discord within the time limit. We then update our response with the results once
-# the model has finished running. The
+# Discord within the time limit.
 
 
 @app.function(image=image)
@@ -124,15 +128,15 @@ async def get_weather_forecast_for_city(
             print(await resp.text())
 
 
-# We now define an asgi app using the Modal ASGI syntax [@asgi_app](/docs/guide/webhooks#serving-asgi-and-wsgi-apps).
+# We now define an asgi app using the Modal ASGI syntax [@asgi_app](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps).
 
 
 @app.function(
-    secrets=[Secret.from_name("weather-discord-secret")],
+    secrets=[modal.Secret.from_name("weather-discord-secret")],
     keep_warm=1,  # eliminates risk of container startup making discord ack time too long
     image=image,
 )
-@asgi_app()
+@modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
@@ -188,18 +192,17 @@ def web_app():
             # Kick off request asynchronously, send value when we have it
             get_weather_forecast_for_city.spawn(city, interaction_token, app_id)
 
-            return {
-                "type": 5,  # respond immediately with defer message
-            }
+            # respond immediately with defer message
+            return {"type": 5}
 
         raise HTTPException(status_code=400, detail="Bad request")
 
     return web_app
 
 
-# ## Deploy the Modal web endpoint
-# You can deploy this app by running the following command from your root
-# directory:
+# ## Deploy on Modal
+
+# You can deploy this app by running the following command:
 
 # ``` shell
 # modal deploy discord_bot.py
@@ -208,7 +211,7 @@ def web_app():
 # Copy the Modal URL that is printed in the output and go back to your
 # application's **General Information** section on the
 # [Discord Developer Portal](https://discord.com/developers/applications). Paste
-# the URL, making sure to append the path of your `POST` endpoint, in the
+# the URL, making sure to append the path of your `POST` route, in the
 # **Interactions Endpoint URL** field, then click **Save Changes**. If your
 # endpoint is valid, it will properly save and you can start receiving
 # interactions via this web endpoint.
