@@ -9,7 +9,7 @@ on:
 jobs:
   ruff:
     name: Ruff
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
 
   nbconvert:
     name: NbConvert
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
@@ -38,7 +38,7 @@ jobs:
 
   pytest:
     name: Pytest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
