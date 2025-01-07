@@ -7,7 +7,7 @@ on:
 jobs:
   build-preview:
     name: Build and deploy preview
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
