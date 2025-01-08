@@ -12,7 +12,21 @@ from contextlib import asynccontextmanager
 
 import modal
 
-image = modal.Image.debian_slim().pip_install("sentence-transformers==3.2.0")
+MODEL_PATH = "/model.bge"
+
+
+def download_model():
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+    model.save(MODEL_PATH)
+
+
+image = (
+    modal.Image.debian_slim()
+    .pip_install("sentence-transformers==3.2.0")
+    .run_function(download_model)
+)
 
 app = modal.App("gpu-packing", image=image)
 
@@ -48,11 +62,6 @@ class Server:
     def __init__(self, n_models=10):
         self.model_pool = ModelPool()
         self.n_models = n_models
-
-    @modal.build()
-    def download(self):
-        model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-        model.save("/model.bge")
 
     @modal.enter()
     async def load_models(self):
