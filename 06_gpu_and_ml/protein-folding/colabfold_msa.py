@@ -12,16 +12,21 @@ L.basicConfig(
     datefmt="%b %d %H:%M:%S",
 )
 
+here = Path(__file__).parent  # the directory of this file
+
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES  # seconds
 
 GiB = 1024 # mebibytes
 
+MMSEQS_FORCE_MERGE = "1"
+MMSEQS_NO_INDEX = "1" #TODO Plug this in somewhere?
+ARIA_NUM_CONNECTIONS = 8
+
 # ColabFold uses this commit (May 28, 2023) to create the databases and perform searches.
-aria_num_connections = 8
 mmseqs_commit_id = "71dd32ec43e3ac4dabf111bbc4b124f1c66a85f1"
 
-app_name = "example-compbio-colab"
+app_name = "example-compbio-colabfold"
 app = modal.App(app_name)
 
 volume = modal.Volume.from_name(
@@ -31,12 +36,12 @@ volume_path = Path("/vol")
 s3_bucket_path = Path("/s3")
 data_path = volume_path / "data"
 
-mmseqs_image = (
+colabfold_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "curl", "cmake", "zlib1g-dev", "wget", "aria2", "rsync")
     .run_commands(
         "git clone https://github.com/soedinglab/MMseqs2",
-        f"cd MMseqs2 && git checkout {mmseqs_commit_id}",
+        # f"cd MMseqs2 && git checkout {mmseqs_commit_id}",
         "cd MMseqs2 && mkdir build",
         "cd MMseqs2/build && cmake -DCMAKE_BUILD_TYPE=RELEASE -DHAVE_ZLIB=1 -DCMAKE_INSTALL_PREFIX=. ..",
         "cd MMseqs2/build && make -j4",
@@ -44,19 +49,19 @@ mmseqs_image = (
         "ln -s /MMseqs2/build/bin/mmseqs /usr/local/bin/mmseqs",
     )
     .pip_install(
+        "colabfold[alphafold-minus-jax]==1.5.5",
         "aria2p==0.12.0",
         "tqdm==4.67.1",
     )
+    # FIXME
+    .copy_local_file(Path(__file__).parent / "expandaln.cpp", "/expandaln.cpp")
+    .copy_local_file(Path(__file__).parent / "data/colabfold_search_default_input.fasta", "/input.fasta")
 )
 
 mmcif_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("rsync")
-    .pip_install(
-        "boto3==1.35.16",
-        "aioboto3==13.2.0",
-        "tqdm==4.67.1",
-    )
+    .pip_install("tqdm==4.67.1")
 )
 
 with mmcif_image.imports():
@@ -64,11 +69,10 @@ with mmcif_image.imports():
 
 def download_file(url, filename):
     import subprocess
-    n_conns = 8
     command = [
        "aria2c",
         "--log-level=warn",
-        "-x", str(n_conns),
+        "-x", str(ARIA_NUM_CONNECTIONS),
         "-o", filename,
         "-c",
         "-d", data_path,
@@ -117,12 +121,12 @@ def extract_with_progress(
 
 
 @app.function(
-    image=mmseqs_image,
+    image=colabfold_image,
     volumes={volume_path: volume},
     memory=2 * GiB,
     timeout=4 * HOURS,
 )
-def setup_colab_db(url: str):
+def setup_colabfold_db(url: str):
     import subprocess
 
     filename = urlparse(url).path.split("/")[-1]
@@ -145,7 +149,7 @@ def setup_colab_db(url: str):
     db_foldername = extracted_folder.with_stem(extracted_folder.stem  + "_db")
     L.info(f"converting TSV to MMseqs2 DB: {db_foldername}")
     setup_env = os.environ.copy()
-    setup_env["MMSEQS_FORCE_MERGE"] = "1"
+    setup_env["MMSEQS_FORCE_MERGE"] = MMSEQS_FORCE_MERGE
     command = [
         "mmseqs",
         "tsv2exprofiledb",
@@ -155,7 +159,7 @@ def setup_colab_db(url: str):
     subprocess.run(command, check=True, env=setup_env)
 
 @app.function(
-    image=mmseqs_image,
+    image=colabfold_image,
     volumes={volume_path: volume},
     memory=2 * GiB,
     timeout=4 * HOURS,
@@ -171,12 +175,12 @@ def setup_hhsuite_data(url: str):
     extract_with_progress(data_path / filename, with_pattern="a3m")
 
 @app.function(
-    image=mmseqs_image,
+    image=colabfold_image,
     volumes={volume_path: volume},
     memory=2 * GiB,
     timeout=1 * HOURS,
 )
-def setup_colab_fasta_db(url :str):
+def setup_colabfold_fasta_db(url :str):
     import subprocess
 
     filename = urlparse(url).path.split("/")[-1]
@@ -187,7 +191,7 @@ def setup_colab_fasta_db(url :str):
 
     L.info(f"creating MMseqs2 DB from {dest_filepath}")
     setup_env = os.environ.copy()
-    setup_env["MMSEQS_FORCE_MERGE"] = "1"
+    setup_env["MMSEQS_FORCE_MERGE"] = MMSEQS_FORCE_MERGE
     command = [
         "mmseqs",
         "createdb",
@@ -294,34 +298,98 @@ def setup_mmcif_database(
     ]
     subprocess.run(command, check=True)
 
+@app.function(
+    image=colabfold_image,
+    volumes={volume_path: volume},
+    cpu=32,
+    memory=64 * GiB,
+    timeout=4 * HOURS,
+)
+def run_colabfold_search(
+    args: str,
+    fasta_content :str,
+):
+    import shlex
+    import subprocess
+    import tempfile
+
+    fasta_filepath = Path(
+        tempfile.NamedTemporaryFile(suffix='.fasta', mode='w', delete=False)
+        .name
+    )
+    fasta_filepath.write_text(fasta_content)
+
+    args = shlex.split(args)
+
+    output_dir = Path("msas") #FIXME
+    command = (
+        ["colabfold_search"] + args +
+        [str(x) for x in (fasta_filepath, data_path, output_dir)]
+    )
+    print(f"running command: {' '.join(command)}")
+    subprocess.run(command, check=True)
+
+    breakpoint()
 
 @app.local_entrypoint()
 def main(
-    mmcif_snapshot_id: str = "20240101",
     mmseqs_no_index: bool = False, # TODO
+    mmseqs_force_merge: bool = False, # TODO
+    pdb_aws_snapshot: str = "20240101",
+    pdb_server: str = "x", # TODO
+    colabfold_search_args: str = None,
+    colabfold_search_fasta_filepath: str = None,
 ):
 
-    colab_url = "https://wwwuser.gwdg.de/~compbiol/colabfold/" # sic
+    if colabfold_search_args is None:
+       colabfold_search_args = "--filter 0"
+
+    if colabfold_search_fasta_filepath is None:
+        colabfold_search_fasta_filepath = here / "data" / "colabfold_search_default_input.fasta"
+    colabfold_search_fasta_content = Path(colabfold_search_fasta_filepath).read_text()
+
+    run_colabfold_search.remote(
+        colabfold_search_args,
+        colabfold_search_fasta_content,
+    )
+    return
+
+    # FIXME
+    colabfold_url = "https://wwwuser.gwdg.de/~compbiol/colabfold/" # sic
     hhsuite_url = (
         "https://wwwuser.gwdg.de/~compbiol/data/hhsuite/databases/hhsuite_dbs/"
     )
 
+    # settings = (
+
     fcs = [
-        # Data from Colab
-        setup_colab_db.spawn(urljoin(colab_url, "uniref30_2302.tar.gz")),
-        setup_colab_db.spawn(urljoin(colab_url, "colabfold_envdb_202108.tar.gz")),
-        setup_colab_fasta_db.spawn(urljoin(colab_url, "pdb100_230517.fasta.gz")),
+        # Data from colabfold
+        setup_colabfold_db.spawn(
+            urljoin(colabfold_url, "uniref30_2302.tar.gz"),
+            mmseqs_no_index,
+            mmseqs_force_merge,
+        ),
+        setup_colabfold_db.spawn(
+            urljoin(colabfold_url, "colabfold_envdb_202108.tar.gz"),
+            mmseqs_no_index,
+            mmseqs_force_merge,
+        ),
+        setup_colabfold_fasta_db.spawn(
+            urljoin(colabfold_url,  "pdb100_230517.fasta.gz")
+        ),
 
         # Data from HHSuite
         # setup_hhsuite_data.spawn(urljoin(hhsuite_url, "pdb100_foldseek_230517.tar.gz")),
 
         # MMCIF data
-        # setup_mmcif_database.spawn(mmcif_snapshot_id, "divided"),
-        # setup_mmcif_database.spawn(mmcif_snapshot_id, "obsolete"),
+        # setup_mmcif_database.spawn(pdb_aws_snapshot, "divided"),
+        # setup_mmcif_database.spawn(pdb_aws_snapshot, "obsolete"),
     ]
 
     for fc in fcs:
         L.info(fc.get(timeout=2 * HOURS))
+
+
 
 def format_bytes(size):
     for unit in ['B', 'KB', 'MB', 'GB']:
