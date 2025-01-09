@@ -57,7 +57,7 @@ import modal
 import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
-    "nvidia/cuda:12.4.1-devel-ubuntu22.04",
+    "nvidia/cuda:12.5.1-devel-ubuntu22.04",
     add_python="3.10",  # TRT-LLM requires Python 3.10
 ).entrypoint([])  # remove verbose logging by base image on entry
 
@@ -68,7 +68,7 @@ tensorrt_image = modal.Image.from_registry(
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).pip_install(
-    "tensorrt_llm==0.14.0",
+    "tensorrt_llm==0.16.0",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -144,7 +144,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
 # We use a quantization script provided by the TensorRT-LLM team.
 # This script takes a few minutes to run.
 
-GIT_HASH = "b0880169d0fb8cd0363049d91aa548e58a41be07"
+GIT_HASH = "42a7b0922fc9e095f173eab9a7efa0bcdceadd0d"
 CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/quantization/quantize.py"
 
 # NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
