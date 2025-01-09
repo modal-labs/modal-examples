@@ -40,8 +40,8 @@ import modal
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
 
-# This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# once at image build time using the `@build` hook and saved into the image.
+# This example uses the `facebook/detr-resnet-50` pre-trained model,
+# which we'll cache to a Volume for fast cold starts.
 
 MODEL_REPO_ID = "facebook/detr-resnet-50"
 MODEL_DIR = "/cache"
