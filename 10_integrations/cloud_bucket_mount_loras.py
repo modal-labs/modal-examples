@@ -43,17 +43,24 @@ bucket_secret = modal.Secret.from_name(
 MOUNT_PATH: Path = Path("/mnt/bucket")
 LORAS_PATH: Path = MOUNT_PATH / "loras/v5"
 
+BASE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"
+CACHE_DIR = "/hf-cache"
+
 # Modal runs serverless functions inside containers.
 # The environments those functions run in are defined by
 # the container `Image`. The line below constructs an image
 # with the dependencies we need -- no need to install them locally.
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "huggingface_hub==0.21.4",
-    "transformers==4.38.2",
-    "diffusers==0.26.3",
-    "peft==0.9.0",
-    "accelerate==0.27.2",
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install(
+        "huggingface_hub==0.21.4",
+        "transformers==4.38.2",
+        "diffusers==0.26.3",
+        "peft==0.9.0",
+        "accelerate==0.27.2",
+    )
+    .env({"HF_HUB_CACHE": CACHE_DIR})
 )
 
 with image.imports():
@@ -78,6 +85,16 @@ app = modal.App(
 )
 
 
+# For the base model, we'll use a modal.Volume to store the Hugging Face cache.
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+
+@app.function(image=image, volumes={CACHE_DIR: cache_volume})
+def download_model():
+    loc = huggingface_hub.snapshot_download(repo_id=BASE_MODEL)
+    print(f"Saved model to {loc}")
+
+
 # ## Acquiring LoRA weights
 
 # `search_loras()` will use the Hub API to search for LoRAs. We limit LoRAs
@@ -91,7 +108,7 @@ def search_loras(limit: int, max_model_size: int = 1024 * 1024 * 1024):
 
     model_ids: list[str] = []
     for model in api.list_models(
-        tags=["lora", "base_model:stabilityai/stable-diffusion-xl-base-1.0"],
+        tags=["lora", f"base_model:{BASE_MODEL}"],
         library="diffusers",
         sort="downloads",  # sort by most downloaded
     ):
@@ -160,20 +177,15 @@ def download_lora(repository_id: str) -> Optional[str]:
 # check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-hooks).
 
 
-@app.cls(gpu="a10g")  # A10G GPUs are great for inference
+@app.cls(
+    gpu="a10g",  # A10G GPUs are great for inference
+    volumes={CACHE_DIR: cache_volume},  # We cache the base model
+)
 class StableDiffusionLoRA:
-    pipe_id = "stabilityai/stable-diffusion-xl-base-1.0"
-
-    @modal.build()  # when we setup our image, we download the base model
-    def build(self):
-        diffusers.DiffusionPipeline.from_pretrained(
-            self.pipe_id, torch_dtype=torch.float16
-        )
-
     @modal.enter()  # when a new container starts, we load the base model into the GPU
     def load(self):
         self.pipe = diffusers.DiffusionPipeline.from_pretrained(
-            self.pipe_id, torch_dtype=torch.float16
+            BASE_MODEL, torch_dtype=torch.float16
         ).to("cuda")
 
     @modal.method()  # at inference time, we pull in the LoRA weights and pass the final model the prompt
