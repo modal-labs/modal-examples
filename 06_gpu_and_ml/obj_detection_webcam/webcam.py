@@ -90,7 +90,7 @@ with image.imports():
 # Otherwise, the model weights will be downloaded for the first inference
 # and cached to the Volume when the first container exits.
 
-cache_volume = modal.Volume.from_name("huggingface-hub-cache")
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 
 @app.function(image=image, volumes={MODEL_DIR: cache_volume})

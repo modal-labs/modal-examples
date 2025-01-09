@@ -41,9 +41,7 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": MODEL_DIR})
 )
 
-model_cache = modal.Volume.from_name(
-    "huggingface-hub-cache", create_if_missing=True
-)
+model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 app = modal.App(
     "example-whisper-batched-inference",
     image=image,
