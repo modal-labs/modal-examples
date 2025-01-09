@@ -13,7 +13,6 @@
 
 # First, we’ll import the libraries we need locally and define some constants.
 
-import os
 from pathlib import Path
 from urllib.request import urlopen
 from uuid import uuid4
@@ -22,10 +21,14 @@ import modal
 
 MINUTES = 60  # seconds
 
+app = modal.App("chat-with-pdf")
+
 # ## Setting up dependenices
 
 # In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # We install the packages required for our application in those images.
+
+CACHE_DIR = "/hf-cache"
 
 model_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -38,6 +41,7 @@ model_image = (
             "torchvision==0.19.1",
         ]
     )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": CACHE_DIR})
 )
 
 # These dependencies are only installed remotely, so we can't import them locally.
@@ -49,40 +53,13 @@ with model_image.imports():
     from qwen_vl_utils import process_vision_info
     from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
-# ## Downloading ColQwen2
+# ## Specifying the ColQwen2 model
 
 # Vision-language models (VLMs) for embedding and generation add another layer of simplification
 # to RAG apps based on vector search: we only need one model.
-# Here, we use the Qwen2-VL-2B-Instruct model from Alibaba.
-# The function below downloads the model from the Hugging Face Hub.
 
-
-def download_model(model_dir, model_name, model_revision):
-    from huggingface_hub import snapshot_download
-    from transformers.utils import move_cache
-
-    os.makedirs(model_dir, exist_ok=True)
-    snapshot_download(
-        model_name,
-        local_dir=model_dir,
-        revision=model_revision,
-        ignore_patterns=["*.pt", "*.bin"],  # using safetensors
-    )
-    move_cache()
-
-
-# We can also include other files that our application needs in the container image.
-# Here, we add the model weights to the image by executing our `download_model` function.
-
-model_image = model_image.env({"HF_HUB_ENABLE_HF_TRANSFER": "1"}).run_function(
-    download_model,
-    timeout=20 * MINUTES,
-    kwargs={
-        "model_dir": "/model-qwen2-VL-2B-Instruct",
-        "model_name": "Qwen/Qwen2-VL-2B-Instruct",
-        "model_revision": "aca78372505e6cb469c4fa6a35c60265b00ff5a4",
-    },
-)
+MODEL_NAME = "Qwen/Qwen2-VL-2B-Instruct"
+MODEL_REVISION = "aca78372505e6cb469c4fa6a35c60265b00ff5a4"
 
 # ## Managing state with Modal Volumes and Dicts
 
@@ -140,6 +117,30 @@ class Session:
 pdf_volume = modal.Volume.from_name("colqwen-chat-pdfs", create_if_missing=True)
 PDF_ROOT = Path("/vol/pdfs/")
 
+# ### Caching the model weights
+
+# We'll also use a Volume to cache the model weights.
+
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+
+# Running this function will download the model weights to the cache volume.
+# Otherwise, the model weights will be downloaded on the first query.
+
+
+@app.function(
+    image=model_image, volumes={CACHE_DIR: cache_volume}, timeout=20 * MINUTES
+)
+def download_model():
+    from huggingface_hub import snapshot_download
+
+    result = snapshot_download(
+        MODEL_NAME,
+        revision=MODEL_REVISION,
+        ignore_patterns=["*.pt", "*.bin"],  # using safetensors
+    )
+    print(f"Downloaded model weights to {result}")
+
 
 # ## Defining a Chat with PDF service
 
@@ -156,17 +157,14 @@ PDF_ROOT = Path("/vol/pdfs/")
 # all the information about this service's infrastructure:
 # the container image, the remote storage, and the GPU requirements.
 
-app = modal.App("chat-with-pdf")
-
 
 @app.cls(
     image=model_image,
     gpu=modal.gpu.A100(size="80GB"),
     container_idle_timeout=10 * MINUTES,  # spin down when inactive
-    volumes={"/vol/pdfs/": pdf_volume},
+    volumes={"/vol/pdfs/": pdf_volume, CACHE_DIR: cache_volume},
 )
 class Model:
-    @modal.build()
     @modal.enter()
     def load_models(self):
         self.colqwen2_model = ColQwen2.from_pretrained(
@@ -178,7 +176,9 @@ class Model:
             "vidore/colqwen2-v0.1"
         )
         self.qwen2_vl_model = Qwen2VLForConditionalGeneration.from_pretrained(
-            "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16
+            MODEL_NAME,
+            revision=MODEL_REVISION,
+            torch_dtype=torch.bfloat16,
         )
         self.qwen2_vl_model.to("cuda:0")
         self.qwen2_vl_processor = AutoProcessor.from_pretrained(
@@ -320,7 +320,7 @@ class Model:
 pdf_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("poppler-utils")
-    .pip_install("pdf2image==1.17.0")
+    .pip_install("pdf2image==1.17.0", "pillow==10.4.0")
 )
 
 
