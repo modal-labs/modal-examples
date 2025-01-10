@@ -7,7 +7,7 @@
 # This example shows how to run a VLM on Modal using the
 # [SGLang](https://github.com/sgl-project/sglang) library.
 
-# Here's a sample inference, with the image rendered directly in the terminal:
+# Here's a sample inference, with the image rendered directly (and at low resolution) in the terminal:
 
 # ![Sample output answering a question about a photo of the Statue of Liberty](https://modal-public-assets.s3.amazonaws.com/sgl_vlm_qa_sol.png)
 
@@ -32,7 +32,7 @@ import requests
 # If you want to see the model really rip, try an `"a100-80gb"` or an `"h100"`
 # on a large batch.
 
-GPU_TYPE = os.environ.get("GPU_TYPE", "a10g")
+GPU_TYPE = os.environ.get("GPU_TYPE", "l40s")
 GPU_COUNT = os.environ.get("GPU_COUNT", 1)
 
 GPU_CONFIG = f"{GPU_TYPE}:{GPU_COUNT}"
@@ -42,7 +42,7 @@ SGL_LOG_LEVEL = "error"  # try "debug" or "info" if you have issues
 MINUTES = 60  # seconds
 
 # We use the [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
-# made by Alibaba.
+# model by Alibaba.
 
 MODEL_PATH = "Qwen/Qwen2-VL-7B-Instruct"
 MODEL_REVISION = "a7a06a1cc11b4514ce9edcde0e3ca1d16e5ff2fc"
@@ -97,11 +97,11 @@ vlm_image = (
 
 # The code below adds a modal `Cls` to an `App` that runs the VLM.
 
-# We define a method `generate` that takes a URL for an image URL and a question
+# We define a method `generate` that takes a URL for an image and a question
 # about the image as inputs and returns the VLM's answer.
 
 # By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
-# so it can be accessed over the public internet from any client.
+# so it can be accessed over the public Internet from any client.
 
 app = modal.App("example-sgl-vlm")
 
@@ -132,6 +132,8 @@ class Model:
 
     @modal.web_endpoint(method="POST", docs=True)
     def generate(self, request: dict):
+        from pathlib import Path
+
         import sglang as sgl
         from term_image.image import from_file
 
@@ -143,18 +145,16 @@ class Model:
         if image_url is None:
             image_url = "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
 
-        image_filename = image_url.split("/")[-1]
-        image_path = f"/tmp/{uuid4()}-{image_filename}"
         response = requests.get(image_url)
-
         response.raise_for_status()
 
-        with open(image_path, "wb") as file:
-            file.write(response.content)
+        image_filename = image_url.split("/")[-1]
+        image_path = Path(f"/tmp/{uuid4()}-{image_filename}")
+        image_path.write_bytes(response.content)
 
         @sgl.function
         def image_qa(s, image_path, question):
-            s += sgl.user(sgl.image(image_path) + question)
+            s += sgl.user(sgl.image(str(image_path)) + question)
             s += sgl.assistant(sgl.gen("answer"))
 
         question = request.get("question")
