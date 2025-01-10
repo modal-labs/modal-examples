@@ -71,9 +71,9 @@ def download_model():
 
 # The inference function is best represented using Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
 
-# We define a `@modal.build` method to download the model and a `@modal.enter` method to load the model.
-# `build` downloads the model from HuggingFace just once when our app is first run or deployed
-# and `enter` loads the model into memory just once when our inference function is first invoked.
+# We define a `@modal.enter` method to load the model when the container starts, before it picks up any inputs.
+# The weights will be loaded from the Hugging Face cache volume so that we don't need to download them when
+# we start a new container.
 
 # We also define a `transcribe` method that uses the `@modal.batched` decorator to enable dynamic batching.
 # This allows us to invoke the function with individual audio samples, and the function will automatically batch them

@@ -149,9 +149,7 @@ def download_model():
 
 # It uses [Modal `@app.cls`](https://modal.com/docs/guide/lifecycle-functions) decorators
 # to organize the "lifecycle" of the app:
-# to ensure all model files are downloaded (`@modal.build`)
-# to load the model on container start (`@modal.enter`)
-# and to run inference on request (`@modal.method`).
+# loading the model on container start (`@modal.enter`) and running inference on request (`@modal.method`).
 
 # We include in the arguments to the `@app.cls` decorator
 # all the information about this service's infrastructure:
