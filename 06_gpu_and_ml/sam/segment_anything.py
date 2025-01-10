@@ -50,22 +50,23 @@ app = modal.App("sam2-app", image=image)
 
 # Next, we define the `Model` class that will handle SAM 2 operations for both image and video.
 
-# We use `@modal.build()` and `@modal.enter()` decorators here for optimization:
-# they prevent us from downloading or initializing the model on every call.
-
-# `@modal.build()` ensures this method runs during the container build process,
-# downloading the model only once and caching it in the container image.
-
-# `@modal.enter()` makes sure the method runs only once when a new container starts,
-# initializing the model and moving it to GPU.
+# We use the `@modal.enter()` decorators here for optimization: it makes sure the initialization
+# method runs only once, when a new container starts, instead of in the path of every call.
+# We'll also use a modal Volume to cache the model weights so that they don't need to be downloaded
+# repeatedly when we start new containers.
 
 
-volume = modal.Volume.from_name("sam2-inputs", create_if_missing=True)
+video_vol = modal.Volume.from_name("sam2-inputs", create_if_missing=True)
+cache_vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+cache_dir = "/cache"
 
 
-@app.cls(gpu="A100", volumes={"/root/videos": volume})
+@app.cls(
+    image=image.env({"HF_HUB_CACHE_DIR": cache_dir}),
+    volumes={"/root/videos": video_vol, cache_dir: cache_vol},
+    gpu="A100",
+)
 class Model:
-    @modal.build()
     @modal.enter()
     def initialize_model(self):
         """Download and initialize model."""
