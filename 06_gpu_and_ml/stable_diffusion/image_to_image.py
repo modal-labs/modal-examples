@@ -24,7 +24,6 @@ from io import BytesIO
 from pathlib import Path
 
 import modal
-from synthetic_monitoring.benchmarks.image import CACHE_DIR
 
 CACHE_DIR = "/cache"
 

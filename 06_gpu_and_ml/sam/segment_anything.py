@@ -189,7 +189,7 @@ def main(
     x_point=250,
     y_point=200,
 ):
-    with volume.batch_upload(force=True) as batch:
+    with video_vol.batch_upload(force=True) as batch:
         batch.put_file(input_video, "input.mp4")
 
     model = Model()
