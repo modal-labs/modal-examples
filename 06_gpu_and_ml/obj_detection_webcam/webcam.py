@@ -40,22 +40,24 @@ import modal
 # [Pillow](https://python-pillow.org/) which lets us work with images from Python,
 # and a system font for drawing.
 
-# This example uses the `facebook/detr-resnet-50` pre-trained model, which is downloaded
-# once at image build time using the `@build` hook and saved into the image.
+# This example uses the `facebook/detr-resnet-50` pre-trained model,
+# which we'll cache to a Volume for fast cold starts.
 
-model_repo_id = "facebook/detr-resnet-50"
+MODEL_REPO_ID = "facebook/detr-resnet-50"
+MODEL_DIR = "/cache"
 
 
 app = modal.App("example-webcam-object-detection")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
-        "huggingface-hub==0.16.4",
+        "huggingface-hub==0.27.1",
         "Pillow",
         "timm",
         "transformers",
     )
     .apt_install("fonts-freefont-ttf")
+    .env({"HF_HUB_CACHE": MODEL_DIR})
 )
 
 
@@ -66,9 +68,6 @@ image = (
 # * There's a container initialization step in the method decorated with `@enter()`,
 #   which runs on every container start. This lets us load the model only once per
 #   container, so that it's reused for subsequent function calls.
-
-# * Above we stored the model in the container image. This lets us download the model only
-#   when the image is (re)built, and not everytime the function is called.
 
 # * We're running it on multiple CPUs for extra performance
 
@@ -86,21 +85,29 @@ with image.imports():
     from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-@app.cls(image=image)
-class ObjectDetection:
-    @modal.build()
-    def download_model(self):
-        snapshot_download(repo_id=model_repo_id, cache_dir="/cache")
+# We'll store the model weights in a Volume and provide a function that you can
+# `modal run` against to download the model weights prior to deploying the App.
+# Otherwise, the model weights will be downloaded for the first inference
+# and cached to the Volume when the first container exits.
 
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+
+@app.function(image=image, volumes={MODEL_DIR: cache_volume})
+def download_model():
+    loc = snapshot_download(repo_id=MODEL_REPO_ID)
+    print(f"Saved model to {loc}")
+
+
+@app.cls(image=image, volumes={MODEL_DIR: cache_volume})
+class ObjectDetection:
     @modal.enter()
     def load_model(self):
         self.feature_extractor = DetrImageProcessor.from_pretrained(
-            model_repo_id,
-            cache_dir="/cache",
+            MODEL_REPO_ID,
         )
         self.model = DetrForObjectDetection.from_pretrained(
-            model_repo_id,
-            cache_dir="/cache",
+            MODEL_REPO_ID,
         )
 
     @modal.method()

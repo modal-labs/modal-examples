@@ -18,6 +18,9 @@ DOCKER_IMAGE = (
 )
 
 ## Dataset-Specific Configuration
+MODEL_CACHE_VOLUME = modal.Volume.from_name(
+    "embedding-model-cache", create_if_missing=True
+)
 DATASET_NAME = "wikipedia"
 DATASET_READ_VOLUME = modal.Volume.from_name(
     "embedding-wikipedia", create_if_missing=True
@@ -25,6 +28,7 @@ DATASET_READ_VOLUME = modal.Volume.from_name(
 EMBEDDING_CHECKPOINT_VOLUME = modal.Volume.from_name(
     "checkpoint", create_if_missing=True
 )
+MODEL_DIR = "/model"
 DATASET_DIR = "/data"
 CHECKPOINT_DIR = "/checkpoint"
 SAVE_TO_DISK = True
@@ -44,6 +48,8 @@ LAUNCH_FLAGS = [
     str(BATCH_SIZE),
     "--max-batch-tokens",
     str(BATCH_SIZE * 512),
+    "--huggingface-hub-cache",
+    MODEL_DIR,
 ]
 
 
@@ -128,10 +134,6 @@ def generate_batches(xs, batch_size):
     retries=3,
 )
 class TextEmbeddingsInference:
-    @modal.build()
-    def download_model(self):
-        spawn_server()
-
     @modal.enter()
     def open_connection(self):
         # If the process is running for a long time, the client does not seem to close the connections, results in a pool timeout
@@ -262,6 +264,7 @@ def upload_result_to_hf(batch_size: int) -> None:
     volumes={
         DATASET_DIR: DATASET_READ_VOLUME,
         CHECKPOINT_DIR: EMBEDDING_CHECKPOINT_VOLUME,
+        MODEL_DIR: MODEL_CACHE_VOLUME,
     },
     timeout=86400,
     secrets=[modal.Secret.from_name("huggingface-secret")],

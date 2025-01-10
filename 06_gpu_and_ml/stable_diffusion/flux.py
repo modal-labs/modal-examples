@@ -57,7 +57,7 @@ flux_image = (
         f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
         "numpy<2",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE_DIR": "/cache"})
 )
 
 # Later, we'll also use `torch.compile` to increase the speed further.
@@ -65,8 +65,11 @@ flux_image = (
 # So we turn on some extra caching to reduce compile times for later containers.
 
 flux_image = flux_image.env(
-    {"TORCHINDUCTOR_CACHE_DIR": "/root/.inductor-cache"}
-).env({"TORCHINDUCTOR_FX_GRAPH_CACHE": "1"})
+    {
+        "TORCHINDUCTOR_CACHE_DIR": "/root/.inductor-cache",
+        "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
+    }
+)
 
 # Finally, we construct our Modal [App](https://modal.com/docs/reference/modal.App),
 # set its default image to the one we just constructed,
@@ -82,13 +85,12 @@ with flux_image.imports():
 
 # Next, we map the model's setup and inference code onto Modal.
 
-# 1. We run any setup that can be persisted to disk in methods decorated with `@build`.
-# In this example, that includes downloading the model weights.
+# 1. We the model setun in the method decorated with `@modal.enter()`. This includes  loading the
+# weights and moving them to the GPU, along with an optional `torch.compile` step (see details below).
+# The `@modal.enter()` decorator ensures that this method runs only once, when a new container starts,
+# instead of in the path of every call.
 
-# 2. We run any additional setup, like moving the model to the GPU, in methods decorated with `@enter`.
-# We do our model optimizations in this step. For details, see the section on `torch.compile` below.
-
-# 3. We run the actual inference in methods decorated with `@method`.
+# 2. We run the actual inference in methods decorated with `@modal.method()`.
 
 MINUTES = 60  # seconds
 VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
@@ -100,6 +102,9 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     container_idle_timeout=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
+        "/cache": modal.Volume.from_name(
+            "hf-hub-cache", create_if_missing=True
+        ),
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
         "/root/.triton": modal.Volume.from_name(
             "triton-cache", create_if_missing=True
@@ -114,28 +119,11 @@ class Model:
         modal.parameter(default=0)
     )
 
-    def setup_model(self):
-        from huggingface_hub import snapshot_download
-        from transformers.utils import move_cache
-
-        snapshot_download(f"black-forest-labs/FLUX.1-{VARIANT}")
-
-        move_cache()
-
-        pipe = FluxPipeline.from_pretrained(
-            f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
-        )
-
-        return pipe
-
-    @modal.build()
-    def build(self):
-        self.setup_model()
-
     @modal.enter()
     def enter(self):
-        pipe = self.setup_model()
-        pipe.to("cuda")  # move model to GPU
+        pipe = FluxPipeline.from_pretrained(
+            f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
+        ).to("cuda")  # move model to GPU
         self.pipe = optimize(pipe, compile=bool(self.compile))
 
     @modal.method()

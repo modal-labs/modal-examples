@@ -13,7 +13,6 @@
 
 # Let's start by importing the Modal client and defining the model that we want to serve.
 
-import os
 
 import modal
 
@@ -39,19 +38,42 @@ image = (
         "datasets==3.2.0",
     )
     # Use the barebones `hf-transfer` package for maximum download speeds. No progress bar, but expect 700MB/s.
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": MODEL_DIR})
 )
 
-app = modal.App("example-whisper-batched-inference", image=image)
+model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+app = modal.App(
+    "example-whisper-batched-inference",
+    image=image,
+    volumes={MODEL_DIR: model_cache},
+)
+
+# ## Caching the model weights
+
+# We'll define a function to download the model and cache it in a volume.
+# You can `modal run` against this function prior to deploying the App.
+
+
+@app.function()
+def download_model():
+    from huggingface_hub import snapshot_download
+    from transformers.utils import move_cache
+
+    snapshot_download(
+        MODEL_NAME,
+        ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
+        revision=MODEL_REVISION,
+    )
+    move_cache()
 
 
 # ## The model class
 
 # The inference function is best represented using Modal's [class syntax](https://modal.com/docs/guide/lifecycle-functions).
 
-# We define a `@modal.build` method to download the model and a `@modal.enter` method to load the model.
-# `build` downloads the model from HuggingFace just once when our app is first run or deployed
-# and `enter` loads the model into memory just once when our inference function is first invoked.
+# We define a `@modal.enter` method to load the model when the container starts, before it picks up any inputs.
+# The weights will be loaded from the Hugging Face cache volume so that we don't need to download them when
+# we start a new container.
 
 # We also define a `transcribe` method that uses the `@modal.batched` decorator to enable dynamic batching.
 # This allows us to invoke the function with individual audio samples, and the function will automatically batch them
@@ -72,21 +94,6 @@ app = modal.App("example-whisper-batched-inference", image=image)
     concurrency_limit=10,  # default max GPUs for Modal's free tier
 )
 class Model:
-    @modal.build()
-    def download_model(self):
-        from huggingface_hub import snapshot_download
-        from transformers.utils import move_cache
-
-        os.makedirs(MODEL_DIR, exist_ok=True)
-
-        snapshot_download(
-            MODEL_NAME,
-            local_dir=MODEL_DIR,
-            ignore_patterns=["*.pt", "*.bin"],  # Using safetensors
-            revision=MODEL_REVISION,
-        )
-        move_cache()
-
     @modal.enter()
     def load_model(self):
         import torch

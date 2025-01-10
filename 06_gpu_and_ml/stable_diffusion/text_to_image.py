@@ -41,6 +41,8 @@ app = modal.App("example-text-to-image")
 # Below, we start from a lightweight base Linux image
 # and then install our Python dependencies, like Hugging Face's `diffusers` library and `torch`.
 
+CACHE_DIR = "/cache"
+
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -53,7 +55,12 @@ image = (
         "torchvision==0.20.1",
         "transformers~=4.44.0",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster downloads
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
+            "HF_HUB_CACHE_DIR": CACHE_DIR,
+        }
+    )
 )
 
 with image.imports():
@@ -64,8 +71,8 @@ with image.imports():
 # ## Implementing SD3.5 Large Turbo inference on Modal
 
 # We wrap inference in a Modal [Cls](https://modal.com/docs/guide/lifecycle-methods)
-# that ensures models are downloaded when we `build` our container image (just like our dependencies)
-# and that models are loaded and then moved to the GPU when a new container starts.
+# that ensures models are loaded and then moved to the GPU once when a new container
+# starts, before the container picks up any work.
 
 # The `run` function just wraps a `diffusers` pipeline.
 # It sends the output image back to the client as bytes.
@@ -75,28 +82,26 @@ with image.imports():
 # See the `/docs` route of the URL ending in `inference-web.modal.run`
 # that appears when you deploy the app for details.
 
-model_id = "adamo1139/stable-diffusion-3.5-large-turbo-ungated"
-model_revision_id = "9ad870ac0b0e5e48ced156bb02f85d324b7275d2"
+MODEL_ID = "adamo1139/stable-diffusion-3.5-large-turbo-ungated"
+MODEL_REVISION_ID = "9ad870ac0b0e5e48ced156bb02f85d324b7275d2"
+
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 
 @app.cls(
     image=image,
     gpu="H100",
     timeout=10 * MINUTES,
+    volumes={CACHE_DIR: cache_volume},
 )
 class Inference:
-    @modal.build()
     @modal.enter()
-    def initialize(self):
+    def load_pipeline(self):
         self.pipe = diffusers.StableDiffusion3Pipeline.from_pretrained(
-            model_id,
-            revision=model_revision_id,
+            MODEL_ID,
+            revision=MODEL_REVISION_ID,
             torch_dtype=torch.bfloat16,
-        )
-
-    @modal.enter()
-    def move_to_gpu(self):
-        self.pipe.to("cuda")
+        ).to("cuda")
 
     @modal.method()
     def run(

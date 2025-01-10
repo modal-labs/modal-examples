@@ -25,6 +25,8 @@ from pathlib import Path
 
 import modal
 
+CACHE_DIR = "/cache"
+
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -35,10 +37,19 @@ image = (
         "safetensors~=0.4.1",  # Enables safetensor format as opposed to using unsafe pickle format
         "transformers~=4.35.2",  # This is needed for `import torch`
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # allow faster model downloads
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Allows faster model downloads
+            "HF_HUB_CACHE_DIR": CACHE_DIR,  # Points the Hugging Face cache to a Volume
+        }
+    )
 )
 
-app = modal.App("image-to-image", image=image)
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+app = modal.App(
+    "image-to-image", image=image, volumes={CACHE_DIR: cache_volume}
+)
 
 with image.imports():
     import torch
@@ -52,9 +63,8 @@ with image.imports():
 
 # The Modal `Cls` defined below contains all the logic to download, set up, and run SDXL Turbo.
 
-# The [container lifecycle](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta) decorators
-# `@build` and `@enter` ensure we download the model when building our container image and load it into memory
-# when we start up a new instance of our `Cls`.
+# The [container lifecycle](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-beta) decorator
+# (`@modal.enter()`) ensures that the model is loaded into memory when a container starts, before it picks up any inputs.
 
 # The `inference` method runs the actual model inference. It takes in an image as a collection of `bytes` and a string `prompt` and returns
 # a new image (also as a collection of `bytes`).
@@ -62,20 +72,25 @@ with image.imports():
 # To avoid excessive cold-starts, we set the `container_idle_timeout` to 240 seconds, meaning once a GPU has loaded the model it will stay
 # online for 4 minutes before spinning down.
 
+# We also provide a function that will download the model weights to the cache Volume ahead of time.
+# You can run this function directly with `modal run`. Otherwise, the weights will be cached after the
+# first container cold start.
+
+
+@app.function()
+def download_models():
+    # Ignore files that we don't need to speed up download time.
+    ignore = [
+        "*.bin",
+        "*.onnx_data",
+        "*/diffusion_pytorch_model.safetensors",
+    ]
+
+    snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
+
 
 @app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240)
 class Model:
-    @modal.build()
-    def download_models(self):
-        # Ignore files that we don't need to speed up download time.
-        ignore = [
-            "*.bin",
-            "*.onnx_data",
-            "*/diffusion_pytorch_model.safetensors",
-        ]
-
-        snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
-
     @modal.enter()
     def enter(self):
         self.pipe = AutoPipelineForImage2Image.from_pretrained(
