@@ -69,6 +69,7 @@ tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).pip_install(
     "tensorrt_llm==0.14.0",
+    "pynvml<12",  # avoid breaking change to pynvml version API
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
