@@ -31,14 +31,14 @@ app = modal.App("example-doc-ocr-jobs")
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
 
-inference_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+inference_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "accelerate==0.28.0",
     "huggingface_hub[hf_transfer]==0.27.1",
     "numpy<2",
     "tiktoken==0.6.0",
-    "torch==2.0.1",
-    "torchvision==0.15.2",
-    "transformers==4.37.2",
+    "torch==2.5.1",
+    "torchvision==0.20.1",
+    "transformers==4.48.0",
     "verovio==4.3.1",
 )
 
@@ -55,20 +55,25 @@ MODEL_REVISION = "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
 
 
 def setup():
+    import warnings
+
     from transformers import AutoModel, AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
-    )
+    with warnings.catch_warnings():  # filter noisy warnings from GOT modeling code
+        warnings.simplefilter("ignore")
+        tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
+        )
 
-    model = AutoModel.from_pretrained(
-        MODEL_NAME,
-        revision=MODEL_REVISION,
-        trust_remote_code=True,
-        device_map="cuda",
-        use_safetensors=True,
-        pad_token_id=tokenizer.eos_token_id,
-    )
+        model = AutoModel.from_pretrained(
+            MODEL_NAME,
+            revision=MODEL_REVISION,
+            trust_remote_code=True,
+            device_map="cuda",
+            use_safetensors=True,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+
     return tokenizer, model
 
 
@@ -135,7 +140,7 @@ def parse_receipt(image: bytes) -> str:
 # modal deploy doc_ocr_jobs.py
 # ```
 
-# Once it's published, we can [look up](https://modal.com/docs/guide/trigger-deployed-functions) this function
+# Once it's published, we can [look up](https://modal.com/docs/guide/trigger-deployed-functions) this Function
 # from another Python process and submit tasks to it:
 
 # ```python
