@@ -2,7 +2,7 @@
 # deploy: true
 # ---
 
-# # Document OCR job queue
+# # Run a job queue for GOT-OCR
 
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
@@ -11,90 +11,117 @@
 # to use this pattern. You can submit async tasks to Modal from any Python
 # application (for example, a regular Django app running on Kubernetes).
 
-# Our job queue will handle a single task: running OCR transcription for images.
-# We'll make use of a pre-trained Document Understanding model using the
-# [`donut`](https://github.com/clovaai/donut) package. Try
-# it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
+# Our job queue will handle a single task: running OCR transcription for images of receipts.
+# We'll make use of a pre-trained model:
+# the [General OCR Theory (GOT) 2.0 model](https://huggingface.co/stepfun-ai/GOT-OCR2_0).
 
-# ![receipt parser frontend](./receipt_parser_frontend_2.jpg)
+# Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
+
+# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
 
 # ## Define an App
 
-# Let's first import `modal` and define a [`App`](https://modal.com/docs/reference/modal.App).
-# Later, we'll use the name provided for our `App` to find it from our web app, and submit tasks to it.
-
-import urllib.request
+# Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
+# Later, we'll use the name provided for our `App` to find it from our web app and submit tasks to it.
 
 import modal
 
 app = modal.App("example-doc-ocr-jobs")
 
-# ## Model cache
+# We also define the dependencies for our Function by specifying an
+# [Image](https://modal.com/docs/guide/images).
 
-# `donut` downloads the weights for pre-trained models to a local directory, if those weights don't already exist.
-# To decrease start-up time, we want this download to happen just once, even across separate function invocations.
-# To accomplish this, we use the [`Image.run_function`](https://modal.com/docs/reference/modal.Image#run_function) method,
-# which allows us to run some code at image build time to save the model weights into the image.
-
-CACHE_PATH = "/root/model_cache"
-MODEL_NAME = "naver-clova-ix/donut-base-finetuned-cord-v2"
-
-
-def get_model():
-    from donut import DonutModel
-
-    pretrained_model = DonutModel.from_pretrained(
-        MODEL_NAME,
-        cache_dir=CACHE_PATH,
-    )
-
-    return pretrained_model
-
-
-image = (
-    modal.Image.debian_slim(python_version="3.9")
-    .pip_install(
-        "donut-python==1.0.7",
-        "huggingface-hub==0.16.4",
-        "transformers==4.21.3",
-        "timm==0.5.4",
-    )
-    .run_function(get_model)
+inference_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+    "accelerate==0.28.0",
+    "huggingface_hub[hf_transfer]==0.27.1",
+    "numpy<2",
+    "tiktoken==0.6.0",
+    "torch==2.0.1",
+    "torchvision==0.15.2",
+    "transformers==4.37.2",
+    "verovio==4.3.1",
 )
 
-# ## Handler function
+# ## Cache the pre-trained model on a Modal Volume
 
-# Now let's define our handler function. Using the [@app.function()](https://modal.com/docs/reference/modal.App#function)
-# decorator, we set up a Modal [Function](https://modal.com/docs/reference/modal.Function) that uses GPUs,
-# runs on a [custom container image](https://modal.com/docs/guide/custom-container),
-# and automatically [retries](https://modal.com/docs/guide/retries#function-retries) failures up to 3 times.
+# We can obtain the pre-trained model we want to run from Hugging Face
+# using its name and a revision identifier.
+
+MODEL_NAME = "ucaslcl/GOT-OCR2_0"
+MODEL_REVISION = "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
+
+# The logic for loading the model based on this information
+# is encapsulated in the `setup` function below.
+
+
+def setup():
+    from transformers import AutoModel, AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
+    )
+
+    model = AutoModel.from_pretrained(
+        MODEL_NAME,
+        revision=MODEL_REVISION,
+        trust_remote_code=True,
+        device_map="cuda",
+        use_safetensors=True,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+    return tokenizer, model
+
+
+# The `.from_pretrained` methods from Hugging Face are smart enough
+# to only download models if they haven't been downloaded before.
+# But in Modal's serverless environment, filesystems are ephemeral,
+# and so using this code alone would mean that models need to get downloaded
+# on every request.
+
+# So instead, we create a Modal [Volume](https://modal.com/docs/guide/volumes)
+# to store the model -- a durable filesystem that any Modal Function can access.
+
+model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+# We also update the environment variables for our Function
+# to include this new path for the model cache --
+# and to enable fast downloads with the `hf_transfer` library.
+
+MODEL_CACHE_PATH = "/root/models"
+inference_image = inference_image.env(
+    {"HF_HUB_CACHE": MODEL_CACHE_PATH, "HF_HUB_ENABLE_HF_TRANSFER": "1"}
+)
+
+
+# ## Run OCR inference on Modal by wrapping with `app.function`
+
+# Now let's set up the actual OCR inference.
+
+# Using the [`@app.function`](https://modal.com/docs/reference/modal.App#function)
+# decorator, we set up a Modal [Function](https://modal.com/docs/reference/modal.Function).
+# We provide arguments to that decorator to customize the hardware, scaling, and other features
+# of the Function.
+
+# Here, we say that this Function should use NVIDIA L40S [GPUs](https://modal.com/docs/guide/gpu),
+# automatically [retry](https://modal.com/docs/guide/retries#function-retries) failures up to 3 times,
+# and have access to our [shared model cache](https://modal.com/docs/guide/volumes).
 
 
 @app.function(
-    gpu="any",
-    image=image,
+    gpu="l40s",
     retries=3,
+    volumes={MODEL_CACHE_PATH: model_cache},
+    image=inference_image,
 )
-def parse_receipt(image: bytes):
-    import io
+def parse_receipt(image: bytes) -> str:
+    from tempfile import NamedTemporaryFile
 
-    import torch
-    from PIL import Image
+    tokenizer, model = setup()
 
-    # Use donut fine-tuned on an OCR dataset.
-    task_prompt = "<s_cord-v2>"
-    pretrained_model = get_model()
+    with NamedTemporaryFile(delete=False, mode="wb+") as temp_img_file:
+        temp_img_file.write(image)
+        output = model.chat(tokenizer, temp_img_file.name, ocr_type="format")
 
-    # Initialize model.
-    pretrained_model.half()
-    device = torch.device("cuda")
-    pretrained_model.to(device)
-
-    # Run inference.
-    input_img = Image.open(io.BytesIO(image))
-    output = pretrained_model.inference(image=input_img, prompt=task_prompt)[
-        "predictions"
-    ][0]
     print("Result: ", output)
 
     return output
@@ -124,22 +151,28 @@ def parse_receipt(image: bytes):
 # ## Run manually
 
 # We can also trigger `parse_receipt` manually for easier debugging:
-# `modal run doc_ocr_jobs::app.main`
+
+# ```shell
+# modal run doc_ocr_jobs
+# ```
+
 # To try it out, you can find some
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 
 @app.local_entrypoint()
-def main():
+def main(receipt_filename: str = None):
     from pathlib import Path
 
-    receipt_filename = Path(__file__).parent / "receipt.png"
+    import requests
+
+    if receipt_filename is None:
+        receipt_filename = Path(__file__).parent / "receipt.png"
     if receipt_filename.exists():
-        with open(receipt_filename, "rb") as f:
-            image = f.read()
-        print(f"running OCR on {f.name}")
+        image = receipt_filename.read_bytes()
+        print(f"running OCR on {receipt_filename}")
     else:
         receipt_url = "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
-        image = urllib.request.urlopen(receipt_url).read()
+        image = requests.get(receipt_url).content
         print(f"running OCR on sample from URL {receipt_url}")
     print(parse_receipt.remote(image))
