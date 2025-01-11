@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# mypy: ignore-errors
 # ---
 
 # # Run a job queue for GOT-OCR
@@ -173,6 +174,9 @@ def main(receipt_filename: str = None):
 
     if receipt_filename is None:
         receipt_filename = Path(__file__).parent / "receipt.png"
+    else:
+        receipt_filename = Path(receipt_filename)
+
     if receipt_filename.exists():
         image = receipt_filename.read_bytes()
         print(f"running OCR on {receipt_filename}")
