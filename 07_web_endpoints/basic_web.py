@@ -16,12 +16,11 @@
 # they can access [Secrets](https://modal.com/docs/guide/secrets) or [Volumes](https://modal.com/docs/guide/volumes),
 # and they [automatically scale](https://modal.com/docs/guide/cold-start) to handle more traffic.
 
-
 # Under the hood, we use the [FastAPI library](https://fastapi.tiangolo.com/),
 # which has [high-quality documentation](https://fastapi.tiangolo.com/tutorial/),
 # linked throughout this tutorial.
 
-# ## Turn a Modal Function into an endpoint with a single decorator
+# ## Turn a Modal Function into an API endpoint with a single decorator
 
 # Modal Functions are already accessible remotely -- when you add the `@app.function` decorator to a Python function
 # and run `modal deploy`, you make it possible for your [other Python functions to call it](https://modal.com/docs/guide/trigger-deployed-functions).
@@ -99,7 +98,7 @@ def greet(user: str) -> str:
 
 
 # ### Sending data in the request body
-#
+
 # For larger and more complex data, it is generally preferrable to send data in the body of the HTTP request.
 # This body is formatted as [JSON](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Objects/JSON),
 # the most common data interchange format on the web.
@@ -139,7 +138,8 @@ def goodbye(data: dict) -> str:
 # If that step is expensive, like [loading a large ML model](https://modal.com/docs/guide/model-weights),
 # it'd be a shame to have to do it every time a request comes in!
 
-# Web endpoints can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters).
+# Web endpoints can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters),
+# which allows you to manage
 # Note that they don't need the [`modal.method`](https://modal.com/docs/reference/modal.method) decorator.
 
 # This example will only set the `start_time` instance variable once, on container startup.
@@ -161,6 +161,48 @@ class WebApp:
         current_time = datetime.now(timezone.utc)
         return {"start_time": self.start_time, "current_time": current_time}
 
+
+# ## Protect web endpoints with proxy authentication
+
+# Sharing your Python functions on the web is great, but it's not always a good idea
+# to make those functions available to just anyone.
+
+# For example, you might have a function like the one below that
+# is more expensive to run than to call (and so might be abused by your enemies)
+# or reveals information that you would rather keep secret.
+
+# To protect your Modal web endpoints so that they can't be triggered except
+# by members of your [Modal workspace](https://modal.com/docs/guide/workspaces),
+# add the `requires_proxy_auth=True` flag to the `web_endpoint` decorator.
+
+
+@app.function(gpu="h100")
+@modal.web_endpoint(requires_proxy_auth=True, docs=False)
+def expensive_secret():
+    return "I didn't care for 'The Godfather'. It insists upon itself."
+
+
+# The `expensive-secret` endpoint URL will still be printed to the output when you `modal serve` or `modal deploy`,
+# along with a "🔑" emoji indicating that it is secured with proxy authentication.
+# If you head to that URL via the browser, you will get a
+# [`407 Proxy Authentication Required`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/407) error code in response.
+# You should also check the dashboard page for this app (at the URL printed at the very top of the `modal` command output)
+# so you can see that no containers were spun up to handle the request -- this authorization is handled entirely inside Modal's infrastructure.
+
+# You can trigger the web endpoint by [creating a Proxy Auth Token](https://modal.com/settings/proxy-auth-tokens)
+# and then including the base64-encoded string `{TOKEN_ID}:{TOKEN_SECRET}` in a
+# [Proxy-Authorization header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Proxy-Authorization).
+
+# From the command line, that might look like
+
+# ```shell
+# export TOKEN_ID=wk-1234abcd
+# export TOKEN_SECRET=ws-1234abcd
+# curl https://your-workspace-name--expensive-secret.modal.run -H "Proxy-Authorization: Basic $(echo -n $TOKEN_ID:$TOKEN_SECRET | base64)"
+# ```
+
+# For more details, see the
+# [guide to proxy authentication](https://modal.com/docs/guide/webhook-proxy-auth).
 
 # ## What next?
 
