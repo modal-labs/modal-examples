@@ -73,8 +73,12 @@ esm3_image = (
 # [this guide](https://modal.com/docs/guide/images).
 
 
-web_app_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4"
+web_app_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4"
+    )
+    .add_local_dir(Path(__file__).parent / "frontend", remote_path="/assets")
 )
 
 
@@ -216,15 +220,12 @@ def run_esm(sequence: str) -> str:
 # You should see the URL for this UI in the output of `modal deploy`
 # or on your [Modal app dashboard](https://modal.com/apps) for this app.
 
-assets_path = Path(__file__).parent / "frontend"
-
 
 @app.function(
     image=web_app_image,
     concurrency_limit=1,  # Gradio requires sticky sessions
     allow_concurrent_inputs=1000,  # but can handle many async inputs
     volumes={VOLUME_PATH: volume},
-    mounts=[modal.Mount.from_local_dir(assets_path, remote_path="/assets")],
 )
 @modal.asgi_app()
 def ui():
