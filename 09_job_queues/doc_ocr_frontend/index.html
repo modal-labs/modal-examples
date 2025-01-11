@@ -1,10 +1,15 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Modal Receipt Parser</title>
+    <link rel="icon" href="images/favicon.svg" />
+    <title>Receipt Parser</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React -->
     <script
       crossorigin
       src="https://unpkg.com/react@18/umd/react.development.js"
@@ -13,17 +18,46 @@
       crossorigin
       src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
     ></script>
+
+    <!-- Babel for JSX -->
     <script
       crossorigin
       src="https://unpkg.com/@babel/standalone/babel.min.js"
     ></script>
+
+    <!-- Loading Spinner -->
     <script crossorigin src="https://spin.js.org/spin.umd.js"></script>
     <link rel="stylesheet" href="https://spin.js.org/spin.css" />
-  </head>
 
-  <body class="bg-gray-50">
+    <!-- Inter Font -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap"
+    />
+
+    <!-- Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              modal: {
+                primary: "#4F46E5",
+                secondary: "#818CF8",
+              },
+            },
+            fontFamily: {
+              inter: ["Inter", "sans-serif"],
+              arial: ["Arial", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-black">
     <noscript>You must have JavaScript enabled to use this app.</noscript>
-    <script type="text/babel" src="/app.jsx"></script>
     <div id="react"></div>
+    <script type="text/babel" src="/app.jsx"></script>
   </body>
 </html>
