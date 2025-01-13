@@ -68,7 +68,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     )
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
-    .pip_install("comfy-cli==1.2.7")  # install comfy-cli
+    .pip_install("comfy-cli==1.3.5")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
@@ -82,7 +82,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
 # We'll use `comfy-cli` to download custom nodes, in this case the popular WAS Node Suite pack.
 image = (
     image.run_commands(  # download a custom node
-        "comfy node install was-node-suite-comfyui"
+        "comfy node install pr-was-node-suite-comfyui-47064894"
     )
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
