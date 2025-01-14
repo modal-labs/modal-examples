@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 # # Simple PyTorch cluster
 
 # This example shows how you can performance distributed computation with PyTorch.
