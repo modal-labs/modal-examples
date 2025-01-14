@@ -12,8 +12,15 @@ import os
 import modal
 import modal.experimental
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "torch~=2.5.1", "numpy~=2.2.1"
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("torch~=2.5.1", "numpy~=2.2.1")
+    # Mount the script that performs the actual distributed computation.
+    # Our modal.Function is merely a 'launcher' that sets up the distributed
+    # cluster environment and then calls torch.distributed.run with desired arguments.
+    .add_local_file(
+        "simple_torch_cluster_script.py", remote_path="/root/script.py"
+    )
 )
 app = modal.App("example-simple-torch-cluster", image=image)
 
@@ -21,26 +28,15 @@ app = modal.App("example-simple-torch-cluster", image=image)
 # with one GPU per container. These cluster configurations are helpful for testing, but typically
 # you'll want to run a cluster with 8 GPUs per container, each GPU serving its own local 'worker' process.
 
-gpu = False
 # https://pytorch.org/docs/stable/distributed.html#which-backend-to-use
-backend = "gloo" if not gpu else "nccl"
+backend = "nccl"
 # The number of containers (i.e. nodes) in the cluster. This can be between 1 and 8.
 n_nodes = 4
 # Typically this matches the number of GPUs per container.
 n_proc_per_node = 1
 
 
-@app.function(
-    gpu=modal.gpu.A100() if gpu else None,
-    mounts=[
-        # Mount the script that performs the actual distributed computation.
-        # Our modal.Function is merely a 'launcher' that sets up the distributed
-        # cluster environment and then calls torch.distributed.run with desired arguments.
-        modal.Mount.from_local_file(
-            "simple_torch_cluster_script.py", remote_path="/root/script.py"
-        )
-    ],
-)
+@app.function(gpu=modal.gpu.H100())
 @modal.experimental.clustered(size=n_nodes)
 def demo():
     from torch.distributed.run import parse_args, run
