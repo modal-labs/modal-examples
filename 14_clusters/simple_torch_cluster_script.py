@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import argparse
 import os
 from contextlib import contextmanager
