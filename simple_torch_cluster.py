@@ -13,7 +13,7 @@ import modal
 import modal.experimental
 
 image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "torch", "numpy"
+    "torch~=2.5.1", "numpy~=2.2.1"
 )
 app = modal.App("example-simple-torch-cluster", image=image)
 
