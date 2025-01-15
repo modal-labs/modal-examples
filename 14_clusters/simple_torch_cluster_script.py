@@ -18,7 +18,7 @@ MASTER_RANK = 0
 
 # This `run` function performs a simple distributed data transfer between containers
 # using the specified distributed communication backend.
-#
+
 # An example topology of the cluster when WORLD_SIZE=4 is shown below:
 #
 #        +---------+
@@ -33,10 +33,10 @@ MASTER_RANK = 0
 # +--+--+  +--+--+  +--+--+
 # |Rank 1| |Rank 2| |Rank 3|
 # +-----+  +-----+  +-----+
-#
+
 # A broadcast operation (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html#broadcast)
 # is performed between the master container (rank 0) and all other containers.
-#
+
 # The master container (rank 0) sends a tensor to all other containers.
 # Each container then receives that tensor from the master container.
 
@@ -45,7 +45,7 @@ def run(backend):
     # Helper function providing a vanity name for each container based on its world (i.e. global) rank.
     def container_name(wrld_rank: int) -> str:
         return (
-            f"container-{wrld_rank} (master)"
+            f"container-{wrld_rank} (main)"
             if wrld_rank == 0
             else f"container-{wrld_rank}"
         )
@@ -75,9 +75,9 @@ def run(backend):
 
 # In order for the broadcast operation to happen across the cluster, we need to have the master container (rank 0)
 # learn the network addresses of all other containers.
-#
+
 # This is done by calling `dist.init_process_group` with the specified backend.
-#
+
 # See https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group for more details.
 
 
