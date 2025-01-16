@@ -1,44 +1,12 @@
 import os
-import pathlib
-import sys
 from typing import TYPE_CHECKING
 
-import modal
-from modal.cli.volume import FileType
-
-from .config import app_config
 from .logs import get_logger
 
 if TYPE_CHECKING:
     from numpy import ndarray
 
 logger = get_logger(__name__)
-
-
-def download_model_locally(run_id: str) -> pathlib.Path:
-    """
-    Download a finetuned model locally.
-
-    NOTE: These models were trained on GPU and require torch.distributed installed locally.
-    """
-    logger.info(f"Saving finetuning run {run_id} model locally")
-    vol = modal.NetworkFileSystem.lookup(app_config.persistent_vol_name)
-    for entry in vol.listdir(f"{run_id}/**"):
-        p = pathlib.Path(f".{app_config.model_dir}", entry.path)
-
-        if entry.type == FileType.DIRECTORY:
-            p.mkdir(parents=True, exist_ok=True)
-        elif entry.type == FileType.FILE:
-            logger.info(f"Downloading {entry.path} to {p}")
-            p.parent.mkdir(parents=True, exist_ok=True)
-            with open(p, "wb") as f:
-                for chunk in vol.read_file(entry.path):
-                    f.write(chunk)
-        else:
-            logger.warning(
-                f"Skipping unknown entry '{p}' with unknown filetype"
-            )
-    return pathlib.Path(f".{app_config.model_dir}", run_id)
 
 
 def whisper_transcribe_local_file(
@@ -95,7 +63,3 @@ def whisper_transcribe_audio(
         predicted_ids, skip_special_tokens=True
     )[0]
     return predicted_transcription
-
-
-if __name__ == "__main__":
-    download_model_locally(run_id=sys.argv[1])

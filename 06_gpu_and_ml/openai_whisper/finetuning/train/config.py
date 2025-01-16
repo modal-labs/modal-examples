@@ -4,8 +4,6 @@ from typing import Optional
 
 @dataclass
 class ModalAppConfig:
-    app_name = "example-whisper-fine-tune"
-    persistent_vol_name = "example-whisper-fine-tune-vol"
     dataset = "mozilla-foundation/common_voice_11_0"
     cache_dir = "/cache"
     model_dir = "/models"

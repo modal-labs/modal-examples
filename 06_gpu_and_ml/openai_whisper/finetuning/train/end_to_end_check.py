@@ -9,52 +9,12 @@ persistent storage, and then downloaded locally for inference.
 
 import pathlib
 
-import modal
-from transformers import Seq2SeqTrainingArguments
-
-from .__main__ import app, train
-from .config import DataTrainingArguments, ModelArguments, app_config
+from .config import app_config
 from .logs import get_logger
+from .train import app, persistent_volume, train
 from .transcribe import whisper_transcribe_audio
 
-test_volume = modal.NetworkFileSystem.from_name(
-    "example-whisper-fine-tune-test-vol", create_if_missing=True
-)
-
 logger = get_logger(__name__)
-
-# Test the `main.train` function by passing in test-specific configuration
-# that does only a minimal amount of training steps and saves the model
-# to the temporary (ie. ephemeral) network file system disk.
-#
-# This remote function should take only ~1 min to run.
-
-
-@app.function(network_file_systems={app_config.model_dir: test_volume})
-def test_finetune_one_step_and_save_to_vol(run_id: str):
-    output_dir = pathlib.Path(app_config.model_dir, run_id)
-    test_model_args = ModelArguments(
-        model_name_or_path="openai/whisper-small",
-        freeze_feature_encoder=False,
-    )
-    test_data_args = DataTrainingArguments(
-        preprocessing_num_workers=16,
-        max_train_samples=5,
-        max_eval_samples=5,
-    )
-
-    train(
-        model_args=test_model_args,
-        data_args=test_data_args,
-        training_args=Seq2SeqTrainingArguments(
-            do_train=True,
-            output_dir=output_dir,
-            num_train_epochs=1.0,
-            learning_rate=3e-4,
-            warmup_steps=0,
-            max_steps=1,
-        ),
-    )
 
 
 # Test model serialization and persistence by starting a new remote
@@ -66,7 +26,7 @@ def test_finetune_one_step_and_save_to_vol(run_id: str):
 # ephemeral app that ran the training has stopped.
 
 
-@app.function(network_file_systems={app_config.model_dir: test_volume})
+@app.function(volumes={app_config.model_dir: persistent_volume})
 def test_download_and_tryout_model(run_id: str):
     from datasets import Audio, load_dataset
     from evaluate import load
@@ -83,6 +43,7 @@ def test_download_and_tryout_model(run_id: str):
         lang_short,
         split="test",
         streaming=True,
+        trust_remote_code=True,
     )
     ds = ds.cast_column("audio", Audio(sampling_rate=16_000))
     test_row = next(iter(ds))
@@ -115,12 +76,12 @@ def test_download_and_tryout_model(run_id: str):
 # Any runtime errors or assertion errors will fail the app and exit non-zero.
 
 
-def run_test() -> int:
-    with app.run():
-        test_finetune_one_step_and_save_to_vol.remote(run_id=app.app_id)
-        test_download_and_tryout_model.remote(run_id=app.app_id)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(run_test())
+@app.local_entrypoint()
+def run_test():
+    # Test the `main.train` function by passing in test-specific configuration
+    # that does only a minimal amount of training steps and saves the model
+    # to the temporary (ie. ephemeral) network file system disk.
+    #
+    # This should take only ~1 min to run.
+    train.remote(num_train_epochs=1.0, warmup_steps=0, max_steps=1)
+    test_download_and_tryout_model.remote(run_id=app.app_id)
