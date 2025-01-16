@@ -10,7 +10,7 @@
 # ## Quickstart
 #
 # To run this simple text-to-image [Flux Schnell workflow](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/comfyui/workflow_api.json) as an API:
-# 1. Stand up the ComfyUI server in development mode:
+# 1. Start up the ComfyUI server in development mode:
 # ```bash
 # modal serve 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
@@ -45,13 +45,8 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
     .pip_install("comfy-cli==1.3.5")  # install comfy-cli
-    .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
-        "comfy --skip-prompt install --nvidia"
-    )
-    .add_local_file(  # copy ComfyUI workflow JSON to the container
-        Path(__file__).parent / "workflow_api.json",
-        "/root/workflow_api.json",
-        copy=True,
+    .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
+        "comfy --skip-prompt install --nvidia --version 0.3.10"
     )
 )
 # ## Downloading custom nodes
@@ -134,7 +129,7 @@ def ui():
 # To run a workflow as an API:
 # 1. Stand up a "headless" ComfyUI server in the background when the app starts.
 # 2. Define an `infer` method that takes in a workflow path and runs the workflow on the ComfyUI server.
-# 3. Stand up a web handler `api` with `web_endpoint`, so that we can run our workflow as a service and accept inputs from clients.
+# 3. Create a web handler `api` with `web_endpoint`, so that we can run our workflow as a service and accept inputs from clients.
 #
 # Group all these steps into a single Modal `cls` object, which we'll call `ComfyUI`.
 @app.cls(
@@ -142,6 +137,12 @@ def ui():
     container_idle_timeout=300,  # 5 minute container keep alive after it processes an input; increasing this value is a great way to reduce ComfyUI cold start times
     gpu="L40S",
     volumes={"/cache": vol},
+    mounts=[  # mount workflow JSON that we want to serve to the container
+        modal.Mount.from_local_file(
+            Path(__file__).parent / "workflow_api.json",
+            remote_path="/root/workflow_api.json",
+        )
+    ],
 )
 class ComfyUI:
     @modal.enter()
