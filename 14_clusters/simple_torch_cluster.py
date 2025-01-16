@@ -41,9 +41,6 @@ app = modal.App("example-simple-torch-cluster", image=image)
 
 # ## Configuring a test cluster
 
-# Some basic configuration allows for demoing either a CPU-only cluster or a GPU-enabled cluster
-# with one GPU per container.
-
 # First, we set the size of the cluster in containers/nodes. This can be between 1 and 8.
 # This is part of our Modal configuration, since Modal is responsible for spinning up our cluster.
 
