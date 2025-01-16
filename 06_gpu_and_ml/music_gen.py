@@ -21,9 +21,9 @@
 import io
 from pathlib import Path
 
-from modal import App, Image, asgi_app, enter, gpu, method
+import modal
 
-app = App("musicgen")
+app = App("example-musicgen")
 
 MAX_SEGMENT_DURATION = 30
 
@@ -58,7 +58,7 @@ with image.imports():
 # save to a file later.
 
 
-@app.cls(gpu=gpu.A10G(), image=image)
+@app.cls(gpu=gpu.L40S(), image=image)
 class Audiocraft:
     @enter()
     def init(self):
@@ -260,7 +260,7 @@ def main(
 # ``` shell
 # modal run music_gen.py --prompt="metallica meets sabrina carpenter"
 # ```
-# and optionally pass in a melody and a format
+# and optionally pass in a melody and a format.
 
 
 # ## A hosted Gradio interface
