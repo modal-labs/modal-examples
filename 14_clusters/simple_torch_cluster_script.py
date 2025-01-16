@@ -87,6 +87,7 @@ def init_processes(backend):
         dist.init_process_group(backend, rank=WORLD_RANK, world_size=WORLD_SIZE)
         yield
     finally:
+        dist.barrier()  # ensure any async work is done before cleaning up
         # Remove this if it causes program to hang. ref: https://github.com/pytorch/pytorch/issues/75097.
         dist.destroy_process_group()
 
