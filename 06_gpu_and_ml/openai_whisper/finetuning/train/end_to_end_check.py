@@ -9,17 +9,12 @@ persistent storage, and then downloaded locally for inference.
 
 import pathlib
 
-import modal
 from transformers import Seq2SeqTrainingArguments
 
 from .__main__ import app, train
-from .config import DataTrainingArguments, ModelArguments, app_config
+from .config import app_config
 from .logs import get_logger
 from .transcribe import whisper_transcribe_audio
-
-test_volume = modal.NetworkFileSystem.from_name(
-    "example-whisper-fine-tune-test-vol", create_if_missing=True
-)
 
 logger = get_logger(__name__)
 
@@ -33,15 +28,6 @@ logger = get_logger(__name__)
 @app.function(network_file_systems={app_config.model_dir: test_volume})
 def test_finetune_one_step_and_save_to_vol(run_id: str):
     output_dir = pathlib.Path(app_config.model_dir, run_id)
-    test_model_args = ModelArguments(
-        model_name_or_path="openai/whisper-small",
-        freeze_feature_encoder=False,
-    )
-    test_data_args = DataTrainingArguments(
-        preprocessing_num_workers=16,
-        max_train_samples=5,
-        max_eval_samples=5,
-    )
 
     train(
         model_args=test_model_args,

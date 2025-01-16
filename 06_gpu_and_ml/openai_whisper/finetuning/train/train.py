@@ -4,9 +4,8 @@
 # Based on the work done in https://huggingface.co/blog/fine-tune-whisper.
 
 import os
-import pathlib
-import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Union
 
 import modal
@@ -14,23 +13,16 @@ import modal
 from .config import DataTrainingArguments, ModelArguments, app_config
 from .logs import get_logger, setup_logging
 
-try:
-    from transformers import HfArgumentParser, Seq2SeqTrainingArguments
-except ModuleNotFoundError:
-    exit(
-        "The 'transformers' library is required to run both locally and in Modal."
-    )
-
-
 persistent_volume = modal.Volume.from_name(
-    app_config.persistent_vol_name,
+    "example-whisper-fine-tune-vol",
     create_if_missing=True,
 )
-image = modal.Image.debian_slim().pip_install_from_requirements(
-    "requirements.txt"
-)
+
+image = modal.Image.debian_slim(
+    python_version="3.12"
+).pip_install_from_requirements("requirements.txt")
 app = modal.App(
-    name=app_config.app_name,
+    name="example-whisper-fine-tune",
     image=image,
     secrets=[
         modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
@@ -49,9 +41,10 @@ logger = get_logger(__name__)
     retries=1,
 )
 def train(
-    model_args: ModelArguments,
-    data_args: DataTrainingArguments,
-    training_args: Seq2SeqTrainingArguments,
+    num_train_epochs: int = 5,
+    warmup_steps: int = 400,
+    max_steps: int = -1,
+    overwrite_output_dir: bool = False,
 ):
     import datasets
     import evaluate
@@ -64,8 +57,50 @@ def train(
         AutoProcessor,
         AutoTokenizer,
         Seq2SeqTrainer,
+        Seq2SeqTrainingArguments,
     )
     from transformers.trainer_utils import get_last_checkpoint, is_main_process
+
+    model_args = ModelArguments(
+        model_name_or_path="openai/whisper-small",
+        freeze_feature_encoder=False,
+    )
+
+    run_id = app.app_id
+    output_dir = Path(app_config.model_dir, run_id).as_posix()
+
+    data_args = DataTrainingArguments(
+        dataset_config_name="clean",
+        train_split_name="train.100",
+        eval_split_name="validation",
+        text_column_name="sentence",
+        preprocessing_num_workers=16,
+        max_train_samples=5,
+        max_eval_samples=5,
+        do_lower_case=True,
+    )
+
+    training_args = Seq2SeqTrainingArguments(
+        length_column_name="input_length",
+        output_dir=output_dir,
+        num_train_epochs=num_train_epochs,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
+        gradient_accumulation_steps=8,
+        learning_rate=3e-4,
+        warmup_steps=warmup_steps,
+        max_steps=max_steps,
+        evaluation_strategy="steps",
+        save_total_limit=3,
+        gradient_checkpointing=True,
+        fp16=True,
+        group_by_length=True,
+        predict_with_generate=True,
+        generation_max_length=40,
+        generation_num_beams=1,
+        do_train=True,
+        do_eval=True,
+    )
 
     @dataclass
     class DataCollatorSpeechSeq2SeqWithPadding:
@@ -146,15 +181,16 @@ def train(
     )
     last_checkpoint = None
     if (
-        os.path.isdir(training_args.output_dir)
+        Path(training_args.output_dir).exists()
         and training_args.do_train
-        and not training_args.overwrite_output_dir
+        and not overwrite_output_dir
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if (
             last_checkpoint is None
             and len(os.listdir(training_args.output_dir)) > 0
         ):
+            print(os.listdir(training_args.output_dir))
             raise ValueError(
                 f"Output directory ({training_args.output_dir}) already exists and is not empty. "
                 "Use --overwrite_output_dir to overcome."
@@ -174,13 +210,12 @@ def train(
         "mozilla-foundation/common_voice_11_0",
         "hi",
         split="train+validation",
-        use_auth_token=os.environ["HF_TOKEN"],
+        trust_remote_code=True,
     )
     raw_datasets["eval"] = load_dataset(
         "mozilla-foundation/common_voice_11_0",
         "hi",
         split="test",
-        use_auth_token=os.environ["HF_TOKEN"],
     )
 
     # Most ASR datasets only provide input audio samples (audio) and
@@ -495,29 +530,3 @@ def train(
 
     logger.info("Training run complete!")
     return results
-
-
-def main() -> int:
-    with app.run(detach=True):
-        run_id = app.app_id
-        output_dir = str(pathlib.Path(app_config.model_dir, run_id))
-        args = sys.argv[1:] + [f"--output_dir={str(output_dir)}"]
-        # Modal's @app.local_entrypoint() uses tiangolo/typer, which doesn't support
-        # building CLI interfaces from dataclasses. https://github.com/tiangolo/typer/issues/154
-        parser = HfArgumentParser(
-            (ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments)
-        )
-        (
-            model_args,
-            data_args,
-            training_args,
-        ) = parser.parse_args_into_dataclasses(args)
-
-        logger.info("Starting training")
-        result = train.remote(model_args, data_args, training_args)
-        logger.info(result)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
