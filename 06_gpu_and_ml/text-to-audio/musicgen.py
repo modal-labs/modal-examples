@@ -196,12 +196,6 @@ class MusicGen:
 
 # We can then generate music from anywhere by running code like what we have in the `local_entrypoint` below.
 
-# You can execute it with a command like:
-
-# ``` shell
-# modal run musicgen.py --prompt="Baroque boy band, Bachstreet Boys, basso continuo, Top 40 pop music" --duration=60
-# ```
-
 
 @app.local_entrypoint()
 def main(
@@ -226,6 +220,12 @@ def main(
     print(f"🎼 Saving to {output_path}")
     output_path.write_bytes(clip)
 
+
+# You can execute it with a command like:
+
+# ``` shell
+# modal run musicgen.py --prompt="Baroque boy band, Bachstreet Boys, basso continuo, Top 40 pop music" --duration=60
+# ```
 
 # ## Hosting a web UI for the music generator
 
