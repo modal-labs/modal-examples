@@ -100,6 +100,10 @@ image = (
     )
 )
 
+# Lastly, we copy the ComfyUI workflow JSON to the container.
+image = image.add_local_file(
+    Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
+)
 
 # ## Running ComfyUI interactively
 #
@@ -137,12 +141,6 @@ def ui():
     container_idle_timeout=300,  # 5 minute container keep alive after it processes an input; increasing this value is a great way to reduce ComfyUI cold start times
     gpu="L40S",
     volumes={"/cache": vol},
-    mounts=[  # mount workflow JSON that we want to serve to the container
-        modal.Mount.from_local_file(
-            Path(__file__).parent / "workflow_api.json",
-            remote_path="/root/workflow_api.json",
-        )
-    ],
 )
 class ComfyUI:
     @modal.enter()
