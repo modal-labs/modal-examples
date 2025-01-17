@@ -99,7 +99,7 @@ web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 # There are also a few bits to make this work well with Modal:
 
-# - We make an [App](https://modal.com/docs/guide/apps) to organize our deployment
+# - We make an [App](https://modal.com/docs/guide/apps) to organize our deployment.
 # - We load the model at start, instead of during inference, with `modal.enter`,
 # which requires that we use a Modal [`Cls`](https://modal.com/docs/guide/lifecycle-functions)
 # - In the `app.cls` decorator, we specify the Image we built and attach the Volume.
