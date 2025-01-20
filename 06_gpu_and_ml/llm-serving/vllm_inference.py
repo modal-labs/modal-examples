@@ -1,8 +1,6 @@
 # ---
-# deploy: true
 # cmd: ["modal", "serve", "06_gpu_and_ml/llm-serving/vllm_inference.py"]
 # pytest: false
-# tags: ["use-case-lm-inference", "featured"]
 # ---
 
 # # Run an OpenAI-Compatible vLLM Server
@@ -34,7 +32,7 @@
 import modal
 
 vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "vllm==0.6.3post1", "fastapi[standard]==0.115.4"
+    "vllm==v0.6.6.post1", "fastapi[standard]==0.115.4"
 )
 
 # ## Download the model weights
@@ -47,8 +45,8 @@ vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 # [here](https://neuralmagic.com/blog/introducing-machete-a-mixed-input-gemm-kernel-optimized-for-nvidia-hopper-gpus/).
 
 MODELS_DIR = "/llamas"
-MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
-MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
+MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+MODEL_REVISION = "07a264a567ba0863a4ab34fdb3c2b8a54e0bb494"
 
 # We need to make the weights of that model available to our Modal Functions.
 
@@ -80,9 +78,9 @@ except modal.exception.NotFoundError:
 # After attaching that engine to the FastAPI app via the `api_server` module of the vLLM library, we return the FastAPI app
 # so it can be served on Modal.
 
-app = modal.App("example-vllm-openai-compatible")
+app = modal.App("deepseek-r1")
 
-N_GPU = 1  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
+N_GPU = 2  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
 TOKEN = "super-secret-token"  # auth token. for production use, replace with a modal.Secret
 
 MINUTES = 60  # seconds
@@ -96,6 +94,7 @@ HOURS = 60 * MINUTES
     timeout=24 * HOURS,
     allow_concurrent_inputs=1000,
     volumes={MODELS_DIR: volume},
+    keep_warm=1,
 )
 @modal.asgi_app()
 def serve():
@@ -179,6 +178,7 @@ def serve():
         lora_modules=[],
         prompt_adapters=[],
         request_logger=request_logger,
+        chat_template_content_format="raw",
     )
     api_server.completion = lambda s: OpenAIServingCompletion(
         engine,

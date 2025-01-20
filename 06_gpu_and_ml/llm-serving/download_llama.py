@@ -1,12 +1,13 @@
 # ---
 # args: ["--force-download"]
 # ---
+
 import modal
 
 MODELS_DIR = "/llamas"
 
-DEFAULT_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
-DEFAULT_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
+DEFAULT_NAME = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+DEFAULT_REVISION = "07a264a567ba0863a4ab34fdb3c2b8a54e0bb494"
 
 volume = modal.Volume.from_name("llamas", create_if_missing=True)
 
