@@ -13,7 +13,7 @@
 # [`@asgi_app`](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
 
 # As our example service, we hit a simple free API:
-# the [Free Public API API](https://www.freepublicapis.com/api),
+# the [Free Public APIs API](https://www.freepublicapis.com/api),
 # a directory of free public APIs.
 
 # [Try it out on Discord](https://discord.gg/PmG7P47EPQ)!
