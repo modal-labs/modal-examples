@@ -12,9 +12,9 @@
 # to run that service and deploy it easily  Modal’s
 # [`@asgi_app`](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
 
-# As our example service, we hit a simple API:
-# the [Bored API](https://bored-api.appbrewery.com/),
-# which suggests activities to do if you're bored.
+# As our example service, we hit a simple free API:
+# the [Free Public API API](https://www.freepublicapis.com/api),
+# a directory of free public APIs.
 
 # [Try it out on Discord](https://discord.gg/PmG7P47EPQ)!
 
@@ -37,7 +37,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 app = modal.App("example-discord-bot", image=image)
 
-# ## Hit the Bored API
+# ## Hit the Free Public API API
 
 # We start by defining the core service that our bot will provide.
 
@@ -45,10 +45,12 @@ app = modal.App("example-discord-bot", image=image)
 # a [chatbot](https://modal.com/docs/examples/chat_with_pdf_vision),
 # or [interactiving with a database](https://modal.com/docs/examples/covid_datasette).
 
-# Here, we just hit a simple API: the [Bored API](https://bored-api.appbrewery.com/),
-# which suggests activities to help you pass the time,
-# like "play a harmless prank on your friends" or "learn Express.js".
-# We convert this suggestion into a Markdown-formatted message.
+# Here, we just hit a simple free public API:
+# the [Free Public API](https://www.freepublicapis.com) API,
+# an "API of APIs" that returns information about free public APIs,
+# like the [Global Shark Attack API](https://www.freepublicapis.com/global-shark-attack-api)
+# and the [Corporate Bullshit Generator](https://www.freepublicapis.com/corporate-bullshit-generator).
+# We convert the response into a Markdown-formatted message.
 
 # We turn our Python function into a Modal Function by attaching the `app.function` decorator.
 # We make the function `async` and set `allow_concurrent_inputs` to a large value because
@@ -57,17 +59,18 @@ app = modal.App("example-discord-bot", image=image)
 
 
 @app.function(allow_concurrent_inputs=1000)
-async def fetch_activity() -> str:
+async def fetch_api() -> str:
     import aiohttp
 
-    url = "https://bored-api.appbrewery.com/random"
+    url = "https://www.freepublicapis.com/api/random"
 
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url) as response:
                 response.raise_for_status()
                 data = await response.json()
-                message = f"# 🤖: Bored? You should _{data['activity']}_."
+                message = f"# {data.get('emoji') or '🤖'} [{data['title']}]({data['source']})"
+                message += f"\n _{''.join(data['description'].splitlines())}_"
         except Exception as e:
             message = f"# 🤖: Oops! {e}"
 
@@ -85,9 +88,9 @@ async def fetch_activity() -> str:
 
 
 @app.local_entrypoint()
-def test_fetch_activity():
-    result = fetch_activity.remote()
-    if "Oops!" in result:
+def test_fetch_api():
+    result = fetch_api.remote()
+    if result.startswith("# 🤖: Oops! "):
         raise Exception(result)
     else:
         print(result)
@@ -117,17 +120,17 @@ async def send_to_discord(payload: dict, app_id: str, interaction_token: str):
             print("🤖 Discord response: " + await resp.text())
 
 
-# Other parts of our application might want to both hit the BoredAPI and send the result to Discord,
+# Other parts of our application might want to both hit the Free Public API API and send the result to Discord,
 # so we both write a Python function for this and we promote it to a Modal Function with a decorator.
 
-# Notice that we use the `.local` suffix to call our `fetch_activity` Function. That means we run
+# Notice that we use the `.local` suffix to call our `fetch_api` Function. That means we run
 # the Function the same way we run all the other Python functions, rather than treating it as a special
 # Modal Function. This reduces a bit of extra latency, but couples these two Functions more tightly.
 
 
 @app.function(allow_concurrent_inputs=1000)
 async def reply(app_id: str, interaction_token: str):
-    message = await fetch_activity.local()
+    message = await fetch_api.local()
     await send_to_discord({"content": message}, app_id, interaction_token)
 
 
@@ -193,8 +196,8 @@ def create_slash_command(force: bool = False):
     url = f"https://discord.com/api/v10/applications/{CLIENT_ID}/commands"
 
     command_description = {
-        "name": "bored",
-        "description": "Run this command when you are bored and we'll tell you what to do",
+        "name": "api",
+        "description": "Information about a random free, public API",
     }
 
     # first, check if the command already exists
@@ -275,8 +278,8 @@ def web_app():
         allow_headers=["*"],
     )
 
-    @web_app.post("/bored")
-    async def get_bored_api(request: Request):
+    @web_app.post("/api")
+    async def get_api(request: Request):
         body = await request.body()
 
         # confirm this is a request from Discord
@@ -370,14 +373,14 @@ class DiscordResponseType(Enum):
 # You can deploy this app on Modal by running the following commands:
 
 # ``` shell
-# modal run discord_bot.py  # checks the BoredAPI wrapper, little test
+# modal run discord_bot.py  # checks the API wrapper, little test
 # modal run discord_bot.py::create_slash_command  # creates the slash command, if missing
-# modal deploy discord_bot.py  # deploys the web app and the BoredAPI wrapper
+# modal deploy discord_bot.py  # deploys the web app and the API wrapper
 # ```
 
 # Copy the Modal URL that is printed in the output and go back to the **General Information** section on the
 # [Discord Developer Portal](https://discord.com/developers/applications).
-# Paste the URL, making sure to append the path of your `POST` route (`/bored`), in the
+# Paste the URL, making sure to append the path of your `POST` route (here, `/api`), in the
 # **Interactions Endpoint URL** field, then click **Save Changes**. If your
 # endpoint URL is incorrect or if authentication is incorrectly implemented,
 # Discord will refuse to save the URL. Once it saves, you can start
@@ -390,5 +393,5 @@ class DiscordResponseType(Enum):
 # [Discord Developer Portal](https://discord.com/developers/applications).
 # Copy the **Discored Provided Link** and visit it to invite the bot to your bot to the server.
 
-# Now you can open your Discord server and type `/bored` in a channel to trigger the bot.
+# Now you can open your Discord server and type `/api` in a channel to trigger the bot.
 # You can see a working version [in our test Discord server](https://discord.gg/PmG7P47EPQ).
