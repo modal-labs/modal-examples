@@ -55,7 +55,7 @@ app = modal.App(
 
 retriever = None  # embedding index that's relatively expensive to compute, so caching with global var.
 
-# ## Scraping the speech from whitehouse.gov
+# ## Scraping the speech
 
 # It's super easy to scrape the transcipt of Biden's speech using `httpx` and `BeautifulSoup`.
 # This speech is just one document and it's relatively short, but it's enough to demonstrate
@@ -66,7 +66,7 @@ def scrape_state_of_the_union() -> str:
     import httpx
     from bs4 import BeautifulSoup
 
-    url = "https://www.whitehouse.gov/state-of-the-union-2022/"
+    url = "https://www.presidency.ucsb.edu/documents/address-before-joint-session-the-congress-the-state-the-union-28"
 
     # fetch article; simulate desktop browser
     headers = {
@@ -75,16 +75,17 @@ def scrape_state_of_the_union() -> str:
     response = httpx.get(url, headers=headers)
     soup = BeautifulSoup(response.text, "lxml")
 
-    # get all text paragraphs & construct string of article text
-    speech_text = ""
-    speech_section = soup.find_all(
-        "div", {"class": "sotu-annotations__content"}
-    )
-    if speech_section:
-        paragraph_tags = speech_section[0].find_all("p")
-        speech_text = "".join([p.get_text() for p in paragraph_tags])
+    # locate the div containing the speech
+    speech_div = soup.find("div", class_="field-docs-content")
 
-    return speech_text.replace("\t", "")
+    if speech_div:
+        speech_text = speech_div.get_text(separator="\n", strip=True)
+        if not speech_text:
+            raise ValueError("error parsing speech text from HTML")
+    else:
+        raise ValueError("error locating speech in HTML")
+
+    return speech_text
 
 
 # ## Constructing the Q&A chain
