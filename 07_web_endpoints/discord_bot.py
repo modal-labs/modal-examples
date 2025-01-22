@@ -13,7 +13,7 @@
 # [`@asgi_app`](https://modal.com/docs/guide/webhooks#serving-asgi-and-wsgi-apps) decorator.
 
 # As our example service, we hit a simple free API:
-# the [Free Public API API](https://www.freepublicapis.com/api),
+# the [Free Public APIs API](https://www.freepublicapis.com/api),
 # a directory of free public APIs.
 
 # [Try it out on Discord](https://discord.gg/PmG7P47EPQ)!
@@ -37,16 +37,16 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 app = modal.App("example-discord-bot", image=image)
 
-# ## Hit the Free Public API API
+# ## Hit the Free Public APIs API
 
 # We start by defining the core service that our bot will provide.
 
 # In a real application, this might be [music generation](https://modal.com/docs/examples/musicgen),
 # a [chatbot](https://modal.com/docs/examples/chat_with_pdf_vision),
-# or [interactiving with a database](https://modal.com/docs/examples/covid_datasette).
+# or [interacting with a database](https://modal.com/docs/examples/covid_datasette).
 
 # Here, we just hit a simple free public API:
-# the [Free Public API](https://www.freepublicapis.com) API,
+# the [Free Public APIs](https://www.freepublicapis.com) API,
 # an "API of APIs" that returns information about free public APIs,
 # like the [Global Shark Attack API](https://www.freepublicapis.com/global-shark-attack-api)
 # and the [Corporate Bullshit Generator](https://www.freepublicapis.com/corporate-bullshit-generator).
@@ -120,7 +120,7 @@ async def send_to_discord(payload: dict, app_id: str, interaction_token: str):
             print("🤖 Discord response: " + await resp.text())
 
 
-# Other parts of our application might want to both hit the Free Public API API and send the result to Discord,
+# Other parts of our application might want to both hit the Free Public APIs API and send the result to Discord,
 # so we both write a Python function for this and we promote it to a Modal Function with a decorator.
 
 # Notice that we use the `.local` suffix to call our `fetch_api` Function. That means we run
