@@ -74,7 +74,7 @@ CONFIG = {
             "lvl1": "article h1",
             "lvl2": "article h2",
             "lvl3": "article h3",
-            "text": "article p,article ol,article ul,article pre",
+            "text": "article p,article ol,article ul,article pre,article code",
         },
         "examples": {
             "lvl0": {
@@ -82,7 +82,7 @@ CONFIG = {
                 "global": True,
             },
             "lvl1": "article h1",
-            "text": "article p,article ol,article ul,article pre",
+            "text": "article p,article ol,article ul,article pre,article code",
         },
         "reference": {
             "lvl0": {
