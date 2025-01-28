@@ -378,8 +378,8 @@ def stream_output(stream, queue, write_stream):
 def collect_output(process):
     """Collect up the stdout and stderr of a process while still streaming it out."""
     import sys
-    from threading import Thread
     from queue import Queue
+    from threading import Thread
 
     stdout_queue = Queue()
     stderr_queue = Queue()
