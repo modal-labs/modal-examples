@@ -117,10 +117,10 @@ def main(
 # modal run llama_cpp.py
 # ```
 
-# To try out DeepSeek-R1, use the `--model` argument:
+# To try out Phi-4 instead, use the `--model` argument:
 
 # ```bash
-# modal run llama_cpp.py --model="DeepSeek-R1"
+# modal run llama_cpp.py --model="phi-4"
 # ```
 
 # Note that this will run for up to 30 minutes, which costs ~$5.
