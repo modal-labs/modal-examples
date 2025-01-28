@@ -145,7 +145,7 @@ def parse_receipt(image: bytes) -> str:
 # from another Python process and submit tasks to it:
 
 # ```python
-# fn = modal.Function.lookup("example-doc-ocr-jobs", "parse_receipt")
+# fn = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
 # fn.spawn(my_image)
 # ```
 
