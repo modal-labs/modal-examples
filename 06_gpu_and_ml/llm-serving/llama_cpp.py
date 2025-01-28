@@ -295,6 +295,7 @@ def llama_cpp_inference(
 
     if prompt is None:
         prompt = DEFAULT_PROMPT  # see end of file
+    prompt = "<｜User｜>" + prompt + "<|Assistant|>"
     if args is None:
         args = []
 
@@ -316,6 +317,8 @@ def llama_cpp_inference(
         str(n_gpu_layers),
         "--prompt",
         prompt,
+        "--n-predict",
+        str(n_predict),
     ] + args
 
     print("🦙 running commmand:", command, sep="\n\t")
