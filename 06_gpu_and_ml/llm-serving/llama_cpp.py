@@ -295,6 +295,7 @@ def llama_cpp_inference(
 
     if prompt is None:
         prompt = DEFAULT_PROMPT  # see end of file
+    prompt = "<｜User｜>" + prompt + "<|Assistant|>"
     if args is None:
         args = []
 
@@ -316,6 +317,8 @@ def llama_cpp_inference(
         str(n_gpu_layers),
         "--prompt",
         prompt,
+        "--n-predict",
+        str(n_predict),
     ] + args
 
     print("🦙 running commmand:", command, sep="\n\t")
@@ -378,8 +381,8 @@ def stream_output(stream, queue, write_stream):
 def collect_output(process):
     """Collect up the stdout and stderr of a process while still streaming it out."""
     import sys
-    from threading import Thread
     from queue import Queue
+    from threading import Thread
 
     stdout_queue = Queue()
     stderr_queue = Queue()
