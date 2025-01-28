@@ -123,8 +123,10 @@ def main(
 # modal run llama_cpp.py --model="DeepSeek-R1"
 # ```
 
-# Note that this will run for up to 30 minutes,
-# which costs ~$10 (a reasonable fraction of the free compute included monthly with Modal).
+# Note that this will run for up to 30 minutes, which costs ~$5.
+# To allow it to proceed even if your local terminal fails,
+# add the `--detach` flag after `modal run`.
+# See below for details on getting the outputs.
 
 # You can pass prompts with the `--prompt` argument and set the maximum number of tokens
 # with the `--n-predict` argument.
@@ -251,6 +253,30 @@ def download_model(repo_id, allow_patterns, revision: str = None):
 
 results = modal.Volume.from_name("llamacpp-results", create_if_missing=True)
 results_dir = "/root/results"
+
+# You can retrieve the results later in a number of ways.
+
+# You can use the Volume CLI:
+
+# ```bash
+# modal volume ls llamacpp-results
+# ```
+
+# You can attach the Volume to a Modal `shell`
+# to poke around in a familiar terminal environment:
+
+# ```bash
+# modal shell --volume llamacpp-results
+# # then cd into /mnt
+# ```
+
+# Or you can access it from any other Python environment
+# by using the same `modal.Volume` call as above to instantiate it:
+
+# ```python
+# results = modal.Volume.from_name("llamacpp-results")
+# print(dir(results))  # show methods
+# ```
 
 # ## Running llama.cpp as a Modal Function
 
