@@ -29,8 +29,8 @@ import modal
 # even when [quantized down to one ternary digit (1.58 bits)](https://unsloth.ai/blog/deepseekr1-dynamic)
 # per parameter.
 
-# To make sure we have enough room for it and its activations/KV cache, we select four H100s,
-# which together have 320 GB of memory.
+# To make sure we have enough room for it and its activations/KV cache,
+# we select four L40S GPUs, which together have 192 GB of memory.
 
 # [Phi-4](https://huggingface.co/microsoft/phi-4),
 # on the other hand, is a svelte 14B total parameters,
@@ -40,7 +40,7 @@ import modal
 # That's small enough that it can be comfortably run on a CPU,
 # especially for a single-user setup like the one we'll build here.
 
-GPU_CONFIG = "H100:4"  # for DeepSeek-R1, literal `None` for phi-4
+GPU_CONFIG = "L40S:4"  # for DeepSeek-R1, literal `None` for phi-4
 
 # ## Calling a Modal Function from the command line
 
@@ -242,8 +242,7 @@ def download_model(repo_id, allow_patterns, revision: str = None):
 
 # Contemporary large reasoning models are slow --
 # for the sample "flappy bird" prompt we provide,
-# results are produced in about twenty or thirty minutes
-# using four H100s.
+# results are sometimes produced only after several (or even tens of) minutes.
 
 # That makes their outputs worth storing.
 # In addition to sending them back to clients,
@@ -295,7 +294,7 @@ def llama_cpp_inference(
 
     if prompt is None:
         prompt = DEFAULT_PROMPT  # see end of file
-    prompt = "<｜User｜>" + prompt + "<|Assistant|>"
+    prompt = "<｜User｜>" + prompt + "<think>"
     if args is None:
         args = []
 
