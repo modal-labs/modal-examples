@@ -100,9 +100,9 @@ def dbt_run() -> None:
 
     # Remember to either deploy the llama dependency app in your environment
     # first, or change this to use another web endpoint you have:
-    ref = modal.Function.lookup(
+    ref = modal.Function.from_name(
         "example-trtllm-Meta-Llama-3-8B-Instruct", "generate_web"
-    )
+    ).hydrate()
 
     res = dbtRunner().invoke(
         ["run", "--vars", f"{{'inference_url': '{ref.web_url}'}}"]
