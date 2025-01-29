@@ -2,7 +2,7 @@
 # args: ["--n-predict", "1024"]
 # ---
 
-# # Run large (and small) language models with llama.cpp
+# # Run large and small language models with llama.cpp (DeepSeek-R1, Phi-4)
 
 # This example demonstrate how to run small (Phi-4) and large (DeepSeek-R1)
 # language models on Modal with [`llama.cpp`](https://github.com/ggerganov/llama.cpp).
