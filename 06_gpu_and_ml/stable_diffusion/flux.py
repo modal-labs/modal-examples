@@ -57,7 +57,7 @@ flux_image = (
         f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
         "numpy<2",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE_DIR": "/cache"})
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": "/cache"})
 )
 
 # Later, we'll also use `torch.compile` to increase the speed further.

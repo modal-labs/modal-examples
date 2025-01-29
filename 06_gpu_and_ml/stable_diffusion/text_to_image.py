@@ -58,7 +58,7 @@ image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
-            "HF_HUB_CACHE_DIR": CACHE_DIR,
+            "HF_HUB_CACHE": CACHE_DIR,
         }
     )
 )

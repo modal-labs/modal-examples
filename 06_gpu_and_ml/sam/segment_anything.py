@@ -62,7 +62,7 @@ cache_dir = "/cache"
 
 
 @app.cls(
-    image=image.env({"HF_HUB_CACHE_DIR": cache_dir}),
+    image=image.env({"HF_HUB_CACHE": cache_dir}),
     volumes={"/root/videos": video_vol, cache_dir: cache_vol},
     gpu="A100",
 )
