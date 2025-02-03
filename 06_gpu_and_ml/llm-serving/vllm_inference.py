@@ -32,7 +32,13 @@
 import modal
 
 vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "vllm==0.6.3post1", "fastapi[standard]==0.115.4"
+    "vllm==0.7.0", "fastapi[standard]==0.115.4"
+).env(
+    {
+        # Enable VLLM v1, a major upgrade to vLLM scheduling and memory management.
+        # See the [v1 alpha release notes](https://blog.vllm.ai/2025/01/27/v1-alpha-release.html) for more details.
+        "VLLM_USE_V1": "1",
+    }
 )
 
 # ## Download the model weights
@@ -106,7 +112,7 @@ def serve():
     from vllm.entrypoints.openai.serving_completion import (
         OpenAIServingCompletion,
     )
-    from vllm.entrypoints.openai.serving_engine import BaseModelPath
+    from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
     from vllm.usage.usage_lib import UsageContext
 
     volume.reload()  # ensure we have the latest version of the weights
@@ -152,6 +158,8 @@ def serve():
         model=MODELS_DIR + "/" + MODEL_NAME,
         tensor_parallel_size=N_GPU,
         gpu_memory_utilization=0.90,
+        enable_prefix_caching=True,
+        enable_chunked_prefill=True,
         max_model_len=8096,
         enforce_eager=False,  # capture the graph for faster inference, but slower cold starts (30s > 20s)
     )
@@ -168,22 +176,27 @@ def serve():
         BaseModelPath(name=MODEL_NAME.split("/")[1], model_path=MODEL_NAME)
     ]
 
+    models=OpenAIServingModels(
+        base_model_paths=base_model_paths,
+        engine_client=engine,
+        model_config=model_config,
+        lora_modules=[],
+        prompt_adapters=[],
+    )
+
     api_server.chat = lambda s: OpenAIServingChat(
         engine,
         model_config=model_config,
-        base_model_paths=base_model_paths,
+        models=models,
         chat_template=None,
+        chat_template_content_format="string",
         response_role="assistant",
-        lora_modules=[],
-        prompt_adapters=[],
         request_logger=request_logger,
     )
     api_server.completion = lambda s: OpenAIServingCompletion(
         engine,
         model_config=model_config,
-        base_model_paths=base_model_paths,
-        lora_modules=[],
-        prompt_adapters=[],
+        models=models,
         request_logger=request_logger,
     )
 
