@@ -61,7 +61,7 @@ def init_Fooocus():
     )
 
 
-GPU_CONFIG = modal.gpu.T4()
+GPU_CONFIG = "T4"
 image = image.run_function(init_Fooocus, gpu=GPU_CONFIG)
 
 # ## Run Fooocus

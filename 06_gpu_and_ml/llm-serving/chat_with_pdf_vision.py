@@ -158,7 +158,7 @@ def download_model():
 
 @app.cls(
     image=model_image,
-    gpu=modal.gpu.A100(size="80GB"),
+    gpu="A100-80GB",
     container_idle_timeout=10 * MINUTES,  # spin down when inactive
     volumes={"/vol/pdfs/": pdf_volume, CACHE_DIR: cache_volume},
 )

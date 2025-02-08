@@ -111,7 +111,7 @@ cache_vol = modal.Volume.from_name("hf-hub-cache")
 
 @app.cls(
     image=trellis_image.env({"HF_HUB_CACHE_DIR": cache_dir}),
-    gpu=modal.gpu.L4(count=1),
+    gpu="L4",
     timeout=1 * HOURS,
     container_idle_timeout=1 * MINUTES,
     volumes={cache_dir: cache_vol},

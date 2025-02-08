@@ -7,7 +7,7 @@ import modal
 # We first set out configuration variables for our script.
 ## Embedding Containers Configuration
 GPU_CONCURRENCY = 100
-GPU_CONFIG = modal.gpu.A10G()
+GPU_CONFIG = "A10G"
 MODEL_ID = "BAAI/bge-small-en-v1.5"
 MODEL_SLUG = MODEL_ID.split("/")[-1]
 BATCH_SIZE = 512

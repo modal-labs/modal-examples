@@ -154,7 +154,7 @@ CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/
 # about two quadrillion per second on an H100 SXM.
 
 N_GPUS = 1  # Heads up: this example has not yet been tested with multiple GPUs
-GPU_CONFIG = modal.gpu.H100(count=N_GPUS)
+GPU_CONFIG = f"H100:{N_GPUS}"
 
 DTYPE = "float16"  # format we download in, regular fp16
 QFORMAT = "fp8"  # format we quantize the weights to

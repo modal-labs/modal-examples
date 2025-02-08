@@ -53,6 +53,7 @@ n_nodes = 4
 # while `nproc_per_node` is `torch.distributed` configuration ("how many processes should we spawn for you?").
 
 n_proc_per_node = N_GPU = 1
+GPU_CONFIG = f"H100:{N_GPU}"
 
 # Lastly, we need to select our communications library: the software that will handle
 # sending messages between nodes in our cluster.
@@ -92,7 +93,7 @@ backend = "nccl"  # or "gloo" on CPU, see https://pytorch.org/docs/stable/distri
 # ```
 
 
-@app.function(gpu=modal.gpu.H100(count=N_GPU))
+@app.function(gpu=GPU_CONFIG)
 @modal.experimental.clustered(size=n_nodes)
 def dist_run_script(additional_args: str = ""):
     import shlex

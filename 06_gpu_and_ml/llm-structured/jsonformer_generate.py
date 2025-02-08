@@ -58,7 +58,7 @@ app = modal.App("example-jsonformer")
 # The generate function takes two arguments `prompt` and `json_schema`, where
 # `prompt` is used to describe the domain of your data (for example, "plants")
 # and the schema contains the JSON schema you want to populate.
-@app.function(gpu=modal.gpu.A10G(), image=image)
+@app.function(gpu="A10G", image=image)
 def generate(prompt: str, json_schema: dict[str, Any]) -> dict[str, Any]:
     from jsonformer import Jsonformer
     from transformers import AutoModelForCausalLM, AutoTokenizer

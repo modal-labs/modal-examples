@@ -133,7 +133,7 @@ def download_model(revision="83359d26a7e2bbe200ecbfda8ebff850fd03b545"):
         OUTPUTS_PATH: outputs,  # videos will be saved to a distributed volume
         MODEL_PATH: model,
     },
-    gpu=modal.gpu.H100(count=1),
+    gpu="H100",
     timeout=1 * HOURS,
 )
 class Mochi:
