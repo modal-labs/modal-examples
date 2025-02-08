@@ -165,25 +165,6 @@ def download_model(repo_id, allow_patterns, revision: str = None):
     print("🦙 model loaded")
 
 
-def get_model_config(engine):
-    import asyncio
-
-    try:  # adapted from vLLM source -- https://github.com/vllm-project/vllm/blob/507ef787d85dec24490069ffceacbd6b161f4f72/vllm/entrypoints/openai/api_server.py#L235C1-L247C1
-        event_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        event_loop = None
-
-    if event_loop is not None and event_loop.is_running():
-        # If the current is instanced by Ray Serve,
-        # there is already a running event loop
-        model_config = event_loop.run_until_complete(engine.get_model_config())
-    else:
-        # When using single vLLM without engine_use_ray
-        model_config = asyncio.run(engine.get_model_config())
-
-    return model_config
-
-
 # For more on how to use Modal Volumes to store model weights,
 # see [this guide](https://modal.com/docs/guide/model-weights).
 N_GPU = 5
