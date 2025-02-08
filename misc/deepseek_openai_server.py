@@ -55,10 +55,10 @@
 
 from __future__ import annotations
 
-# Standard library imports
-from pathlib import Path
 import glob
 import subprocess
+# Standard library imports
+from pathlib import Path
 
 # Third-party imports
 import modal
@@ -186,7 +186,7 @@ def serve():
     from fastapi import HTTPException, Security
     from fastapi.security import APIKeyHeader
     from llama_cpp.server.app import create_app
-    from llama_cpp.server.settings import ServerSettings, ModelSettings
+    from llama_cpp.server.settings import ModelSettings, ServerSettings
 
     # Create API key header schema
     api_key_header = APIKeyHeader(name="X-API-Key")
