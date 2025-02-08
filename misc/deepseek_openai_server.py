@@ -186,19 +186,8 @@ MODELS_DIR = "/deepseek"
 )
 @modal.asgi_app()
 def serve():
-    from fastapi import HTTPException, Security
-    from fastapi.security import APIKeyHeader
     from llama_cpp.server.app import create_app
     from llama_cpp.server.settings import ModelSettings, ServerSettings
-
-    # Create API key header schema
-    api_key_header = APIKeyHeader(name="X-API-Key")
-
-    # Authentication dependency
-    async def get_api_key(api_key: str = Security(api_key_header)):
-        if api_key != TOKEN:
-            raise HTTPException(status_code=401, detail="Invalid API Key")
-        return api_key
 
     org_name = "unsloth"
     model_name = "DeepSeek-R1"
