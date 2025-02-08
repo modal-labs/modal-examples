@@ -56,10 +56,12 @@
 from __future__ import annotations
 
 # Standard library imports
-import modal
-import glob
 from pathlib import Path
+import glob
 import subprocess
+
+# Third-party imports
+import modal
 
 # ## Calling a Modal Function from the command line
 
@@ -181,8 +183,6 @@ MODELS_DIR = "/deepseek"
 )
 @modal.asgi_app()
 def serve():
-    import fastapi
-    import os
     from fastapi import HTTPException, Security
     from fastapi.security import APIKeyHeader
     from llama_cpp.server.app import create_app
