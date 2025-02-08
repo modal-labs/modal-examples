@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import glob
 import subprocess
+
 # Standard library imports
 from pathlib import Path
 
@@ -98,7 +99,7 @@ vllm_image = (
         "libcurl4-openssl-dev",
         "libopenblas-dev",
         "libomp-dev",
-        "clang"
+        "clang",
     )
     # Set compiler environment variables
     .run_commands(
@@ -107,25 +108,27 @@ vllm_image = (
         "git clone https://github.com/ggerganov/llama.cpp && "
         "cmake llama.cpp -B llama.cpp/build -DBUILD_SHARED_LIBS=OFF -DGGML_CUDA=ON -DLLAMA_CURL=ON && "
         "cmake --build llama.cpp/build --config Release -j --clean-first --target llama-quantize llama-cli llama-gguf-split && "
-        "cp llama.cpp/build/bin/llama-* llama.cpp"
+        "cp llama.cpp/build/bin/llama-* llama.cpp",
     )
     # Install all Python dependencies at once
-    .pip_install([
-        "fastapi",
-        "sse_starlette",
-        "pydantic",
-        "uvicorn[standard]",
-        "python-multipart",
-        "starlette-context",
-        "pydantic-settings",
-        "ninja",
-        "packaging",
-        "wheel",
-        "torch"
-    ])
+    .pip_install(
+        [
+            "fastapi",
+            "sse_starlette",
+            "pydantic",
+            "uvicorn[standard]",
+            "python-multipart",
+            "starlette-context",
+            "pydantic-settings",
+            "ninja",
+            "packaging",
+            "wheel",
+            "torch",
+        ]
+    )
     .run_commands(
-        "CMAKE_ARGS=\"-DGGML_CUDA=on\" pip install llama-cpp-python",
-        gpu=modal.gpu.A10G(count=1)
+        'CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python',
+        gpu=modal.gpu.A10G(count=1),
     )
     .entrypoint([])  # remove NVIDIA base container entrypoint
 )
@@ -179,7 +182,7 @@ MODELS_DIR = "/deepseek"
     container_idle_timeout=5 * MINUTES,
     timeout=15 * MINUTES,
     volumes={MODELS_DIR: model_cache},
-    concurrency_limit=1
+    concurrency_limit=1,
 )
 @modal.asgi_app()
 def serve():
@@ -194,10 +197,7 @@ def serve():
     # Authentication dependency
     async def get_api_key(api_key: str = Security(api_key_header)):
         if api_key != TOKEN:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid API Key"
-            )
+            raise HTTPException(status_code=401, detail="Invalid API Key")
         return api_key
 
     org_name = "unsloth"
@@ -208,8 +208,9 @@ def serve():
     download_model.remote(repo_id, [model_pattern])
     model_cache.reload()  # ensure we have the latest version of the weights
 
-
-    model_entrypoint_file = f"{model_name}-{quant}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+    model_entrypoint_file = (
+        f"{model_name}-{quant}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+    )
     model_path = MODELS_DIR + "/" + model_entrypoint_file
     # Find and merge GGUF files
     model_dir = f"{MODELS_DIR}/{model_name}-{quant}"
@@ -219,32 +220,38 @@ def serve():
         output_file = f"{model_dir}/{model_name}-{quant}-merged.gguf"
         if not Path(output_file).exists():
             print(f"🔄 Merging GGUF files to {output_file}")
-            merge_command = ["/llama.cpp/llama-gguf-split", "--merge"] + [gguf_files[0]] + [output_file]
+            merge_command = (
+                ["/llama.cpp/llama-gguf-split", "--merge"]
+                + [gguf_files[0]]
+                + [output_file]
+            )
             print(f"Merging files with command: {' '.join(merge_command)}")
             subprocess.run(merge_command, check=True)
             print("🔄 GGUF files merged successfully")
         model_path = output_file
     else:
-        model_path = gguf_files[0] if gguf_files else f"{model_dir}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+        model_path = (
+            gguf_files[0]
+            if gguf_files
+            else f"{model_dir}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+        )
     model_cache.reload()  # ensure we have the latest version of the weights
     print(f"🔄 Using model path: {model_path}")
     # Create model settings directly
-    model_settings = [ModelSettings(
-        model=model_path,  # Replace with your model path
-        n_gpu_layers=-1,  # Use all GPU layers
-        n_ctx=8096*4,
-        n_batch=512,
-        n_threads=12,
-        verbose=True,
-        flash_attn=True
-    )]
+    model_settings = [
+        ModelSettings(
+            model=model_path,  # Replace with your model path
+            n_gpu_layers=-1,  # Use all GPU layers
+            n_ctx=8096 * 4,
+            n_batch=512,
+            n_threads=12,
+            verbose=True,
+            flash_attn=True,
+        )
+    ]
 
     # Create server settings
-    server_settings = ServerSettings(
-        host="0.0.0.0",
-        port=8000,
-        api_key=TOKEN
-    )
+    server_settings = ServerSettings(host="0.0.0.0", port=8000, api_key=TOKEN)
 
     # Create the llama.cpp app
     app = create_app(
