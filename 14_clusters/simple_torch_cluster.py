@@ -85,19 +85,17 @@ backend = "nccl"  # or "gloo" on CPU, see https://pytorch.org/docs/stable/distri
 
 # in your terminal.
 
-# In addition to the values set in code above, you can pass additional arguments to `torch.distributed.run` with
-# the `additional_args` parameter, like so:
+# In addition to the values set in code above, you can pass additional arguments to `torch.distributed.run`
+# via the command line:
 
 # ```bash
-# modal run simple_torch_cluster.py --additional-args "--max-restarts=1"
+# modal run simple_torch_cluster.py --max-restarts=1
 # ```
 
 
 @app.function(gpu=GPU_CONFIG)
 @modal.experimental.clustered(size=n_nodes)
-def dist_run_script(additional_args: str = ""):
-    import shlex
-
+def dist_run_script(*args):
     from torch.distributed.run import parse_args, run
 
     cluster_info = (  # we populate this data for you
@@ -126,7 +124,7 @@ def dist_run_script(additional_args: str = ""):
                 f"--nproc-per-node={n_proc_per_node}",
                 "--master_port=1234",
             ]
-            + shlex.split(additional_args)
+            + list(args)
             + ["/root/script.py", "--backend", backend]
         )
     )
