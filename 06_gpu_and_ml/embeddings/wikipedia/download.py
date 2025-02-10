@@ -27,7 +27,7 @@ def download_dataset():
     start = time.time()
     dataset = load_dataset(DATASET_NAME, DATASET_CONFIG, num_proc=6)
     end = time.time()
-    print(f"Download complete - downloaded files in {end-start}s")
+    print(f"Download complete - downloaded files in {end - start}s")
 
     dataset.save_to_disk(f"{DATASET_DIR}/{DATASET_NAME}")
     volume.commit()

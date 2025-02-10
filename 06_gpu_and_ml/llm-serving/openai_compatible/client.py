@@ -222,7 +222,7 @@ def main():
                 for i, response in enumerate(response.choices):
                     print(
                         Colors.BLUE
-                        + f"\n🤖 Choice {i+1}:{response.message.content}"
+                        + f"\n🤖 Choice {i + 1}:{response.message.content}"
                         + Colors.END,
                         sep="",
                     )

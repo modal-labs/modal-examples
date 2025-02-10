@@ -169,7 +169,7 @@ def train_model(
 
     L.basicConfig(
         level=L.INFO,
-        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank+1}] %(message)s\033[0m",
+        format=f"\033[0;32m%(asctime)s %(levelname)s [%(filename)s.%(funcName)s:%(lineno)d] [Node {node_rank + 1}] %(message)s\033[0m",
         datefmt="%b %d %H:%M:%S",
     )
 
@@ -336,7 +336,7 @@ def main(
         node_rank = result[0]
         results.append(result)
         print(
-            f"[Node {node_rank+1}/{n_nodes}] Finished."
+            f"[Node {node_rank + 1}/{n_nodes}] Finished."
             f" Early stop val loss result: {result[1:]}"
         )
 

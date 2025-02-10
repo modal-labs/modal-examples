@@ -97,7 +97,7 @@ def web():
                     <title>Face Counter Result</title>
                 </head>
                 <body>
-                    <h1>{inflect.engine().number_to_words(num_faces).title()} {'Face' if num_faces==1 else 'Faces'} Detected</h1>
+                    <h1>{inflect.engine().number_to_words(num_faces).title()} {"Face" if num_faces == 1 else "Faces"} Detected</h1>
                     <h2>{"😀" * num_faces}</h2>
                     <a href="/">Go back</a>
                 </body>

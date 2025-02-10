@@ -25,18 +25,18 @@ class ExampleType(int, Enum):
 class Example(BaseModel):
     type: ExampleType
     filename: str  # absolute filepath to example file
-    module: Optional[
-        str
-    ] = None  # python import path, or none if file is not a py module.
+    module: Optional[str] = (
+        None  # python import path, or none if file is not a py module.
+    )
     # TODO(erikbern): don't think the module is used (by docs or monitors)?
     metadata: Optional[dict] = None
     repo_filename: str  # git repo relative filepath
     cli_args: Optional[list] = None  # Full command line args to run it
     stem: Optional[str] = None  # stem of path
     tags: Optional[list[str]] = None  # metadata tags for the example
-    env: Optional[
-        dict[str, str]
-    ] = None  # environment variables for the example
+    env: Optional[dict[str, str]] = (
+        None  # environment variables for the example
+    )
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")

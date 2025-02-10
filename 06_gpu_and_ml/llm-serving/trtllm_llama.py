@@ -323,9 +323,9 @@ class Model:
                 repetition_penalty=1.1,
             )
 
-        settings[
-            "max_new_tokens"
-        ] = MAX_OUTPUT_LEN  # exceeding this will raise an error
+        settings["max_new_tokens"] = (
+            MAX_OUTPUT_LEN  # exceeding this will raise an error
+        )
         settings["end_id"] = self.end_id
         settings["pad_id"] = self.pad_id
 

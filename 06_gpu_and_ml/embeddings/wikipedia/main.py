@@ -181,7 +181,7 @@ def load_dataset_from_disk(down_scale: float = 0.01):
     # Load the dataset as a Hugging Face dataset
     print(f"Loading dataset from {DATASET_DIR}/wikipedia")
     dataset = load_from_disk(f"{DATASET_DIR}/wikipedia")
-    print(f"Dataset loaded in {time.perf_counter()-start:.2f} seconds")
+    print(f"Dataset loaded in {time.perf_counter() - start:.2f} seconds")
 
     # Extract the total size of the dataset
     ttl_size = len(dataset["train"])
@@ -254,7 +254,7 @@ def upload_result_to_hf(batch_size: int) -> None:
     )
 
     end = time.perf_counter()
-    print(f"Uploaded in {end-start}s")
+    print(f"Uploaded in {end - start}s")
 
 
 @app.function(
