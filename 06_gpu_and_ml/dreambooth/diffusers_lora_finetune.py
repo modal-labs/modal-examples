@@ -265,9 +265,7 @@ class TrainConfig(SharedConfig):
 
 @app.function(
     image=image,
-    gpu=modal.gpu.A100(  # fine-tuning is VRAM-heavy and requires a high-VRAM GPU
-        count=1, size="80GB"
-    ),
+    gpu="A100-80GB",  # fine-tuning is VRAM-heavy and requires a high-VRAM GPU
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
     secrets=[huggingface_secret]

@@ -89,7 +89,7 @@ def download_models():
     snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
 
 
-@app.cls(gpu=modal.gpu.A10G(), container_idle_timeout=240)
+@app.cls(gpu="A10G", container_idle_timeout=240)
 class Model:
     @modal.enter()
     def enter(self):

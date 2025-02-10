@@ -116,7 +116,7 @@ def download_dataset(config: DatasetConfig):
 MINUTES = 60
 
 TRAIN_GPU_COUNT = 1
-TRAIN_GPU = modal.gpu.A100(count=TRAIN_GPU_COUNT)
+TRAIN_GPU = f"A100:{TRAIN_GPU_COUNT}"
 TRAIN_CPU_COUNT = 4
 
 
