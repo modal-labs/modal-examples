@@ -27,14 +27,14 @@ app = modal.App("example-schedule-simple")
 @app.function(schedule=modal.Period(seconds=5))
 def print_time_1():
     print(
-        f'Printing with period 5 seconds: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
+        f"Printing with period 5 seconds: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}"
     )
 
 
 @app.function(schedule=modal.Cron("* * * * *"))
 def print_time_2():
     print(
-        f'Printing with cron every minute: {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
+        f"Printing with cron every minute: {datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}"
     )
 
 

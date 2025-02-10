@@ -44,7 +44,7 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
             statvfs = os.statvfs("/")
             free_space = statvfs.f_frsize * statvfs.f_bavail
             print(
-                f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB",
+                f"{task_id} free disk space: {free_space / (1024**3):.2f} GB",
                 file=sys.stderr,
             )
             time.sleep(interval)

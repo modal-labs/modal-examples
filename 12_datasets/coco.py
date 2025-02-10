@@ -45,7 +45,7 @@ def start_monitoring_disk_space(interval: int = 120) -> None:
             statvfs = os.statvfs("/")
             free_space = statvfs.f_frsize * statvfs.f_bavail
             print(
-                f"{task_id} free disk space: {free_space / (1024 ** 3):.2f} GB",
+                f"{task_id} free disk space: {free_space / (1024**3):.2f} GB",
                 file=sys.stderr,
             )
             time.sleep(interval)
@@ -62,13 +62,16 @@ def extractall(fzip, dest, desc="Extracting"):
     from tqdm.utils import CallbackIOWrapper
 
     dest = pathlib.Path(dest).expanduser()
-    with zipfile.ZipFile(fzip) as zipf, tqdm(
-        desc=desc,
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        total=sum(getattr(i, "file_size", 0) for i in zipf.infolist()),
-    ) as pbar:
+    with (
+        zipfile.ZipFile(fzip) as zipf,
+        tqdm(
+            desc=desc,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            total=sum(getattr(i, "file_size", 0) for i in zipf.infolist()),
+        ) as pbar,
+    ):
         for i in zipf.infolist():
             if not getattr(i, "file_size", 0):  # directory
                 zipf.extract(i, os.fspath(dest))

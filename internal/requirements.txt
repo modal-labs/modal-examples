@@ -5,4 +5,4 @@ nbconvert
 jupytext~=1.16.1
 pydantic~=1.10.14
 mypy==1.2.0
-ruff==0.2.1
+ruff==0.9.6

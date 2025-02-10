@@ -106,8 +106,9 @@ class Model:
         labels = np.array([1] * len(points), np.int32)
 
         # run the model on GPU
-        with torch.inference_mode(), torch.autocast(
-            "cuda", dtype=torch.bfloat16
+        with (
+            torch.inference_mode(),
+            torch.autocast("cuda", dtype=torch.bfloat16),
         ):
             self.inference_state = self.video_predictor.init_state(
                 video_path=str(frames_dir)

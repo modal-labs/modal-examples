@@ -177,10 +177,10 @@ def entrypoint(
         start = time.time()
         images = inference_service.run.remote(prompt, batch_size, seed)
         duration = time.time() - start
-        print(f"Run {sample_idx+1} took {duration:.3f}s")
+        print(f"Run {sample_idx + 1} took {duration:.3f}s")
         if sample_idx:
             print(
-                f"\tGenerated {len(images)} image(s) at {(duration)/len(images):.3f}s / image."
+                f"\tGenerated {len(images)} image(s) at {(duration) / len(images):.3f}s / image."
             )
         for batch_idx, image_bytes in enumerate(images):
             output_path = (
