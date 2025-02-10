@@ -73,7 +73,7 @@ app = modal.App(image=image, name="example-falcon-bnb")
 # The rest is just using the [`pipeline`](https://huggingface.co/docs/transformers/en/main_classes/pipelines)
 # abstraction from the `transformers` library. Refer to the documentation for more parameters and tuning.
 @app.cls(
-    gpu=modal.gpu.A100(),  # Use A100s
+    gpu="A100",
     timeout=60 * 10,  # 10 minute timeout on inputs
     container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
 )

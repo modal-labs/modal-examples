@@ -14,7 +14,7 @@ from pathlib import Path
 
 import modal
 
-GPU_CONFIG = modal.gpu.A10G()
+GPU_CONFIG = "A10G"
 MODEL_ID = "BAAI/bge-base-en-v1.5"
 BATCH_SIZE = 32
 DOCKER_IMAGE = (
