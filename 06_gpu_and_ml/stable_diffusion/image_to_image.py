@@ -40,7 +40,7 @@ image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Allows faster model downloads
-            "HF_HUB_CACHE_DIR": CACHE_DIR,  # Points the Hugging Face cache to a Volume
+            "HF_HUB_CACHE": CACHE_DIR,  # Points the Hugging Face cache to a Volume
         }
     )
 )
