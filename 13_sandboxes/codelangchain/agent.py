@@ -1,7 +1,6 @@
 # ---
 # cmd: ["modal", "run", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
 # pytest: false
-# env: {"MODAL_AUTOMOUNT": "True"}
 # ---
 
 # # Build a coding agent with Modal Sandboxes and LangGraph
