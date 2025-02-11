@@ -113,18 +113,18 @@ vllm_image = (
     # Install all Python dependencies at once
     .pip_install(
         [
-            "fastapi",
-            "sse_starlette",
-            "pydantic",
-            "uvicorn[standard]",
-            "python-multipart",
-            "starlette-context",
-            "pydantic-settings",
-            "ninja",
-            "packaging",
+            "fastapi==0.115.8",
+            "sse_starlette==2.2.1",
+            "pydantic==2.10.6",
+            "uvicorn[standard]==0.34.0",
+            "python-multipart==0.0.20",
+            "starlette-context==0.3.6",
+            "pydantic-settings==2.7.1",
+            "ninja==1.11.1.3",
+            "packaging==24.2",
             "wheel",
-            "torch",
-        ]
+            "torch==2.6.0",
+        ],
     )
     .run_commands(
         'CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python',
