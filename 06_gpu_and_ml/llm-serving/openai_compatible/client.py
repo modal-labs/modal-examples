@@ -60,6 +60,12 @@ def main():
         help="The workspace where the LLM server app is hosted, defaults to your current Modal workspace",
     )
     parser.add_argument(
+        "--environment",
+        type=str,
+        default=None,
+        help="The environment in your Modal workspace where the LLM server app is hosted, defaults to your current environment",
+    )
+    parser.add_argument(
         "--app-name",
         type=str,
         default="example-vllm-openai-compatible",
@@ -125,7 +131,13 @@ def main():
 
     workspace = args.workspace or modal.config._profile
 
-    client.base_url = f"https://{workspace}--{args.app_name}-{args.function_name}.modal.run/v1"
+    environment = args.environment or modal.config.config["environment"]
+
+    prefix = workspace + (f"-{environment}" if environment else "")
+
+    client.base_url = (
+        f"https://{prefix}--{args.app_name}-{args.function_name}.modal.run/v1"
+    )
 
     if args.model:
         model_id = args.model
