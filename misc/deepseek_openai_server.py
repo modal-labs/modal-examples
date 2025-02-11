@@ -113,22 +113,22 @@ vllm_image = (
     # Install all Python dependencies at once
     .pip_install(
         [
-            "fastapi",
-            "sse_starlette",
-            "pydantic",
-            "uvicorn[standard]",
-            "python-multipart",
-            "starlette-context",
-            "pydantic-settings",
-            "ninja",
-            "packaging",
+            "fastapi==0.115.8",
+            "sse_starlette==2.2.1",
+            "pydantic==2.10.6",
+            "uvicorn[standard]==0.34.0",
+            "python-multipart==0.0.20",
+            "starlette-context==0.3.6",
+            "pydantic-settings==2.7.1",
+            "ninja==1.11.1.3",
+            "packaging==24.2",
             "wheel",
-            "torch",
-        ]
+            "torch==2.6.0",
+        ],
     )
     .run_commands(
         'CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python',
-        gpu=modal.gpu.A10G(count=1),
+        gpu=modal.gpu.L40S(count=1),
     )
     .entrypoint([])  # remove NVIDIA base container entrypoint
 )
@@ -231,7 +231,7 @@ def serve():
         ModelSettings(
             model=model_path,  # Replace with your model path
             n_gpu_layers=-1,  # Use all GPU layers
-            n_ctx=8096 * 4,
+            n_ctx=8096,
             n_batch=512,
             n_threads=12,
             verbose=True,
