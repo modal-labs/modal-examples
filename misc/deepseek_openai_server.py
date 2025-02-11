@@ -128,7 +128,7 @@ vllm_image = (
     )
     .run_commands(
         'CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python',
-        gpu=modal.gpu.A10G(count=1),
+        gpu=modal.gpu.L40S(count=1),
     )
     .entrypoint([])  # remove NVIDIA base container entrypoint
 )
@@ -231,7 +231,7 @@ def serve():
         ModelSettings(
             model=model_path,  # Replace with your model path
             n_gpu_layers=-1,  # Use all GPU layers
-            n_ctx=8096 * 4,
+            n_ctx=8096,
             n_batch=512,
             n_threads=12,
             verbose=True,
