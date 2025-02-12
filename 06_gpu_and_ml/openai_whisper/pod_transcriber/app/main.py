@@ -31,6 +31,7 @@ app_image = (
         "loguru==0.6.0",
         "torchaudio==2.1.0",
         "fastapi[standard]==0.115.4",
+        "numpy<2",
     )
     .apt_install("ffmpeg")
     .pip_install("ffmpeg-python")

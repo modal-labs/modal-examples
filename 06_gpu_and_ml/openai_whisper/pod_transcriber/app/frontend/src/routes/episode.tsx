@@ -197,7 +197,7 @@ function TranscribeProgress({
           <span className="modal-barloader rotate-[60deg]"></span>
         </div>
         <span className="pt-1">
-          <strong>{containerCount} Modal containers running…</strong>
+          <strong>Running on Modal…</strong>
         </span>
       </div>
       <ProgressBar
