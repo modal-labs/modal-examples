@@ -1,0 +1,27 @@
+name: Force build
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 0 0 0 0"
+
+env:
+  TERM: linux
+  TERMINFO: /etc/terminfo
+  MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
+  MODAL_ENVIRONMENT: examples
+
+jobs:
+  timeout-minutes: 60
+  run-changed:
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - uses: ./.github/actions/setup
+
+      - name: Run a random example with MODAL_FORCE_BUILD set
+        run: |
+          MODAL_FORCE_BUILD=1 python3 -m internal.run_example
