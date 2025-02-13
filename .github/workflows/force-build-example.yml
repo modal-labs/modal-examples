@@ -13,8 +13,10 @@ env:
   MODAL_ENVIRONMENT: examples
 
 jobs:
-  timeout-minutes: 60
-  run-changed:
+  build-and-run:
+    name: Build a random example from scratch and run it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
