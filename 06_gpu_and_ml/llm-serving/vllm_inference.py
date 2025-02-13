@@ -55,7 +55,7 @@ MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
 # [examples repository](https://github.com/modal-labs/modal-examples).
 
 try:
-    volume = modal.Volume.from_name("llamas", create_if_missing=False).hydrate()
+    volume = modal.Volume.from_name("llamas", create_if_missing=False)
 except modal.exception.NotFoundError:
     raise Exception("Download models first with modal run download_llama.py")
 
