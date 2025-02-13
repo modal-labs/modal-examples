@@ -1,4 +1,5 @@
 import os
+import random
 import subprocess
 import sys
 import time
@@ -46,5 +47,17 @@ def run_single_example(stem):
         return 0
 
 
+def run_random_example():
+    examples = filter(
+        lambda ex: ex.metadata and ex.metadata.get("lambda-test", True),
+        utils.get_examples(),
+    )
+    run_script(random.choice(list(examples)))
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(run_single_example(sys.argv[1]))
+    if len(sys.argv) > 1:
+        sys.exit(run_single_example(sys.argv[1]))
+    else:
+        sys.exit(run_random_example())
