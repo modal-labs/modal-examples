@@ -17,6 +17,12 @@ examples = [ex for ex in examples if ex.metadata.get("pytest", True)]
 example_ids = [ex.module for ex in examples]
 
 
+@pytest.fixture(autouse=True)
+def disable_auto_mount(monkeypatch):
+    monkeypatch.setenv("MODAL_AUTOMOUNT", "0")
+    yield
+
+
 @pytest.fixture(autouse=False)
 def add_root_to_syspath(monkeypatch):
     sys.path.append(str(EXAMPLES_ROOT))
