@@ -55,7 +55,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
 # Use the [ComfyUI Registry](https://registry.comfy.org/) to find the specific custom node name to use with this command.
 image = (
     image.run_commands(  # download a custom node
-        "comfy node install was-node-suite-comfyui"
+        "comfy node install was-node-suite-comfyui@1.0.2"
     )
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
