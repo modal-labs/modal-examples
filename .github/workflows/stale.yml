@@ -33,5 +33,6 @@ jobs:
       - uses: fpicalausa/remove-stale-branches@v1.6.0
         with:
           operations-per-run: 500
+          days-before-branch-stale: 30
           ignore-unknown-authors: true
           default-recipient: "(Unknown author)"
