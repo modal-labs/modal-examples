@@ -6,14 +6,16 @@ import modal
 
 if modal.is_local():
     workspace = modal.config._profile
+    environment = modal.config.config["environment"]
 else:
     workspace = os.environ["MODAL_WORKSPACE"]
+    environment = os.environ["MODAL_ENVIRONMENT"]
 
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install("locust~=2.29.1", "openai~=1.37.1")
-    .env({"MODAL_WORKSPACE": workspace})
+    .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .add_local_file(
         Path(__file__).parent / "locustfile.py",
         remote_path="/root/locustfile.py",
@@ -30,7 +32,7 @@ OUT_DIRECTORY = (
 app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = f"https://{workspace}--example-vllm-openai-compatible-serve.modal.run"
+host = f"https://{workspace}-{environment}--example-vllm-openai-compatible-serve.modal.run"
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",

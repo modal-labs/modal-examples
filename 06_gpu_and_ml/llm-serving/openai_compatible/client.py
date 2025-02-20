@@ -80,7 +80,7 @@ def main():
     parser.add_argument(
         "--api-key",
         type=str,
-        default="super-secret-token",
+        default="super-secret-key",
         help="The API key to use for authentication, set in your api.py",
     )
 
