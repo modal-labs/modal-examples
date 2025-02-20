@@ -1,0 +1,39 @@
+name: Stale
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 15 * * *"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale-prs:
+    name: Close stale PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-pr-message: |
+            This PR is stale because it has been open 30 days with no activity.
+            If the stale label remains and there are no comments, this will be closed in 5 days.
+          close-pr-message: |
+            This PR was closed because it has been stalled for 5 days with no activity.
+          days-before-stale: 30
+          days-before-close: 5
+          days-before-issue-stale: -1
+          delete-branch: true
+          operations-per-run: 200
+
+  stale-branches:
+    name: Remove stale branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fpicalausa/remove-stale-branches@v1.6.0
+        with:
+          operations-per-run: 500
+          days-before-branch-stale: 30
+          ignore-unknown-authors: true
+          default-recipient: "(Unknown author)"
