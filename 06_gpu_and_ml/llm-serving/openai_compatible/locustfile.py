@@ -18,14 +18,14 @@ messages = [
 class WebsiteUser(locust.HttpUser):
     wait_time = locust.between(1, 5)
     headers = {
-        "Authorization": "Bearer super-secret-token",
+        "Authorization": "Bearer super-secret-key",
         "Accept": "application/json",
     }
 
     @locust.task
     def chat_completion(self):
         payload = {
-            "model": "Meta-Llama-3.1-8B-Instruct-quantized.w4a16",
+            "model": "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16",
             "messages": messages,
         }
 
