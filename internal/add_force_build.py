@@ -130,63 +130,27 @@ def extract_attr_chain(node):
         return []
 
 
-def main(
-    input_file: str, in_place: bool = False, output_file: Optional[str] = None
-) -> int:
-    """Main function to process Python files and add force_build=True.
+def main(files: list[str]) -> int:
+    """Adds force_build=True to each file in a list of files.
 
     Args:
-        input_file: Path to input Python file
-        in_place: Whether to modify the file in place
-        output_file: Path to output file (if not in_place)
+        files: Paths to input Python files
 
     Returns:
         int: Exit code (0 for success, 1 for failure)
     """
-    try:
-        source = read_source(input_file)
-        new_source = transform_source(source)
-        out_path = input_file if in_place else output_file
-        write_source(new_source, out_path)
-        return 0
-    except Exception as e:
-        logger.error(f"Failed to process {input_file}: {e}")
-        return 1
-
-
-def get_args():
-    """Parse command line arguments.
-
-    Returns:
-        argparse.Namespace: Parsed command line arguments
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Add force_build=True to modal.Image method calls."
-    )
-    parser.add_argument("input_file", help="Path to the input Python file")
-    parser.add_argument("--output_file", help="Path for the output Python file")
-    parser.add_argument(
-        "--in-place",
-        action="store_true",
-        help="Modify the file in place instead of writing to a separate output file",
-    )
-    return parser.parse_args()
+    for file in files:
+        try:
+            source = read_source(file)
+            new_source = transform_source(source)
+            write_source(new_source, file)
+        except Exception as e:
+            logger.error(f"Failed to process {file}: {e}")
+            return 1
+    return 0
 
 
 def read_source(input_file: str) -> str:
-    """Read source code from a file.
-
-    Args:
-        input_file: Path to the input file
-
-    Returns:
-        str: Source code content
-
-    Raises:
-        FileNotFoundError: If the input file doesn't exist
-    """
     try:
         return Path(input_file).read_text()
     except Exception as e:
@@ -224,12 +188,6 @@ def transform_source(source: str) -> str:
 
 
 def write_source(source: str, output_path: str) -> None:
-    """Write transformed source to output file.
-
-    Args:
-        source: Transformed source code
-        output_path: Path to write the output
-    """
     try:
         Path(output_path).write_text(source)
         logger.info(f"Successfully wrote output to {output_path}")
@@ -239,5 +197,7 @@ def write_source(source: str, output_path: str) -> None:
 
 
 if __name__ == "__main__":
-    args = get_args()
-    sys.exit(main(**vars(args)))
+    assert len(sys.argv) > 1, (
+        "USAGE: add_force_build.py some_file.py path/to/other_file.py ..."
+    )
+    sys.exit(main(sys.argv[1:]))
