@@ -2,7 +2,6 @@ pytest
 jupyter
 ipython
 nbconvert
-libcst==1.6.0
 jupytext~=1.16.1
 pydantic~=1.10.14
 mypy==1.2.0
