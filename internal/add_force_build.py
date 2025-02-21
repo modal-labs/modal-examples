@@ -1,13 +1,58 @@
+import ast
 import sys
 from pathlib import Path
 
-import libcst as cst
-import libcst.matchers as m
-import modal
 
-# These are the Image construction methods that we want to add force_build to.
+def get_args():
+    import argparse
 
-# NOTE: these methods are in lexical order
+    parser = argparse.ArgumentParser(
+        description="Add force_build=True to modal.Image method calls."
+    )
+    parser.add_argument("input_file", help="Path to the input Python file")
+    parser.add_argument("--output_file", help="Path for the output Python file")
+    parser.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Modify the file in place instead of writing to a separate output file",
+    )
+    return parser.parse_args()
+
+
+def main(input_file, in_place=False, output_file=None):
+    try:
+        source = Path(input_file).read_text()
+    except Exception as e:
+        print(f"Error reading {input_file}: {e}")
+        sys.exit(1)
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:
+        print(f"Syntax error in {input_file}: {e}")
+        sys.exit(1)
+
+    transformer = AddForceBuild()
+    new_tree = transformer.visit(tree)
+
+    try:
+        new_source = ast.unparse(new_tree)
+    except Exception as e:
+        print(f"Error unparsing AST: {e}")
+        sys.exit(1)
+
+    out_path = input_file if in_place else output_file
+
+    try:
+        Path(out_path).write_text(new_source)
+    except Exception as e:
+        print(f"Error writing to {out_path}: {e}")
+        sys.exit(1)
+
+    print(f"Successfully processed {input_file} -> {out_path}")
+    sys.exit(0)
+
+
 TARGET_METHODS = {
     "apt_install",
     "dockerfile_commands",
@@ -25,131 +70,63 @@ TARGET_METHODS = {
     "run_function",
 }
 
-image_methods = set(dir(modal.Image))
-assert (image_methods & TARGET_METHODS) == TARGET_METHODS, (
-    f"Unknown modal.Image method(s): {TARGET_METHODS - image_methods}"
-)
-
-# DO NOT add any of the methods that construct a base image,
-# since this will trigger a rebuild of that image and all dependent images
-base_image_methods = {"debian_slim", "micromamba"}
-assert (base_image_methods & TARGET_METHODS) == set(), (
-    f"Cannot force build base image method(s): {base_image_methods & TARGET_METHODS}"
-)
+force_build = ast.keyword(arg="force_build", value=ast.Constant(value=True))
 
 
-class ForceBuildTransformer(cst.CSTTransformer):
-    """Adds force_build to targeted Image method calls."""
+class AddForceBuild(ast.NodeTransformer):
+    """Adds force_build=True to invocations of TARGET_METHODS on modal.Images."""
 
-    def __init__(self):
-        self.image_vars = set()
-
-    def is_modal_image_expr(self, expr: cst.BaseExpression) -> bool:
-        """
-        Recursively check whether `expr` ultimately originates from a modal.Image.
-        """
-        if isinstance(expr, cst.Call):
-            return self.is_modal_image_expr(expr.func)
-
-        if isinstance(expr, cst.Attribute):
-            if m.matches(
-                expr, m.Attribute(value=m.Name("modal"), attr=m.Name("Image"))
-            ):
-                return True
-            return self.is_modal_image_expr(expr.value)
-
-        if isinstance(expr, cst.Name):
-            return expr.value in self.image_vars
-
-        return False
-
-    def leave_Assign(
-        self, original_node: cst.Assign, updated_node: cst.Assign
-    ) -> cst.Assign:
-        """Track assignments of names to modal.Image objects."""
-        if m.matches(
-            original_node.value,
-            m.Call(
-                func=m.Attribute(
-                    value=m.Attribute(
-                        value=m.Name("modal"), attr=m.Name("Image")
-                    ),
-                    attr=m.Name(),
-                )
-            ),
-        ):
-            call_func = original_node.value.func
-            if isinstance(call_func, cst.Attribute):
-                method_name = call_func.attr.value
-                if method_name in TARGET_METHODS:
-                    for target in original_node.targets:
-                        if m.matches(target.target, m.Name()):
-                            var_name = target.target.value
-                            self.image_vars.add(var_name)
-        return updated_node
-
-    def leave_Call(
-        self, original_node: cst.Call, updated_node: cst.Call
-    ) -> cst.Call:
-        """
-        Modify calls to targeted methods.
-        """
-        if not isinstance(original_node.func, cst.Attribute):
-            return updated_node
-
-        method_name = original_node.func.attr.value
-        if method_name not in TARGET_METHODS:
-            return updated_node
-
-        if not self.is_modal_image_expr(original_node.func.value):
-            return updated_node
-
-        for arg in original_node.args:
-            if arg.keyword is not None and arg.keyword.value == "force_build":
-                return updated_node
-
-        new_arg = cst.Arg(
-            keyword=cst.Name("force_build"), value=cst.Name("True")
-        )
-        new_args = list(updated_node.args) + [new_arg]
-        return updated_node.with_changes(args=new_args)
+    def visit_Call(self, node):
+        # if it's a method call
+        if isinstance(node.func, ast.Attribute):
+            method_name = node.func.attr
+            # that we want to add force_build=True to
+            if method_name in TARGET_METHODS:
+                obj = node.func.value
+                # heuristically check if we're on a modal.Image
+                if is_modal_image_chain(obj) or is_image_variable(obj):
+                    print("Found target call:", ast.unparse(node))
+                    # and add force_build if it's not there already
+                    if not has_force_build_already(node.keywords):
+                        node.keywords.append(force_build)
+        return self.generic_visit(node)
 
 
-def main():
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
-        source = Path(filename).read_text()
+def is_image_variable(node):
+    """Heuristic for checking whether a name refers to a Modal Image.
+
+    False-positives are OK here, since we will only attempt to modify
+    the source if the method called on the variable is one of the TARGET_METHODS.
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "image" or node.id.endswith("_image")
+    return False
+
+
+def has_force_build_already(kwargs):
+    return any(kw.arg == "force_build" for kw in kwargs)
+
+
+def is_modal_image_chain(node):
+    """Boolean indicating whether a chain of attributes starts with modal.Image"""
+    chain = reduce_attr_chain(node)
+    return chain[:2] == ["modal", "Image"]
+
+
+def reduce_attr_chain(node):
+    """Recursively reduce an attr chain down to a name or a name and attr.
+
+    For example, for modal.Image(...).pip_install(...).env(...), this returns ['modal', 'Image'].
+    """
+    if isinstance(node, ast.Call):
+        return reduce_attr_chain(node.func)
+    elif isinstance(node, ast.Attribute):
+        return reduce_attr_chain(node.value) + [node.attr]
+    elif isinstance(node, ast.Name):
+        return [node.id]
     else:
-        source = TEST_CASE
+        return []
 
-    module = cst.parse_module(source)
-    transformer = ForceBuildTransformer()
-    modified_tree = module.visit(transformer)
-    transformed_code = modified_tree.code
-
-    if len(sys.argv) > 1:
-        Path(filename).write_text(transformed_code)
-    else:
-        assert (
-            transformed_code.count("force_build = True") == TEST_CASE["count"]
-        )
-
-
-TEST_CASE = {
-    "source": """import modal
-
-img1 = modal.Image.debian_slim().pip_install("package==1.0")  # targeted, 1
-img2 = modal.Image.debian_slim()  # not targeted
-
-img3 = modal.Image.from_dockerfile("Dockerfile")  # targeted, 2
-img3.run_commands("echo hello")  # targeted, 3
-
-def inside_function(image):
-    # This call will be missed because 'image' isn't tracked
-    image.pip_install("other_package==2.0")
-""",
-    "count": 3,
-}
 
 if __name__ == "__main__":
-    main()
+    main(**vars(get_args()))
