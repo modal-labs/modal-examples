@@ -158,6 +158,70 @@ def read_source(input_file: str) -> str:
         raise
 
 
+def split_frontmatter(source: str) -> tuple[str | None, str]:
+    """Split source into frontmatter and code if frontmatter exists.
+
+    Args:
+        source: Full source text
+
+    Returns:
+        tuple of (frontmatter or None, code)
+
+    >>> text = '''# ---
+    ... # cmd: ["modal", "serve", "misc/ice_cream.py"]
+    ... # ---
+    ... print("# ---")'''
+    >>> fm, code = split_frontmatter(text)
+    >>> '["modal", "serve", "misc/ice_cream.py"]' in fm
+    True
+    >>> print(code)
+    print("# ---")
+
+    >>> text = '''print("no frontmatter")'''
+    >>> fm, code = split_frontmatter(text)
+    >>> print(fm is None)
+    True
+    >>> print(code)
+    print("no frontmatter")
+    """
+    if source.startswith("# ---\n"):
+        parts = source.split("# ---\n", 2)
+        if len(parts) >= 3:
+            frontmatter = f"# ---\n{parts[1]}# ---\n"
+            code = "# ---\n".join(parts[2:])
+            return frontmatter, code
+    return None, source
+
+
+def join_frontmatter(frontmatter: str | None, code: str) -> str:
+    """Join frontmatter and code back together.
+
+    Args:
+        frontmatter: Frontmatter text or None
+        code: Python code
+
+    Returns:
+        Combined source text
+
+    >>> fm = '''# ---
+    ... # key: value
+    ... # ---
+    ... '''
+    >>> code = 'print("hello")'
+    >>> print(join_frontmatter(fm, code))
+    # ---
+    # key: value
+    # ---
+    print("hello")
+
+    >>> print(join_frontmatter(None, code))
+    print("hello")
+    """
+    if frontmatter is None:
+        return code
+    return f"{frontmatter}{code}"
+
+
 def transform_source(source: str) -> str:
     """Transform source code by adding force_build=True to modal.Image methods.
 
@@ -173,18 +237,22 @@ def transform_source(source: str) -> str:
     ... '''
     >>> "force_build=True" in transform_source(code)
     True
-
-    >>> code = '''
+    >>> code = '''# ---
+    ... # lambda-test: false
+    ... # ---
     ... import modal
     ... image = modal.Image().pip_install("pandas", force_build=False)
     ... '''
     >>> "force_build=True" not in transform_source(code)
     True
+    >>> "lambda-test: false" in transform_source(code)
+    True
     """
-    tree = ast.parse(source)
+    fm, code = split_frontmatter(source)
+    tree = ast.parse(code)
     transformer = AddForceBuild()
     new_tree = transformer.visit(tree)
-    return ast.unparse(new_tree)
+    return join_frontmatter(fm, ast.unparse(new_tree))
 
 
 def write_source(source: str, output_path: str) -> None:
