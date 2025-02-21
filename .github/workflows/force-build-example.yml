@@ -24,6 +24,10 @@ jobs:
           fetch-depth: 1
       - uses: ./.github/actions/setup
 
-      - name: Run a random example with MODAL_FORCE_BUILD set
+      - name: Add force build to all Image builds
         run: |
-          MODAL_FORCE_BUILD=1 python3 -m internal.run_example
+          find . -name "*.py" | LOGLEVEL=DEBUG xargs python3 internal/add_force_build.py
+
+      - name: Run a random example
+        run: |
+          python3 -m internal.run_example
