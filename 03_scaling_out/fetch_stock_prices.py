@@ -1,29 +1,28 @@
 # ---
 # output-directory: "/tmp/"
-# runtimes: ["runc", "gvisor"]
 # ---
 # # Fetching stock prices in parallel
-#
+
 # This is a simple example that uses the Yahoo! Finance API to fetch a bunch of stock data.
-#
+
 # We do this in parallel, which demonstrates the ability to map over a set of items,
 # in this case 100 stock tickers.
-#
+
 # You can run this script on the terminal with
-#
+
 # ```bash
 # modal run 03_scaling_out/fetch_stock_prices.py
 # ```
-#
+
 # If everything goes well, it should plot something like this:
-#
+
 # ![stock prices](./stock_prices.png)
-#
-#
+
+
 # ## Setup
-#
+
 # For this image, we need
-#
+
 # - `httpx` and `beautifulsoup4` to fetch a list of ETFs from a HTML page
 # - `yfinance` to fetch stock prices from the Yahoo Finance API
 # - `matplotlib` to plot the result
@@ -44,7 +43,7 @@ app = modal.App(
 )
 
 # ## Fetch a list of tickers
-#
+
 # The `yfinance` package does not have a way to download a list of stocks.
 # To get a list of stocks, we parse the HTML from Yahoo Finance using Beautiful Soup
 # and ask for the top 100 ETFs.
@@ -74,7 +73,7 @@ def get_stocks():
 
 
 # ## Fetch stock prices
-#
+
 # Now, let's fetch the stock data. This is the function that we will parallelize.
 # It's fairly simple and just uses the `yfinance` package.
 
@@ -91,7 +90,7 @@ def get_prices(symbol):
 
 
 # ## Plot the result
-#
+
 # Here is our plotting code. We run this in Modal, although you could also run it locally.
 # Note that the plotting code calls the other two functions.
 # Since we plot the data in the cloud, we can't display it, so we generate a PNG
