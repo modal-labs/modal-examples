@@ -5,11 +5,11 @@ from pathlib import Path
 import modal
 
 if modal.is_local():
-    workspace = modal.config._profile
-    environment = modal.config.config["environment"]
+    workspace = modal.config._profile or ""
+    environment = modal.config.config["environment"] or ""
 else:
-    workspace = os.environ["MODAL_WORKSPACE"]
-    environment = os.environ["MODAL_ENVIRONMENT"]
+    workspace = os.environ["MODAL_WORKSPACE"] or ""
+    environment = os.environ["MODAL_ENVIRONMENT"] or ""
 
 
 image = (
