@@ -17,7 +17,7 @@ generally run the files in any folder much like you run ordinary Python programs
 command like:
 
 ```bash
-modal run 01_getting_started.hello_world
+modal run 01_getting_started/hello_world.py
 ```
 
 Although these scripts are run on your local machine, they'll communicate with

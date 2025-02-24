@@ -1,6 +1,6 @@
 # ---
 # pytest: false
-# cmd: ["modal", "serve", "13_sandboxes.codelangchain.langserve"]
+# cmd: ["modal", "serve", "-m", "13_sandboxes.codelangchain.langserve"]
 # ---
 
 # # Deploy LangChain and LangGraph applications with LangServe

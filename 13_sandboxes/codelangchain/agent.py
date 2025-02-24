@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
+# cmd: ["modal", "run", "-m", "13_sandboxes.codelangchain.agent", "--question", "Use gpt2 and transformers to generate text"]
 # pytest: false
 # ---
 
@@ -168,7 +168,7 @@ def go(
 # [from our examples repo](https://github.com/modal-labs/modal-examples/tree/main/13_sandboxes/codelangchain):
 
 # ```bash
-# modal run codelangchain.agent --question "How do I run a pre-trained model from the transformers library?"
+# modal run -m codelangchain.agent --question "How do I run a pre-trained model from the transformers library?"
 # ```
 
 
@@ -190,7 +190,7 @@ def main(
 # If things are working properly, you should see output like the following:
 
 # ```bash
-# $ modal run agent.py --question "generate some cool output with transformers"
+# $ modal run -m codelangchain.agent --question "generate some cool output with transformers"
 # ---DECISION: FINISH---
 # ---FINISHING---
 # To generate some cool output using transformers, we can use a pre-trained language model from the Hugging Face Transformers library. In this example, we'll use the GPT-2 model to generate text based on a given prompt. The GPT-2 model is a popular choice for text generation tasks due to its ability to produce coherent and contextually relevant text. We'll use the pipeline API from the Transformers library, which simplifies the process of using pre-trained models for various tasks, including text generation.

@@ -44,11 +44,11 @@ The last command will start a watcher process that will rebuild your static fron
 Once you have `vite build` running, in a separate shell run this to start an ephemeral app on Modal:
 
 ```shell
-modal serve app.main
+modal serve -m app.main
 ```
 
 Pressing `Ctrl+C` will stop your app.
 
 ### Deploy to Modal
 
-Once your happy with your changes, run `modal deploy app.main` to deploy your app to Modal.
+Once your happy with your changes, run `modal deploy -m app.main` to deploy your app to Modal.
