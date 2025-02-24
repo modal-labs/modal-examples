@@ -23,7 +23,7 @@ Run this to create an ephemeral app live reloading the web API. That way you can
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon"
-modal serve text_to_pokemon.main
+modal serve -m text_to_pokemon.main
 ```
 
 Sending <kbd>Ctrl</kbd>+<kbd>C</kbd> will stop your app.
@@ -41,5 +41,5 @@ cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/text_to_pokem
 npm install
 npx vite build
 cd "$(git rev-parse --show-toplevel)/06_gpu_and_ml/text-to-pokemon/"
-modal deploy text_to_pokemon.main
+modal -m deploy text_to_pokemon.main
 ```

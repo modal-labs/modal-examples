@@ -274,7 +274,7 @@ class ModelHyperparameters:
 # You can kick off training with the following command:
 
 # ```bash
-# modal run 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt
+# modal run 06_gpu_and_ml/hyperparameter-sweep/hp_sweep_gpt.py
 # ```
 
 # The output will look something like this:
@@ -373,7 +373,7 @@ def main(
 # You can deploy this TensorBoard service by running
 
 # ```
-# modal deploy 06_gpu_and_ml.hyperparameter-sweep.hp_sweep_gpt
+# modal deploy 06_gpu_and_ml/hyperparameter-sweep/hp_sweep_gpt.py
 # ```
 
 # and visit it at the URL that ends with `-monitor-training.modal.run`.
