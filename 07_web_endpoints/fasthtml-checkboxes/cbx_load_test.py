@@ -8,8 +8,8 @@ if modal.is_local():
     workspace = modal.config._profile
     environment = modal.config.config["environment"]
 else:
-    workspace = os.environ["MODAL_WORKSPACE"]
-    environment = os.environ["MODAL_ENVIRONMENT"]
+    workspace = os.environ["MODAL_WORKSPACE"] or ""
+    environment = os.environ["MODAL_ENVIRONMENT"] or ""
 
 
 image = (
