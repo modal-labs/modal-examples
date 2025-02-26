@@ -47,6 +47,7 @@ CONFIG = {
     "stop_urls": [
         "https://modal.com/docs/reference/modal.Stub",
         "https://modal.com/gpu-glossary",
+        "https://modal.com/docs/reference/changelog",
     ],
     "start_urls": [
         {
@@ -74,7 +75,7 @@ CONFIG = {
             "lvl1": "article h1",
             "lvl2": "article h2",
             "lvl3": "article h3",
-            "text": "article p,article ol,article ul,article pre",
+            "text": "article p,article ol,article ul",
         },
         "examples": {
             "lvl0": {
@@ -82,7 +83,7 @@ CONFIG = {
                 "global": True,
             },
             "lvl1": "article h1",
-            "text": "article p,article ol,article ul,article pre",
+            "text": "article p,article ol,article ul",
         },
         "reference": {
             "lvl0": {
@@ -95,7 +96,7 @@ CONFIG = {
             "lvl1": "article h1",
             "lvl2": "article h2",
             "lvl3": "article h3",
-            "text": "article p,article ol,article ul,article pre",
+            "text": "article p,article ol,article ul",
         },
     },
 }
