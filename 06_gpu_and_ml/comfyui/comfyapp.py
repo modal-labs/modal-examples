@@ -114,7 +114,8 @@ app = modal.App(name="example-comfyui", image=image)
 
 @app.function(
     allow_concurrent_inputs=10,  # required for UI startup process which runs several API calls concurrently
-    concurrency_limit=1,  # limit interactive session to 1 container
+    #PendingDeprecationError: container_idle_timeout -> scaledown_window
+    max_containers=1,  # limit interactive session to 1 container 
     gpu="L40S",  # good starter GPU for inference
     volumes={"/cache": vol},  # mounts our cached models
 )
@@ -138,7 +139,8 @@ def ui():
 # Group all these steps into a single Modal `cls` object, which we'll call `ComfyUI`.
 @app.cls(
     allow_concurrent_inputs=10,  # allow 10 concurrent API calls
-    container_idle_timeout=300,  # 5 minute container keep alive after it processes an input; increasing this value is a great way to reduce ComfyUI cold start times
+#PendingDeprecationError: container_idle_timeout -> scaledown_window
+    scaledown_window=300,  # 5 minute container keep alive after it processes an input; increasing this value is a great way to reduce ComfyUI cold start times
     gpu="L40S",
     volumes={"/cache": vol},
 )
