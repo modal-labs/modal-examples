@@ -22,9 +22,8 @@ import os
 import pathlib
 from dataclasses import dataclass, field
 
-from fastapi import FastAPI
-
 import modal
+from fastapi import FastAPI
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.
 # The demos each depend on their own custom pretrained StableDiffusion model, and these models are 5-6GB each.

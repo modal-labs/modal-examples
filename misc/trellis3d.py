@@ -4,10 +4,9 @@ import logging
 import tempfile
 import traceback
 
+import modal
 import requests
 from fastapi import HTTPException, Request, Response, status
-
-import modal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

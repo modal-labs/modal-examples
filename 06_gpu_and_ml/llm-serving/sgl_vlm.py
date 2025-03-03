@@ -21,9 +21,8 @@ import time
 import warnings
 from uuid import uuid4
 
-import requests
-
 import modal
+import requests
 
 # VLMs are generally larger than LLMs with the same cognitive capability.
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.

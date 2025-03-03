@@ -30,9 +30,8 @@
 from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
-
 import modal
+from pydantic import BaseModel, Field
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "instructor~=1.7.2", "anthropic==0.42.0"

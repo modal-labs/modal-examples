@@ -53,9 +53,8 @@
 
 from typing import Optional
 
-import pydantic  # for typing, used later
-
 import modal
+import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.4.1-devel-ubuntu22.04",
