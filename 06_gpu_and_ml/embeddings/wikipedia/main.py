@@ -18,10 +18,16 @@ DOCKER_IMAGE = (
 )
 
 ## Dataset-Specific Configuration
-MODEL_CACHE_VOLUME = modal.Volume.from_name("embedding-model-cache", create_if_missing=True)
+MODEL_CACHE_VOLUME = modal.Volume.from_name(
+    "embedding-model-cache", create_if_missing=True
+)
 DATASET_NAME = "wikipedia"
-DATASET_READ_VOLUME = modal.Volume.from_name("embedding-wikipedia", create_if_missing=True)
-EMBEDDING_CHECKPOINT_VOLUME = modal.Volume.from_name("checkpoint", create_if_missing=True)
+DATASET_READ_VOLUME = modal.Volume.from_name(
+    "embedding-wikipedia", create_if_missing=True
+)
+EMBEDDING_CHECKPOINT_VOLUME = modal.Volume.from_name(
+    "checkpoint", create_if_missing=True
+)
 MODEL_DIR = "/model"
 DATASET_DIR = "/data"
 CHECKPOINT_DIR = "/checkpoint"
@@ -65,7 +71,9 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
+                raise RuntimeError(
+                    f"launcher exited unexpectedly with code {retcode}"
+                )
 
 
 tei_image = (
@@ -146,7 +154,10 @@ class TextEmbeddingsInference:
     @modal.method()
     async def embed(self, chunks):
         """Embeds a list of texts.  id, url, title, text = chunks[0]"""
-        coros = [self._embed(chunk_batch) for chunk_batch in generate_batches(chunks, batch_size=BATCH_SIZE)]
+        coros = [
+            self._embed(chunk_batch)
+            for chunk_batch in generate_batches(chunks, batch_size=BATCH_SIZE)
+        ]
 
         embeddings = np.vstack(await asyncio.gather(*coros))
         return chunks, embeddings
@@ -247,7 +258,9 @@ def upload_result_to_hf(batch_size: int) -> None:
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("datasets", "pyarrow", "hf_transfer", "huggingface_hub"),
+    image=modal.Image.debian_slim().pip_install(
+        "datasets", "pyarrow", "hf_transfer", "huggingface_hub"
+    ),
     volumes={
         DATASET_DIR: DATASET_READ_VOLUME,
         CHECKPOINT_DIR: EMBEDDING_CHECKPOINT_VOLUME,
@@ -271,7 +284,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     import time
 
     if UPLOAD_TO_HF and not SAVE_TO_DISK:
-        raise ValueError("Uploading to HF requires SAVE_TO_DISK to be set to true in case of intermediate failure.")
+        raise ValueError(
+            "Uploading to HF requires SAVE_TO_DISK to be set to true in case of intermediate failure."
+        )
 
     dataset_chars = 19560538957  # sum(map(len, dataset["train"]["text"]))
     subset = load_dataset_from_disk(down_scale)
@@ -282,7 +297,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     start = time.perf_counter()
     acc_chunks = []
     embeddings = []
-    for resp in model.embed.map(batches, order_outputs=False, return_exceptions=True):
+    for resp in model.embed.map(
+        batches, order_outputs=False, return_exceptions=True
+    ):
         if isinstance(resp, Exception):
             print(f"Exception: {resp}")
             continue
@@ -297,7 +314,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     duration = end - start
     characters = sum(map(len, [chunk[3] for chunk in acc_chunks]))
     characters_per_sec = int(characters / duration)
-    extrapolated_duration_cps_fmt = str(datetime.timedelta(seconds=dataset_chars / characters_per_sec))
+    extrapolated_duration_cps_fmt = str(
+        datetime.timedelta(seconds=dataset_chars / characters_per_sec)
+    )
     resp = {
         "downscale": down_scale,
         "batch_size": batch_size,
@@ -308,7 +327,9 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     }
 
     if SAVE_TO_DISK:
-        save_dataset_to_intermediate_checkpoint(acc_chunks, embeddings, batch_size)
+        save_dataset_to_intermediate_checkpoint(
+            acc_chunks, embeddings, batch_size
+        )
 
     if UPLOAD_TO_HF:
         upload_result_to_hf(batch_size)

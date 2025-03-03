@@ -34,7 +34,9 @@ from pydantic import BaseModel, Field
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install("instructor~=1.7.2", "anthropic==0.42.0")
+image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "instructor~=1.7.2", "anthropic==0.42.0"
+)
 
 # This example uses models from Anthropic, so if you want to run it yourself,
 # you'll need an Anthropic API key and a Modal [`Secret`](https://modal.com/docs/guide/secrets)
@@ -42,7 +44,11 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install("instructor~=
 
 app = modal.App(
     image=image,
-    secrets=[modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"])],
+    secrets=[
+        modal.Secret.from_name(
+            "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
+        )
+    ],
 )
 
 # ## Running Modal functions from the command line
@@ -77,7 +83,8 @@ def main(limit: int = 1, with_opus: bool = False):
     # use Modal to map our extraction function over the examples concurrently
     results = extract_example_metadata.map(
         (  # iterable of file contents
-            Path(example.filename).read_text() if example else None for example in examples
+            Path(example.filename).read_text() if example else None
+            for example in examples
         ),
         (  # iterable of filenames
             example.stem if example else None for example in examples
@@ -144,7 +151,9 @@ class ExampleMetadataExtraction(BaseModel):
 class ExampleMetadata(ExampleMetadataExtraction):
     """Metadata about an example from the Modal examples repo."""
 
-    filename: Optional[str] = Field(..., description="The filename of the example.")
+    filename: Optional[str] = Field(
+        ..., description="The filename of the example."
+    )
 
 
 # With these schemas in hand, it's straightforward to write the function that extracts the metadata.
@@ -183,7 +192,9 @@ def extract_example_metadata(
     )
 
     # inject the filename
-    full_metadata = ExampleMetadata(**extracted_metadata.dict(), filename=filename)
+    full_metadata = ExampleMetadata(
+        **extracted_metadata.dict(), filename=filename
+    )
 
     # return it as JSON
     return full_metadata.model_dump_json()
@@ -202,7 +213,9 @@ def get_examples(silent=True):
     import importlib
 
     examples_root = Path(__file__).parent.parent.parent
-    spec = importlib.util.spec_from_file_location("utils", f"{examples_root}/internal/utils.py")
+    spec = importlib.util.spec_from_file_location(
+        "utils", f"{examples_root}/internal/utils.py"
+    )
     example_utils = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(example_utils)
     examples = [

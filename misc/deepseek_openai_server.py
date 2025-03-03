@@ -150,7 +150,9 @@ download_image = (
 )
 
 
-@app.function(image=download_image, volumes={cache_dir: model_cache}, timeout=30 * MINUTES)
+@app.function(
+    image=download_image, volumes={cache_dir: model_cache}, timeout=30 * MINUTES
+)
 def download_model(repo_id, allow_patterns, revision: str = None):
     from huggingface_hub import snapshot_download
 
@@ -195,7 +197,9 @@ def serve():
     download_model.remote(repo_id, [model_pattern])
     model_cache.reload()  # ensure we have the latest version of the weights
 
-    model_entrypoint_file = f"{model_name}-{quant}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+    model_entrypoint_file = (
+        f"{model_name}-{quant}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+    )
     model_path = MODELS_DIR + "/" + model_entrypoint_file
     # Find and merge GGUF files
     model_dir = f"{MODELS_DIR}/{model_name}-{quant}"
@@ -205,13 +209,21 @@ def serve():
         output_file = f"{model_dir}/{model_name}-{quant}-merged.gguf"
         if not Path(output_file).exists():
             print(f"🔄 Merging GGUF files to {output_file}")
-            merge_command = ["/llama.cpp/llama-gguf-split", "--merge"] + [gguf_files[0]] + [output_file]
+            merge_command = (
+                ["/llama.cpp/llama-gguf-split", "--merge"]
+                + [gguf_files[0]]
+                + [output_file]
+            )
             print(f"Merging files with command: {' '.join(merge_command)}")
             subprocess.run(merge_command, check=True)
             print("🔄 GGUF files merged successfully")
         model_path = output_file
     else:
-        model_path = gguf_files[0] if gguf_files else f"{model_dir}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+        model_path = (
+            gguf_files[0]
+            if gguf_files
+            else f"{model_dir}/DeepSeek-R1-{quant}-00001-of-00003.gguf"
+        )
     model_cache.reload()  # ensure we have the latest version of the weights
     print(f"🔄 Using model path: {model_path}")
     # Create model settings directly

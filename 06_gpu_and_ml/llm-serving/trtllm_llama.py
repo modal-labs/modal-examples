@@ -66,7 +66,9 @@ tensorrt_image = modal.Image.from_registry(
 # including OpenMPI for distributed communication, some core software like `git`,
 # and the `tensorrt_llm` package itself.
 
-tensorrt_image = tensorrt_image.apt_install("openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget").pip_install(
+tensorrt_image = tensorrt_image.apt_install(
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+).pip_install(
     "tensorrt_llm==0.14.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     pre=True,
@@ -145,9 +147,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
 # This script takes a few minutes to run.
 
 GIT_HASH = "b0880169d0fb8cd0363049d91aa548e58a41be07"
-CONVERSION_SCRIPT_URL = (
-    f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/quantization/quantize.py"
-)
+CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/quantization/quantize.py"
 
 # NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
 # are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format (`qformat`).
@@ -208,7 +208,9 @@ tensorrt_image = (  # update the image by quantizing the model
 
 MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
 MAX_NUM_TOKENS = 2**17
-MAX_BATCH_SIZE = 1024  # better throughput at larger batch sizes, limited by GPU RAM
+MAX_BATCH_SIZE = (
+    1024  # better throughput at larger batch sizes, limited by GPU RAM
+)
 ENGINE_DIR = "/root/model/model_output"
 
 SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} --max_batch_size={MAX_BATCH_SIZE}"
@@ -248,7 +250,9 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image)
+app = modal.App(
+    f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
+)
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 
@@ -274,7 +278,9 @@ class Model:
         The @enter decorator ensures that it runs only once per container, when it starts."""
         import time
 
-        print(f"{COLOR['HEADER']}🥶 Cold boot: spinning up TRT-LLM engine{COLOR['ENDC']}")
+        print(
+            f"{COLOR['HEADER']}🥶 Cold boot: spinning up TRT-LLM engine{COLOR['ENDC']}"
+        )
         self.init_start = time.monotonic_ns()
 
         import tensorrt_llm
@@ -283,7 +289,9 @@ class Model:
 
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         # LLaMA models do not have a padding token, so we use the EOS token
-        self.tokenizer.add_special_tokens({"pad_token": self.tokenizer.eos_token})
+        self.tokenizer.add_special_tokens(
+            {"pad_token": self.tokenizer.eos_token}
+        )
         # and then we add it from the left, to minimize impact on the output
         self.tokenizer.padding_side = "left"
         self.pad_id = self.tokenizer.pad_token_id
@@ -299,7 +307,9 @@ class Model:
         self.model = ModelRunner.from_dir(**runner_kwargs)
 
         self.init_duration_s = (time.monotonic_ns() - self.init_start) / 1e9
-        print(f"{COLOR['HEADER']}🚀 Cold boot finished in {self.init_duration_s}s{COLOR['ENDC']}")
+        print(
+            f"{COLOR['HEADER']}🚀 Cold boot finished in {self.init_duration_s}s{COLOR['ENDC']}"
+        )
 
     @modal.method()
     def generate(self, prompts: list[str], settings=None):
@@ -314,16 +324,22 @@ class Model:
                 repetition_penalty=1.1,
             )
 
-        settings["max_new_tokens"] = MAX_OUTPUT_LEN  # exceeding this will raise an error
+        settings["max_new_tokens"] = (
+            MAX_OUTPUT_LEN  # exceeding this will raise an error
+        )
         settings["end_id"] = self.end_id
         settings["pad_id"] = self.pad_id
 
         num_prompts = len(prompts)
 
         if num_prompts > MAX_BATCH_SIZE:
-            raise ValueError(f"Batch size {num_prompts} exceeds maximum of {MAX_BATCH_SIZE}")
+            raise ValueError(
+                f"Batch size {num_prompts} exceeds maximum of {MAX_BATCH_SIZE}"
+            )
 
-        print(f"{COLOR['HEADER']}🚀 Generating completions for batch of size {num_prompts}...{COLOR['ENDC']}")
+        print(
+            f"{COLOR['HEADER']}🚀 Generating completions for batch of size {num_prompts}...{COLOR['ENDC']}"
+        )
         start = time.monotonic_ns()
 
         parsed_prompts = [
@@ -341,18 +357,29 @@ class Model:
             sep="\n\t",
         )
 
-        inputs_t = self.tokenizer(parsed_prompts, return_tensors="pt", padding=True, truncation=False)["input_ids"]
+        inputs_t = self.tokenizer(
+            parsed_prompts, return_tensors="pt", padding=True, truncation=False
+        )["input_ids"]
 
-        print(f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8])
+        print(
+            f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8]
+        )
 
         outputs_t = self.model.generate(inputs_t, **settings)
 
-        outputs_text = self.tokenizer.batch_decode(outputs_t[:, 0])  # only one output per input, so we index with 0
+        outputs_text = self.tokenizer.batch_decode(
+            outputs_t[:, 0]
+        )  # only one output per input, so we index with 0
 
-        responses = [extract_assistant_response(output_text) for output_text in outputs_text]
+        responses = [
+            extract_assistant_response(output_text)
+            for output_text in outputs_text
+        ]
         duration_s = (time.monotonic_ns() - start) / 1e9
 
-        num_tokens = sum(map(lambda r: len(self.tokenizer.encode(r)), responses))
+        num_tokens = sum(
+            map(lambda r: len(self.tokenizer.encode(r)), responses)
+        )
 
         for prompt, response in zip(prompts, responses):
             print(
@@ -579,7 +606,9 @@ class GenerateRequest(pydantic.BaseModel):
 
 
 @app.function(image=web_image)
-@modal.web_endpoint(method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True)
+@modal.web_endpoint(
+    method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True
+)
 def generate_web(data: GenerateRequest) -> list[str]:
     """Generate responses to a batch of prompts, optionally with custom inference settings."""
     return Model.generate.remote(data.prompts, settings=None)

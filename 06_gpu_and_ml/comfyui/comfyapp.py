@@ -101,7 +101,9 @@ image = (
 )
 
 # Lastly, we copy the ComfyUI workflow JSON to the container.
-image = image.add_local_file(Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json")
+image = image.add_local_file(
+    Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
+)
 
 # ## Running ComfyUI interactively
 #
@@ -158,9 +160,11 @@ class ComfyUI:
 
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
-        file_prefix = [node.get("inputs") for node in workflow.values() if node.get("class_type") == "SaveImage"][0][
-            "filename_prefix"
-        ]
+        file_prefix = [
+            node.get("inputs")
+            for node in workflow.values()
+            if node.get("class_type") == "SaveImage"
+        ][0]["filename_prefix"]
 
         # returns the image as bytes
         for f in Path(output_dir).iterdir():
@@ -171,7 +175,9 @@ class ComfyUI:
     def api(self, item: Dict):
         from fastapi import Response
 
-        workflow_data = json.loads((Path(__file__).parent / "workflow_api.json").read_text())
+        workflow_data = json.loads(
+            (Path(__file__).parent / "workflow_api.json").read_text()
+        )
 
         # insert the prompt
         workflow_data["6"]["inputs"]["text"] = item["prompt"]

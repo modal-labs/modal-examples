@@ -133,12 +133,18 @@ def profile(
             raise ValueError(f"Function {function} not found")
     function_name = function.tag
 
-    output_dir = TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
+    output_dir = (
+        TRACE_DIR
+        / (function_name + (f"_{label}" if label else ""))
+        / str(uuid4())
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if schedule is None:
         if steps < 3:
-            raise ValueError("Steps must be at least 3 when using default schedule")
+            raise ValueError(
+                "Steps must be at least 3 when using default schedule"
+            )
         schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
 
     schedule = torch.profiler.schedule(**schedule)
@@ -159,7 +165,11 @@ def profile(
             prof.step()
 
     if print_rows:
-        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=print_rows))
+        print(
+            prof.key_averages().table(
+                sort_by="cuda_time_total", row_limit=print_rows
+            )
+        )
 
     trace_path = sorted(
         output_dir.glob("**/*.pt.trace.json"),
@@ -251,7 +261,9 @@ def main(
 # the `torch_tb_profiler` plugin.
 
 
-tb_image = modal.Image.debian_slim(python_version="3.11").pip_install("tensorboard==2.18.0", "torch_tb_profiler==0.4.3")
+tb_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "tensorboard==2.18.0", "torch_tb_profiler==0.4.3"
+)
 
 # Because TensorBoard is a WSGI app, we can [host it on Modal](https://modal.com/docs/guide/webhooks)
 # with the `modal.wsgi_app` decorator.
