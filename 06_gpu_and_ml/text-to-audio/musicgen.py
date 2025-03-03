@@ -64,9 +64,7 @@ def load_model(and_return=False):
 # to store the weights in the cloud.
 
 cache_dir = "/cache"
-model_cache = modal.Volume.from_name(
-    "audiocraft-model-cache", create_if_missing=True
-)
+model_cache = modal.Volume.from_name("audiocraft-model-cache", create_if_missing=True)
 
 # We don't need to change any of the model loading code --
 # we just need to make sure the model gets stored in the right directory.
@@ -75,16 +73,14 @@ model_cache = modal.Volume.from_name(
 # (and another one that speeds up downloads, for good measure)
 # and then run the `load_model` Python function.
 
-image = image.env(
-    {"HF_HUB_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
-).run_function(load_model, volumes={cache_dir: model_cache})
+image = image.env({"HF_HUB_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}).run_function(
+    load_model, volumes={cache_dir: model_cache}
+)
 
 # While we're at it, let's also define the environment for our UI.
 # We'll stick with Python and so use FastAPI and Gradio.
 
-web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi[standard]==0.115.4", "gradio==4.44.1"
-)
+web_image = modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]==0.115.4", "gradio==4.44.1")
 
 # This is a totally different environment from the one we run our model in.
 # Say goodbye to Python dependency conflict hell!
@@ -143,11 +139,7 @@ class MusicGen:
             segment_duration = min(segment_duration, MAX_SEGMENT_DURATION)
 
             # generate next segment
-            generated_duration = (
-                segment_duration
-                if context is None
-                else (segment_duration - overlap)
-            )
+            generated_duration = segment_duration if context is None else (segment_duration - overlap)
             print(f"🎼 generating {generated_duration} seconds of music")
             self.model.set_generation_params(duration=segment_duration)
             next_segment = self._generate_next_segment(prompt, context, overlap)
@@ -176,9 +168,7 @@ class MusicGen:
         else:
             overlap_samples = overlap * self.model.sample_rate
             last_chunk = context[:, :, -overlap_samples:]  # B, C, T
-            return self.model.generate_continuation(
-                last_chunk, self.model.sample_rate, descriptions=[prompt]
-            )
+            return self.model.generate_continuation(last_chunk, self.model.sample_rate, descriptions=[prompt])
 
     def _combine_segments(self, context, next_segment, overlap: int):
         """Combine context with next segment, handling overlap."""
@@ -247,7 +237,7 @@ def main(
     # Gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 1000 concurrent inputs
-    concurrency_limit=1,
+    max_containers=1,
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()
@@ -265,12 +255,8 @@ def ui():
 
     temp_dir = Path("/dev/shm")
 
-    async def generate_music(
-        prompt: str, duration: int = 10, format: str = "wav"
-    ):
-        audio_bytes = await generate.aio(
-            prompt, duration=duration, format=format
-        )
+    async def generate_music(prompt: str, duration: int = 10, format: str = "wav"):
+        audio_bytes = await generate.aio(prompt, duration=duration, format=format)
 
         audio_path = temp_dir / f"{uuid4()}.{format}"
         audio_path.write_bytes(audio_bytes)
@@ -282,9 +268,7 @@ def ui():
         with gr.Row():
             with gr.Column():
                 prompt = gr.Textbox(label="Prompt")
-                duration = gr.Number(
-                    label="Duration (seconds)", value=10, minimum=1, maximum=300
-                )
+                duration = gr.Number(label="Duration (seconds)", value=10, minimum=1, maximum=300)
                 format = gr.Radio(["wav", "mp3"], label="Format", value="wav")
                 btn = gr.Button("Generate")
             with gr.Column():
@@ -321,10 +305,4 @@ def to_audio_bytes(wav, sample_rate: int, **kwargs) -> bytes:
 
 
 def slugify(string):
-    return (
-        string.lower()
-        .replace(" ", "-")
-        .replace("/", "-")
-        .replace("\\", "-")
-        .replace(":", "-")
-    )
+    return string.lower().replace(" ", "-").replace("/", "-").replace("\\", "-").replace(":", "-")

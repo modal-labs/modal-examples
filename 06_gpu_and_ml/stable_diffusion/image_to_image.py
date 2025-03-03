@@ -47,9 +47,7 @@ image = (
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
-app = modal.App(
-    "image-to-image", image=image, volumes={CACHE_DIR: cache_volume}
-)
+app = modal.App("image-to-image", image=image, volumes={CACHE_DIR: cache_volume})
 
 with image.imports():
     import torch
@@ -69,7 +67,7 @@ with image.imports():
 # The `inference` method runs the actual model inference. It takes in an image as a collection of `bytes` and a string `prompt` and returns
 # a new image (also as a collection of `bytes`).
 
-# To avoid excessive cold-starts, we set the `container_idle_timeout` to 240 seconds, meaning once a GPU has loaded the model it will stay
+# To avoid excessive cold-starts, we set the `scaledown_window` to 240 seconds, meaning once a GPU has loaded the model it will stay
 # online for 4 minutes before spinning down.
 
 # We also provide a function that will download the model weights to the cache Volume ahead of time.
@@ -89,7 +87,7 @@ def download_models():
     snapshot_download("stabilityai/sdxl-turbo", ignore_patterns=ignore)
 
 
-@app.cls(gpu="A10G", container_idle_timeout=240)
+@app.cls(gpu="A10G", scaledown_window=240)
 class Model:
     @modal.enter()
     def enter(self):
@@ -101,12 +99,8 @@ class Model:
         )
 
     @modal.method()
-    def inference(
-        self, image_bytes: bytes, prompt: str, strength: float = 0.9
-    ) -> bytes:
-        init_image = load_image(Image.open(BytesIO(image_bytes))).resize(
-            (512, 512)
-        )
+    def inference(self, image_bytes: bytes, prompt: str, strength: float = 0.9) -> bytes:
+        init_image = load_image(Image.open(BytesIO(image_bytes))).resize((512, 512))
         num_inference_steps = 4
         # "When using SDXL-Turbo for image-to-image generation, make sure that num_inference_steps * strength is larger or equal to 1"
         # See: https://huggingface.co/stabilityai/sdxl-turbo

@@ -208,10 +208,7 @@ def create_slash_command(force: bool = False):
         raise Exception("Failed to create slash command") from e
 
     commands = response.json()
-    command_exists = any(
-        command.get("name") == command_description["name"]
-        for command in commands
-    )
+    command_exists = any(command.get("name") == command_description["name"] for command in commands)
 
     # and only recreate it if the force flag is set
     if command_exists and not force:
@@ -239,7 +236,7 @@ def create_slash_command(force: bool = False):
 
 # 1. We'll need to respond within five seconds or Discord will assume we are dead.
 # Modal's fast-booting serverless containers usually start faster than that,
-# but it's not guaranteed. So we'll add the `keep_warm` parameter to our
+# but it's not guaranteed. So we'll add the `min_containers` parameter to our
 # Function so that there's at least one live copy ready to respond quickly at any time.
 # Modal charges a minimum of about 2¢ an hour for live containers (pricing details [here](https://modal.com/pricing)).
 # Note that that still fits within Modal's $30/month of credits on the free tier.
@@ -259,9 +256,7 @@ def create_slash_command(force: bool = False):
 # [this guide](https://modal.com/docs/guide/webhooks).
 
 
-@app.function(
-    secrets=[discord_secret], keep_warm=1, allow_concurrent_inputs=1000
-)
+@app.function(secrets=[discord_secret], min_containers=1, allow_concurrent_inputs=1000)
 @modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, HTTPException, Request
@@ -300,9 +295,7 @@ def web_app():
             reply.spawn(app_id, interaction_token)
 
             # respond immediately with defer message
-            return {
-                "type": DiscordResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE.value
-            }
+            return {"type": DiscordResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE.value}
 
         print(f"🤖: unable to parse request with type {data.get('type')}")
         raise HTTPException(status_code=400, detail="Bad request")

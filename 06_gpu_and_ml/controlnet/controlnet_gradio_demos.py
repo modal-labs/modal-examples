@@ -22,8 +22,9 @@ import os
 import pathlib
 from dataclasses import dataclass, field
 
-import modal
 from fastapi import FastAPI
+
+import modal
 
 # Below are the configuration objects for all **10** demos provided in the original [lllyasviel/ControlNet](https://github.com/lllyasviel/ControlNet) repo.
 # The demos each depend on their own custom pretrained StableDiffusion model, and these models are 5-6GB each.
@@ -45,42 +46,32 @@ class DemoApp:
 demos = [
     DemoApp(
         name="canny2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_canny.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_canny.pth"],
     ),
     DemoApp(
         name="depth2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_depth.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_depth.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/dpt_hybrid-midas-501f0c75.pt"
         ],
     ),
     DemoApp(
         name="fake_scribble2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/network-bsds500.pth"
         ],
     ),
     DemoApp(
         name="hed2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_hed.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_hed.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/network-bsds500.pth"
         ],
     ),
     DemoApp(
         name="hough2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_mlsd.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_mlsd.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/mlsd_large_512_fp32.pth",
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/mlsd_tiny_512_fp32.pth",
@@ -88,15 +79,11 @@ demos = [
     ),
     DemoApp(
         name="normal2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_normal.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_normal.pth"],
     ),
     DemoApp(
         name="pose2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_openpose.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_openpose.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/body_pose_model.pth",
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/hand_pose_model.pth",
@@ -104,21 +91,15 @@ demos = [
     ),
     DemoApp(
         name="scribble2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"],
     ),
     DemoApp(
         name="scribble2image_interactive",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_scribble.pth"],
     ),
     DemoApp(
         name="seg2image",
-        model_files=[
-            "https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_seg.pth"
-        ],
+        model_files=["https://huggingface.co/lllyasviel/ControlNet/resolve/main/models/control_sd15_seg.pth"],
         detector_files=[
             "https://huggingface.co/lllyasviel/ControlNet/resolve/main/annotator/ckpts/upernet_global_small.pth"
         ],
@@ -160,15 +141,11 @@ def download_file(url: str, output_path: pathlib.Path):
     with open(output_path, "wb") as download_file:
         with httpx.stream("GET", url, follow_redirects=True) as response:
             total = int(response.headers["Content-Length"])
-            with tqdm(
-                total=total, unit_scale=True, unit_divisor=1024, unit="B"
-            ) as progress:
+            with tqdm(total=total, unit_scale=True, unit_divisor=1024, unit="B") as progress:
                 num_bytes_downloaded = response.num_bytes_downloaded
                 for chunk in response.iter_bytes():
                     download_file.write(chunk)
-                    progress.update(
-                        response.num_bytes_downloaded - num_bytes_downloaded
-                    )
+                    progress.update(response.num_bytes_downloaded - num_bytes_downloaded)
                     num_bytes_downloaded = response.num_bytes_downloaded
 
 
@@ -263,9 +240,7 @@ def import_gradio_app_blocks(demo: DemoApp):
     # in global scope on import, including the launch of a Gradio web server.
     # We want Modal to control the Gradio web app serving, so we
     # monkeypatch the .launch() function to be a no-op.
-    blocks.Blocks.launch = lambda self, server_name: print(
-        "launch() has been monkeypatched to do nothing."
-    )
+    blocks.Blocks.launch = lambda self, server_name: print("launch() has been monkeypatched to do nothing.")
 
     # each demo app module is a file like gradio_{name}.py
     module_name = f"gradio_{demo.name}"
@@ -277,20 +252,20 @@ def import_gradio_app_blocks(demo: DemoApp):
 
 
 # Because the ControlNet gradio apps are so time and compute intensive to cold-start,
-# the web app function is limited to running just 1 warm container (concurrency_limit=1).
+# the web app function is limited to running just 1 warm container (max_containers=1).
 # This way, while playing with the demos we can pay the cold-start cost once and have
 # all web requests hit the same warm container.
 # Spinning up extra containers to handle additional requests would not be efficient
 # given the cold-start time.
-# We set the container_idle_timeout to 600 seconds so the container will be kept
+# We set the scaledown_window to 600 seconds so the container will be kept
 # running for 10 minutes after the last request, to keep the app responsive in case
 # of continued experimentation.
 
 
 @app.function(
     gpu="A10G",
-    concurrency_limit=1,
-    container_idle_timeout=600,
+    max_containers=1,
+    scaledown_window=600,
 )
 @modal.asgi_app()
 def run():

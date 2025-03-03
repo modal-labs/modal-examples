@@ -75,7 +75,7 @@ app = modal.App(image=image, name="example-falcon-bnb")
 @app.cls(
     gpu="A100",
     timeout=60 * 10,  # 10 minute timeout on inputs
-    container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
+    scaledown_window=60 * 5,  # Keep runner alive for 5 minutes
 )
 class Falcon40B_4bit:
     @modal.enter()
@@ -132,9 +132,7 @@ class Falcon40B_4bit:
             max_new_tokens=512,
         )
 
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
         generate_kwargs = dict(
             input_ids=input_ids,
             generation_config=generation_config,
@@ -168,10 +166,7 @@ prompt_template = (
 
 @app.local_entrypoint()
 def cli(prompt: str = None):
-    question = (
-        prompt
-        or "What are the main differences between Python and JavaScript programming languages?"
-    )
+    question = prompt or "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40B_4bit()
     for text in model.generate.remote_gen(prompt_template.format(question)):
         print(text, end="", flush=True)

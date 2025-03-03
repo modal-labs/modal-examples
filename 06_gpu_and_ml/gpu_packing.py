@@ -22,11 +22,7 @@ def download_model():
     model.save(MODEL_PATH)
 
 
-image = (
-    modal.Image.debian_slim()
-    .pip_install("sentence-transformers==3.2.0")
-    .run_function(download_model)
-)
+image = modal.Image.debian_slim().pip_install("sentence-transformers==3.2.0").run_function(download_model)
 
 app = modal.App("gpu-packing", image=image)
 
@@ -55,7 +51,7 @@ with image.imports():
 
 @app.cls(
     gpu="A10G",
-    concurrency_limit=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
+    max_containers=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
     allow_concurrent_inputs=100,  # Allow concurrent inputs into our single container.
 )
 class Server:
@@ -83,9 +79,7 @@ class Server:
         async with self.model_pool.acquire_model() as model:
             # We now have exclusive access to this model instance
             embedding = model.encode(sentence)
-            await asyncio.sleep(
-                0.2
-            )  # Simulate extra inference latency, for demo purposes
+            await asyncio.sleep(0.2)  # Simulate extra inference latency, for demo purposes
         return embedding.tolist()
 
 

@@ -61,7 +61,7 @@ app = modal.App("example-a1111-webui", image=a1111_image)
     # Allows 100 concurrent requests per container.
     allow_concurrent_inputs=100,
     # Keep at least one instance of the server running.
-    keep_warm=1,
+    min_containers=1,
 )
 @modal.web_server(port=PORT, startup_timeout=180)
 def run():

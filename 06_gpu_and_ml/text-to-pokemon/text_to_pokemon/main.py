@@ -32,9 +32,7 @@ def _choose_rarity() -> str:
         return "Uncommon"
     elif val < 0.95:
         return "Rare Holo"
-    return random.choice(
-        ["Rare Holo Galaxy", "Rare Holo V", "Rare Ultra", "Rare Rainbow Alt"]
-    )
+    return random.choice(["Rare Holo Galaxy", "Rare Holo V", "Rare Ultra", "Rare Rainbow Alt"])
 
 
 def log_prompt(prompt: str) -> str:
@@ -61,7 +59,7 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
+@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, min_containers=1)
 class Model:
     @modal.enter()
     def load_model(self):
@@ -76,9 +74,7 @@ class Model:
         from torch import autocast
 
         n_samples = 4
-        print(
-            f"Generating {n_samples} Pokémon samples for the prompt: '{log_prompt(prompt)}'"
-        )
+        print(f"Generating {n_samples} Pokémon samples for the prompt: '{log_prompt(prompt)}'")
         with autocast("cuda"):
             images = self.pipe(n_samples * [prompt], guidance_scale=10).images
         return [image_to_byte_array(image=img) for img in images]
@@ -120,9 +116,7 @@ def diskcached_text_to_pokemon(prompt: str) -> list[bytes]:
                 f.write(image_bytes)
             print(f"✔️ Saved a Pokémon sample to {dest_path}.")
         volume.commit()
-    total_duration_secs = timedelta(
-        seconds=time.monotonic() - start_time
-    ).total_seconds()
+    total_duration_secs = timedelta(seconds=time.monotonic() - start_time).total_seconds()
     print(
         f"[{cached=}] took {total_duration_secs} secs to create {len(samples_data)} samples for '{log_prompt(norm_prompt)}'."
     )
@@ -136,9 +130,7 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
     return web_app
 
@@ -163,9 +155,7 @@ def inpaint_new_pokemon_name(card_image: bytes, prompt: str) -> bytes:
     return inpaint.new_pokemon_name(card_image, best_name.capitalize())
 
 
-def composite_pokemon_card(
-    base: io.BytesIO, character_img: io.BytesIO, prompt: str
-) -> bytes:
+def composite_pokemon_card(base: io.BytesIO, character_img: io.BytesIO, prompt: str) -> bytes:
     """Constructs a new, unique Pokémon card image from existing and model-generated components."""
     from PIL import Image, ImageDraw, ImageFilter
 
@@ -176,9 +166,7 @@ def composite_pokemon_card(
     character_i = Image.open(character_img)
 
     # Fit Pokémon character image to size of base card's character illustration window.
-    character_i.thumbnail(
-        size=(pokecard_window_size[0], pokecard_window_size[0])
-    )
+    character_i.thumbnail(size=(pokecard_window_size[0], pokecard_window_size[0]))
     (left, upper, right, lower) = (
         0,
         0,
@@ -203,9 +191,7 @@ def composite_pokemon_card(
     mask_im_blur = mask_im.filter(ImageFilter.GaussianBlur(20))
 
     back_im = base_i.copy()
-    back_im.paste(
-        cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur
-    )
+    back_im.paste(cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur)
 
     # If a (manually uploaded) mini Modal logo exists, paste that discreetly onto the image too :)
     mini_modal_logo = config.CARD_PART_IMGS / "mini-modal-logo.png"
@@ -214,19 +200,13 @@ def composite_pokemon_card(
         mini_logo_top_right_crnr = (220, 935)
         back_im.paste(logo_img, mini_logo_top_right_crnr)
     else:
-        print(
-            f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part."
-        )
+        print(f"WARN: Mini-Modal logo not found at {mini_modal_logo}, so not compositing that image part.")
 
     print("Replacing Pokémon card name")
-    return inpaint_new_pokemon_name.remote(
-        card_image=image_to_byte_array(back_im), prompt=prompt
-    )
+    return inpaint_new_pokemon_name.remote(card_image=image_to_byte_array(back_im), prompt=prompt)
 
 
-def color_dist(
-    one: tuple[float, float, float], two: tuple[float, float, float]
-) -> float:
+def color_dist(one: tuple[float, float, float], two: tuple[float, float, float]) -> float:
     """
     A decent but not great RGB color distance function. Range of distance result is [0.0, 3.0].
     """
@@ -248,9 +228,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     .starmap over this function to boost performance.
     """
     print(f"Determining base card for generated sample {i}.")
-    closest_card = closest_pokecard_by_color(
-        sample=sample, cards=config.POKEMON_CARDS
-    )
+    closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
     base_card_url = closest_card["images"]["large"]
     print(f"Closest base card for sample {i} is '{closest_card['name']}'")
     req = urllib.request.Request(
@@ -277,26 +255,17 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
     final_cards_dir = config.FINAL_IMGS / norm_prompt_digest
 
     if final_cards_dir.exists():
-        print(
-            "Cached! - prompt has had cards composed before, returning previous Pokémon card results."
-        )
-        cards_data = [
-            card_file.read_bytes() for card_file in final_cards_dir.iterdir()
-        ]
+        print("Cached! - prompt has had cards composed before, returning previous Pokémon card results.")
+        cards_data = [card_file.read_bytes() for card_file in final_cards_dir.iterdir()]
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.
         samples_data = diskcached_text_to_pokemon.remote(prompt)
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
-            create_composite_card.starmap(
-                (i, sample, norm_prompt)
-                for (i, sample) in enumerate(samples_data)
-            )
+            create_composite_card.starmap((i, sample, norm_prompt) for (i, sample) in enumerate(samples_data))
         )
-        print(
-            f"Persisting {len(cards_data)} results for later disk-cache retrieval."
-        )
+        print(f"Persisting {len(cards_data)} results for later disk-cache retrieval.")
         final_cards_dir.mkdir()
         for i, c_data in enumerate(cards_data):
             c_path = final_cards_dir / f"{i}.png"

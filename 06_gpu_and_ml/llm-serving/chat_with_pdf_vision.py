@@ -128,9 +128,7 @@ cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 # Otherwise, the model weights will be downloaded on the first query.
 
 
-@app.function(
-    image=model_image, volumes={CACHE_DIR: cache_volume}, timeout=20 * MINUTES
-)
+@app.function(image=model_image, volumes={CACHE_DIR: cache_volume}, timeout=20 * MINUTES)
 def download_model():
     from huggingface_hub import snapshot_download
 
@@ -159,7 +157,7 @@ def download_model():
 @app.cls(
     image=model_image,
     gpu="A100-80GB",
-    container_idle_timeout=10 * MINUTES,  # spin down when inactive
+    scaledown_window=10 * MINUTES,  # spin down when inactive
     volumes={"/vol/pdfs/": pdf_volume, CACHE_DIR: cache_volume},
 )
 class Model:
@@ -170,18 +168,14 @@ class Model:
             torch_dtype=torch.bfloat16,
             device_map="cuda:0",
         )
-        self.colqwen2_processor = ColQwen2Processor.from_pretrained(
-            "vidore/colqwen2-v0.1"
-        )
+        self.colqwen2_processor = ColQwen2Processor.from_pretrained("vidore/colqwen2-v0.1")
         self.qwen2_vl_model = Qwen2VLForConditionalGeneration.from_pretrained(
             MODEL_NAME,
             revision=MODEL_REVISION,
             torch_dtype=torch.bfloat16,
         )
         self.qwen2_vl_model.to("cuda:0")
-        self.qwen2_vl_processor = AutoProcessor.from_pretrained(
-            "Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True
-        )
+        self.qwen2_vl_processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct", trust_remote_code=True)
 
     @modal.method()
     def index_pdf(self, session_id, target: bytes | list):
@@ -208,16 +202,10 @@ class Model:
         # Generated embeddings from the image(s)
         BATCH_SZ = 4
         pdf_embeddings = []
-        batches = [
-            images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)
-        ]
+        batches = [images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)]
         for batch in batches:
-            batch_images = self.colqwen2_processor.process_images(batch).to(
-                self.colqwen2_model.device
-            )
-            pdf_embeddings += list(
-                self.colqwen2_model(**batch_images).to("cpu")
-            )
+            batch_images = self.colqwen2_processor.process_images(batch).to(self.colqwen2_model.device)
+            pdf_embeddings += list(self.colqwen2_model(**batch_images).to("cpu"))
 
         # Store the image embeddings in the session, for later retrieval
         session.pdf_embeddings = pdf_embeddings
@@ -261,15 +249,11 @@ class Model:
     def get_relevant_image(self, message, session, images):
         import PIL
 
-        batch_queries = self.colqwen2_processor.process_queries([message]).to(
-            self.colqwen2_model.device
-        )
+        batch_queries = self.colqwen2_processor.process_queries([message]).to(self.colqwen2_model.device)
         query_embeddings = self.colqwen2_model(**batch_queries)
 
         # This scores our query embedding against the image embeddings from index_pdf
-        scores = self.colqwen2_processor.score_multi_vector(
-            query_embeddings, session.pdf_embeddings
-        )[0]
+        scores = self.colqwen2_processor.score_multi_vector(query_embeddings, session.pdf_embeddings)[0]
 
         # Select the best matching image
         max_index = max(range(len(scores)), key=lambda index: scores[index])
@@ -292,13 +276,8 @@ class Model:
         )
         inputs = inputs.to("cuda:0")
 
-        generated_ids = self.qwen2_vl_model.generate(
-            **inputs, max_new_tokens=512
-        )
-        generated_ids_trimmed = [
-            out_ids[len(in_ids) :]
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
+        generated_ids = self.qwen2_vl_model.generate(**inputs, max_new_tokens=512)
+        generated_ids_trimmed = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)]
         output_text = self.qwen2_vl_processor.batch_decode(
             generated_ids_trimmed,
             skip_special_tokens=True,
@@ -407,7 +386,7 @@ web_image = pdf_image.pip_install(
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 1000 concurrent inputs
-    concurrency_limit=1,
+    max_containers=1,
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

@@ -47,9 +47,7 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(
-                    f"launcher exited unexpectedly with code {retcode}"
-                )
+                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
 
 
 def download_model():
@@ -81,7 +79,7 @@ with tei_image.imports():
     gpu=GPU_CONFIG,
     image=tei_image,
     # Use up to 20 GPU containers at once.
-    concurrency_limit=20,
+    max_containers=20,
     # Allow each container to process up to 10 batches at once.
     allow_concurrent_inputs=10,
 )
@@ -107,9 +105,7 @@ class TextEmbeddingsInference:
 
 def download_data():
     service_account_info = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
-    credentials = service_account.Credentials.from_service_account_info(
-        service_account_info
-    )
+    credentials = service_account.Credentials.from_service_account_info(service_account_info)
 
     client = bigquery.Client(credentials=credentials)
 
@@ -165,8 +161,6 @@ def embed_dataset():
 
     # data is of type list[tuple[str, str]].
     # starmap spreads the tuples into positional arguments.
-    for output_batch in model.embed.map(
-        generate_batches(), order_outputs=False
-    ):
+    for output_batch in model.embed.map(generate_batches(), order_outputs=False):
         # Do something with the outputs.
         pass

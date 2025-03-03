@@ -91,7 +91,7 @@ def download_model():
 
 @app.cls(
     gpu="a10g",  # Try using an A100 or H100 if you've got a large model or need big batches!
-    concurrency_limit=10,  # default max GPUs for Modal's free tier
+    max_containers=10,  # default max GPUs for Modal's free tier
 )
 class Model:
     @modal.enter()
@@ -129,13 +129,9 @@ class Model:
 
         start = time.monotonic_ns()
         print(f"Transcribing {len(audio_samples)} audio samples")
-        transcriptions = self.pipeline(
-            audio_samples, batch_size=len(audio_samples)
-        )
+        transcriptions = self.pipeline(audio_samples, batch_size=len(audio_samples))
         end = time.monotonic_ns()
-        print(
-            f"Transcribed {len(audio_samples)} samples in {round((end - start) / 1e9, 2)}s"
-        )
+        print(f"Transcribed {len(audio_samples)} samples in {round((end - start) / 1e9, 2)}s")
         return transcriptions
 
 

@@ -24,9 +24,7 @@ flavor = "devel"  # includes full CUDA toolkit
 operating_sys = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
-cuda_dev_image = modal.Image.from_registry(
-    f"nvidia/cuda:{tag}", add_python="3.11"
-).entrypoint([])
+cuda_dev_image = modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11").entrypoint([])
 
 # Now we install most of our dependencies with `apt` and `pip`.
 # For Hugging Face's [Diffusers](https://github.com/huggingface/diffusers) library
@@ -99,19 +97,13 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 
 @app.cls(
     gpu="H100",  # fastest GPU on Modal
-    container_idle_timeout=20 * MINUTES,
+    scaledown_window=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
-        "/cache": modal.Volume.from_name(
-            "hf-hub-cache", create_if_missing=True
-        ),
+        "/cache": modal.Volume.from_name("hf-hub-cache", create_if_missing=True),
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
-        "/root/.triton": modal.Volume.from_name(
-            "triton-cache", create_if_missing=True
-        ),
-        "/root/.inductor-cache": modal.Volume.from_name(
-            "inductor-cache", create_if_missing=True
-        ),
+        "/root/.triton": modal.Volume.from_name("triton-cache", create_if_missing=True),
+        "/root/.inductor-cache": modal.Volume.from_name("inductor-cache", create_if_missing=True),
     },
 )
 class Model:
@@ -121,9 +113,9 @@ class Model:
 
     @modal.enter()
     def enter(self):
-        pipe = FluxPipeline.from_pretrained(
-            f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
-        ).to("cuda")  # move model to GPU
+        pipe = FluxPipeline.from_pretrained(f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16).to(
+            "cuda"
+        )  # move model to GPU
         self.pipe = optimize(pipe, compile=bool(self.compile))
 
     @modal.method()
@@ -245,12 +237,8 @@ def optimize(pipe, compile=True):
     config.epilogue_fusion = False  # do not fuse pointwise ops into matmuls
 
     # tag the compute-intensive modules, the Transformer and VAE decoder, for compilation
-    pipe.transformer = torch.compile(
-        pipe.transformer, mode="max-autotune", fullgraph=True
-    )
-    pipe.vae.decode = torch.compile(
-        pipe.vae.decode, mode="max-autotune", fullgraph=True
-    )
+    pipe.transformer = torch.compile(pipe.transformer, mode="max-autotune", fullgraph=True)
+    pipe.vae.decode = torch.compile(pipe.vae.decode, mode="max-autotune", fullgraph=True)
 
     # trigger torch compilation
     print("🔦 running torch compiliation (may take up to 20 minutes)...")

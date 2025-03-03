@@ -184,14 +184,10 @@ def download_lora(repository_id: str) -> Optional[str]:
 class StableDiffusionLoRA:
     @modal.enter()  # when a new container starts, we load the base model into the GPU
     def load(self):
-        self.pipe = diffusers.DiffusionPipeline.from_pretrained(
-            BASE_MODEL, torch_dtype=torch.float16
-        ).to("cuda")
+        self.pipe = diffusers.DiffusionPipeline.from_pretrained(BASE_MODEL, torch_dtype=torch.float16).to("cuda")
 
     @modal.method()  # at inference time, we pull in the LoRA weights and pass the final model the prompt
-    def run_inference_with_lora(
-        self, lora_id: str, prompt: str, seed: int = 8888
-    ) -> bytes:
+    def run_inference_with_lora(self, lora_id: str, prompt: str, seed: int = 8888) -> bytes:
         for file in (LORAS_PATH / lora_id).rglob("*.safetensors"):
             self.pipe.load_lora_weights(lora_id, weight_name=file.name)
             break
@@ -238,9 +234,7 @@ def main(
     print(f"downloaded {len(downloaded_loras)} loras => {downloaded_loras}")
 
     # Run inference using one of the downloaded LoRAs.
-    byte_stream = StableDiffusionLoRA().run_inference_with_lora.remote(
-        example_lora, prompt, seed
-    )
+    byte_stream = StableDiffusionLoRA().run_inference_with_lora.remote(example_lora, prompt, seed)
     dir = Path("/tmp/stable-diffusion-xl")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
@@ -269,13 +263,13 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 @app.function(
     image=web_image,
-    keep_warm=1,
-    container_idle_timeout=60 * 20,
+    min_containers=1,
+    scaledown_window=60 * 20,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
     allow_concurrent_inputs=100,
-    concurrency_limit=1,
+    max_containers=1,
 )
 @modal.asgi_app()
 def ui():
@@ -288,16 +282,11 @@ def ui():
     from PIL import Image
 
     # determine which loras are available
-    lora_ids = [
-        f"{lora_dir.parent.stem}/{lora_dir.stem}"
-        for lora_dir in LORAS_PATH.glob("*/*")
-    ]
+    lora_ids = [f"{lora_dir.parent.stem}/{lora_dir.stem}" for lora_dir in LORAS_PATH.glob("*/*")]
 
     # pick one to be default, set a default prompt
     default_lora_id = (
-        "ostris/ikea-instructions-lora-sdxl"
-        if "ostris/ikea-instructions-lora-sdxl" in lora_ids
-        else lora_ids[0]
+        "ostris/ikea-instructions-lora-sdxl" if "ostris/ikea-instructions-lora-sdxl" in lora_ids else lora_ids[0]
     )
     default_prompt = (
         "IKEA instructions for building a GPU rig for deep learning"
@@ -308,19 +297,13 @@ def ui():
     # the simple path to making an app on Gradio is an Interface: a UI wrapped around a function.
     def go(lora_id: str, prompt: str, seed: int) -> Image:
         return Image.open(
-            io.BytesIO(
-                StableDiffusionLoRA().run_inference_with_lora.remote(
-                    lora_id, prompt, seed
-                )
-            ),
+            io.BytesIO(StableDiffusionLoRA().run_inference_with_lora.remote(lora_id, prompt, seed)),
         )
 
     iface = gr.Interface(
         go,
         inputs=[  # the inputs to go/our inference function
-            gr.Dropdown(
-                choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"
-            ),
+            gr.Dropdown(choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"),
             gr.Textbox(default_prompt, label="🎨 Prompt"),
             gr.Number(value=8888, label="🎲 Random Seed"),
         ],

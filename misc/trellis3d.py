@@ -4,9 +4,10 @@ import logging
 import tempfile
 import traceback
 
-import modal
 import requests
 from fastapi import HTTPException, Request, Response, status
+
+import modal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ cache_vol = modal.Volume.from_name("hf-hub-cache")
     image=trellis_image.env({"HF_HUB_CACHE": cache_dir}),
     gpu="L4",
     timeout=1 * HOURS,
-    container_idle_timeout=1 * MINUTES,
+    scaledown_window=1 * MINUTES,
     volumes={cache_dir: cache_vol},
 )
 class Model:
@@ -188,9 +189,7 @@ class Model:
                     texture_size=texture_size,
                 )
 
-                temp_glb = tempfile.NamedTemporaryFile(
-                    suffix=".glb", delete=False
-                )
+                temp_glb = tempfile.NamedTemporaryFile(suffix=".glb", delete=False)
                 temp_path = temp_glb.name
                 logger.info(f"Exporting mesh to: {temp_path}")
                 glb.export(temp_path)

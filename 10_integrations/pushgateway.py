@@ -42,7 +42,7 @@ gw_image = (
 
 # We'll start the Pushgateway as a separate Modal app. This way, we can run the Pushgateway
 # in the background and have our main app push metrics to it. We'll use the `web_server`
-# decorator to expose the Pushgateway's web interface. Note that we must set `concurrency_limit=1`
+# decorator to expose the Pushgateway's web interface. Note that we must set `max_containers=1`
 # as the Pushgateway is a single-process application. If we spin up multiple instances, they'll
 # conflict with each other.
 
@@ -62,7 +62,7 @@ gw_app = modal.App(
 )
 
 
-@gw_app.function(keep_warm=1, concurrency_limit=1)
+@gw_app.function(min_containers=1, max_containers=1)
 @modal.web_server(9091)
 def serve():
     subprocess.Popen("/usr/local/bin/pushgateway")
@@ -78,9 +78,7 @@ def serve():
 # metric. This is useful when you have multiple instances of the same app pushing metrics to the Pushgateway.
 # Without this, the Pushgateway will overwrite the metric with the latest value.
 
-client_image = modal.Image.debian_slim().pip_install(
-    "prometheus-client==0.20.0", "fastapi[standard]==0.115.4"
-)
+client_image = modal.Image.debian_slim().pip_install("prometheus-client==0.20.0", "fastapi[standard]==0.115.4")
 app = modal.App(
     "example-pushgateway",
     image=client_image,
@@ -95,7 +93,7 @@ with client_image.imports():
     )
 
 
-@app.cls(keep_warm=3)
+@app.cls(min_containers=3)
 class ExampleClientApplication:
     @modal.enter()
     def init(self):

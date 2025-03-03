@@ -71,16 +71,14 @@ app = modal.App(name="example-falcon-gptq", image=image)
 #
 # Note that we need to create a separate thread to call the `generate` function because we need to
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
-@app.cls(gpu="A100", timeout=60 * 10, container_idle_timeout=60 * 5)
+@app.cls(gpu="A100", timeout=60 * 10, scaledown_window=60 * 5)
 class Falcon40BGPTQ:
     @modal.enter()
     def load_model(self):
         from auto_gptq import AutoGPTQForCausalLM
         from transformers import AutoTokenizer
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            IMAGE_MODEL_DIR, use_fast=True
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(IMAGE_MODEL_DIR, use_fast=True)
         print("Loaded tokenizer.")
 
         self.model = AutoGPTQForCausalLM.from_quantized(
@@ -100,9 +98,7 @@ class Falcon40BGPTQ:
         from transformers import TextIteratorStreamer
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
         generation_kwargs = dict(
             inputs=inputs.input_ids.cuda(),
             attention_mask=inputs.attention_mask,
