@@ -1,4 +1,4 @@
-name: Force build
+name: Build and run example
 
 on:
   workflow_dispatch:
@@ -24,6 +24,6 @@ jobs:
           fetch-depth: 1
       - uses: ./.github/actions/setup
 
-      - name: Run a random example with MODAL_FORCE_BUILD set
+      - name: Run a random example with MODAL_IGNORE_CACHE set
         run: |
-          MODAL_FORCE_BUILD=1 python3 -m internal.run_example
+          MODAL_IGNORE_CACHE=1 python3 -m internal.run_example
