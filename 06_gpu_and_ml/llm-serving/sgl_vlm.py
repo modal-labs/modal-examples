@@ -109,7 +109,7 @@ app = modal.App("example-sgl-vlm")
 @app.cls(
     gpu=GPU_CONFIG,
     timeout=20 * MINUTES,
-    container_idle_timeout=20 * MINUTES,
+    scaledown_window=20 * MINUTES,
     allow_concurrent_inputs=100,
     image=vlm_image,
 )

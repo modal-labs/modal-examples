@@ -129,7 +129,7 @@ def generate_batches(xs, batch_size):
 @app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
-    concurrency_limit=GPU_CONCURRENCY,
+    max_containers=GPU_CONCURRENCY,
     allow_concurrent_inputs=True,
     retries=3,
 )

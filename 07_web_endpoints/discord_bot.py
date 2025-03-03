@@ -239,7 +239,7 @@ def create_slash_command(force: bool = False):
 
 # 1. We'll need to respond within five seconds or Discord will assume we are dead.
 # Modal's fast-booting serverless containers usually start faster than that,
-# but it's not guaranteed. So we'll add the `keep_warm` parameter to our
+# but it's not guaranteed. So we'll add the `min_containers` parameter to our
 # Function so that there's at least one live copy ready to respond quickly at any time.
 # Modal charges a minimum of about 2¢ an hour for live containers (pricing details [here](https://modal.com/pricing)).
 # Note that that still fits within Modal's $30/month of credits on the free tier.
@@ -260,7 +260,7 @@ def create_slash_command(force: bool = False):
 
 
 @app.function(
-    secrets=[discord_secret], keep_warm=1, allow_concurrent_inputs=1000
+    secrets=[discord_secret], min_containers=1, allow_concurrent_inputs=1000
 )
 @modal.asgi_app()
 def web_app():

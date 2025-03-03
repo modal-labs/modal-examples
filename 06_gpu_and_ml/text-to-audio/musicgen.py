@@ -247,7 +247,7 @@ def main(
     # Gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 1000 concurrent inputs
-    concurrency_limit=1,
+    max_containers=1,
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

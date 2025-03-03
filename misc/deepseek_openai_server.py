@@ -179,10 +179,10 @@ MODELS_DIR = "/deepseek"
 @app.function(
     image=vllm_image,
     gpu=modal.gpu.L40S(count=N_GPU),
-    container_idle_timeout=5 * MINUTES,
+    scaledown_window=5 * MINUTES,
     timeout=15 * MINUTES,
     volumes={MODELS_DIR: model_cache},
-    concurrency_limit=1,
+    max_containers=1,
 )
 @modal.asgi_app()
 def serve():

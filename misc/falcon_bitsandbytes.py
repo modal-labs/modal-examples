@@ -75,7 +75,7 @@ app = modal.App(image=image, name="example-falcon-bnb")
 @app.cls(
     gpu="A100",
     timeout=60 * 10,  # 10 minute timeout on inputs
-    container_idle_timeout=60 * 5,  # Keep runner alive for 5 minutes
+    scaledown_window=60 * 5,  # Keep runner alive for 5 minutes
 )
 class Falcon40B_4bit:
     @modal.enter()

@@ -159,7 +159,7 @@ class ExampleMetadata(ExampleMetadataExtraction):
 # Note that we decorate it with `@app.function` to make it run on Modal.
 
 
-@app.function(concurrency_limit=5)  # watch those LLM API rate limits!
+@app.function(max_containers=5)  # watch those LLM API rate limits!
 def extract_example_metadata(
     example_contents: Optional[str] = None,
     filename: Optional[str] = None,

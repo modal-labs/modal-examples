@@ -269,13 +269,13 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 @app.function(
     image=web_image,
-    keep_warm=1,
-    container_idle_timeout=60 * 20,
+    min_containers=1,
+    scaledown_window=60 * 20,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
     allow_concurrent_inputs=100,
-    concurrency_limit=1,
+    max_containers=1,
 )
 @modal.asgi_app()
 def ui():

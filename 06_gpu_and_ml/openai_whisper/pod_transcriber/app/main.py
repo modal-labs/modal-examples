@@ -96,7 +96,7 @@ def populate_podcast_metadata(podcast_id: str):
 @app.function(
     image=app_image.add_local_dir(config.ASSETS_PATH, remote_path="/assets"),
     network_file_systems={config.CACHE_DIR: volume},
-    keep_warm=2,
+    min_containers=2,
 )
 @modal.asgi_app()
 def fastapi_app():

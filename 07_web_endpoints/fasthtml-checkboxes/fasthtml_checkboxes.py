@@ -37,7 +37,7 @@ css_path_remote = "/assets/styles.css"
     image=modal.Image.debian_slim(python_version="3.12")
     .pip_install("python-fasthtml==0.6.9", "inflect~=7.4.0")
     .add_local_file(css_path_local, remote_path=css_path_remote),
-    concurrency_limit=1,  # we currently maintain state in memory, so we restrict the server to one worker
+    max_containers=1,  # we currently maintain state in memory, so we restrict the server to one worker
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

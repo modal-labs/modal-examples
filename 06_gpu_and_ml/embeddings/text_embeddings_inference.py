@@ -81,7 +81,7 @@ with tei_image.imports():
     gpu=GPU_CONFIG,
     image=tei_image,
     # Use up to 20 GPU containers at once.
-    concurrency_limit=20,
+    max_containers=20,
     # Allow each container to process up to 10 batches at once.
     allow_concurrent_inputs=10,
 )

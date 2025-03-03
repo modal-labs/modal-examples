@@ -91,7 +91,7 @@ def download_model():
 
 @app.cls(
     gpu="a10g",  # Try using an A100 or H100 if you've got a large model or need big batches!
-    concurrency_limit=10,  # default max GPUs for Modal's free tier
+    max_containers=10,  # default max GPUs for Modal's free tier
 )
 class Model:
     @modal.enter()

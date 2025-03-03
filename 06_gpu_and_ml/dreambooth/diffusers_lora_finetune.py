@@ -428,7 +428,7 @@ web_image = image.add_local_dir(
 
 @app.function(
     image=web_image,
-    concurrency_limit=1,
+    max_containers=1,
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

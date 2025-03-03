@@ -54,7 +54,7 @@ def seed_volume():
 # without having to download it to your host computer.
 
 
-@app.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=1_500)
+@app.function(max_containers=1, volumes={CACHE_DIR: volume}, timeout=1_500)
 def run_jupyter(timeout: int):
     jupyter_port = 8888
     with modal.forward(jupyter_port) as tunnel:

@@ -55,7 +55,7 @@ with image.imports():
 
 @app.cls(
     gpu="A10G",
-    concurrency_limit=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
+    max_containers=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
     allow_concurrent_inputs=100,  # Allow concurrent inputs into our single container.
 )
 class Server:

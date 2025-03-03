@@ -64,7 +64,7 @@ WITH_GPU = True  # try changing this to False to run rendering massively in para
 @app.function(
     gpu="L40S" if WITH_GPU else None,
     # default limits on Modal free tier
-    concurrency_limit=10 if WITH_GPU else 100,
+    max_containers=10 if WITH_GPU else 100,
     image=rendering_image,
 )
 def render(blend_file: bytes, frame_number: int = 0) -> bytes:

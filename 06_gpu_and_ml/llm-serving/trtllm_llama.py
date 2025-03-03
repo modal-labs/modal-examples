@@ -266,7 +266,7 @@ app = modal.App(
 
 @app.cls(
     gpu=GPU_CONFIG,
-    container_idle_timeout=10 * MINUTES,
+    scaledown_window=10 * MINUTES,
     image=tensorrt_image,
 )
 class Model:

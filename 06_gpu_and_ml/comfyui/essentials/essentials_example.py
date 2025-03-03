@@ -29,8 +29,8 @@ app = modal.App(name="example-essentials", image=image)
 # Run ComfyUI as an interactive web server
 @app.function(
     allow_concurrent_inputs=10,
-    concurrency_limit=1,
-    container_idle_timeout=30,
+    max_containers=1,
+    scaledown_window=30,
     timeout=1800,
     gpu="A10G",
 )

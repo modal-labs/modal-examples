@@ -223,7 +223,7 @@ def run_esm(sequence: str) -> str:
 
 @app.function(
     image=web_app_image,
-    concurrency_limit=1,  # Gradio requires sticky sessions
+    max_containers=1,  # Gradio requires sticky sessions
     allow_concurrent_inputs=1000,  # but can handle many async inputs
     volumes={VOLUME_PATH: volume},
 )
@@ -352,10 +352,7 @@ def main(
 ):
     if sequence is None:
         print("using sequence for insulin [P01308]")
-        sequence = (
-            "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRR"
-            "YLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
-        )
+        sequence = "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRRYLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
 
     if output_dir is None:
         output_dir = Path("/tmp/esm3")

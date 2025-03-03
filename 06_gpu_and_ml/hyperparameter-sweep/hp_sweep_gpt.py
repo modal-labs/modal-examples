@@ -336,8 +336,7 @@ def main(
         node_rank = result[0]
         results.append(result)
         print(
-            f"[Node {node_rank + 1}/{n_nodes}] Finished."
-            f" Early stop val loss result: {result[1:]}"
+            f"[Node {node_rank + 1}/{n_nodes}] Finished. Early stop val loss result: {result[1:]}"
         )
 
     # find the model and hparams with the lowest validation loss
@@ -580,7 +579,7 @@ def web_generate(request: GenerationRequest):
 
 @app.function(
     image=ui_image,
-    concurrency_limit=1,
+    max_containers=1,
     volumes={volume_path: volume},
     allow_concurrent_inputs=1000,
 )
@@ -764,8 +763,7 @@ def training_loop(
             checkpoint["finished_training"] = step >= n_steps
 
             L.info(
-                f"Saving checkpoint to {checkpoint_path}"
-                f"\t {checkpoint['finished_training']})"
+                f"Saving checkpoint to {checkpoint_path}\t {checkpoint['finished_training']})"
             )
             save_checkpoint(checkpoint, checkpoint_path)
 
@@ -831,9 +829,7 @@ def init_checkpoint(model, tokenizer, optimizer, start_step, hparams):
 def log_evals(result, step, t_last, logs_manager):
     runtime_s = timer() - t_last
     L.info(
-        f"{step:5d}) // {runtime_s:>5.2f}s"
-        f" // Train Loss: {result['train']:.2f} // Val Loss:"
-        f" {result['val']:.2f}"
+        f"{step:5d}) // {runtime_s:>5.2f}s // Train Loss: {result['train']:.2f} // Val Loss: {result['val']:.2f}"
     )
     logs_manager.add_val_scalar("Cross Entropy Loss", result["val"], step)
     logs_manager.add_val_text("Sample Output", result["sample"], step)

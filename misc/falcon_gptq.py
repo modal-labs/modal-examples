@@ -71,7 +71,7 @@ app = modal.App(name="example-falcon-gptq", image=image)
 #
 # Note that we need to create a separate thread to call the `generate` function because we need to
 # yield the text back from the streamer in the main thread. This is an idiosyncrasy with streaming in `transformers`.
-@app.cls(gpu="A100", timeout=60 * 10, container_idle_timeout=60 * 5)
+@app.cls(gpu="A100", timeout=60 * 10, scaledown_window=60 * 5)
 class Falcon40BGPTQ:
     @modal.enter()
     def load_model(self):

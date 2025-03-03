@@ -159,7 +159,7 @@ def download_model():
 @app.cls(
     image=model_image,
     gpu="A100-80GB",
-    container_idle_timeout=10 * MINUTES,  # spin down when inactive
+    scaledown_window=10 * MINUTES,  # spin down when inactive
     volumes={"/vol/pdfs/": pdf_volume, CACHE_DIR: cache_volume},
 )
 class Model:
@@ -407,7 +407,7 @@ web_image = pdf_image.pip_install(
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 1000 concurrent inputs
-    concurrency_limit=1,
+    max_containers=1,
     allow_concurrent_inputs=1000,
 )
 @modal.asgi_app()

@@ -61,7 +61,7 @@ def image_to_byte_array(image) -> bytes:
         return buf.getvalue()
 
 
-@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, keep_warm=1)
+@app.cls(gpu="A10G", volumes={config.CACHE_DIR: volume}, min_containers=1)
 class Model:
     @modal.enter()
     def load_model(self):

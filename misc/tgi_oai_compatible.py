@@ -75,7 +75,7 @@ TOKEN = "secret12345"
 @app.function(
     image=tgi_image,
     gpu=gpu.A10G(count=NO_GPU),
-    container_idle_timeout=20 * SECONDS,
+    scaledown_window=20 * SECONDS,
     # https://modal.com/docs/guide/concurrent-inputs
     allow_concurrent_inputs=256,  # max concurrent input into container
 )
