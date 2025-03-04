@@ -9,10 +9,9 @@
 
 from typing import Optional
 
+import modal
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
-
-import modal
 
 image = modal.Image.debian_slim().pip_install("fastapi[standard]", "pydantic")
 app = modal.App("example-fastapi-app", image=image)

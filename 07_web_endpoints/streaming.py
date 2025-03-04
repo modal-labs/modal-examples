@@ -9,10 +9,9 @@
 import asyncio
 import time
 
+import modal
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-
-import modal
 
 image = modal.Image.debian_slim().pip_install("fastapi[standard]")
 app = modal.App("example-fastapi-streaming", image=image)

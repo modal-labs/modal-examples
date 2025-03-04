@@ -7,10 +7,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Union
 
+import modal
 from pydantic import BaseModel
 from typing_extensions import Annotated, Literal
-
-import modal
 
 
 def build_models():
