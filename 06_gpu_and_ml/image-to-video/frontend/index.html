@@ -1,0 +1,133 @@
+<html>
+  <head>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ model_name }} — Modal</title>
+  </head>
+  <body x-data="state()">
+    <div class="max-w-3xl mx-auto pt-4 pb-8 px-10 sm:py-12 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-medium text-center mb-10">
+        {{ model_name }} on Modal
+      </h2>
+
+      <form
+        @submit.prevent="submitPrompt"
+        class="flex flex-col items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4"
+      >
+        <textarea
+          x-data
+          x-model="prompt"
+          x-init="$nextTick(() => { $el.focus(); });"
+          rows="2"
+          class="w-full px-3 py-3 mb-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+        ></textarea>
+        <div class="flex w-full justify-between">
+          <input
+            type="file"
+            accept="image/*"
+            @change="previewImage"
+            @click="$event.target.value = null;"
+            class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neutral-950 file:text-white hover:file:bg-neutral-900"
+          />
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
+            :disabled="loading"
+          >
+            <span x-show="!loading">Submit</span>
+            <div class="animate-spin w-6 h-6 mx-3" x-show="loading">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="lucide lucide-loader-2"
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+            </div>
+          </button>
+        </div>
+      </form>
+
+      <div class="mx-auto w-full max-w-[768px] relative grid">
+        <div
+          style="padding-top: 100%"
+          x-show="loading"
+          class="absolute w-full h-full animate-pulse bg-neutral-100 rounded-md"
+        ></div>
+        <img
+          x-show="imageURL && !videoURL"
+          class="rounded-md self-center justify-self-center"
+          :src="imageURL"
+        />
+        <video
+          x-bind:src="videoURL"
+          x-show="videoURL"
+          controls
+          class="w-full rounded-md"
+        ></video>
+      </div>
+    </div>
+
+    <script>
+      function state() {
+        return {
+          prompt: "{{ default_prompt }}",
+          submitted: "",
+          loading: false,
+          imageURL: "",
+          videoURL: "",
+          selectedFile: null,
+          previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+              this.selectedFile = file;
+              this.imageURL = URL.createObjectURL(file);
+              this.videoURL = "";
+            }
+          },
+          async submitPrompt() {
+            if (!this.prompt || !this.selectedFile) return;
+            this.submitted = this.prompt;
+            this.loading = true;
+
+            try {
+              const formData = new FormData();
+              formData.append("image_bytes", this.selectedFile);
+
+              url = `{{ inference_url }}?prompt=${this.prompt}`;
+              const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                  accept: "application/json",
+                },
+                body: formData,
+              });
+
+              if (!res.ok) {
+                throw new Error("Inference failed");
+              }
+
+              const blob = await res.blob();
+              this.videoURL = URL.createObjectURL(blob);
+              this.imageURL = "";
+            } catch (error) {
+              console.error("Fetch failed:", error);
+              alert("There was an error generating the video.");
+            } finally {
+              this.loading = false;
+            }
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
