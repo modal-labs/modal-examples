@@ -9,7 +9,7 @@
 # without having to worry about setting up servers or managing infrastructure.
 
 # This tutorial shows the path with the shortest ["time to 200"](https://shkspr.mobi/blog/2021/05/whats-your-apis-time-to-200/):
-# [`modal.web_endpoint`](https://modal.com/docs/reference/modal.web_endpoint).
+# [`modal.fastapi_endpoint`](https://modal.com/docs/reference/modal.fastapi_endpoint).
 
 # On Modal, web endpoints have all the superpowers of Modal Functions:
 # they can be [accelerated with GPUs](https://modal.com/docs/guide/gpu),
@@ -30,7 +30,7 @@
 
 # And that's where most of the power of the Internet comes from: sharing information and functionality across different computer systems.
 
-# So we provide the `web_endpoint` decorator to wrap your Modal Functions in the lingua franca of the web: HTTP.
+# So we provide the `fastapi_endpoint` decorator to wrap your Modal Functions in the lingua franca of the web: HTTP.
 # Here's what that looks like:
 
 import modal
@@ -40,7 +40,7 @@ app = modal.App(name="example-lifecycle-web", image=image)
 
 
 @app.function()
-@modal.web_endpoint(
+@modal.fastapi_endpoint(
     docs=True  # adds interactive documentation in the browser
 )
 def hello():
@@ -82,7 +82,7 @@ def hello():
 
 
 @app.function()
-@modal.web_endpoint(docs=True)
+@modal.fastapi_endpoint(docs=True)
 def greet(user: str) -> str:
     return f"Hello {user}!"
 
@@ -108,7 +108,7 @@ def greet(user: str) -> str:
 
 
 @app.function()
-@modal.web_endpoint(method="POST", docs=True)
+@modal.fastapi_endpoint(method="POST", docs=True)
 def goodbye(data: dict) -> str:
     name = data.get("name") or "world"
     return f"Goodbye {name}!"
@@ -154,7 +154,7 @@ class WebApp:
         print("🏁 Starting up!")
         self.start_time = datetime.now(timezone.utc)
 
-    @modal.web_endpoint(docs=True)
+    @modal.fastapi_endpoint(docs=True)
     def web(self):
         from datetime import datetime, timezone
 
@@ -173,11 +173,11 @@ class WebApp:
 
 # To protect your Modal web endpoints so that they can't be triggered except
 # by members of your [Modal workspace](https://modal.com/docs/guide/workspaces),
-# add the `requires_proxy_auth=True` flag to the `web_endpoint` decorator.
+# add the `requires_proxy_auth=True` flag to the `fastapi_endpoint` decorator.
 
 
 @app.function(gpu="h100")
-@modal.web_endpoint(requires_proxy_auth=True, docs=False)
+@modal.fastapi_endpoint(requires_proxy_auth=True, docs=False)
 def expensive_secret():
     return "I didn't care for 'The Godfather'. It insists upon itself."
 
@@ -206,7 +206,7 @@ def expensive_secret():
 
 # ## What next?
 
-# Modal's `web_endpoint` decorator is opinionated and designed for relatively simple web applications --
+# Modal's `fastapi_endpoint` decorator is opinionated and designed for relatively simple web applications --
 # one or a few independent Python functions that you want to expose to the web.
 
 # Three additional decorators allow you to serve more complex web applications with greater control:

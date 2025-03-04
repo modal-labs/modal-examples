@@ -21,8 +21,9 @@ import time
 import warnings
 from uuid import uuid4
 
-import modal
 import requests
+
+import modal
 
 # VLMs are generally larger than LLMs with the same cognitive capability.
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
@@ -100,7 +101,7 @@ vlm_image = (
 # We define a method `generate` that takes a URL for an image and a question
 # about the image as inputs and returns the VLM's answer.
 
-# By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
+# By decorating it with `@modal.fastapi_endpoint`, we expose it as an HTTP endpoint,
 # so it can be accessed over the public Internet from any client.
 
 app = modal.App("example-sgl-vlm")
@@ -125,12 +126,10 @@ class Model:
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_level=SGL_LOG_LEVEL,
         )
-        self.runtime.endpoint.chat_template = (
-            sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
-        )
+        self.runtime.endpoint.chat_template = sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
         sgl.set_default_backend(self.runtime)
 
-    @modal.web_endpoint(method="POST", docs=True)
+    @modal.fastapi_endpoint(method="POST", docs=True)
     def generate(self, request: dict):
         from pathlib import Path
 
@@ -161,13 +160,9 @@ class Model:
         if question is None:
             question = "What is this?"
 
-        state = image_qa.run(
-            image_path=image_path, question=question, max_new_tokens=128
-        )
+        state = image_qa.run(image_path=image_path, question=question, max_new_tokens=128)
         # show the question, image, and response in the terminal for demonstration purposes
-        print(
-            Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep=""
-        )
+        print(Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep="")
         terminal_image = from_file(image_path)
         terminal_image.draw()
         answer = state["answer"]
@@ -178,9 +173,7 @@ class Model:
             Colors.END,
             sep="",
         )
-        print(
-            f"request {request_id} completed in {round((time.monotonic_ns() - start) / 1e9, 2)} seconds"
-        )
+        print(f"request {request_id} completed in {round((time.monotonic_ns() - start) / 1e9, 2)} seconds")
 
     @modal.exit()  # what should a container do before it shuts down?
     def shutdown_runtime(self):

@@ -4,9 +4,10 @@ import logging
 import tempfile
 import traceback
 
-import modal
 import requests
 from fastapi import HTTPException, Request, Response, status
+
+import modal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -188,9 +189,7 @@ class Model:
                     texture_size=texture_size,
                 )
 
-                temp_glb = tempfile.NamedTemporaryFile(
-                    suffix=".glb", delete=False
-                )
+                temp_glb = tempfile.NamedTemporaryFile(suffix=".glb", delete=False)
                 temp_path = temp_glb.name
                 logger.info(f"Exporting mesh to: {temp_path}")
                 glb.export(temp_path)
@@ -229,7 +228,7 @@ class Model:
                 detail=error_msg,
             )
 
-    @modal.web_endpoint(method="GET", docs=True)
+    @modal.fastapi_endpoint(method="GET", docs=True)
     async def generate(
         self,
         request: Request,

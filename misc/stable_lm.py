@@ -7,9 +7,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Union
 
-import modal
 from pydantic import BaseModel
 from typing_extensions import Annotated, Literal
+
+import modal
 
 
 def build_models():
@@ -27,9 +28,7 @@ def build_models():
         device_map="auto",
         local_files_only=True,
     )
-    m.save_pretrained(
-        model_path, safe_serialization=True, max_shard_size="24GB"
-    )
+    m.save_pretrained(model_path, safe_serialization=True, max_shard_size="24GB")
     tok = AutoTokenizer.from_pretrained(model_path)
     tok.save_pretrained(model_path)
     [p.unlink() for p in Path(model_path).rglob("*.bin")]  # type: ignore
@@ -74,11 +73,7 @@ image = (
 app = modal.App(
     name="example-stability-lm",
     image=image,
-    secrets=[
-        modal.Secret.from_dict(
-            {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
-        )
-    ],
+    secrets=[modal.Secret.from_dict({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})],
 )
 
 
@@ -92,24 +87,18 @@ class CompletionRequest(BaseModel):
         float,
         "Adjusts randomness of outputs, greater than 1 is random and 0 is deterministic.",
     ] = 0.8
-    max_tokens: Annotated[
-        int, "Maximum number of new tokens to generate for text completion."
-    ] = 16
+    max_tokens: Annotated[int, "Maximum number of new tokens to generate for text completion."] = 16
     top_p: Annotated[
         float,
         "Probability threshold for the decoder to use in sampling next most likely token.",
     ] = 0.9
-    stream: Annotated[
-        bool, "Whether to stream the generated text or return it all at once."
-    ] = False
+    stream: Annotated[bool, "Whether to stream the generated text or return it all at once."] = False
     stop: Annotated[Union[str, List[str]], "Any additional stop words."] = []
     top_k: Annotated[
         int,
         "Limits the set of tokens to consider for next token generation to the top k.",
     ] = 40
-    do_sample: Annotated[
-        bool, "Whether to use sampling or greedy decoding for text completion."
-    ] = True
+    do_sample: Annotated[bool, "Whether to use sampling or greedy decoding for text completion."] = True
 
 
 @app.cls(gpu="A10G")
@@ -121,9 +110,7 @@ class StabilityLM:
         "<|padding|>",
         "<|endoftext|>",
     ]
-    model_url: str = modal.parameter(
-        default="stabilityai/stablelm-tuned-alpha-7b"
-    )
+    model_url: str = modal.parameter(default="stabilityai/stablelm-tuned-alpha-7b")
 
     @modal.enter()
     def setup_model(self):
@@ -136,9 +123,7 @@ class StabilityLM:
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_url, local_files_only=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(self.model_url, local_files_only=True)
         self.stop_ids = tokenizer.convert_tokens_to_ids(self.stop_tokens)
         self.streamer = TextIteratorStreamer(
             tokenizer,
@@ -155,30 +140,22 @@ class StabilityLM:
         )
         self.generator.model = torch.compile(self.generator.model)
 
-    def get_config(
-        self, completion_request: CompletionRequest
-    ) -> Dict[str, Any]:
+    def get_config(self, completion_request: CompletionRequest) -> Dict[str, Any]:
         return dict(
             pad_token_id=self.generator.tokenizer.eos_token_id,
             eos_token_id=list(
                 set(
                     self.generator.tokenizer.convert_tokens_to_ids(
-                        self.generator.tokenizer.tokenize(
-                            "".join(completion_request.stop)
-                        )
+                        self.generator.tokenizer.tokenize("".join(completion_request.stop))
                     )
                     + self.stop_ids
                 )
             ),
             max_new_tokens=completion_request.max_tokens,
-            **completion_request.dict(
-                exclude={"prompt", "model", "stop", "max_tokens", "stream"}
-            ),
+            **completion_request.dict(exclude={"prompt", "model", "stop", "max_tokens", "stream"}),
         )
 
-    def generate_completion(
-        self, completion_request: CompletionRequest
-    ) -> Generator[str, None, None]:
+    def generate_completion(self, completion_request: CompletionRequest) -> Generator[str, None, None]:
         import re
         from threading import Thread
 
@@ -186,9 +163,7 @@ class StabilityLM:
 
         text = format_prompt(completion_request.prompt)
         gen_config = GenerationConfig(**self.get_config(completion_request))
-        stop_words = self.generator.tokenizer.convert_ids_to_tokens(
-            gen_config.eos_token_id
-        )
+        stop_words = self.generator.tokenizer.convert_ids_to_tokens(gen_config.eos_token_id)
         stop_words_pattern = re.compile("|".join(map(re.escape, stop_words)))
         thread = Thread(
             target=self.generator.__call__,
@@ -206,9 +181,7 @@ class StabilityLM:
         return "".join(self.generate_completion(completion_request))
 
     @modal.method()
-    def generate_stream(
-        self, completion_request: CompletionRequest
-    ) -> Generator:
+    def generate_stream(self, completion_request: CompletionRequest) -> Generator:
         for text in self.generate_completion(completion_request):
             yield text
 
@@ -243,7 +216,7 @@ with app.image.imports():
 
 
 @app.function()
-@modal.web_endpoint(method="POST", docs=True)  # Interactive docs at /docs
+@modal.fastapi_endpoint(method="POST", docs=True)  # Interactive docs at /docs
 async def completions(completion_request: CompletionRequest):
     from fastapi import Response, status
     from fastapi.responses import StreamingResponse
@@ -261,9 +234,7 @@ async def completions(completion_request: CompletionRequest):
                     choices=[
                         Choice(
                             index=0,
-                            text=StabilityLM().generate.remote(
-                                completion_request=completion_request
-                            ),
+                            text=StabilityLM().generate.remote(completion_request=completion_request),
                         )
                     ],
                 )
@@ -273,9 +244,7 @@ async def completions(completion_request: CompletionRequest):
         )
 
     def wrapped_stream():
-        for new_text in StabilityLM().generate_stream.remote(
-            completion_request=completion_request
-        ):
+        for new_text in StabilityLM().generate_stream.remote(completion_request=completion_request):
             yield (
                 msgspec.json.encode(
                     CompletionResponse(
@@ -302,13 +271,9 @@ def main():
         "Generate a list of the 10 most beautiful cities in the world.",
         "How can I tell apart female and male red cardinals?",
     ]
-    instruction_requests = [
-        CompletionRequest(prompt=q, max_tokens=128) for q in instructions
-    ]
+    instruction_requests = [CompletionRequest(prompt=q, max_tokens=128) for q in instructions]
     print("Running example non-streaming completions:\n")
-    for q, a in zip(
-        instructions, list(StabilityLM().generate.map(instruction_requests))
-    ):
+    for q, a in zip(instructions, list(StabilityLM().generate.map(instruction_requests))):
         print(f"{q_style}{q}{q_end}\n{a}\n\n")
 
     print("Running example streaming completion:\n")

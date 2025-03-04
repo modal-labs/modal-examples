@@ -46,11 +46,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 app = modal.App(
     name="example-langchain-qanda",
     image=image,
-    secrets=[
-        modal.Secret.from_name(
-            "openai-secret", required_keys=["OPENAI_API_KEY"]
-        )
-    ],
+    secrets=[modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"])],
 )
 
 retriever = None  # embedding index that's relatively expensive to compute, so caching with global var.
@@ -180,7 +176,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 
 
 @app.function()
-@modal.web_endpoint(method="GET", docs=True)
+@modal.fastapi_endpoint(method="GET", docs=True)
 def web(query: str, show_sources: bool = False):
     answer, sources = qanda_langchain(query)
     if show_sources:

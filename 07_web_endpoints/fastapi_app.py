@@ -9,9 +9,10 @@
 
 from typing import Optional
 
-import modal
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
+
+import modal
 
 image = modal.Image.debian_slim().pip_install("fastapi[standard]", "pydantic")
 app = modal.App("example-fastapi-app", image=image)
@@ -30,9 +31,7 @@ async def handle_root(user_agent: Optional[str] = Header(None)):
 
 @web_app.post("/foo")
 async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
-    print(
-        f"POST /foo - received user_agent={user_agent}, item.name={item.name}"
-    )
+    print(f"POST /foo - received user_agent={user_agent}, item.name={item.name}")
     return item
 
 
@@ -43,7 +42,7 @@ def fastapi_app():
 
 
 @app.function()
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def f(item: Item):
     return "Hello " + item.name
 

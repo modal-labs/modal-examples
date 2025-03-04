@@ -104,9 +104,7 @@ class Inference:
         ).to("cuda")
 
     @modal.method()
-    def run(
-        self, prompt: str, batch_size: int = 4, seed: int = None
-    ) -> list[bytes]:
+    def run(self, prompt: str, batch_size: int = 4, seed: int = None) -> list[bytes]:
         seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         print("seeding RNG with", seed)
         torch.manual_seed(seed)
@@ -126,7 +124,7 @@ class Inference:
         torch.cuda.empty_cache()  # reduce fragmentation
         return image_output
 
-    @modal.web_endpoint(docs=True)
+    @modal.fastapi_endpoint(docs=True)
     def web(self, prompt: str, seed: int = None):
         return Response(
             content=self.run.local(  # run in the same container
@@ -179,13 +177,10 @@ def entrypoint(
         duration = time.time() - start
         print(f"Run {sample_idx + 1} took {duration:.3f}s")
         if sample_idx:
-            print(
-                f"\tGenerated {len(images)} image(s) at {(duration) / len(images):.3f}s / image."
-            )
+            print(f"\tGenerated {len(images)} image(s) at {(duration) / len(images):.3f}s / image.")
         for batch_idx, image_bytes in enumerate(images):
             output_path = (
-                output_dir
-                / f"output_{slugify(prompt)[:64]}_{str(sample_idx).zfill(2)}_{str(batch_idx).zfill(2)}.png"
+                output_dir / f"output_{slugify(prompt)[:64]}_{str(sample_idx).zfill(2)}_{str(batch_idx).zfill(2)}.png"
             )
             if not batch_idx:
                 print("Saving outputs", end="\n\t")
@@ -198,7 +193,7 @@ def entrypoint(
 
 # ## Generating Stable Diffusion images via an API
 
-# The Modal `Cls` above also included a [`web_endpoint`](https://modal.com/docs/examples/basic_web),
+# The Modal `Cls` above also included a [`fastapi_endpoint`](https://modal.com/docs/examples/basic_web),
 # which adds a simple web API to the inference method.
 
 # To try it out, run

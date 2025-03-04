@@ -132,9 +132,7 @@ class Falcon40B_4bit:
             max_new_tokens=512,
         )
 
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
         generate_kwargs = dict(
             input_ids=input_ids,
             generation_config=generation_config,
@@ -168,10 +166,7 @@ prompt_template = (
 
 @app.local_entrypoint()
 def cli(prompt: str = None):
-    question = (
-        prompt
-        or "What are the main differences between Python and JavaScript programming languages?"
-    )
+    question = prompt or "What are the main differences between Python and JavaScript programming languages?"
     model = Falcon40B_4bit()
     for text in model.generate.remote_gen(prompt_template.format(question)):
         print(text, end="", flush=True)
@@ -183,7 +178,7 @@ def cli(prompt: str = None):
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
 @app.function(timeout=60 * 10)
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 def get(question: str):
     from itertools import chain
 
