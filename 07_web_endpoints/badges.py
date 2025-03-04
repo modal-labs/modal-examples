@@ -19,13 +19,13 @@ app = modal.App("example-web-badges", image=image)
 # ## Defining the web endpoint
 #
 # In addition to using `@app.function()` to decorate our function, we use the
-# `@modal.web_endpoint` decorator ([learn more](/docs/guide/webhooks#web_endpoint)), which instructs Modal
+# `@modal.fastapi_endpoint` decorator ([learn more](/docs/guide/webhooks)) which instructs Modal
 # to create a REST endpoint that serves this function. Note that the default method is `GET`, but this
 # can be overridden using the `method` argument.
 
 
 @app.function()
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 async def package_downloads(package_name: str):
     import json
 

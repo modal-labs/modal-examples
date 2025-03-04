@@ -43,7 +43,7 @@ def fastapi_app():
 
 
 @app.function()
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def f(item: Item):
     return "Hello " + item.name
 

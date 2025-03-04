@@ -133,7 +133,7 @@ def ui():
 # To run a workflow as an API:
 # 1. Stand up a "headless" ComfyUI server in the background when the app starts.
 # 2. Define an `infer` method that takes in a workflow path and runs the workflow on the ComfyUI server.
-# 3. Create a web handler `api` with `web_endpoint`, so that we can run our workflow as a service and accept inputs from clients.
+# 3. Create a web handler `api` as a web endpoint, so that we can run our workflow as a service and accept inputs from clients.
 #
 # Group all these steps into a single Modal `cls` object, which we'll call `ComfyUI`.
 @app.cls(
@@ -171,7 +171,7 @@ class ComfyUI:
             if f.name.startswith(file_prefix):
                 return f.read_bytes()
 
-    @modal.web_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST")
     def api(self, item: Dict):
         from fastapi import Response
 

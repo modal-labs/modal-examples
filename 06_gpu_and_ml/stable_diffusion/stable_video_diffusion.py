@@ -94,7 +94,7 @@ endpoint_image = modal.Image.debian_slim(python_version="3.10").pip_install(
 
 
 @app.function(image=endpoint_image)
-@modal.web_endpoint(method="GET", label="svd")
+@modal.fastapi_endpoint(method="GET", label="svd")
 def share():
     from fastapi.responses import RedirectResponse
 

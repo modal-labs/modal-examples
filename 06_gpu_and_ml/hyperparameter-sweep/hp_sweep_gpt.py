@@ -517,7 +517,7 @@ class ModelInference:
         )
 
 
-# ### Adding a simple `web_endpoint`
+# ### Adding a simple web endpoint
 
 # The `ModelInference` class above is available for use
 # from any other Python environment with the right Modal credentials
@@ -532,7 +532,7 @@ class GenerationRequest(BaseModel):
 
 
 @app.function(image=web_image)
-@modal.web_endpoint(method="POST", docs=True)
+@modal.fastapi_endpoint(method="POST", docs=True)
 def web_generate(request: GenerationRequest):
     output = ModelInference().generate.remote(request.prompt)
     return {"output": output}

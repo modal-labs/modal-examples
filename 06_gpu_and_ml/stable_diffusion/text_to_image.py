@@ -126,7 +126,7 @@ class Inference:
         torch.cuda.empty_cache()  # reduce fragmentation
         return image_output
 
-    @modal.web_endpoint(docs=True)
+    @modal.fastapi_endpoint(docs=True)
     def web(self, prompt: str, seed: int = None):
         return Response(
             content=self.run.local(  # run in the same container
@@ -198,7 +198,7 @@ def entrypoint(
 
 # ## Generating Stable Diffusion images via an API
 
-# The Modal `Cls` above also included a [`web_endpoint`](https://modal.com/docs/examples/basic_web),
+# The Modal `Cls` above also included a [`fastapi_endpoint`](https://modal.com/docs/examples/basic_web),
 # which adds a simple web API to the inference method.
 
 # To try it out, run

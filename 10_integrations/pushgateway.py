@@ -118,7 +118,7 @@ class ExampleClientApplication:
             grouping_key={"instance": self.instance_id},
         )
 
-    @modal.web_endpoint(label="hello-pushgateway")
+    @modal.fastapi_endpoint(label="hello-pushgateway")
     def hello(self):
         self.counter.inc()
         push_to_gateway(

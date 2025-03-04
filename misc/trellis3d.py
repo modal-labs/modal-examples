@@ -229,7 +229,7 @@ class Model:
                 detail=error_msg,
             )
 
-    @modal.web_endpoint(method="GET", docs=True)
+    @modal.fastapi_endpoint(method="GET", docs=True)
     async def generate(
         self,
         request: Request,

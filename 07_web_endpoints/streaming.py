@@ -61,7 +61,7 @@ def sync_fake_video_streamer():
 
 
 @app.function()
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 def hook():
     return StreamingResponse(
         sync_fake_video_streamer.remote_gen(), media_type="text/event-stream"
@@ -79,7 +79,7 @@ def map_me(i):
 
 
 @app.function()
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 def mapped():
     return StreamingResponse(
         map_me.map(range(10)), media_type="text/event-stream"

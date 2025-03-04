@@ -183,7 +183,7 @@ def cli(prompt: str = None):
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
 @app.function(timeout=60 * 10)
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 def get(question: str):
     from itertools import chain
 

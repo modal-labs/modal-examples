@@ -583,7 +583,7 @@ def main():
 
 # ### Calling inference via an API
 
-# We can use `modal.web_endpoint` and `app.function` to turn any Python function into a web API.
+# We can use `modal.fastapi_endpoint` with `app.function` to turn any Python function into a web API.
 
 # This API wrapper doesn't need all the dependencies of the core inference service,
 # so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack.
@@ -605,7 +605,7 @@ class GenerateRequest(pydantic.BaseModel):
 
 
 @app.function(image=web_image)
-@modal.web_endpoint(
+@modal.fastapi_endpoint(
     method="POST", label=f"{MODEL_ID.lower().split('/')[-1]}-web", docs=True
 )
 def generate_web(data: GenerateRequest) -> list[str]:

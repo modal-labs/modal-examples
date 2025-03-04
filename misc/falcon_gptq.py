@@ -144,7 +144,7 @@ def cli():
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
 @app.function(timeout=60 * 10)
-@modal.web_endpoint()
+@modal.fastapi_endpoint()
 def get(question: str):
     from itertools import chain
 

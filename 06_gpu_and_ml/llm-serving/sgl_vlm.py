@@ -100,7 +100,7 @@ vlm_image = (
 # We define a method `generate` that takes a URL for an image and a question
 # about the image as inputs and returns the VLM's answer.
 
-# By decorating it with `@modal.web_endpoint`, we expose it as an HTTP endpoint,
+# By decorating it with `@modal.fastapi_endpoint`, we expose it as an HTTP endpoint,
 # so it can be accessed over the public Internet from any client.
 
 app = modal.App("example-sgl-vlm")
@@ -130,7 +130,7 @@ class Model:
         )
         sgl.set_default_backend(self.runtime)
 
-    @modal.web_endpoint(method="POST", docs=True)
+    @modal.fastapi_endpoint(method="POST", docs=True)
     def generate(self, request: dict):
         from pathlib import Path
 
