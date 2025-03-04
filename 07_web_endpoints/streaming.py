@@ -39,7 +39,9 @@ async def fake_video_streamer():
 
 @web_app.get("/")
 async def main():
-    return StreamingResponse(fake_video_streamer(), media_type="text/event-stream")
+    return StreamingResponse(
+        fake_video_streamer(), media_type="text/event-stream"
+    )
 
 
 @app.function()
@@ -62,7 +64,9 @@ def sync_fake_video_streamer():
 @app.function()
 @modal.fastapi_endpoint()
 def hook():
-    return StreamingResponse(sync_fake_video_streamer.remote_gen(), media_type="text/event-stream")
+    return StreamingResponse(
+        sync_fake_video_streamer.remote_gen(), media_type="text/event-stream"
+    )
 
 
 # This `mapped` web endpoint Modal function does a parallel `.map` on a simple
@@ -78,7 +82,9 @@ def map_me(i):
 @app.function()
 @modal.fastapi_endpoint()
 def mapped():
-    return StreamingResponse(map_me.map(range(10)), media_type="text/event-stream")
+    return StreamingResponse(
+        map_me.map(range(10)), media_type="text/event-stream"
+    )
 
 
 # To try for yourself, run

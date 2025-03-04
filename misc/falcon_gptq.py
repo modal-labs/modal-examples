@@ -78,7 +78,9 @@ class Falcon40BGPTQ:
         from auto_gptq import AutoGPTQForCausalLM
         from transformers import AutoTokenizer
 
-        self.tokenizer = AutoTokenizer.from_pretrained(IMAGE_MODEL_DIR, use_fast=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            IMAGE_MODEL_DIR, use_fast=True
+        )
         print("Loaded tokenizer.")
 
         self.model = AutoGPTQForCausalLM.from_quantized(
@@ -98,7 +100,9 @@ class Falcon40BGPTQ:
         from transformers import TextIteratorStreamer
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
-        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(
+            self.tokenizer, skip_special_tokens=True
+        )
         generation_kwargs = dict(
             inputs=inputs.input_ids.cuda(),
             attention_mask=inputs.attention_mask,

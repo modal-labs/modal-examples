@@ -10,7 +10,9 @@
 
 import modal
 
-image = modal.Image.debian_slim().pip_install("fastapi[standard]", "pybadges", "pypistats")
+image = modal.Image.debian_slim().pip_install(
+    "fastapi[standard]", "pybadges", "pypistats"
+)
 
 app = modal.App("example-web-badges", image=image)
 

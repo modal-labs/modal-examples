@@ -11,7 +11,9 @@ import sys
 import modal
 
 app = modal.App(name="example-stable-video-diffusion-streamlit")
-q = modal.Queue.from_name("stable-video-diffusion-streamlit", create_if_missing=True)
+q = modal.Queue.from_name(
+    "stable-video-diffusion-streamlit", create_if_missing=True
+)
 
 session_timeout = 15 * 60
 
@@ -42,7 +44,9 @@ svd_image = (
     # pre-built python 3.11 wheel.
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
-    .run_commands("git clone https://github.com/Stability-AI/generative-models.git /sgm")
+    .run_commands(
+        "git clone https://github.com/Stability-AI/generative-models.git /sgm"
+    )
     .workdir("/sgm")
     .pip_install(".")
     .pip_install(
@@ -71,7 +75,9 @@ def run_streamlit(publish_url: bool = False):
         # Reload Streamlit config with information about Modal tunnel address.
         if publish_url:
             q.put(tunnel.url)
-        load_config_options({"browser.serverAddress": tunnel.host, "browser.serverPort": 443})
+        load_config_options(
+            {"browser.serverAddress": tunnel.host, "browser.serverPort": 443}
+        )
         run(
             main_script_path="/sgm/scripts/demo/video_sampling.py",
             is_hello=False,

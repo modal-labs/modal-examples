@@ -104,7 +104,9 @@ class Inference:
         ).to("cuda")
 
     @modal.method()
-    def run(self, prompt: str, batch_size: int = 4, seed: int = None) -> list[bytes]:
+    def run(
+        self, prompt: str, batch_size: int = 4, seed: int = None
+    ) -> list[bytes]:
         seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         print("seeding RNG with", seed)
         torch.manual_seed(seed)
@@ -177,10 +179,13 @@ def entrypoint(
         duration = time.time() - start
         print(f"Run {sample_idx + 1} took {duration:.3f}s")
         if sample_idx:
-            print(f"\tGenerated {len(images)} image(s) at {(duration) / len(images):.3f}s / image.")
+            print(
+                f"\tGenerated {len(images)} image(s) at {(duration) / len(images):.3f}s / image."
+            )
         for batch_idx, image_bytes in enumerate(images):
             output_path = (
-                output_dir / f"output_{slugify(prompt)[:64]}_{str(sample_idx).zfill(2)}_{str(batch_idx).zfill(2)}.png"
+                output_dir
+                / f"output_{slugify(prompt)[:64]}_{str(sample_idx).zfill(2)}_{str(batch_idx).zfill(2)}.png"
             )
             if not batch_idx:
                 print("Saving outputs", end="\n\t")

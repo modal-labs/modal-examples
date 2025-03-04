@@ -78,7 +78,9 @@ def serve():
 # metric. This is useful when you have multiple instances of the same app pushing metrics to the Pushgateway.
 # Without this, the Pushgateway will overwrite the metric with the latest value.
 
-client_image = modal.Image.debian_slim().pip_install("prometheus-client==0.20.0", "fastapi[standard]==0.115.4")
+client_image = modal.Image.debian_slim().pip_install(
+    "prometheus-client==0.20.0", "fastapi[standard]==0.115.4"
+)
 app = modal.App(
     "example-pushgateway",
     image=client_image,
