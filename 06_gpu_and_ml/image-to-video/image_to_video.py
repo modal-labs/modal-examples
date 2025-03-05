@@ -106,7 +106,7 @@ MINUTES = 60
     image=image,
     gpu="H100",
     timeout=10 * MINUTES,
-    container_idle_timeout=10 * MINUTES,
+    scaledown_window=10 * MINUTES,
     volumes={MODEL_PATH: model_volume, OUTPUT_PATH: output_volume},
 )
 class Inference:
