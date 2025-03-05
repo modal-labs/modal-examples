@@ -14,7 +14,11 @@
 # Here is an example using the model to animate the
 # [Disaster Girl](https://en.wikipedia.org/wiki/Disaster_Girl) meme:
 
-# ![Disaster Girl Video]())
+# <center>
+# <video controls autoplay loop muted>
+# <source src="https://modal-public-assets.s3.us-east-1.amazonaws.com/example_image_to_video.mp4" type="video/mp4" />
+# </video>
+# </center>
 
 # ## Basic setup
 
