@@ -160,7 +160,7 @@ class Inference:
         torch.cuda.empty_cache()  # reduce fragmentation
         return mp4_name
 
-    @modal.web_endpoint(method="POST", docs=True)
+    @modal.fastapi_endpoint(method="POST", docs=True)
     def web(
         self,
         image_bytes: Annotated[bytes, fastapi.File()],
@@ -257,7 +257,7 @@ def entrypoint(
 
 # ## Generating videos via an API
 
-# The Modal `Cls` above also included a [`web_endpoint`](https://modal.com/docs/examples/basic_web),
+# The Modal `Cls` above also included a [`fastapi_endpoint`](https://modal.com/docs/examples/basic_web),
 # which adds a simple web API to the inference method.
 
 # To try it out, run
