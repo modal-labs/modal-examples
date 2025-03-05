@@ -13,6 +13,7 @@ import modal
 
 app = modal.App("example-hello-world")
 
+
 @app.function()
 def f(i):
     if i % 2 == 0:
@@ -44,4 +45,3 @@ if __name__ == "__main__":
     # Use `app.run()` to substitute the `modal run` CLI invocation.
     with modal.enable_output(), app.run():
         main()
-
