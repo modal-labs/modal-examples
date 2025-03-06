@@ -206,8 +206,8 @@ class Inference:
 
 @app.local_entrypoint()
 def entrypoint(
-    image_path: str,
-    prompt: str,
+    image_path: str = "https://modal-public-assets.s3.us-east-1.amazonaws.com/example_image_to_video_image.png",
+    prompt: str = "A young girl stands calmly in the foreground, looking directly at the camera, as a house fire rages in the background.",
     negative_prompt: str = None,
     num_frames: int = None,
     num_inference_steps: int = None,
