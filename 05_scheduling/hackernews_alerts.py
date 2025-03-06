@@ -25,10 +25,12 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 # ## Defining the function and importing the secret
 
-# Our Slack bot will need access to a bot token. We can use Modal's [Secrets](/secrets) interface to accomplish this.
-# To quickly create a Slack bot secret, navigate to the [create secret](/secrets/create) page, select the Slack secret template
+# Our Slack bot will need access to a bot token.
+# We can use Modal's [Secrets](https://modal.com/secrets) interface to accomplish this.
+# To quickly create a Slack bot secret, navigate to the
+# [create secret](https://modal.com/secrets/create) page, select the Slack secret template
 # from the list options, and follow the instructions in the "Where to find the credentials?" panel.
-# Name your secret `hn-bot-slack`, so that the code in this example still works.
+# Name your secret `hn-bot-slack.`
 
 # Now, we define the function `post_to_slack`, which simply instantiates the Slack client using our token,
 # and then uses it to post a message to a given channel name.
@@ -62,8 +64,8 @@ WINDOW_SIZE_DAYS = 1
 requests_image = modal.Image.debian_slim().pip_install("requests")
 
 # We can now define our main entrypoint, that queries Algolia for the term, and calls `post_to_slack`
-# on all the results. We specify a [schedule](/docs/guide/cron) in the function decorator, which
-# means that our function will run automatically at the given interval.
+# on all the results. We specify a [schedule](https://modal.com/docs/guide/cron)
+# in the function decorator, which means that our function will run automatically at the given interval.
 
 
 @app.function(image=requests_image)
@@ -103,5 +105,5 @@ def run_daily():
 
 # In order to deploy this as a persistent cron job, you can run `modal deploy hackernews_alerts.py`,
 
-# Once the job is deployed, visit the [apps page](/apps) page to see
+# Once the job is deployed, visit the [apps page](https://modal.com/apps) page to see
 # its execution history, logs and other stats.

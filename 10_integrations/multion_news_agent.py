@@ -22,17 +22,23 @@ app = modal.App("multion-news-tweet-agent")
 
 multion_image = modal.Image.debian_slim().pip_install("multion")
 
-# We can now define our main entrypoint, that uses [MultiOn](https://www.multion.ai/) to scrape AI news everyday and post it on our twitter account. We specify a [schedule](/docs/guide/cron) in the function decorator, which
+# We can now define our main entrypoint, which uses [MultiOn](https://www.multion.ai/)
+# to scrape AI news everyday and post it on our Twitter account.
+# We specify a [schedule](https://modal.com/docs/guide/cron) in the function decorator, which
 # means that our function will run automatically at the given interval.
 
 # ## Set up MultiOn
-#
-# [MultiOn](https://multion.ai/) is a next-gen Web Action Agent that can take actions on behalf of the user. You can watch it in action here: [Youtube demo](https://www.youtube.com/watch?v=Rm67ry6bogw).
+
+# [MultiOn](https://multion.ai/) is a Web Action Agent that can take actions on behalf of the user.
+# You can watch it in action [here](https://www.youtube.com/watch?v=Rm67ry6bogw).
 
 # The MultiOn API enables building the next level of web automation & custom AI agents capable of performing complex actions on the internet with just a few lines of code.
 
-# To get started, first create an account with [MultiOn](https://app.multion.ai/), install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm) and login to your Twitter account in your browser.
-# To use the API create a [MultiOn API Key](https://app.multion.ai/api-keys) and store it as a modal secret on [the dashboard](https://modal.com/secrets)
+# To get started, first create an account with [MultiOn](https://app.multion.ai/),
+# install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm)
+# and login to your Twitter account in your browser.
+# To use the API, create a [MultiOn API Key](https://app.multion.ai/api-keys)
+# and store it as a Modal sEcret on [the dashboard](https://modal.com/secrets)
 
 
 @app.function(
@@ -75,5 +81,5 @@ def run_daily():
 
 # In order to deploy this as a persistent cron job, you can run `modal deploy multion_news_agent.py`.
 
-# Once the job is deployed, visit the [apps page](/apps) page to see
+# Once the job is deployed, visit the [apps page](https://modal.com/apps) page to see
 # its execution history, logs and other stats.
