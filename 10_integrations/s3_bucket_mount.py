@@ -28,7 +28,7 @@ from pathlib import Path, PosixPath
 
 import modal
 
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "requests==2.31.0", "duckdb==0.10.0", "matplotlib==3.8.3"
 )
 app = modal.App(image=image)

@@ -30,7 +30,7 @@ app = modal.App("example-screenshot")
 # Modal lets you run arbitrary commands, just like in Docker:
 
 
-image = modal.Image.debian_slim().run_commands(
+image = modal.Image.debian_slim(python_version="3.12").run_commands(
     "apt-get update",
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",

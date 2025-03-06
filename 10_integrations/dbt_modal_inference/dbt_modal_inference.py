@@ -36,7 +36,7 @@ TARGET_PATH = f"{VOL_PATH}/target"
 # See [this guide](https://modal.com/docs/guide/custom-container) for details.
 
 dbt_image = (  # start from a slim Linux image
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install(  # install python packages
         "dbt-duckdb==1.8.1",  # dbt with duckdb connector
         "pandas==2.2.2",  # dataframes
