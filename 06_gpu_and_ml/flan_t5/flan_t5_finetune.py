@@ -23,7 +23,7 @@ VOL_MOUNT_PATH = Path("/vol")
 # Other Flan-T5 models can be found [here](https://huggingface.co/docs/transformers/model_doc/flan-t5)
 BASE_MODEL = "google/flan-t5-base"
 
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "accelerate",
     "transformers",
     "torch",

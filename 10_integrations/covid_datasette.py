@@ -37,7 +37,7 @@ import modal
 
 app = modal.App("example-covid-datasette")
 datasette_image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install("datasette~=0.63.2", "sqlite-utils")
     .apt_install("unzip")
 )
