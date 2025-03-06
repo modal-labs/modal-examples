@@ -117,8 +117,8 @@ def main():
 # * Running [language model inference](https://modal.com/docs/examples/vllm_inference)
 # or [fine-tuning](https://modal.com/docs/examples/slack-finetune)
 # * Manipulating [audio](https://modal.com/docs/examples/musicgen)
-# or [images](https://modal.com//docs/examples/diffusers_lora_finetune)
-# * [Collecting financial data](https://modal.com//docs/examples/fetch_stock_prices) to backtest a trading algorithm
+# or [images](https://modal.com/docs/examples/diffusers_lora_finetune)
+# * [Collecting financial data](https://modal.com/docs/examples/fetch_stock_prices) to backtest a trading algorithm
 
 # Modal lets you parallelize that operation effortlessly by running hundreds or
 # thousands of containers in the cloud.
