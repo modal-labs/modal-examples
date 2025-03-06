@@ -1,21 +1,21 @@
 # ---
 # output-directory: "/tmp/image_to_video"
+# args: ["--prompt", "A young girl stands calmly in the foreground, looking directly at the camera, as a house fire rages in the background.", "--image-path", "https://modal-cdn.com/example_image_to_video_image.png"]
 # ---
 
-# # Run Lightricks LTX-Video Image to Video Model as a CLI, API, and web UI
+# # Animate images with Lightricks LTX-Video via CLI, API, and web UI
 
 # This example shows how to run [LTX-Video](https://huggingface.co/Lightricks/LTX-Video) on Modal
-# to generate videos from your local command line, via an API, and as a web UI.
+# to generate videos from your local command line, via an API, and in a web UI.
 
 # Generating a 5 second video takes ~1 minute from cold start.
 # Once the container is warm, a 5 second video takes ~15 seconds.
 
-# Here is an example using the model to animate the
-# [Disaster Girl](https://en.wikipedia.org/wiki/Disaster_Girl) meme:
+# Here is a sample we generated:
 
 # <center>
 # <video controls autoplay loop muted>
-# <source src="https://modal-public-assets.s3.us-east-1.amazonaws.com/example_image_to_video.mp4" type="video/mp4" />
+# <source src="https://modal-cdn.com/example_image_to_video.mp4" type="video/mp4" />
 # </video>
 # </center>
 
@@ -30,21 +30,19 @@ from typing import Annotated
 import fastapi
 import modal
 
-# All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) — an object that acts as a recipe for
-# the application. Let's give it a friendly name.
+# All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) —
+# an object that acts as a recipe for the application.
 
 app = modal.App("example-image-to-video")
 
-# ## Configuring dependencies
+# ### Configuring dependencies
 
-# The model runs remotely inside a [container](https://modal.com/docs/guide/custom-container).
-# That means we need to install the necessary dependencies in that container's image.
+# The model runs remotely, on Modal's cloud, which means we need to
+# [define the environment it runs in](https://modal.com/docs/guide/images).
 
 # Below, we start from a lightweight base Linux image
-# and then install our Linux and Python dependencies, like Hugging Face's `diffusers` library and `torch`.
-
-MODEL_PATH = "/models"
-OUTPUT_PATH = "/outputs"
+# and then install our system and Python dependencies,
+# like Hugging Face's `diffusers` library and `torch`.
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -63,39 +61,64 @@ image = (
         "torchvision==0.21.0",
         "transformers==4.49.0",
     )
-    .env(
-        {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
-            "HF_HUB_CACHE": MODEL_PATH,
-        }
-    )
 )
 
-with image.imports():
-    import diffusers
-    import torch
-    from PIL import Image
+# ## Storing model weights on Modal
 
-
-# ## Implementing LTX-Video inference on Modal
-
-# We wrap inference in a Modal [Cls](https://modal.com/docs/guide/lifecycle-methods)
-# that ensures models are loaded and then moved to the GPU once when a new container
-# starts, before the container picks up any work.
-
-# The `run` function just wraps a `diffusers` pipeline.
-# It saves the generated video to a Modal volume, and returns the filename.
-
-# We also include a `web` wrapper that makes it possible
-# to trigger inference via an API call.
-# See the `/docs` route of the URL ending in `inference-web.modal.run`
-# that appears when you deploy the app for details.
+# We also need the parameters of the model remotely.
+# They can be loaded at runtime from Hugging Face,
+# based on a repository ID and a revision (aka a commit SHA).
 
 MODEL_ID = "Lightricks/LTX-Video"
 MODEL_REVISION_ID = "a6d59ee37c13c58261aa79027d3e41cd41960925"
 
+# Hugging Face will also cache the weights to disk once they're downloaded.
+# But Modal Functions are serverless, and so even disks are ephemeral,
+# which means the weights would get re-downloaded every time we spin up a new instance.
+
+# We can fix this -- without any modifications to Hugging Face's model loading code! --
+# by pointing the Hugging Face cache at a [Modal Volume](https://modal.com/docs/guide/volumes).
+
 model_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+MODEL_PATH = (
+    "/models"  # where the Volume will appear on our Functions' filesystems
+)
+
+image = image.env(
+    {
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
+        "HF_HUB_CACHE": MODEL_PATH,
+    }
+)
+
+# ## Storing model outputs on Modal
+
+# Contemporary video models can take a long time to run and they produce large outputs.
+# That makes them a great candidate for storage on Modal Volumes as well.
+# Python code running outside of Modal can also access this storage, as we'll see below.
+
+OUTPUT_PATH = "/outputs"
 output_volume = modal.Volume.from_name("outputs", create_if_missing=True)
+
+# ## Implementing LTX-Video inference on Modal
+
+# We wrap the inference logic in a Modal [Cls](https://modal.com/docs/guide/lifecycle-methods)
+# that ensures models are loaded and then moved to the GPU once when a new instance
+# starts, rather than every time we run it.
+
+# The `run` function just wraps a `diffusers` pipeline.
+# It saves the generated video to a Modal Volume, and returns the filename.
+
+# We also include a `web` wrapper that makes it possible
+# to trigger inference via an API call.
+# For details, see the `/docs` route of the URL ending in `inference-web.modal.run`
+# that appears when you deploy the app.
+
+with image.imports():  # loaded on all of our remote Functions
+    import diffusers
+    import torch
+    from PIL import Image
 
 MINUTES = 60
 
@@ -185,9 +208,9 @@ class Inference:
 
 # ## Generating videos from the command line
 
-# Creating a [local entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint)
-# that calls the Inference().run method will allow us to run inference from the command line.
-# The function's parameters define the CLI.
+# We add a [local entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint)
+# that calls the `Inference.run` method to run inference from the command line.
+# The function's parameters are automatically turned into a CLI.
 
 # Run it with
 
@@ -197,33 +220,22 @@ class Inference:
 
 # You can also pass `--help` to see the full list of arguments.
 
-# ```bash
-# modal run image_to_video.py --help
-# ```
-
 
 @app.local_entrypoint()
 def entrypoint(
-    image_path: str = "https://modal-public-assets.s3.us-east-1.amazonaws.com/example_image_to_video_image.png",
-    prompt: str = "A young girl stands calmly in the foreground, looking directly at the camera, as a house fire rages in the background.",
+    image_path: str,
+    prompt: str,
     negative_prompt: str = None,
     num_frames: int = None,
     num_inference_steps: int = None,
     seed: int = None,
-    twice: bool = False,
+    twice: bool = True,
 ):
     import os
     import urllib.request
 
-    print(
-        f"Image => {image_path}",
-        f"Prompt => {prompt}",
-        f"Negative prompt => {negative_prompt}",
-        f"Number of frames => {num_frames} (24fps)",
-        f"Number of inference steps => {num_inference_steps}",
-        f"Seed => {seed}",
-        sep="\n",
-    )
+    print(f"🎥 Generating a video from the image at {image_path}")
+    print(f"🎥 using the prompt {prompt}")
 
     if image_path.startswith(("http://", "https://")):
         image_bytes = urllib.request.urlopen(image_path).read()
@@ -234,7 +246,7 @@ def entrypoint(
 
     inference_service = Inference()
 
-    for _ in range(2 if twice else 1):
+    for _ in range(1 + twice):
         start = time.time()
         mp4_name = inference_service.run.remote(
             image_bytes=image_bytes,
@@ -244,13 +256,14 @@ def entrypoint(
             seed=seed,
         )
         duration = time.time() - start
-        print(f"Generated video in {duration:.3f}s")
+        print(f"🎥 Generated video in {duration:.3f}s")
 
         output_dir = Path("/tmp/image_to_video")
         output_dir.mkdir(exist_ok=True, parents=True)
         output_path = output_dir / mp4_name
+        # read in the file from the Modal Volume, then write it to the local disk
         output_path.write_bytes(b"".join(output_volume.read_file(mp4_name)))
-        print(f"Video saved to {output_path}")
+        print(f"🎥 Video saved to {output_path}")
 
 
 # ## Generating videos via an API
@@ -273,20 +286,23 @@ def entrypoint(
 # Lastly, we add a simple front-end web UI (written in Alpine.js) for
 # our image to video backend.
 
-# This is also deployed by running
+# This is also deployed when you run
 
 # ```bash
 # modal deploy image_to_video.py.
 # ```
 
-# The `Inference` class will serve multiple users from its own auto-scaling pool of warm GPU containers automatically.
+# The `Inference` class will serve multiple users from its own auto-scaling pool of warm GPU containers automatically,
+# and they will spin down when there are no requests.
 
 frontend_path = Path(__file__).parent / "frontend"
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("jinja2==3.1.5", "fastapi[standard]==0.115.8")
-    .add_local_dir(frontend_path, remote_path="/assets")
+    .add_local_dir(  # mount frontend/client code
+        frontend_path, remote_path="/assets"
+    )
 )
 
 
