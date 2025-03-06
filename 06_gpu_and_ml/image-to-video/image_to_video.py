@@ -30,7 +30,6 @@ from typing import Annotated
 import fastapi
 import modal
 
-
 # All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) — an object that acts as a recipe for
 # the application. Let's give it a friendly name.
 
