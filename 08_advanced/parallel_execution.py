@@ -1,4 +1,4 @@
-# # Parallel execution on Modal with `spawn`
+# # Parallel execution on Modal with `spawn` and `gather`
 
 # This example shows how you can run multiple functions in parallel on Modal.
 # We use the `spawn` method to start a function and return a handle to its result.
@@ -36,13 +36,13 @@ def main():
     # Print "foofoo" after 2 seconds.
     print(word_call.get() * number_call.get())
 
-    # Alternatively, use `modal.functions.gather(...)` as a convenience wrapper,
+    # Alternatively, use `modal.FunctionCall.gather(...)` as a convenience wrapper,
     # which returns an error if either call fails.
-    results = modal.functions.gather(step1.spawn("bar"), step2.spawn(4))
+    results = modal.FunctionCall.gather(step1.spawn("bar"), step2.spawn(4))
     assert results == ["bar", 4]
 
     # Raise exception after 2 seconds.
     try:
-        modal.functions.gather(step1.spawn("bar"), step2.spawn(0))
+        modal.FunctionCall.gather(step1.spawn("bar"), step2.spawn(0))
     except ValueError as exc:
         assert str(exc) == "custom error"
