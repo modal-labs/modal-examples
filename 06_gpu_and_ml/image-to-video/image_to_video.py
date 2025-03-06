@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/image_to_video"
-# args: ["--prompt", ""]
 # ---
 
 # # Run Lightricks LTX-Video Image to Video Model as a CLI, API, and web UI
