@@ -34,9 +34,9 @@ import modal
 
 app = modal.App(
     "example-fetch-stock-prices",
-    image=modal.Image.debian_slim().pip_install(
-        "httpx~=0.24.0",
-        "yfinance~=0.2.31",
+    image=modal.Image.debian_slim(python_version="3.12").pip_install(
+        "httpx==0.28.1",
+        "yfinance==0.2.54",
         "beautifulsoup4~=4.12.2",
         "matplotlib~=3.7.1",
     ),
