@@ -2,32 +2,33 @@
 # deploy: true
 # cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfyapp.py"]
 # ---
-#
+
 # # Run Flux on ComfyUI as an API
-#
+
 # In this example, we show you how to turn a [ComfyUI](https://github.com/comfyanonymous/ComfyUI) workflow into a scalable API endpoint.
-#
+
 # ## Quickstart
-#
+
 # To run this simple text-to-image [Flux Schnell workflow](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/comfyui/workflow_api.json) as an API:
+
 # 1. Start up the ComfyUI server in development mode:
+
 # ```bash
 # modal serve 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
-#
+
 # 2. In another terminal, run inference:
+
 # ```bash
 # python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace $(modal profile current) --prompt "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"
 # ```
-#
-# ![example comfyui image](./flux_gen_image.jpeg)
-#
-# The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive calls on a warm container should take a few seconds.
-#
 
+# ![example comfyui image](./flux_gen_image.jpeg)
+
+# The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive calls on a warm container should take a few seconds.
 
 # ## Installing ComfyUI
-#
+
 # We use [comfy-cli](https://github.com/Comfy-Org/comfy-cli) to install ComfyUI and its dependencies.
 
 import json
@@ -49,10 +50,13 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         "comfy --skip-prompt install --nvidia --version 0.3.10"
     )
 )
+
 # ## Downloading custom nodes
+
 # We'll also use `comfy-cli` to download custom nodes, in this case the popular [WAS Node Suite](https://github.com/WASasquatch/was-node-suite-comfyui).
-#
+
 # Use the [ComfyUI Registry](https://registry.comfy.org/) to find the specific custom node name to use with this command.
+
 image = (
     image.run_commands(  # download a custom node
         "comfy node install was-node-suite-comfyui@1.0.2"
@@ -60,14 +64,19 @@ image = (
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
 
-# See [this post](/blog/comfyui-custom-nodes) for more examples on how to install popular custom nodes like [ComfyUI Impact Pack](/blog/comfyui-custom-nodes#2-comfyui-impact-pack) and [ComfyUI IPAdapter Plus](/blog/comfyui-custom-nodes#3-comfyui-ipadapater-plus).
+# See [this post](https://modal.com/blog/comfyui-custom-nodes) for more examples
+# on how to install popular custom nodes like ComfyUI Impact Pack and ComfyUI IPAdapter Plus.
+
 # ## Downloading models
 
-# `comfy-cli` also supports downloading models, but we've found it's faster to use [hf_hub_download](https://huggingface.co/docs/huggingface_hub/en/guides/download#download-a-single-file) directly by:
+# `comfy-cli` also supports downloading models, but we've found it's faster to use
+# [`hf_hub_download`](https://huggingface.co/docs/huggingface_hub/en/guides/download#download-a-single-file)
+# directly by:
+
 # 1. Enabling [faster downloads](https://huggingface.co/docs/huggingface_hub/en/guides/download#faster-downloads)
-# 2. Mounting the cache directory to a [Volume](/docs/guide/volumes)
-#
-# By persisting the cache to a Volume, we avoid re-downloading the models every time you rebuild your image.
+# 2. Mounting the cache directory to a [Volume](https://modal.com/docs/guide/volumes)
+
+# By persisting the cache to a Volume, you avoid re-downloading the models every time you rebuild your image.
 
 
 def hf_download():
@@ -106,8 +115,9 @@ image = image.add_local_file(
 )
 
 # ## Running ComfyUI interactively
-#
-# Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function and serving it as a [web server](/docs/guide/webhooks#non-asgi-web-servers).
+
+# Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function
+# and serving it as a [web server](https://modal.com/docs/guide/webhooks#non-asgi-web-servers).
 
 app = modal.App(name="example-comfyui", image=image)
 
@@ -124,21 +134,26 @@ def ui():
 
 
 # At this point you can run `modal serve 06_gpu_and_ml/comfyui/comfyapp.py` and open the UI in your browser for the classic ComfyUI experience.
-#
+
 # Remember to **close your UI tab** when you are done developing.
 # This will close the connection with the container serving ComfyUI and you will stop being charged.
-#
+
 # ## Running ComfyUI as an API
-#
+
 # To run a workflow as an API:
+
 # 1. Stand up a "headless" ComfyUI server in the background when the app starts.
+
 # 2. Define an `infer` method that takes in a workflow path and runs the workflow on the ComfyUI server.
+
 # 3. Create a web handler `api` as a web endpoint, so that we can run our workflow as a service and accept inputs from clients.
-#
-# Group all these steps into a single Modal `cls` object, which we'll call `ComfyUI`.
+
+# We group all these steps into a single Modal `cls` object, which we'll call `ComfyUI`.
+
+
 @app.cls(
     allow_concurrent_inputs=10,  # allow 10 concurrent API calls
-    scaledown_window=300,  # 5 minute container keep alive after it processes an input; increasing this value is a great way to reduce ComfyUI cold start times
+    scaledown_window=300,  # 5 minute container keep alive after it processes an input
     gpu="L40S",
     volumes={"/cache": vol},
 )
@@ -196,12 +211,15 @@ class ComfyUI:
         return Response(img_bytes, media_type="image/jpeg")
 
 
-#
 # This serves the `workflow_api.json` in this repo. When deploying your own workflows, make sure you select the "Export (API)" option in the ComfyUI menu:
-#
+
 # ![comfyui menu](./comfyui_menu.jpeg)
-#
+
 # ## More resources
-# - Run a ComfyUI workflow as a [Python script](/blog/comfyui-prototype-to-production)
-# - When to use [A1111 vs ComfyUI](/blog/a1111-vs-comfyui)
-# - Understand tradeoffs of parallel processing strategies when [scaling ComfyUI](/blog/scaling-comfyui)
+
+# - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
+
+# - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
+
+# - Understand tradeoffs of parallel processing strategies when
+# [scaling ComfyUI](https://modal.com/blog/scaling-comfyui)

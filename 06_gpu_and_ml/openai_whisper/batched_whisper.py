@@ -144,7 +144,7 @@ class Model:
 # In this example, we use the [librispeech_asr_dummy dataset](https://huggingface.co/datasets/hf-internal-testing/librispeech_asr_dummy)
 # from Hugging Face's Datasets library to test the model.
 
-# We use [`map.aio`](/docs/reference/modal.Function#map) to asynchronously map over the audio files.
+# We use [`map.aio`](https://modal.com/docs/reference/modal.Function#map) to asynchronously map over the audio files.
 # This allows us to invoke the batched transcription method on each audio sample in parallel.
 
 

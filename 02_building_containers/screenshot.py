@@ -1,20 +1,20 @@
 # # Screenshot with Chromium
-#
+
 # In this example, we use Modal functions and the `playwright` package to take screenshots
 # of websites from a list of URLs in parallel.
-#
+
 # You can run this example on the command line with
-#
+
 # ```
 # modal run 02_building_containers/screenshot.py --url 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 # ```
-#
+
 # This should take a few seconds then create a `/tmp/screenshots/screenshot.png` file, shown below.
-#
+
 # ![screenshot](./screenshot.png)
-#
+
 # ## Setup
-#
+
 # First we import the Modal client library.
 
 import pathlib
@@ -24,7 +24,7 @@ import modal
 app = modal.App("example-screenshot")
 
 # ## Define a custom image
-#
+
 # We need an image with the `playwright` Python package as well as its `chromium` plugin pre-installed.
 # This requires intalling a few Debian packages, as well as setting up a new Debian repository.
 # Modal lets you run arbitrary commands, just like in Docker:
@@ -41,7 +41,7 @@ image = modal.Image.debian_slim().run_commands(
 )
 
 # ## The screenshot function
-#
+
 # Next, the scraping function which runs headless Chromium, goes to a website, and takes a screenshot.
 # This is a Modal function which runs inside the remote container.
 
@@ -62,7 +62,7 @@ async def screenshot(url):
 
 
 # ## Entrypoint code
-#
+
 # Let's kick it off by reading a bunch of URLs from a txt file and scrape some of those.
 
 
@@ -76,5 +76,6 @@ def main(url: str = "https://modal.com"):
     print(f"wrote {len(data)} bytes to {filename}")
 
 
-# And we're done! Please also see our [introductory guide](/docs/examples/web-scraper) for another
-# example of a web scraper, with more in-depth logic.
+# And we're done! Please also see our
+# [introductory guide](https://modal.com/docs/examples/web-scraper)
+# for another example of a web scraper, with more in-depth logic.

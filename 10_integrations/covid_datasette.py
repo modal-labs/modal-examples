@@ -45,7 +45,8 @@ datasette_image = (
 # ## Persistent dataset storage
 
 # To separate database creation and maintenance from serving, we'll need the underlying
-# database file to be stored persistently. To achieve this we use a [`Volume`](/docs/guide/volumes).
+# database file to be stored persistently. To achieve this we use a
+# [`Volume`](https://modal.com/docs/guide/volumes).
 
 volume = modal.Volume.from_name(
     "example-covid-datasette-cache-vol", create_if_missing=True
@@ -221,7 +222,7 @@ def prep_db():
 # ## Keep it fresh
 
 # Johns Hopkins commits new data to the dataset repository every day, so we set up
-# a [scheduled](/docs/guide/cron) function to automatically refresh the database
+# a [scheduled](https://modal.com/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
 
 
@@ -272,4 +273,4 @@ def run():
     prep_db.remote()
 
 
-# You can explore the data at the [deployed web endpoint](https://modal-labs--example-covid-datasette-app.modal.run/covid-19).
+# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-covid-datasette-app.modal.run/covid-19).

@@ -37,11 +37,12 @@ output_vol = modal.Volume.from_name("finetune-volume", create_if_missing=True)
 # ### Handling preemption
 
 # As this finetuning job is long-running it's possible that it experiences a preemption.
-# The training code is robust to pre-emption events by periodically saving checkpoints and restoring
+# The training code is robust to preemption events by periodically saving checkpoints and restoring
 # from checkpoint on restart. But it's also helpful to observe in logs when a preemption restart has occurred,
 # so we track restarts with a `modal.Dict`.
 
-# See the [guide on preemptions](/docs/guide/preemption#preemption) for more details on preemption handling.
+# See the [guide on preemptions](https://modal.com/docs/guide/preemption#preemption)
+# for more details on preemption handling.
 
 restart_tracker_dict = modal.Dict.from_name(
     "finetune-restart-tracker", create_if_missing=True
@@ -212,7 +213,6 @@ def monitor():
 
 
 # ## Model Inference
-#
 
 
 @app.cls(volumes={VOL_MOUNT_PATH: output_vol})

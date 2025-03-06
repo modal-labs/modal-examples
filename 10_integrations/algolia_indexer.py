@@ -2,15 +2,16 @@
 # deploy: true
 # env: {"MODAL_ENVIRONMENT": "main"}
 # ---
+
 # # Algolia docsearch crawler
-#
+
 # This tutorial shows you how to use Modal to run the [Algolia docsearch
 # crawler](https://docsearch.algolia.com/docs/legacy/run-your-own/) to index your
 # website and make it searchable. This is not just example code - we run the same
 # code in production to power search on this page (`Ctrl+K` to try it out!).
 
 # ## Basic setup
-#
+
 # Let's get the imports out of the way.
 
 import json
@@ -19,7 +20,7 @@ import subprocess
 
 import modal
 
-# Modal lets you [use and extend existing Docker images](/docs/guide/custom-container#use-an-existing-container-image-with-from_registry),
+# Modal lets you [use and extend existing Docker images](https://modal.com/docs/guide/custom-container#use-an-existing-container-image-with-from_registry),
 # as long as they have `python` and `pip` available. We'll use the official crawler image built by Algolia, with a small
 # adjustment: since this image has `python` symlinked to `python3.6` and Modal is not compatible with Python 3.6, we
 # install Python 3.11 and symlink that as the `python` executable instead.
@@ -33,7 +34,7 @@ algolia_image = modal.Image.from_registry(
 app = modal.App("example-algolia-indexer")
 
 # ## Configure the crawler
-#
+
 # Now, let's configure the crawler with the website we want to index, and which
 # CSS selectors we want to scrape. Complete documentation for crawler configuration is available
 # [here](https://docsearch.algolia.com/docs/legacy/config-file).
@@ -102,7 +103,7 @@ CONFIG = {
 }
 
 # ## Create an API key
-#
+
 # If you don't already have one, sign up for an account on [Algolia](https://www.algolia.com/). Set up
 # a project and create an API key with `write` access to your index, and with the ACL permissions
 # `addObject`, `editSettings` and `deleteIndex`. Now, create a Secret on the Modal [Secrets](https://modal.com/secrets)
@@ -110,11 +111,11 @@ CONFIG = {
 # but we named it `algolia-secret` and so that's what the code below expects.
 
 # ## The actual function
-#
+
 # We want to trigger our crawler from our CI/CD pipeline, so we're serving it as a
-# [web endpoint](/docs/guide/webhooks) that can be triggered by a `GET` request during deploy.
-# You could also consider running the crawler on a [schedule](/docs/guide/cron).
-#
+# [web endpoint](https://modal.com/docs/guide/webhooks) that can be triggered by a `GET` request during deploy.
+# You could also consider running the crawler on a [schedule](https://modal.com/docs/guide/cron).
+
 # The Algolia crawler is written for Python 3.6 and needs to run in the `pipenv` created for it,
 # so we're invoking it using a subprocess.
 
@@ -150,7 +151,7 @@ def crawl_webhook():
 # ```
 
 # If successful, this will print a URL for your new webhook, that you can hit using
-# `curl` or a browser. Logs from webhook invocations can be found from the [apps](/apps)
+# `curl` or a browser. Logs from webhook invocations can be found from the [apps](https://modal.com/apps)
 # page.
 
 # The indexed contents can be found at https://www.algolia.com/apps/APP_ID/explorer/browse/, for your
