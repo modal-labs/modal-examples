@@ -52,8 +52,7 @@ def run_random_example():
         lambda ex: ex.metadata and ex.metadata.get("lambda-test", True),
         utils.get_examples(),
     )
-    run_script(random.choice(list(examples)))
-    return 0
+    return run_script(random.choice(list(examples)))
 
 
 if __name__ == "__main__":
