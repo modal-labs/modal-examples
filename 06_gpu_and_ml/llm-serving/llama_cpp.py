@@ -63,7 +63,6 @@ def main(
     model: str = "DeepSeek-R1",  # or "phi-4"
     n_predict: int = -1,  # max number of tokens to predict, -1 is infinite
     args: str = None,  # string of arguments to pass to llama.cpp's cli
-    fast_download: bool = None,  # download model before starting inference function
 ):
     """Run llama.cpp inference on Modal for phi-4 or deepseek r1."""
     import shlex
@@ -76,7 +75,9 @@ def main(
         model_entrypoint_file = f"phi-4-{quant}.gguf"
         model_pattern = f"*{quant}*"
         revision = None
-        if args is not None:
+        if args is None:
+            args = DEFAULT_PHI_ARGS
+        else:
             args = shlex.split(args)
     elif model.lower() == "deepseek-r1":
         model_name = "DeepSeek-R1-GGUF"
@@ -94,8 +95,7 @@ def main(
         raise ValueError(f"Unknown model {model}")
 
     repo_id = f"{org_name}/{model_name}"
-    if fast_download or model.lower() == "deepseek-r1":
-        download_model.remote(repo_id, [model_pattern], revision)
+    download_model.remote(repo_id, [model_pattern], revision)
 
     # call out to a `.remote` Function on Modal for inference
     result = llama_cpp_inference.remote(
@@ -152,6 +152,14 @@ DEFAULT_DEEPSEEK_R1_ARGS = [  # good default llama.cpp cli args for deepseek-r1
     "8192",
 ]
 
+DEFAULT_PHI_ARGS = [  # good default llama.cpp cli args for phi-4
+    "--threads",
+    "16",
+    "-no-cnv",
+    "--ctx-size",
+    "16384",
+]
+
 # ## Compiling llama.cpp with CUDA support
 
 # In order to run inference, we need the model's weights
@@ -203,8 +211,8 @@ image = (
 # we download them from Hugging Face.
 
 # Modal is serverless, so disks are by default ephemeral.
-# To make sure our weights don't disappear between runs
-# and require a long download step, we store them in a
+# To make sure our weights don't disappear between runs,
+# which would trigger a long download, we store them in a
 # Modal [Volume](https://modal.com/docs/guide/volumes).
 
 # For more on how to use Modal Volumes to store model weights,
@@ -320,7 +328,8 @@ def llama_cpp_inference(
 
     if prompt is None:
         prompt = DEFAULT_PROMPT  # see end of file
-    prompt = "<｜User｜>" + prompt + "<think>"
+    if "deepseek" in model_entrypoint_file.lower():
+        prompt = "<｜User｜>" + prompt + "<think>"
     if args is None:
         args = []
 
