@@ -16,7 +16,7 @@
 
 # <center>
 # <video controls autoplay loop muted>
-# <source src="https://modal-public-assets.s3.amazonaws.com/modal-blender-video.mp4" type="video/mp4">
+# <source src="https://modal-cdn.com/modal-blender-video.mp4" type="video/mp4">
 # </video>
 # </center>
 
