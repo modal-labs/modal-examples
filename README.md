@@ -33,3 +33,5 @@ _These examples are continuously tested for correctness against Python **3.11**.
 ## License
 
 The [MIT license](LICENSE).
+
+TEST
