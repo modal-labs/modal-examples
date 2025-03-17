@@ -21,8 +21,6 @@ concurrency:
 env:
   TERM: linux
   TERMINFO: /etc/terminfo
-  MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
-  MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
   MODAL_ENVIRONMENT: examples
 
 jobs:
@@ -70,6 +68,9 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Run example
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
         run: |
           echo "Running ${{ matrix.file }}"
           stem=$(basename "${{ matrix.file }}" .py)
