@@ -10,7 +10,11 @@
 
 # The output should look something like this:
 
-# <video src="./segmented_video.mp4" width="600" height="400" controls></video>
+# <center>
+# <video controls autoplay loop muted>
+# <source src="https://modal-cdn.com/example-segmented-video.mp4" type="video/mp4">
+# </video>
+# </center>
 
 # ## Set up dependencies for SAM 2
 

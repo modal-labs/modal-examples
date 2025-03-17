@@ -10,7 +10,7 @@
 # including a depth maps, segmentation maps, scribble drawings, and keypoints!
 
 # <center>
-# <video controls>
+# <video controls autoplay loop muted>
 # <source src="https://user-images.githubusercontent.com/12058921/222927911-3ab52dd1-f2ee-4fb8-97e8-dafbf96ed5c5.mp4" type="video/mp4">
 # </video>
 # </center>
