@@ -2,15 +2,14 @@ import modal
 
 app = modal.App("example-install-flash-attn")
 
-image = (
-    modal.Image.from_registry(
-        "nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.11"
-    )
-    .entrypoint(
-        []  # removes chatty prints on entry
-    )
-    .pip_install("ninja", "packaging", "wheel", "torch")
-    .pip_install("flash-attn", extra_options="--no-build-isolation")
+# Find releases at https://github.com/Dao-AILab/flash-attention/releases
+flash_attn_release = (
+    "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/"
+    "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp313-cp313-linux_x86_64.whl"
+)
+
+image = modal.Image.debian_slim(python_version="3.13").pip_install(
+    "torch==2.6.0", "numpy==2.2.4", flash_attn_release
 )
 
 
