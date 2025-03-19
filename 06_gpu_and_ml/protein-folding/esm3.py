@@ -8,7 +8,7 @@
 # know the three-dimensional structure of a few hundred thousand,
 # gathered by slow, difficult observational methods like X-ray crystallography.
 # Built upon this data are machine learning models like
-# EvolutionaryScale's [ESM3](https://github.com/facebookresearch/esm)
+# EvolutionaryScale's [ESM3](https://www.evolutionaryscale.ai/blog/esm3-release)
 # that can predict the structure of any sequence in seconds.
 
 # In this example, we'll show how you can use Modal to not
