@@ -166,8 +166,11 @@ class ComfyUI:
 
     @modal.method()
     def infer(self, workflow_path: str = "/root/workflow_api.json"):
+        # checks if ComfyUI server is healthy and accepting requests
+        self.poll_server_health()
+
         # runs the comfy run --workflow command as a subprocess
-        cmd = f"comfy run --workflow {workflow_path} --wait --timeout 1200"
+        cmd = f"comfy run --workflow {workflow_path} --wait --timeout 1200 --verbose"
         subprocess.run(cmd, shell=True, check=True)
 
         # completed workflows write output images to this directory
@@ -209,6 +212,22 @@ class ComfyUI:
         img_bytes = self.infer.local(new_workflow_file)
 
         return Response(img_bytes, media_type="image/jpeg")
+
+    def poll_server_health(self) -> Dict:
+        import socket
+        import urllib
+
+        try:
+            # dummy request to check if the server is healthy
+            req = urllib.request.Request("http://127.0.0.1:8188/system_stats")
+            urllib.request.urlopen(req, timeout=5)
+            print("ComfyUI server is healthy")
+        except (socket.timeout, urllib.error.URLError) as e:
+            # if no response in 5 seconds, stop the container; Modal will schedule queued inputs on a new container
+            print(f"Server health check failed: {str(e)}")
+            modal.experimental.stop_fetching_inputs()
+
+            raise Exception("ComfyUI server is not healthy, stopping container")
 
 
 # This serves the `workflow_api.json` in this repo. When deploying your own workflows, make sure you select the "Export (API)" option in the ComfyUI menu:
