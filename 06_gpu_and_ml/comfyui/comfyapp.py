@@ -235,10 +235,10 @@ class ComfyUI:
 # ![comfyui menu](./comfyui_menu.jpeg)
 
 # ## More resources
+# - Use memory snapshotting to [speed up ComfyUI cold starts](/blog/comfyui-mem-snapshots)
+# - Run a ComfyUI workflow as a [Python script](/blog/comfyui-prototype-to-production)
 
-# - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
-
-# - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
+# - When to use [A1111 vs ComfyUI](/blog/a1111-vs-comfyui)
 
 # - Understand tradeoffs of parallel processing strategies when
-# [scaling ComfyUI](https://modal.com/blog/scaling-comfyui)
+# [scaling ComfyUI](/blog/scaling-comfyui)
