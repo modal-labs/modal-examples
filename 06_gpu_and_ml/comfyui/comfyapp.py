@@ -235,7 +235,7 @@ class ComfyUI:
 # ![comfyui menu](./comfyui_menu.jpeg)
 
 # ## More resources
-# - (Advanced) Use memory snapshotting to [speed up ComfyUI cold starts](/blog/comfyui-mem-snapshots)
+# - Use memory snapshotting to [speed up ComfyUI cold starts](/blog/comfyui-mem-snapshots)
 # - Run a ComfyUI workflow as a [Python script](/blog/comfyui-prototype-to-production)
 
 # - When to use [A1111 vs ComfyUI](/blog/a1111-vs-comfyui)
