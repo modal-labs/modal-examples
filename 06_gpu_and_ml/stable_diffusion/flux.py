@@ -168,12 +168,12 @@ def main(
     compile: bool = False,
 ):
     t0 = time.time()
-    image_bytes = Model(compile=compile).inference.remote(prompt)
+    image_bytes = Model(compile=int(compile)).inference.remote(prompt)
     print(f"🎨 first inference latency: {time.time() - t0:.2f} seconds")
 
     if twice:
         t0 = time.time()
-        image_bytes = Model(compile=compile).inference.remote(prompt)
+        image_bytes = Model(compile=int(compile)).inference.remote(prompt)
         print(f"🎨 second inference latency: {time.time() - t0:.2f} seconds")
 
     output_path = Path("/tmp") / "flux" / "output.jpg"
