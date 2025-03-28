@@ -38,7 +38,7 @@ jobs:
 
       - name: Find changed examples
         id: diff
-        run: python3 -m internal.generate_diff_matrix.py
+        run: python3 -m internal.generate_diff_matrix
 
   # Run each changed example, using the output of the previous step as a job matrix
   run-changed:
