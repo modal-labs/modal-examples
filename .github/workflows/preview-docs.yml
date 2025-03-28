@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout modal repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
         with:
           repository: modal-labs/modal
           token: ${{ secrets.GH_PAT }}
@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5
         with:
           python-version: "3.11"
 
@@ -39,7 +39,7 @@ jobs:
           uv pip install --system -r modal/requirements.dev.txt
 
       - name: Checkout client repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
         with:
           repository: modal-labs/modal-client
           token: ${{ secrets.GH_PAT }}
@@ -52,7 +52,7 @@ jobs:
           uv pip install --system -e client
 
       - name: Install node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:
           node-version-file: modal/.nvmrc
 
@@ -68,7 +68,7 @@ jobs:
           inv protoc
 
       - name: Checkout examples repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
         with:
           fetch-depth: 1
           path: modal/examples
@@ -85,7 +85,7 @@ jobs:
 
       - name: Post a comment with the preview URL
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
         with:
           github-token: ${{ secrets.GH_PAT }}
           script: |
