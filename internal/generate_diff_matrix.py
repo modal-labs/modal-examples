@@ -72,8 +72,8 @@ def write_output(key, value):
 
 
 def main():
-    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     event = load_event()
+    event_name = event.get("event_name") or os.environ.get("GITHUB_EVENT_NAME")
     base, head = determine_diff_range(event, event_name)
     changed_files = get_changed_files(base, head)
     filtered_files = filter_files(changed_files)
