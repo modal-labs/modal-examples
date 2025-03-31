@@ -2,20 +2,20 @@
 # deploy: true
 # ---
 
-# # Real-Time User Experience with sLatency-Optimized TensorRTLLM (LLaMA 3 8B)
+# # Real-Time User Experiences with Latency-Optimized TensorRTLLM (LLaMA 3 8B)
 
 # The [Doherty Threshold](https://lawsofux.com/doherty-threshold/) is a crucial
 # concept in user experience and human-computer interaction that was identified by
 # IBM researcher Walter J. Doherty in the early 1980s. His research established that
 # response times under 400 milliseconds create a profound shift in how humans interact
-# with technology, we've all felt this when interacting with Chatboots like ChatGPT.
+# with technology and we've all felt this with the rise of LLMs like ChatGPT.
 
-# In this example, we demonstrate how to use the TensorRT-LLM framework to serve
-# Meta's LLaMA 3 8B model under this threshold using several key parameters.
+# In this example, we demonstrate how to use configure the TensorRT-LLM framework to serve
+# Meta's LLaMA 3 8B model under this 400ms threshold using several key parameters.
 
 # TensorRT-LLM is the Lamborghini of inference engines: it achieves seriously
 # impressive latency, but only if you tune it carefully. With the default configuration
-# we'll get a slow p50 latency of 1.1s but with just a few parameters will bring that down
+# we'll get a slow p50 latency of 1.1s, but with careful configuration, we'll bring that down
 # to an astonishing 0.2s, that's more than a 5x speed up! These latencies are for running on a
 # single NVIDIA H100 GPU, at [Modal's on-demand rate](https://modal.com/pricing) of ~$3.95/hr,
 # that comes out to almost 50 inference calls per cent.
@@ -25,7 +25,7 @@
 # This guide is intended to document two things:
 # the [new python API](https://nvidia.github.io/TensorRT-LLM/llm-api/) for TensorRT-LLM
 # and how to use recommendations from the [performance guide](https://nvidia.github.io/TensorRT-LLM/performance/performance-tuning-guide/useful-build-time-flags.html)
-# to optimize the engine for low latency. Be sure to check out their
+# to optimize the engine for low latency. Be sure to check out TRTLLM's
 # [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples/) for
 # use cases beyond this example, e.g. LoRA adapters.
 
@@ -42,7 +42,7 @@
 # and much more.
 
 # This example builds an entire service from scratch, from downloading weight tensors
-# to responding to requests, and so serves as living, interactive documentation of a
+# to responding to requests, and so serves as living, interactive documentation of an
 # optimized TensorRT-LLM build process that deploys on Modal.
 
 # ## Installing TensorRT-LLM
@@ -349,19 +349,19 @@ class Model:
 
 # We wrap that logic in a `local_entrypoint` so you can run it from the command line with
 # ```bash
-# modal run trtllm_llama.py
+# modal run trtllm_llama_latency.py
 # ```
 
 # which will output:
 
-# ```bash
+# ```
 # mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
 # ```
 
 # If you want to see how slow the model is without all these optimizations, you can run:
 
-# ```bash
-# modal run trtllm_llama.py --mode=slow
+# ```
+# modal run trtllm_llama_latency.py --mode=slow
 # ```
 
 # which will output:
