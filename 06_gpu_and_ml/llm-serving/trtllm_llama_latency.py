@@ -72,16 +72,20 @@ tensorrt_image = modal.Image.from_registry(
 # the `tensorrt_llm` package itself, and finally `flashinfer` for optimized
 # [flash attention kernels](https://docs.flashinfer.ai/) that TensorRT-LLM uses.
 
-tensorrt_image = tensorrt_image.apt_install(
-    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
-    "tensorrt-llm==0.18.0.dev2025031100",
-    "pynvml<12",  # avoid breaking change to pynvml version API
-    pre=True,
-    extra_index_url="https://pypi.nvidia.com",
-).pip_install(
-    "flashinfer-python",
-    extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4/"
+tensorrt_image = (
+    tensorrt_image.apt_install(
+        "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+    )
+    .pip_install(
+        "tensorrt-llm==0.18.0.dev2025031100",
+        "pynvml<12",  # avoid breaking change to pynvml version API
+        pre=True,
+        extra_index_url="https://pypi.nvidia.com",
+    )
+    .pip_install(
+        "flashinfer-python",
+        extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4/",
+    )
 )
 
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
@@ -112,11 +116,14 @@ MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
 MODEL_REVISION = "53346005fb0ef11d3b6a83b12c895cca40156b6c"
 
 tensorrt_image = tensorrt_image.pip_install(
-    "hf-transfer==0.1.9", "huggingface_hub==0.28.1",
-).env({
-     "HF_HUB_ENABLE_HF_TRANSFER": "1",
-     "HF_HOME": str(MODELS_PATH),
-})
+    "hf-transfer==0.1.9",
+    "huggingface_hub==0.28.1",
+).env(
+    {
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
+        "HF_HOME": str(MODELS_PATH),
+    }
+)
 
 with tensorrt_image.imports():
     import os
@@ -150,23 +157,29 @@ with tensorrt_image.imports():
 N_GPUS = 1  # Bumping this to 2 will improve latencies further but not 2x.
 GPU_CONFIG = f"H100:{N_GPUS}"
 
+
 def get_quant_config():
     from tensorrt_llm.llmapi import QuantConfig
+
     return QuantConfig(quant_algo="FP8")
+
 
 # One caveat of quantization is that it's lossy, but the impact on modal quality can be
 # minimized by tuning the quantization parameters given a small dataset. Typically, we
 # see less than 2% degradation in evaluation metrics when using `fp8`. We'll use the
 # trtllm `CalibrationConfig` class to specify the calibration dataset:
 
+
 def get_calib_config():
     from tensorrt_llm.llmapi import CalibConfig
+
     return CalibConfig(
         calib_batches=512,
         calib_batch_size=1,
         calib_max_seq_length=2048,
-        tokenizer_max_seq_length=4096
+        tokenizer_max_seq_length=4096,
     )
+
 
 # ### Plugins
 
@@ -190,14 +203,19 @@ def get_calib_config():
 # for `FP8` on Hopper GPUs. The `low_latency_gemm_plugin` is a
 # variant of the typical gemm plugin that's latency optimized.
 
+
 def get_plugin_config():
     from tensorrt_llm.plugin.plugin import PluginConfig
-    return PluginConfig.from_dict({
-        "multiple_profiles": True,
-        "paged_kv_cache": True,
-        "low_latency_gemm_swiglu_plugin": "fp8",
-        "low_latency_gemm_plugin": "fp8"
-    })
+
+    return PluginConfig.from_dict(
+        {
+            "multiple_profiles": True,
+            "paged_kv_cache": True,
+            "low_latency_gemm_swiglu_plugin": "fp8",
+            "low_latency_gemm_plugin": "fp8",
+        }
+    )
+
 
 # ### Speculative Decoding
 
@@ -207,13 +225,16 @@ def get_plugin_config():
 # but it's worth testing anytime latency is crtical. We'll use a simple
 # speculative decoding strategy called LookaheadDecoding here:
 
+
 def get_speculative_config():
     from tensorrt_llm.llmapi import LookaheadDecodingConfig
+
     return LookaheadDecodingConfig(
         max_window_size=8,
         max_ngram_size=6,
         max_verification_set_size=8,
     )
+
 
 # ### Build Configuration
 
@@ -224,8 +245,10 @@ def get_speculative_config():
 
 ALLOW_CONCURRENT_INPUTS = 1
 
+
 def get_build_config():
     from tensorrt_llm import BuildConfig
+
     return BuildConfig(
         plugin_config=get_plugin_config(),
         speculative_decoding_mode="LOOKAHEAD_DECODING",
@@ -254,6 +277,8 @@ app = modal.App("example-trtllm-inference-latency")
 # For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
 
 MINUTES = 60  # seconds
+
+
 @app.cls(
     image=tensorrt_image,
     allow_concurrent_inputs=ALLOW_CONCURRENT_INPUTS,
@@ -300,8 +325,8 @@ class Model:
         self.sampling_params = SamplingParams(
             temperature=0.8,
             top_p=0.95,
-            max_tokens=1024, # max generated tokens
-            lookahead_config=engine_kwargs.get("speculative_config")
+            max_tokens=1024,  # max generated tokens
+            lookahead_config=engine_kwargs.get("speculative_config"),
         )
 
         engine_path = self.model_path / "trtllm_engine" / self.mode
@@ -309,14 +334,12 @@ class Model:
             print(f"building new engine at {engine_path}")
             self.llm = self.build_engine(engine_path, engine_kwargs)
         else:
-            print (f"loading engine from {engine_path}")
+            print(f"loading engine from {engine_path}")
             self.llm = LLM(model=engine_path, **engine_kwargs)
 
     @modal.method()
     def generate(self, prompt) -> dict:
-        SYSTEM_PROMPT = (
-            "You are a helpful, harmless, and honest AI assistant created by Meta."
-        )
+        SYSTEM_PROMPT = "You are a helpful, harmless, and honest AI assistant created by Meta."
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -341,6 +364,7 @@ class Model:
     def shutdown(self):
         self.llm.shutdown()
         del self.llm
+
 
 # ## Calling our inference function
 
@@ -373,10 +397,9 @@ class Model:
 # For simplicity, we hard-code a 10 questions to ask the model,
 # and then run them one by one while recording the latency of each call.
 
+
 @app.local_entrypoint()
-def main(
-    mode: str = "fast"
-):
+def main(mode: str = "fast"):
     import numpy as np
 
     prompts = [
@@ -393,7 +416,7 @@ def main(
     ]
 
     print(f"creating container with mode={mode}")
-    model= Model(mode=mode)
+    model = Model(mode=mode)
 
     print("cold booting container")
     model.boot.remote()
@@ -415,4 +438,6 @@ def main(
 
     p50 = np.percentile(latencies_ms, 50)
     p90 = np.percentile(latencies_ms, 90)
-    print(f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
+    print(
+        f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
+    )
