@@ -402,7 +402,6 @@ class Model:
 
 @app.local_entrypoint()
 def main(mode: str = "fast"):
-
     prompts = [
         "What atoms are in water?",
         "Which F1 team won in 2011?",
