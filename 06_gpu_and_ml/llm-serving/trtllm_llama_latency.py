@@ -400,7 +400,6 @@ class Model:
 
 @app.local_entrypoint()
 def main(mode: str = "fast"):
-    import numpy as np
 
     prompts = [
         "What atoms are in water?",
@@ -436,8 +435,8 @@ def main(mode: str = "fast"):
         print(f"Generated Text: {generated_text}")
         print("-" * 160)
 
-    p50 = np.percentile(latencies_ms, 50)
-    p90 = np.percentile(latencies_ms, 90)
+    p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5)]
+    p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9)]
     print(
         f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
     )
