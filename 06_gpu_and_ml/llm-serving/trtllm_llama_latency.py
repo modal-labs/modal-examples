@@ -360,13 +360,13 @@ class Model:
 
 # If you want to see how slow the model is without all these optimizations, you can run:
 
-# ```
+# ```bash
 # modal run trtllm_llama_latency.py --mode=slow
 # ```
 
 # which will output:
 
-# ```bash
+# ```
 # mode=slow inference latency (p50, p90): (1140.88ms, 2274.24ms)
 # ```
 
@@ -416,5 +416,3 @@ def main(
     p50 = np.percentile(latencies_ms, 50)
     p90 = np.percentile(latencies_ms, 90)
     print(f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
-
-# ##G
