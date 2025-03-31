@@ -223,7 +223,7 @@ def get_plugin_config():
 # avoiding the LLM auto-regressive bottleneck of generating one token at a time.
 # This generally works best for text that has predicable patterns, like code,
 # but it's worth testing anytime latency is crtical. We'll use a simple
-# speculative decoding strategy called LookaheadDecoding here:
+# speculative decoding strategy called lookahead decoding here:
 
 
 def get_speculative_config():
@@ -320,7 +320,9 @@ class Model:
                 "tensor_parallel_size": torch.cuda.device_count(),
             }
         else:
-            engine_kwargs = {}
+            engine_kwargs = {
+                "tensor_parallel_size": torch.cuda.device_count(),
+            }
 
         self.sampling_params = SamplingParams(
             temperature=0.8,
@@ -394,7 +396,7 @@ class Model:
 # mode=slow inference latency (p50, p90): (1140.88ms, 2274.24ms)
 # ```
 
-# For simplicity, we hard-code a 10 questions to ask the model,
+# For simplicity, we hard-code 10 questions to ask the model,
 # and then run them one by one while recording the latency of each call.
 
 
