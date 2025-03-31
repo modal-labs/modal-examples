@@ -2,17 +2,23 @@
 # deploy: true
 # ---
 
-# # Build Real-Time User Experiences with Latency-Optimized TensorRTLLM
+# # Real-Time User Experience with sLatency-Optimized TensorRTLLM (LLaMA 3 8B)
 
-# In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
-# at very low latency.
+# The [Doherty Threshold](https://lawsofux.com/doherty-threshold/) is a crucial
+# concept in user experience and human-computer interaction that was identified by
+# IBM researcher Walter J. Doherty in the early 1980s. His research established that
+# response times under 400 milliseconds create a profound shift in how humans interact
+# with technology, we've all felt this when interacting with Chatboots like ChatGPT.
+
+# In this example, we demonstrate how to use the TensorRT-LLM framework to serve
+# Meta's LLaMA 3 8B model under this threshold using several key parameters.
 
 # TensorRT-LLM is the Lamborghini of inference engines: it achieves seriously
 # impressive latency, but only if you tune it carefully. With the default configuration
-# we'll get a slow p50 latency of 6.2s but with just a few parameters will bring that down
-# to an astonishing 1.4s, that's a 4.4x speed up! These latencies are for running on a
+# we'll get a slow p50 latency of 1.1s but with just a few parameters will bring that down
+# to an astonishing 0.2s, that's more than a 5x speed up! These latencies are for running on a
 # single NVIDIA H100 GPU, at [Modal's on-demand rate](https://modal.com/pricing) of ~$3.95/hr,
-# that comes out to  a fraction of a cent per inference call.
+# that comes out to almost 50 inference calls per cent.
 
 # ## Overview
 
@@ -21,7 +27,7 @@
 # and how to use recommendations from the [performance guide](https://nvidia.github.io/TensorRT-LLM/performance/performance-tuning-guide/useful-build-time-flags.html)
 # to optimize the engine for low latency. Be sure to check out their
 # [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples/) for
-# use cases beyond this examples, e.g. LoRA adapters.
+# use cases beyond this example, e.g. LoRA adapters.
 
 # ### Engine building
 
@@ -30,8 +36,8 @@
 # choices we made here and point you to additional resources that can help you optimize for
 # your specific workload.
 
-# Historically, this process has been done with a clunky command-line-interface (CLI) interface,
-# but things have changed better. The new python API is a huge improvement ergonomically and has
+# Historically, this process has been done with a clunky command-line-interface (CLI),
+# but things have changed for the better. The new python API is a huge improvement ergonomically and has
 # all the same features as the CLI such as quantization, speculative decoding, in-flight batching,
 # and much more.
 
@@ -58,7 +64,7 @@ import modal
 
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.4.1-devel-ubuntu22.04",
-    add_python="3.10",  # TRT-LLM requires Python 3.10
+    add_python="3.12",  # TRT-LLM requires Python 3.12
 ).entrypoint([])  # remove verbose logging by base image on entry
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
@@ -85,7 +91,7 @@ tensorrt_image = tensorrt_image.apt_install(
 # End-to-end, this step takes five minutes.
 # If you're reading this from top to bottom,
 # you might want to stop here and execute the example
-# with `modal run trtllm_llama.py`
+# with `modal run trtllm_llama_latency.py`
 # so that it runs in the background while you read the rest.
 
 # ## Downloading the Model
@@ -131,13 +137,13 @@ with tensorrt_image.imports():
 # to fit their values in a smaller number of bits, like four or eight. This is known as _quantization_.
 
 # NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
-# are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format (`qformat`).
+# are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format.
 # These GPUs are capable of twice as many floating point operations per second in 8bit as in 16bit --
 # about two quadrillion per second on an H100 SXM.
 
 # So quantization buys us two things: Fast cold boots, since less data has to be moved onto the
-# container and GPU, and faster inference, since less FLOPs are needed. We'll use trtlllm's
-# `QuantConfig` to specify that we want'FP8' quantization, see
+# container and GPU, and faster inference, since we get twice the FLOPs. We'll use trtlllm's
+# `QuantConfig` to specify that we want `FP8` quantization, see
 # [here](https://github.com/NVIDIA/TensorRT-LLM/blob/88e1c90fd0484de061ecfbacfc78a4a8900a4ace/tensorrt_llm/models/modeling_utils.py#L184)
 # for more options.
 
@@ -165,21 +171,23 @@ def get_calib_config():
 # ### Plugins
 
 # A little background - TensorRT-LLM is built on top of NVIDIA's TensorRT, which is a high-performance
-# deep learning inference engine. TensortRT allows for customer "plugins" that allow you to
+# deep learning inference engine. TensortRT allows for custom "plugins" that allow you to
 # override the default kernels TensorRT would use for certain operations. The
-# General Matrix Multiply (GEMM)[https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html]
+# General Matrix Multiply [(GEMM)](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html)
 # plugin, for instance, utilizes NVIDIA's cuBLASLt library to provide high-performance matrix multiplication.
 
-# We'll specify a number of plugins for our engin implementation.
-# The first is (multiple profiles)[https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md#multiple-profiles]
-# which allows trtllm to prepare multiple kernels optimized for different input sizes, this
-# allows the engine to dynamically choose the best kernels for the current input.
+# We'll specify a number of plugins for our engine implementation.
+# The first is [multiple profiles](https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md#multiple-profiles)
+# which allows trtllm to prepare multiple kernels, optimized for different input sizes,
+# that will be used dynamically at generation time based on the size of the prompt.
 # The second is `paged_kv_cache` which allows for breaking up the KV caches into pages to
 # reduce memory fragmentation and improve efficiency.
 
 # The last two parameters are gemm plugins optimized specifically for low latency.
-# The `swiglu` plugin fuses two Matmul operations and one SwiGLU operation into
-# a single kernel for fp8 on Hopper GPUs, and the `low_latency_gemm_plugin` is a
+# The `low_latency_gemm_swiglu_plugin` plugin fuses two Matmul operations and one
+# SwiGLU operation into a single kernel which reduces GPU memory transfers
+# resulting in lower latencies. Note, at the time of writing, this only works
+# for `FP8` on Hopper GPUs. The `low_latency_gemm_plugin` is a
 # variant of the typical gemm plugin that's latency optimized.
 
 def get_plugin_config():
@@ -196,8 +204,8 @@ def get_plugin_config():
 # Speculative decoding is a technique for generating multiple tokens per step,
 # avoiding the LLM auto-regressive bottleneck of generating one token at a time.
 # This generally works best for text that has predicable patterns, like code,
-# but it's worth testing anytime latency is crtical. We'll use the a simple
-# speculative decoding strategy with `LookaheadDecodingConfig` here:
+# but it's worth testing anytime latency is crtical. We'll use a simple
+# speculative decoding strategy called LookaheadDecoding here:
 
 def get_speculative_config():
     from tensorrt_llm.llmapi import LookaheadDecodingConfig
@@ -215,6 +223,7 @@ def get_speculative_config():
 # to process at once before queueing occurs:
 
 ALLOW_CONCURRENT_INPUTS = 1
+
 def get_build_config():
     from tensorrt_llm import BuildConfig
     return BuildConfig(
@@ -226,12 +235,12 @@ def get_build_config():
     )
 
 
-# ## Serving inference at 1s latencies.
+# ## Serving inference under Dohertry's Threshold
 
 # Now that we have setup everything necessary to compile the engine, we can setup up
 # to serve it with Modal by creating an `App`.
 
-app = modal.App("example-trtllm-inference")
+app = modal.App("example-trtllm-inference-latency")
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 
@@ -254,7 +263,7 @@ MINUTES = 60  # seconds
     secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class Model:
-    mode: str = modal.parameter(default="slow")
+    mode: str = modal.parameter(default="fast")
 
     def build_engine(self, engine_path, engine_kwargs) -> None:
         llm = LLM(model=self.model_path, **engine_kwargs)
@@ -335,12 +344,6 @@ class Model:
 
 # ## Calling our inference function
 
-# Now, how do we actually run the model?
-
-# There are two basic methods: from Python via our SDK or from anywhere, by setting up an API.
-
-# ### Calling inference from Python
-
 # To run our `Model`'s `.generate` method from Python, we just need to call it --
 # with `.remote` appended to run it on Modal.
 
@@ -349,10 +352,26 @@ class Model:
 # modal run trtllm_llama.py
 # ```
 
-# For simplicity, we hard-code a batch of 10 questions to ask the model,
-# and then run them one by one while recording the latency of each call.
-#
+# which will output:
 
+# ```bash
+# mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
+# ```
+
+# If you want to see how slow the model is without all these optimizations, you can run:
+
+# ```bash
+# modal run trtllm_llama.py --mode=slow
+# ```
+
+# which will output:
+
+# ```bash
+# mode=slow inference latency (p50, p90): (1140.88ms, 2274.24ms)
+# ```
+
+# For simplicity, we hard-code a 10 questions to ask the model,
+# and then run them one by one while recording the latency of each call.
 
 @app.local_entrypoint()
 def main(
@@ -398,3 +417,4 @@ def main(
     p90 = np.percentile(latencies_ms, 90)
     print(f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
 
+# ##G
