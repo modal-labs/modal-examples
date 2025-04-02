@@ -114,6 +114,11 @@ image = image.add_local_file(
     Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
 )
 
+image = image.add_local_dir(
+        local_path=Path(__file__).parent / "memory_snapshot_helper",
+        remote_path="/root/comfy/ComfyUI/custom_nodes/memory_snapshot_helper"
+    )
+
 # ## Running ComfyUI interactively
 
 # Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function
@@ -122,16 +127,33 @@ image = image.add_local_file(
 app = modal.App(name="example-comfyui", image=image)
 
 
-@app.function(
+@app.cls(
     allow_concurrent_inputs=10,  # required for UI startup process which runs several API calls concurrently
     max_containers=1,  # limit interactive session to 1 container
     gpu="L40S",  # good starter GPU for inference
     volumes={"/cache": vol},  # mounts our cached models
+    enable_memory_snapshot=True,
 )
-@modal.web_server(8000, startup_timeout=60)
-def ui():
-    subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)
-
+class ComfyUIWebServer:
+    @modal.enter(snap=True)
+    def launch_comfy_background(self):
+        cmd = "comfy launch --background -- --listen 0.0.0.0 --port 8000"
+        subprocess.run(cmd, shell=True, check=True)
+    @modal.enter(snap=False)
+    def restore_snapshot(self):        
+        # Initialize GPU for ComfyUI after snapshot restore
+        import requests
+        response = requests.post("http://0.0.0.0:8000/cuda/set_device")
+        if response.status_code != 200:
+            print("Failed to set CUDA device")
+        else:
+            print("Successfully set CUDA device")
+        print("Recovered from snapshot")
+        
+    @modal.web_server(8000, startup_timeout=60)
+    def ui(self):
+        pass
+        
 
 # At this point you can run `modal serve 06_gpu_and_ml/comfyui/comfyapp.py` and open the UI in your browser for the classic ComfyUI experience.
 
