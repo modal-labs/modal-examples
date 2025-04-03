@@ -1,59 +1,62 @@
-# ---
-# deploy: true
-# ---
+# # Serve an interactive language model app with latency-optimized TensorRT-LLM (LLaMA 3 8B)
 
-# # Real-Time User Experiences with Latency-Optimized TensorRTLLM (LLaMA 3 8B)
+# In this example, we demonstrate how to configure the TensorRT-LLM framework to serve
+# Meta's LLaMA 3 8B model at interactive latencies on Modal.
 
-# The [Doherty Threshold](https://lawsofux.com/doherty-threshold/) is a crucial
-# concept in user experience and human-computer interaction that was identified by
-# IBM researcher Walter J. Doherty in the early 1980s. His research established that
-# response times under 400 milliseconds create a profound shift in how humans interact
-# with technology and we've all felt this with the rise of LLMs like ChatGPT.
+# Many popular language model applications, like chatbots and code editing,
+# put humans and models in direct interaction. According to
+# [classic results in human-computer-interaction](https://lawsofux.com/doherty-threshold/),
+# computer systems need to keep their response times under 400ms
+# in order to keep up with their human users.
 
-# In this example, we demonstrate how to use configure the TensorRT-LLM framework to serve
-# Meta's LLaMA 3 8B model under this 400ms threshold using several key parameters.
+# To hit this target, we use the [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
+# inference framework from NVIDIA. TensorRT-LLM is the Lamborghini of inference engines:
+# it achieves seriously impressive latency, but only if you tune it carefully.
+# With the out-of-the-box defaults we observe an unacceptable median latency of 1.1s,
+# but with careful configuration, we'll bring that down to just 250ms
+# -- over a 4x speed up!
 
-# TensorRT-LLM is the Lamborghini of inference engines: it achieves seriously
-# impressive latency, but only if you tune it carefully. With the default configuration
-# we'll get a slow p50 latency of 1.1s, but with careful configuration, we'll bring that down
-# to an astonishing 0.2s, that's more than a 5x speed up! These latencies are for running on a
-# single NVIDIA H100 GPU, at [Modal's on-demand rate](https://modal.com/pricing) of ~$3.95/hr,
-# that comes out to almost 50 inference calls per cent.
+# These latencies were measured on a single NVIDIA H100 GPU with prompts and generations
+# of a few dozen to a few hundred tokens.
 
 # ## Overview
 
 # This guide is intended to document two things:
-# the [new python API](https://nvidia.github.io/TensorRT-LLM/llm-api/) for TensorRT-LLM
-# and how to use recommendations from the [performance guide](https://nvidia.github.io/TensorRT-LLM/performance/performance-tuning-guide/useful-build-time-flags.html)
-# to optimize the engine for low latency. Be sure to check out TRTLLM's
-# [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples/) for
-# use cases beyond this example, e.g. LoRA adapters.
 
-# ### Engine building
+# 1. the [Python API](https://nvidia.github.io/TensorRT-LLM/llm-api)
+# for building and running TensorRT-LLM engines, and
 
-# The first step in running TensorRT-LLM is to build an engine from a pre-trained model.
-# The number of parameters for this is pretty gnarly but we'll carefully document the
-# choices we made here and point you to additional resources that can help you optimize for
-# your specific workload.
+# 2. how to use recommendations from the
+# [performance guide](https://github.com/NVIDIA/TensorRT-LLM/blob/b763051ba429d60263949da95c701efe8acf7b9c/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md)
+# to optimize the engine for low latency.
 
-# Historically, this process has been done with a clunky command-line-interface (CLI),
-# but things have changed for the better. The new python API is a huge improvement ergonomically and has
-# all the same features as the CLI such as quantization, speculative decoding, in-flight batching,
+# Be sure to check out TRTLLM's
+# [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples)
+# for sample code beyond what we cover here, like low-rank adapters (LoRAs).
+
+# ### What is a TRT-LLM engine?
+
+# The first step in running TensorRT-LLM is to build an "engine" from a model.
+# Engines have a large number of parameters that must be tuned on a per-workload basis,
+# so we carefully document the choices we made here and point you to additional resources
+# that can help you optimize for your specific workload.
+
+# Historically, this process was done with a clunky command-line-interface (CLI),
+# but things have changed for the better!
+# 2025 is [the year of CUDA Python](https://twitter.com/blelbach/status/1902842146232865280),
+# including a new-and-improved Python SDK for TensorRT-LLM, supporting
+# all the same features as the CLI -- quantization, speculative decoding, in-flight batching,
 # and much more.
-
-# This example builds an entire service from scratch, from downloading weight tensors
-# to responding to requests, and so serves as living, interactive documentation of an
-# optimized TensorRT-LLM build process that deploys on Modal.
 
 # ## Installing TensorRT-LLM
 
 # To run TensorRT-LLM, we must first install it. Easier said than done!
 
-# In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
+# To run code on Modal, we define [container images](https://modal.com/docs/guide/images).
 # All Modal containers have access to GPU drivers via the underlying host environment,
 # but we still need to install the software stack on top of the drivers, from the CUDA runtime up.
 
-# We start from an official `nvidia/cuda` image,
+# We start from an official `nvidia/cuda` container image,
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
 
@@ -63,7 +66,7 @@ from pathlib import Path
 import modal
 
 tensorrt_image = modal.Image.from_registry(
-    "nvidia/cuda:12.4.1-devel-ubuntu22.04",
+    "nvidia/cuda:12.8.1-devel-ubuntu22.04",
     add_python="3.12",  # TRT-LLM requires Python 3.12
 ).entrypoint([])  # remove verbose logging by base image on entry
 
@@ -83,7 +86,7 @@ tensorrt_image = (
         extra_index_url="https://pypi.nvidia.com",
     )
     .pip_install(
-        "flashinfer-python",
+        "flashinfer-python==0.2.4",
         extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4/",
     )
 )
@@ -92,18 +95,18 @@ tensorrt_image = (
 # a number of calls to methods on the `modal.Image`. If you're familiar with
 # Dockerfiles, you can think of this as a Pythonic interface to instructions like `RUN` and `CMD`.
 
-# End-to-end, this step takes five minutes.
+# End-to-end, this step takes about five minutes on first run.
 # If you're reading this from top to bottom,
 # you might want to stop here and execute the example
-# with `modal run trtllm_llama_latency.py`
-# so that it runs in the background while you read the rest.
+# with `modal run` so that it runs in the background while you read the rest.
 
-# ## Downloading the Model
+# ## Downloading the model
 
-# Next, we'll set up a few things to download the model to persistent storage and do it quickly,
+# Next, we'll set up a few things to download the model to persistent storage and do it quickly --
 # this is a latency-optimized example after all! For persistent, distributed storage, we use
-# [Modal volumes](https://modal.com/docs/guide/volumes) which can be accessed from any container.
-# We also set up the `HF_HOME` environment variable to point to the volume so that the model
+# [Modal Volumes](https://modal.com/docs/guide/volumes) which can be accessed from any container.
+
+# We also set up the `HF_HOME` environment variable to point to the Volume so that the model
 # is cached there. Then we install `hf-transfer` to get max download throughput from Hugging Face.
 
 volume = modal.Volume.from_name(
@@ -131,30 +134,43 @@ with tensorrt_image.imports():
     import torch
     from tensorrt_llm import LLM, SamplingParams
 
-# ## Setting up the Engine
+# ## Setting up the engine
+
 # ### Quantization
 
-# The amount of GPU RAM on a single card is a tight constraint for most LLMs:
-# RAM is measured in billions of bytes and models have billions of parameters.
+# The amount of [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram)
+# on a single card is a tight constraint for most LLMs:
+# RAM is measured in billions of bytes and models have billions of parameters,
+# each of which is two to four bytes.
 # The performance cliff if you need to spill to CPU memory is steep,
 # so all of those parameters must fit in the GPU memory,
-# along with other things like the KV cache.
+# along with other things like the KV cache built up while processing prompts.
 
 # The simplest way to reduce LLM inference's RAM requirements is to make the model's parameters smaller,
 # to fit their values in a smaller number of bits, like four or eight. This is known as _quantization_.
 
-# NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
-# are capable of native calculations in 8bit floating point numbers, so we choose that as our quantization format.
+# NVIDIA's [Ada Lovelace/Hopper chips](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
+# like the 4090, L40S, and H100, are capable of native 8bit floating point calculations
+# in their [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core),
+# so we choose that as our quantization format.
 # These GPUs are capable of twice as many floating point operations per second in 8bit as in 16bit --
 # about two quadrillion per second on an H100 SXM.
 
-# So quantization buys us two things: Fast cold boots, since less data has to be moved onto the
-# container and GPU, and faster inference, since we get twice the FLOPs. We'll use trtlllm's
-# `QuantConfig` to specify that we want `FP8` quantization, see
-# [here](https://github.com/NVIDIA/TensorRT-LLM/blob/88e1c90fd0484de061ecfbacfc78a4a8900a4ace/tensorrt_llm/models/modeling_utils.py#L184)
+# Quantization buys us two things:
+
+# - faster startup, since less data has to be moved over the netwprk onto CPU and GPU RAM
+
+# - faster inference, since we get twice the FLOP/s
+# and less data has to be moved from GPU RAM into
+# [on-chip memory](https://modal.com/gpu-glossary/device-hardware/l1-data-cache) and
+# [registers](https://modal.com/gpu-glossary/device-hardware/register-file)
+# with each computation
+
+# We'll use TensorRT-LLM's `QuantConfig` to specify that we want `FP8` quantization.
+# [See their code](https://github.com/NVIDIA/TensorRT-LLM/blob/88e1c90fd0484de061ecfbacfc78a4a8900a4ace/tensorrt_llm/models/modeling_utils.py#L184)
 # for more options.
 
-N_GPUS = 1  # Bumping this to 2 will improve latencies further but not 2x.
+N_GPUS = 1  # Bumping this to 2 will improve latencies further but not 2x
 GPU_CONFIG = f"H100:{N_GPUS}"
 
 
@@ -164,8 +180,8 @@ def get_quant_config():
     return QuantConfig(quant_algo="FP8")
 
 
-# One caveat of quantization is that it's lossy, but the impact on modal quality can be
-# minimized by tuning the quantization parameters given a small dataset. Typically, we
+# Quantization is a lossy compression technique. The impact on modal quality can be
+# minimized by tuning the quantization parameters on even a small dataset. Typically, we
 # see less than 2% degradation in evaluation metrics when using `fp8`. We'll use the
 # trtllm `CalibrationConfig` class to specify the calibration dataset:
 
@@ -181,27 +197,36 @@ def get_calib_config():
     )
 
 
-# ### Plugins
+# ### Configure plugins
 
-# A little background - TensorRT-LLM is built on top of NVIDIA's TensorRT, which is a high-performance
-# deep learning inference engine. TensortRT allows for custom "plugins" that allow you to
-# override the default kernels TensorRT would use for certain operations. The
-# General Matrix Multiply [(GEMM)](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html)
-# plugin, for instance, utilizes NVIDIA's cuBLASLt library to provide high-performance matrix multiplication.
+# TensorRT-LLM is an LLM inference framework built on top of NVIDIA's TensorRT,
+# which is a generic inference framework for neural networks.
+
+# TensortRT includes a "plugin" extension system that allows you to adjust behavior,
+# like configuring the [CUDA kernels](https://modal.com/gpu-glossary/device-software/kernel)
+# used by the engine.
+# The [General Matrix Multiply (GEMM)](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html)
+# plugin, for instance, adds heavily-optimized matrix multiplication kernels
+# from NVIDIA's cuBLASLt library.
 
 # We'll specify a number of plugins for our engine implementation.
-# The first is [multiple profiles](https://github.com/NVIDIA/TensorRT-LLM/blob/main/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md#multiple-profiles)
-# which allows trtllm to prepare multiple kernels, optimized for different input sizes,
-# that will be used dynamically at generation time based on the size of the prompt.
-# The second is `paged_kv_cache` which allows for breaking up the KV caches into pages to
-# reduce memory fragmentation and improve efficiency.
+# The first is
+# [multiple profiles](https://github.com/NVIDIA/TensorRT-LLM/blob/b763051ba429d60263949da95c701efe8acf7b9c/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md#multiple-profiles),
+# which configures TensorRT to prepare multiple kernels, optimized for different input sizes.
+# The second is `paged_kv_cache` which enables a
+# [paged attention algorithm](https://arxiv.org/abs/2309.06180)
+# for the key-value (KV) cache.
 
-# The last two parameters are gemm plugins optimized specifically for low latency.
-# The `low_latency_gemm_swiglu_plugin` plugin fuses two Matmul operations and one
-# SwiGLU operation into a single kernel which reduces GPU memory transfers
-# resulting in lower latencies. Note, at the time of writing, this only works
-# for `FP8` on Hopper GPUs. The `low_latency_gemm_plugin` is a
-# variant of the typical gemm plugin that's latency optimized.
+# The last two parameters are GEMM plugins optimized specifically for low latency.
+# The `low_latency_gemm_swiglu_plugin` plugin fuses the two matmul operations
+# and non-linearity of the feedforward component of the Transformer block into a single kernel,
+# reducing round trips between GPU
+# [cache memory](https://modal.com/gpu-glossary/device-hardware/l1-data-cache)
+# and RAM. For details on kernel fusion, see
+# [this blog post by Horace He of Thinking Machines](https://horace.io/brrr_intro.html).
+# Note that at the time of writing, this only works for `FP8` on Hopper GPUs.
+# The `low_latency_gemm_plugin` is a variant of the GEMM plugin that brings in latency-optimized
+# kernels from NVIDIA's [CUTLASS library](https://github.com/NVIDIA/cutlass).
 
 
 def get_plugin_config():
@@ -217,13 +242,15 @@ def get_plugin_config():
     )
 
 
-# ### Speculative Decoding
+# ### Configure speculative decoding
 
 # Speculative decoding is a technique for generating multiple tokens per step,
-# avoiding the LLM auto-regressive bottleneck of generating one token at a time.
-# This generally works best for text that has predicable patterns, like code,
-# but it's worth testing anytime latency is crtical. We'll use a simple
-# speculative decoding strategy called lookahead decoding here:
+# avoiding the auto-regressive bottleneck in the Transformer architecture.
+# Generating multiple tokens in parallel exposes more parallelism to the GPU.
+# It works best for text that has predicable patterns, like code,
+# but it's worth testing for any workload where latency is crtical.
+
+# We'll use a simple speculative decoding strategy called lookahead decoding here:
 
 
 def get_speculative_config():
@@ -236,11 +263,11 @@ def get_speculative_config():
     )
 
 
-# ### Build Configuration
+# ### Set the build config
 
-# Finally, we'll specify the build configuration for the engine. This includes
+# Finally, we'll specify the overall build configuration for the engine. This includes
 # more typical parameters such as the max input length, the max number of tokens
-# to be processing at once before queueing occurs, and the max number of prompts
+# to process at once before queueing occurs, and the max number of prompts
 # to process at once before queueing occurs:
 
 ALLOW_CONCURRENT_INPUTS = 1
@@ -258,22 +285,28 @@ def get_build_config():
     )
 
 
-# ## Serving inference under Dohertry's Threshold
+# ## Serving inference under the Doherty Threshold
 
-# Now that we have setup everything necessary to compile the engine, we can setup up
-# to serve it with Modal by creating an `App`.
+# Now that we have written the code to compile the engine, we can
+# serve it with Modal!
 
-app = modal.App("example-trtllm-inference-latency")
+# We start by creating an `App`.
+
+app = modal.App("trtllm-latency")
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 
-# On the first container start, we mount the volume, download the model, and build the engine
-# but subsequent starts will be much faster, as the engine is cached in the volume.
+# On the first container start, we mount the volume, download the model, and build the engine,
+# which takes a few minutes.
+# But subsequent starts will be much faster, as the engine is cached in the volume.
+
 # Container starts are triggered when Modal scales up your infrastructure,
 # like the first time you run this code or the first time a request comes in after a period of inactivity.
+# For details on optimizing container start latency, see
+# [this guide](https://modal.com/docs/guide/cold-start).
 
 # Container lifecycles in Modal are managed via our `Cls` interface, so we define one below
-# to manage the engine and run inference.
+# to separate out the engine startup and engine execution.
 # For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
 
 MINUTES = 60  # seconds
@@ -285,7 +318,6 @@ MINUTES = 60  # seconds
     gpu=GPU_CONFIG,
     scaledown_window=10 * MINUTES,
     volumes={VOLUME_PATH: volume},
-    secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class Model:
     mode: str = modal.parameter(default="fast")
@@ -360,7 +392,7 @@ class Model:
 
     @modal.method()
     def boot(self):
-        pass
+        pass  # no-op to start up containers
 
     @modal.exit()
     def shutdown(self):
@@ -374,30 +406,34 @@ class Model:
 # with `.remote` appended to run it on Modal.
 
 # We wrap that logic in a `local_entrypoint` so you can run it from the command line with
+
 # ```bash
-# modal run trtllm_llama_latency.py
+# modal run trtllm_latency.py
 # ```
 
-# which will output:
+# which will output something like:
 
 # ```
 # mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
 # ```
 
-# If you want to see how slow the model is without all these optimizations, you can run:
+# If you want to see how model latency without all the optimizations, you can run:
 
 # ```bash
-# modal run trtllm_llama_latency.py --mode=slow
+# modal run trtllm_latency.py --mode=slow
 # ```
 
-# which will output:
+# which will output something like
 
 # ```
 # mode=slow inference latency (p50, p90): (1140.88ms, 2274.24ms)
 # ```
 
 # For simplicity, we hard-code 10 questions to ask the model,
-# and then run them one by one while recording the latency of each call.
+# then run them one by one while recording the latency of each call.
+# But the code in the `local_entrypoint` is just regular Python code
+# that runs on your machine -- we wrap it in a CLI automatically --
+# so feel free to customize it to your liking.
 
 
 @app.local_entrypoint()
@@ -415,10 +451,10 @@ def main(mode: str = "fast"):
         "Are greyhounds or poodles faster?",
     ]
 
-    print(f"creating container with mode={mode}")
+    print(f"🏎️  creating container with mode={mode}")
     model = Model(mode=mode)
 
-    print("cold booting container")
+    print("🏎️  cold booting container")
     model.boot.remote()
 
     print_queue = []
@@ -429,15 +465,15 @@ def main(mode: str = "fast"):
         print_queue.append((prompt, generated_text, latency_ms))
         latencies_ms.append(latency_ms)
 
-    time.sleep(3)
+    time.sleep(3)  # allow remote prints to clear
     for prompt, generated_text, latency_ms in print_queue:
         print(f"Processed prompt in {latency_ms:.2f}ms")
         print(f"Prompt: {prompt}")
         print(f"Generated Text: {generated_text}")
-        print("-" * 160)
+        print("🏎️" * 160)
 
     p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5)]
     p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9)]
     print(
-        f"mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
+        f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
     )
