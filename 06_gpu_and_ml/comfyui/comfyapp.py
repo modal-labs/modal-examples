@@ -11,7 +11,7 @@
 
 # To run this simple text-to-image [Flux Schnell workflow](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/comfyui/workflow_api.json) as an API:
 
-# 1. Start up the ComfyUI server in development mode:
+# 1. Deploy ComfyUI behind a web endpoint:
 
 # ```bash
 # modal deploy 06_gpu_and_ml/comfyui/comfyapp.py
