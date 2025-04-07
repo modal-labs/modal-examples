@@ -11,16 +11,16 @@
 
 # To run this simple text-to-image [Flux Schnell workflow](https://github.com/modal-labs/modal-examples/blob/main/06_gpu_and_ml/comfyui/workflow_api.json) as an API:
 
-# 1. Start up the ComfyUI server in development mode:
+# 1. Deploy ComfyUI behind a web endpoint:
 
 # ```bash
-# modal serve 06_gpu_and_ml/comfyui/comfyapp.py
+# modal deploy 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
 
 # 2. In another terminal, run inference:
 
 # ```bash
-# python 06_gpu_and_ml/comfyui/comfyclient.py --dev --modal-workspace $(modal profile current) --prompt "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"
+# python 06_gpu_and_ml/comfyui/comfyclient.py --modal-workspace $(modal profile current) --prompt "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"
 # ```
 
 # ![example comfyui image](./flux_gen_image.jpeg)
@@ -45,9 +45,9 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     )
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
-    .pip_install("comfy-cli==1.3.5")  # install comfy-cli
+    .pip_install("comfy-cli==1.3.8")  # install comfy-cli
     .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
-        "comfy --skip-prompt install --nvidia --version 0.3.10"
+        "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.10"
     )
 )
 
@@ -59,11 +59,17 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
 
 image = (
     image.run_commands(  # download a custom node
-        "comfy node install was-node-suite-comfyui@1.0.2"
+        "comfy node install --fast-deps was-node-suite-comfyui@1.0.2"
     )
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
 
+# We'll also add our own custom node that patches core ComfyUI so that we can use Modal's [memory snapshot](https://modal.com/docs/guide/memory-snapshot) feature to speed up cold starts (more on that on [running as an API](https://modal.com/docs/examples/comfyapp#running-comfyui-as-an-api)).
+image = image.add_local_dir(
+    local_path=Path(__file__).parent / "memory_snapshot_helper",
+    remote_path="/root/comfy/ComfyUI/custom_nodes/memory_snapshot_helper",
+    copy=True,
+)
 # See [this post](https://modal.com/blog/comfyui-custom-nodes) for more examples
 # on how to install popular custom nodes like ComfyUI Impact Pack and ComfyUI IPAdapter Plus.
 
@@ -109,10 +115,11 @@ image = (
     )
 )
 
-# Lastly, we copy the ComfyUI workflow JSON to the container.
+# Lastly, copy the ComfyUI workflow JSON to the container.
 image = image.add_local_file(
     Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
 )
+
 
 # ## Running ComfyUI interactively
 
@@ -152,21 +159,37 @@ def ui():
 
 
 @app.cls(
-    allow_concurrent_inputs=10,  # allow 10 concurrent API calls
+    allow_concurrent_inputs=5,  # run 5 inputs per container
     scaledown_window=300,  # 5 minute container keep alive after it processes an input
     gpu="L40S",
     volumes={"/cache": vol},
+    enable_memory_snapshot=True,  # snapshot container state for faster cold starts
 )
 class ComfyUI:
-    @modal.enter()
+    port: int = 8000
+
+    @modal.enter(snap=True)
     def launch_comfy_background(self):
-        # starts the ComfyUI server in the background exactly once when the first input is received
-        cmd = "comfy launch --background"
+        cmd = f"comfy launch --background -- --port {self.port}"
         subprocess.run(cmd, shell=True, check=True)
+
+    @modal.enter(snap=False)
+    def restore_snapshot(self):
+        # initialize GPU for ComfyUI after snapshot restore
+        # note: requires patching core ComfyUI, see the memory_snapshot_helper directory for more details
+        import requests
+
+        response = requests.post(
+            f"http://127.0.0.1:{self.port}/cuda/set_device"
+        )
+        if response.status_code != 200:
+            print("Failed to set CUDA device")
+        else:
+            print("Successfully set CUDA device")
 
     @modal.method()
     def infer(self, workflow_path: str = "/root/workflow_api.json"):
-        # checks if ComfyUI server is healthy and accepting requests
+        # sometimes the ComfyUI server stops responding (we think because of memory leaks), so this makes sure it's still up
         self.poll_server_health()
 
         # runs the comfy run --workflow command as a subprocess
@@ -218,15 +241,18 @@ class ComfyUI:
         import urllib
 
         try:
-            # dummy request to check if the server is healthy
-            req = urllib.request.Request("http://127.0.0.1:8188/system_stats")
+            # check if the server is up (response should be immediate)
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{self.port}/system_stats"
+            )
             urllib.request.urlopen(req, timeout=5)
             print("ComfyUI server is healthy")
         except (socket.timeout, urllib.error.URLError) as e:
-            # if no response in 5 seconds, stop the container; Modal will schedule queued inputs on a new container
+            # if no response in 5 seconds, stop the container
             print(f"Server health check failed: {str(e)}")
             modal.experimental.stop_fetching_inputs()
 
+            # all queued inputs will be marked "Failed", so you need to catch these errors in your client and then retry
             raise Exception("ComfyUI server is not healthy, stopping container")
 
 
@@ -235,7 +261,7 @@ class ComfyUI:
 # ![comfyui menu](./comfyui_menu.jpeg)
 
 # ## More resources
-# - Use memory snapshotting to [speed up ComfyUI cold starts](https://modal.com/blog/comfyui-mem-snapshots)
+# - [Alternative approach](https://modal.com/blog/comfyui-mem-snapshots) for deploying ComfyUI with memory snapshots
 # - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
 
 # - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
