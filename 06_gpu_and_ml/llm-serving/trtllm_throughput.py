@@ -81,7 +81,7 @@ tensorrt_image = tensorrt_image.apt_install(
 # End-to-end, this step takes five minutes.
 # If you're reading this from top to bottom,
 # you might want to stop here and execute the example
-# with `modal run trtllm_llama.py`
+# with `modal run trtllm_throughput.py`
 # so that it runs in the background while you read the rest.
 
 # ## Downloading the Model
@@ -410,7 +410,7 @@ class Model:
 
 # We wrap that logic in a `local_entrypoint` so you can run it from the command line with
 # ```bash
-# modal run trtllm_llama.py
+# modal run trtllm_throughput.py
 # ```
 
 # For simplicity, we hard-code a batch of 128 questions to ask the model,
@@ -617,7 +617,7 @@ def generate_web(data: GenerateRequest) -> list[str]:
 # with `modal serve` to create a hot-reloading development server or `modal deploy` to deploy it to production.
 
 # ```bash
-# modal serve trtllm_llama.py
+# modal serve trtllm_throughput.py
 # ```
 
 # The URL for the endpoint appears in the output of the `modal serve` or `modal deploy` command.
