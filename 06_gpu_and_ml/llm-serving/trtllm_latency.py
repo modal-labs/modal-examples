@@ -72,23 +72,15 @@ tensorrt_image = modal.Image.from_registry(
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
-# the `tensorrt_llm` package itself, and finally `flashinfer` for optimized
-# [flash attention kernels](https://docs.flashinfer.ai/).
+# and the `tensorrt_llm` package itself.
 
-tensorrt_image = (
-    tensorrt_image.apt_install(
-        "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-    )
-    .pip_install(
-        "tensorrt-llm==0.18.0.dev2025031100",
-        "pynvml<12",  # avoid breaking change to pynvml version API
-        pre=True,
-        extra_index_url="https://pypi.nvidia.com",
-    )
-    .pip_install(
-        "flashinfer-python==0.2.4",
-        extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4/",
-    )
+tensorrt_image = tensorrt_image.apt_install(
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+).pip_install(
+    "tensorrt-llm==0.18.0",
+    "pynvml<12",  # avoid breaking change to pynvml version API
+    pre=True,
+    extra_index_url="https://pypi.nvidia.com",
 )
 
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
@@ -326,6 +318,7 @@ MINUTES = 60  # seconds
     allow_concurrent_inputs=ALLOW_CONCURRENT_INPUTS,
     gpu=GPU_CONFIG,
     scaledown_window=10 * MINUTES,
+    timeout=10 * MINUTES,
     volumes={VOLUME_PATH: volume},
 )
 class Model:
@@ -489,7 +482,7 @@ def main(mode: str = "fast"):
         print(f"Processed prompt in {latency_ms:.2f}ms")
         print(f"Prompt: {prompt}")
         print(f"Generated Text: {generated_text}")
-        print("🏎️ " * 40)
+        print("🏎️ " * 20)
 
     p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5) - 1]
     p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9) - 1]
