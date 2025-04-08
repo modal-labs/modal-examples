@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Annotated
 
 import fastapi
-
 import modal
 
 # All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) —

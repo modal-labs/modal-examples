@@ -51,9 +51,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PosixPath
 
-from pydantic import BaseModel
-
 import modal
+from pydantic import BaseModel
 
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
