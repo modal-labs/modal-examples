@@ -78,9 +78,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # The container environments Modal Functions run in are highly flexible --
 # see [the docs](https://modal.com/docs/guide/custom-container) for more details.
 
-GIT_SHA = (
-    "e649678bf55aeaa4b60bd1f68b1ee726278c0304"  # specify the commit to fetch
-)
+GIT_SHA = "e649678bf55aeaa4b60bd1f68b1ee726278c0304"  # specify the commit to fetch
 
 image = (
     image.apt_install("git")
@@ -123,9 +121,7 @@ class SharedConfig:
 # We'll use one to store both the original and fine-tuned weights we create during training
 # and then load them back in for inference.
 
-volume = modal.Volume.from_name(
-    "dreambooth-finetuning-volume-flux", create_if_missing=True
-)
+volume = modal.Volume.from_name("dreambooth-finetuning-volume-flux", create_if_missing=True)
 MODEL_DIR = "/model"
 
 # Note that access to the Flux.1-dev model on Hugging Face is
@@ -134,9 +130,7 @@ MODEL_DIR = "/model"
 # After you have accepted the license, [create a Modal Secret](https://modal.com/secrets)
 # with the name `huggingface-secret` following the instructions in the template.
 
-huggingface_secret = modal.Secret.from_name(
-    "huggingface-secret", required_keys=["HF_TOKEN"]
-)
+huggingface_secret = modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
 
 image = image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
@@ -246,9 +240,7 @@ class TrainConfig(SharedConfig):
     postfix: str = ""
 
     # locator for plaintext file with urls for images of target instance
-    instance_example_urls_file: str = str(
-        Path(__file__).parent / "instance_example_urls.txt"
-    )
+    instance_example_urls_file: str = str(Path(__file__).parent / "instance_example_urls.txt")
 
     # Hyperparameters/constants from the huggingface training example
     resolution: int = 512
@@ -269,15 +261,7 @@ class TrainConfig(SharedConfig):
     volumes={MODEL_DIR: volume},  # stores fine-tuned model
     timeout=1800,  # 30 minutes
     secrets=[huggingface_secret]
-    + (
-        [
-            modal.Secret.from_name(
-                "wandb-secret", required_keys=["WANDB_API_KEY"]
-            )
-        ]
-        if USE_WANDB
-        else []
-    ),
+    + ([modal.Secret.from_name("wandb-secret", required_keys=["WANDB_API_KEY"])] if USE_WANDB else []),
 )
 def train(instance_example_urls, config):
     import subprocess
@@ -429,8 +413,8 @@ web_image = image.add_local_dir(
 @app.function(
     image=web_image,
     max_containers=1,
-    allow_concurrent_inputs=1000,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def fastapi_app():
     import gradio as gr
@@ -479,9 +463,7 @@ def fastapi_app():
     with open("/assets/index.css") as f:
         css = f.read()
 
-    theme = gr.themes.Default(
-        primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
-    )
+    theme = gr.themes.Default(primary_hue="green", secondary_hue="emerald", neutral_hue="neutral")
 
     # add a gradio UI around inference
     with gr.Blocks(
@@ -503,9 +485,7 @@ def fastapi_app():
             )
         with gr.Row():
             btn = gr.Button("Dream", variant="primary", scale=2)
-            btn.click(
-                fn=go, inputs=inp, outputs=out
-            )  # connect inputs and outputs with inference function
+            btn.click(fn=go, inputs=inp, outputs=out)  # connect inputs and outputs with inference function
 
             gr.Button(  # shameless plug
                 "⚡️ Powered by Modal",
@@ -549,8 +529,6 @@ def run(  # add more config params here to make training configurable
     download_models.remote(SharedConfig())
     print("🎨 setting up training")
     config = TrainConfig(max_train_steps=max_train_steps)
-    instance_example_urls = (
-        Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
-    )
+    instance_example_urls = Path(TrainConfig.instance_example_urls_file).read_text().splitlines()
     train.remote(instance_example_urls, config)
     print("🎨 training finished")

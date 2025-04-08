@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Annotated
 
 import fastapi
+
 import modal
 
 # All Modal programs need an [`App`](https://modal.com/docs/reference/modal.App) —
@@ -81,9 +82,7 @@ MODEL_REVISION_ID = "a6d59ee37c13c58261aa79027d3e41cd41960925"
 
 model_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
-MODEL_PATH = (
-    "/models"  # where the Volume will appear on our Functions' filesystems
-)
+MODEL_PATH = "/models"  # where the Volume will appear on our Functions' filesystems
 
 image = image.env(
     {
@@ -149,10 +148,7 @@ class Inference:
         num_inference_steps: int = None,
         seed: int = None,
     ) -> str:
-        negative_prompt = (
-            negative_prompt
-            or "worst quality, inconsistent motion, blurry, jittery, distorted"
-        )
+        negative_prompt = negative_prompt or "worst quality, inconsistent motion, blurry, jittery, distorted"
         width = 768
         height = 512
         num_frames = num_frames or 25
@@ -174,9 +170,7 @@ class Inference:
         ).frames[0]
 
         mp4_name = slugify(prompt)
-        diffusers.utils.export_to_video(
-            video, f"{Path(OUTPUT_PATH) / mp4_name}", fps=24
-        )
+        diffusers.utils.export_to_video(video, f"{Path(OUTPUT_PATH) / mp4_name}", fps=24)
         output_volume.commit()
         torch.cuda.empty_cache()  # reduce fragmentation
         return mp4_name
@@ -306,10 +300,8 @@ web_image = (
 )
 
 
-@app.function(
-    image=web_image,
-    allow_concurrent_inputs=1000,
-)
+@app.function(image=web_image)
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def ui():
     import fastapi.staticfiles

@@ -21,13 +21,9 @@ image = (
         remote_path="/root/locustfile.py",
     )
 )
-volume = modal.Volume.from_name(
-    "loadtest-vllm-oai-results", create_if_missing=True
-)
+volume = modal.Volume.from_name("loadtest-vllm-oai-results", create_if_missing=True)
 remote_path = Path("/root") / "loadtests"
-OUT_DIRECTORY = (
-    remote_path / datetime.utcnow().replace(microsecond=0).isoformat()
-)
+OUT_DIRECTORY = remote_path / datetime.utcnow().replace(microsecond=0).isoformat()
 
 app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 
@@ -46,7 +42,8 @@ default_args = [
 MINUTES = 60  # seconds
 
 
-@app.function(allow_concurrent_inputs=1000, cpu=workers)
+@app.function(cpu=workers)
+@modal.concurrent(max_inputs=1000)
 @modal.web_server(port=8089)
 def serve():
     run_locust.local(default_args)

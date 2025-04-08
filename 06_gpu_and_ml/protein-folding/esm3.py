@@ -35,9 +35,7 @@ app = modal.App("example-esm3-dashboard")
 # [this guide](https://modal.com/docs/guide/model-weights).
 # We'll use this same distributed storage primitive to store sequence data.
 
-volume = modal.Volume.from_name(
-    "example-esm3-dashboard", create_if_missing=True
-)
+volume = modal.Volume.from_name("example-esm3-dashboard", create_if_missing=True)
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
 DATA_PATH = VOLUME_PATH / "data"
@@ -75,9 +73,7 @@ esm3_image = (
 
 web_app_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4"
-    )
+    .pip_install("gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4")
     .add_local_dir(Path(__file__).parent / "frontend", remote_path="/assets")
 )
 
@@ -144,9 +140,7 @@ class Model:
         num_steps = min(len(sequence), self.max_steps)
 
         print(f"running ESM3 inference with num_steps={num_steps}")
-        esm_protein = self.model.generate(
-            ESMProtein(sequence=sequence), self.get_generation_config(num_steps)
-        )
+        esm_protein = self.model.generate(ESMProtein(sequence=sequence), self.get_generation_config(num_steps))
 
         print("checking for errors in output")
         if hasattr(esm_protein, "error_msg"):
@@ -223,10 +217,10 @@ def run_esm(sequence: str) -> str:
 
 @app.function(
     image=web_app_image,
-    max_containers=1,  # Gradio requires sticky sessions
-    allow_concurrent_inputs=1000,  # but can handle many async inputs
     volumes={VOLUME_PATH: volume},
+    max_containers=1,  # Gradio requires sticky sessions
 )
+@modal.concurrent(max_inputs=1000)  # but can handle many async inputs
 @modal.asgi_app()
 def ui():
     import gradio as gr
@@ -246,15 +240,11 @@ def ui():
 
     css = Path("/assets/index.css").read_text()
 
-    theme = gr.themes.Default(
-        primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"
-    )
+    theme = gr.themes.Default(primary_hue="green", secondary_hue="emerald", neutral_hue="neutral")
 
     title = "Predict & Visualize Protein Structures"
 
-    with gr.Blocks(
-        theme=theme, css=css, title=title, js=always_dark()
-    ) as interface:
+    with gr.Blocks(theme=theme, css=css, title=title, js=always_dark()) as interface:
         gr.Markdown(f"# {title}")
 
         with gr.Row():
@@ -264,13 +254,9 @@ def ui():
                     label="Enter UniProt ID or select one on the right",
                     placeholder="e.g. P02768, P69905,  etc.",
                 )
-                get_sequence_button = gr.Button(
-                    "Retrieve Sequence from UniProt ID", variant="primary"
-                )
+                get_sequence_button = gr.Button("Retrieve Sequence from UniProt ID", variant="primary")
 
-                uniprot_link_button = gr.Button(
-                    value="View protein on UniProt website"
-                )
+                uniprot_link_button = gr.Button(value="View protein on UniProt website")
                 uniprot_link_button.click(
                     fn=None,
                     inputs=uniprot_num_box,
@@ -288,9 +274,7 @@ def ui():
                 with gr.Row():
                     half_len = int(len(example_uniprots) / 2)
                     with gr.Column():
-                        for i, uniprot in enumerate(
-                            example_uniprots[:half_len]
-                        ):
+                        for i, uniprot in enumerate(example_uniprots[:half_len]):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
                                 fn=lambda j=i: extract_uniprot_num(j),
@@ -298,14 +282,10 @@ def ui():
                             )
 
                     with gr.Column():
-                        for i, uniprot in enumerate(
-                            example_uniprots[half_len:]
-                        ):
+                        for i, uniprot in enumerate(example_uniprots[half_len:]):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
-                                fn=lambda j=i + half_len: extract_uniprot_num(
-                                    j
-                                ),
+                                fn=lambda j=i + half_len: extract_uniprot_num(j),
                                 outputs=uniprot_num_box,
                             )
 
@@ -314,18 +294,14 @@ def ui():
             label="Enter a sequence or retrieve it from a UniProt ID",
             placeholder="e.g. MVTRLE..., PVTTIMHALL..., etc.",
         )
-        get_sequence_button.click(
-            fn=get_sequence, inputs=[uniprot_num_box], outputs=[sequence_box]
-        )
+        get_sequence_button.click(fn=get_sequence, inputs=[uniprot_num_box], outputs=[sequence_box])
 
         run_esm_button = gr.Button("Run ESM3 Folding", variant="primary")
 
         gr.Markdown("## ESM3 Predicted Structure")
         molstar_html = gr.HTML()
 
-        run_esm_button.click(
-            fn=run_esm, inputs=sequence_box, outputs=molstar_html
-        )
+        run_esm_button.click(fn=run_esm, inputs=sequence_box, outputs=molstar_html)
 
     # return a FastAPI app for Modal to serve
     return mount_gradio_app(app=web_app, blocks=interface, path="/")
@@ -352,7 +328,9 @@ def main(
 ):
     if sequence is None:
         print("using sequence for insulin [P01308]")
-        sequence = "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRRYLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
+        sequence = (
+            "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRRYLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
+        )
 
     if output_dir is None:
         output_dir = Path("/tmp/esm3")
@@ -385,9 +363,7 @@ def get_sequence(uniprot_num: str) -> str:
         fasta_path = DATA_PATH / f"{uniprot_num}.fasta"
 
         print(f"Fetching {fasta_path} from the entrez database")
-        entrez.fetch_single_file(
-            uniprot_num, fasta_path, db_name="protein", ret_type="fasta"
-        )
+        entrez.fetch_single_file(uniprot_num, fasta_path, db_name="protein", ret_type="fasta")
         fasta_file = fasta.FastaFile.read(fasta_path)
 
         protein_sequence = fasta.get_sequence(fasta_file)

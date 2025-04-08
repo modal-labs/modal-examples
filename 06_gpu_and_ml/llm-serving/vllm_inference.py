@@ -64,9 +64,7 @@ MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
 # Although vLLM will download weights on-demand, we want to cache them if possible. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes),
 # which act as a "shared disk" that all Modal Functions can access, for our cache.
 
-hf_cache_vol = modal.Volume.from_name(
-    "huggingface-cache", create_if_missing=True
-)
+hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 
@@ -91,8 +89,6 @@ VLLM_PORT = 8000
 @app.function(
     image=vllm_image,
     gpu=f"H100:{N_GPU}",
-    # how many requests can one replica handle? tune carefully!
-    allow_concurrent_inputs=100,
     # how long should we stay up with no requests?
     scaledown_window=15 * MINUTES,
     volumes={
@@ -100,6 +96,7 @@ VLLM_PORT = 8000
         "/root/.cache/vllm": vllm_cache_vol,
     },
 )
+@modal.concurrent(max_inputs=100)  # how many requests can one replica handle? tune carefully!
 @modal.web_server(port=VLLM_PORT, startup_timeout=5 * MINUTES)
 def serve():
     import subprocess

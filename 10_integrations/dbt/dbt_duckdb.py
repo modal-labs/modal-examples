@@ -146,9 +146,7 @@ def create_source_data():
         object_key = f"sources/{parquet_filename}"
         try:
             s3_client.head_object(Bucket=BUCKET_NAME, Key=object_key)
-            print(
-                f"File '{object_key}' already exists in bucket '{BUCKET_NAME}'. Skipping."
-            )
+            print(f"File '{object_key}' already exists in bucket '{BUCKET_NAME}'. Skipping.")
         except ClientError:
             df = pd.read_csv(seed_csv_path)
             df.to_parquet(parquet_filename)
@@ -224,7 +222,8 @@ def run(command: str) -> None:
 # Just define a simple [FastAPI](https://fastapi.tiangolo.com/) app:
 
 
-@app.function(volumes={TARGET_PATH: dbt_target}, allow_concurrent_inputs=100)
+@app.function(volumes={TARGET_PATH: dbt_target})
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()  # wrap a function that returns a FastAPI app in this decorator to host on Modal
 def serve_dbt_docs():
     import fastapi
