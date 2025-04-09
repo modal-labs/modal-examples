@@ -47,7 +47,9 @@ def download_hf_model(model_dir: str, model_name: str):
 
 # define image for modal environment
 tgi_image = (
-    Image.from_registry("ghcr.io/huggingface/text-generation-inference", add_python="3.10")
+    Image.from_registry(
+        "ghcr.io/huggingface/text-generation-inference", add_python="3.10"
+    )
     .dockerfile_commands("ENTRYPOINT []")
     .pip_install(["huggingface_hub", "hf-transfer"])
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
@@ -75,7 +77,9 @@ TOKEN = "secret12345"
     gpu=gpu.A10G(count=NO_GPU),
     scaledown_window=20 * SECONDS,
 )
-@modal.concurrent(max_inputs=256)  # https://modal.com/docs/guide/concurrent-inputs
+@modal.concurrent(
+    max_inputs=256
+)  # https://modal.com/docs/guide/concurrent-inputs
 @modal.web_server(port=3000, startup_timeout=60 * SECONDS)
 def serve():
     cmd = f"""

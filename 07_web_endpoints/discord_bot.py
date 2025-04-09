@@ -210,7 +210,10 @@ def create_slash_command(force: bool = False):
         raise Exception("Failed to create slash command") from e
 
     commands = response.json()
-    command_exists = any(command.get("name") == command_description["name"] for command in commands)
+    command_exists = any(
+        command.get("name") == command_description["name"]
+        for command in commands
+    )
 
     # and only recreate it if the force flag is set
     if command_exists and not force:
@@ -298,7 +301,9 @@ def web_app():
             reply.spawn(app_id, interaction_token)
 
             # respond immediately with defer message
-            return {"type": DiscordResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE.value}
+            return {
+                "type": DiscordResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE.value
+            }
 
         print(f"🤖: unable to parse request with type {data.get('type')}")
         raise HTTPException(status_code=400, detail="Bad request")

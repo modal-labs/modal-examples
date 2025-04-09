@@ -42,7 +42,9 @@ image = (
 app = modal.App(name="example-modal-streamlit", image=image)
 
 if not streamlit_script_local_path.exists():
-    raise RuntimeError("app.py not found! Place the script with your streamlit app in the same directory.")
+    raise RuntimeError(
+        "app.py not found! Place the script with your streamlit app in the same directory."
+    )
 
 # ## Spawning the Streamlit server
 

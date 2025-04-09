@@ -77,7 +77,9 @@ TOKEN = "secret12345"
     gpu=gpu.A10G(count=NO_GPU),
     scaledown_window=20 * SECONDS,
 )
-@modal.concurrent(max_inputs=256)  # https://modal.com/docs/guide/concurrent-inputs
+@modal.concurrent(
+    max_inputs=256
+)  # https://modal.com/docs/guide/concurrent-inputs
 @modal.web_server(port=23333, startup_timeout=60 * SECONDS)
 def serve():
     cmd = f"""

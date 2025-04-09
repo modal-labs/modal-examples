@@ -146,7 +146,9 @@ def create_source_data():
         object_key = f"sources/{parquet_filename}"
         try:
             s3_client.head_object(Bucket=BUCKET_NAME, Key=object_key)
-            print(f"File '{object_key}' already exists in bucket '{BUCKET_NAME}'. Skipping.")
+            print(
+                f"File '{object_key}' already exists in bucket '{BUCKET_NAME}'. Skipping."
+            )
         except ClientError:
             df = pd.read_csv(seed_csv_path)
             df.to_parquet(parquet_filename)

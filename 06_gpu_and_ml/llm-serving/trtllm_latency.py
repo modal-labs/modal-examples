@@ -74,7 +74,9 @@ tensorrt_image = modal.Image.from_registry(
 # including OpenMPI for distributed communication, some core software like `git`,
 # and the `tensorrt_llm` package itself.
 
-tensorrt_image = tensorrt_image.apt_install("openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget").pip_install(
+tensorrt_image = tensorrt_image.apt_install(
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+).pip_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     pre=True,
@@ -101,7 +103,9 @@ tensorrt_image = tensorrt_image.apt_install("openmpi-bin", "libopenmpi-dev", "gi
 # is cached there. And we install `hf-transfer` to get maximum download throughput from
 # the Hugging Face Hub, in the hundreds of megabytes per second.
 
-volume = modal.Volume.from_name("example-trtllm-inference-volume", create_if_missing=True)
+volume = modal.Volume.from_name(
+    "example-trtllm-inference-volume", create_if_missing=True
+)
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
 
@@ -381,7 +385,9 @@ class Model:
     @modal.method()
     async def generate_async(self, prompt):
         text = self.text_from_prompt(prompt)
-        async for output in self.llm.generate_async(text, self.sampling_params, streaming=True):
+        async for output in self.llm.generate_async(
+            text, self.sampling_params, streaming=True
+        ):
             yield output.outputs[0].text_diff
 
     def text_from_prompt(self, prompt):
@@ -392,7 +398,9 @@ class Model:
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + prompt
 
-        return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        return self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
 
     @modal.method()
     def boot(self):
@@ -478,7 +486,9 @@ def main(mode: str = "fast"):
 
     p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5) - 1]
     p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9) - 1]
-    print(f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
+    print(
+        f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
+    )
 
 
 # Once deployed with `modal deploy`, this `Model.generate` function

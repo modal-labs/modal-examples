@@ -57,7 +57,9 @@ with image.imports():
     gpu="A10G",
     max_containers=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
 )
-@modal.concurrent(max_inputs=100)  # Allow concurrent inputs into our single container.
+@modal.concurrent(
+    max_inputs=100
+)  # Allow concurrent inputs into our single container.
 class Server:
     def __init__(self, n_models=10):
         self.model_pool = ModelPool()
@@ -83,7 +85,9 @@ class Server:
         async with self.model_pool.acquire_model() as model:
             # We now have exclusive access to this model instance
             embedding = model.encode(sentence)
-            await asyncio.sleep(0.2)  # Simulate extra inference latency, for demo purposes
+            await asyncio.sleep(
+                0.2
+            )  # Simulate extra inference latency, for demo purposes
         return embedding.tolist()
 
 

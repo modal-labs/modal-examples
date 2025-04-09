@@ -94,7 +94,9 @@ def web():
         return (
             fh.Title(f"{N_CHECKBOXES // 1000}k Checkboxes"),
             fh.Main(
-                fh.H1(f"{inflect.engine().number_to_words(N_CHECKBOXES).title()} Checkboxes"),
+                fh.H1(
+                    f"{inflect.engine().number_to_words(N_CHECKBOXES).title()} Checkboxes"
+                ),
                 fh.Div(
                     *checkboxes,
                     id="checkbox-array",
