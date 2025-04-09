@@ -53,12 +53,13 @@ app = modal.App("example-discord-bot", image=image)
 # We convert the response into a Markdown-formatted message.
 
 # We turn our Python function into a Modal Function by attaching the `app.function` decorator.
-# We make the function `async` and set `allow_concurrent_inputs` to a large value because
+# We make the function `async` and add `@modal.concurrent()` with a large `max_inputs` value, because
 # communicating with an external API is a classic case for better performance from asynchronous execution.
 # Modal handles things like the async event loop for us.
 
 
-@app.function(allow_concurrent_inputs=1000)
+@app.function()
+@modal.concurrent(max_inputs=1000)
 async def fetch_api() -> str:
     import aiohttp
 
@@ -128,7 +129,8 @@ async def send_to_discord(payload: dict, app_id: str, interaction_token: str):
 # Modal Function. This reduces a bit of extra latency, but couples these two Functions more tightly.
 
 
-@app.function(allow_concurrent_inputs=1000)
+@app.function()
+@modal.concurrent(max_inputs=1000)
 async def reply(app_id: str, interaction_token: str):
     message = await fetch_api.local()
     await send_to_discord({"content": message}, app_id, interaction_token)
@@ -259,9 +261,8 @@ def create_slash_command(force: bool = False):
 # [this guide](https://modal.com/docs/guide/webhooks).
 
 
-@app.function(
-    secrets=[discord_secret], min_containers=1, allow_concurrent_inputs=1000
-)
+@app.function(secrets=[discord_secret], min_containers=1)
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, HTTPException, Request

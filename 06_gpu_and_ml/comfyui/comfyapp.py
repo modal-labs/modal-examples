@@ -130,11 +130,13 @@ app = modal.App(name="example-comfyui", image=image)
 
 
 @app.function(
-    allow_concurrent_inputs=10,  # required for UI startup process which runs several API calls concurrently
     max_containers=1,  # limit interactive session to 1 container
     gpu="L40S",  # good starter GPU for inference
     volumes={"/cache": vol},  # mounts our cached models
 )
+@modal.concurrent(
+    max_inputs=10
+)  # required for UI startup process which runs several API calls concurrently
 @modal.web_server(8000, startup_timeout=60)
 def ui():
     subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)
@@ -159,12 +161,12 @@ def ui():
 
 
 @app.cls(
-    allow_concurrent_inputs=5,  # run 5 inputs per container
     scaledown_window=300,  # 5 minute container keep alive after it processes an input
     gpu="L40S",
     volumes={"/cache": vol},
     enable_memory_snapshot=True,  # snapshot container state for faster cold starts
 )
+@modal.concurrent(max_inputs=5)  # run 5 inputs per container
 class ComfyUI:
     port: int = 8000
 

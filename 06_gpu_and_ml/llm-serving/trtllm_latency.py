@@ -270,7 +270,7 @@ def get_speculative_config():
 # to process at once before queueing occurs, and the maximum number of prompts
 # to process at once before queueing occurs.
 
-ALLOW_CONCURRENT_INPUTS = 1
+MAX_CONCURRENT_INPUTS = 1
 
 
 def get_build_config():
@@ -281,7 +281,7 @@ def get_build_config():
         speculative_decoding_mode="LOOKAHEAD_DECODING",
         max_input_len=8192,
         max_num_tokens=16384,
-        max_batch_size=ALLOW_CONCURRENT_INPUTS,
+        max_batch_size=MAX_CONCURRENT_INPUTS,
     )
 
 
@@ -315,12 +315,12 @@ MINUTES = 60  # seconds
 
 @app.cls(
     image=tensorrt_image,
-    allow_concurrent_inputs=ALLOW_CONCURRENT_INPUTS,
     gpu=GPU_CONFIG,
     scaledown_window=10 * MINUTES,
     timeout=10 * MINUTES,
     volumes={VOLUME_PATH: volume},
 )
+@modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
 class Model:
     mode: str = modal.parameter(default="fast")
 

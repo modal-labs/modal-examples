@@ -46,7 +46,8 @@ default_args = [
 MINUTES = 60  # seconds
 
 
-@app.function(allow_concurrent_inputs=1000, cpu=workers)
+@app.function(cpu=workers)
+@modal.concurrent(max_inputs=1000)
 @modal.web_server(port=8089)
 def serve():
     run_locust.local(default_args)

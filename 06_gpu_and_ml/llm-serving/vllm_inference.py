@@ -91,8 +91,6 @@ VLLM_PORT = 8000
 @app.function(
     image=vllm_image,
     gpu=f"H100:{N_GPU}",
-    # how many requests can one replica handle? tune carefully!
-    allow_concurrent_inputs=100,
     # how long should we stay up with no requests?
     scaledown_window=15 * MINUTES,
     volumes={
@@ -100,6 +98,9 @@ VLLM_PORT = 8000
         "/root/.cache/vllm": vllm_cache_vol,
     },
 )
+@modal.concurrent(
+    max_inputs=100
+)  # how many requests can one replica handle? tune carefully!
 @modal.web_server(port=VLLM_PORT, startup_timeout=5 * MINUTES)
 def serve():
     import subprocess

@@ -387,8 +387,8 @@ def main(
 @app.function(
     image=torch_image,
     volumes={volume_path: volume},
-    allow_concurrent_inputs=1000,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.wsgi_app()
 def monitor_training():
     import time
@@ -581,8 +581,8 @@ def web_generate(request: GenerationRequest):
     image=ui_image,
     max_containers=1,
     volumes={volume_path: volume},
-    allow_concurrent_inputs=1000,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def ui():
     import gradio as gr

@@ -114,9 +114,9 @@ app = modal.App("example-sgl-vlm")
     gpu=GPU_CONFIG,
     timeout=20 * MINUTES,
     scaledown_window=20 * MINUTES,
-    allow_concurrent_inputs=100,
     image=vlm_image,
 )
+@modal.concurrent(max_inputs=100)
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
     def start_runtime(self):
