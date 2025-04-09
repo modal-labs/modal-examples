@@ -15,9 +15,14 @@
 # With the out-of-the-box defaults we observe an unacceptable median time
 # to last token of over a second, but with careful configuration,
 # we'll bring that down to under 250ms  -- over a 4x speed up!
+# These latencies were measured on a single NVIDIA H100 GPU
+# running LLaMA 3 8B on prompts and generations of a few dozen to a few hundred tokens.
 
-# These latencies were measured on a single NVIDIA H100 GPU with prompts and generations
-# of a few dozen to a few hundred tokens.
+# Here's what that looks like in a terminal chat interface:
+
+# <video controls autoplay loop muted>
+# <source src="https://modal-cdn.com/example-trtllm-latency.mp4" type="video/mp4">
+# </video>
 
 # ## Overview
 
