@@ -5,7 +5,7 @@
 
 # [Ollama](https://ollama.com/) is a popular tool for running open-source large language models (LLMs) locally.
 # It provides a simple API, including OpenAI compatibility, allowing you to interact with various models like
-# Llama 3.4, Mistral, Phi-4, and more.
+# Llama, Mistral, Phi, and more.
 
 # In this example, we demonstrate how to run Ollama on Modal's cloud infrastructure, leveraging:
 #
