@@ -7,13 +7,9 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 )
 
 app = modal.App(
-    "webrtc-video-demo",
+    "fastrtc-webcam-demo",
     image=web_image,
 )
-
-rtc_config = {
-    "iceServers": [{"url": "stun:stun.l.google.com:19302"}]
-}
 
 @app.cls(
     image=web_image,
@@ -53,7 +49,9 @@ class WebRTCApp:
                     handler=flip_vertically,
                     modality="video",
                     mode="send-receive",
-                    rtc_configuration=rtc_config,
+                    rtc_configuration={
+                        "iceServers": [{"url": "stun:stun.l.google.com:19302"}]
+                    },
                     ui_args={
                         "pulse_color": "rgb(255, 255, 255)",
                         "icon_button_color": "rgb(255, 255, 255)",
