@@ -43,7 +43,7 @@ class WebRTCApp:
             gr.HTML(
             """
             <h1 style='text-align: center'>
-            Chat (Powered by WebRTC ⚡️)
+            Streaming Video Processing with Modal and FastRTC
             </h1>
             """
             )
@@ -54,6 +54,11 @@ class WebRTCApp:
                     modality="video",
                     mode="send-receive",
                     rtc_configuration=rtc_config,
+                    ui_args={
+                        "pulse_color": "rgb(255, 255, 255)",
+                        "icon_button_color": "rgb(255, 255, 255)",
+                        "title": "Flipped Webcam Stream",
+                    },
                 )
             
         return mount_gradio_app(app=FastAPI(), blocks=blocks, path="/")
