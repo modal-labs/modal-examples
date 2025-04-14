@@ -3,7 +3,6 @@ import modal
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi[standard]==0.115.4",
     "gradio~=5.7.1",
-    "pillow~=10.2.0",
     "fastrtc",
 )
 
