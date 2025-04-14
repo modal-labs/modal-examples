@@ -1,33 +1,4 @@
-# from fastrtc import Stream
-# import numpy as np
-# from fastapi import FastAPI
-# from fastapi.responses import HTMLResponse
-
-# def flip_vertically(image):
-#     return np.flip(image, axis=0)
-
-
-# stream = Stream(
-#     handler=flip_vertically,
-#     modality="video",
-#     mode="send-receive",
-# )
-
-# app = FastAPI()
-# stream.mount(app)
-
-# # Optional: Add routes
-# @app.get("/")
-# async def _():
-#     return HTMLResponse(content=open("index.html").read())
-
-# # uvicorn app:app --host 0.0.0.0 --port 8000
-
-
-
-
 import modal
-
 
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi[standard]==0.115.4",
