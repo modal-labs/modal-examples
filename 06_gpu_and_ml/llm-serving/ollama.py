@@ -339,11 +339,7 @@ async def local_main():
 # 3. Scales automatically based on usage
 # 4. Preserves your models in the persistent volume between invocations
 #
-# After deployment, you can find your endpoint URL with:
-#
-# ```bash
-# modal app show ollama-server
-# ```
+# After deployment, you can find your endpoint URL in your Modal dashboard.
 #
 # You can then use this endpoint with any OpenAI-compatible client by setting:
 #
