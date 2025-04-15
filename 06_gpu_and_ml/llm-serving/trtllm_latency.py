@@ -4,10 +4,11 @@
 # Meta's LLaMA 3 8B model at interactive latencies on Modal.
 
 # Many popular language model applications, like chatbots and code editing,
-# put humans and models in direct interaction. According to
-# [classic results in human-computer interaction](https://lawsofux.com/doherty-threshold/),
-# computer systems need to keep their response times under 400ms
-# in order to keep up with their human users.
+# put humans and models in direct interaction. According to an
+# [oft-cited](https://lawsofux.com/doherty-threshold/)
+# if [scientifically dubious](https://www.flashover.blog/posts/dohertys-threshold-is-a-lie)
+# rule of thumb, computer systems need to keep their response times under 400ms
+# in order to match pace with their human users.
 
 # To hit this target, we use the [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 # inference framework from NVIDIA. TensorRT-LLM is the Lamborghini of inference engines:
