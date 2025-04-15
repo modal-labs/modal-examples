@@ -1,5 +1,5 @@
 import cv2
-from fastrtc import Stream
+
 import numpy as np
 import cv2
 import numpy as np
@@ -241,12 +241,24 @@ def draw_masks(
 
 import modal
 
-web_image = modal.Image.debian_slim(python_version="3.12").apt_install("python3-opencv").pip_install(
-    "fastapi[standard]==0.115.4",
-    "gradio~=5.7.1",
-    "fastrtc",
-    "opencv-python",
-    "onnxruntime-gpu"
+web_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("python3-opencv")
+    .run_commands(
+        # Set locale to en_US.UTF-8
+        # "locale-gen en_US.UTF-8",
+        # "update-locale LANG=en_US.UTF-8",
+        "pip install --upgrade pip",
+    )
+    .pip_install(
+        "fastapi[standard]==0.115.4",
+        "gradio~=5.7.1",
+        "fastrtc",
+        "opencv-python",
+        "tensorrt",
+        "torch",
+        "onnxruntime-gpu"
+    )
 )
 
 app = modal.App(
@@ -256,7 +268,7 @@ app = modal.App(
 
 
 @app.cls(
-    gpu="a100",
+    gpu="A100",
     image=web_image,
     min_containers=1,
     scaledown_window=60 * 20,
@@ -273,7 +285,7 @@ class YoloWebRTCApp:
 
         import time
         import numpy as np
-        from fastrtc import Stream
+        
         import gradio as gr
         from gradio.routes import mount_gradio_app
         from fastapi import FastAPI
@@ -282,7 +294,8 @@ class YoloWebRTCApp:
         import cv2
         import onnxruntime
 
-        
+        onnxruntime.preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)
+
 
         class YOLOv10:
             def __init__(self, path):
@@ -410,6 +423,7 @@ class YoloWebRTCApp:
         import gradio as gr
         from gradio import mount_gradio_app
         from fastapi import FastAPI
+        from fastrtc import VideoStreamHandler, Stream
 
         def detection(image, conf_threshold=0.3):
             image = cv2.resize(image, (self.model.input_width, self.model.input_height))
@@ -428,7 +442,7 @@ class YoloWebRTCApp:
             with gr.Column():
                 # slider = gr.Slider(minimum=0, maximum=1, step=0.01, value=0.3)
                 stream = Stream(
-                    handler=detection,
+                    handler=VideoStreamHandler(detection, skip_frames=True),
                     modality="video",
                     mode="send-receive",
                     rtc_configuration={
