@@ -1,8 +1,5 @@
-import cv2
-
 import numpy as np
 import cv2
-import numpy as np
 
 class_names = [
     "person",
@@ -243,11 +240,13 @@ import modal
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("python3-opencv")
+    .apt_install("python3-opencv", "ffmpeg")
+    .env(
+        {
+            "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
+        }
+    )
     .run_commands(
-        # Set locale to en_US.UTF-8
-        # "locale-gen en_US.UTF-8",
-        # "update-locale LANG=en_US.UTF-8",
         "pip install --upgrade pip",
     )
     .pip_install(
@@ -285,10 +284,6 @@ class YoloWebRTCApp:
 
         import time
         import numpy as np
-        
-        import gradio as gr
-        from gradio.routes import mount_gradio_app
-        from fastapi import FastAPI
 
         from huggingface_hub import hf_hub_download
         import cv2
@@ -425,7 +420,8 @@ class YoloWebRTCApp:
         from fastapi import FastAPI
         from fastrtc import VideoStreamHandler, Stream
 
-        def detection(image, conf_threshold=0.3):
+
+        def detection(image, conf_threshold = 0.5):
             image = cv2.resize(image, (self.model.input_width, self.model.input_height))
             print("conf_threshold", conf_threshold)
             new_image = self.model.detect_objects(image, conf_threshold)
@@ -440,9 +436,9 @@ class YoloWebRTCApp:
             """
             )
             with gr.Column():
-                # slider = gr.Slider(minimum=0, maximum=1, step=0.01, value=0.3)
+                slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.5, label="Confidence Threshold", render=False)
                 stream = Stream(
-                    handler=VideoStreamHandler(detection, skip_frames=True),
+                    handler=VideoStreamHandler(detection, skip_frames=True, fps = 30.0),
                     modality="video",
                     mode="send-receive",
                     rtc_configuration={
@@ -452,8 +448,9 @@ class YoloWebRTCApp:
                     ui_args={
                         "pulse_color": "rgb(255, 255, 255)",
                         "icon_button_color": "rgb(255, 255, 255)",
-                        "title": "Flipped Webcam Stream",
+                        "title": "Press Record to Start Object Detection",
                     },
+                    additional_inputs=[slider],
                 )
                 
             
