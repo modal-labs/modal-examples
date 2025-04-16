@@ -209,9 +209,7 @@ def train_model(
         checkpoint = torch.load(str(model_save_dir / model_filename))
         is_best_model = not run_to_first_save
         if is_best_model:
-            make_best_symbolic_link(
-                model_save_dir, model_filename, experiment_name
-            )
+            make_best_symbolic_link(model_save_dir, model_filename, experiment_name)
         model.load_state_dict(checkpoint["model"])
         start_step = checkpoint["steps"] + 1
     else:
@@ -495,9 +493,7 @@ class ModelInference:
         self.tokenizer = Tokenizer(unique_chars)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.model = AttentionModel(
-            self.tokenizer.vocab_size, hparams, self.device
-        )
+        self.model = AttentionModel(self.tokenizer.vocab_size, hparams, self.device)
         self.model.load_state_dict(checkpoint["model"])
         self.model.to(self.device)
 
@@ -592,9 +588,9 @@ def ui():
     def generate(text="", experiment_name=""):
         if not text:
             text = "\n"
-        generated = ModelInference(
-            experiment_name=experiment_name
-        ).generate.remote(text)
+        generated = ModelInference(experiment_name=experiment_name).generate.remote(
+            text
+        )
         return text + generated
 
     example_prompts = [
@@ -675,9 +671,7 @@ def ui():
             # add in a few examples to inspire users
             for ii, prompt in enumerate(example_prompts):
                 btn = gr.Button(prompt, variant="secondary")
-                btn.click(
-                    fn=lambda idx=ii: example_prompts[idx], outputs=input_box
-                )
+                btn.click(fn=lambda idx=ii: example_prompts[idx], outputs=input_box)
 
     # mount for execution on Modal
     return mount_gradio_app(

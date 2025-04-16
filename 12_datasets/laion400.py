@@ -42,9 +42,7 @@ volume = modal.CloudBucketMount(
 )
 
 image = (
-    modal.Image.debian_slim()
-    .apt_install("wget")
-    .pip_install("img2dataset~=1.45.0")
+    modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
 )
 
 app = modal.App("example-laion400-dataset-import", image=image)
@@ -170,7 +168,5 @@ def import_transform_load() -> None:
     print(f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}.")
     print(f"Spawning {len(parquet_files)} to enrich dataset...")
     list(
-        run_img2dataset_on_part.starmap(
-            (i, f) for i, f in enumerate(parquet_files)
-        )
+        run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files))
     )

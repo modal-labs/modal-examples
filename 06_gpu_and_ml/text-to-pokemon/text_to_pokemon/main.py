@@ -201,9 +201,7 @@ def composite_pokemon_card(
     mask_im_blur = mask_im.filter(ImageFilter.GaussianBlur(20))
 
     back_im = base_i.copy()
-    back_im.paste(
-        cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur
-    )
+    back_im.paste(cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur)
 
     # If a (manually uploaded) mini Modal logo exists, paste that discreetly onto the image too :)
     mini_modal_logo = config.CARD_PART_IMGS / "mini-modal-logo.png"

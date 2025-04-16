@@ -30,9 +30,7 @@ class InProgressJob(NamedTuple):
 
 @web_app.get("/api/episode/{podcast_id}/{episode_guid_hash}")
 async def get_episode(podcast_id: str, episode_guid_hash: str):
-    episode_metadata_path = get_episode_metadata_path(
-        podcast_id, episode_guid_hash
-    )
+    episode_metadata_path = get_episode_metadata_path(podcast_id, episode_guid_hash)
     transcription_path = get_transcript_path(episode_guid_hash)
 
     with open(episode_metadata_path, "r") as f:

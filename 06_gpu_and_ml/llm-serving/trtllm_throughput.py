@@ -207,9 +207,7 @@ tensorrt_image = (  # update the image by quantizing the model
 
 MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
 MAX_NUM_TOKENS = 2**17
-MAX_BATCH_SIZE = (
-    1024  # better throughput at larger batch sizes, limited by GPU RAM
-)
+MAX_BATCH_SIZE = 1024  # better throughput at larger batch sizes, limited by GPU RAM
 ENGINE_DIR = "/root/model/model_output"
 
 SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} --max_batch_size={MAX_BATCH_SIZE}"

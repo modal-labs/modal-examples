@@ -81,9 +81,7 @@ MODEL_REVISION_ID = "a6d59ee37c13c58261aa79027d3e41cd41960925"
 
 model_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
-MODEL_PATH = (
-    "/models"  # where the Volume will appear on our Functions' filesystems
-)
+MODEL_PATH = "/models"  # where the Volume will appear on our Functions' filesystems
 
 image = image.env(
     {

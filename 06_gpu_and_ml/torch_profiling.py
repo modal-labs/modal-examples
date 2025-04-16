@@ -140,9 +140,7 @@ def profile(
 
     if schedule is None:
         if steps < 3:
-            raise ValueError(
-                "Steps must be at least 3 when using default schedule"
-            )
+            raise ValueError("Steps must be at least 3 when using default schedule")
         schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
 
     schedule = torch.profiler.schedule(**schedule)

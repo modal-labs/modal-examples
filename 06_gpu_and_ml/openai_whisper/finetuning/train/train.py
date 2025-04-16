@@ -415,9 +415,7 @@ def train(
 
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         # we do not want to group tokens when computing the metrics
-        label_str = tokenizer.batch_decode(
-            pred.label_ids, skip_special_tokens=True
-        )
+        label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
 
         wer = metric.compute(predictions=pred_str, references=label_str)
 

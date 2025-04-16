@@ -41,9 +41,7 @@ def train(experiment):
     last_checkpoint = experiment_dir / "last.ckpt"
 
     if last_checkpoint.exists():
-        print(
-            f"⚡️ resuming training from the latest checkpoint: {last_checkpoint}"
-        )
+        print(f"⚡️ resuming training from the latest checkpoint: {last_checkpoint}")
         train_model(
             DATA_PATH,
             experiment_dir,

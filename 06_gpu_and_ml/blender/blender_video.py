@@ -182,9 +182,7 @@ def main(frame_count: int = 250, frame_skip: int = 1):
 
     input_path = Path(__file__).parent / "IceModal.blend"
     blend_bytes = input_path.read_bytes()
-    args = [
-        (blend_bytes, frame) for frame in range(1, frame_count + 1, frame_skip)
-    ]
+    args = [(blend_bytes, frame) for frame in range(1, frame_count + 1, frame_skip)]
     images = list(render.starmap(args))
     for i, image in enumerate(images):
         frame_path = output_directory / f"frame_{i + 1}.png"

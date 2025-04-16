@@ -109,9 +109,7 @@ def _do_part(url: str) -> None:
     p = subprocess.Popen(cmd, shell=True)
     returncode = p.wait()
     if returncode != 0:
-        raise RuntimeError(
-            f"Error in downloading. {p.args!r} failed {returncode=}"
-        )
+        raise RuntimeError(f"Error in downloading. {p.args!r} failed {returncode=}")
     decompressed = pathlib.Path("/tmp/rosettafold/", name)
 
     # Decompression is much faster against the container's local SSD disk

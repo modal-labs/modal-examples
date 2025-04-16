@@ -184,9 +184,7 @@ def plot(dataset) -> bytes:
 @app.local_entrypoint()
 def main():
     # List of tuples[year, month].
-    inputs = [
-        (year, month) for year in range(2018, 2023) for month in range(1, 13)
-    ]
+    inputs = [(year, month) for year in range(2018, 2023) for month in range(1, 13)]
 
     # List of file paths in S3.
     parquet_files: list[str] = []

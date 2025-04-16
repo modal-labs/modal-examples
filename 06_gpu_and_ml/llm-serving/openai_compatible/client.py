@@ -210,9 +210,7 @@ def main():
                         sep="",
                     )
 
-                messages.append(
-                    {"role": "assistant", "content": assistant_message}
-                )
+                messages.append({"role": "assistant", "content": assistant_message})
     else:
         messages.append({"role": "user", "content": args.prompt})
         print(Colors.GREEN + f"\nYou: {args.prompt}" + Colors.END)

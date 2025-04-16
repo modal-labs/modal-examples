@@ -74,9 +74,7 @@ app = modal.App("ollama-server", image=ollama_image)
 # We use a Modal Volume to cache downloaded models between runs.
 # This prevents needing to re-download large model files each time.
 
-model_volume = modal.Volume.from_name(
-    "ollama-models-store", create_if_missing=True
-)
+model_volume = modal.Volume.from_name("ollama-models-store", create_if_missing=True)
 
 # ## The Ollama Server Class
 
@@ -240,9 +238,7 @@ class OllamaServer:
             all_results[model_name] = model_results
 
             for prompt in test_prompts:
-                print(
-                    f"\n--- Testing Prompt ---\n{prompt}\n----------------------"
-                )
+                print(f"\n--- Testing Prompt ---\n{prompt}\n----------------------")
 
                 # Create message in OpenAI format
                 messages: List[ChatCompletionMessageParam] = [

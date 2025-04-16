@@ -102,9 +102,7 @@ class Model:
     def inference(
         self, image_bytes: bytes, prompt: str, strength: float = 0.9
     ) -> bytes:
-        init_image = load_image(Image.open(BytesIO(image_bytes))).resize(
-            (512, 512)
-        )
+        init_image = load_image(Image.open(BytesIO(image_bytes))).resize((512, 512))
         num_inference_steps = 4
         # "When using SDXL-Turbo for image-to-image generation, make sure that num_inference_steps * strength is larger or equal to 1"
         # See: https://huggingface.co/stabilityai/sdxl-turbo

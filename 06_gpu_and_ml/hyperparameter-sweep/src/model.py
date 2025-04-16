@@ -60,9 +60,7 @@ class MultiHeadFast(nn.Module):
         else:
             weight = torch.einsum("bnth,bnuh->bntu", q, k)
             weight /= torch.sqrt(self.head_size)
-            weight = weight.masked_fill(
-                self.tril[:, :, :T, :T] == 0, float("-inf")
-            )
+            weight = weight.masked_fill(self.tril[:, :, :T, :T] == 0, float("-inf"))
             dist = F.softmax(weight, dim=-1)
             dist = self.head_dropout(dist)
 
