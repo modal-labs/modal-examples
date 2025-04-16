@@ -1,3 +1,6 @@
+# ---
+# deploy: true
+# ---
 # # Serve an interactive language model app with latency-optimized TensorRT-LLM (LLaMA 3 8B)
 
 # In this example, we demonstrate how to configure the TensorRT-LLM framework to serve
@@ -274,10 +277,16 @@ def get_speculative_config():
 
 # Finally, we'll specify the overall build configuration for the engine. This includes
 # more obvious parameters such as the maximum input length, the maximum number of tokens
-# to process at once before queueing occurs, and the maximum number of prompts
+# to process at once before queueing occurs, and the maximum number of sequences
 # to process at once before queueing occurs.
 
-MAX_CONCURRENT_INPUTS = 1
+# To minimize latency, we set the maximum number of sequences (the "batch size")
+# to just one. We enforce this maximum by setting the number of inputs that the
+# Modal Function is allowed to process at once -- `max_concurrent_inputs`.
+# The default is `1`, so we don't need to set it, but we are setting it explicitly
+# here in case you want to run this code with a different balance of latency and throughput.
+
+MAX_BATCH_SIZE = MAX_CONCURRENT_INPUTS = 1
 
 
 def get_build_config():
@@ -288,7 +297,7 @@ def get_build_config():
         speculative_decoding_mode="LOOKAHEAD_DECODING",
         max_input_len=8192,
         max_num_tokens=16384,
-        max_batch_size=MAX_CONCURRENT_INPUTS,
+        max_batch_size=MAX_BATCH_SIZE,
     )
 
 
