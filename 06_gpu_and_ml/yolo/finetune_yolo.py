@@ -1,5 +1,6 @@
 # ---
 # args: ["--no-quick-check"]
+# mypy: ignore-errors
 # ---
 
 # # Fine-tune open source YOLO models for object detection
@@ -193,8 +194,7 @@ def read_image(image_path: str):
 
 @app.cls(gpu="a10g")
 class Inference:
-    def __init__(self, weights_path):
-        self.weights_path = weights_path
+    weights_path: str = modal.parameter()
 
     @modal.enter()
     def load_model(self):
@@ -313,7 +313,9 @@ def main(quick_check: bool = True, inference_only: bool = False):
     # let's run inference!
     for model_id, dataset in zip(model_ids, datasets):
         inference = Inference(
-            volume_path / "runs" / model_id / "weights" / "best.pt"
+            weights_path=str(
+                volume_path / "runs" / model_id / "weights" / "best.pt"
+            )
         )
 
         # predict on a single image and save output to the volume

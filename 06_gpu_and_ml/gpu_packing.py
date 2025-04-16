@@ -1,3 +1,6 @@
+# ---
+# mypy: ignore-errors
+# ---
 # # Run multiple instances of a model on a single GPU
 #
 # Many models are small enough to fit multiple instances onto a single GPU.
@@ -61,9 +64,11 @@ with image.imports():
     max_inputs=100
 )  # Allow concurrent inputs into our single container.
 class Server:
-    def __init__(self, n_models=10):
+    n_models: int = modal.parameter(default=10)
+
+    @modal.enter()
+    def init(self):
         self.model_pool = ModelPool()
-        self.n_models = n_models
 
     @modal.enter()
     async def load_models(self):
