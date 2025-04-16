@@ -213,9 +213,7 @@ async def transcribe(url: str):
     except pytube.exceptions.RegexMatchError:
         raise HTTPException(status_code=422, detail=f"Could not process url {url}")
     print(f"streaming transcription of {url} audio to client...")
-    return StreamingResponse(
-        stream_whisper(audio_data), media_type="text/event-stream"
-    )
+    return StreamingResponse(stream_whisper(audio_data), media_type="text/event-stream")
 
 
 @app.function()

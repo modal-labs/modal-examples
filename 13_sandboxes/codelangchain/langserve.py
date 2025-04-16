@@ -29,9 +29,7 @@ image = image.pip_install("langserve[all]==0.3.0")
     image=image,
     secrets=[  # see the agent.py file for more information on Secrets
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
-        modal.Secret.from_name(
-            "langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]
-        ),
+        modal.Secret.from_name("langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]),
     ],
 )
 @modal.asgi_app()

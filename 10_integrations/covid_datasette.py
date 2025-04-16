@@ -149,9 +149,7 @@ def load_report(filepath):
                 "deaths": int(float(row["Deaths"] or 0)),
                 "recovered": int(float(row["Recovered"] or 0)),
                 "active": int(row["Active"]) if row.get("Active") else None,
-                "last_update": row.get("Last Update")
-                or row.get("Last_Update")
-                or None,
+                "last_update": row.get("Last Update") or row.get("Last_Update") or None,
             }
 
 

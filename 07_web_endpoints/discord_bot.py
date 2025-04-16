@@ -70,7 +70,9 @@ async def fetch_api() -> str:
             async with session.get(url) as response:
                 response.raise_for_status()
                 data = await response.json()
-                message = f"# {data.get('emoji') or '🤖'} [{data['title']}]({data['source']})"
+                message = (
+                    f"# {data.get('emoji') or '🤖'} [{data['title']}]({data['source']})"
+                )
                 message += f"\n _{''.join(data['description'].splitlines())}_"
         except Exception as e:
             message = f"# 🤖: Oops! {e}"

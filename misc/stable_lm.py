@@ -130,9 +130,7 @@ class StabilityLM:
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_url, local_files_only=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(self.model_url, local_files_only=True)
         self.stop_ids = tokenizer.convert_tokens_to_ids(self.stop_tokens)
         self.streamer = TextIteratorStreamer(
             tokenizer,

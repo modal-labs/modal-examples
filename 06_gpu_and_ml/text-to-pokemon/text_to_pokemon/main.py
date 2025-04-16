@@ -272,9 +272,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
         print(
             "Cached! - prompt has had cards composed before, returning previous Pokémon card results."
         )
-        cards_data = [
-            card_file.read_bytes() for card_file in final_cards_dir.iterdir()
-        ]
+        cards_data = [card_file.read_bytes() for card_file in final_cards_dir.iterdir()]
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.

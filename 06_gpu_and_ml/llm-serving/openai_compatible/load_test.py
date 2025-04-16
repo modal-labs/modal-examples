@@ -28,7 +28,9 @@ OUT_DIRECTORY = remote_path / datetime.utcnow().replace(microsecond=0).isoformat
 app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = f"https://{workspace}-{environment}--example-vllm-openai-compatible-serve.modal.run"
+host = (
+    f"https://{workspace}-{environment}--example-vllm-openai-compatible-serve.modal.run"
+)
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",

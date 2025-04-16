@@ -25,9 +25,7 @@ class Nodes:
     ):
         self.context = context
         self.debug = debug
-        self.model = (
-            "gpt-4o-2024-08-06" if not self.debug else "gpt-4o-mini-2024-07-18"
-        )
+        self.model = "gpt-4o-2024-08-06" if not self.debug else "gpt-4o-mini-2024-07-18"
         self.node_map = {
             "generate": self.generate,
             "check_code_imports": self.check_code_imports,

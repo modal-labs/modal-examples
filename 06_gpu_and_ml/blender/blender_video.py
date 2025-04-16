@@ -130,9 +130,7 @@ def configure_rendering(ctx, with_gpu: bool):
 # We add another function to our app, running on a different, simpler container image
 # and different hardware, to combine the frames into a video.
 
-combination_image = modal.Image.debian_slim(python_version="3.11").apt_install(
-    "ffmpeg"
-)
+combination_image = modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg")
 
 # The function to combine the frames into a video takes a sequence of byte sequences, one for each rendered frame,
 # and converts them into a single sequence of bytes, the MP4 file.

@@ -262,9 +262,7 @@ def ui():
                     "Retrieve Sequence from UniProt ID", variant="primary"
                 )
 
-                uniprot_link_button = gr.Button(
-                    value="View protein on UniProt website"
-                )
+                uniprot_link_button = gr.Button(value="View protein on UniProt website")
                 uniprot_link_button.click(
                     fn=None,
                     inputs=uniprot_num_box,

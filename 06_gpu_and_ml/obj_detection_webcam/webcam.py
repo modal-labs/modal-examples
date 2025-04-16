@@ -135,9 +135,7 @@ class ObjectDetection:
 
         # Plot bounding boxes
         colors = list(ImageColor.colormap.values())
-        font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/freefont/FreeMono.ttf", 18
-        )
+        font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMono.ttf", 18)
         output_image = Image.new("RGBA", (image.width, image.height))
         output_image_draw = ImageDraw.Draw(output_image)
         for _score, box, label in zip(scores, boxes, labels):

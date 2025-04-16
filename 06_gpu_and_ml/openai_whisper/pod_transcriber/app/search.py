@@ -81,9 +81,7 @@ def calculate_sim_dot_product(X, ntake=40):
     from numpy import np
 
     S = np.dot(X, X.T)
-    IX = np.argsort(S, axis=1)[
-        :, : -ntake - 1 : -1
-    ]  # take last ntake sorted backwards
+    IX = np.argsort(S, axis=1)[:, : -ntake - 1 : -1]  # take last ntake sorted backwards
     return IX.tolist()
 
 

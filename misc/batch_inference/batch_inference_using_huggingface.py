@@ -62,9 +62,7 @@ class SentimentAnalysis:
 
     @modal.method()
     def predict(self, phrase: str):
-        pred = self.sentiment_pipeline(
-            phrase, truncation=True, max_length=512, top_k=2
-        )
+        pred = self.sentiment_pipeline(phrase, truncation=True, max_length=512, top_k=2)
         # pred will look like: [{'label': 'NEGATIVE', 'score': 0.99}, {'label': 'POSITIVE', 'score': 0.01}]
         probs = {p["label"]: p["score"] for p in pred}
         return probs["POSITIVE"]

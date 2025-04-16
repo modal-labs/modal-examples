@@ -186,8 +186,7 @@ def train(
                 "Use --overwrite_output_dir to overcome."
             )
         elif (
-            last_checkpoint is not None
-            and training_args.resume_from_checkpoint is None
+            last_checkpoint is not None and training_args.resume_from_checkpoint is None
         ):
             logger.info(
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "

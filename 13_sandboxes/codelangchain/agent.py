@@ -32,9 +32,7 @@ app = modal.App(
     image=image,
     secrets=[
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
-        modal.Secret.from_name(
-            "langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]
-        ),
+        modal.Secret.from_name("langsmith-secret", required_keys=["LANGCHAIN_API_KEY"]),
     ],
 )
 

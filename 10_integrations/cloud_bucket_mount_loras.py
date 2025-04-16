@@ -289,8 +289,7 @@ def ui():
 
     # determine which loras are available
     lora_ids = [
-        f"{lora_dir.parent.stem}/{lora_dir.stem}"
-        for lora_dir in LORAS_PATH.glob("*/*")
+        f"{lora_dir.parent.stem}/{lora_dir.stem}" for lora_dir in LORAS_PATH.glob("*/*")
     ]
 
     # pick one to be default, set a default prompt

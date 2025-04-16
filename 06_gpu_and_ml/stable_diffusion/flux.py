@@ -104,9 +104,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
         "/cache": modal.Volume.from_name("hf-hub-cache", create_if_missing=True),
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
-        "/root/.triton": modal.Volume.from_name(
-            "triton-cache", create_if_missing=True
-        ),
+        "/root/.triton": modal.Volume.from_name("triton-cache", create_if_missing=True),
         "/root/.inductor-cache": modal.Volume.from_name(
             "inductor-cache", create_if_missing=True
         ),

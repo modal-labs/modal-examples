@@ -41,9 +41,7 @@ volume = modal.CloudBucketMount(
     secret=bucket_creds,
 )
 
-image = (
-    modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
-)
+image = modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
 
 app = modal.App("example-laion400-dataset-import", image=image)
 

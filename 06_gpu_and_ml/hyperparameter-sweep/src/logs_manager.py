@@ -19,9 +19,7 @@ class LogsManager:
         self.val_writer = SummaryWriter(log_dir=f"{model_log_dir}/val")
 
         # save hyperparameters to TensorBoard for easy reference
-        pretty_hparams_str = "\n".join(
-            f"{k}: {v}" for k, v in hparams.__dict__.items()
-        )
+        pretty_hparams_str = "\n".join(f"{k}: {v}" for k, v in hparams.__dict__.items())
         pretty_hparams_str += f"\nNum parameters: {num_parameters}"
         self.train_writer.add_text("Hyperparameters", pretty_hparams_str)
 

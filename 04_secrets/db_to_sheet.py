@@ -221,9 +221,7 @@ pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 @app.function(
     image=pygsheets_image,
     secrets=[
-        modal.Secret.from_name(
-            "gsheets-secret", required_keys=["SERVICE_ACCOUNT_JSON"]
-        )
+        modal.Secret.from_name("gsheets-secret", required_keys=["SERVICE_ACCOUNT_JSON"])
     ],
 )
 def update_sheet_report(rows):

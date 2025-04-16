@@ -209,9 +209,7 @@ def train_rnn(
         dataset.num_unique_chars,
     )
     model = Sequential()
-    model.add(
-        LSTM(latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate)
-    )
+    model.add(LSTM(latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate))
     model.add(Dense(units=dataset.num_unique_chars, activation="softmax"))
 
     optimizer = RMSprop(learning_rate=0.01)

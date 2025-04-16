@@ -146,9 +146,7 @@ async def poll_status(call_id: str):
 
     leaves = map_root.children
     tasks = len(set([leaf.task_id for leaf in leaves]))
-    done_segments = len(
-        [leaf for leaf in leaves if leaf.status == InputStatus.SUCCESS]
-    )
+    done_segments = len([leaf for leaf in leaves if leaf.status == InputStatus.SUCCESS])
     total_segments = len(leaves)
     finished = map_root.status == InputStatus.SUCCESS
 
