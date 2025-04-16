@@ -334,9 +334,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
                 break
 
         # streaming inference on images from the test set
-        print(
-            f"{model_id}: Streaming inferences on all images in the test set..."
-        )
+        print(f"{model_id}: Streaming inferences on all images in the test set...")
         count = 0
         for detection in inference.streaming_count.remote_gen(
             batch_dir=f"{volume_path}/dataset/{dataset.id}/test/images"

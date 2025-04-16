@@ -61,9 +61,7 @@ async def get_podcast(podcast_id: str):
         # to propogate.
         raw_populate_podcast_metadata = populate_podcast_metadata.get_raw_f()
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None, raw_populate_podcast_metadata, podcast_id
-        )
+        await loop.run_in_executor(None, raw_populate_podcast_metadata, podcast_id)
 
     with open(pod_metadata_path, "r") as f:
         pod_metadata = json.load(f)
@@ -117,9 +115,7 @@ async def transcribe_job(podcast_id: str, episode_id: str):
         pass
 
     call = process_episode.spawn(podcast_id, episode_id)
-    in_progress[episode_id] = InProgressJob(
-        call_id=call.object_id, start_time=now
-    )
+    in_progress[episode_id] = InProgressJob(call_id=call.object_id, start_time=now)
 
     return {"call_id": call.object_id}
 

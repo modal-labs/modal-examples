@@ -159,9 +159,7 @@ def refresh_index():
                 with open(filepath, "r") as f:
                     data = json.load(f)
             except json.decoder.JSONDecodeError:
-                logger.warning(
-                    f"Removing corrupt JSON metadata file: {filepath}."
-                )
+                logger.warning(f"Removing corrupt JSON metadata file: {filepath}.")
                 filepath.unlink()
 
             ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)

@@ -320,9 +320,7 @@ def train(
         logger.info("Resampling necessary")
         raw_datasets = raw_datasets.cast_column(
             data_args.audio_column_name,
-            datasets.features.Audio(
-                sampling_rate=feature_extractor.sampling_rate
-            ),
+            datasets.features.Audio(sampling_rate=feature_extractor.sampling_rate),
         )
 
     logger.info("7. Preprocessing the datasets.")

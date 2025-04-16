@@ -327,9 +327,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     }
 
     if SAVE_TO_DISK:
-        save_dataset_to_intermediate_checkpoint(
-            acc_chunks, embeddings, batch_size
-        )
+        save_dataset_to_intermediate_checkpoint(acc_chunks, embeddings, batch_size)
 
     if UPLOAD_TO_HF:
         upload_result_to_hf(batch_size)

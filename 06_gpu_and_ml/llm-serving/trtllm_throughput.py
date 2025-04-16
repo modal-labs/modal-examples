@@ -365,8 +365,7 @@ class Model:
         )  # only one output per input, so we index with 0
 
         responses = [
-            extract_assistant_response(output_text)
-            for output_text in outputs_text
+            extract_assistant_response(output_text) for output_text in outputs_text
         ]
         duration_s = (time.monotonic_ns() - start) / 1e9
 

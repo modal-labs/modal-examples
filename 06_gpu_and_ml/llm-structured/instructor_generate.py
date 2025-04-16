@@ -191,9 +191,7 @@ def extract_example_metadata(
     )
 
     # inject the filename
-    full_metadata = ExampleMetadata(
-        **extracted_metadata.dict(), filename=filename
-    )
+    full_metadata = ExampleMetadata(**extracted_metadata.dict(), filename=filename)
 
     # return it as JSON
     return full_metadata.model_dump_json()

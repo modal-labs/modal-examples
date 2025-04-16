@@ -169,9 +169,7 @@ class Model:
             image_path=image_path, question=question, max_new_tokens=128
         )
         # show the question, image, and response in the terminal for demonstration purposes
-        print(
-            Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep=""
-        )
+        print(Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep="")
         terminal_image = from_file(image_path)
         terminal_image.draw()
         answer = state["answer"]

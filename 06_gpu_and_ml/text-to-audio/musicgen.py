@@ -265,9 +265,7 @@ def ui():
 
     temp_dir = Path("/dev/shm")
 
-    async def generate_music(
-        prompt: str, duration: int = 10, format: str = "wav"
-    ):
+    async def generate_music(prompt: str, duration: int = 10, format: str = "wav"):
         audio_bytes = await generate.aio(prompt, duration=duration, format=format)
 
         audio_path = temp_dir / f"{uuid4()}.{format}"

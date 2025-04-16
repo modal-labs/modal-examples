@@ -73,9 +73,7 @@ esm3_image = (
 
 web_app_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4"
-    )
+    .pip_install("gradio~=4.44.0", "biotite==0.41.2", "fastapi[standard]==0.115.4")
     .add_local_dir(Path(__file__).parent / "frontend", remote_path="/assets")
 )
 
@@ -315,9 +313,7 @@ def ui():
         gr.Markdown("## ESM3 Predicted Structure")
         molstar_html = gr.HTML()
 
-        run_esm_button.click(
-            fn=run_esm, inputs=sequence_box, outputs=molstar_html
-        )
+        run_esm_button.click(fn=run_esm, inputs=sequence_box, outputs=molstar_html)
 
     # return a FastAPI app for Modal to serve
     return mount_gradio_app(app=web_app, blocks=interface, path="/")

@@ -175,9 +175,7 @@ class OllamaServer:
         """Terminates the Ollama server process on shutdown."""
         print("Shutting down Ollama server...")
         if self.ollama_process and self.ollama_process.poll() is None:
-            print(
-                f"Terminating Ollama server (PID: {self.ollama_process.pid})..."
-            )
+            print(f"Terminating Ollama server (PID: {self.ollama_process.pid})...")
             try:
                 self.ollama_process.terminate()
                 self.ollama_process.wait(timeout=10)

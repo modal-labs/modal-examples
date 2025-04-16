@@ -190,9 +190,7 @@ tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.12")
-    .apt_install(
-        "git", "build-essential", "cmake", "curl", "libcurl4-openssl-dev"
-    )
+    .apt_install("git", "build-essential", "cmake", "curl", "libcurl4-openssl-dev")
     .run_commands("git clone https://github.com/ggerganov/llama.cpp")
     .run_commands(
         "cmake llama.cpp -B llama.cpp/build "

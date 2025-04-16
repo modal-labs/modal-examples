@@ -78,9 +78,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
 # The container environments Modal Functions run in are highly flexible --
 # see [the docs](https://modal.com/docs/guide/custom-container) for more details.
 
-GIT_SHA = (
-    "e649678bf55aeaa4b60bd1f68b1ee726278c0304"  # specify the commit to fetch
-)
+GIT_SHA = "e649678bf55aeaa4b60bd1f68b1ee726278c0304"  # specify the commit to fetch
 
 image = (
     image.apt_install("git")

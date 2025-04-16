@@ -117,9 +117,7 @@ class StabilityLM:
         "<|padding|>",
         "<|endoftext|>",
     ]
-    model_url: str = modal.parameter(
-        default="stabilityai/stablelm-tuned-alpha-7b"
-    )
+    model_url: str = modal.parameter(default="stabilityai/stablelm-tuned-alpha-7b")
 
     @modal.enter()
     def setup_model(self):

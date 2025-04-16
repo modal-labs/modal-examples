@@ -31,9 +31,7 @@ volume = modal.CloudBucketMount(
     bucket_name,
     secret=bucket_creds,
 )
-image = (
-    modal.Image.debian_slim().apt_install("tree").pip_install("kaggle", "tqdm")
-)
+image = modal.Image.debian_slim().apt_install("tree").pip_install("kaggle", "tqdm")
 app = modal.App(
     "example-imagenet-dataset-import",
     image=image,

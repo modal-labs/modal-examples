@@ -398,7 +398,9 @@ class Model:
             yield output.outputs[0].text_diff
 
     def text_from_prompt(self, prompt):
-        SYSTEM_PROMPT = "You are a helpful, harmless, and honest AI assistant created by Meta."
+        SYSTEM_PROMPT = (
+            "You are a helpful, harmless, and honest AI assistant created by Meta."
+        )
 
         if isinstance(prompt, str):
             prompt = [{"role": "user", "content": prompt}]

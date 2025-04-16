@@ -60,9 +60,7 @@ def setup():
 
     from transformers import AutoModel, AutoTokenizer
 
-    with (
-        warnings.catch_warnings()
-    ):  # filter noisy warnings from GOT modeling code
+    with warnings.catch_warnings():  # filter noisy warnings from GOT modeling code
         warnings.simplefilter("ignore")
         tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True

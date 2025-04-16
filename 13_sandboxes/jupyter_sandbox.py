@@ -87,9 +87,7 @@ print(f"🏖️  Jupyter notebook is running at: {url}")
 
 def is_jupyter_up():
     try:
-        response = urllib.request.urlopen(
-            f"{tunnel.url}/api/status?token={token}"
-        )
+        response = urllib.request.urlopen(f"{tunnel.url}/api/status?token={token}")
         if response.getcode() == 200:
             data = json.loads(response.read().decode())
             return data.get("started", False)

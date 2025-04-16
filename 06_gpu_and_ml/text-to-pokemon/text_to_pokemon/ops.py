@@ -141,9 +141,7 @@ def main() -> int:
     sub_parsers.add_parser(
         "extract-colors", help="Extract colors for all Pokémon base cards."
     )
-    sub_parsers.add_parser(
-        "gen-pokemon-names", help="Generate new Pokémon names."
-    )
+    sub_parsers.add_parser("gen-pokemon-names", help="Generate new Pokémon names.")
     parser_reset_diskcache = sub_parsers.add_parser(
         "reset-diskcache",
         help="Delete all cached Pokémon card parts from volume.",

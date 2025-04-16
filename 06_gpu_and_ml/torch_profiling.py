@@ -134,9 +134,7 @@ def profile(
     function_name = function.tag
 
     output_dir = (
-        TRACE_DIR
-        / (function_name + (f"_{label}" if label else ""))
-        / str(uuid4())
+        TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 

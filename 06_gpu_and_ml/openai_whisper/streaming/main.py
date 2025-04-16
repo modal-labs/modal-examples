@@ -25,9 +25,7 @@ image = (
 )
 app = modal.App(name="example-whisper-streaming", image=image)
 web_app = FastAPI()
-CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = (
-    "https://www.youtube.com/watch?v=J7GY1Xg6X20"
-)
+CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = "https://www.youtube.com/watch?v=J7GY1Xg6X20"
 
 
 def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
@@ -213,9 +211,7 @@ async def transcribe(url: str):
     try:
         audio_data = download_mp3_from_youtube.remote(url)
     except pytube.exceptions.RegexMatchError:
-        raise HTTPException(
-            status_code=422, detail=f"Could not process url {url}"
-        )
+        raise HTTPException(status_code=422, detail=f"Could not process url {url}")
     print(f"streaming transcription of {url} audio to client...")
     return StreamingResponse(
         stream_whisper(audio_data), media_type="text/event-stream"

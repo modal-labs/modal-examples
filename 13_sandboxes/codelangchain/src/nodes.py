@@ -352,9 +352,7 @@ Provide a brief explanation for your decision.
 
         chain = prompt | llm_with_tool | parser_tool
 
-        evaluation = chain.invoke(
-            {"code": code, "output": output, "error": error}
-        )
+        evaluation = chain.invoke({"code": code, "output": output, "error": error})
 
         return {
             "keys": {

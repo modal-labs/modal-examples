@@ -189,9 +189,7 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = modal.Volume.from_name(
-    "txt-to-pokemon-cache-vol", create_if_missing=True
-)
+volume = modal.Volume.from_name("txt-to-pokemon-cache-vol", create_if_missing=True)
 image = (
     modal.Image.debian_slim()
     .pip_install(

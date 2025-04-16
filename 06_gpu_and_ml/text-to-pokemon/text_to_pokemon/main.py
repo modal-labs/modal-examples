@@ -288,8 +288,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
             create_composite_card.starmap(
-                (i, sample, norm_prompt)
-                for (i, sample) in enumerate(samples_data)
+                (i, sample, norm_prompt) for (i, sample) in enumerate(samples_data)
             )
         )
         print(
