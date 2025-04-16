@@ -2,8 +2,7 @@ import modal
 
 app = modal.App("example-install-flash-attn")
 
-# Find releases at https://github.com/Dao-AILab/flash-attention/releases
-flash_attn_release = (
+flash_attn_release = (  # find releases at https://github.com/Dao-AILab/flash-attention/releases
     "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/"
     "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp313-cp313-linux_x86_64.whl"
 )
