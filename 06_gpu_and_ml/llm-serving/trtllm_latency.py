@@ -218,6 +218,7 @@ def get_calib_config():
 # for the key-value (KV) cache.
 
 # The last two parameters are GEMM plugins optimized specifically for low latency,
+# rather than the more typical high arithmetic throughput,
 # the `low_latency` plugins for `gemm` and `gemm_swiglu`.
 
 # The `low_latency_gemm_swiglu_plugin` plugin fuses the two matmul operations
@@ -522,7 +523,7 @@ if __name__ == "__main__":
     try:
         Model = modal.Cls.from_name("trtllm-latency", "Model")
         print("🏎️  connecting to model")
-        model = Model(mode=sys.argv[-1] if len(sys.argv) > 1 else "fast")
+        model = Model(mode=sys.argv[1] if len(sys.argv) > 1 else "fast")
         model.boot.remote()
     except modal.exception.NotFoundError as e:
         raise SystemError("Deploy this app first with modal deploy") from e
