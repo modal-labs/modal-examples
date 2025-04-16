@@ -47,9 +47,7 @@ app = modal.App(
     name="example-langchain-qanda",
     image=image,
     secrets=[
-        modal.Secret.from_name(
-            "openai-secret", required_keys=["OPENAI_API_KEY"]
-        )
+        modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"])
     ],
 )
 

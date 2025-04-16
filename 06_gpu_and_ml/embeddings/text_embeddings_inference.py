@@ -165,8 +165,6 @@ def embed_dataset():
 
     # data is of type list[tuple[str, str]].
     # starmap spreads the tuples into positional arguments.
-    for output_batch in model.embed.map(
-        generate_batches(), order_outputs=False
-    ):
+    for output_batch in model.embed.map(generate_batches(), order_outputs=False):
         # Do something with the outputs.
         pass

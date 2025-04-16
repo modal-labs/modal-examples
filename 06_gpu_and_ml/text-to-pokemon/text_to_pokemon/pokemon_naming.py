@@ -137,9 +137,7 @@ def prep_dataset(
 ) -> TrainingDataset:
     import numpy as np
 
-    step_length = (
-        1  # The step length we take to get our samples from our corpus
-    )
+    step_length = 1  # The step length we take to get our samples from our corpus
     # Make it all to a long string
     concat_names = "\n".join(training_names).lower()
 
@@ -214,9 +212,7 @@ def train_rnn(
     )
     model = Sequential()
     model.add(
-        LSTM(
-            latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate
-        )
+        LSTM(latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate)
     )
     model.add(Dense(units=dataset.num_unique_chars, activation="softmax"))
 

@@ -112,9 +112,7 @@ def download_dataset(cache=True):
 def load_daily_reports():
     daily_reports = list(REPORTS_DIR.glob("*.csv"))
     if not daily_reports:
-        raise RuntimeError(
-            f"Could not find any daily reports in {REPORTS_DIR}."
-        )
+        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
 
     # Preload report files to speed up sequential loading
     pool = multiprocessing.Pool(128)

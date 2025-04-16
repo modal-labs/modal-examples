@@ -360,9 +360,7 @@ class Model:
             parsed_prompts, return_tensors="pt", padding=True, truncation=False
         )["input_ids"]
 
-        print(
-            f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8]
-        )
+        print(f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8])
 
         outputs_t = self.model.generate(inputs_t, **settings)
 
@@ -376,9 +374,7 @@ class Model:
         ]
         duration_s = (time.monotonic_ns() - start) / 1e9
 
-        num_tokens = sum(
-            map(lambda r: len(self.tokenizer.encode(r)), responses)
-        )
+        num_tokens = sum(map(lambda r: len(self.tokenizer.encode(r)), responses))
 
         for prompt, response in zip(prompts, responses):
             print(

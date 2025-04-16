@@ -163,9 +163,7 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
     return podcasts_in_page
 
 
-def fetch_episodes_data(
-    gql, client, podcast_id, max_episodes=100
-) -> list[dict]:
+def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]:
     """
     Use the Podchaser API to grab a podcast's episodes.
     """

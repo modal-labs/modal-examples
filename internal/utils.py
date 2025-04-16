@@ -34,9 +34,7 @@ class Example(BaseModel):
     cli_args: Optional[list] = None  # Full command line args to run it
     stem: Optional[str] = None  # stem of path
     tags: Optional[list[str]] = None  # metadata tags for the example
-    env: Optional[dict[str, str]] = (
-        None  # environment variables for the example
-    )
+    env: Optional[dict[str, str]] = None  # environment variables for the example
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")

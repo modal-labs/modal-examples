@@ -100,9 +100,7 @@ class Falcon40BGPTQ:
         from transformers import TextIteratorStreamer
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
         generation_kwargs = dict(
             inputs=inputs.input_ids.cuda(),
             attention_mask=inputs.attention_mask,

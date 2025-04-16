@@ -315,9 +315,7 @@ Here is the user question:
         class ExecutionEvaluation(BaseModel):
             """Evaluation of code execution"""
 
-            decision: Decision = Field(
-                description="Decision to finish or retry"
-            )
+            decision: Decision = Field(description="Decision to finish or retry")
             explanation: str = Field(description="Explanation for the decision")
 
         llm = ChatOpenAI(temperature=0, model=self.model)

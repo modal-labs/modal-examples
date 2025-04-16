@@ -118,9 +118,7 @@ models_dir = Path("/models/boltz1")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz1_inference(
-    boltz_input_yaml: str, msas: list["MSA"], args=""
-) -> bytes:
+def boltz1_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
     import shlex
     import subprocess
 

@@ -227,9 +227,7 @@ class Inference:
         import os
         import time
 
-        image_files = [
-            os.path.join(batch_dir, f) for f in os.listdir(batch_dir)
-        ]
+        image_files = [os.path.join(batch_dir, f) for f in os.listdir(batch_dir)]
 
         completed, start = 0, time.monotonic_ns()
         for image in read_image.map(image_files):

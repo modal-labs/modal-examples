@@ -117,9 +117,7 @@ def search_podcast(name):
 
     logger.info(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
-    podcasts_raw = podcast.search_podcast_name(
-        gql, client, name, max_results=10
-    )
+    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
     logger.info(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(
@@ -199,9 +197,7 @@ def refresh_index():
             # Prepare records for JSON serialization
             indexed_episodes.append(dataclasses.asdict(idxd_episode))
 
-    logger.info(
-        f"Matched {len(search_records)} transcripts to episode records."
-    )
+    logger.info(f"Matched {len(search_records)} transcripts to episode records.")
 
     filepath = config.SEARCH_DIR / "all.json"
     logger.info(f"writing {filepath}")

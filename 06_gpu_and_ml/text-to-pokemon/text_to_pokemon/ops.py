@@ -129,9 +129,7 @@ def generate_pokemon_names():
         max_sequence_len=max_sequence_len,
     )
 
-    print(
-        f"Storing {desired_generations} generated names. eg. '{new_names[0]}'"
-    )
+    print(f"Storing {desired_generations} generated names. eg. '{new_names[0]}'")
     output_path = rnn_names_output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(new_names))

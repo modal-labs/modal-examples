@@ -102,9 +102,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     scaledown_window=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
-        "/cache": modal.Volume.from_name(
-            "hf-hub-cache", create_if_missing=True
-        ),
+        "/cache": modal.Volume.from_name("hf-hub-cache", create_if_missing=True),
         "/root/.nv": modal.Volume.from_name("nv-cache", create_if_missing=True),
         "/root/.triton": modal.Volume.from_name(
             "triton-cache", create_if_missing=True

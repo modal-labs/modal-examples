@@ -113,9 +113,7 @@ def calculate_similarity_with_svm(X, ntake=40):
         )
         clf.fit(X, y)
         s = clf.decision_function(X)
-        ix = np.argsort(s)[
-            : -ntake - 1 : -1
-        ]  # take last ntake sorted backwards
+        ix = np.argsort(s)[: -ntake - 1 : -1]  # take last ntake sorted backwards
         IX[i] = ix
     return IX.tolist()
 
@@ -140,9 +138,7 @@ def build_search_index(records: list[SearchRecord], v):
                 if w in vocab:
                     idfval = idf[vocab[w]]  # we have a computed idf for this
                 else:
-                    idfval = (
-                        1.0  # some word we don't know; assume idf 1.0 (low)
-                    )
+                    idfval = 1.0  # some word we don't know; assume idf 1.0 (low)
             else:
                 idfval = forceidf
             idfd[w] = idfval

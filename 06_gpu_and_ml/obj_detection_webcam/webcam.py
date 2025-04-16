@@ -120,12 +120,10 @@ class ObjectDetection:
         inputs = self.feature_extractor(image, return_tensors="pt")
         outputs = self.model(**inputs)
         img_size = torch.tensor([tuple(reversed(image.size))])
-        processed_outputs = (
-            self.feature_extractor.post_process_object_detection(
-                outputs=outputs,
-                target_sizes=img_size,
-                threshold=0,
-            )
+        processed_outputs = self.feature_extractor.post_process_object_detection(
+            outputs=outputs,
+            target_sizes=img_size,
+            threshold=0,
         )
         output_dict = processed_outputs[0]
 
@@ -147,9 +145,7 @@ class ObjectDetection:
             text = self.model.config.id2label[label]
             box = tuple(map(int, box))
             output_image_draw.rectangle(box, outline=color)
-            output_image_draw.text(
-                box[:2], text, font=font, fill=color, width=3
-            )
+            output_image_draw.text(box[:2], text, font=font, fill=color, width=3)
 
         # Return PNG as bytes
         with io.BytesIO() as output_buf:

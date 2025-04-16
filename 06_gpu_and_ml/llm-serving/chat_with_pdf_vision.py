@@ -215,9 +215,7 @@ class Model:
             batch_images = self.colqwen2_processor.process_images(batch).to(
                 self.colqwen2_model.device
             )
-            pdf_embeddings += list(
-                self.colqwen2_model(**batch_images).to("cpu")
-            )
+            pdf_embeddings += list(self.colqwen2_model(**batch_images).to("cpu"))
 
         # Store the image embeddings in the session, for later retrieval
         session.pdf_embeddings = pdf_embeddings

@@ -56,11 +56,9 @@ def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
             .tolist()
         )
 
-        res = (
-            requests.post(  # request to the inference service running on Modal
-                inference_url,
-                json={"prompts": prompts},
-            )
+        res = requests.post(  # request to the inference service running on Modal
+            inference_url,
+            json={"prompts": prompts},
         )
 
         df["review_sentiment"] = json.loads(res.content)

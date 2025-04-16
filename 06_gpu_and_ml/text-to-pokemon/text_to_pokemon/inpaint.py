@@ -68,9 +68,7 @@ def numpy_to_bytes(image_numpy, ext: str) -> bytes:
     return image_bytes
 
 
-def new_pokemon_name(
-    card_image: bytes, pokemon_name: str = "Randomon"
-) -> bytes:
+def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes:
     import cv2
     from PIL import Image, ImageDraw, ImageFont
 

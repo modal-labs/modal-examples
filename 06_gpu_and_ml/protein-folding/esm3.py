@@ -35,9 +35,7 @@ app = modal.App("example-esm3-dashboard")
 # [this guide](https://modal.com/docs/guide/model-weights).
 # We'll use this same distributed storage primitive to store sequence data.
 
-volume = modal.Volume.from_name(
-    "example-esm3-dashboard", create_if_missing=True
-)
+volume = modal.Volume.from_name("example-esm3-dashboard", create_if_missing=True)
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
 DATA_PATH = VOLUME_PATH / "data"
@@ -288,9 +286,7 @@ def ui():
                 with gr.Row():
                     half_len = int(len(example_uniprots) / 2)
                     with gr.Column():
-                        for i, uniprot in enumerate(
-                            example_uniprots[:half_len]
-                        ):
+                        for i, uniprot in enumerate(example_uniprots[:half_len]):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
                                 fn=lambda j=i: extract_uniprot_num(j),
@@ -298,14 +294,10 @@ def ui():
                             )
 
                     with gr.Column():
-                        for i, uniprot in enumerate(
-                            example_uniprots[half_len:]
-                        ):
+                        for i, uniprot in enumerate(example_uniprots[half_len:]):
                             btn = gr.Button(uniprot, variant="secondary")
                             btn.click(
-                                fn=lambda j=i + half_len: extract_uniprot_num(
-                                    j
-                                ),
+                                fn=lambda j=i + half_len: extract_uniprot_num(j),
                                 outputs=uniprot_num_box,
                             )
 

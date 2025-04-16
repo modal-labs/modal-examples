@@ -47,9 +47,7 @@ image = (
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
-app = modal.App(
-    "image-to-image", image=image, volumes={CACHE_DIR: cache_volume}
-)
+app = modal.App("image-to-image", image=image, volumes={CACHE_DIR: cache_volume})
 
 with image.imports():
     import torch

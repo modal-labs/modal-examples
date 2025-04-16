@@ -27,9 +27,7 @@ def build_models():
         device_map="auto",
         local_files_only=True,
     )
-    m.save_pretrained(
-        model_path, safe_serialization=True, max_shard_size="24GB"
-    )
+    m.save_pretrained(model_path, safe_serialization=True, max_shard_size="24GB")
     tok = AutoTokenizer.from_pretrained(model_path)
     tok.save_pretrained(model_path)
     [p.unlink() for p in Path(model_path).rglob("*.bin")]  # type: ignore

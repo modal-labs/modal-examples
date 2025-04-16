@@ -46,9 +46,7 @@ def main() -> int:
     errors = []
 
     # Type-check scripts
-    topic_dirs = sorted(
-        [d for d in repo_root.iterdir() if d.name[:2].isdigit()]
-    )
+    topic_dirs = sorted([d for d in repo_root.iterdir() if d.name[:2].isdigit()])
 
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         future_to_path = {}

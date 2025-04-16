@@ -181,9 +181,7 @@ class ComfyUI:
         # note: requires patching core ComfyUI, see the memory_snapshot_helper directory for more details
         import requests
 
-        response = requests.post(
-            f"http://127.0.0.1:{self.port}/cuda/set_device"
-        )
+        response = requests.post(f"http://127.0.0.1:{self.port}/cuda/set_device")
         if response.status_code != 200:
             print("Failed to set CUDA device")
         else:

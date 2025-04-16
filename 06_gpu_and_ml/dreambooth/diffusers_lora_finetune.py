@@ -270,11 +270,7 @@ class TrainConfig(SharedConfig):
     timeout=1800,  # 30 minutes
     secrets=[huggingface_secret]
     + (
-        [
-            modal.Secret.from_name(
-                "wandb-secret", required_keys=["WANDB_API_KEY"]
-            )
-        ]
+        [modal.Secret.from_name("wandb-secret", required_keys=["WANDB_API_KEY"])]
         if USE_WANDB
         else []
     ),
