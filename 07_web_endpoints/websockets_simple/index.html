@@ -1,26 +1,43 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Modal & Websockets Text Echo</title>
+        <title>Modal & Websockets Video Echo</title>
     </head>
     <body>
-        <h1>Modal & Websockets Text Echo</h1>
-        <h3>Start typing in the text bow below...</h3>
+        <h1>Modal & Websockets Video Echo</h1>
         <div>
-            <input type="text" id="messageText" autocomplete="off" onkeypress="sendKey(event)"/>
-        </div>
-        <div id='text-display' style="margin-top: 20px; font-size: 24px;">
+            <video id="localVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
+            <video id="remoteVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
         </div>
         <script>
-            var ws = new WebSocket("url-placeholder");
-            ws.onmessage = function(event) {
-                var textDisplay = document.getElementById('text-display')
-                textDisplay.textContent = event.data;
-            };
-            function sendKey(event) {
-                event.preventDefault();
-                ws.send(event.key);
+            const ws = new WebSocket("url-placeholder");
+            const localVideo = document.getElementById('localVideo');
+            const remoteVideo = document.getElementById('remoteVideo');
+
+            // Get user media
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    localVideo.srcObject = stream;
+                    startStreaming();
+                })
+                .catch(err => console.error('Error accessing webcam:', err));
+
+            function startStreaming() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 320;
+                canvas.height = 240;
+
+                setInterval(() => {
+                    ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvas.toDataURL('image/jpeg', 0.5);
+                    ws.send(imageData);
+                }, 100); // Send 10 frames per second
             }
+
+            ws.onmessage = function(event) {
+                remoteVideo.src = event.data;
+            };
         </script>
     </body>
 </html>
