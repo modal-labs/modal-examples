@@ -16,6 +16,7 @@ image = (
         "langgraph==0.2.39",
         "langchain-community==0.3.3",
         "langchain-openai==0.2.3",
+        "pydantic==2.9.1",
     )
     .env({"LANGCHAIN_TRACING_V2": "true"})
 )
