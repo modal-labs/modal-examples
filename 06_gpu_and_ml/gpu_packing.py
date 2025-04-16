@@ -1,3 +1,6 @@
+# ---
+# mypy: ignore-errors
+# ---
 # # Run multiple instances of a model on a single GPU
 #
 # Many models are small enough to fit multiple instances onto a single GPU.

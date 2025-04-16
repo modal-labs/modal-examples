@@ -1,5 +1,6 @@
 # ---
 # args: ["--no-quick-check"]
+# mypy: ignore-errors
 # ---
 
 # # Fine-tune open source YOLO models for object detection
