@@ -49,7 +49,9 @@ rendering_image = (
 # Functions in Modal are defined along with their hardware and their dependencies.
 # This function can be run with GPU acceleration or without it, and we'll use a global flag in the code to switch between the two.
 
-WITH_GPU = True  # try changing this to False to run rendering massively in parallel on CPUs!
+WITH_GPU = (
+    True  # try changing this to False to run rendering massively in parallel on CPUs!
+)
 
 # We decorate the function with `@app.function` to define it as a Modal function.
 # Note that in addition to defining the hardware requirements of the function,

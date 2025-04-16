@@ -89,9 +89,7 @@ def main(
 
     print(f"🧬 saving results to disk locally in {output_dir}")
     for ii, (scores, cif) in enumerate(results):
-        (Path(output_dir) / f"{run_id}-scores.model_idx_{ii}.npz").write_bytes(
-            scores
-        )
+        (Path(output_dir) / f"{run_id}-scores.model_idx_{ii}.npz").write_bytes(scores)
         (Path(output_dir) / f"{run_id}-preds.model_idx_{ii}.cif").write_text(cif)
 
 

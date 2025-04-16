@@ -133,9 +133,7 @@ def boltz1_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes
     )
 
     print("🧬 packaging up outputs")
-    output_bytes = package_outputs(
-        f"boltz_results_{input_path.with_suffix('').name}"
-    )
+    output_bytes = package_outputs(f"boltz_results_{input_path.with_suffix('').name}")
 
     return output_bytes
 

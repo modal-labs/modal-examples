@@ -114,9 +114,7 @@ def gather_example_files(
                 else:
                     module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
-                metadata = data["metadata"]["jupytext"].get(
-                    "root_level_metadata", {}
-                )
+                metadata = data["metadata"]["jupytext"].get("root_level_metadata", {})
                 cmd = metadata.get("cmd", ["modal", "run", repo_filename])
                 args = metadata.get("args", [])
                 tags = metadata.get("tags", [])

@@ -41,9 +41,7 @@ def _apply_cuda_safe_patch():
         with open(model_management_path, "w") as f:
             f.write(patched_content)
 
-        print(
-            "[memory_snapshot_helper] ==> Successfully patched model_management.py"
-        )
+        print("[memory_snapshot_helper] ==> Successfully patched model_management.py")
     else:
         raise Exception(
             "[memory_snapshot_helper] ==> Failed to patch model_management.py"

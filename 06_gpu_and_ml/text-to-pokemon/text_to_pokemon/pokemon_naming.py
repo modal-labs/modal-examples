@@ -132,9 +132,7 @@ def generate_names(
     return list(new_names)
 
 
-def prep_dataset(
-    training_names: list[str], max_sequence_len: int
-) -> TrainingDataset:
+def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDataset:
     import numpy as np
 
     step_length = 1  # The step length we take to get our samples from our corpus

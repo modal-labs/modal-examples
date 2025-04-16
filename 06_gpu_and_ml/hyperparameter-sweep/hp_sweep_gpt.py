@@ -71,9 +71,7 @@ gpu = "A10G"
 # distributed [Volume](https://modal.com/docs/guide/volumes)
 # to store the data, checkpointed models, and TensorBoard logs.
 
-volume = modal.Volume.from_name(
-    "example-hp-sweep-gpt-volume", create_if_missing=True
-)
+volume = modal.Volume.from_name("example-hp-sweep-gpt-volume", create_if_missing=True)
 volume_path = PosixPath("/vol/data")
 model_filename = "nano_gpt_model.pt"
 best_model_filename = "best_nano_gpt_model.pt"
@@ -211,9 +209,7 @@ def train_model(
     else:
         model_save_dir.mkdir(parents=True, exist_ok=True)
         start_step = 0
-        checkpoint = init_checkpoint(
-            model, tokenizer, optimizer, start_step, hparams
-        )
+        checkpoint = init_checkpoint(model, tokenizer, optimizer, start_step, hparams)
 
     checkpoint_path = model_save_dir / model_filename
 

@@ -64,9 +64,7 @@ def load_model(and_return=False):
 # to store the weights in the cloud.
 
 cache_dir = "/cache"
-model_cache = modal.Volume.from_name(
-    "audiocraft-model-cache", create_if_missing=True
-)
+model_cache = modal.Volume.from_name("audiocraft-model-cache", create_if_missing=True)
 
 # We don't need to change any of the model loading code --
 # we just need to make sure the model gets stored in the right directory.

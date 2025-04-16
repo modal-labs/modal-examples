@@ -60,9 +60,7 @@ class Nodes:
         class Code(BaseModel):
             """Code output"""
 
-            prefix: str = Field(
-                description="Description of the problem and approach"
-            )
+            prefix: str = Field(description="Description of the problem and approach")
             imports: str = Field(description="Code block import statements")
             code: str = Field(
                 description="Code block not including import statements"
@@ -267,8 +265,7 @@ Here is the user question:
             if "error" in state_dict:
                 error_prev_runs = state_dict["error"]
                 error = (
-                    error_prev_runs
-                    + "\n --- Most recent run output and error --- \n"
+                    error_prev_runs + "\n --- Most recent run output and error --- \n"
                     " ------ output ------ \n"
                     + output
                     + "\n ------ error ------ \n"

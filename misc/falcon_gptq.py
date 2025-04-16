@@ -78,9 +78,7 @@ class Falcon40BGPTQ:
         from auto_gptq import AutoGPTQForCausalLM
         from transformers import AutoTokenizer
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            IMAGE_MODEL_DIR, use_fast=True
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(IMAGE_MODEL_DIR, use_fast=True)
         print("Loaded tokenizer.")
 
         self.model = AutoGPTQForCausalLM.from_quantized(

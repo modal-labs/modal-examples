@@ -176,9 +176,7 @@ def load_stable_diffusion_pokemon_model():
         cache_dir=cache_dir,
         local_files_only=local_files_only,
     )
-    print(
-        f"finished {load_action} model, took {time.time() - load_start_time:.3f}s."
-    )
+    print(f"finished {load_action} model, took {time.time() - load_start_time:.3f}s.")
 
     if DISABLE_SAFETY:
 

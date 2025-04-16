@@ -136,9 +136,7 @@ def load_report(filepath):
                 or row.get("Province_State")
                 or None
             )
-            country_or_region = row.get("Country_Region") or row.get(
-                "Country/Region"
-            )
+            country_or_region = row.get("Country_Region") or row.get("Country/Region")
             yield {
                 "day": f"{yyyy}-{mm}-{dd}",
                 "country_or_region": (

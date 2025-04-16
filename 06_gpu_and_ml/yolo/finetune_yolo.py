@@ -90,9 +90,7 @@ class DatasetConfig:
 
 @app.function(
     secrets=[
-        modal.Secret.from_name(
-            "roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"]
-        )
+        modal.Secret.from_name("roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"])
     ]
 )
 def download_dataset(config: DatasetConfig):

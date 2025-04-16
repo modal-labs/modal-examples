@@ -167,6 +167,4 @@ def import_transform_load() -> None:
     parquet_files = list(laion400m_meta_path.glob("**/*.parquet"))
     print(f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}.")
     print(f"Spawning {len(parquet_files)} to enrich dataset...")
-    list(
-        run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files))
-    )
+    list(run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files)))

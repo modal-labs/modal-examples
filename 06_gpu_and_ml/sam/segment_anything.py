@@ -29,7 +29,9 @@ from pathlib import Path
 import modal
 
 MODEL_TYPE = "facebook/sam2-hiera-large"
-SAM2_GIT_SHA = "c2ec8e14a185632b0a5d8b161928ceb50197eddc"  # pin commit! research code is fragile
+SAM2_GIT_SHA = (
+    "c2ec8e14a185632b0a5d8b161928ceb50197eddc"  # pin commit! research code is fragile
+)
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -79,9 +81,7 @@ class Model:
         self.video_predictor = SAM2VideoPredictor.from_pretrained(MODEL_TYPE)
 
     @modal.method()
-    def generate_video_masks(
-        self, video="/root/videos/input.mp4", point_coords=None
-    ):
+    def generate_video_masks(self, video="/root/videos/input.mp4", point_coords=None):
         """Generate masks for a video."""
         import ffmpeg
         import numpy as np
@@ -131,9 +131,7 @@ class Model:
                 labels=labels,
             )
 
-            print(
-                f"frame_idx: {frame_idx}, object_ids: {object_ids}, masks: {masks}"
-            )
+            print(f"frame_idx: {frame_idx}, object_ids: {object_ids}, masks: {masks}")
 
             # run propagation throughout the video and collect the results in a dict
             video_segments = {}  # video_segments contains the per-frame segmentation results
@@ -249,9 +247,7 @@ def show_mask(mask, ax, obj_id=None, random_color=False):
     ax.imshow(mask_image)
 
 
-def save_segmented_frames(
-    video_segments, frames_dir, out_dir, frame_names, stride=5
-):
+def save_segmented_frames(video_segments, frames_dir, out_dir, frame_names, stride=5):
     import io
 
     import matplotlib.pyplot as plt

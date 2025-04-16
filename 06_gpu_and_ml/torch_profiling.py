@@ -162,9 +162,7 @@ def profile(
 
     if print_rows:
         print(
-            prof.key_averages().table(
-                sort_by="cuda_time_total", row_limit=print_rows
-            )
+            prof.key_averages().table(sort_by="cuda_time_total", row_limit=print_rows)
         )
 
     trace_path = sorted(

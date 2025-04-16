@@ -242,9 +242,7 @@ class ComfyUI:
 
         try:
             # check if the server is up (response should be immediate)
-            req = urllib.request.Request(
-                f"http://127.0.0.1:{self.port}/system_stats"
-            )
+            req = urllib.request.Request(f"http://127.0.0.1:{self.port}/system_stats")
             urllib.request.urlopen(req, timeout=5)
             print("ComfyUI server is healthy")
         except (socket.timeout, urllib.error.URLError) as e:

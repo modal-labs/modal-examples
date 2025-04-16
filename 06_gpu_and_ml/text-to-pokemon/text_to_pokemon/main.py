@@ -289,9 +289,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
                 (i, sample, norm_prompt) for (i, sample) in enumerate(samples_data)
             )
         )
-        print(
-            f"Persisting {len(cards_data)} results for later disk-cache retrieval."
-        )
+        print(f"Persisting {len(cards_data)} results for later disk-cache retrieval.")
         final_cards_dir.mkdir()
         for i, c_data in enumerate(cards_data):
             c_path = final_cards_dir / f"{i}.png"

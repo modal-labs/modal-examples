@@ -35,9 +35,7 @@ class Dataset:
 
         starts = torch.randint(len(data) - self.context_size, (self.batch_size,))
 
-        x = torch.stack(
-            [data[start : start + self.context_size] for start in starts]
-        )
+        x = torch.stack([data[start : start + self.context_size] for start in starts])
 
         # +1 because we want to predict the next token.
         y = torch.stack(

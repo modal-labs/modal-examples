@@ -168,9 +168,7 @@ def main():
         }
     ]
 
-    print(
-        Colors.BOLD + "🧠: Using system prompt: " + args.system_prompt + Colors.END
-    )
+    print(Colors.BOLD + "🧠: Using system prompt: " + args.system_prompt + Colors.END)
 
     if args.chat:
         print(

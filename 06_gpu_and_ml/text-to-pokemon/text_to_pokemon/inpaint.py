@@ -98,9 +98,7 @@ def new_pokemon_name(card_image: bytes, pokemon_name: str = "Randomon") -> bytes
         mask_img_bytes = buf.getvalue()
         mask, _ = load_img(mask_img_bytes)
 
-    assert img.shape[:2] == mask.shape[:2], (
-        "shapes of base image and mask must match"
-    )
+    assert img.shape[:2] == mask.shape[:2], "shapes of base image and mask must match"
 
     # "No GPU is required, and for simple backgrounds, the results may even be better than AI models."
     cur_res = cv2.inpaint(

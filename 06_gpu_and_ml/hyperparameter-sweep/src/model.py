@@ -116,9 +116,7 @@ class AttentionModel(nn.Module):
         self.token_embedding_table = nn.Embedding(
             vocab_size, hparams.n_embed, device=device
         )
-        self.pos_embedding_table = nn.Embedding(
-            hparams.context_size, hparams.n_embed
-        )
+        self.pos_embedding_table = nn.Embedding(hparams.context_size, hparams.n_embed)
         self.blocks = nn.Sequential(
             *[Block(hparams) for _ in range(hparams.n_blocks)]
         )
