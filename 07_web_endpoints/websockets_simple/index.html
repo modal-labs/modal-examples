@@ -1,30 +1,25 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Chat</title>
+        <title>Modal & Websockets Text Echo</title>
     </head>
     <body>
         <h1>Modal & Websockets Text Echo</h1>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
+        <h3>Start typing in the text bow below...</h3>
+        <div>
+            <input type="text" id="messageText" autocomplete="off" onkeypress="sendKey(event)"/>
+        </div>
+        <div id='text-display' style="margin-top: 20px; font-size: 24px;">
+        </div>
         <script>
             var ws = new WebSocket("url-placeholder");
             ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
+                var textDisplay = document.getElementById('text-display')
+                textDisplay.textContent = event.data;
             };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
+            function sendKey(event) {
+                event.preventDefault();
+                ws.send(event.key);
             }
         </script>
     </body>
