@@ -121,9 +121,7 @@ def configure_rendering(ctx, with_gpu: bool):
 
     # report rendering devices -- a nice snippet for debugging and ensuring the accelerators are being used
     for dev in cycles.preferences.devices:
-        print(
-            f"ID:{dev['id']} Name:{dev['name']} Type:{dev['type']} Use:{dev['use']}"
-        )
+        print(f"ID:{dev['id']} Name:{dev['name']} Type:{dev['type']} Use:{dev['use']}")
 
 
 # ## Combining frames into a video

@@ -124,7 +124,9 @@ def build_search_index(records: list[SearchRecord], v):
     # construct a reverse index for supporting search
     vocab = v.vocabulary_
     idf = v.idf_
-    punc = "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
+    punc = (
+        "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
+    )
     trans_table = {ord(c): None for c in punc}
 
     def makedict(s, forceidf=None):

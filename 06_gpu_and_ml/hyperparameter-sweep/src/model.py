@@ -117,9 +117,7 @@ class AttentionModel(nn.Module):
             vocab_size, hparams.n_embed, device=device
         )
         self.pos_embedding_table = nn.Embedding(hparams.context_size, hparams.n_embed)
-        self.blocks = nn.Sequential(
-            *[Block(hparams) for _ in range(hparams.n_blocks)]
-        )
+        self.blocks = nn.Sequential(*[Block(hparams) for _ in range(hparams.n_blocks)])
 
         self.ln_f = nn.LayerNorm(hparams.n_embed)
         self.lm_head = nn.Linear(hparams.n_embed, vocab_size)

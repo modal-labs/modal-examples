@@ -209,9 +209,7 @@ def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]
 
         logger.info(f"Fetching {max_episodes_per_request} episodes from API.")
         result = client.execute(list_episodes_query)
-        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"][
-            "hasMorePages"
-        ]
+        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"]["hasMorePages"]
         episodes_in_page = result["podcast"]["episodes"]["data"]
         episodes.extend(episodes_in_page)
         current_page += 1

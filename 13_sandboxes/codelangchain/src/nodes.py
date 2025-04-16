@@ -62,9 +62,7 @@ class Nodes:
 
             prefix: str = Field(description="Description of the problem and approach")
             imports: str = Field(description="Code block import statements")
-            code: str = Field(
-                description="Code block not including import statements"
-            )
+            code: str = Field(description="Code block not including import statements")
 
         ## LLM
         llm = ChatOpenAI(temperature=0, model=self.model, streaming=True)

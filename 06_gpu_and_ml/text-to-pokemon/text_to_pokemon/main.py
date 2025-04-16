@@ -136,9 +136,7 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
     return web_app
 
@@ -244,9 +242,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     .starmap over this function to boost performance.
     """
     print(f"Determining base card for generated sample {i}.")
-    closest_card = closest_pokecard_by_color(
-        sample=sample, cards=config.POKEMON_CARDS
-    )
+    closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
     base_card_url = closest_card["images"]["large"]
     print(f"Closest base card for sample {i} is '{closest_card['name']}'")
     req = urllib.request.Request(

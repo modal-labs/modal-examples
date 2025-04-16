@@ -430,9 +430,7 @@ class ModelInference:
     def get_latest_available_model_dirs(self, n_last):
         """Find the latest models that have a best model checkpoint saved."""
         save_model_dirs = glob.glob(f"{model_save_path}/*")
-        sorted_model_dirs = sorted(
-            save_model_dirs, key=os.path.getctime, reverse=True
-        )
+        sorted_model_dirs = sorted(save_model_dirs, key=os.path.getctime, reverse=True)
 
         valid_model_dirs = []
         for latest_model_dir in sorted_model_dirs:

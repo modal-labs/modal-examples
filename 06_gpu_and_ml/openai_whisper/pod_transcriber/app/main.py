@@ -14,9 +14,7 @@ import modal
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = modal.NetworkFileSystem.from_name(
-    "dataset-cache-vol", create_if_missing=True
-)
+volume = modal.NetworkFileSystem.from_name("dataset-cache-vol", create_if_missing=True)
 
 app_image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -102,9 +100,7 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
     return web_app
 

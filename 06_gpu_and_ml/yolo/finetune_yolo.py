@@ -148,9 +148,7 @@ def train(
         else 0.04,  # fraction of dataset to use for training/validation
         # optimization config
         device=list(range(TRAIN_GPU_COUNT)),  # use the GPU(s)
-        epochs=8
-        if not quick_check
-        else 1,  # pass over entire dataset this many times
+        epochs=8 if not quick_check else 1,  # pass over entire dataset this many times
         batch=0.95,  # automatic batch size to target fraction of GPU util
         seed=117,  # set seed for reproducibility
         # data processing config

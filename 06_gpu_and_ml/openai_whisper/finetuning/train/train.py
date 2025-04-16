@@ -24,9 +24,7 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install_from_requirem
 app = modal.App(
     name="example-whisper-fine-tune",
     image=image,
-    secrets=[
-        modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
-    ],
+    secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
 )
 
 logger = get_logger(__name__)
@@ -128,9 +126,7 @@ def train(
             input_features = [
                 {model_input_name: feature[model_input_name]} for feature in features
             ]
-            label_features = [
-                {"input_ids": feature["labels"]} for feature in features
-            ]
+            label_features = [{"input_ids": feature["labels"]} for feature in features]
 
             batch = self.processor.feature_extractor.pad(
                 input_features, return_tensors="pt"

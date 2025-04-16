@@ -129,8 +129,8 @@ class Model:
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_level=SGL_LOG_LEVEL,
         )
-        self.runtime.endpoint.chat_template = (
-            sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
+        self.runtime.endpoint.chat_template = sgl.lang.chat_template.get_chat_template(
+            MODEL_CHAT_TEMPLATE
         )
         sgl.set_default_backend(self.runtime)
 

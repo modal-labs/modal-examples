@@ -60,9 +60,7 @@ with image.imports():
     gpu="A10G",
     max_containers=1,  # Max one container for this app, for the sake of demoing concurrent_inputs
 )
-@modal.concurrent(
-    max_inputs=100
-)  # Allow concurrent inputs into our single container.
+@modal.concurrent(max_inputs=100)  # Allow concurrent inputs into our single container.
 class Server:
     n_models: int = modal.parameter(default=10)
 

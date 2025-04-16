@@ -140,9 +140,7 @@ requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 @app.function(
     image=requests_image,
     secrets=[
-        modal.Secret.from_name(
-            "weather-secret", required_keys=["OPENWEATHER_API_KEY"]
-        )
+        modal.Secret.from_name("weather-secret", required_keys=["OPENWEATHER_API_KEY"])
     ],
 )
 def city_weather(city):

@@ -63,9 +63,7 @@ with image.imports():
 
 @app.function(
     volumes={
-        MOUNT_PATH: modal.CloudBucketMount(
-            "modal-s3mount-test-bucket", secret=secret
-        ),
+        MOUNT_PATH: modal.CloudBucketMount("modal-s3mount-test-bucket", secret=secret),
     },
 )
 def download_data(year: int, month: int) -> str:

@@ -95,9 +95,7 @@ image = image.add_local_dir(local_assets_path, remote_path="/assets")
 @app.function(image=image)
 @modal.asgi_app()
 def wrapper():
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
     return web_app
 
 

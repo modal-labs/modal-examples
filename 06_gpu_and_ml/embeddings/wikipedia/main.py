@@ -71,9 +71,7 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(
-                    f"launcher exited unexpectedly with code {retcode}"
-                )
+                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
 
 
 tei_image = (

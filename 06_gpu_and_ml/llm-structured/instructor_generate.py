@@ -44,9 +44,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 app = modal.App(
     image=image,
     secrets=[
-        modal.Secret.from_name(
-            "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
-        )
+        modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"])
     ],
 )
 

@@ -261,9 +261,7 @@ def save_segmented_frames(video_segments, frames_dir, out_dir, frame_names, stri
         frame = Image.open(frames_dir / frame_names[out_frame_idx])
         width, height = frame.size
         width, height = width - width % 2, height - height % 2
-        fig, ax = plt.subplots(
-            figsize=(width * inches_per_px, height * inches_per_px)
-        )
+        fig, ax = plt.subplots(figsize=(width * inches_per_px, height * inches_per_px))
         ax.axis("off")
         ax.imshow(frame)
 

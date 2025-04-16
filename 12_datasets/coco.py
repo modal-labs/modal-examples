@@ -129,9 +129,7 @@ def _do_part(url: str) -> None:
     )  # extract into /tmp/
     zip_path.unlink()  # free up disk space by deleting the zip
     print(f"Copying extract {name} data to volume.")
-    copy_concurrent(
-        extract_tmp_path, dest_path
-    )  # copy from /tmp/ into mounted volume
+    copy_concurrent(extract_tmp_path, dest_path)  # copy from /tmp/ into mounted volume
 
 
 # We can process each part of the dataset in parallel, using a 'parent' Function just to execute
