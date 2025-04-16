@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Modal & Websockets Video Echo</title>
+    </head>
+    <body>
+        <h1>Modal & Websockets Video Echo</h1>
+        <div>
+            <img id="remoteImage" style="width: 640px; height: 480px;" />
+        </div>
+        <script>
+            const ws = new WebSocket("url-placeholder");
+            ws.binaryType = "blob";
+            const remoteImage = document.getElementById('remoteImage');
+
+            // Get user media
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        startStreaming(video);
+                    };
+                })
+                .catch(err => console.error('Error accessing webcam:', err));
+
+            function startStreaming(video) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 640;
+                canvas.height = 480;
+
+                function captureFrame() {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(blob => {
+                            if (blob && blob.size > 0) {
+                                console.log('Sending blob of size:', blob.size);
+                                ws.send(blob);
+                            } else {
+                                console.error('Empty blob generated');
+                            }
+                        }, 'image/jpeg', 0.5);
+                    }
+                }
+
+                // Start capturing frames
+                setInterval(captureFrame, 100);
+            }
+
+            ws.onmessage = function(event) {
+                console.log('Received data of size:', event.data.size);
+                const url = URL.createObjectURL(event.data);
+                remoteImage.src = url;
+                // Clean up the URL after the image loads
+                remoteImage.onload = () => {
+                    URL.revokeObjectURL(url);
+                };
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+            };
+        </script>
+    </body>
+</html>
