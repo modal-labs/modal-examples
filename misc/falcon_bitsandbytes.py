@@ -132,9 +132,7 @@ class Falcon40B_4bit:
             max_new_tokens=512,
         )
 
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
         generate_kwargs = dict(
             input_ids=input_ids,
             generation_config=generation_config,

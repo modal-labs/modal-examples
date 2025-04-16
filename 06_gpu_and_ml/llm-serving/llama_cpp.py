@@ -190,9 +190,7 @@ tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.12")
-    .apt_install(
-        "git", "build-essential", "cmake", "curl", "libcurl4-openssl-dev"
-    )
+    .apt_install("git", "build-essential", "cmake", "curl", "libcurl4-openssl-dev")
     .run_commands("git clone https://github.com/ggerganov/llama.cpp")
     .run_commands(
         "cmake llama.cpp -B llama.cpp/build "
@@ -363,9 +361,7 @@ def llama_cpp_inference(
     stdout, stderr = collect_output(p)
 
     if p.returncode != 0:
-        raise subprocess.CalledProcessError(
-            p.returncode, command, stdout, stderr
-        )
+        raise subprocess.CalledProcessError(p.returncode, command, stdout, stderr)
 
     if store_output:  # save results to a Modal Volume if requested
         print(f"🦙 saving results for {result_id}")

@@ -60,9 +60,7 @@ class MultiHeadFast(nn.Module):
         else:
             weight = torch.einsum("bnth,bnuh->bntu", q, k)
             weight /= torch.sqrt(self.head_size)
-            weight = weight.masked_fill(
-                self.tril[:, :, :T, :T] == 0, float("-inf")
-            )
+            weight = weight.masked_fill(self.tril[:, :, :T, :T] == 0, float("-inf"))
             dist = F.softmax(weight, dim=-1)
             dist = self.head_dropout(dist)
 
@@ -118,12 +116,8 @@ class AttentionModel(nn.Module):
         self.token_embedding_table = nn.Embedding(
             vocab_size, hparams.n_embed, device=device
         )
-        self.pos_embedding_table = nn.Embedding(
-            hparams.context_size, hparams.n_embed
-        )
-        self.blocks = nn.Sequential(
-            *[Block(hparams) for _ in range(hparams.n_blocks)]
-        )
+        self.pos_embedding_table = nn.Embedding(hparams.context_size, hparams.n_embed)
+        self.blocks = nn.Sequential(*[Block(hparams) for _ in range(hparams.n_blocks)])
 
         self.ln_f = nn.LayerNorm(hparams.n_embed)
         self.lm_head = nn.Linear(hparams.n_embed, vocab_size)

@@ -101,9 +101,7 @@ def test_transcribe_handles_dangling_segment():
     end = problem_segment[1]
     logger.info(f"Problem segment time range is ({start}, {end})")
     try:
-        transcribe_segment(
-            start=start, end=end, audio_filepath=audio_path, model=model
-        )
+        transcribe_segment(start=start, end=end, audio_filepath=audio_path, model=model)
     except Exception:
         logger.info(
             "Writing the problem segment to the network file system for further debugging."

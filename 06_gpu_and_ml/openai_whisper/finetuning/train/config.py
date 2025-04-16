@@ -70,15 +70,11 @@ class ModelArguments:
     )
     freeze_feature_encoder: bool = field(
         default=True,
-        metadata={
-            "help": "Whether to freeze the feature encoder layers of the model."
-        },
+        metadata={"help": "Whether to freeze the feature encoder layers of the model."},
     )
     freeze_encoder: bool = field(
         default=False,
-        metadata={
-            "help": "Whether to freeze the entire encoder of the seq2seq model."
-        },
+        metadata={"help": "Whether to freeze the entire encoder of the seq2seq model."},
     )
     forced_decoder_ids: list[list[int]] = field(
         default=None,
@@ -92,9 +88,7 @@ class ModelArguments:
     )
     suppress_tokens: list[int] = field(
         default=None,
-        metadata={
-            "help": "A list of tokens that will be suppressed at generation."
-        },
+        metadata={"help": "A list of tokens that will be suppressed at generation."},
     )
     apply_spec_augment: bool = field(
         default=False,
@@ -112,9 +106,7 @@ class DataTrainingArguments:
 
     dataset_name: str = field(
         default=None,
-        metadata={
-            "help": "The name of the dataset to use (via the datasets library)."
-        },
+        metadata={"help": "The name of the dataset to use (via the datasets library)."},
     )
     dataset_config_name: Optional[str] = field(
         default=None,
@@ -134,9 +126,7 @@ class DataTrainingArguments:
     )
     preprocessing_num_workers: Optional[int] = field(
         default=None,
-        metadata={
-            "help": "The number of processes to use for the preprocessing."
-        },
+        metadata={"help": "The number of processes to use for the preprocessing."},
     )
     max_train_samples: Optional[int] = field(
         default=None,

@@ -134,17 +134,13 @@ def profile(
     function_name = function.tag
 
     output_dir = (
-        TRACE_DIR
-        / (function_name + (f"_{label}" if label else ""))
-        / str(uuid4())
+        TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if schedule is None:
         if steps < 3:
-            raise ValueError(
-                "Steps must be at least 3 when using default schedule"
-            )
+            raise ValueError("Steps must be at least 3 when using default schedule")
         schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
 
     schedule = torch.profiler.schedule(**schedule)
@@ -166,9 +162,7 @@ def profile(
 
     if print_rows:
         print(
-            prof.key_averages().table(
-                sort_by="cuda_time_total", row_limit=print_rows
-            )
+            prof.key_averages().table(sort_by="cuda_time_total", row_limit=print_rows)
         )
 
     trace_path = sorted(

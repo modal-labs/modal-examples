@@ -25,9 +25,7 @@ class Nodes:
     ):
         self.context = context
         self.debug = debug
-        self.model = (
-            "gpt-4o-2024-08-06" if not self.debug else "gpt-4o-mini-2024-07-18"
-        )
+        self.model = "gpt-4o-2024-08-06" if not self.debug else "gpt-4o-mini-2024-07-18"
         self.node_map = {
             "generate": self.generate,
             "check_code_imports": self.check_code_imports,
@@ -60,13 +58,9 @@ class Nodes:
         class Code(BaseModel):
             """Code output"""
 
-            prefix: str = Field(
-                description="Description of the problem and approach"
-            )
+            prefix: str = Field(description="Description of the problem and approach")
             imports: str = Field(description="Code block import statements")
-            code: str = Field(
-                description="Code block not including import statements"
-            )
+            code: str = Field(description="Code block not including import statements")
 
         ## LLM
         llm = ChatOpenAI(temperature=0, model=self.model, streaming=True)
@@ -267,8 +261,7 @@ Here is the user question:
             if "error" in state_dict:
                 error_prev_runs = state_dict["error"]
                 error = (
-                    error_prev_runs
-                    + "\n --- Most recent run output and error --- \n"
+                    error_prev_runs + "\n --- Most recent run output and error --- \n"
                     " ------ output ------ \n"
                     + output
                     + "\n ------ error ------ \n"
@@ -315,9 +308,7 @@ Here is the user question:
         class ExecutionEvaluation(BaseModel):
             """Evaluation of code execution"""
 
-            decision: Decision = Field(
-                description="Decision to finish or retry"
-            )
+            decision: Decision = Field(description="Decision to finish or retry")
             explanation: str = Field(description="Explanation for the decision")
 
         llm = ChatOpenAI(temperature=0, model=self.model)
@@ -354,9 +345,7 @@ Provide a brief explanation for your decision.
 
         chain = prompt | llm_with_tool | parser_tool
 
-        evaluation = chain.invoke(
-            {"code": code, "output": output, "error": error}
-        )
+        evaluation = chain.invoke({"code": code, "output": output, "error": error})
 
         return {
             "keys": {

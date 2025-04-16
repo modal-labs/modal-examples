@@ -38,9 +38,7 @@ async def fake_video_streamer():
 
 @web_app.get("/")
 async def main():
-    return StreamingResponse(
-        fake_video_streamer(), media_type="text/event-stream"
-    )
+    return StreamingResponse(fake_video_streamer(), media_type="text/event-stream")
 
 
 @app.function()
@@ -81,9 +79,7 @@ def map_me(i):
 @app.function()
 @modal.fastapi_endpoint()
 def mapped():
-    return StreamingResponse(
-        map_me.map(range(10)), media_type="text/event-stream"
-    )
+    return StreamingResponse(map_me.map(range(10)), media_type="text/event-stream")
 
 
 # To try for yourself, run

@@ -163,9 +163,7 @@ def search_podcast_name(gql, client, name, max_results=5) -> list[dict]:
     return podcasts_in_page
 
 
-def fetch_episodes_data(
-    gql, client, podcast_id, max_episodes=100
-) -> list[dict]:
+def fetch_episodes_data(gql, client, podcast_id, max_episodes=100) -> list[dict]:
     """
     Use the Podchaser API to grab a podcast's episodes.
     """
@@ -211,9 +209,7 @@ def fetch_episodes_data(
 
         logger.info(f"Fetching {max_episodes_per_request} episodes from API.")
         result = client.execute(list_episodes_query)
-        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"][
-            "hasMorePages"
-        ]
+        has_more_pages = result["podcast"]["episodes"]["paginatorInfo"]["hasMorePages"]
         episodes_in_page = result["podcast"]["episodes"]["data"]
         episodes.extend(episodes_in_page)
         current_page += 1
@@ -272,9 +268,7 @@ def store_original_audio(
                 f"Audio file exists at {destination} but overwrite option is specified."
             )
         else:
-            logger.info(
-                f"Audio file exists at {destination}, skipping download."
-            )
+            logger.info(f"Audio file exists at {destination}, skipping download.")
             return
 
     podcast_download_result = download_podcast_file(url=url)

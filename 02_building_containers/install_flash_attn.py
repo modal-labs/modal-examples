@@ -19,15 +19,13 @@ def run_flash_attn():
 
     batch_size, seqlen, nheads, headdim, nheads_k = 2, 4, 3, 16, 3
 
-    q = torch.randn(
-        batch_size, seqlen, nheads, headdim, dtype=torch.float16
-    ).to("cuda")
-    k = torch.randn(
-        batch_size, seqlen, nheads_k, headdim, dtype=torch.float16
-    ).to("cuda")
-    v = torch.randn(
-        batch_size, seqlen, nheads_k, headdim, dtype=torch.float16
-    ).to("cuda")
+    q = torch.randn(batch_size, seqlen, nheads, headdim, dtype=torch.float16).to("cuda")
+    k = torch.randn(batch_size, seqlen, nheads_k, headdim, dtype=torch.float16).to(
+        "cuda"
+    )
+    v = torch.randn(batch_size, seqlen, nheads_k, headdim, dtype=torch.float16).to(
+        "cuda"
+    )
 
     out = flash_attn_func(q, k, v)
     assert out.shape == (batch_size, seqlen, nheads, headdim)

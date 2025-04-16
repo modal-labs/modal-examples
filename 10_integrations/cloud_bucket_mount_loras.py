@@ -289,8 +289,7 @@ def ui():
 
     # determine which loras are available
     lora_ids = [
-        f"{lora_dir.parent.stem}/{lora_dir.stem}"
-        for lora_dir in LORAS_PATH.glob("*/*")
+        f"{lora_dir.parent.stem}/{lora_dir.stem}" for lora_dir in LORAS_PATH.glob("*/*")
     ]
 
     # pick one to be default, set a default prompt
@@ -318,9 +317,7 @@ def ui():
     iface = gr.Interface(
         go,
         inputs=[  # the inputs to go/our inference function
-            gr.Dropdown(
-                choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"
-            ),
+            gr.Dropdown(choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"),
             gr.Textbox(default_prompt, label="🎨 Prompt"),
             gr.Number(value=8888, label="🎲 Random Seed"),
         ],

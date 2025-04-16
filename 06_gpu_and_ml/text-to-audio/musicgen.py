@@ -64,9 +64,7 @@ def load_model(and_return=False):
 # to store the weights in the cloud.
 
 cache_dir = "/cache"
-model_cache = modal.Volume.from_name(
-    "audiocraft-model-cache", create_if_missing=True
-)
+model_cache = modal.Volume.from_name("audiocraft-model-cache", create_if_missing=True)
 
 # We don't need to change any of the model loading code --
 # we just need to make sure the model gets stored in the right directory.
@@ -144,9 +142,7 @@ class MusicGen:
 
             # generate next segment
             generated_duration = (
-                segment_duration
-                if context is None
-                else (segment_duration - overlap)
+                segment_duration if context is None else (segment_duration - overlap)
             )
             print(f"🎼 generating {generated_duration} seconds of music")
             self.model.set_generation_params(duration=segment_duration)
@@ -265,12 +261,8 @@ def ui():
 
     temp_dir = Path("/dev/shm")
 
-    async def generate_music(
-        prompt: str, duration: int = 10, format: str = "wav"
-    ):
-        audio_bytes = await generate.aio(
-            prompt, duration=duration, format=format
-        )
+    async def generate_music(prompt: str, duration: int = 10, format: str = "wav"):
+        audio_bytes = await generate.aio(prompt, duration=duration, format=format)
 
         audio_path = temp_dir / f"{uuid4()}.{format}"
         audio_path.write_bytes(audio_bytes)

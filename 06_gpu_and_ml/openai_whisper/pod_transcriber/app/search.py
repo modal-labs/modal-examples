@@ -81,9 +81,7 @@ def calculate_sim_dot_product(X, ntake=40):
     from numpy import np
 
     S = np.dot(X, X.T)
-    IX = np.argsort(S, axis=1)[
-        :, : -ntake - 1 : -1
-    ]  # take last ntake sorted backwards
+    IX = np.argsort(S, axis=1)[:, : -ntake - 1 : -1]  # take last ntake sorted backwards
     return IX.tolist()
 
 
@@ -113,9 +111,7 @@ def calculate_similarity_with_svm(X, ntake=40):
         )
         clf.fit(X, y)
         s = clf.decision_function(X)
-        ix = np.argsort(s)[
-            : -ntake - 1 : -1
-        ]  # take last ntake sorted backwards
+        ix = np.argsort(s)[: -ntake - 1 : -1]  # take last ntake sorted backwards
         IX[i] = ix
     return IX.tolist()
 
@@ -126,23 +122,21 @@ def build_search_index(records: list[SearchRecord], v):
     # construct a reverse index for supporting search
     vocab = v.vocabulary_
     idf = v.idf_
-    punc = "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
+    punc = (
+        "'!\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~'"  # removed hyphen from string.punctuation
+    )
     trans_table = {ord(c): None for c in punc}
 
     def makedict(s, forceidf=None):
         words = set(s.lower().translate(trans_table).strip().split())
-        words = set(
-            w for w in words if len(w) > 1 and (w not in ENGLISH_STOP_WORDS)
-        )
+        words = set(w for w in words if len(w) > 1 and (w not in ENGLISH_STOP_WORDS))
         idfd = {}
         for w in words:
             if forceidf is None:
                 if w in vocab:
                     idfval = idf[vocab[w]]  # we have a computed idf for this
                 else:
-                    idfval = (
-                        1.0  # some word we don't know; assume idf 1.0 (low)
-                    )
+                    idfval = 1.0  # some word we don't know; assume idf 1.0 (low)
             else:
                 idfval = forceidf
             idfd[w] = idfval

@@ -188,9 +188,7 @@ class Model:
                     texture_size=texture_size,
                 )
 
-                temp_glb = tempfile.NamedTemporaryFile(
-                    suffix=".glb", delete=False
-                )
+                temp_glb = tempfile.NamedTemporaryFile(suffix=".glb", delete=False)
                 temp_path = temp_glb.name
                 logger.info(f"Exporting mesh to: {temp_path}")
                 glb.export(temp_path)

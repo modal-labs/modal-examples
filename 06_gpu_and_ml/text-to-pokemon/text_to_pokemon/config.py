@@ -176,9 +176,7 @@ def load_stable_diffusion_pokemon_model():
         cache_dir=cache_dir,
         local_files_only=local_files_only,
     )
-    print(
-        f"finished {load_action} model, took {time.time() - load_start_time:.3f}s."
-    )
+    print(f"finished {load_action} model, took {time.time() - load_start_time:.3f}s.")
 
     if DISABLE_SAFETY:
 
@@ -189,9 +187,7 @@ def load_stable_diffusion_pokemon_model():
     return pipe
 
 
-volume = modal.Volume.from_name(
-    "txt-to-pokemon-cache-vol", create_if_missing=True
-)
+volume = modal.Volume.from_name("txt-to-pokemon-cache-vol", create_if_missing=True)
 image = (
     modal.Image.debian_slim()
     .pip_install(

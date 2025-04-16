@@ -49,7 +49,9 @@ rendering_image = (
 # Functions in Modal are defined along with their hardware and their dependencies.
 # This function can be run with GPU acceleration or without it, and we'll use a global flag in the code to switch between the two.
 
-WITH_GPU = True  # try changing this to False to run rendering massively in parallel on CPUs!
+WITH_GPU = (
+    True  # try changing this to False to run rendering massively in parallel on CPUs!
+)
 
 # We decorate the function with `@app.function` to define it as a Modal function.
 # Note that in addition to defining the hardware requirements of the function,
@@ -119,9 +121,7 @@ def configure_rendering(ctx, with_gpu: bool):
 
     # report rendering devices -- a nice snippet for debugging and ensuring the accelerators are being used
     for dev in cycles.preferences.devices:
-        print(
-            f"ID:{dev['id']} Name:{dev['name']} Type:{dev['type']} Use:{dev['use']}"
-        )
+        print(f"ID:{dev['id']} Name:{dev['name']} Type:{dev['type']} Use:{dev['use']}")
 
 
 # ## Combining frames into a video
@@ -130,9 +130,7 @@ def configure_rendering(ctx, with_gpu: bool):
 # We add another function to our app, running on a different, simpler container image
 # and different hardware, to combine the frames into a video.
 
-combination_image = modal.Image.debian_slim(python_version="3.11").apt_install(
-    "ffmpeg"
-)
+combination_image = modal.Image.debian_slim(python_version="3.11").apt_install("ffmpeg")
 
 # The function to combine the frames into a video takes a sequence of byte sequences, one for each rendered frame,
 # and converts them into a single sequence of bytes, the MP4 file.
@@ -182,9 +180,7 @@ def main(frame_count: int = 250, frame_skip: int = 1):
 
     input_path = Path(__file__).parent / "IceModal.blend"
     blend_bytes = input_path.read_bytes()
-    args = [
-        (blend_bytes, frame) for frame in range(1, frame_count + 1, frame_skip)
-    ]
+    args = [(blend_bytes, frame) for frame in range(1, frame_count + 1, frame_skip)]
     images = list(render.starmap(args))
     for i, image in enumerate(images):
         frame_path = output_directory / f"frame_{i + 1}.png"

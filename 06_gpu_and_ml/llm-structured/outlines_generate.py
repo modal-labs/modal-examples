@@ -115,9 +115,7 @@ def generate(
     model = outlines.models.transformers(MODEL_NAME, device="cuda")
 
     generator = outlines.generate.json(model, schema)
-    character = generator(
-        f"Give me a character description. Describe {prompt}."
-    )
+    character = generator(f"Give me a character description. Describe {prompt}.")
 
     return character
 

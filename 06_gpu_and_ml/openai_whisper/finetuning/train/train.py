@@ -18,15 +18,13 @@ persistent_volume = modal.Volume.from_name(
     create_if_missing=True,
 )
 
-image = modal.Image.debian_slim(
-    python_version="3.12"
-).pip_install_from_requirements("requirements.txt")
+image = modal.Image.debian_slim(python_version="3.12").pip_install_from_requirements(
+    "requirements.txt"
+)
 app = modal.App(
     name="example-whisper-fine-tune",
     image=image,
-    secrets=[
-        modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])
-    ],
+    secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
 )
 
 logger = get_logger(__name__)
@@ -126,12 +124,9 @@ def train(
             # different padding methods
             model_input_name = self.processor.model_input_names[0]
             input_features = [
-                {model_input_name: feature[model_input_name]}
-                for feature in features
+                {model_input_name: feature[model_input_name]} for feature in features
             ]
-            label_features = [
-                {"input_ids": feature["labels"]} for feature in features
-            ]
+            label_features = [{"input_ids": feature["labels"]} for feature in features]
 
             batch = self.processor.feature_extractor.pad(
                 input_features, return_tensors="pt"
@@ -161,9 +156,7 @@ def train(
             return batch
 
     logger.info("Starting training run")
-    logger.info(
-        f"Finetuned model will be persisted to '{training_args.output_dir}'"
-    )
+    logger.info(f"Finetuned model will be persisted to '{training_args.output_dir}'")
     setup_logging(
         logger=logger,
         log_level=training_args.get_process_log_level(),
@@ -186,18 +179,14 @@ def train(
         and not overwrite_output_dir
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if (
-            last_checkpoint is None
-            and len(os.listdir(training_args.output_dir)) > 0
-        ):
+        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
             print(os.listdir(training_args.output_dir))
             raise ValueError(
                 f"Output directory ({training_args.output_dir}) already exists and is not empty. "
                 "Use --overwrite_output_dir to overcome."
             )
         elif (
-            last_checkpoint is not None
-            and training_args.resume_from_checkpoint is None
+            last_checkpoint is not None and training_args.resume_from_checkpoint is None
         ):
             logger.info(
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
@@ -306,9 +295,7 @@ def train(
 
     if data_args.language is not None:
         # We only need to set the task id when the language is specified (i.e. in a multilingual setting)
-        tokenizer.set_prefix_tokens(
-            language=data_args.language, task=data_args.task
-        )
+        tokenizer.set_prefix_tokens(language=data_args.language, task=data_args.task)
 
     logger.info("6. Resample speech dataset if necessary")
     dataset_sampling_rate = (
@@ -320,9 +307,7 @@ def train(
         logger.info("Resampling necessary")
         raw_datasets = raw_datasets.cast_column(
             data_args.audio_column_name,
-            datasets.features.Audio(
-                sampling_rate=feature_extractor.sampling_rate
-            ),
+            datasets.features.Audio(sampling_rate=feature_extractor.sampling_rate),
         )
 
     logger.info("7. Preprocessing the datasets.")
@@ -417,9 +402,7 @@ def train(
 
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         # we do not want to group tokens when computing the metrics
-        label_str = tokenizer.batch_decode(
-            pred.label_ids, skip_special_tokens=True
-        )
+        label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
 
         wer = metric.compute(predictions=pred_str, references=label_str)
 
@@ -451,9 +434,7 @@ def train(
         train_dataset=(
             vectorized_datasets["train"] if training_args.do_train else None
         ),
-        eval_dataset=(
-            vectorized_datasets["eval"] if training_args.do_eval else None
-        ),
+        eval_dataset=(vectorized_datasets["eval"] if training_args.do_eval else None),
         tokenizer=feature_extractor,
         data_collator=data_collator,
         compute_metrics=(

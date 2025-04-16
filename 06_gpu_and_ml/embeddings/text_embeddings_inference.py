@@ -47,9 +47,7 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(
-                    f"launcher exited unexpectedly with code {retcode}"
-                )
+                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
 
 
 def download_model():
@@ -165,8 +163,6 @@ def embed_dataset():
 
     # data is of type list[tuple[str, str]].
     # starmap spreads the tuples into positional arguments.
-    for output_batch in model.embed.map(
-        generate_batches(), order_outputs=False
-    ):
+    for output_batch in model.embed.map(generate_batches(), order_outputs=False):
         # Do something with the outputs.
         pass

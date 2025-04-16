@@ -74,9 +74,7 @@ app = modal.App("ollama-server", image=ollama_image)
 # We use a Modal Volume to cache downloaded models between runs.
 # This prevents needing to re-download large model files each time.
 
-model_volume = modal.Volume.from_name(
-    "ollama-models-store", create_if_missing=True
-)
+model_volume = modal.Volume.from_name("ollama-models-store", create_if_missing=True)
 
 # ## The Ollama Server Class
 
@@ -154,9 +152,7 @@ class OllamaServer:
                 retcode = await pull_process.wait()
 
                 if retcode != 0:
-                    print(
-                        f"Error pulling model '{model_name}': exit code {retcode}"
-                    )
+                    print(f"Error pulling model '{model_name}': exit code {retcode}")
                 else:
                     print(f"Model '{model_name}' pulled successfully.")
             else:
@@ -175,9 +171,7 @@ class OllamaServer:
         """Terminates the Ollama server process on shutdown."""
         print("Shutting down Ollama server...")
         if self.ollama_process and self.ollama_process.poll() is None:
-            print(
-                f"Terminating Ollama server (PID: {self.ollama_process.pid})..."
-            )
+            print(f"Terminating Ollama server (PID: {self.ollama_process.pid})...")
             try:
                 self.ollama_process.terminate()
                 self.ollama_process.wait(timeout=10)
@@ -242,9 +236,7 @@ class OllamaServer:
             all_results[model_name] = model_results
 
             for prompt in test_prompts:
-                print(
-                    f"\n--- Testing Prompt ---\n{prompt}\n----------------------"
-                )
+                print(f"\n--- Testing Prompt ---\n{prompt}\n----------------------")
 
                 # Create message in OpenAI format
                 messages: List[ChatCompletionMessageParam] = [

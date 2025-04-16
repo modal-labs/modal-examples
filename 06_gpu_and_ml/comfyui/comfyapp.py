@@ -181,9 +181,7 @@ class ComfyUI:
         # note: requires patching core ComfyUI, see the memory_snapshot_helper directory for more details
         import requests
 
-        response = requests.post(
-            f"http://127.0.0.1:{self.port}/cuda/set_device"
-        )
+        response = requests.post(f"http://127.0.0.1:{self.port}/cuda/set_device")
         if response.status_code != 200:
             print("Failed to set CUDA device")
         else:
@@ -244,9 +242,7 @@ class ComfyUI:
 
         try:
             # check if the server is up (response should be immediate)
-            req = urllib.request.Request(
-                f"http://127.0.0.1:{self.port}/system_stats"
-            )
+            req = urllib.request.Request(f"http://127.0.0.1:{self.port}/system_stats")
             urllib.request.urlopen(req, timeout=5)
             print("ComfyUI server is healthy")
         except (socket.timeout, urllib.error.URLError) as e:

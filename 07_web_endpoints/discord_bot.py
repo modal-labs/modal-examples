@@ -70,7 +70,9 @@ async def fetch_api() -> str:
             async with session.get(url) as response:
                 response.raise_for_status()
                 data = await response.json()
-                message = f"# {data.get('emoji') or '🤖'} [{data['title']}]({data['source']})"
+                message = (
+                    f"# {data.get('emoji') or '🤖'} [{data['title']}]({data['source']})"
+                )
                 message += f"\n _{''.join(data['description'].splitlines())}_"
         except Exception as e:
             message = f"# 🤖: Oops! {e}"
@@ -211,8 +213,7 @@ def create_slash_command(force: bool = False):
 
     commands = response.json()
     command_exists = any(
-        command.get("name") == command_description["name"]
-        for command in commands
+        command.get("name") == command_description["name"] for command in commands
     )
 
     # and only recreate it if the force flag is set

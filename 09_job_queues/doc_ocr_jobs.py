@@ -60,9 +60,7 @@ def setup():
 
     from transformers import AutoModel, AutoTokenizer
 
-    with (
-        warnings.catch_warnings()
-    ):  # filter noisy warnings from GOT modeling code
+    with warnings.catch_warnings():  # filter noisy warnings from GOT modeling code
         warnings.simplefilter("ignore")
         tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
@@ -183,7 +181,9 @@ def main(receipt_filename: str = None):
         image = receipt_filename.read_bytes()
         print(f"running OCR on {receipt_filename}")
     else:
-        receipt_url = "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
+        receipt_url = (
+            "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
+        )
         image = requests.get(receipt_url).content
         print(f"running OCR on sample from URL {receipt_url}")
     print(parse_receipt.remote(image))

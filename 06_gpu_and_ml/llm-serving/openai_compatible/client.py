@@ -32,9 +32,7 @@ def get_completion(client, model_id, messages, args):
         "top_p": args.top_p,
     }
 
-    completion_args = {
-        k: v for k, v in completion_args.items() if v is not None
-    }
+    completion_args = {k: v for k, v in completion_args.items() if v is not None}
 
     try:
         response = client.chat.completions.create(**completion_args)
@@ -170,12 +168,7 @@ def main():
         }
     ]
 
-    print(
-        Colors.BOLD
-        + "🧠: Using system prompt: "
-        + args.system_prompt
-        + Colors.END
-    )
+    print(Colors.BOLD + "🧠: Using system prompt: " + args.system_prompt + Colors.END)
 
     if args.chat:
         print(
@@ -215,9 +208,7 @@ def main():
                         sep="",
                     )
 
-                messages.append(
-                    {"role": "assistant", "content": assistant_message}
-                )
+                messages.append({"role": "assistant", "content": assistant_message})
     else:
         messages.append({"role": "user", "content": args.prompt})
         print(Colors.GREEN + f"\nYou: {args.prompt}" + Colors.END)

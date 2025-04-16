@@ -36,9 +36,7 @@ def reset_diskcache(dry_run=True) -> None:
             if not dry_run:
                 filepath.unlink()
         if files and dry_run:
-            print(
-                f"🏜 dry-run: would have deleted {i + 1} Pokémon character samples"
-            )
+            print(f"🏜 dry-run: would have deleted {i + 1} Pokémon character samples")
         elif files:
             print(f"deleted {i + 1} Pokémon character samples")
         else:
@@ -129,9 +127,7 @@ def generate_pokemon_names():
         max_sequence_len=max_sequence_len,
     )
 
-    print(
-        f"Storing {desired_generations} generated names. eg. '{new_names[0]}'"
-    )
+    print(f"Storing {desired_generations} generated names. eg. '{new_names[0]}'")
     output_path = rnn_names_output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(new_names))
@@ -143,9 +139,7 @@ def main() -> int:
     sub_parsers.add_parser(
         "extract-colors", help="Extract colors for all Pokémon base cards."
     )
-    sub_parsers.add_parser(
-        "gen-pokemon-names", help="Generate new Pokémon names."
-    )
+    sub_parsers.add_parser("gen-pokemon-names", help="Generate new Pokémon names.")
     parser_reset_diskcache = sub_parsers.add_parser(
         "reset-diskcache",
         help="Delete all cached Pokémon card parts from volume.",

@@ -18,7 +18,7 @@ ignore_missing_imports = true
 
 [tool.ruff]
 exclude = [".venv", "venv", "__pycache__"]
-line-length = 80
+line-length = 88
 # TODO: Add when available: "E266", "E203"
 lint.ignore = ["E501", "E741", "E402"]
 lint.select = ['E', 'F', 'W', 'I']

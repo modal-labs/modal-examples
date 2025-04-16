@@ -90,9 +90,7 @@ class DatasetConfig:
 
 @app.function(
     secrets=[
-        modal.Secret.from_name(
-            "roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"]
-        )
+        modal.Secret.from_name("roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"])
     ]
 )
 def download_dataset(config: DatasetConfig):
@@ -150,9 +148,7 @@ def train(
         else 0.04,  # fraction of dataset to use for training/validation
         # optimization config
         device=list(range(TRAIN_GPU_COUNT)),  # use the GPU(s)
-        epochs=8
-        if not quick_check
-        else 1,  # pass over entire dataset this many times
+        epochs=8 if not quick_check else 1,  # pass over entire dataset this many times
         batch=0.95,  # automatic batch size to target fraction of GPU util
         seed=117,  # set seed for reproducibility
         # data processing config
@@ -227,9 +223,7 @@ class Inference:
         import os
         import time
 
-        image_files = [
-            os.path.join(batch_dir, f) for f in os.listdir(batch_dir)
-        ]
+        image_files = [os.path.join(batch_dir, f) for f in os.listdir(batch_dir)]
 
         completed, start = 0, time.monotonic_ns()
         for image in read_image.map(image_files):
@@ -313,9 +307,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
     # let's run inference!
     for model_id, dataset in zip(model_ids, datasets):
         inference = Inference(
-            weights_path=str(
-                volume_path / "runs" / model_id / "weights" / "best.pt"
-            )
+            weights_path=str(volume_path / "runs" / model_id / "weights" / "best.pt")
         )
 
         # predict on a single image and save output to the volume
@@ -336,9 +328,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
                 break
 
         # streaming inference on images from the test set
-        print(
-            f"{model_id}: Streaming inferences on all images in the test set..."
-        )
+        print(f"{model_id}: Streaming inferences on all images in the test set...")
         count = 0
         for detection in inference.streaming_count.remote_gen(
             batch_dir=f"{volume_path}/dataset/{dataset.id}/test/images"

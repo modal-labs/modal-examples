@@ -50,17 +50,11 @@ def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
     for batch in batch_reader:
         df = batch.to_pandas()
 
-        prompts = (
-            df["product_review"]
-            .apply(lambda review: get_prompt(review))
-            .tolist()
-        )
+        prompts = df["product_review"].apply(lambda review: get_prompt(review)).tolist()
 
-        res = (
-            requests.post(  # request to the inference service running on Modal
-                inference_url,
-                json={"prompts": prompts},
-            )
+        res = requests.post(  # request to the inference service running on Modal
+            inference_url,
+            json={"prompts": prompts},
         )
 
         df["review_sentiment"] = json.loads(res.content)
@@ -88,7 +82,5 @@ def model(dbt, session):
     big_model = dbt.ref("product_reviews")
     batch_reader = big_model.record_batch(100)
     batch_iter = batcher(batch_reader, inference_url)
-    new_schema = batch_reader.schema.append(
-        pa.field("review_sentiment", pa.string())
-    )
+    new_schema = batch_reader.schema.append(pa.field("review_sentiment", pa.string()))
     return pa.RecordBatchReader.from_batches(new_schema, batch_iter)

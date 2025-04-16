@@ -41,9 +41,7 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 # and store it as a Modal sEcret on [the dashboard](https://modal.com/secrets)
 
 
-@app.function(
-    image=multion_image, secrets=[modal.Secret.from_name("MULTION_API_KEY")]
-)
+@app.function(image=multion_image, secrets=[modal.Secret.from_name("MULTION_API_KEY")])
 def news_tweet_agent():
     # Import MultiOn
     import multion

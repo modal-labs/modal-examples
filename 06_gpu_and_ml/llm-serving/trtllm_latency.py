@@ -398,7 +398,9 @@ class Model:
             yield output.outputs[0].text_diff
 
     def text_from_prompt(self, prompt):
-        SYSTEM_PROMPT = "You are a helpful, harmless, and honest AI assistant created by Meta."
+        SYSTEM_PROMPT = (
+            "You are a helpful, harmless, and honest AI assistant created by Meta."
+        )
 
         if isinstance(prompt, str):
             prompt = [{"role": "user", "content": prompt}]
@@ -493,9 +495,7 @@ def main(mode: str = "fast"):
 
     p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5) - 1]
     p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9) - 1]
-    print(
-        f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
-    )
+    print(f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
 
 
 # Once deployed with `modal deploy`, this `Model.generate` function
