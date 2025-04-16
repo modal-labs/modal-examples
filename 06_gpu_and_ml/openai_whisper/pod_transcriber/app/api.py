@@ -52,9 +52,7 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
 
 @web_app.get("/api/podcast/{podcast_id}")
 async def get_podcast(podcast_id: str):
-    pod_metadata_path = (
-        config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-    )
+    pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
     previously_stored = True
     if not pod_metadata_path.exists():
         previously_stored = False

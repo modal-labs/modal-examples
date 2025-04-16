@@ -363,9 +363,7 @@ def llama_cpp_inference(
     stdout, stderr = collect_output(p)
 
     if p.returncode != 0:
-        raise subprocess.CalledProcessError(
-            p.returncode, command, stdout, stderr
-        )
+        raise subprocess.CalledProcessError(p.returncode, command, stdout, stderr)
 
     if store_output:  # save results to a Modal Volume if requested
         print(f"🦙 saving results for {result_id}")

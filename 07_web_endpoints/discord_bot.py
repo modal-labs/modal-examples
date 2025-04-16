@@ -211,8 +211,7 @@ def create_slash_command(force: bool = False):
 
     commands = response.json()
     command_exists = any(
-        command.get("name") == command_description["name"]
-        for command in commands
+        command.get("name") == command_description["name"] for command in commands
     )
 
     # and only recreate it if the force flag is set

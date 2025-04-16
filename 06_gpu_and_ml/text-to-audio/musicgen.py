@@ -268,9 +268,7 @@ def ui():
     async def generate_music(
         prompt: str, duration: int = 10, format: str = "wav"
     ):
-        audio_bytes = await generate.aio(
-            prompt, duration=duration, format=format
-        )
+        audio_bytes = await generate.aio(prompt, duration=duration, format=format)
 
         audio_path = temp_dir / f"{uuid4()}.{format}"
         audio_path.write_bytes(audio_bytes)

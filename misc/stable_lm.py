@@ -73,9 +73,7 @@ app = modal.App(
     name="example-stability-lm",
     image=image,
     secrets=[
-        modal.Secret.from_dict(
-            {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
-        )
+        modal.Secret.from_dict({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})
     ],
 )
 
@@ -153,9 +151,7 @@ class StabilityLM:
         )
         self.generator.model = torch.compile(self.generator.model)
 
-    def get_config(
-        self, completion_request: CompletionRequest
-    ) -> Dict[str, Any]:
+    def get_config(self, completion_request: CompletionRequest) -> Dict[str, Any]:
         return dict(
             pad_token_id=self.generator.tokenizer.eos_token_id,
             eos_token_id=list(
@@ -204,9 +200,7 @@ class StabilityLM:
         return "".join(self.generate_completion(completion_request))
 
     @modal.method()
-    def generate_stream(
-        self, completion_request: CompletionRequest
-    ) -> Generator:
+    def generate_stream(self, completion_request: CompletionRequest) -> Generator:
         for text in self.generate_completion(completion_request):
             yield text
 

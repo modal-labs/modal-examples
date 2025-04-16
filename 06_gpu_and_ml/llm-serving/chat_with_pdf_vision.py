@@ -290,9 +290,7 @@ class Model:
         )
         inputs = inputs.to("cuda:0")
 
-        generated_ids = self.qwen2_vl_model.generate(
-            **inputs, max_new_tokens=512
-        )
+        generated_ids = self.qwen2_vl_model.generate(**inputs, max_new_tokens=512)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :]
             for in_ids, out_ids in zip(inputs.input_ids, generated_ids)

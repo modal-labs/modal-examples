@@ -270,9 +270,7 @@ def store_original_audio(
                 f"Audio file exists at {destination} but overwrite option is specified."
             )
         else:
-            logger.info(
-                f"Audio file exists at {destination}, skipping download."
-            )
+            logger.info(f"Audio file exists at {destination}, skipping download.")
             return
 
     podcast_download_result = download_podcast_file(url=url)

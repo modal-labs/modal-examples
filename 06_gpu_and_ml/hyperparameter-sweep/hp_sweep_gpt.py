@@ -512,9 +512,7 @@ class ModelInference:
         self.load_model_impl()  # load updated model if available
 
         n_new_tokens = 1000
-        return self.model.generate_from_text(
-            self.tokenizer, prompt, n_new_tokens
-        )
+        return self.model.generate_from_text(self.tokenizer, prompt, n_new_tokens)
 
 
 # ### Adding a simple web endpoint

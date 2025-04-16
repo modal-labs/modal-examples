@@ -51,9 +51,7 @@ def batcher(batch_reader: pa.RecordBatchReader, inference_url: str):
         df = batch.to_pandas()
 
         prompts = (
-            df["product_review"]
-            .apply(lambda review: get_prompt(review))
-            .tolist()
+            df["product_review"].apply(lambda review: get_prompt(review)).tolist()
         )
 
         res = requests.post(  # request to the inference service running on Modal

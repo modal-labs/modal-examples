@@ -74,9 +74,7 @@ def populate_podcast_metadata(podcast_id: str):
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
     metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(
-        gql, podcast_id
-    )
+    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
 
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)

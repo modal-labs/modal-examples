@@ -249,9 +249,7 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(
-    f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
-)
+app = modal.App(f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image)
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 
@@ -288,9 +286,7 @@ class Model:
 
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         # LLaMA models do not have a padding token, so we use the EOS token
-        self.tokenizer.add_special_tokens(
-            {"pad_token": self.tokenizer.eos_token}
-        )
+        self.tokenizer.add_special_tokens({"pad_token": self.tokenizer.eos_token})
         # and then we add it from the left, to minimize impact on the output
         self.tokenizer.padding_side = "left"
         self.pad_id = self.tokenizer.pad_token_id

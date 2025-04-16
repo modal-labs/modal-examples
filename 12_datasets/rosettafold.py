@@ -54,9 +54,7 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
     monitoring_thread.start()
 
 
-def decompress_tar_gz(
-    file_path: pathlib.Path, extract_dir: pathlib.Path
-) -> None:
+def decompress_tar_gz(file_path: pathlib.Path, extract_dir: pathlib.Path) -> None:
     print(f"Decompressing {file_path} into {extract_dir}...")
     with tarfile.open(file_path, "r:gz") as tar:
         tar.extractall(path=extract_dir)

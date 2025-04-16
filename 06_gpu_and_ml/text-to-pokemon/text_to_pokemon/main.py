@@ -176,9 +176,7 @@ def composite_pokemon_card(
     character_i = Image.open(character_img)
 
     # Fit Pokémon character image to size of base card's character illustration window.
-    character_i.thumbnail(
-        size=(pokecard_window_size[0], pokecard_window_size[0])
-    )
+    character_i.thumbnail(size=(pokecard_window_size[0], pokecard_window_size[0]))
     (left, upper, right, lower) = (
         0,
         0,
