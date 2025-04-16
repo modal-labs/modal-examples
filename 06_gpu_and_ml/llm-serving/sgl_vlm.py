@@ -69,9 +69,13 @@ def download_model_to_image():
 # Modal runs Python functions on containers in the cloud.
 # The environment those functions run in is defined by the container's `Image`.
 # The block of code below defines our example's `Image`.
+cuda_version = "12.8.0"  # should be no greater than host CUDA version
+flavor = "devel"  #  includes full CUDA toolkit
+operating_sys = "ubuntu22.04"
+tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 vlm_image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .pip_install(  # add sglang and some Python dependencies
         "transformers==4.47.1",
         "numpy<2",
@@ -110,9 +114,9 @@ app = modal.App("example-sgl-vlm")
     gpu=GPU_CONFIG,
     timeout=20 * MINUTES,
     scaledown_window=20 * MINUTES,
-    allow_concurrent_inputs=100,
     image=vlm_image,
 )
+@modal.concurrent(max_inputs=100)
 class Model:
     @modal.enter()  # what should a container do after it starts but before it gets input?
     def start_runtime(self):

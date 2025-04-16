@@ -243,8 +243,8 @@ def refresh_db():
 @app.function(
     image=datasette_image,
     volumes={VOLUME_DIR: volume},
-    allow_concurrent_inputs=16,
 )
+@modal.concurrent(max_inputs=16)
 @modal.asgi_app()
 def ui():
     from datasette.app import Datasette

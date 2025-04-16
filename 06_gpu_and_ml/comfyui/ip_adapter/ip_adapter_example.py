@@ -38,12 +38,12 @@ app = modal.App(name="example-ip-adapter", image=image)
 
 # Run ComfyUI as an interactive web server
 @app.function(
-    allow_concurrent_inputs=10,
     max_containers=1,
     scaledown_window=30,
     timeout=1800,
     gpu="A10G",
 )
+@modal.concurrent(max_inputs=10)
 @modal.web_server(8000, startup_timeout=60)
 def ui():
     subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)

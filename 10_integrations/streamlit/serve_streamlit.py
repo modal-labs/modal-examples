@@ -52,9 +52,8 @@ if not streamlit_script_local_path.exists():
 # `subprocess.Popen`. We also expose port 8000 using the `@web_server` decorator.
 
 
-@app.function(
-    allow_concurrent_inputs=100,
-)
+@app.function()
+@modal.concurrent(max_inputs=100)
 @modal.web_server(8000)
 def run():
     target = shlex.quote(streamlit_script_remote_path)

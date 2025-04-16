@@ -408,8 +408,8 @@ web_image = pdf_image.pip_install(
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 1000 concurrent inputs
     max_containers=1,
-    allow_concurrent_inputs=1000,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def ui():
     import uuid

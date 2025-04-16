@@ -80,11 +80,11 @@ with tei_image.imports():
 @app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
-    # Use up to 20 GPU containers at once.
-    max_containers=20,
-    # Allow each container to process up to 10 batches at once.
-    allow_concurrent_inputs=10,
+    max_containers=20,  # Use up to 20 GPU containers at once.
 )
+@modal.concurrent(
+    max_inputs=10
+)  # Allow each container to process up to 10 batches at once.
 class TextEmbeddingsInference:
     @modal.enter()
     def setup_server(self):

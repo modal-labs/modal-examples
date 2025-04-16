@@ -224,7 +224,8 @@ def run(command: str) -> None:
 # Just define a simple [FastAPI](https://fastapi.tiangolo.com/) app:
 
 
-@app.function(volumes={TARGET_PATH: dbt_target}, allow_concurrent_inputs=100)
+@app.function(volumes={TARGET_PATH: dbt_target})
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()  # wrap a function that returns a FastAPI app in this decorator to host on Modal
 def serve_dbt_docs():
     import fastapi

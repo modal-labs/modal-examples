@@ -2,7 +2,7 @@
 # deploy: true
 # ---
 
-# # Create a character LoRA for Flux with Hugging Face and Gradio
+# # Fine-tune Flux on your pet using LoRA
 
 # This example finetunes the [Flux.1-dev model](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 # on images of a pet (by default, a puppy named Qwerty)
@@ -429,8 +429,8 @@ web_image = image.add_local_dir(
 @app.function(
     image=web_image,
     max_containers=1,
-    allow_concurrent_inputs=1000,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def fastapi_app():
     import gradio as gr

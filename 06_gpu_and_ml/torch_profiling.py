@@ -300,9 +300,9 @@ class VolumeMiddleware:
     volumes={TRACE_DIR: traces},
     image=tb_image,
     max_containers=1,  # single replica
-    allow_concurrent_inputs=100,  # 100 concurrent request threads
     scaledown_window=5 * 60,  # five minute idle time
 )
+@modal.concurrent(max_inputs=100)  # 100 concurrent request threads
 @modal.wsgi_app()
 def tensorboard():
     import tensorboard

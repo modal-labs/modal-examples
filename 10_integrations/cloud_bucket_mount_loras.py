@@ -274,9 +274,9 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
-    allow_concurrent_inputs=100,
     max_containers=1,
 )
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def ui():
     """A simple Gradio interface around our LoRA inference."""

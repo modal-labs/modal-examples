@@ -130,9 +130,9 @@ def generate_batches(xs, batch_size):
     gpu=GPU_CONFIG,
     image=tei_image,
     max_containers=GPU_CONCURRENCY,
-    allow_concurrent_inputs=True,
     retries=3,
 )
+@modal.concurrent(max_inputs=10)
 class TextEmbeddingsInference:
     @modal.enter()
     def open_connection(self):
