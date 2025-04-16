@@ -311,9 +311,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
     # let's run inference!
     for model_id, dataset in zip(model_ids, datasets):
         inference = Inference(
-            weights_path=str(
-                volume_path / "runs" / model_id / "weights" / "best.pt"
-            )
+            weights_path=str(volume_path / "runs" / model_id / "weights" / "best.pt")
         )
 
         # predict on a single image and save output to the volume

@@ -193,9 +193,7 @@ class ComfyUI:
         self.poll_server_health()
 
         # runs the comfy run --workflow command as a subprocess
-        cmd = (
-            f"comfy run --workflow {workflow_path} --wait --timeout 1200 --verbose"
-        )
+        cmd = f"comfy run --workflow {workflow_path} --wait --timeout 1200 --verbose"
         subprocess.run(cmd, shell=True, check=True)
 
         # completed workflows write output images to this directory

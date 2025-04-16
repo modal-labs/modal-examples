@@ -144,9 +144,7 @@ class MusicGen:
 
             # generate next segment
             generated_duration = (
-                segment_duration
-                if context is None
-                else (segment_duration - overlap)
+                segment_duration if context is None else (segment_duration - overlap)
             )
             print(f"🎼 generating {generated_duration} seconds of music")
             self.model.set_generation_params(duration=segment_duration)

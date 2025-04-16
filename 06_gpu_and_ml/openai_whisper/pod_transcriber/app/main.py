@@ -369,9 +369,7 @@ def process_episode(podcast_id: str, episode_id: str):
         metadata_path = get_episode_metadata_path(podcast_id, episode_id)
         with open(metadata_path, "r") as f:
             data = json.load(f)
-            episode = dacite.from_dict(
-                data_class=podcast.EpisodeMetadata, data=data
-            )
+            episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
 
         destination_path = config.RAW_AUDIO_DIR / episode_id
         podcast.store_original_audio(

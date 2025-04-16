@@ -147,7 +147,9 @@ class Model:
 
         image_url = request.get("image_url")
         if image_url is None:
-            image_url = "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+            image_url = (
+                "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+            )
 
         response = requests.get(image_url)
         response.raise_for_status()

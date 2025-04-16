@@ -133,9 +133,7 @@ def main():
     predictor = SentimentAnalysis()
     for review, label in data[:5]:
         prediction = predictor.predict.remote(review)
-        print(
-            f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
-        )
+        print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
 
     # Now, let's run batch inference over it
     print("Running batch prediction...")

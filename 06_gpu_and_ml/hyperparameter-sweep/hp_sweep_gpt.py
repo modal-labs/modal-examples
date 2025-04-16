@@ -102,9 +102,7 @@ torch_image = torch_image.add_local_dir(
 )
 
 # We'll serve a simple web endpoint:
-web_image = base_image.pip_install(
-    "fastapi[standard]==0.115.4", "starlette==0.41.2"
-)
+web_image = base_image.pip_install("fastapi[standard]==0.115.4", "starlette==0.41.2")
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
 assets_path = Path(__file__).parent / "assets"
@@ -198,9 +196,7 @@ def train_model(
     optimizer = setup_optimizer(model, learning_rate)
 
     # TensorBoard logging & checkpointing prep
-    logs_manager = LogsManager(
-        experiment_name, hparams, num_parameters, tb_log_path
-    )
+    logs_manager = LogsManager(experiment_name, hparams, num_parameters, tb_log_path)
     L.info(f"Model name: {logs_manager.model_name}")
 
     model_save_dir = model_save_path / experiment_name / logs_manager.model_name
@@ -309,9 +305,7 @@ def main(
 
     hparams_list = [
         ModelHyperparameters(n_heads=h, context_size=c, dropout=d)
-        for h, c, d in product(
-            nheads_options, context_size_options, dropout_options
-        )
+        for h, c, d in product(nheads_options, context_size_options, dropout_options)
     ]
 
     # run training for each hyperparameter setting
@@ -615,8 +609,8 @@ def ui():
         css = f.read()
 
     n_last = 20
-    experiment_names = (
-        ModelInference().get_latest_available_experiment_names.remote(n_last)
+    experiment_names = ModelInference().get_latest_available_experiment_names.remote(
+        n_last
     )
     theme = gr.themes.Default(
         primary_hue="green", secondary_hue="emerald", neutral_hue="neutral"

@@ -318,9 +318,7 @@ def ui():
     iface = gr.Interface(
         go,
         inputs=[  # the inputs to go/our inference function
-            gr.Dropdown(
-                choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"
-            ),
+            gr.Dropdown(choices=lora_ids, value=default_lora_id, label="👉 LoRA ID"),
             gr.Textbox(default_prompt, label="🎨 Prompt"),
             gr.Number(value=8888, label="🎲 Random Seed"),
         ],

@@ -11,9 +11,7 @@ import sys
 import modal
 
 app = modal.App(name="example-stable-video-diffusion-streamlit")
-q = modal.Queue.from_name(
-    "stable-video-diffusion-streamlit", create_if_missing=True
-)
+q = modal.Queue.from_name("stable-video-diffusion-streamlit", create_if_missing=True)
 
 session_timeout = 15 * 60
 

@@ -226,9 +226,7 @@ class Summarizer:
             BASE_MODEL, cache_dir=VOL_MOUNT_PATH / "model/"
         )
 
-        self.summarizer = pipeline(
-            "summarization", tokenizer=tokenizer, model=model
-        )
+        self.summarizer = pipeline("summarization", tokenizer=tokenizer, model=model)
 
     @modal.method()
     def generate(self, input: str) -> str:

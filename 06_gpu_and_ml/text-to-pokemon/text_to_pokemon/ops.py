@@ -36,9 +36,7 @@ def reset_diskcache(dry_run=True) -> None:
             if not dry_run:
                 filepath.unlink()
         if files and dry_run:
-            print(
-                f"🏜 dry-run: would have deleted {i + 1} Pokémon character samples"
-            )
+            print(f"🏜 dry-run: would have deleted {i + 1} Pokémon character samples")
         elif files:
             print(f"deleted {i + 1} Pokémon character samples")
         else:

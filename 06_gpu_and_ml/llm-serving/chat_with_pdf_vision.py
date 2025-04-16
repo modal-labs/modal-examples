@@ -208,9 +208,7 @@ class Model:
         # Generated embeddings from the image(s)
         BATCH_SZ = 4
         pdf_embeddings = []
-        batches = [
-            images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)
-        ]
+        batches = [images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)]
         for batch in batches:
             batch_images = self.colqwen2_processor.process_images(batch).to(
                 self.colqwen2_model.device

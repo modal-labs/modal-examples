@@ -248,9 +248,7 @@ def ui():
 
     title = "Predict & Visualize Protein Structures"
 
-    with gr.Blocks(
-        theme=theme, css=css, title=title, js=always_dark()
-    ) as interface:
+    with gr.Blocks(theme=theme, css=css, title=title, js=always_dark()) as interface:
         gr.Markdown(f"# {title}")
 
         with gr.Row():

@@ -89,9 +89,7 @@ def download_dataset(cache=True):
     print("Unpacking archive...")
     prefix = "COVID-19-master/csse_covid_19_data/csse_covid_19_daily_reports"
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run(
-            f"unzip /tmp/covid-19.zip {prefix}/* -d {tmpdir}", shell=True
-        )
+        subprocess.run(f"unzip /tmp/covid-19.zip {prefix}/* -d {tmpdir}", shell=True)
         REPORTS_DIR.mkdir(parents=True)
         tmpdir_path = pathlib.Path(tmpdir)
         subprocess.run(f"mv {tmpdir_path / prefix}/* {REPORTS_DIR}", shell=True)

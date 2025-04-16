@@ -92,9 +92,7 @@ class ModelArguments:
     )
     suppress_tokens: list[int] = field(
         default=None,
-        metadata={
-            "help": "A list of tokens that will be suppressed at generation."
-        },
+        metadata={"help": "A list of tokens that will be suppressed at generation."},
     )
     apply_spec_augment: bool = field(
         default=False,

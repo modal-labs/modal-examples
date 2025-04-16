@@ -152,9 +152,7 @@ class OllamaServer:
                 retcode = await pull_process.wait()
 
                 if retcode != 0:
-                    print(
-                        f"Error pulling model '{model_name}': exit code {retcode}"
-                    )
+                    print(f"Error pulling model '{model_name}': exit code {retcode}")
                 else:
                     print(f"Model '{model_name}' pulled successfully.")
             else:

@@ -49,9 +49,7 @@ web_app = fastapi.FastAPI()
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
-    parse_receipt = modal.Function.from_name(
-        "example-doc-ocr-jobs", "parse_receipt"
-    )
+    parse_receipt = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
 
     form = await request.form()
     receipt = await form["receipt"].read()  # type: ignore

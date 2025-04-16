@@ -18,9 +18,9 @@ persistent_volume = modal.Volume.from_name(
     create_if_missing=True,
 )
 
-image = modal.Image.debian_slim(
-    python_version="3.12"
-).pip_install_from_requirements("requirements.txt")
+image = modal.Image.debian_slim(python_version="3.12").pip_install_from_requirements(
+    "requirements.txt"
+)
 app = modal.App(
     name="example-whisper-fine-tune",
     image=image,
@@ -126,8 +126,7 @@ def train(
             # different padding methods
             model_input_name = self.processor.model_input_names[0]
             input_features = [
-                {model_input_name: feature[model_input_name]}
-                for feature in features
+                {model_input_name: feature[model_input_name]} for feature in features
             ]
             label_features = [
                 {"input_ids": feature["labels"]} for feature in features
@@ -161,9 +160,7 @@ def train(
             return batch
 
     logger.info("Starting training run")
-    logger.info(
-        f"Finetuned model will be persisted to '{training_args.output_dir}'"
-    )
+    logger.info(f"Finetuned model will be persisted to '{training_args.output_dir}'")
     setup_logging(
         logger=logger,
         log_level=training_args.get_process_log_level(),
@@ -186,10 +183,7 @@ def train(
         and not overwrite_output_dir
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if (
-            last_checkpoint is None
-            and len(os.listdir(training_args.output_dir)) > 0
-        ):
+        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
             print(os.listdir(training_args.output_dir))
             raise ValueError(
                 f"Output directory ({training_args.output_dir}) already exists and is not empty. "
@@ -306,9 +300,7 @@ def train(
 
     if data_args.language is not None:
         # We only need to set the task id when the language is specified (i.e. in a multilingual setting)
-        tokenizer.set_prefix_tokens(
-            language=data_args.language, task=data_args.task
-        )
+        tokenizer.set_prefix_tokens(language=data_args.language, task=data_args.task)
 
     logger.info("6. Resample speech dataset if necessary")
     dataset_sampling_rate = (

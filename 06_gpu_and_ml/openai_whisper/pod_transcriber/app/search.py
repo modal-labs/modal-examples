@@ -129,9 +129,7 @@ def build_search_index(records: list[SearchRecord], v):
 
     def makedict(s, forceidf=None):
         words = set(s.lower().translate(trans_table).strip().split())
-        words = set(
-            w for w in words if len(w) > 1 and (w not in ENGLISH_STOP_WORDS)
-        )
+        words = set(w for w in words if len(w) > 1 and (w not in ENGLISH_STOP_WORDS))
         idfd = {}
         for w in words:
             if forceidf is None:
