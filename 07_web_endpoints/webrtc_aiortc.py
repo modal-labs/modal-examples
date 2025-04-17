@@ -1,4 +1,4 @@
-from aiortc import RTCSessionDescription
+import abc
 import modal
 
 # pretty minimal image
@@ -16,7 +16,7 @@ app = modal.App(
 MINUTES = 60  # seconds
 test_timeout = 0.5 * MINUTES
 
-class WebRTCPeer:
+class WebRTCPeer(abc.ABC):
 
     @modal.enter()
     def init(self):
@@ -47,11 +47,16 @@ class WebRTCPeer:
         self.connection_successful = False
 
     def setup_streams(self):
+        pass
+
+    @abc.abstractmethod
+    def setup_test_datastream(self):
         raise NotImplementedError("Subclasses must implement this method")
 
     async def generate_offer(self):
 
         self.setup_streams()
+        self.setup_test_datastream()
         
         # create initial offer
         offer = await self.pc.createOffer()
@@ -69,6 +74,8 @@ class WebRTCPeer:
         from aiortc import RTCSessionDescription
 
         self.setup_streams()
+        self.setup_test_datastream()
+
         # set remote description
         await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
 
@@ -100,7 +107,7 @@ class WebRTCPeer:
 @modal.concurrent(max_inputs=100)
 class WebRTCResponder(WebRTCPeer):   
 
-    def setup_streams(self):
+    def setup_test_datastream(self):
         # when a data channel is opened
         @self.pc.on("datachannel")
         def on_datachannel(channel):
@@ -170,9 +177,9 @@ class WebRTCResponder(WebRTCPeer):
 @modal.concurrent(max_inputs=100)
 class WebRTCRequester(WebRTCPeer):
 
-    def setup_streams(self):
+    def setup_test_datastream(self):
         # create data channel, in more complex use cases you might stream audio and/or video
-        channel = self.pc.createDataChannel("data")
+        channel = self.pc.createDataChannel("test_channel")
 
         # when the channel is opened, i.e. the P2P connection is established, send a ping to the server
         @channel.on("open")
