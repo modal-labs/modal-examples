@@ -161,17 +161,6 @@ class WebRTCClient():
 
             channel = self.pc.createDataChannel("data")
 
-            @self.pc.on("iceconnectionstatechange")
-            async def on_iceconnectionstatechange():
-                print(f"Client ICE connection state is {self.pc.iceConnectionState}")
-                if self.pc.iceConnectionState == "failed":
-                    await self.pc.close()
-
-
-            @self.pc.on("signalingstatechange")
-            async def on_signalingstatechange():
-                print(f"Client signaling state is {self.pc.signalingState}")
-
             async def send_ping():
                 channel.send("ping")
 
