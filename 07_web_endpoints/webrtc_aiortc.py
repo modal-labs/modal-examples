@@ -91,11 +91,13 @@ class WebRTCServer:
                         # create answer
                         answer = await self.pc.createAnswer()
 
-                        # set local description
+                        # set local/our description, this also triggers ICE gathering
                         await self.pc.setLocalDescription(answer)
 
                         # send local description DSP
-                        answer_msg = json.dumps({"sdp": answer.sdp, "type": "answer"})
+                        # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
+                        # these are embedded in the SDP after setLocalDescription() is called
+                        answer_msg = json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})
                         await websocket.send_text(answer_msg)
                         print(f"Server sent answer...")
                     else:
@@ -163,17 +165,16 @@ class WebRTCClient():
 
             print(f"Successful health check for server at {WebRTCServer().webapp.web_url}")
 
-            
-
+            # create data channel, in more complex use cases you might stream audio and/or video
             channel = self.pc.createDataChannel("data")
 
-            async def send_ping():
-                channel.send("ping")
-
+            # when the channel is opened, i.e. the P2P connection is established, send a ping to the server
             @channel.on("open")
             def on_open():
-                asyncio.ensure_future(send_ping())
+                channel.send("ping")
 
+            # when a message is received from the server, check if it is a pong
+            # if so, set the connection successful flag to true
             @channel.on("message")
             def on_message(message):
 
@@ -181,21 +182,26 @@ class WebRTCClient():
                     self.connection_successful = True
                     print(f"Client received {message}")
                             
+
+            # setup WebRTC connection using websockets
             ws_uri = WebRTCServer().webapp.web_url.replace("http", "ws") + "/ws"
-            print(f"Connecting to {ws_uri}")
+            print(f"Connecting to server websocket at {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
+                # create offer
                 offer = await self.pc.createOffer()
+                # set local/our description, this also triggers ICE gathering
                 await self.pc.setLocalDescription(offer)
-
-                while self.pc.iceGatheringState != "complete":
-                    print(self.pc.iceGatheringState)
-                    await asyncio.sleep(1)
                 
-                print(f"Sending offer: {self.pc.localDescription.sdp}")
+                print(f"Sending offer to server...")
+                # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
+                # these are embedded in the SDP after setLocalDescription() is called
                 await websocket.send(json.dumps({"sdp": self.pc.localDescription.sdp, "type": offer.type}))
+
+                # receive answer
                 answer = json.loads(await websocket.recv())
-                print(f"Received answer: {answer}")
+                print(f"Received answer from server...")
+                # set remote peer description
                 await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
 
@@ -218,7 +224,7 @@ def main():
     import time
     import urllib
 
-    print(f"Running health check of cloud client at {WebRTCClient().webapp.web_url}")
+    print(f"Running health check of client container at {WebRTCClient().webapp.web_url}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
@@ -233,11 +239,11 @@ def main():
                 break
             time.sleep(delay)
 
-    assert up, f"Failed health check for cloud client at {WebRTCClient().webapp.web_url}"
+    assert up, f"Failed health check for client at {WebRTCClient().webapp.web_url}"
 
-    print(f"Successful health check for cloud client at {WebRTCClient().webapp.web_url}")
+    print(f"Successful health check for client at {WebRTCClient().webapp.web_url}")
 
-    print("Testing connection...")
+    # build request to check connection status
     headers = {
         "Content-Type": "application/json",
     }
@@ -246,18 +252,24 @@ def main():
         method="GET",
         headers=headers,
     )
+
+    # test if P2P data channel is established once a second
+    print("Testing connection...")
     success = False
     now = time.time()
     while time.time() - now < test_timeout:
         with urllib.request.urlopen(req) as response:
             success = (json.loads(response.read().decode())["success"])
         try:
-            assert success, "Connection failed"
+            assert success
+            print("Connection successful!!!!")
             return
         except:
             print("Connection failed")
             time.sleep(1)
             pass
+
+    # assert that the connection was successful
     assert success, "Connection failed"
 
     
