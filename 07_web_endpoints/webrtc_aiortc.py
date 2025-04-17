@@ -53,34 +53,59 @@ class WebRTCPeer:
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCResponder(WebRTCPeer):     
+class WebRTCResponder(WebRTCPeer):   
 
+    async def handle_offer(self, data):
+
+        import json
+
+        from aiortc import RTCSessionDescription
+        # set remote description
+        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
+
+        # create answer
+        answer = await self.pc.createAnswer()
+
+        # set local/our description, this also triggers ICE gathering
+        await self.pc.setLocalDescription(answer)
+
+        # send local description DSP
+        # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
+        # these are embedded in the SDP after setLocalDescription() is called
+        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})  
+
+    # add responder logic to webapp
     @modal.asgi_app(label="webrtc-server")
     def webapp(self):
 
         import json
-
         from fastapi import WebSocket
 
-        from aiortc import RTCSessionDescription
-
-                
-
+        # when a data channel is opened
         @self.pc.on("datachannel")
         def on_datachannel(channel):
+
+            def pong():
+                channel.send("pong")
+
+            # add a message handler to the data channel
             @channel.on("message")
             def on_message(message):
-                print(f"Received message: {message}")
-                self.connection_successful = True
-                channel.send("pong")
+                print(f"Received message: {message}\n")
+
+                if message == "ping":
+                    pong()
+                    self.connection_successful = True
+                
 
         # create root endpoint to use for health checks
         @self.web_app.get("/")
         async def get_server():
             pass
 
+        # create websocket endpoint to handle incoming connections
         @self.web_app.websocket("/ws")
-        async def websocket_handler(websocket: WebSocket):
+        async def on_connection_request(websocket: WebSocket):
 
             # accept websocket connection
             await websocket.accept()
@@ -89,37 +114,24 @@ class WebRTCResponder(WebRTCPeer):
             while True:
                 try:
                     # get websocket message and parse as json
-                    message = await websocket.receive_text()
-                    data = json.loads(message)
+                    msg = json.loads(await websocket.receive_text())
 
                     # handle offer
-                    if data.get("type") == "offer":
+                    if msg.get("type") == "offer":
                         print(f"Server received offer...")
 
-                        # set remote description
-                        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
-
-                        # create answer
-                        answer = await self.pc.createAnswer()
-
-                        # set local/our description, this also triggers ICE gathering
-                        await self.pc.setLocalDescription(answer)
-
-                        # send local description DSP
-                        # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
-                        # these are embedded in the SDP after setLocalDescription() is called
-                        answer_msg = json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})
-                        await websocket.send_text(answer_msg)
+                        reply = await self.handle_offer(msg)
+                        await websocket.send_text(reply)
                         print(f"Server sent answer...")
                     else:
-                        print(f"Unknown message type: {data.get('type')}")
+                        print(f"Unknown message type: {msg.get('type')}")
                 except Exception as e:
                     print(f"Error: {e}")
                     break
 
-
-
         return self.web_app
+    
+    
         
 
 @app.cls(
@@ -127,9 +139,9 @@ class WebRTCResponder(WebRTCPeer):
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCClient(WebRTCPeer):
+class WebRTCRequester(WebRTCPeer):
 
-
+    # add initiator logic to webapp
     @modal.asgi_app(label="webrtc-client")
     def webapp(self):
 
@@ -140,6 +152,7 @@ class WebRTCClient(WebRTCPeer):
         from aiortc import  RTCSessionDescription
         import websockets
 
+        # create root endpoint to trigger connection request
         @self.web_app.get("/")
         async def start_client():
 
@@ -213,31 +226,31 @@ def main():
     import time
     import urllib
 
-    print(f"Running health check of client container at {WebRTCClient().webapp.web_url}")
+    print(f"Running health check of client container at {WebRTCRequester().webapp.web_url}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
-            with urllib.request.urlopen(WebRTCClient().webapp.web_url) as response:
+            with urllib.request.urlopen(WebRTCRequester().webapp.web_url) as response:
                 if response.getcode() == 200:
-                    print(f"Cloud client is up at {WebRTCClient().webapp.web_url}")
+                    print(f"Cloud client is up at {WebRTCRequester().webapp.web_url}")
                     up = True
                 else:
-                    print(f"Cloud client is not up at {WebRTCClient().webapp.web_url}")
+                    print(f"Cloud client is not up at {WebRTCRequester().webapp.web_url}")
         except Exception:
             if time.time() - start > test_timeout:
                 break
             time.sleep(delay)
 
-    assert up, f"Failed health check for client at {WebRTCClient().webapp.web_url}"
+    assert up, f"Failed health check for client at {WebRTCRequester().webapp.web_url}"
 
-    print(f"Successful health check for client at {WebRTCClient().webapp.web_url}")
+    print(f"Successful health check for client at {WebRTCRequester().webapp.web_url}")
 
     # build request to check connection status
     headers = {
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCClient().webapp.web_url + "/success",
+        WebRTCRequester().webapp.web_url + "/success",
         method="GET",
         headers=headers,
     )
