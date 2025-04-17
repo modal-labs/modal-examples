@@ -22,7 +22,7 @@ test_timeout = 5 * MINUTES
 
 
 @app.function(
-    image=web_image_client,
+    image=web_image_server,
 )
 @modal.concurrent(max_inputs=100)
 @modal.asgi_app(label="webrtc-server")
