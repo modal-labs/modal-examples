@@ -99,121 +99,117 @@ def webrtc_server():
 
     return web_app
 
-@app.function(
+@app.cls(
     image=web_image_client,
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-@modal.asgi_app(label="webrtc-client")
-def webrtc_client():
+class WebRTCClient():
 
-    import json
-    import time
-    import urllib
-    import argparse
-    from fastapi import FastAPI, WebSocket
-    import asyncio
-    from aiortc import RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, RTCConfiguration, RTCIceServer
-    from aiortc.contrib.signaling import create_signaling, add_signaling_arguments, BYE
 
-    web_app = FastAPI()
+    @modal.enter()
+    def init(self):
 
-    @web_app.get("/")
-    async def start_client():
+        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
-        # confirm server container is running
-        print(f"Attempting to connect to server at {webrtc_server.web_url}")
-        up, start, delay = False, time.time(), 10
-        while not up:
-            try:
-                with urllib.request.urlopen(webrtc_server.web_url) as response:
-                    if response.getcode() == 200:
-                        up = True
-            except Exception:
-                if time.time() - start > test_timeout:
-                    break
-                time.sleep(delay)
-
-        assert up, f"Failed health check for server at {webrtc_server.web_url}"
-
-        print(f"Successful health check for server at {webrtc_server.web_url}")
+        self.connection_successful = False
 
         # create peer connection with STUN server
         config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        pc = RTCPeerConnection(configuration = config)
+        self.pc = RTCPeerConnection(configuration = config)
 
-        channel = pc.createDataChannel("data")
+    @modal.asgi_app(label="webrtc-client")
+    def webapp(self):
 
-        @pc.on("iceconnectionstatechange")
-        async def on_iceconnectionstatechange():
-            print(f"Client ICE connection state is {pc.iceConnectionState}")
-            if pc.iceConnectionState == "failed":
-                await pc.close()
+        import json
+        import time
+        import urllib
+        from fastapi import FastAPI
+        import asyncio
+        from aiortc import  RTCSessionDescription
 
+        web_app = FastAPI()
 
-        @pc.on("signalingstatechange")
-        async def on_signalingstatechange():
-            print(f"Client signaling state is {pc.signalingState}")
+        
 
-        async def send_pings():
-            while True:
-                channel.send("ping")
-                await asyncio.sleep(1)
+        @web_app.get("/")
+        async def start_client():
 
-        @channel.on("open")
-        def on_open():
-            asyncio.ensure_future(send_pings())
+            # confirm server container is running
+            print(f"Attempting to connect to server at {webrtc_server.web_url}")
+            up, start, delay = False, time.time(), 10
+            while not up:
+                try:
+                    with urllib.request.urlopen(webrtc_server.web_url) as response:
+                        if response.getcode() == 200:
+                            up = True
+                except Exception:
+                    if time.time() - start > test_timeout:
+                        break
+                    time.sleep(delay)
 
-        @channel.on("message")
-        def on_message(message):
+            assert up, f"Failed health check for server at {webrtc_server.web_url}"
 
-            if isinstance(message, str) and message.startswith("pong"):
-                print(f"Client received {message}")
+            print(f"Successful health check for server at {webrtc_server.web_url}")
 
-
-        # send offer
-       
-        ws_uri = webrtc_server.web_url.replace("http", "ws") + "/ws"
-        print(f"Connecting to {ws_uri}")
-        async with websockets.connect(ws_uri) as websocket:
-
-            offer = await pc.createOffer()
-            await pc.setLocalDescription(offer)
-
-            while pc.iceGatheringState != "complete":
-                print(pc.iceGatheringState)
-                await asyncio.sleep(1)
-
-            print(pc.iceConnectionState)
-            print(pc.iceGatheringState)
-            print(pc.signalingState)
             
-            print(f"Sending offer: {offer.sdp}")
-            await websocket.send(json.dumps({"sdp": pc.localDescription.sdp, "type": offer.type}))
-            answer = json.loads(await websocket.recv())
-            print(f"Received answer: {answer}")
-            await pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
-            print(pc.iceConnectionState)
-            print(pc.iceGatheringState)
-            print(pc.signalingState)
+            channel = self.pc.createDataChannel("data")
+
+            @self.pc.on("iceconnectionstatechange")
+            async def on_iceconnectionstatechange():
+                print(f"Client ICE connection state is {self.pc.iceConnectionState}")
+                if self.pc.iceConnectionState == "failed":
+                    await self.pc.close()
 
 
-            while True:
-                print(pc.iceConnectionState)
-                print(pc.iceGatheringState)
-                print(pc.signalingState)
+            @self.pc.on("signalingstatechange")
+            async def on_signalingstatechange():
+                print(f"Client signaling state is {self.pc.signalingState}")
 
-                await asyncio.sleep(1)
-            # answer = await pc.createAnswer()
-            # await pc.setLocalDescription(answer)
-            # await websocket.send(pc.localDescription.sdp)
+            async def send_ping():
+                channel.send("ping")
 
-            # answer_sdp = await websocket.recv()
-            # await pc.setRemoteDescription(RTCSessionDescription(sdp=answer_sdp, type="answer"))
+            @channel.on("open")
+            def on_open():
+                asyncio.ensure_future(send_ping())
 
-    return web_app
+            @channel.on("message")
+            def on_message(message):
+
+                if isinstance(message, str) and message.startswith("pong"):
+                    self.connection_successful = True
+                    print(f"Client received {message}")
+                            
+            ws_uri = webrtc_server.web_url.replace("http", "ws") + "/ws"
+            print(f"Connecting to {ws_uri}")
+            async with websockets.connect(ws_uri) as websocket:
+
+                offer = await self.pc.createOffer()
+                await self.pc.setLocalDescription(offer)
+
+                while self.pc.iceGatheringState != "complete":
+                    print(self.pc.iceGatheringState)
+                    await asyncio.sleep(1)
+                
+                print(f"Sending offer: {self.pc.localDescription.sdp}")
+                await websocket.send(json.dumps({"sdp": self.pc.localDescription.sdp, "type": offer.type}))
+                answer = json.loads(await websocket.recv())
+                print(f"Received answer: {answer}")
+                await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
+
+
+        @web_app.get("/success")
+        async def success():
+            return {"success": self.connection_successful}
+        
+        return web_app
+    
+    @modal.exit()
+    async def exit(self):
+        self.connection_successful = False
+        await self.pc.close()
 
 
 
@@ -223,22 +219,39 @@ def main():
     import time
     import urllib
 
-    print(f"Running health check of cloud client at {webrtc_client.web_url}")
+    print(f"Running health check of cloud client at {WebRTCClient().webapp.web_url}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
-            with urllib.request.urlopen(webrtc_client.web_url) as response:
+            with urllib.request.urlopen(WebRTCClient().webapp.web_url) as response:
                 if response.getcode() == 200:
-                    print(f"Cloud client is up at {webrtc_client.web_url}")
+                    print(f"Cloud client is up at {WebRTCClient().webapp.web_url}")
                     up = True
                 else:
-                    print(f"Cloud client is not up at {webrtc_client.web_url}")
+                    print(f"Cloud client is not up at {WebRTCClient().webapp.web_url}")
         except Exception:
             if time.time() - start > test_timeout:
                 break
             time.sleep(delay)
 
-    assert up, f"Failed health check for cloud client at {webrtc_client.web_url}"
+    assert up, f"Failed health check for cloud client at {WebRTCClient().webapp.web_url}"
 
-    print(f"Successful health check for cloud client at {webrtc_client.web_url}")
+    print(f"Successful health check for cloud client at {WebRTCClient().webapp.web_url}")
+
+    time.sleep(5.0)
+
+    print("Testing connection...")
+    headers = {
+        "Content-Type": "application/json",
+    }
+    req = urllib.request.Request(
+        WebRTCClient().webapp.web_url + "/success",
+        method="GET",
+        headers=headers,
+    )
+    success = False
+    with urllib.request.urlopen(req) as response:
+        success = (json.loads(response.read().decode())["success"])
+
+    assert success, "Connection failed"
 
