@@ -3,22 +3,24 @@ from fastapi import FastAPI
 import modal
 import websockets
 
+# pretty minimal image
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi[standard]==0.115.4",
     "aiortc",
-    "argparse",
 )
 
-
+# instantiate our app
 app = modal.App(
     "aoirtc-demo"
 )
 
+# set timeout for health checks and connection test
 MINUTES = 60  # seconds
 test_timeout = 0.5 * MINUTES
 
 
-
+# a class for our server. in this case server just means that this process is responding to an offer
+# to establish a P2P connection as opposed to initiating the connection
 @app.cls(
     image=web_image,
     min_containers=1,
@@ -28,11 +30,16 @@ class WebRTCServer:
 
     @modal.enter()
     def init(self):
+
         from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
+
         # create peer connection with STUN server
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.pc = RTCPeerConnection(configuration = config)
+        # aiortc automatically uses google's STUN server, but we can also specify our own
+        # as shown below
+        # config = RTCConfiguration()
+        # config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        # self.pc = RTCPeerConnection(configuration = config)
+        self.pc = RTCPeerConnection()
 
     @modal.exit()
     async def exit(self):
@@ -45,16 +52,9 @@ class WebRTCServer:
 
         from fastapi import FastAPI, WebSocket
 
-        from aioice.candidate import Candidate
         from aiortc import RTCSessionDescription, RTCConfiguration, RTCIceServer
-        from aiortc.contrib.signaling import create_signaling, add_signaling_arguments, BYE
 
         web_app = FastAPI()
-
-        # create peer connection with STUN server
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.pc = RTCPeerConnection(configuration = config)
                 
 
         @self.pc.on("datachannel")
@@ -127,9 +127,7 @@ class WebRTCClient():
         self.connection_successful = False
 
         # create peer connection with STUN server
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.pc = RTCPeerConnection(configuration = config)
+        self.pc = RTCPeerConnection()
 
     @modal.asgi_app(label="webrtc-client")
     def webapp(self):
