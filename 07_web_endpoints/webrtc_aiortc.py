@@ -70,28 +70,34 @@ class WebRTCServer:
 
         @web_app.websocket("/ws")
         async def websocket_handler(websocket: WebSocket):
+
+            # accept websocket connection
             await websocket.accept()
 
+            # handle websocket messages and loop for lifetime
             while True:
                 try:
+                    # get websocket message and parse as json
                     message = await websocket.receive_text()
                     data = json.loads(message)
-                    print(f"Received message: {data}")
-                    if data.get("type") == "offer":
-                        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
-                        answer = await self.pc.createAnswer()
-                        await self.pc.setLocalDescription(answer)
-                        answer_msg = json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})
-                        print(self.pc.iceConnectionState)
-                        print(self.pc.iceGatheringState)
-                        print(self.pc.signalingState)
-                        print(f"Sending answer: {answer_msg}")
-                        
 
+                    # handle offer
+                    if data.get("type") == "offer":
+                        print(f"Server received offer...")
+
+                        # set remote description
+                        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
+
+                        # create answer
+                        answer = await self.pc.createAnswer()
+
+                        # set local description
+                        await self.pc.setLocalDescription(answer)
+
+                        # send local description DSP
+                        answer_msg = json.dumps({"sdp": answer.sdp, "type": "answer"})
                         await websocket.send_text(answer_msg)
-                    elif data.get("type") == "bye":
-                        print("Exiting")
-                        break
+                        print(f"Server sent answer...")
                     else:
                         print(f"Unknown message type: {data.get('type')}")
                 except Exception as e:
