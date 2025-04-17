@@ -1,7 +1,4 @@
-from aiortc import RTCPeerConnection
-from fastapi import FastAPI
 import modal
-import websockets
 
 # pretty minimal image
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
@@ -134,9 +131,8 @@ class WebRTCClient(WebRTCPeer):
         import time
         import urllib
         from fastapi import FastAPI
-        import asyncio
         from aiortc import  RTCSessionDescription
-
+        import websockets
         web_app = FastAPI()
 
         
