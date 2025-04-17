@@ -1,3 +1,4 @@
+from aiortc import RTCSessionDescription
 import modal
 
 # pretty minimal image
@@ -45,21 +46,29 @@ class WebRTCPeer:
         await self.pc.close()  
         self.connection_successful = False
 
+    def setup_streams(self):
+        raise NotImplementedError("Subclasses must implement this method")
 
-# a class for our server. in this case server just means that this process is responding to an offer
-# to establish a P2P connection as opposed to initiating the connection
-@app.cls(
-    image=web_image,
-    min_containers=1,
-)
-@modal.concurrent(max_inputs=100)
-class WebRTCResponder(WebRTCPeer):   
+    async def generate_offer(self):
+
+        self.setup_streams()
+        
+        # create initial offer
+        offer = await self.pc.createOffer()
+        
+        # set local/our description, this also triggers and waits for ICE gathering/generation of ICE candidate info
+        await self.pc.setLocalDescription(offer)
+
+        # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
+        # these are embedded in the SDP after setLocalDescription() is called
+        return {"sdp": self.pc.localDescription.sdp, "type": offer.type}
 
     async def handle_offer(self, data):
 
         import json
-
         from aiortc import RTCSessionDescription
+
+        self.setup_streams()
         # set remote description
         await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
 
@@ -72,15 +81,26 @@ class WebRTCResponder(WebRTCPeer):
         # send local description DSP
         # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})  
+        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"}) 
+    
+    async def handle_answer(self, answer):
 
-    # add responder logic to webapp
-    @modal.asgi_app(label="webrtc-server")
-    def webapp(self):
+        from aiortc import RTCSessionDescription
 
-        import json
-        from fastapi import WebSocket
+        # set remote peer description
+        await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
+
+# a class for our server. in this case server just means that this process is responding to an offer
+# to establish a P2P connection as opposed to initiating the connection
+@app.cls(
+    image=web_image,
+    min_containers=1,
+)
+@modal.concurrent(max_inputs=100)
+class WebRTCResponder(WebRTCPeer):   
+
+    def setup_streams(self):
         # when a data channel is opened
         @self.pc.on("datachannel")
         def on_datachannel(channel):
@@ -96,7 +116,13 @@ class WebRTCResponder(WebRTCPeer):
                 if message == "ping":
                     pong()
                     self.connection_successful = True
-                
+
+    # add responder logic to webapp
+    @modal.asgi_app(label="webrtc-server")
+    def webapp(self):
+
+        import json
+        from fastapi import WebSocket
 
         # create root endpoint to use for health checks
         @self.web_app.get("/")
@@ -118,21 +144,24 @@ class WebRTCResponder(WebRTCPeer):
 
                     # handle offer
                     if msg.get("type") == "offer":
+
                         print(f"Server received offer...")
 
+                        # handle offer and generate answer
                         reply = await self.handle_offer(msg)
                         await websocket.send_text(reply)
+
                         print(f"Server sent answer...")
+
                     else:
                         print(f"Unknown message type: {msg.get('type')}")
+
                 except Exception as e:
                     print(f"Error: {e}")
                     break
 
         return self.web_app
     
-    
-        
 
 @app.cls(
     image=web_image,
@@ -141,24 +170,29 @@ class WebRTCResponder(WebRTCPeer):
 @modal.concurrent(max_inputs=100)
 class WebRTCRequester(WebRTCPeer):
 
-    async def get_offer(self):
+    def setup_streams(self):
+        # create data channel, in more complex use cases you might stream audio and/or video
+        channel = self.pc.createDataChannel("data")
 
-        import json
-        
-        # create initial offer
-        offer = await self.pc.createOffer()
-        
-        # set local/our description, this also triggers and waits for ICE gathering/generation of ICE candidate info
-        await self.pc.setLocalDescription(offer)
+        # when the channel is opened, i.e. the P2P connection is established, send a ping to the server
+        @channel.on("open")
+        def on_open():
+            channel.send("ping")
 
-        # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
-        # these are embedded in the SDP after setLocalDescription() is called
-        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": offer.type})
+        # when a message is received from the server, check if it is a pong
+        # if so, set the connection successful flag to true
+        @channel.on("message")
+        def on_message(message):
+
+            if isinstance(message, str) and message.startswith("pong"):
+                self.connection_successful = True
+                print(f"Client received {message}\n")
     
-    def check_server_health(self):
+    def check_responder_is_up(self):
 
         import time
         import urllib
+
         print(f"Attempting to connect to server at {WebRTCResponder().webapp.web_url}")
         up, start, delay = False, time.time(), 10
         while not up:
@@ -171,19 +205,15 @@ class WebRTCRequester(WebRTCPeer):
                     break
                 time.sleep(delay)
 
-        assert up, f"Failed health check for server at {WebRTCResponder().webapp.web_url}"
+        assert up, f"Failed to connect to server at {WebRTCResponder().webapp.web_url}"
 
-        print(f"Successful health check for server at {WebRTCResponder().webapp.web_url}")
+        print(f"Server is up at {WebRTCResponder().webapp.web_url}")
 
     # add initiator logic to webapp
     @modal.asgi_app(label="webrtc-client")
     def webapp(self):
 
         import json
-        import time
-        import urllib
-
-        from aiortc import  RTCSessionDescription
         import websockets
 
         # create root endpoint to trigger connection request
@@ -191,42 +221,25 @@ class WebRTCRequester(WebRTCPeer):
         async def setup_connection():
 
             # confirm server container is running
-            self.check_server_health()
+            self.check_responder_is_up()
 
-            # create data channel, in more complex use cases you might stream audio and/or video
-            channel = self.pc.createDataChannel("data")
-
-            # when the channel is opened, i.e. the P2P connection is established, send a ping to the server
-            @channel.on("open")
-            def on_open():
-                channel.send("ping")
-
-            # when a message is received from the server, check if it is a pong
-            # if so, set the connection successful flag to true
-            @channel.on("message")
-            def on_message(message):
-
-                if isinstance(message, str) and message.startswith("pong"):
-                    self.connection_successful = True
-                    print(f"Client received {message}")
-                            
-
+            
             # setup WebRTC connection using websockets
             ws_uri = WebRTCResponder().webapp.web_url.replace("http", "ws") + "/ws"
             print(f"Connecting to server websocket at {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
-                offer_msg = await self.get_offer()
+                offer_msg = await self.generate_offer()
 
                 print(f"Sending offer to server...")
                 
-                await websocket.send(offer_msg)
+                await websocket.send(json.dumps(offer_msg))
 
                 # receive answer
                 answer = json.loads(await websocket.recv())
                 print(f"Received answer from server...")
-                # set remote peer description
-                await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
+
+                await self.handle_answer(answer)
 
         
         return self.web_app
@@ -240,24 +253,21 @@ def main():
     import time
     import urllib
 
-    print(f"Running health check of client container at {WebRTCRequester().webapp.web_url}")
+    print(f"Attempting to trigger WebRTC connector at {WebRTCRequester().webapp.web_url}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
             with urllib.request.urlopen(WebRTCRequester().webapp.web_url) as response:
                 if response.getcode() == 200:
-                    print(f"Cloud client is up at {WebRTCRequester().webapp.web_url}")
                     up = True
-                else:
-                    print(f"Cloud client is not up at {WebRTCRequester().webapp.web_url}")
         except Exception:
             if time.time() - start > test_timeout:
                 break
             time.sleep(delay)
 
-    assert up, f"Failed health check for client at {WebRTCRequester().webapp.web_url}"
+    assert up, f"Failed to trigger WebRTC connector at {WebRTCRequester().webapp.web_url}"
 
-    print(f"Successful health check for client at {WebRTCRequester().webapp.web_url}")
+    print(f"Successfully triggered WebRTC connector at {WebRTCRequester().webapp.web_url}")
 
     # build request to check connection status
     headers = {
@@ -270,7 +280,6 @@ def main():
     )
 
     # test if P2P data channel is established once a second
-    print("Testing connection...")
     success = False
     now = time.time()
     while time.time() - now < test_timeout:
@@ -281,7 +290,6 @@ def main():
             print("Connection successful!!!!")
             return
         except:
-            print("Connection failed")
             time.sleep(1)
             pass
 
