@@ -36,6 +36,10 @@ class WebRTCPeer:
         self.connection_successful = False
         self.web_app = FastAPI()
 
+        @self.web_app.get("/success")
+        async def success():
+            return {"success": self.connection_successful}
+
     @modal.exit()
     async def exit(self):
         await self.pc.close()  
@@ -56,11 +60,10 @@ class WebRTCResponder(WebRTCPeer):
 
         import json
 
-        from fastapi import FastAPI, WebSocket
+        from fastapi import WebSocket
 
         from aiortc import RTCSessionDescription
 
-        # web_app = FastAPI()
                 
 
         @self.pc.on("datachannel")
@@ -133,12 +136,9 @@ class WebRTCClient(WebRTCPeer):
         import json
         import time
         import urllib
-        from fastapi import FastAPI
+
         from aiortc import  RTCSessionDescription
         import websockets
-        # web_app = FastAPI()
-
-        
 
         @self.web_app.get("/")
         async def start_client():
@@ -200,9 +200,7 @@ class WebRTCClient(WebRTCPeer):
                 await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
 
-        @self.web_app.get("/success")
-        async def success():
-            return {"success": self.connection_successful}
+        
         
         return self.web_app
     
