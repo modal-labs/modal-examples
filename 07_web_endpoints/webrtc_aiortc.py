@@ -21,6 +21,7 @@ class WebRTCPeer:
     def init(self):
 
         from aiortc import RTCPeerConnection
+        from fastapi import FastAPI
 
         # create peer connection with STUN server
         self.pc = RTCPeerConnection()
@@ -33,6 +34,7 @@ class WebRTCPeer:
         # self.pc = RTCPeerConnection(configuration = config)
 
         self.connection_successful = False
+        self.web_app = FastAPI()
 
     @modal.exit()
     async def exit(self):
@@ -47,7 +49,7 @@ class WebRTCPeer:
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCServer(WebRTCPeer):     
+class WebRTCResponder(WebRTCPeer):     
 
     @modal.asgi_app(label="webrtc-server")
     def webapp(self):
@@ -58,7 +60,7 @@ class WebRTCServer(WebRTCPeer):
 
         from aiortc import RTCSessionDescription
 
-        web_app = FastAPI()
+        # web_app = FastAPI()
                 
 
         @self.pc.on("datachannel")
@@ -69,11 +71,12 @@ class WebRTCServer(WebRTCPeer):
                 self.connection_successful = True
                 channel.send("pong")
 
-        @web_app.get("/")
+        # create root endpoint to use for health checks
+        @self.web_app.get("/")
         async def get_server():
             pass
 
-        @web_app.websocket("/ws")
+        @self.web_app.websocket("/ws")
         async def websocket_handler(websocket: WebSocket):
 
             # accept websocket connection
@@ -113,7 +116,7 @@ class WebRTCServer(WebRTCPeer):
 
 
 
-        return web_app
+        return self.web_app
         
 
 @app.cls(
@@ -133,19 +136,19 @@ class WebRTCClient(WebRTCPeer):
         from fastapi import FastAPI
         from aiortc import  RTCSessionDescription
         import websockets
-        web_app = FastAPI()
+        # web_app = FastAPI()
 
         
 
-        @web_app.get("/")
+        @self.web_app.get("/")
         async def start_client():
 
             # confirm server container is running
-            print(f"Attempting to connect to server at {WebRTCServer().webapp.web_url}")
+            print(f"Attempting to connect to server at {WebRTCResponder().webapp.web_url}")
             up, start, delay = False, time.time(), 10
             while not up:
                 try:
-                    with urllib.request.urlopen(WebRTCServer().webapp.web_url) as response:
+                    with urllib.request.urlopen(WebRTCResponder().webapp.web_url) as response:
                         if response.getcode() == 200:
                             up = True
                 except Exception:
@@ -153,9 +156,9 @@ class WebRTCClient(WebRTCPeer):
                         break
                     time.sleep(delay)
 
-            assert up, f"Failed health check for server at {WebRTCServer().webapp.web_url}"
+            assert up, f"Failed health check for server at {WebRTCResponder().webapp.web_url}"
 
-            print(f"Successful health check for server at {WebRTCServer().webapp.web_url}")
+            print(f"Successful health check for server at {WebRTCResponder().webapp.web_url}")
 
             # create data channel, in more complex use cases you might stream audio and/or video
             channel = self.pc.createDataChannel("data")
@@ -176,7 +179,7 @@ class WebRTCClient(WebRTCPeer):
                             
 
             # setup WebRTC connection using websockets
-            ws_uri = WebRTCServer().webapp.web_url.replace("http", "ws") + "/ws"
+            ws_uri = WebRTCResponder().webapp.web_url.replace("http", "ws") + "/ws"
             print(f"Connecting to server websocket at {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
@@ -197,11 +200,11 @@ class WebRTCClient(WebRTCPeer):
                 await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
 
-        @web_app.get("/success")
+        @self.web_app.get("/success")
         async def success():
             return {"success": self.connection_successful}
         
-        return web_app
+        return self.web_app
     
 
 
