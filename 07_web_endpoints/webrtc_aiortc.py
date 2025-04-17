@@ -18,6 +18,30 @@ app = modal.App(
 MINUTES = 60  # seconds
 test_timeout = 0.5 * MINUTES
 
+class WebRTCPeer:
+
+    @modal.enter()
+    def init(self):
+
+        from aiortc import RTCPeerConnection
+
+        # create peer connection with STUN server
+        self.pc = RTCPeerConnection()
+
+        # aiortc automatically uses google's STUN server, but we can also specify our own
+        # as shown below
+        
+        # config = RTCConfiguration()
+        # config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        # self.pc = RTCPeerConnection(configuration = config)
+
+        self.connection_successful = False
+
+    @modal.exit()
+    async def exit(self):
+        await self.pc.close()  
+        self.connection_successful = False
+
 
 # a class for our server. in this case server just means that this process is responding to an offer
 # to establish a P2P connection as opposed to initiating the connection
@@ -26,24 +50,7 @@ test_timeout = 0.5 * MINUTES
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCServer:
-
-    @modal.enter()
-    def init(self):
-
-        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
-
-        # create peer connection with STUN server
-        # aiortc automatically uses google's STUN server, but we can also specify our own
-        # as shown below
-        # config = RTCConfiguration()
-        # config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        # self.pc = RTCPeerConnection(configuration = config)
-        self.pc = RTCPeerConnection()
-
-    @modal.exit()
-    async def exit(self):
-        await self.pc.close()       
+class WebRTCServer(WebRTCPeer):     
 
     @modal.asgi_app(label="webrtc-server")
     def webapp(self):
@@ -52,7 +59,7 @@ class WebRTCServer:
 
         from fastapi import FastAPI, WebSocket
 
-        from aiortc import RTCSessionDescription, RTCConfiguration, RTCIceServer
+        from aiortc import RTCSessionDescription
 
         web_app = FastAPI()
                 
@@ -62,6 +69,7 @@ class WebRTCServer:
             @channel.on("message")
             def on_message(message):
                 print(f"Received message: {message}")
+                self.connection_successful = True
                 channel.send("pong")
 
         @web_app.get("/")
@@ -116,18 +124,8 @@ class WebRTCServer:
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCClient():
+class WebRTCClient(WebRTCPeer):
 
-
-    @modal.enter()
-    def init(self):
-
-        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
-
-        self.connection_successful = False
-
-        # create peer connection with STUN server
-        self.pc = RTCPeerConnection()
 
     @modal.asgi_app(label="webrtc-client")
     def webapp(self):
@@ -209,10 +207,6 @@ class WebRTCClient():
         
         return web_app
     
-    @modal.exit()
-    async def exit(self):
-        self.connection_successful = False
-        await self.pc.close()
 
 
 
