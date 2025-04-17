@@ -3,104 +3,108 @@ from fastapi import FastAPI
 import modal
 import websockets
 
-web_image_server = modal.Image.debian_slim(python_version="3.12").pip_install(
+web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi[standard]==0.115.4",
     "aiortc",
     "argparse",
 )
 
-web_image_client = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "fastapi[standard]==0.115.4",
-    "aiortc",
-    "argparse",
-)
 
 app = modal.App(
     "aoirtc-demo"
 )
 
 MINUTES = 60  # seconds
-test_timeout = 5 * MINUTES
+test_timeout = 0.5 * MINUTES
 
 
 
-@app.function(
-    image=web_image_server,
+@app.cls(
+    image=web_image,
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-@modal.asgi_app(label="webrtc-server")
-def webrtc_server():
+class WebRTCServer:
 
-    import json
+    @modal.enter()
+    def init(self):
+        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
+        # create peer connection with STUN server
+        config = RTCConfiguration()
+        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        self.pc = RTCPeerConnection(configuration = config)
 
-    from fastapi import FastAPI, WebSocket
+    @modal.exit()
+    async def exit(self):
+        await self.pc.close()       
 
-    from aioice.candidate import Candidate
-    from aiortc import RTCSessionDescription, RTCConfiguration, RTCIceServer
-    from aiortc.contrib.signaling import create_signaling, add_signaling_arguments, BYE
+    @modal.asgi_app(label="webrtc-server")
+    def webapp(self):
 
-    web_app = FastAPI()
+        import json
 
-     # create peer connection with STUN server
-    config = RTCConfiguration()
-    config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-    pc = RTCPeerConnection(configuration = config)
+        from fastapi import FastAPI, WebSocket
 
-    @pc.on("iceconnectionstatechange")
-    async def on_iceconnectionstatechange():
-        print(f"Server ICE connection state is {pc.iceConnectionState}")
-        if pc.iceConnectionState == "failed":
-            await pc.close()
-            
+        from aioice.candidate import Candidate
+        from aiortc import RTCSessionDescription, RTCConfiguration, RTCIceServer
+        from aiortc.contrib.signaling import create_signaling, add_signaling_arguments, BYE
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            print(f"Received message: {message}")
-            channel.send("pong")
+        web_app = FastAPI()
 
-    @web_app.get("/")
-    async def get_server():
-        pass
+        # create peer connection with STUN server
+        config = RTCConfiguration()
+        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        self.pc = RTCPeerConnection(configuration = config)
+                
 
-    @web_app.websocket("/ws")
-    async def websocket_handler(websocket: WebSocket):
-        await websocket.accept()
+        @self.pc.on("datachannel")
+        def on_datachannel(channel):
+            @channel.on("message")
+            def on_message(message):
+                print(f"Received message: {message}")
+                channel.send("pong")
 
-        while True:
-            try:
-                message = await websocket.receive_text()
-                data = json.loads(message)
-                print(f"Received message: {data}")
-                if data.get("type") == "offer":
-                    await pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
-                    answer = await pc.createAnswer()
-                    await pc.setLocalDescription(answer)
-                    answer_msg = json.dumps({"sdp": pc.localDescription.sdp, "type": "answer"})
-                    print(pc.iceConnectionState)
-                    print(pc.iceGatheringState)
-                    print(pc.signalingState)
-                    print(f"Sending answer: {answer_msg}")
-                    
+        @web_app.get("/")
+        async def get_server():
+            pass
 
-                    await websocket.send_text(answer_msg)
-                elif data.get("type") == "bye":
-                    print("Exiting")
+        @web_app.websocket("/ws")
+        async def websocket_handler(websocket: WebSocket):
+            await websocket.accept()
+
+            while True:
+                try:
+                    message = await websocket.receive_text()
+                    data = json.loads(message)
+                    print(f"Received message: {data}")
+                    if data.get("type") == "offer":
+                        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
+                        answer = await self.pc.createAnswer()
+                        await self.pc.setLocalDescription(answer)
+                        answer_msg = json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})
+                        print(self.pc.iceConnectionState)
+                        print(self.pc.iceGatheringState)
+                        print(self.pc.signalingState)
+                        print(f"Sending answer: {answer_msg}")
+                        
+
+                        await websocket.send_text(answer_msg)
+                    elif data.get("type") == "bye":
+                        print("Exiting")
+                        break
+                    else:
+                        print(f"Unknown message type: {data.get('type')}")
+                except Exception as e:
+                    print(f"Error: {e}")
                     break
-                else:
-                    print(f"Unknown message type: {data.get('type')}")
-            except Exception as e:
-                print(f"Error: {e}")
-                break
 
 
 
-    return web_app
+        return web_app
+        
 
 @app.cls(
-    image=web_image_client,
+    image=web_image,
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
@@ -137,11 +141,11 @@ class WebRTCClient():
         async def start_client():
 
             # confirm server container is running
-            print(f"Attempting to connect to server at {webrtc_server.web_url}")
+            print(f"Attempting to connect to server at {WebRTCServer().webapp.web_url}")
             up, start, delay = False, time.time(), 10
             while not up:
                 try:
-                    with urllib.request.urlopen(webrtc_server.web_url) as response:
+                    with urllib.request.urlopen(WebRTCServer().webapp.web_url) as response:
                         if response.getcode() == 200:
                             up = True
                 except Exception:
@@ -149,9 +153,9 @@ class WebRTCClient():
                         break
                     time.sleep(delay)
 
-            assert up, f"Failed health check for server at {webrtc_server.web_url}"
+            assert up, f"Failed health check for server at {WebRTCServer().webapp.web_url}"
 
-            print(f"Successful health check for server at {webrtc_server.web_url}")
+            print(f"Successful health check for server at {WebRTCServer().webapp.web_url}")
 
             
 
@@ -182,7 +186,7 @@ class WebRTCClient():
                     self.connection_successful = True
                     print(f"Client received {message}")
                             
-            ws_uri = webrtc_server.web_url.replace("http", "ws") + "/ws"
+            ws_uri = WebRTCServer().webapp.web_url.replace("http", "ws") + "/ws"
             print(f"Connecting to {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
@@ -238,8 +242,6 @@ def main():
 
     print(f"Successful health check for cloud client at {WebRTCClient().webapp.web_url}")
 
-    time.sleep(5.0)
-
     print("Testing connection...")
     headers = {
         "Content-Type": "application/json",
@@ -250,8 +252,17 @@ def main():
         headers=headers,
     )
     success = False
-    with urllib.request.urlopen(req) as response:
-        success = (json.loads(response.read().decode())["success"])
-
+    now = time.time()
+    while time.time() - now < test_timeout:
+        with urllib.request.urlopen(req) as response:
+            success = (json.loads(response.read().decode())["success"])
+        try:
+            assert success, "Connection failed"
+            return
+        except:
+            print("Connection failed")
+            time.sleep(1)
+            pass
     assert success, "Connection failed"
 
+    
