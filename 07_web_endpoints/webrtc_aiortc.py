@@ -141,6 +141,40 @@ class WebRTCResponder(WebRTCPeer):
 @modal.concurrent(max_inputs=100)
 class WebRTCRequester(WebRTCPeer):
 
+    async def get_offer(self):
+
+        import json
+        
+        # create initial offer
+        offer = await self.pc.createOffer()
+        
+        # set local/our description, this also triggers and waits for ICE gathering/generation of ICE candidate info
+        await self.pc.setLocalDescription(offer)
+
+        # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
+        # these are embedded in the SDP after setLocalDescription() is called
+        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": offer.type})
+    
+    def check_server_health(self):
+
+        import time
+        import urllib
+        print(f"Attempting to connect to server at {WebRTCResponder().webapp.web_url}")
+        up, start, delay = False, time.time(), 10
+        while not up:
+            try:
+                with urllib.request.urlopen(WebRTCResponder().webapp.web_url) as response:
+                    if response.getcode() == 200:
+                        up = True
+            except Exception:
+                if time.time() - start > test_timeout:
+                    break
+                time.sleep(delay)
+
+        assert up, f"Failed health check for server at {WebRTCResponder().webapp.web_url}"
+
+        print(f"Successful health check for server at {WebRTCResponder().webapp.web_url}")
+
     # add initiator logic to webapp
     @modal.asgi_app(label="webrtc-client")
     def webapp(self):
@@ -154,24 +188,10 @@ class WebRTCRequester(WebRTCPeer):
 
         # create root endpoint to trigger connection request
         @self.web_app.get("/")
-        async def start_client():
+        async def setup_connection():
 
             # confirm server container is running
-            print(f"Attempting to connect to server at {WebRTCResponder().webapp.web_url}")
-            up, start, delay = False, time.time(), 10
-            while not up:
-                try:
-                    with urllib.request.urlopen(WebRTCResponder().webapp.web_url) as response:
-                        if response.getcode() == 200:
-                            up = True
-                except Exception:
-                    if time.time() - start > test_timeout:
-                        break
-                    time.sleep(delay)
-
-            assert up, f"Failed health check for server at {WebRTCResponder().webapp.web_url}"
-
-            print(f"Successful health check for server at {WebRTCResponder().webapp.web_url}")
+            self.check_server_health()
 
             # create data channel, in more complex use cases you might stream audio and/or video
             channel = self.pc.createDataChannel("data")
@@ -196,15 +216,11 @@ class WebRTCRequester(WebRTCPeer):
             print(f"Connecting to server websocket at {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
-                # create offer
-                offer = await self.pc.createOffer()
-                # set local/our description, this also triggers ICE gathering
-                await self.pc.setLocalDescription(offer)
-                
+                offer_msg = await self.get_offer()
+
                 print(f"Sending offer to server...")
-                # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
-                # these are embedded in the SDP after setLocalDescription() is called
-                await websocket.send(json.dumps({"sdp": self.pc.localDescription.sdp, "type": offer.type}))
+                
+                await websocket.send(offer_msg)
 
                 # receive answer
                 answer = json.loads(await websocket.recv())
@@ -212,8 +228,6 @@ class WebRTCRequester(WebRTCPeer):
                 # set remote peer description
                 await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
-
-        
         
         return self.web_app
     
