@@ -28,7 +28,9 @@ app = modal.App.lookup("example-jupyter", create_if_missing=True)
 
 image = (
     modal.Image.debian_slim(python_version="3.12").pip_install("jupyter~=1.1.0")
-    # .pip_install("pandas", "numpy", "seaborn")  # Any other deps
+    .pip_install("pandas", "numpy", "seaborn")
+    .pip_install("accelerate", "transformers", "torch", "datasets", "tensorboard")
+    .pip_install("torch")  # Any other deps
 )
 
 # ## Starting a Jupyter server in a Sandbox
@@ -63,7 +65,7 @@ with modal.enable_output():
         timeout=5 * 60,  # 5 minutes
         image=image,
         app=app,
-        gpu=None,  # add a GPU if you need it!
+        gpu='a10g',  # add a GPU if you need it!
     )
 
 print(f"🏖️  Sandbox ID: {sandbox.object_id}")
