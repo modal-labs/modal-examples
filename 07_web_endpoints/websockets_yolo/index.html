@@ -1,17 +1,123 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Modal & Websockets Video Echo</title>
+        <title>RT Object Detection</title>
+        <style>
+            .video-container {
+                position: relative;
+                display: inline-block;
+            }
+            .timestamp {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                color: white;
+                background-color: rgba(0, 0, 0, 0.5);
+                padding: 5px;
+                font-family: monospace;
+            }
+            .slider-container {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #f0f0f0;
+                border-radius: 5px;
+            }
+            .slider-group {
+                margin-bottom: 15px;
+            }
+            .slider-label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            .slider-value {
+                display: inline-block;
+                margin-left: 10px;
+                min-width: 50px;
+            }
+        </style>
     </head>
     <body>
-        <h1>Modal & Websockets Video Echo</h1>
-        <div>
+        <h1>RT Object Detection With Modal, Websockets, and YOLO</h1>
+        <div class="video-container">
             <img id="remoteImage" style="width: 640px; height: 480px;" />
+            <div id="timestamp" class="timestamp">Webcam Framegrab Time: 0.00 ms</div>
+        </div>
+        <div class="slider-container">
+            <div class="slider-group">
+                <label class="slider-label" for="confidenceThresh">Confidence Threshold</label>
+                <input type="range" id="confidenceThresh" min="0" max="100" value="50" step="1">
+                <span class="slider-value" id="confidenceThreshValue">50</span>
+            </div>
+            <div class="slider-group">
+                <label class="slider-label" for="delay">Delay (ms)</label>
+                <input type="range" id="delay" min="0" max="100" value="50" step="1">
+                <span class="slider-value" id="delayValue">50</span>
+            </div>
         </div>
         <script>
             const ws = new WebSocket("url-placeholder");
             ws.binaryType = "blob";
             const remoteImage = document.getElementById('remoteImage');
+            const timestampDisplay = document.getElementById('timestamp');
+            let lastFrameTime = performance.now();
+            let frameCount = 0;
+            let startTime = performance.now();
+
+            // Slider configuration
+            const sliderConfig = {
+                confidenceThresh: {
+                    min: 0,
+                    max: 1.0,
+                    initialValue: 0.15,
+                    step: 0.05,
+                    onValueChange: function(value) {
+                        // Now you can access the WebSocket here
+                        if (ws.readyState === WebSocket.OPEN) {
+                            // Example: Send the value to the server
+                            ws.send(JSON.stringify({ type: 'confidenceThresh', value: value }));
+                        }
+                    }
+                },
+                delay: {
+                    min: 0,
+                    max: 100,
+                    initialValue: 0,
+                    step: 1,
+                    onValueChange: function(value) {
+                        // Now you can access the WebSocket here
+                        if (ws.readyState === WebSocket.OPEN) {
+                            // Example: Send the value to the server
+                            ws.send(JSON.stringify({ type: 'delay', value: value }));
+                        }
+                    }
+                }
+            };
+
+            // Initialize sliders
+            function initializeSliders() {
+                for (const [sliderId, config] of Object.entries(sliderConfig)) {
+                    const slider = document.getElementById(sliderId);
+                    const valueDisplay = document.getElementById(sliderId + 'Value');
+                    
+                    // Set slider properties
+                    slider.min = config.min;
+                    slider.max = config.max;
+                    slider.value = config.initialValue;
+                    slider.step = config.step;
+                    valueDisplay.textContent = config.initialValue;
+
+                    // Add event listener
+                    slider.addEventListener('input', function() {
+                        const value = parseFloat(this.value);
+                        valueDisplay.textContent = value;
+                        config.onValueChange(value);
+                    });
+                }
+            }
+
+            // Call this function to initialize sliders
+            initializeSliders();
 
             // Get user media
             navigator.mediaDevices.getUserMedia({ video: true })
@@ -31,9 +137,27 @@
                 canvas.width = 640;
                 canvas.height = 480;
 
-                function captureFrame() {
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                processVideoFrame(video, ctx, canvas);
+                
+            }
+
+            function processVideoFrame(video, ctx, canvas) {
+                // if (!isStreaming) return;
+                
+                // This is called exactly once per new video frame
+                video.requestVideoFrameCallback(() => {
+                    // Draw current video frame
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    frameCount++;
+                    
+                   // Send the frame if WebSocket is ready
+                   if (ws.readyState === WebSocket.OPEN) {
+                        const currentTime = performance.now();
+                        const elapsedTime = currentTime - lastFrameTime;
+                        lastFrameTime = currentTime;
+                        
+                        // Update timestamp display
+                        timestampDisplay.textContent = `Webcam Framegrab Time: ${elapsedTime.toFixed(2)} ms`;
                         canvas.toBlob(blob => {
                             if (blob && blob.size > 0) {
                                 console.log('Sending blob of size:', blob.size);
@@ -41,15 +165,22 @@
                             } else {
                                 console.error('Empty blob generated');
                             }
-                        }, 'image/jpeg', 0.5);
+                            
+                            // Request the next frame
+                            processVideoFrame(video, ctx, canvas);
+                            }, 'image/jpeg', 0.7);
+                        } else {
+                        // If WebSocket isn't ready, still request next frame
+                        processVideoFrame(video, ctx, canvas);
                     }
+                });
                 }
 
-                // Start capturing frames
-                setInterval(captureFrame, 100);
-            }
+
 
             ws.onmessage = function(event) {
+                
+
                 console.log('Received data of size:', event.data.size);
                 const url = URL.createObjectURL(event.data);
                 remoteImage.src = url;

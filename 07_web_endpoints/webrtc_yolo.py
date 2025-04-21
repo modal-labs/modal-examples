@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import cv2
 
@@ -289,6 +290,8 @@ class YoloWebRTCApp:
         import cv2
         import onnxruntime
 
+        self.last_frame_time = None
+
         onnxruntime.preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)
 
 
@@ -415,17 +418,54 @@ class YoloWebRTCApp:
     @modal.asgi_app()
     def ui(self):
 
+        import time
         import gradio as gr
         from gradio import mount_gradio_app
         from fastapi import FastAPI
         from fastrtc import VideoStreamHandler, Stream
 
 
-        def detection(image, conf_threshold = 0.5):
+        def detection(image, conf_threshold = 0.15, delay_msec = 0):
+
+            now = time.time()
+            if self.last_frame_time is None:
+                round_trip_time = np.nan
+            else:
+                round_trip_time = now - self.last_frame_time
+            self.last_frame_time = now
+
+            time.sleep(delay_msec / 1000)
+
+            print(f"Image shape: {image.shape}")
             image = cv2.resize(image, (self.model.input_width, self.model.input_height))
             print("conf_threshold", conf_threshold)
             new_image = self.model.detect_objects(image, conf_threshold)
-            return cv2.resize(new_image, (500, 500))
+            new_image = cv2.resize(new_image, (500, 500))
+            # add round trip time to image
+            # Get text size to position it in lower right
+            # Split text into two lines and render separately
+            text1 = "Round trip time:"
+            text2 = f"{round_trip_time*1000:>6.1f} msec"
+            font_scale = 0.8
+            thickness = 2
+            
+            # Get text sizes
+            (text1_width, text1_height), _ = cv2.getTextSize(text1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            (text2_width, text2_height), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            
+            # Position text in bottom right, with text2 below text1
+            margin = 10
+            text1_x = new_image.shape[1] - text1_width - margin
+            text1_y = new_image.shape[0] - text1_height - margin - text2_height
+            text2_x = new_image.shape[1] - text2_width - margin  
+            text2_y = new_image.shape[0] - margin
+
+            # Draw both lines of text
+            cv2.putText(new_image, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+            cv2.putText(new_image, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+
+            return new_image
+
 
         with gr.Blocks() as blocks:
             gr.HTML(
@@ -436,21 +476,21 @@ class YoloWebRTCApp:
             """
             )
             with gr.Column():
-                slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.5, label="Confidence Threshold", render=False)
+                conf_slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.15, label="Confidence Threshold", render=False)
+                delay_slider = gr.Slider(minimum=0, maximum=100, step=1, value=0, label="Delay (ms)", render=False)
                 stream = Stream(
-                    handler=VideoStreamHandler(detection, skip_frames=True, fps = 30.0),
+                    handler=VideoStreamHandler(detection, skip_frames=True),
                     modality="video",
                     mode="send-receive",
                     rtc_configuration={
                         "iceServers": [{"url": "stun:stun.l.google.com:19302"}]
                     },
-                    # additional_inputs=[0.3],
                     ui_args={
                         "pulse_color": "rgb(255, 255, 255)",
                         "icon_button_color": "rgb(255, 255, 255)",
                         "title": "Press Record to Start Object Detection",
                     },
-                    additional_inputs=[slider],
+                    additional_inputs=[conf_slider, delay_slider],
                 )
                 
             

@@ -9,7 +9,7 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 # instantiate our app
 app = modal.App(
-    "aoirtc-demo"
+    "aiortc-demo"
 )
 
 # set timeout for health checks and connection test
@@ -85,7 +85,7 @@ class WebRTCPeer(abc.ABC):
         # set local/our description, this also triggers ICE gathering
         await self.pc.setLocalDescription(answer)
 
-        # send local description DSP
+        # send local description SDP 
         # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
         return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"}) 
