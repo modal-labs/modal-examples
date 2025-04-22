@@ -44,11 +44,7 @@
             <div id="timestamp" class="timestamp">Webcam Framegrab Time: 0.00 ms</div>
         </div>
         <div class="slider-container">
-            <div class="slider-group">
-                <label class="slider-label" for="confidenceThresh">Confidence Threshold</label>
-                <input type="range" id="confidenceThresh" min="0" max="100" value="50" step="1">
-                <span class="slider-value" id="confidenceThreshValue">50</span>
-            </div>
+
             <div class="slider-group">
                 <label class="slider-label" for="delay">Delay (ms)</label>
                 <input type="range" id="delay" min="0" max="100" value="50" step="1">
@@ -66,19 +62,6 @@
 
             // Slider configuration
             const sliderConfig = {
-                confidenceThresh: {
-                    min: 0,
-                    max: 1.0,
-                    initialValue: 0.15,
-                    step: 0.05,
-                    onValueChange: function(value) {
-                        // Now you can access the WebSocket here
-                        if (ws.readyState === WebSocket.OPEN) {
-                            // Example: Send the value to the server
-                            ws.send(JSON.stringify({ type: 'confidenceThresh', value: value }));
-                        }
-                    }
-                },
                 delay: {
                     min: 0,
                     max: 100,

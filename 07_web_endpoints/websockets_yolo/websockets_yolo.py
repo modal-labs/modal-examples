@@ -81,96 +81,6 @@ class_names = [
     "toothbrush",
 ]
 
-# Create a list of colors for each class where each color is a tuple of 3 integer values
-
-
-
-# def nms(boxes, scores, iou_threshold):
-#     # Sort by score
-#     sorted_indices = np.argsort(scores)[::-1]
-
-#     keep_boxes = []
-#     while sorted_indices.size > 0:
-#         # Pick the last box
-#         box_id = sorted_indices[0]
-#         keep_boxes.append(box_id)
-
-#         # Compute IoU of the picked box with the rest
-#         ious = compute_iou(boxes[box_id, :], boxes[sorted_indices[1:], :])
-
-#         # Remove boxes with IoU over the threshold
-#         keep_indices = np.where(ious < iou_threshold)[0]
-
-#         # print(keep_indices.shape, sorted_indices.shape)
-#         sorted_indices = sorted_indices[keep_indices + 1]
-
-#     return keep_boxes
-
-
-# def multiclass_nms(boxes, scores, class_ids, iou_threshold):
-#     unique_class_ids = np.unique(class_ids)
-
-#     keep_boxes = []
-#     for class_id in unique_class_ids:
-#         class_indices = np.where(class_ids == class_id)[0]
-#         class_boxes = boxes[class_indices, :]
-#         class_scores = scores[class_indices]
-
-#         class_keep_boxes = nms(class_boxes, class_scores, iou_threshold)
-#         keep_boxes.extend(class_indices[class_keep_boxes])
-
-#     return keep_boxes
-
-
-# def compute_iou(box, boxes):
-#     # Compute xmin, ymin, xmax, ymax for both boxes
-#     xmin = np.maximum(box[0], boxes[:, 0])
-#     ymin = np.maximum(box[1], boxes[:, 1])
-#     xmax = np.minimum(box[2], boxes[:, 2])
-#     ymax = np.minimum(box[3], boxes[:, 3])
-
-#     # Compute intersection area
-#     intersection_area = np.maximum(0, xmax - xmin) * np.maximum(0, ymax - ymin)
-
-#     # Compute union area
-#     box_area = (box[2] - box[0]) * (box[3] - box[1])
-#     boxes_area = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-#     union_area = box_area + boxes_area - intersection_area
-
-#     # Compute IoU
-#     iou = intersection_area / union_area
-
-#     return iou
-
-
-# def xywh2xyxy(x):
-#     # Convert bounding box (x, y, w, h) to bounding box (x1, y1, x2, y2)
-#     y = np.copy(x)
-#     y[..., 0] = x[..., 0] - x[..., 2] / 2
-#     y[..., 1] = x[..., 1] - x[..., 3] / 2
-#     y[..., 2] = x[..., 0] + x[..., 2] / 2
-#     y[..., 3] = x[..., 1] + x[..., 3] / 2
-#     return y
-
-
-
-
-
-# def draw_masks(
-#     image: np.ndarray, boxes: np.ndarray, classes: np.ndarray, mask_alpha: float = 0.3
-# ) -> np.ndarray:
-#     mask_img = image.copy()
-
-#     # Draw bounding boxes and labels of detections
-#     for box, class_id in zip(boxes, classes):
-#         color = colors[class_id]
-
-#         x1, y1, x2, y2 = box.astype(int)
-
-#         # Draw fill rectangle in mask image
-#         cv2.rectangle(mask_img, (x1, y1), (x2, y2), color, -1)  # type: ignore
-
-#     return cv2.addWeighted(mask_img, mask_alpha, image, 1 - mask_alpha, 0)
 
 import modal
 from pathlib import Path
@@ -207,9 +117,12 @@ app.image = (
 )
 @modal.concurrent(max_inputs=100)
 class WebsocketsYOLODemo:
+
+
     @modal.enter()
     def load_model(self):
 
+        import asyncio
         import time
         import numpy as np
 
@@ -220,6 +133,9 @@ class WebsocketsYOLODemo:
         self.last_frame_time = None
         self.conf_threshold = 0.15
         self.delay_msec = 0
+        self.frame_queue = asyncio.Queue()
+        self.latest_frame = None
+        self.websocket = None
 
         onnxruntime.preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)
 
@@ -404,10 +320,77 @@ class WebsocketsYOLODemo:
     
         self.model = YOLOv10("yolov10m.pt")
 
+    async def handle_queue(self):
+
+        import cv2
+
+        if self.websocket:
+            while True:
+                
+                image = await self.frame_queue.get()
+                image = self.latest_frame
+                
+                new_image = await self.detection(image)
+
+                # Convert back to bytes
+                success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
+                if not success:
+                    print("Failed to encode image")
+                    continue
+
+                await self.websocket.send_bytes(buffer.tobytes())
+
+    async def detection(self, image):
+
+        import asyncio
+        import time
+        import cv2
+
+        print(self.conf_threshold, self.delay_msec)
+
+        now = time.time()
+        if self.last_frame_time is None:
+            round_trip_time = 0.
+        else:
+            round_trip_time = now - self.last_frame_time
+        self.last_frame_time = now
+
+        if self.delay_msec > 0:
+            time.sleep(self.delay_msec / 1000)
+
+        print(f"Image shape: {image.shape}")
+        image = cv2.resize(image, (self.model.input_width, self.model.input_height))
+        print("conf_threshold", self.conf_threshold)
+        new_image = self.model.detect_objects(image, self.conf_threshold)
+        new_image = cv2.resize(new_image, (500, 500))
+        # add round trip time to image
+        # Get text size to position it in lower right
+        # Split text into two lines and render separately
+        text1 = "Round trip time:"
+        text2 = f"{round_trip_time*1000:>6.1f} msec"
+        font_scale = 0.8
+        thickness = 2
+        
+        # Get text sizes
+        (text1_width, text1_height), _ = cv2.getTextSize(text1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        (text2_width, text2_height), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        
+        # Position text in bottom right, with text2 below text1
+        margin = 10
+        text1_x = new_image.shape[1] - text1_width - margin
+        text1_y = new_image.shape[0] - text1_height - margin - text2_height
+        text2_x = new_image.shape[1] - text2_width - margin  
+        text2_y = new_image.shape[0] - margin
+
+        # Draw both lines of text
+        cv2.putText(new_image, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+        cv2.putText(new_image, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+
+        return new_image
+
     @modal.asgi_app()
     def endpoint(self):
 
-        import time
         import json
 
         import numpy as np
@@ -421,85 +404,23 @@ class WebsocketsYOLODemo:
 
         web_app = FastAPI()
 
-        self.frame_queue = asyncio.Queue()
-        self.latest_frame = None
-
         
-
-        def detection(image):
-
-
-            print(self.conf_threshold, self.delay_msec)
-
-            now = time.time()
-            if self.last_frame_time is None:
-                round_trip_time = np.nan
-            else:
-                round_trip_time = now - self.last_frame_time
-            self.last_frame_time = now
-
-            if self.delay_msec > 0:
-                time.sleep(self.delay_msec / 1000)
-
-            print(f"Image shape: {image.shape}")
-            image = cv2.resize(image, (self.model.input_width, self.model.input_height))
-            print("conf_threshold", self.conf_threshold)
-            new_image = self.model.detect_objects(image, self.conf_threshold)
-            new_image = cv2.resize(new_image, (500, 500))
-            # add round trip time to image
-            # Get text size to position it in lower right
-            # Split text into two lines and render separately
-            text1 = "Round trip time:"
-            text2 = f"{round_trip_time*1000:>6.1f} msec"
-            font_scale = 0.8
-            thickness = 2
-            
-            # Get text sizes
-            (text1_width, text1_height), _ = cv2.getTextSize(text1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
-            (text2_width, text2_height), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
-            
-            # Position text in bottom right, with text2 below text1
-            margin = 10
-            text1_x = new_image.shape[1] - text1_width - margin
-            text1_y = new_image.shape[0] - text1_height - margin - text2_height
-            text2_x = new_image.shape[1] - text2_width - margin  
-            text2_y = new_image.shape[0] - margin
-
-            # Draw both lines of text
-            cv2.putText(new_image, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
-            cv2.putText(new_image, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
-
-            return new_image
 
         @web_app.websocket("/ws")
         async def websocket_handler(websocket: WebSocket) -> None:
 
-            async def handle_queue():
-                while True:
-                    
-                    image = await self.frame_queue.get()
-                    image = self.latest_frame
-                    
-                    new_image = detection(image)
-
-                    # Convert back to bytes
-                    success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
-                    if not success:
-                        print("Failed to encode image")
-                        continue
-
-                    await websocket.send_bytes(buffer.tobytes())
-
+            
             await websocket.accept()
+            self.websocket = websocket
 
-            asyncio.create_task(handle_queue())
+            asyncio.create_task(self.handle_queue())
 
             print("WebSocket connection accepted")
             try:
                 while True:
                     
                     try:
-                        data = await websocket.receive_bytes()
+                        data = await self.websocket.receive_bytes()
 
                         if data and isinstance(data, bytes):
                             image = None
@@ -521,11 +442,10 @@ class WebsocketsYOLODemo:
                         
                         if isinstance(e, WebSocketDisconnect):
                             raise WebSocketDisconnect
-                        pass
 
                     try:
 
-                        data = await websocket.receive_text()
+                        data = await self.websocket.receive_text()
                         if data and isinstance(data, str):
                             try:
                                 
@@ -548,11 +468,10 @@ class WebsocketsYOLODemo:
                         
                         if isinstance(e, WebSocketDisconnect):
                             raise WebSocketDisconnect
-                        pass
 
             except WebSocketDisconnect as e:
                 print("handle disconnect")
-                await websocket.close()
+                await self.websocket.close()
 
                 
 

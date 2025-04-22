@@ -26,7 +26,7 @@ app = modal.App(
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
     max_containers=1,
-    # region="ap-south"
+    region="ap-south"
 )
 @modal.concurrent(max_inputs=100)
 class WebRTCApp:
