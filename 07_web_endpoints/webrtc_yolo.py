@@ -1,93 +1,7 @@
-import time
-import numpy as np
-import cv2
-
-class_names = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "airplane",
-    "bus",
-    "train",
-    "truck",
-    "boat",
-    "traffic light",
-    "fire hydrant",
-    "stop sign",
-    "parking meter",
-    "bench",
-    "bird",
-    "cat",
-    "dog",
-    "horse",
-    "sheep",
-    "cow",
-    "elephant",
-    "bear",
-    "zebra",
-    "giraffe",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "tie",
-    "suitcase",
-    "frisbee",
-    "skis",
-    "snowboard",
-    "sports ball",
-    "kite",
-    "baseball bat",
-    "baseball glove",
-    "skateboard",
-    "surfboard",
-    "tennis racket",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "bowl",
-    "banana",
-    "apple",
-    "sandwich",
-    "orange",
-    "broccoli",
-    "carrot",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "chair",
-    "couch",
-    "potted plant",
-    "bed",
-    "dining table",
-    "toilet",
-    "tv",
-    "laptop",
-    "mouse",
-    "remote",
-    "keyboard",
-    "cell phone",
-    "microwave",
-    "oven",
-    "toaster",
-    "sink",
-    "refrigerator",
-    "book",
-    "clock",
-    "vase",
-    "scissors",
-    "teddy bear",
-    "hair drier",
-    "toothbrush",
-]
-
-
-
 import modal
+from pathlib import Path
+
+this_folder = Path(__file__).parent.resolve()
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -109,6 +23,7 @@ web_image = (
         "torch",
         "onnxruntime-gpu"
     )
+    .add_local_dir(this_folder, remote_path="/assets")
 )
 
 app = modal.App(
@@ -163,8 +78,12 @@ class YoloWebRTCApp:
                 # Get model info
                 self.get_input_details()
                 self.get_output_details()
+
+                # get class names
+                with open(this_folder / "class_names.txt", "r") as f:
+                    self.class_names = f.read().splitlines()
                 rng = np.random.default_rng(3)
-                self.colors = rng.uniform(0, 255, size=(len(class_names), 3))
+                self.colors = rng.uniform(0, 255, size=(len(self.class_names), 3))
 
             def detect_objects(self, image, conf_threshold=0.3):
                 input_tensor = self.prepare_input(image)
@@ -262,7 +181,7 @@ class YoloWebRTCApp:
 
                     self.draw_box(det_img, box, color)  # type: ignore
 
-                    label = class_names[class_id]
+                    label = self.class_names[class_id]
                     caption = f"{label} {int(score * 100)}%"
                     self.draw_text(det_img, caption, box, color, font_size, text_thickness)  # type: ignore
 
@@ -330,6 +249,9 @@ class YoloWebRTCApp:
     def ui(self):
 
         import time
+
+        import cv2
+        import numpy as np
         import gradio as gr
         from gradio import mount_gradio_app
         from fastapi import FastAPI

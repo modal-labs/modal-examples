@@ -85,7 +85,7 @@ class_names = [
 import modal
 from pathlib import Path
 
-static_path = Path(__file__).parent.resolve()
+this_folder = Path(__file__).parent.resolve()
 
 app = modal.App("websockets-yolo-demo")
 app.image = (
@@ -106,7 +106,7 @@ app.image = (
         "torch",
         "onnxruntime-gpu"
     )
-    .add_local_dir(static_path, remote_path="/assets")
+    .add_local_dir(this_folder, remote_path="/assets")
 )
 
 @app.cls(

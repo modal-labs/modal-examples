@@ -12,10 +12,10 @@ app.image = (
     .add_local_dir(this_directory, remote_path="/assets")
 )
 
+
 @app.cls(
-    region="ap-south"
+    region="ap-south",
 )
-@modal.concurrent(max_inputs=100)
 class WebsocketsFlipWebcam:
 
     @modal.enter()
@@ -25,12 +25,16 @@ class WebsocketsFlipWebcam:
 
         self.last_frame_time = None
         self.delay_msec = 0
+
         self.frame_queue = asyncio.Queue()
+        self.frame_processor_task = None
         self.latest_frame = None
+        
         self.websocket = None
 
     async def flip_vertically(self, image):
 
+        import asyncio
         import time
         import numpy as np
         import cv2
@@ -43,7 +47,7 @@ class WebsocketsFlipWebcam:
         self.last_frame_time = now
 
         if self.delay_msec > 0:
-            time.sleep(self.delay_msec / 1000)
+            await asyncio.sleep(self.delay_msec / 1000)
 
         img = image.astype(np.uint8)
                 
@@ -57,8 +61,6 @@ class WebsocketsFlipWebcam:
         flipped = cv2.flip(img, 0)
 
         # add round trip time to image
-        # Get text size to position it in lower right
-        # Split text into two lines and render separately
         text1 = "Round trip time:"
         text2 = f"{round_trip_time*1000:>6.1f} msec"
         font_scale = 0.8
@@ -84,27 +86,32 @@ class WebsocketsFlipWebcam:
     async def handle_queue(self):
 
         import cv2
+        import asyncio
+        
+        while True:
 
-        if self.websocket:
-            while True:
+            if self.websocket:
                 
                 image = await self.frame_queue.get()
-                # image = self.latest_frame
+                image = self.latest_frame
                 
-                new_image = await self.flip_vertically(image)
+                if image is not None:
+                    new_image = await self.flip_vertically(image)
 
-                # Convert back to bytes
-                success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
-                if not success:
-                    print("Failed to encode image")
-                    continue
+                    # Convert back to bytes
+                    success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
+                    if not success:
+                        print("Failed to encode image")
+                        continue
 
-                await self.websocket.send_bytes(buffer.tobytes())
+                    await self.websocket.send_bytes(buffer.tobytes())
+
+            else:
+                await asyncio.sleep(0.250)
 
     @modal.asgi_app()
     def endpoint(self):
 
-        import time
         import asyncio
         import numpy as np
         import cv2
@@ -122,7 +129,7 @@ class WebsocketsFlipWebcam:
             await websocket.accept()
             self.websocket = websocket
 
-            asyncio.create_task(self.handle_queue())
+            self.frame_processor_task = asyncio.create_task(self.handle_queue())
             
             print("WebSocket connection accepted")
             
@@ -164,6 +171,7 @@ class WebsocketsFlipWebcam:
             except WebSocketDisconnect as e:
                 print("handle disconnect")
                 await self.websocket.close()
+                self.frame_processor_task.cancel()
 
         @web_app.get("/")
         async def get(request: Request):

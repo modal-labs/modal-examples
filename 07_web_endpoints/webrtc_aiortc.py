@@ -56,7 +56,6 @@ class WebRTCPeer(abc.ABC):
     async def generate_offer(self):
 
         self.setup_streams()
-        self.setup_test_datastream()
         
         # create initial offer
         offer = await self.pc.createOffer()
@@ -74,7 +73,6 @@ class WebRTCPeer(abc.ABC):
         from aiortc import RTCSessionDescription
 
         self.setup_streams()
-        self.setup_test_datastream()
 
         # set remote description
         await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
@@ -105,9 +103,9 @@ class WebRTCPeer(abc.ABC):
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCResponder(WebRTCPeer):   
+class WebRTCTestResponder(WebRTCPeer):   
 
-    def setup_test_datastream(self):
+    def setup_streams(self):
         # when a data channel is opened
         @self.pc.on("datachannel")
         def on_datachannel(channel):
@@ -175,7 +173,7 @@ class WebRTCResponder(WebRTCPeer):
     min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCRequester(WebRTCPeer):
+class WebRTCTestRequester(WebRTCPeer):
 
     def setup_test_datastream(self):
         # create data channel, in more complex use cases you might stream audio and/or video
@@ -200,11 +198,11 @@ class WebRTCRequester(WebRTCPeer):
         import time
         import urllib
 
-        print(f"Attempting to connect to server at {WebRTCResponder().webapp.web_url}")
+        print(f"Attempting to connect to server at {WebRTCTestResponder().webapp.web_url}")
         up, start, delay = False, time.time(), 10
         while not up:
             try:
-                with urllib.request.urlopen(WebRTCResponder().webapp.web_url) as response:
+                with urllib.request.urlopen(WebRTCTestResponder().webapp.web_url) as response:
                     if response.getcode() == 200:
                         up = True
             except Exception:
@@ -212,9 +210,9 @@ class WebRTCRequester(WebRTCPeer):
                     break
                 time.sleep(delay)
 
-        assert up, f"Failed to connect to server at {WebRTCResponder().webapp.web_url}"
+        assert up, f"Failed to connect to server at {WebRTCTestResponder().webapp.web_url}"
 
-        print(f"Server is up at {WebRTCResponder().webapp.web_url}")
+        print(f"Server is up at {WebRTCTestResponder().webapp.web_url}")
 
     # add initiator logic to webapp
     @modal.asgi_app(label="webrtc-client")
@@ -232,7 +230,7 @@ class WebRTCRequester(WebRTCPeer):
 
             
             # setup WebRTC connection using websockets
-            ws_uri = WebRTCResponder().webapp.web_url.replace("http", "ws") + "/ws"
+            ws_uri = WebRTCTestResponder().webapp.web_url.replace("http", "ws") + "/ws"
             print(f"Connecting to server websocket at {ws_uri}")
             async with websockets.connect(ws_uri) as websocket:
 
@@ -260,11 +258,11 @@ def main():
     import time
     import urllib
 
-    print(f"Attempting to trigger WebRTC connector at {WebRTCRequester().webapp.web_url}")
+    print(f"Attempting to trigger WebRTC connector at {WebRTCTestRequester().webapp.web_url}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
-            with urllib.request.urlopen(WebRTCRequester().webapp.web_url) as response:
+            with urllib.request.urlopen(WebRTCTestRequester().webapp.web_url) as response:
                 if response.getcode() == 200:
                     up = True
         except Exception:
@@ -272,16 +270,16 @@ def main():
                 break
             time.sleep(delay)
 
-    assert up, f"Failed to trigger WebRTC connector at {WebRTCRequester().webapp.web_url}"
+    assert up, f"Failed to trigger WebRTC connector at {WebRTCTestRequester().webapp.web_url}"
 
-    print(f"Successfully triggered WebRTC connector at {WebRTCRequester().webapp.web_url}")
+    print(f"Successfully triggered WebRTC connector at {WebRTCTestRequester().webapp.web_url}")
 
     # build request to check connection status
     headers = {
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCRequester().webapp.web_url + "/success",
+        WebRTCTestRequester().webapp.web_url + "/success",
         method="GET",
         headers=headers,
     )
