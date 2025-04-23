@@ -12,6 +12,8 @@ web_image = (
     )
 )
 
+MAX_CONCURRENT_STREAMS = 100
+
 app = modal.App(
     "fastrtc-webcam-demo",
     image=web_image,
@@ -19,15 +21,13 @@ app = modal.App(
 
 @app.cls(
     image=web_image,
-    min_containers=1,
-    scaledown_window=60 * 20,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
     max_containers=1,
     # region="ap-south"
 )
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=MAX_CONCURRENT_STREAMS) # we also need to set the limit on the fastrtc stream
 class WebRTCApp:
 
     @modal.enter()
@@ -48,6 +48,7 @@ class WebRTCApp:
         from fastrtc import Stream
 
         def flip_vertically(image):
+            
             now = time.time()
             if self.last_frame_time is None:
                 round_trip_time = np.nan
@@ -60,15 +61,11 @@ class WebRTCApp:
             if img is None:
                 print("Failed to decode image")
                 return None
-                
-            print(f"Image shape: {img.shape}")
-            
+                        
             # Flip vertically
             flipped = cv2.flip(img, 0)
 
             # add round trip time to image
-            # Get text size to position it in lower right
-            # Split text into two lines and render separately
             text1 = "Round trip time:"
             text2 = f"{round_trip_time*1000:>6.1f} msec"
             font_scale = 0.8
@@ -118,7 +115,8 @@ class WebRTCApp:
                         "height": {"exact": 480},
                         "frameRate": {"min": 30},
                         "facingMode": {"ideal": "environment"},
-                    }
+                    },
+                    concurrency_limit=MAX_CONCURRENT_STREAMS
                 )
             
         return mount_gradio_app(app=FastAPI(), blocks=blocks, path="/")
