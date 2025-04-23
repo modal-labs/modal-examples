@@ -19,39 +19,31 @@ test_timeout = 0.5 * MINUTES
 class WebRTCPeer(abc.ABC):
 
     @modal.enter()
-    def init(self):
+    def _init(self):
 
         from aiortc import RTCPeerConnection
-        from fastapi import FastAPI
 
         # create peer connection with STUN server
-        self.pc = RTCPeerConnection()
 
         # aiortc automatically uses google's STUN server, but we can also specify our own
-        # as shown below
-        
         # config = RTCConfiguration()
         # config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
         # self.pc = RTCPeerConnection(configuration = config)
 
-        self.connection_successful = False
-        self.web_app = FastAPI()
+        self.pc = RTCPeerConnection()
 
-        @self.web_app.get("/success")
-        async def success():
-            return {"success": self.connection_successful}
+        self.init()
+
+    def init(self):
+        pass
+
 
     @modal.exit()
     async def exit(self):
         await self.pc.close()  
-        self.connection_successful = False
 
     def setup_streams(self):
         pass
-
-    @abc.abstractmethod
-    def setup_test_datastream(self):
-        raise NotImplementedError("Subclasses must implement this method")
 
     async def generate_offer(self):
 
@@ -100,7 +92,6 @@ class WebRTCPeer(abc.ABC):
 # to establish a P2P connection as opposed to initiating the connection
 @app.cls(
     image=web_image,
-    min_containers=1,
 )
 @modal.concurrent(max_inputs=100)
 class WebRTCTestResponder(WebRTCPeer):   
@@ -122,12 +113,24 @@ class WebRTCTestResponder(WebRTCPeer):
                     pong()
                     self.connection_successful = True
 
+    def init(self):
+
+        from fastapi import FastAPI
+
+        self.connection_successful = False
+        self.web_app = FastAPI()
+
+        @self.web_app.get("/success")
+        async def success():
+            return {"success": self.connection_successful}
+
     # add responder logic to webapp
     @modal.asgi_app(label="webrtc-server")
     def webapp(self):
 
         import json
-        from fastapi import WebSocket
+        from fastapi import FastAPI, WebSocket
+
 
         # create root endpoint to use for health checks
         @self.web_app.get("/")
@@ -169,13 +172,23 @@ class WebRTCTestResponder(WebRTCPeer):
     
 
 @app.cls(
-    image=web_image,
-    min_containers=1,
+    image=web_image
 )
 @modal.concurrent(max_inputs=100)
 class WebRTCTestRequester(WebRTCPeer):
 
-    def setup_test_datastream(self):
+    def init(self):
+
+        from fastapi import FastAPI
+        
+        self.connection_successful = False
+        self.web_app = FastAPI()
+
+        @self.web_app.get("/success")
+        async def success():
+            return {"success": self.connection_successful}
+
+    def setup_streams(self):
         # create data channel, in more complex use cases you might stream audio and/or video
         channel = self.pc.createDataChannel("test_channel")
 
@@ -227,7 +240,6 @@ class WebRTCTestRequester(WebRTCPeer):
 
             # confirm server container is running
             self.check_responder_is_up()
-
             
             # setup WebRTC connection using websockets
             ws_uri = WebRTCTestResponder().webapp.web_url.replace("http", "ws") + "/ws"
@@ -250,10 +262,9 @@ class WebRTCTestRequester(WebRTCPeer):
         return self.web_app
     
 
-
-
 @app.local_entrypoint()
 def main():
+
     import json
     import time
     import urllib
