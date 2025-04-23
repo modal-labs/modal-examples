@@ -24,7 +24,7 @@ class Frame:
 
 
 @app.cls(
-    region="ap-south",
+    # region="ap-south",
 )
 @modal.concurrent(max_inputs=10)
 class WebsocketsFlipWebcam:
@@ -39,7 +39,7 @@ class WebsocketsFlipWebcam:
         self.delay_msec = {}
 
         self.frame_queue = asyncio.Queue()
-        self.frame_processor_task = asyncio.create_task(self.handle_queue())
+        self.frame_processor_task = None
         
         self.websockets = {}
         
@@ -134,13 +134,10 @@ class WebsocketsFlipWebcam:
                         print("Failed to encode image")
                         continue
 
-                    print(f"Frame processor task sending frame to client {client_id}")
                     await self.websockets[client_id].send_bytes(buffer.tobytes())
 
             except Exception as e:
-                print(f"Frame processor task exception: {e.with_traceback()}")
-
-
+                print(f"Frame processor task exception: {e}")
         
 
                 
@@ -156,6 +153,7 @@ class WebsocketsFlipWebcam:
     @modal.asgi_app()
     def endpoint(self):
 
+        import asyncio
         import numpy as np
         import cv2
         import json
@@ -178,6 +176,9 @@ class WebsocketsFlipWebcam:
             self.delay_msec[client_id] = 0.
             self.last_frame_time[client_id] = None
 
+            if len(self.websockets) == 1:
+                self.frame_processor_task = asyncio.create_task(self.handle_queue())
+
             print("WebSocket connection accepted")
 
             while True: 
@@ -186,7 +187,6 @@ class WebsocketsFlipWebcam:
 
                     data = await websocket.receive_bytes()   
                     if data and isinstance(data, bytes):
-                        print(f"Received {len(data)} bytes from client {client_id}")
                         # Convert bytes to numpy array
                         nparr = np.frombuffer(data, np.uint8)
                         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -203,6 +203,9 @@ class WebsocketsFlipWebcam:
                         print(f"Websocket {client_id} disconnected")
                         await websocket.close()
                         self.websockets.pop(client_id)
+                        if len(self.websockets) == 0:
+                            print("No websocket connections left, cancelling frame processor task")
+                            self.frame_processor_task.cancel()
                         return
                     
                 try:
@@ -227,6 +230,9 @@ class WebsocketsFlipWebcam:
                         print(f"Websocket {client_id} disconnected")
                         await websocket.close()
                         self.websockets.pop(client_id)
+                        if len(self.websockets) == 0:
+                            print("No websocket connections left, cancelling frame processor task")
+                            self.frame_processor_task.cancel()
                         return
 
         @web_app.get("/")

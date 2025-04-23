@@ -47,16 +47,18 @@
             <div class="slider-group">
                 <label class="slider-label" for="confidenceThresh">Confidence Threshold</label>
                 <input type="range" id="confidenceThresh" min="0" max="100" value="50" step="1">
-                <span class="slider-value" id="confidenceThreshValue">50</span>
+                <span class="slider-value" id="confidenceThreshValue">0.15</span>
             </div>
             <div class="slider-group">
                 <label class="slider-label" for="delay">Delay (ms)</label>
-                <input type="range" id="delay" min="0" max="100" value="50" step="1">
-                <span class="slider-value" id="delayValue">50</span>
+                <input type="range" id="delay" min="0" max="1000" value="50" step="1">
+                <span class="slider-value" id="delayValue">0</span>
             </div>
         </div>
         <script>
-            const ws = new WebSocket("url-placeholder");
+            // Use crypto.randomUUID() for a standard, collision-resistant unique identifier
+            const clientId = crypto.randomUUID();
+            const ws = new WebSocket(`url-placeholder/${clientId}`);
             ws.binaryType = "blob";
             const remoteImage = document.getElementById('remoteImage');
             const timestampDisplay = document.getElementById('timestamp');
@@ -81,7 +83,7 @@
                 },
                 delay: {
                     min: 0,
-                    max: 100,
+                    max: 1000,
                     initialValue: 0,
                     step: 1,
                     onValueChange: function(value) {
@@ -120,7 +122,11 @@
             initializeSliders();
 
             // Get user media
-            navigator.mediaDevices.getUserMedia({ video: true })
+            navigator.mediaDevices.getUserMedia({ 
+                video: {
+                    facingMode: { ideal: "environment" }
+                }
+            })
                 .then(stream => {
                     const video = document.createElement('video');
                     video.srcObject = stream;
@@ -129,7 +135,20 @@
                         startStreaming(video);
                     };
                 })
-                .catch(err => console.error('Error accessing webcam:', err));
+                .catch(err => {
+                    // If environment camera fails, fall back to any available camera
+                    console.log('Could not access environment camera, falling back to default:', err);
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(stream => {
+                            const video = document.createElement('video');
+                            video.srcObject = stream;
+                            video.onloadedmetadata = () => {
+                                video.play();
+                                startStreaming(video);
+                            };
+                        })
+                        .catch(err => console.error('Error accessing any webcam:', err));
+                });
 
             function startStreaming(video) {
                 const canvas = document.createElement('canvas');
@@ -192,10 +211,12 @@
 
             ws.onerror = function(error) {
                 console.error('WebSocket error:', error);
+                ws.close();
             };
 
             ws.onclose = function() {
                 console.log('WebSocket connection closed');
+                ws.close();
             };
         </script>
     </body>

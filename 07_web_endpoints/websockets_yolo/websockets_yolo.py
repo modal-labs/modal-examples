@@ -1,5 +1,7 @@
 import modal
 from pathlib import Path
+from typing import Any
+from dataclasses import dataclass
 
 this_folder = Path(__file__).parent.resolve()
 
@@ -29,6 +31,11 @@ app = modal.App(
     image=image,
 )
 
+@dataclass
+class Frame:
+    client_id: str
+    image: Any # Using Any since np.ndarray requires numpy import
+
 @app.cls(
     gpu="A100",
 )
@@ -36,7 +43,7 @@ app = modal.App(
 class WebsocketsYOLODemo:
 
     @modal.enter()
-    def load_model(self):
+    def init(self):
 
         import asyncio
         import time
@@ -46,12 +53,14 @@ class WebsocketsYOLODemo:
         import cv2
         import onnxruntime
 
-        self.last_frame_time = None
-        self.conf_threshold = 0.15
-        self.delay_msec = 0
+        self.last_frame_time = {}
+        self.latest_frame = {}
+        self.delay_msec = {}
+        self.conf_threshold = {}
+
         self.frame_queue = asyncio.Queue()
-        self.latest_frame = None
-        self.websocket = None
+        self.frame_processor_task = None
+        self.websockets = {}
 
         onnxruntime.preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)
 
@@ -74,8 +83,12 @@ class WebsocketsYOLODemo:
                 # Get model info
                 self.get_input_details()
                 self.get_output_details()
+
+                # get class names
+                with open("/assets/yolo_classes.txt", "r") as f:
+                    self.class_names = f.read().splitlines()
                 rng = np.random.default_rng(3)
-                self.colors = rng.uniform(0, 255, size=(len(class_names), 3))
+                self.colors = rng.uniform(0, 255, size=(len(self.class_names), 3))
 
             def detect_objects(self, image, conf_threshold=0.3):
                 input_tensor = self.prepare_input(image)
@@ -173,7 +186,7 @@ class WebsocketsYOLODemo:
 
                     self.draw_box(det_img, box, color)  # type: ignore
 
-                    label = class_names[class_id]
+                    label = self.class_names[class_id]
                     caption = f"{label} {int(score * 100)}%"
                     self.draw_text(det_img, caption, box, color, font_size, text_thickness)  # type: ignore
 
@@ -236,49 +249,75 @@ class WebsocketsYOLODemo:
     
         self.model = YOLOv10("yolov10m.pt")
 
+    @modal.exit()
+    async def exit(self):
+        if not self.websockets:
+            print("No websockets, exiting frame processor task")
+            self.frame_processor_task.cancel()
+
     async def handle_queue(self):
 
+        import time
         import cv2
+        import numpy as np
 
-        if self.websocket:
-            while True:
+        while True:
                 
-                image = await self.frame_queue.get()
-                image = self.latest_frame
+            try:
                 
-                new_image = await self.detection(image)
+                frame = await self.frame_queue.get()
+                client_id = frame.client_id
+
+                if client_id not in self.websockets:
+                    print(f"Client {client_id} not in websockets, skipping frame")
+                    continue
+
+                frame = self.latest_frame.pop(client_id, None)
+                if frame:
+                    image = frame.image
+
+                
+                if image is not None:
+
+                    print(f"Frame processor task processing frame for client {client_id}")
+
+                    now = time.time()
+                    if self.last_frame_time[client_id] is None:
+                        round_trip_time = np.nan
+                    else:
+                        round_trip_time = now - self.last_frame_time[client_id]
+                    self.last_frame_time[client_id] = now
+
+                    delay_msec = self.delay_msec[client_id]
+                    conf_threshold = self.conf_threshold[client_id]
+                
+                image_w_detections = await self.detection(image, conf_threshold, round_trip_time, delay_msec)
 
                 # Convert back to bytes
-                success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
+                success, buffer = cv2.imencode('.jpg', image_w_detections, [cv2.IMWRITE_JPEG_QUALITY, 50])
                 if not success:
                     print("Failed to encode image")
                     continue
 
-                await self.websocket.send_bytes(buffer.tobytes())
+                await self.websockets[client_id].send_bytes(buffer.tobytes())
 
-    async def detection(self, image):
+            except Exception as e:
+                print(f"Error in handle_queue: {e}")
+                
+
+    async def detection(self, image, conf_threshold, round_trip_time, delay_msec):
 
         import asyncio
-        import time
         import cv2
 
-        print(self.conf_threshold, self.delay_msec)
-
-        now = time.time()
-        if self.last_frame_time is None:
-            round_trip_time = 0.
-        else:
-            round_trip_time = now - self.last_frame_time
-        self.last_frame_time = now
-
-        if self.delay_msec > 0:
-            time.sleep(self.delay_msec / 1000)
+        if delay_msec > 0:
+            await asyncio.sleep(delay_msec / 1000)
 
         print(f"Image shape: {image.shape}")
         image = cv2.resize(image, (self.model.input_width, self.model.input_height))
-        print("conf_threshold", self.conf_threshold)
-        new_image = self.model.detect_objects(image, self.conf_threshold)
-        new_image = cv2.resize(new_image, (500, 500))
+        print("conf_threshold", conf_threshold)
+        image_w_detections = self.model.detect_objects(image, conf_threshold)
+        image_w_detections = cv2.resize(image_w_detections, (500, 500))
         # add round trip time to image
         # Get text size to position it in lower right
         # Split text into two lines and render separately
@@ -293,16 +332,16 @@ class WebsocketsYOLODemo:
         
         # Position text in bottom right, with text2 below text1
         margin = 10
-        text1_x = new_image.shape[1] - text1_width - margin
-        text1_y = new_image.shape[0] - text1_height - margin - text2_height
-        text2_x = new_image.shape[1] - text2_width - margin  
-        text2_y = new_image.shape[0] - margin
+        text1_x = image_w_detections.shape[1] - text1_width - margin
+        text1_y = image_w_detections.shape[0] - text1_height - margin - text2_height
+        text2_x = image_w_detections.shape[1] - text2_width - margin  
+        text2_y = image_w_detections.shape[0] - margin
 
         # Draw both lines of text
-        cv2.putText(new_image, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
-        cv2.putText(new_image, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+        cv2.putText(image_w_detections, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+        cv2.putText(image_w_detections, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
 
-        return new_image
+        return image_w_detections
 
     @modal.asgi_app()
     def endpoint(self):
@@ -322,75 +361,79 @@ class WebsocketsYOLODemo:
 
         
 
-        @web_app.websocket("/ws")
-        async def websocket_handler(websocket: WebSocket) -> None:
+        @web_app.websocket("/ws/{client_id}")
+        async def websocket_endpoint(websocket: WebSocket, client_id: str) -> None:
 
             
             await websocket.accept()
-            self.websocket = websocket
+            self.websockets[client_id] = websocket
+            self.delay_msec[client_id] = 0.
+            self.conf_threshold[client_id] = 0.15
+            self.last_frame_time[client_id] = None
 
-            asyncio.create_task(self.handle_queue())
+            if len(self.websockets) == 1:
+                self.frame_processor_task = asyncio.create_task(self.handle_queue())
 
             print("WebSocket connection accepted")
-            try:
-                while True:
-                    
-                    try:
-                        data = await self.websocket.receive_bytes()
-
-                        if data and isinstance(data, bytes):
-                            image = None
-                            try:
-                                # Convert bytes to numpy array
-                                nparr = np.frombuffer(data, np.uint8)
-                                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-                            except:
-                                print("Failed to decode websocket message")
-                                continue 
-
-                            self.latest_frame = image
-                            self.frame_queue.put_nowait(image)
-
-                            continue
-
-                    except Exception as e:
-                        
-                        if isinstance(e, WebSocketDisconnect):
-                            raise WebSocketDisconnect
-
-                    try:
-
-                        data = await self.websocket.receive_text()
-                        if data and isinstance(data, str):
-                            try:
-                                
-                                # try parsing as json
-                                json_data = json.loads(data)
-                                
-                                print("Received json data:", json_data)
-                                
-                                if json_data["type"] == "confidenceThresh":
-                                    print("Setting confidence threshold to", json_data["value"])
-                                    self.conf_threshold = json_data["value"]
-                                    continue
-                                if json_data["type"] == "delay":
-                                    print("Setting delay to", json_data["value"])
-                                    self.delay_msec = json_data["value"]
-                                    continue
-                            except Exception as e:
-                                print("Failed to parse websocket message as json", e)
-                    except Exception as e:
-                        
-                        if isinstance(e, WebSocketDisconnect):
-                            raise WebSocketDisconnect
-
-            except WebSocketDisconnect as e:
-                print("handle disconnect")
-                await self.websocket.close()
-
+            while True:
                 
+                try:
+                    data = await websocket.receive_bytes()
 
+                    if data and isinstance(data, bytes):
+                        # Convert bytes to numpy array
+                        nparr = np.frombuffer(data, np.uint8)
+                        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                        self.latest_frame[client_id] = Frame(client_id=client_id, image=img)
+                        self.frame_queue.put_nowait(Frame(client_id=client_id, image=img))
+
+                        continue
+
+                except Exception as e:
+                    
+                    print(f"Websocket handling exception for client {client_id}: {e}")
+                    if isinstance(e, WebSocketDisconnect):
+                        print(f"Websocket {client_id} disconnected")
+                        await websocket.close()
+                        self.websockets.pop(client_id)
+                        if len(self.websockets) == 0:
+                            print("No websocket connections left, cancelling frame processor task")
+                            self.frame_processor_task.cancel()
+                        return
+
+                try:
+
+                    data = await websocket.receive_text()
+                    if data and isinstance(data, str):
+                        try:
+                            
+                            # try parsing as json
+                            json_data = json.loads(data)
+                            
+                            print("Received json data:", json_data)
+                            
+                            if json_data["type"] == "confidenceThresh":
+                                print("Setting confidence threshold to", json_data["value"])
+                                self.conf_threshold[client_id] = json_data["value"]
+                                continue
+                            if json_data["type"] == "delay":
+                                print("Setting delay to", json_data["value"])
+                                self.delay_msec[client_id] = json_data["value"]
+                                continue
+                        except Exception as e:
+                            print("Failed to parse websocket message as json", e)
+                except Exception as e:
+                    
+                    print(f"Websocket handling exception for client {client_id}: {e}")
+                    if isinstance(e, WebSocketDisconnect):
+                        print(f"Websocket {client_id} disconnected")
+                        await websocket.close()
+                        self.websockets.pop(client_id)
+                        if len(self.websockets) == 0:
+                            print("No websocket connections left, cancelling frame processor task")
+                            self.frame_processor_task.cancel()
+                        return
 
         @web_app.get("/")
         async def get(request: Request):

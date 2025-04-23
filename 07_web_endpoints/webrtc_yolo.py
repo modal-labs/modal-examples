@@ -31,6 +31,7 @@ app = modal.App(
     image=image,
 )
 
+MAX_CONCURRENT_INPUTS = 10
 
 @app.cls(
     gpu="A100",
@@ -40,7 +41,7 @@ app = modal.App(
     # and allow it to scale to 100 concurrent inputs
     max_containers=1,
 )
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
 class YoloWebRTCApp:
     
     @modal.enter()
@@ -78,7 +79,7 @@ class YoloWebRTCApp:
                 self.get_output_details()
 
                 # get class names
-                with open(this_folder / "class_names.txt", "r") as f:
+                with open("/assets/yolo_classes.txt", "r") as f:
                     self.class_names = f.read().splitlines()
                 rng = np.random.default_rng(3)
                 self.colors = rng.uniform(0, 255, size=(len(self.class_names), 3))
@@ -317,11 +318,16 @@ class YoloWebRTCApp:
                         "iceServers": [{"url": "stun:stun.l.google.com:19302"}]
                     },
                     ui_args={
-                        "pulse_color": "rgb(255, 255, 255)",
-                        "icon_button_color": "rgb(255, 255, 255)",
                         "title": "Press Record to Start Object Detection",
                     },
+                    track_constraints= {
+                        "width": {"exact": 640},
+                        "height": {"exact": 480},
+                        "frameRate": {"min": 30},
+                        "facingMode": {"ideal": "environment"},
+                    },
                     additional_inputs=[conf_slider, delay_slider],
+                    concurrency_limit=MAX_CONCURRENT_INPUTS,
                 )
                 
             

@@ -12,7 +12,7 @@ web_image = (
     )
 )
 
-MAX_CONCURRENT_STREAMS = 100
+MAX_CONCURRENT_STREAMS = 10
 
 app = modal.App(
     "fastrtc-webcam-demo",
@@ -48,7 +48,7 @@ class WebRTCApp:
         from fastrtc import Stream
 
         def flip_vertically(image):
-            
+
             now = time.time()
             if self.last_frame_time is None:
                 round_trip_time = np.nan
@@ -106,8 +106,6 @@ class WebRTCApp:
                         "iceServers": [{"url": "stun:stun.l.google.com:19302"}]
                     },
                     ui_args={
-                        "pulse_color": "rgb(255, 255, 255)",
-                        "icon_button_color": "rgb(255, 255, 255)",
                         "title": "Click Record to Flip Your Webcam in the Cloud",
                     },
                     track_constraints= {

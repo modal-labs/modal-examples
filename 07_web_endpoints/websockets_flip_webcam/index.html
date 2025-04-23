@@ -47,8 +47,8 @@
 
             <div class="slider-group">
                 <label class="slider-label" for="delay">Delay (ms)</label>
-                <input type="range" id="delay" min="0" max="100" value="50" step="1">
-                <span class="slider-value" id="delayValue">50</span>
+                <input type="range" id="delay" min="0" max="1000" value="50" step="1">
+                <span class="slider-value" id="delayValue">0</span>
             </div>
         </div>
         <script>
@@ -66,7 +66,7 @@
             const sliderConfig = {
                 delay: {
                     min: 0,
-                    max: 100,
+                    max: 1000,
                     initialValue: 0,
                     step: 1,
                     onValueChange: function(value) {
@@ -177,10 +177,12 @@
 
             ws.onerror = function(error) {
                 console.error('WebSocket error:', error);
+                ws.close();
             };
 
             ws.onclose = function() {
                 console.log('WebSocket connection closed');
+                ws.close();
             };
         </script>
     </body>
