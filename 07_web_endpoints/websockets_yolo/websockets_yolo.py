@@ -1,94 +1,9 @@
-class_names = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "airplane",
-    "bus",
-    "train",
-    "truck",
-    "boat",
-    "traffic light",
-    "fire hydrant",
-    "stop sign",
-    "parking meter",
-    "bench",
-    "bird",
-    "cat",
-    "dog",
-    "horse",
-    "sheep",
-    "cow",
-    "elephant",
-    "bear",
-    "zebra",
-    "giraffe",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "tie",
-    "suitcase",
-    "frisbee",
-    "skis",
-    "snowboard",
-    "sports ball",
-    "kite",
-    "baseball bat",
-    "baseball glove",
-    "skateboard",
-    "surfboard",
-    "tennis racket",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "bowl",
-    "banana",
-    "apple",
-    "sandwich",
-    "orange",
-    "broccoli",
-    "carrot",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "chair",
-    "couch",
-    "potted plant",
-    "bed",
-    "dining table",
-    "toilet",
-    "tv",
-    "laptop",
-    "mouse",
-    "remote",
-    "keyboard",
-    "cell phone",
-    "microwave",
-    "oven",
-    "toaster",
-    "sink",
-    "refrigerator",
-    "book",
-    "clock",
-    "vase",
-    "scissors",
-    "teddy bear",
-    "hair drier",
-    "toothbrush",
-]
-
-
 import modal
 from pathlib import Path
 
 this_folder = Path(__file__).parent.resolve()
 
-app = modal.App("websockets-yolo-demo")
-app.image = (
+image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
     .env(
@@ -109,10 +24,13 @@ app.image = (
     .add_local_dir(this_folder, remote_path="/assets")
 )
 
+app = modal.App(
+    "websockets-yolo-demo",
+    image=image,
+)
+
 @app.cls(
     gpu="A100",
-    min_containers=1,
-    scaledown_window=60 * 20,
     max_containers=1,
 )
 @modal.concurrent(max_inputs=100)

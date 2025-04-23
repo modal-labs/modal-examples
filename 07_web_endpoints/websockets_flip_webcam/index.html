@@ -52,7 +52,9 @@
             </div>
         </div>
         <script>
-            const ws = new WebSocket("url-placeholder");
+            // Use crypto.randomUUID() for a standard, collision-resistant unique identifier
+            const clientId = crypto.randomUUID();
+            const ws = new WebSocket(`url-placeholder/${clientId}`);
             ws.binaryType = "blob";
             const remoteImage = document.getElementById('remoteImage');
             const timestampDisplay = document.getElementById('timestamp');

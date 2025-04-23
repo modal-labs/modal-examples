@@ -3,7 +3,7 @@ from pathlib import Path
 
 this_folder = Path(__file__).parent.resolve()
 
-web_image = (
+image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
     .env(
@@ -28,15 +28,13 @@ web_image = (
 
 app = modal.App(
     "fastrtc-yolo-demo",
-    image=web_image,
+    image=image,
 )
 
 
 @app.cls(
     gpu="A100",
-    image=web_image,
-    min_containers=1,
-    scaledown_window=60 * 20,
+    image=image,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
