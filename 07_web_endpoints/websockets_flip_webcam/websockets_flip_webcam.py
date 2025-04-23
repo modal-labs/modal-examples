@@ -5,13 +5,16 @@ from dataclasses import dataclass
 
 this_directory = Path(__file__).parent.resolve()
 
-app = modal.App("websockets-flip-webcam")
-app.image = (
+image = (
     modal.Image.debian_slim()
     .apt_install("python3-opencv", "ffmpeg")
     .run_commands("pip install --upgrade pip")
     .pip_install("fastapi", "websockets", "gradio", "opencv-python")
     .add_local_dir(this_directory, remote_path="/assets")
+)
+app = modal.App(
+    "websockets-flip-webcam",
+    image=image,
 )
 
 @dataclass
@@ -19,10 +22,11 @@ class Frame:
     client_id: str
     image: Any # Using Any since np.ndarray requires numpy import
 
+
 @app.cls(
-    # region="ap-south",
+    region="ap-south",
 )
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=10)
 class WebsocketsFlipWebcam:
 
     @modal.enter()
@@ -31,11 +35,11 @@ class WebsocketsFlipWebcam:
         import asyncio
 
         self.last_frame_time = {}
+        self.latest_frame = {}
         self.delay_msec = {}
 
         self.frame_queue = asyncio.Queue()
         self.frame_processor_task = asyncio.create_task(self.handle_queue())
-        self.latest_frame = {}
         
         self.websockets = {}
         

@@ -31,11 +31,9 @@ app = modal.App(
 
 @app.cls(
     gpu="A100",
-    max_containers=1,
 )
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=10)
 class WebsocketsYOLODemo:
-
 
     @modal.enter()
     def load_model(self):
