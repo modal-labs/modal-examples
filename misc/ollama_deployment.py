@@ -17,17 +17,13 @@
 # To run this example:
 #
 # ```bash
-# modal run misc/ollama_deployment.py
+# modal deploy misc/ollama_deployment.py
 # ```
 #
 # To pull a model (e.g., llama3):
 #
-# ```python
-# from modal import Stub
-#
-# stub = Stub.from_name("ollama-service")
-# service = stub.OllamaService()
-# service.pull_model.remote("llama3")
+# ```bash
+# modal run ollama_deployment.py::OllamaService.pull_model --name llama3
 # ```
 #
 # You can then interact with the Ollama API using standard HTTP requests.
