@@ -28,10 +28,10 @@
 #
 # You can then interact with the Ollama API using standard HTTP requests.
 
-import modal
 import subprocess
 import time
 
+import modal
 
 # Define the base image with Ollama installed
 image = (
