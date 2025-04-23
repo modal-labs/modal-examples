@@ -22,6 +22,7 @@ class Frame:
 @app.cls(
     # region="ap-south",
 )
+@modal.concurrent(max_inputs=100)
 class WebsocketsFlipWebcam:
 
     @modal.enter()
@@ -29,7 +30,7 @@ class WebsocketsFlipWebcam:
 
         import asyncio
 
-        self.last_frame_time = None
+        self.last_frame_time = {}
         self.delay_msec = {}
 
         self.frame_queue = asyncio.Queue()
@@ -37,20 +38,13 @@ class WebsocketsFlipWebcam:
         self.latest_frame = {}
         
         self.websockets = {}
+        
 
-    async def flip_vertically(self, image, delay_msec = 0.):
+    async def flip_vertically(self, image, delay_msec = 0., round_trip_time = 0.):
 
         import asyncio
-        import time
         import numpy as np
         import cv2
-
-        now = time.time()
-        if self.last_frame_time is None:
-            round_trip_time = np.nan
-        else:
-            round_trip_time = now - self.last_frame_time
-        self.last_frame_time = now
 
         if delay_msec > 0:
             await asyncio.sleep(delay_msec / 1000)
@@ -91,8 +85,9 @@ class WebsocketsFlipWebcam:
     
     async def handle_queue(self):
 
+        import numpy as np
         import cv2
-        import asyncio
+        import time
 
         print("Frame processor task started")
         
@@ -105,16 +100,29 @@ class WebsocketsFlipWebcam:
                 frame = await self.frame_queue.get()
                 client_id = frame.client_id
 
-                frame = self.latest_frame[client_id]
-                image = frame.image
+                if client_id not in self.websockets:
+                    print(f"Client {client_id} not in websockets, skipping frame")
+                    continue
 
-                print(f"Frame processor task processing frame for client {client_id}")
+                frame = self.latest_frame.pop(client_id, None)
+                if frame:
+                    image = frame.image
+
                 
                 if image is not None:
 
                     print(f"Frame processor task processing frame for client {client_id}")
 
-                    new_image = await self.flip_vertically(image, self.delay_msec[client_id])
+                    now = time.time()
+                    if self.last_frame_time[client_id] is None:
+                        round_trip_time = np.nan
+                    else:
+                        round_trip_time = now - self.last_frame_time[client_id]
+                    self.last_frame_time[client_id] = now
+
+                    delay_msec = self.delay_msec[client_id]
+
+                    new_image = await self.flip_vertically(image, delay_msec = delay_msec, round_trip_time = round_trip_time)
 
                     # Convert back to bytes
                     success, buffer = cv2.imencode('.jpg', new_image, [cv2.IMWRITE_JPEG_QUALITY, 50])
@@ -134,12 +142,10 @@ class WebsocketsFlipWebcam:
                 
     @modal.exit()
     async def exit(self):
-        
-        self.frame_processor_task.cancel()
+        if not self.websockets:
+            print("No websockets, exiting frame processor task")
+            self.frame_processor_task.cancel()
 
-        while self.websockets:
-            websocket = self.websockets.pop()
-            await websocket.close()
 
         
 
@@ -166,30 +172,37 @@ class WebsocketsFlipWebcam:
 
             self.websockets[client_id] = websocket
             self.delay_msec[client_id] = 0.
+            self.last_frame_time[client_id] = None
+
             print("WebSocket connection accepted")
 
             while True: 
 
                 try:
-                    data = await websocket.receive_bytes()   
-                    print(f"Websockets handler task received {len(data)} bytes from client {client_id}")
-                    # Convert bytes to numpy array
-                    nparr = np.frombuffer(data, np.uint8)
-                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-                    self.latest_frame[client_id] = Frame(client_id=client_id, image=img)
-                    self.frame_queue.put_nowait(Frame(client_id=client_id, image=img))
-                    print(f"Frame queue length: {len(self.frame_queue)}")
-                    continue
+                    data = await websocket.receive_bytes()   
+                    if data and isinstance(data, bytes):
+                        print(f"Received {len(data)} bytes from client {client_id}")
+                        # Convert bytes to numpy array
+                        nparr = np.frombuffer(data, np.uint8)
+                        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+                        self.latest_frame[client_id] = Frame(client_id=client_id, image=img)
+                        self.frame_queue.put_nowait(Frame(client_id=client_id, image=img))
+
+                        continue
                     
                 except Exception as e:
-                    print(f"Websockets handler task exception: {e}")
+
+                    print(f"Websocket handling exception for client {client_id}: {e}")
                     if isinstance(e, WebSocketDisconnect):
+                        print(f"Websocket {client_id} disconnected")
                         await websocket.close()
                         self.websockets.pop(client_id)
                         return
                     
                 try:
+
                     data = await websocket.receive_text()
                     if data and isinstance(data, str):
                         try:
@@ -199,17 +212,22 @@ class WebsocketsFlipWebcam:
                                 print("Setting delay to", json_data["value"])
                                 self.delay_msec[client_id] = json_data["value"]
                                 continue
+
                         except Exception as e:
-                            print("Failed to parse websocket message as json", e)
+                            print("Failed to parse websocket string message as json", e)
+
                 except Exception as e:
-                    print(f"Websockets handler task exception: {e}")
+
+                    print(f"Websocket handling exception for client {client_id}: {e}")
                     if isinstance(e, WebSocketDisconnect):
+                        print(f"Websocket {client_id} disconnected")
                         await websocket.close()
                         self.websockets.pop(client_id)
                         return
 
         @web_app.get("/")
         async def get(request: Request):
+
             html = open("/assets/index.html").read()
             base_url = str(request.url).replace("http", "ws")
             html = html.replace("url-placeholder", f"{base_url}ws")
