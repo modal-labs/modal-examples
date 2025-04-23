@@ -23,7 +23,7 @@
 # To pull a model (e.g., llama3):
 #
 # ```bash
-# modal run ollama_deployment.py::OllamaService.pull_model --name llama3
+# modal run misc/ollama_deployment.py::OllamaService.pull_model --model-name llama3
 # ```
 #
 # You can then interact with the Ollama API using standard HTTP requests.
