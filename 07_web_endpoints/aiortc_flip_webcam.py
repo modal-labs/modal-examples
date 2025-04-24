@@ -1,9 +1,9 @@
 import abc
-import logging
-from aiortc import VideoStreamTrack
-import modal
 from pathlib import Path
 import os
+import shutil
+
+import modal
 
 this_directory = Path(__file__).parent.resolve()
 
@@ -18,9 +18,13 @@ web_image = (
         "aiortc",
         "opencv-python",
     )
-    .add_local_dir(os.path.join(this_directory, "media"), remote_path="/media")
+    .add_local_file(
+        os.path.join(this_directory, "media", "cliff_jumping.mp4"), 
+        remote_path="/media/cliff_jumping.mp4"
+    )
 )
 
+# create an output volume to store the transmitted videos
 output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
 OUTPUT_VOLUME_PATH = Path("/output")
 
@@ -36,36 +40,48 @@ test_timeout = 2.0 * MINUTES
 class WebRTCPeer(abc.ABC):
 
     @modal.enter()
-    async def _init(self):
-
-        import logging
-        from aiortc import RTCPeerConnection
-
-        aiortc_logger = logging.getLogger("aiortc")
-        # aiortc_logger.setHandler(my_own_handler)
-        aiortc_logger.setLevel(logging.DEBUG)  # Users can specify the log level they want, specifically for aiortc package.
+    async def _setup_peer(self):
+        """
+        Initialize the peer connection
+        and call custom init method for
+        subclasses
+        """
+        from fastapi import FastAPI
+        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
         # create peer connection with STUN server
-
-        # aiortc automatically uses google's STUN server, but we can also specify our own
-        # config = RTCConfiguration()
-        # config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        # self.pc = RTCPeerConnection(configuration = config)
-
-        self.pc = RTCPeerConnection()
+        # aiortc automatically uses google's STUN server when
+        # self.pc = RTCPeerConnection()
+        # is called, but we can also specify our own:
+        config = RTCConfiguration()
+        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        self.pc = RTCPeerConnection(configuration = config)
 
         await self.init()
+
+        self.web_app = FastAPI()
+
+        @self.web_app.get("/connection_state")
+        async def get_connection_state():
+            return {"connection_state": self.connection_state}
 
     async def init(self):
         pass
 
-
-    @modal.exit()
-    async def exit(self):
-        await self.pc.close()  
-
     async def setup_streams(self):
         pass
+
+    @modal.exit()
+    async def _exit(self):
+        await self.exit()
+        await self.pc.close()
+
+    async def exit(self):
+        pass
+
+    @property
+    def connection_state(self):
+        return self.pc.connectionState
 
     async def generate_offer(self):
 
@@ -83,26 +99,26 @@ class WebRTCPeer(abc.ABC):
 
     async def handle_offer(self, data):
 
-        import json
         from aiortc import RTCSessionDescription
 
         await self.setup_streams()
 
         # set remote description
         await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
-
-        
-
         # create answer
         answer = await self.pc.createAnswer()
-
         # set local/our description, this also triggers ICE gathering
         await self.pc.setLocalDescription(answer)
+
+    
+    def generate_answer(self):
+
+        import json
 
         # send local description SDP 
         # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"}) 
+        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})  
     
     async def handle_answer(self, answer):
 
@@ -112,7 +128,7 @@ class WebRTCPeer(abc.ABC):
         await self.pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
 
-# a class for our server. in this case server just means that this process is responding to an offer
+# this class responds to an offer
 # to establish a P2P connection as opposed to initiating the connection
 @app.cls(
     image=web_image,
@@ -121,69 +137,24 @@ class WebRTCPeer(abc.ABC):
     }
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCTestResponder(WebRTCPeer):   
+class WebRTCVideoFlipper(WebRTCPeer):   
+
 
     async def setup_streams(self):
 
+        from aiortc.contrib.media import MediaRecorder
 
-        from aiortc import MediaStreamTrack
-        import asyncio
-        pass
-        # class VideoFlipTrack(MediaStreamTrack):
-
-        #     kind = "video"
-        #     def __init__(self, track):
-        #         super().__init__()
-        #         self.track = track
-
-        #     async def recv(self):
-
-        #         import numpy as np
-
-        #         frame = await self.track.recv()
-        #         print(f"Received frame")
-        #         # frame = np.flip(frame, axis=1)
-        #         return frame
-
-        # await self.recorder.start()
-
+        if os.path.exists(OUTPUT_VOLUME_PATH / "flipped_vid.mp4"):
+            os.remove(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
         
+        print(f"Initializing recorder at {OUTPUT_VOLUME_PATH / 'flipped_vid.mp4'}")
+        self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
 
-
-
-            # @track.on("ended")
-            # async def on_ended():
-            #     print("Track %s ended", track.kind)
-            #     await self.recorder.stop()
-
-        
-
-    async def init(self):
-
-        import asyncio
-        from fastapi import FastAPI
-        from aiortc.contrib.media import MediaRelay, MediaRecorder
-
-        self.connection_successful = False
-        self.web_app = FastAPI()
-
-        # self.relay = MediaRelay()
-        if os.path.exists(OUTPUT_VOLUME_PATH / "echo_vid.mp4"):
-            os.remove(OUTPUT_VOLUME_PATH / "echo_vid.mp4")
-        print(f"Initializing recorder at {OUTPUT_VOLUME_PATH / 'echo_vid.mp4'}")
-        self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "echo_vid.mp4")
-
-        
-
-        @self.web_app.get("/success")
-        async def success():
-            return {"success": self.connection_successful}
         
         @self.pc.on("connectionstatechange")
         async def on_connectionstatechange():
             print("Responder side connection state is %s" % self.pc.connectionState)
-            # if self.pc.connectionState == "failed":
-            #     await self.pc.close()
+        
         
         @self.pc.on("track")
         async def on_track(track):
@@ -195,16 +166,13 @@ class WebRTCTestResponder(WebRTCPeer):
             async def on_ended():
                 print("Track %s ended" % track.kind)
                 await self.recorder.stop()
-        
-        # await self.recorder.start()
 
     # add responder logic to webapp
     @modal.asgi_app(label="webrtc-server")
     def webapp(self):
 
         import json
-        from fastapi import FastAPI, WebSocket
-
+        from fastapi import WebSocket, WebSocketDisconnect
 
         # create root endpoint to use for health checks
         @self.web_app.get("/")
@@ -215,7 +183,7 @@ class WebRTCTestResponder(WebRTCPeer):
         async def get_flipped_video_size():
             try:
                 return {
-                    "size_echo": os.path.getsize(OUTPUT_VOLUME_PATH / "echo_vid.mp4")
+                    "size_flipped": os.path.getsize(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
                 }
             except Exception as e:
                 return {
@@ -242,162 +210,76 @@ class WebRTCTestResponder(WebRTCPeer):
                         print(f"Server received offer...")
 
                         # handle offer and generate answer
-                        reply = await self.handle_offer(msg)
+                        await self.handle_offer(msg)
+                        
                         await self.recorder.start()
-                        await websocket.send_text(reply)
+                        
+                        await websocket.send_text(self.generate_answer())
 
-                        print(f"Server sent answer...")
+                        print("Server sent answer...")
 
                     else:
                         print(f"Unknown message type: {msg.get('type')}")
 
                 except Exception as e:
-                    # print(f"Error: {e} (type: {type(e).__name__})")
-                    pass
+                    if isinstance(e, WebSocketDisconnect):
+                        await websocket.close()
+                        break
+                    else:
+                        raise e
                 
-
         return self.web_app
     
 
 @app.cls(
     image=web_image,
-    # volumes={
-    #     OUTPUT_VOLUME_PATH: output_volume
-    # }
+    volumes={
+        OUTPUT_VOLUME_PATH: output_volume
+    }
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCWebcamProvider(WebRTCPeer):
+class WebRTCVideoProvider(WebRTCPeer):
+
+    LOCAL_VIDEO_SOURCE = "/media/cliff_jumping.mp4"
 
     async def init(self):
 
+        import shutil
         from fastapi import FastAPI
         from aiortc.contrib.media import MediaRecorder, MediaPlayer
-        
-        
-        self.web_app = FastAPI()
 
-        @self.pc.on("connectionstatechange")
-        async def on_connectionstatechange():
-            print("Sender side connection state is %s" % self.pc.connectionState)
+        # copy that video to the output volume
+        shutil.copy(self.LOCAL_VIDEO_SOURCE, OUTPUT_VOLUME_PATH / "cliff_jumping.mp4")
 
-        # write a dummy file to the output volume
-        # with open(OUTPUT_VOLUME_PATH / "dummy.txt", "w") as f:
-        #     f.write("dummy")
+        self.player = MediaPlayer(self.LOCAL_VIDEO_SOURCE, loop = True)
 
-        source_video = "/media/cliff_jumping.mp4"
-        self.player = MediaPlayer(source_video, loop = True)
-        print(f"Player track kind: {self.player.video.kind}")
-        self.pc.addTrack(self.player.video)
-        
-        # relay = MediaRelay()
-        # relay.subscribe(webcam.video)
-
-        
-
+        self.test_task = None
 
     async def setup_streams(self):
 
-        from aiortc.contrib.media import MediaPlayer, MediaRelay, MediaRecorder, VideoFrame
-        from aiortc import VideoStreamTrack
+        import shutil
+        from fastapi import FastAPI
+        from aiortc.contrib.media import MediaRecorder, MediaPlayer
 
-        import cv2
-        import numpy
-        import math
 
-        pass 
-        # self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
+        @self.pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            print("Provder side connection state is %s" % self.pc.connectionState)
 
-        # @self.pc.on("track")
-        # def on_track(track):
-        #     print(f"Provider received {track.kind} track: {track}")
-            # self.recorder.addTrack(track)
+        print(f"Player track kind: {self.player.video.kind}")
+        self.pc.addTrack(self.player.video)
+
         
-        #     @track.on("ended")
-        #     async def on_ended():
-        #         await self.recorder.stop()
-
-        # @self.pc.on("connectionstatechange")
-        # async def on_connectionstatechange():
-        #     print("Connection state is %s" % self.pc.connectionState)
-        #     if self.pc.connectionState == "failed":
-        #         await self.pc.close()
-
-
-        # class FlagVideoStreamTrack(VideoStreamTrack):
-        #     """
-        #     A video track that returns an animated flag.
-        #     """
-
-        #     def __init__(self):
-        #         super().__init__()  # don't forget this!
-        #         self.counter = 0
-        #         height, width = 480, 640
-
-        #         # generate flag
-        #         data_bgr = numpy.hstack(
-        #             [
-        #                 self._create_rectangle(
-        #                     width=213, height=480, color=(255, 0, 0)
-        #                 ),  # blue
-        #                 self._create_rectangle(
-        #                     width=214, height=480, color=(255, 255, 255)
-        #                 ),  # white
-        #                 self._create_rectangle(width=213, height=480, color=(0, 0, 255)),  # red
-        #             ]
-        #         )
-
-        #         # shrink and center it
-        #         M = numpy.float32([[0.5, 0, width / 4], [0, 0.5, height / 4]])
-        #         data_bgr = cv2.warpAffine(data_bgr, M, (width, height))
-
-        #         # compute animation
-        #         omega = 2 * math.pi / height
-        #         id_x = numpy.tile(numpy.array(range(width), dtype=numpy.float32), (height, 1))
-        #         id_y = numpy.tile(
-        #             numpy.array(range(height), dtype=numpy.float32), (width, 1)
-        #         ).transpose()
-
-        #         self.frames = []
-        #         for k in range(30):
-        #             phase = 2 * k * math.pi / 30
-        #             map_x = id_x + 10 * numpy.cos(omega * id_x + phase)
-        #             map_y = id_y + 10 * numpy.sin(omega * id_x + phase)
-        #             self.frames.append(
-        #                 VideoFrame.from_ndarray(
-        #                     cv2.remap(data_bgr, map_x, map_y, cv2.INTER_LINEAR), format="bgr24"
-        #                 )
-        #             )
-
-        #     async def recv(self):
-        #         pts, time_base = await self.next_timestamp()
-
-        #         frame = self.frames[self.counter % 30]
-        #         frame.pts = pts
-        #         frame.time_base = time_base
-        #         self.counter += 1
-        #         return frame
-
-        #     def _create_rectangle(self, width, height, color):
-        #         data_bgr = numpy.zeros((height, width, 3), numpy.uint8)
-        #         data_bgr[:, :] = color
-        #         return data_bgr
-
-        # print(f"Player track kind: {player.kind}")
-        
-        # self.pc.addTrack(FlagVideoStreamTrack())
-        # await self.recorder.start()
-    
-    
     def check_responder_is_up(self):
 
         import time
         import urllib
 
-        print(f"Attempting to connect to server at {WebRTCTestResponder().webapp.web_url}")
+        print(f"Attempting to connect to video flipper at {WebRTCVideoFlipper().webapp.web_url}")
         up, start, delay = False, time.time(), 10
         while not up:
             try:
-                with urllib.request.urlopen(WebRTCTestResponder().webapp.web_url) as response:
+                with urllib.request.urlopen(WebRTCVideoFlipper().webapp.web_url) as response:
                     if response.getcode() == 200:
                         up = True
             except Exception:
@@ -405,9 +287,9 @@ class WebRTCWebcamProvider(WebRTCPeer):
                     break
                 time.sleep(delay)
 
-        assert up, f"Failed to connect to server at {WebRTCTestResponder().webapp.web_url}"
+        assert up, f"Failed to connect to video flipper at {WebRTCVideoFlipper().webapp.web_url}"
 
-        print(f"Server is up at {WebRTCTestResponder().webapp.web_url}")
+        print(f"Video flipper is up at {WebRTCVideoFlipper().webapp.web_url}")
 
     async def start_webrtc_connection(self):
 
@@ -416,7 +298,7 @@ class WebRTCWebcamProvider(WebRTCPeer):
         import asyncio
 
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCTestResponder().webapp.web_url.replace("http", "ws") + "/ws"
+        ws_uri = WebRTCVideoFlipper().webapp.web_url.replace("http", "ws") + "/ws"
         print(f"Connecting to server websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
@@ -426,20 +308,29 @@ class WebRTCWebcamProvider(WebRTCPeer):
             
             await websocket.send(json.dumps(offer_msg))
 
-            while True:
+            try:
+                
                 # receive answer
                 answer = json.loads(await websocket.recv())
                 print(f"Received answer from server...")
 
                 if answer.get("type") == "answer":
                     await self.handle_answer(answer)
-                    # self.pc.addTrack(self.player.video)
 
-                
-            # await self.player.start()
+                while True:
+                    
+                    print(f"Player video ready state: {self.player.video.readyState}")
+                    if self.player.video.readyState == "ended":
+                        break
 
+                    await asyncio.sleep(1.0)
 
-
+            except Exception as e:
+                if isinstance(e, websockets.exceptions.ConnectionClosed):
+                    print("Connection closed")
+                    await websocket.close()
+                else:
+                    raise e
 
 
     # add initiator logic to webapp
@@ -448,6 +339,11 @@ class WebRTCWebcamProvider(WebRTCPeer):
 
         
         import asyncio
+
+        @self.web_app.get("/")
+        async def root():
+            pass
+
         @self.web_app.get("/video_size")
         async def get_flipped_video_size():
             try:
@@ -460,19 +356,28 @@ class WebRTCWebcamProvider(WebRTCPeer):
                     "error": str(e)
                 }
 
-        
-                
         # create root endpoint to trigger connection request
-        @self.web_app.get("/")
+        @self.web_app.get("/trigger_test")
         async def setup_connection():
 
             # confirm server container is running
             self.check_responder_is_up()
-            
-            asyncio.create_task(self.start_webrtc_connection())
+            self.test_task = asyncio.create_task(self.start_webrtc_connection())
+
+        @self.web_app.get("/test_complete")
+        async def test_complete():
+            if self.test_task is None:
+                print("Test task does not exist")
+                test_complete = False
+            else:
+                test_complete = self.test_task.done()
+            return {
+                "test_complete": test_complete
+            }
 
         return self.web_app
     
+        
 
 @app.local_entrypoint()
 def main():
@@ -481,11 +386,12 @@ def main():
     import time
     import urllib
 
-    print(f"Attempting to trigger WebRTC connector at {WebRTCWebcamProvider().webapp.web_url}")
+    print(f"Attempting to trigger WebRTC connector at {WebRTCVideoProvider().webapp.web_url + '/trigger_test'}")
     up, start, delay = False, time.time(), 10
     while not up:
         try:
-            with urllib.request.urlopen(WebRTCWebcamProvider().webapp.web_url) as response:
+            print(f"+++++++++++ATTEMPTING TO CONNECT+++++++++++")
+            with urllib.request.urlopen(WebRTCVideoProvider().webapp.web_url + "/trigger_test") as response:
                 if response.getcode() == 200:
                     up = True
         except Exception:
@@ -493,16 +399,16 @@ def main():
                 break
             time.sleep(delay)
 
-    assert up, f"Failed to trigger WebRTC connector at {WebRTCWebcamProvider().webapp.web_url}"
+    assert up, f"Failed to trigger WebRTC connector at {WebRTCVideoProvider().webapp.web_url + '/trigger_test'}"
 
-    print(f"Successfully triggered WebRTC connector at {WebRTCWebcamProvider().webapp.web_url}")
+    print(f"Successfully triggered WebRTC connector at {WebRTCVideoProvider().webapp.web_url + '/trigger_test'}")
 
     # build request to check connection status
     headers = {
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCTestResponder().webapp.web_url + "/video_size",
+        WebRTCVideoFlipper().webapp.web_url + "/video_size",
         method="GET",
         headers=headers,
     )
@@ -512,18 +418,38 @@ def main():
     now = time.time()
     while time.time() - now < test_timeout:
         with urllib.request.urlopen(req) as response:
-            print(f"Response: {response.read().decode()}")
+            return_data = json.loads(response.read().decode())
+            print(f"Response: {return_data}")
         time.sleep(1)
-            # success = (json.loads(response.read().decode())["success"])
-        # try:
-        #     assert success
-        #     print("Connection successful!!!!")
-        #     return
-        # except:
-        #     time.sleep(1)
-        #     pass
+        try:
+            success = return_data["size_flipped"] > 100
+            assert success
+            print("Connection successful!!!!")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(1)
+            pass
 
     # assert that the connection was successful
     assert success, "Connection failed"
+
+    # wait for the test to complete
+    test_complete = False
+    # build request to check connection status
+    headers = {
+        "Content-Type": "application/json",
+    }
+    req = urllib.request.Request(
+        WebRTCVideoProvider().webapp.web_url + "/test_complete",
+        method="GET",
+        headers=headers,
+    )
+    while not test_complete:
+        with urllib.request.urlopen(req) as response:
+            return_data = json.loads(response.read().decode())
+            print(f"Response: {return_data}")
+            test_complete = return_data["test_complete"]
+            time.sleep(1)
 
     
