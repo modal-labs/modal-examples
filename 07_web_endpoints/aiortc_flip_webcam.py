@@ -128,7 +128,8 @@ class WebRTCPeer(abc.ABC):
 
 
 # this class responds to an offer
-# to establish a P2P connection as opposed to initiating the connection
+# to establish a P2P connection
+# and flips the video stream
 @app.cls(
     image=web_image,
     volumes={
@@ -163,19 +164,19 @@ class WebRTCVideoFlipper(WebRTCPeer):
 
             @track.on("ended")
             async def on_ended():
-                print("Track %s ended" % track.kind)
+                print("VideoFlipper:Incoming Track ended")
                 await self.recorder.stop()
 
     # add responder logic to webapp
-    @modal.asgi_app(label="webrtc-server")
-    def webapp(self):
+    @modal.asgi_app(label="webrtc-video-flipper")
+    def web_endpoints(self):
 
         import json
         from fastapi import WebSocket, WebSocketDisconnect
 
         # create root endpoint (useful for testing container is running)
         @self.web_app.get("/")
-        async def get_server():
+        async def root_endpoint():
             pass
 
         @self.web_app.get("/video_size")
@@ -197,7 +198,6 @@ class WebRTCVideoFlipper(WebRTCPeer):
             await websocket.accept()
 
             # handle websocket messages and loop for lifetime
-
             while True:
                 try:
                     # get websocket message and parse as json
@@ -242,14 +242,10 @@ class WebRTCVideoProvider(WebRTCPeer):
     LOCAL_TEST_VIDEO_SOURCE = "/media/cliff_jumping.mp4"
 
     async def init(self):
-
-        import shutil
+        
         from aiortc.contrib.media import MediaPlayer
 
-        # copy that video to the output volume
-        shutil.copy(self.LOCAL_TEST_VIDEO_SOURCE, OUTPUT_VOLUME_PATH / "cliff_jumping.mp4")
-        self.player = MediaPlayer(self.LOCAL_TEST_VIDEO_SOURCE)
-
+        self.video_src = None
         self.test_task = None
 
     async def setup_streams(self):
@@ -258,18 +254,18 @@ class WebRTCVideoProvider(WebRTCPeer):
         async def on_connectionstatechange():
             print(f"Provder side connection state updated: {self.pc.connectionState}")
 
-        self.pc.addTrack(self.player.video)
+        self.pc.addTrack(self.video_src.video)
 
     def check_responder_is_up(self):
 
         import time
         import urllib
 
-        print(f"Attempting to connect to video flipper at {WebRTCVideoFlipper().webapp.web_url}")
+        print(f"Attempting to connect to video flipper at {WebRTCVideoFlipper().web_endpoints.web_url}")
         up, start, delay = False, time.time(), 10
         while not up:
             try:
-                with urllib.request.urlopen(WebRTCVideoFlipper().webapp.web_url) as response:
+                with urllib.request.urlopen(WebRTCVideoFlipper().web_endpoints.web_url) as response:
                     if response.getcode() == 200:
                         up = True
             except Exception:
@@ -277,9 +273,9 @@ class WebRTCVideoProvider(WebRTCPeer):
                     break
                 time.sleep(delay)
 
-        assert up, f"Failed to connect to video flipper at {WebRTCVideoFlipper().webapp.web_url}"
+        assert up, f"Failed to connect to video flipper at {WebRTCVideoFlipper().web_endpoints.web_url}"
 
-        print(f"Video flipper is up at {WebRTCVideoFlipper().webapp.web_url}")
+        print(f"Video flipper is up at {WebRTCVideoFlipper().web_endpoints.web_url}")
 
     async def start_webrtc_connection(self):
 
@@ -288,14 +284,14 @@ class WebRTCVideoProvider(WebRTCPeer):
         import asyncio
 
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCVideoFlipper().webapp.web_url.replace("http", "ws") + "/ws"
-        print(f"Connecting to server websocket at {ws_uri}")
+        ws_uri = WebRTCVideoFlipper().web_endpoints.web_url.replace("http", "ws") + "/ws"
+        print(f"Connecting to video flipper websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
             print(f"Generating provider offer...")
             offer_msg = await self.generate_offer()
 
-            print(f"Sending offer to responder...")
+            print(f"Sending offer...")
             await websocket.send(json.dumps(offer_msg))
 
             try: 
@@ -307,12 +303,7 @@ class WebRTCVideoProvider(WebRTCPeer):
                     await self.handle_answer(answer)
 
                 # loop until video player is finished
-                while True:
-                    
-                    
-                    if self.player.video.readyState == "ended":
-                        print(f"Provider finished playing video, ending task...")
-                        break
+                while self.video_src.video.readyState != "ended":
 
                     await asyncio.sleep(1.0)
 
@@ -321,6 +312,7 @@ class WebRTCVideoProvider(WebRTCPeer):
                     print("Connection closed")
                     await websocket.close()
                 else:
+                    print(f"Video Provider LoopError: {e}")
                     raise e
 
 
@@ -328,8 +320,8 @@ class WebRTCVideoProvider(WebRTCPeer):
     def web_endpoints(self):
         
         import asyncio
+        from aiortc.contrib.media import MediaPlayer
 
-        
         @self.web_app.get("/")
         async def root():
             # create root endpoint (useful for testing container is running)
@@ -342,8 +334,11 @@ class WebRTCVideoProvider(WebRTCPeer):
 
             # confirm server container is running first
             self.check_responder_is_up()
+
+            self.video_src = MediaPlayer(self.LOCAL_TEST_VIDEO_SOURCE)
             # start WebRTC connection test
             self.test_task = asyncio.create_task(self.start_webrtc_connection())
+            
 
         @self.web_app.get("/test_complete")
         async def test_complete():
@@ -389,7 +384,7 @@ def main():
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCVideoFlipper().webapp.web_url + "/video_size",
+        WebRTCVideoFlipper().web_endpoints.web_url + "/video_size",
         method="GET",
         headers=headers,
     )

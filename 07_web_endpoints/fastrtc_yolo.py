@@ -39,6 +39,7 @@ MAX_CONCURRENT_INPUTS = 10
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
+    min_containers=1, # let's keep it hot so it's more fun to share
     max_containers=1,
 )
 @modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
