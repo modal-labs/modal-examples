@@ -14,85 +14,48 @@ import modal
 from itertools import islice
 
 
-###################
-# Modify if needed
+######################################
+# Parameters
 CPU = 1
 MAX_CONCURRENT_REQUESTS = 1 # 500 on Infinity, 1 on superlink
 GPU = "H200"
-MAX_BATCH_SIZE = 2000  # 5000 would be too high for T4
 BATCHED_WAIT = 1000 # ms
-###################
+volume_path = Path("/root") / "data" #  the path to the volume from within the container
+
+#
+# Legacy parameters (superlink)
 # Only modify if you are sure
 SCALEDOWN_WINDOW = 600  # seconds
 TIMEOUT = 600  # seconds
 LOG_LEVEL = 10
-APP_NAME = "embedding-overdrive"
+APP_NAME = "embedding-racetrack"
 
-#############
-MODEL_NAMES = ["Alibaba-NLP/gte-large-en-v1.5", 
+#
+MODEL_NAMES = [#"Alibaba-NLP/gte-large-en-v1.5", 
                "pySilver/marqo-fashionSigLIP-ST"]
-ALLOCATED_MEMORY = CPU * MAX_BATCH_SIZE + 6000  # To handle images
+# ALLOCATED_MEMORY = CPU * MAX_BATCH_SIZE + 6000  # To handle images
 
+###################
 # # Container Setup
 # To compute embeddings, the inference app we are going to create
 # needs access to the data and necessary python packages.
 inf_image = (
     modal.Image.debian_slim(python_version="3.10")
     # For downloading data
-    .pip_install(["roboflow~=1.1.37", "opencv-python~=4.10.0"])
+    .apt_install(["libgl1-mesa-glx", "libglib2.0-0"])
+    .pip_install(["opencv-python~=4.10.0"]) #"roboflow~=1.1.37", 
     # For infinity encoder inference
     .pip_install(["infinity_emb[all]==0.0.76", "hf_xet==1.0.3",
                   "ftfy==6.3.1", "open_clip_torch==2.32.0"])
     .env({"INFINITY_PORT": "7997", "INFINITY_MODEL_ID": ";".join(MODEL_NAMES)})
 )
 
-# We also create a persistent [Volume](https://modal.com/docs/guide/volumes) for storing datasets, trained weights, and inference outputs.
-
-data_volume = modal.Volume.from_name(APP_NAME, create_if_missing=True)
-volume_path = Path("/root") / "data" #  the path to the volume from within the container
+data_volume = modal.Volume.from_name("image-db")
 
 # We attach both of these to a Modal [App](https://modal.com/docs/guide/apps).
 app = modal.App(APP_NAME, 
                 image=inf_image, 
                 volumes={volume_path: data_volume})
-
-# # Dataset Setup
-# COPIED FROM CHARLES' ROBOFLOW DEMO: 
-# TODO: how fan out the dataloader and stream to batched app
-
-@dataclass
-class DatasetConfig:
-    """Information required to download a dataset from Roboflow."""
-
-    workspace_id: str
-    project_id: str
-    version: int
-    format: str
-    target_class: str
-
-    @property
-    def id(self) -> str:
-        return f"{self.workspace_id}/{self.project_id}/{self.version}"
-
-
-@app.function(
-    secrets=[
-        modal.Secret.from_name("roboflow-api-key", required_keys=["ROBOFLOW_API_KEY"])
-    ]
-)
-def download_dataset(config: DatasetConfig):
-    import os
-
-    from roboflow import Roboflow
-
-    rf = Roboflow(api_key=os.getenv("ROBOFLOW_API_KEY"))
-    project = (
-        rf.workspace(config.workspace_id)
-        .project(config.project_id)
-        .version(config.version)
-    )
-    dataset_dir = volume_path / "dataset" / config.id
-    project.download(config.format, location=str(dataset_dir))
 
 
 @app.function()
@@ -118,6 +81,10 @@ def read_image(image_path: str):
 # )
 
 class InfinityBaseClass:
+    """
+    Contains the common code for setting up Infinity
+    and embedding one batch/input
+    """
 
     @modal.enter()
     async def init_model_server(self) -> None:
@@ -137,7 +104,7 @@ class InfinityBaseClass:
         args = [
             EngineArgs(
                 model_name_or_path=model_name,
-                batch_size=self.get_max_batch_size(),
+                batch_size=5000,
                 model_warmup=False,
                 engine=InferenceEngine.torch,
                 dtype=Dtype.float16,
@@ -164,14 +131,21 @@ class InfinityBaseClass:
 
 @app.cls(gpu=GPU)
 class InfinityStream(InfinityBaseClass):
+    """
+    Loosely based on Charles' RoboFlow example.
+    In this one we read images in parallel but process 
+    single ims (batch_size=1)
+    """
     @modal.method()
-    def stream_singleims(self, data_dir: os.PathLike):
+    def stream_singleims(self, data_dir: os.PathLike, max_ims:int=-1):
         import time
         start = time.monotonic_ns()
         count=0
-        
+        impaths = list(batchdir.rglob("*.jpg"))
+        if 0 < max_ims < len(impaths):
+            impaths = impaths[:max_ims]
         batchdir = Path(data_dir)
-        for image in read_image.map(batchdir.rglob("*.png")):
+        for image in read_image.map(impaths): 
             self.embed([image])
             count+=1
 
@@ -180,7 +154,8 @@ class InfinityStream(InfinityBaseClass):
               f'\t{count}ims@{len(count)/sec:.1}im/s ({sec/60:.1f}min)')
 
 
-@app.cls(gpu=GPU, allow_concurrent_inputs=MAX_CONCURRENT_REQUESTS)
+@app.cls(gpu=GPU)
+@modal.concurrent(max_inputs=MAX_CONCURRENT_REQUESTS)
 class InfinityConcurrent(InfinityBaseClass):
     """
     A la SuperLink's solution
@@ -193,7 +168,7 @@ class InfinityConcurrent(InfinityBaseClass):
         import time
         start = time.monotonic_ns()
         
-        ims = list(Path(data_dir).rglob('.png'))
+        ims = list(Path(data_dir).rglob('*.jpg'))
         batches = [ims[i : i + batch_size] 
                    for i in range(len(ims), batch_size)]
         
@@ -212,7 +187,8 @@ class InfinityConcurrent(InfinityBaseClass):
 
         # return [embedding for batch_results in batched_embeddings for embedding in batch_results]
 
-@app.cls(gpu=GPU, allow_concurrent_inputs=MAX_CONCURRENT_REQUESTS)
+@app.cls(gpu=GPU)
+@modal.concurrent(max_inputs=MAX_CONCURRENT_REQUESTS)
 class InfinityBatched(InfinityBaseClass):
     """
     Best of both worlds?...
@@ -247,21 +223,17 @@ class InfinityBatched(InfinityBaseClass):
 
 @app.local_entrypoint()
 def main():
-    quick_test: bool = True
-    test_images = volume.listdir(
-        str(Path("dataset") / dataset.id / "test" / "images")
-    )
-    if quick_test:
-        test_images=test_images[:100]
+    max_ims = 10
 
     #######################################################
     print('---------------------')
     st = time.monotonic_ns()
     embedder = InfinityStream()
-    embedder.stream_singleims.remote(data_path)
+    embedder.stream_singleims.remote(volume_path, max_ims)
     print(f"Total stream method time: {(time.time()-st)/min:.2}min")
     del embedder
-
+    
+    raise Exception
     # A la SUPERLINK example
     for batch_size in [2000, 5000, 10000, 30000, len(test_images)]:
         
@@ -282,7 +254,7 @@ def main():
             st = time.monotonic_ns()
             embedder = InfinityBatched(batch_size)
 
-            for image in read_image.map(data_path.rglob("*.png")):
+            for image in read_image.map(data_path.rglob("*.jpg")):
                 # forward to the queue?
                 embedder.batch_embed.remote(image)
 
