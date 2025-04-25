@@ -302,18 +302,12 @@ class WebRTCVideoProvider(WebRTCPeer):
                     print(f"Received answer from responder...")
                     await self.handle_answer(answer)
 
-                # loop until video player is finished
-                while self.video_src.video.readyState != "ended":
+                
 
-                    await asyncio.sleep(1.0)
+            except websockets.exceptions.ConnectionClosed as e:
+                print("Connection closed")
+                await websocket.close()
 
-            except Exception as e:
-                if isinstance(e, websockets.exceptions.ConnectionClosed):
-                    print("Connection closed")
-                    await websocket.close()
-                else:
-                    print(f"Video Provider LoopError: {e}")
-                    raise e
 
 
     @modal.asgi_app(label="webrtc-client")
@@ -338,6 +332,11 @@ class WebRTCVideoProvider(WebRTCPeer):
             self.video_src = MediaPlayer(self.LOCAL_TEST_VIDEO_SOURCE)
             # start WebRTC connection test
             self.test_task = asyncio.create_task(self.start_webrtc_connection())
+
+            # loop until video player is finished
+            while self.video_src.video.readyState != "ended":
+
+                await asyncio.sleep(1.0)
             
 
         @self.web_app.get("/test_complete")
