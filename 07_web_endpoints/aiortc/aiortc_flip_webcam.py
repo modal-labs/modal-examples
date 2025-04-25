@@ -2,6 +2,10 @@ import abc
 from pathlib import Path
 import os
 
+from aiortc import RTCIceCandidate
+import cv2
+from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
 import modal
 
 this_directory = Path(__file__).parent.resolve()
@@ -53,6 +57,7 @@ class WebRTCPeer(abc.ABC):
         subclasses
         """
         from fastapi import FastAPI
+        from fastapi.staticfiles import StaticFiles
         from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
         # create peer connection with STUN server
@@ -67,6 +72,15 @@ class WebRTCPeer(abc.ABC):
 
         self.web_app = FastAPI()
 
+        # Add CORS middleware
+        self.web_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allows all origins
+            allow_credentials=True,
+            allow_methods=["*"],  # Allows all methods
+            allow_headers=["*"],  # Allows all headers
+        )
+
         @self.web_app.get("/connection_state")
         async def get_connection_state():
             return {"connection_state": self.connection_state}
@@ -74,6 +88,12 @@ class WebRTCPeer(abc.ABC):
         @self.web_app.get("/ping")
         async def ping():
             return {"response": "pong"}
+        
+        self.web_app.mount(
+            "/static",
+            StaticFiles(directory="/frontend"),
+            name="static",
+        )
 
     async def init(self):
         pass
@@ -107,14 +127,14 @@ class WebRTCPeer(abc.ABC):
         # these are embedded in the SDP after setLocalDescription() is called
         return {"sdp": self.pc.localDescription.sdp, "type": offer.type}
 
-    async def handle_offer(self, data):
+    async def handle_offer(self, offer):
 
         from aiortc import RTCSessionDescription
 
         await self.setup_streams()
 
         # set remote description
-        await self.pc.setRemoteDescription(RTCSessionDescription(data["sdp"], data["type"]))
+        await self.pc.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
         # create answer
         answer = await self.pc.createAnswer()
         # set local/our description, this also triggers ICE gathering
@@ -123,12 +143,10 @@ class WebRTCPeer(abc.ABC):
     
     def generate_answer(self):
 
-        import json
-
         # send local description SDP 
         # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return json.dumps({"sdp": self.pc.localDescription.sdp, "type": "answer"})  
+        return {"sdp": self.pc.localDescription.sdp, "type": "answer"}
     
     async def handle_answer(self, answer):
 
@@ -152,31 +170,69 @@ class WebRTCVideoFlipper(WebRTCPeer):
 
     async def init(self):
 
-        from aiortc.contrib.media import MediaRecorder
+        from aiortc.contrib.media import MediaRecorder, MediaRelay
 
         if os.path.exists(OUTPUT_VOLUME_PATH / "flipped_vid.mp4"):
             os.remove(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
 
+        self.relay = MediaRelay()
         print(f"Initializing recorder at {OUTPUT_VOLUME_PATH / 'flipped_vid.mp4'}")
         self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
 
     async def setup_streams(self):
 
+        import cv2
+
+        from aiortc import MediaStreamTrack
+        from aiortc.contrib.media import VideoFrame, MediaRelay
+
+        class VideoFlipTrack(MediaStreamTrack):
+
+            kind = "video"
+
+            def __init__(self, track):
+                super().__init__()
+                self.track = track
+                self.frame_count = 0
+
+            async def recv(self):
+
+                frame = await self.track.recv()
+                img = frame.to_ndarray(format="bgr24")
+                img = cv2.flip(img, 0)
+
+                new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+                if self.frame_count == 0:
+                    self.frame_count = frame.pts
+                new_frame.pts = self.frame_count
+                new_frame.time_base = frame.time_base
+
+                self.frame_count += 3330
+
+                return new_frame
+            
         @self.pc.on("connectionstatechange")
         async def on_connectionstatechange():
-            print("Responder side connection state is %s" % self.pc.connectionState)
+            print(f"Responder side connection state is {self.pc.connectionState}")
         
         
         @self.pc.on("track")
-        async def on_track(track):
+        def on_track(track):
+            
             print(f"Responder received {track.kind} track: {track}")
-            # self.pc.addTrack(VideoFlipTrack(self.relay.subscribe(track)))
-            self.recorder.addTrack(track)
+
+            flipped_track = VideoFlipTrack(track)
+            
+            # relay the flipped track to the recorder and back to the provider
+            # relay = MediaRelay()
+            self.recorder.addTrack(self.relay.subscribe(flipped_track))
+            self.pc.addTrack(self.relay.subscribe(flipped_track))
 
             @track.on("ended")
             async def on_ended():
                 print("VideoFlipper:Incoming Track ended")
                 await self.recorder.stop()
+                # await self.pc.close()
 
     # add responder logic to webapp
     @modal.asgi_app(label="webrtc-video-flipper")
@@ -190,6 +246,16 @@ class WebRTCVideoFlipper(WebRTCPeer):
         async def root_endpoint():
             pass
 
+        @self.web_app.get("/offer")
+        async def handle_frontend_offer(sdp: str, type: str):
+            
+            if type != "offer":
+                return {"error": "Invalid offer type"}
+            await self.handle_offer({"sdp": sdp, "type": type})
+            # await self.recorder.start()
+            return self.generate_answer()
+
+        
         @self.web_app.get("/video_size")
         async def get_flipped_video_size():
             try:
@@ -226,19 +292,17 @@ class WebRTCVideoFlipper(WebRTCPeer):
                             # start recording stream
                             await self.recorder.start()
                         # send answer
-                        await websocket.send_text(self.generate_answer())
+                        await websocket.send_text(json.dumps(self.generate_answer()))
 
                         print("Server sent answer...")
 
                     else:
                         print(f"Unknown message type: {msg.get('type')}")
 
-                except Exception as e:
-                    if isinstance(e, WebSocketDisconnect):
-                        await websocket.close()
-                        break
-                    else:
-                        raise e
+                except WebSocketDisconnect as e:
+                    await websocket.close()
+                    break
+
                 
         return self.web_app
     
@@ -329,15 +393,14 @@ class WebRTCVideoProvider(WebRTCPeer):
         import asyncio
         from aiortc.contrib.media import MediaPlayer
         from fastapi.responses import HTMLResponse
+
         @self.web_app.get("/")
         async def root():
-            # send index.html
-            return HTMLResponse(content=open("index.html").read())
+            return HTMLResponse(content=open("/frontend/index.html").read())
 
         
         @self.web_app.get("/run_test")
         async def run_test():
-            # create root endpoint to trigger connection request
 
             # confirm server container is running first
             self.check_responder_is_up()
