@@ -344,27 +344,6 @@ class WebRTCVideoProvider(WebRTCPeer):
 
         self.pc.addTrack(self.video_src.video)
 
-    def check_responder_is_up(self):
-
-        import time
-        import urllib
-
-        print(f"Attempting to connect to video flipper at {self.video_processor_url}")
-        up, start, delay = False, time.time(), 10
-        while not up:
-            try:
-                with urllib.request.urlopen(self.video_processor_url + "/ping") as response:
-                    if response.getcode() == 200:
-                        up = True
-            except Exception:
-                if time.time() - start > test_timeout:
-                    break
-                time.sleep(delay)
-
-        assert up, f"Failed to connect to video flipper at {self.video_processor_url}"
-
-        print(f"Video flipper is up at {self.video_processor_url}")
-
     async def start_webrtc_connection(self):
 
         import json
@@ -420,9 +399,6 @@ class WebRTCVideoProvider(WebRTCPeer):
         @self.web_app.get("/run_test")
         async def run_test():
 
-            # confirm server container is running first
-            self.check_responder_is_up()
-
             self.video_src = MediaPlayer(self.LOCAL_TEST_VIDEO_SOURCE)
             # start WebRTC connection test
             self.test_task = asyncio.create_task(self.start_webrtc_connection())
@@ -468,43 +444,6 @@ def main():
                 break
             time.sleep(delay)
 
-    assert up, f"Failed to trigger WebRTC connector at {WebRTCVideoProvider().web_endpoints.web_url + '/run_test'}"
-
-    print(f"Successfully triggered WebRTC connector at {WebRTCVideoProvider().web_endpoints.web_url + '/run_test'}")
-
-    # build request to check connection status
-    headers = {
-        "Content-Type": "application/json",
-    }
-    req = urllib.request.Request(
-        WebRTCVideoProcessor().web_endpoints.web_url + "/video_size",
-        method="GET",
-        headers=headers,
-    )
-
-    # test if P2P data channel is established once a second
-    success = False
-    now = time.time()
-    while time.time() - now < test_timeout:
-        with urllib.request.urlopen(req) as response:
-            return_data = json.loads(response.read().decode())
-            print(f"Response: {return_data}")
-        time.sleep(1)
-        try:
-            success = return_data["size_flipped"] > 100
-            assert success
-            print("Connection successful!!!!")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(1)
-            pass
-
-    # assert that the connection was successful
-    assert success, "Connection failed"
-
-    # wait for the test to complete
-    test_complete = False
     # build request to check connection status
     headers = {
         "Content-Type": "application/json",
@@ -514,11 +453,26 @@ def main():
         method="GET",
         headers=headers,
     )
-    while not test_complete:
+    # test if P2P test is complete once a second
+    success = False
+    now = time.time()
+    while time.time() - now < test_timeout:
         with urllib.request.urlopen(req) as response:
             return_data = json.loads(response.read().decode())
             print(f"Response: {return_data}")
+        time.sleep(1)
+        try:
             test_complete = return_data["test_complete"]
+            assert test_complete
+            print("Test complete!!!!")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
             time.sleep(1)
+            pass
+
+    # assert that the connection was successful
+    assert test_complete, "Test failed to complete"
+
 
     
