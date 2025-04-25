@@ -173,7 +173,7 @@ class WebRTCPeer(abc.ABC):
     }
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCVideoFlipper(WebRTCPeer):   
+class WebRTCVideoProcessor(WebRTCPeer):   
 
     async def init(self):
 
@@ -334,6 +334,7 @@ class WebRTCVideoProvider(WebRTCPeer):
 
         self.video_src = None
         self.test_task = None
+        self.video_processor_url = WebRTCVideoProcessor().web_endpoints.web_url
 
     async def setup_streams(self):
 
@@ -348,11 +349,11 @@ class WebRTCVideoProvider(WebRTCPeer):
         import time
         import urllib
 
-        print(f"Attempting to connect to video flipper at {WebRTCVideoFlipper().web_endpoints.web_url}")
+        print(f"Attempting to connect to video flipper at {self.video_processor_url}")
         up, start, delay = False, time.time(), 10
         while not up:
             try:
-                with urllib.request.urlopen(WebRTCVideoFlipper().web_endpoints.web_url + "/ping") as response:
+                with urllib.request.urlopen(self.video_processor_url + "/ping") as response:
                     if response.getcode() == 200:
                         up = True
             except Exception:
@@ -360,9 +361,9 @@ class WebRTCVideoProvider(WebRTCPeer):
                     break
                 time.sleep(delay)
 
-        assert up, f"Failed to connect to video flipper at {WebRTCVideoFlipper().web_endpoints.web_url}"
+        assert up, f"Failed to connect to video flipper at {self.video_processor_url}"
 
-        print(f"Video flipper is up at {WebRTCVideoFlipper().web_endpoints.web_url}")
+        print(f"Video flipper is up at {self.video_processor_url}")
 
     async def start_webrtc_connection(self):
 
@@ -371,7 +372,7 @@ class WebRTCVideoProvider(WebRTCPeer):
         import asyncio
 
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCVideoFlipper().web_endpoints.web_url.replace("http", "ws") + f"/ws/{TEST_VIDEO}"
+        ws_uri = self.video_processor_url.replace("http", "ws") + f"/ws/{TEST_VIDEO}"
         print(f"Connecting to video flipper websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
@@ -397,7 +398,7 @@ class WebRTCVideoProvider(WebRTCPeer):
 
 
 
-    @modal.asgi_app(label="webrtc-client")
+    @modal.asgi_app(label="webrtc-video-provider")
     def web_endpoints(self):
         
         import asyncio
@@ -406,7 +407,12 @@ class WebRTCVideoProvider(WebRTCPeer):
 
         @self.web_app.get("/")
         async def root():
-            return HTMLResponse(content=open("/frontend/index.html").read())
+            js = open("/frontend/webcam_webrtc.js").read()
+            base_url = str(self.video_processor_url)
+            js = js.replace("video-processor-url-placeholder", f"{base_url}")
+            html = open("/frontend/index.html").read()
+            html = html.replace("js-placeholder", js)
+            return HTMLResponse(content=html)
 
         
         @self.web_app.get("/run_test")
@@ -469,7 +475,7 @@ def main():
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCVideoFlipper().web_endpoints.web_url + "/video_size",
+        WebRTCVideoProcessor().web_endpoints.web_url + "/video_size",
         method="GET",
         headers=headers,
     )

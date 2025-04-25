@@ -29,24 +29,10 @@ async function start() {
 }
 
 // Create and set up peer connection
-async function call() {
+async function startProcessing() {
     callButton.disabled = true;
     hangupButton.disabled = false;
 
-    // // Create peer connection
-    // peerConnection = new RTCPeerConnection(configuration);
-
-    // // Add local stream to peer connection
-    // localStream.getTracks().forEach(track => {
-    //     console.log('Adding track:', track);
-    //     peerConnection.addTrack(track, localStream);
-    // });
-
-    // // Handle remote stream
-    // peerConnection.ontrack = event => {
-    //     console.log('Received remote stream:', event.streams[0]);
-    //     remoteVideo.srcObject = event.streams[0];
-    // };
 
     // Create and set local description
     try {
@@ -56,9 +42,7 @@ async function call() {
     }
 }
 
-function negotiate() {
-
-    
+async function negotiate() {
 
     // Create peer connection
     peerConnection = new RTCPeerConnection(configuration);
@@ -75,11 +59,10 @@ function negotiate() {
         remoteVideo.srcObject = event.streams[0];
     };
 
-    return peerConnection.createOffer().then((offer) => {
-        return peerConnection.setLocalDescription(offer);
-    }).then(() => {
-        // wait for ICE gathering to complete
-        return new Promise((resolve) => {
+    try {
+        const offer = await peerConnection.createOffer();
+        peerConnection.setLocalDescription(offer);
+        await new Promise((resolve) => {
             if (peerConnection.iceGatheringState === 'complete') {
                 resolve();
             } else {
@@ -92,24 +75,19 @@ function negotiate() {
                 peerConnection.addEventListener('icegatheringstatechange', checkState);
             }
         });
-    }).then(() => {
-        var offer = peerConnection.localDescription;
-        
-
-        return fetch('https://shababo--webrtc-video-flipper-dev.modal.run/offer?' + new URLSearchParams({
-            sdp: offer.sdp,
-            type: offer.type
+        var offer_1 = peerConnection.localDescription;
+        const response = await fetch('video-processor-url-placeholder/offer?' + new URLSearchParams({
+            sdp: offer_1.sdp,
+            type: offer_1.type
         }), {
             method: 'GET'
         });
-    }).then((response) => {
-        return response.json();
-    }).then((answer) => {
+        const answer = await response.json();
         console.log('Received answer:', answer);
         return peerConnection.setRemoteDescription(answer);
-    }).catch((e) => {
+    } catch (e) {
         alert(e);
-    });
+    }
 }
 
 // Hang up the call
@@ -123,5 +101,5 @@ function hangup() {
 
 // Event listeners
 startButton.addEventListener('click', start);
-callButton.addEventListener('click', call);
+callButton.addEventListener('click', startProcessing);
 hangupButton.addEventListener('click', hangup); 
