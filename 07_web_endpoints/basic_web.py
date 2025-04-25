@@ -139,8 +139,7 @@ def goodbye(data: dict) -> str:
 # it'd be a shame to have to do it every time a request comes in!
 
 # Web endpoints can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters),
-# which allows you to manage
-# Note that they don't need the [`modal.method`](https://modal.com/docs/reference/modal.method) decorator.
+# which allows you to manage the container's lifecycle independently from processing individual requests.
 
 # This example will only set the `start_time` instance variable once, on container startup.
 
