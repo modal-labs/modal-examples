@@ -17,9 +17,13 @@ web_image = (
         "aiortc",
         "opencv-python",
     )
-    .add_local_file(
-        os.path.join(this_directory, "media", "cliff_jumping.mp4"), 
-        remote_path="/media/cliff_jumping.mp4"
+    .add_local_dir(
+        os.path.join(this_directory, "media"), 
+        remote_path="/media"
+    )
+    .add_local_dir(
+        os.path.join(this_directory, "frontend"), 
+        remote_path="/frontend"
     )
 )
 
@@ -35,6 +39,9 @@ app = modal.App(
 # set timeout for health checks and connection test
 MINUTES = 60  # seconds
 test_timeout = 2.0 * MINUTES
+
+TEST_VIDEO = "test_video"
+WEBCAM = "webcam"
 
 class WebRTCPeer(abc.ABC):
 
@@ -63,6 +70,10 @@ class WebRTCPeer(abc.ABC):
         @self.web_app.get("/connection_state")
         async def get_connection_state():
             return {"connection_state": self.connection_state}
+        
+        @self.web_app.get("/ping")
+        async def ping():
+            return {"response": "pong"}
 
     async def init(self):
         pass
@@ -191,8 +202,8 @@ class WebRTCVideoFlipper(WebRTCPeer):
                 }
 
         # create websocket endpoint to handle incoming connections
-        @self.web_app.websocket("/ws")
-        async def on_connection_request(websocket: WebSocket):
+        @self.web_app.websocket("/ws/{source_type}")
+        async def on_connection_request(websocket: WebSocket, source_type: str):
 
             # accept websocket connection
             await websocket.accept()
@@ -210,8 +221,10 @@ class WebRTCVideoFlipper(WebRTCPeer):
 
                         # handle offer
                         await self.handle_offer(msg)
-                        # start recording stream
-                        await self.recorder.start()
+
+                        if source_type == TEST_VIDEO:
+                            # start recording stream
+                            await self.recorder.start()
                         # send answer
                         await websocket.send_text(self.generate_answer())
 
@@ -265,7 +278,7 @@ class WebRTCVideoProvider(WebRTCPeer):
         up, start, delay = False, time.time(), 10
         while not up:
             try:
-                with urllib.request.urlopen(WebRTCVideoFlipper().web_endpoints.web_url) as response:
+                with urllib.request.urlopen(WebRTCVideoFlipper().web_endpoints.web_url + "/ping") as response:
                     if response.getcode() == 200:
                         up = True
             except Exception:
@@ -284,7 +297,7 @@ class WebRTCVideoProvider(WebRTCPeer):
         import asyncio
 
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCVideoFlipper().web_endpoints.web_url.replace("http", "ws") + "/ws"
+        ws_uri = WebRTCVideoFlipper().web_endpoints.web_url.replace("http", "ws") + f"/ws/{TEST_VIDEO}"
         print(f"Connecting to video flipper websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
@@ -315,11 +328,11 @@ class WebRTCVideoProvider(WebRTCPeer):
         
         import asyncio
         from aiortc.contrib.media import MediaPlayer
-
+        from fastapi.responses import HTMLResponse
         @self.web_app.get("/")
         async def root():
-            # create root endpoint (useful for testing container is running)
-            pass
+            # send index.html
+            return HTMLResponse(content=open("index.html").read())
 
         
         @self.web_app.get("/run_test")
