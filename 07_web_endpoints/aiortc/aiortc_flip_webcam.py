@@ -2,10 +2,6 @@ import abc
 from pathlib import Path
 import os
 
-from aiortc import RTCIceCandidate
-import cv2
-from fastapi import Request
-from fastapi.middleware.cors import CORSMiddleware
 import modal
 
 this_directory = Path(__file__).parent.resolve()
@@ -58,6 +54,7 @@ class WebRTCPeer(abc.ABC):
         """
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
+        from fastapi.middleware.cors import CORSMiddleware
 
         await self.init()
 
