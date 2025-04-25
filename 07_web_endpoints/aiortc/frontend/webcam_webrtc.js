@@ -33,6 +33,33 @@ async function call() {
     callButton.disabled = true;
     hangupButton.disabled = false;
 
+    // // Create peer connection
+    // peerConnection = new RTCPeerConnection(configuration);
+
+    // // Add local stream to peer connection
+    // localStream.getTracks().forEach(track => {
+    //     console.log('Adding track:', track);
+    //     peerConnection.addTrack(track, localStream);
+    // });
+
+    // // Handle remote stream
+    // peerConnection.ontrack = event => {
+    //     console.log('Received remote stream:', event.streams[0]);
+    //     remoteVideo.srcObject = event.streams[0];
+    // };
+
+    // Create and set local description
+    try {
+        negotiate();
+    } catch (err) {
+        console.error('Error creating offer:', err);
+    }
+}
+
+function negotiate() {
+
+    
+
     // Create peer connection
     peerConnection = new RTCPeerConnection(configuration);
 
@@ -48,15 +75,6 @@ async function call() {
         remoteVideo.srcObject = event.streams[0];
     };
 
-    // Create and set local description
-    try {
-        negotiate();
-    } catch (err) {
-        console.error('Error creating offer:', err);
-    }
-}
-
-function negotiate() {
     return peerConnection.createOffer().then((offer) => {
         return peerConnection.setLocalDescription(offer);
     }).then(() => {

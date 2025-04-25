@@ -58,19 +58,11 @@ class WebRTCPeer(abc.ABC):
         """
         from fastapi import FastAPI
         from fastapi.staticfiles import StaticFiles
-        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
-
-        # create peer connection with STUN server
-        # aiortc automatically uses google's STUN server when
-        # self.pc = RTCPeerConnection()
-        # is called, but we can also specify our own:
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.pc = RTCPeerConnection(configuration = config)
 
         await self.init()
 
         self.web_app = FastAPI()
+        self.pc = None
 
         # Add CORS middleware
         self.web_app.add_middleware(
@@ -98,13 +90,28 @@ class WebRTCPeer(abc.ABC):
     async def init(self):
         pass
 
+    async def _setup_streams(self):
+
+        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
+
+        # create peer connection with STUN server
+        # aiortc automatically uses google's STUN server when
+        # self.pc = RTCPeerConnection()
+        # is called, but we can also specify our own:
+        config = RTCConfiguration()
+        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        self.pc = RTCPeerConnection(configuration = config)
+
+        await self.setup_streams()
+
     async def setup_streams(self):
         pass
 
     @modal.exit()
     async def _exit(self):
         await self.exit()
-        await self.pc.close()
+        if self.pc:
+            await self.pc.close()
 
     async def exit(self):
         pass
@@ -115,7 +122,7 @@ class WebRTCPeer(abc.ABC):
 
     async def generate_offer(self):
 
-        await self.setup_streams()
+        await self._setup_streams()
         
         # create initial offer
         offer = await self.pc.createOffer()
@@ -131,7 +138,7 @@ class WebRTCPeer(abc.ABC):
 
         from aiortc import RTCSessionDescription
 
-        await self.setup_streams()
+        await self._setup_streams()
 
         # set remote description
         await self.pc.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
@@ -170,21 +177,17 @@ class WebRTCVideoFlipper(WebRTCPeer):
 
     async def init(self):
 
-        from aiortc.contrib.media import MediaRecorder, MediaRelay
-
         if os.path.exists(OUTPUT_VOLUME_PATH / "flipped_vid.mp4"):
             os.remove(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
 
-        self.relay = MediaRelay()
-        print(f"Initializing recorder at {OUTPUT_VOLUME_PATH / 'flipped_vid.mp4'}")
-        self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
+        
 
     async def setup_streams(self):
 
         import cv2
 
         from aiortc import MediaStreamTrack
-        from aiortc.contrib.media import VideoFrame, MediaRelay
+        from aiortc.contrib.media import VideoFrame, MediaRelay, MediaRecorder
 
         class VideoFlipTrack(MediaStreamTrack):
 
@@ -211,9 +214,14 @@ class WebRTCVideoFlipper(WebRTCPeer):
 
                 return new_frame
             
+        self.relay = MediaRelay()
+        print(f"Initializing recorder at {OUTPUT_VOLUME_PATH / 'flipped_vid.mp4'}")
+        self.recorder = MediaRecorder(OUTPUT_VOLUME_PATH / "flipped_vid.mp4")
+            
         @self.pc.on("connectionstatechange")
         async def on_connectionstatechange():
-            print(f"Responder side connection state is {self.pc.connectionState}")
+            if self.pc:
+                print(f"Responder side connection state is {self.pc.connectionState}")
         
         
         @self.pc.on("track")
@@ -232,7 +240,9 @@ class WebRTCVideoFlipper(WebRTCPeer):
             async def on_ended():
                 print("VideoFlipper:Incoming Track ended")
                 await self.recorder.stop()
-                # await self.pc.close()
+                if self.pc:
+                    await self.pc.close()
+                    self.pc = None
 
     # add responder logic to webapp
     @modal.asgi_app(label="webrtc-video-flipper")
