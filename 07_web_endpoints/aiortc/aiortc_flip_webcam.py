@@ -405,13 +405,15 @@ class WebRTCVideoProvider(WebRTCPeer):
         from aiortc.contrib.media import MediaPlayer
         from fastapi.responses import HTMLResponse
 
+        @self.web_app.get("/config")
+        async def get_config():
+            return {
+                "videoProcessorUrl": str(self.video_processor_url)
+            }
+
         @self.web_app.get("/")
         async def root():
-            js = open("/frontend/webcam_webrtc.js").read()
-            base_url = str(self.video_processor_url)
-            js = js.replace("video-processor-url-placeholder", f"{base_url}")
             html = open("/frontend/index.html").read()
-            html = html.replace("js-placeholder", js)
             return HTMLResponse(content=html)
 
         

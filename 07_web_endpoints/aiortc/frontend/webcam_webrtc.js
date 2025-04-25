@@ -1,9 +1,22 @@
 // Configuration
-const configuration = {
+let config = null;
+
+const rtcConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' }
     ]
 };
+
+// Initialize configuration
+async function initConfig() {
+    try {
+        const response = await fetch('/config');
+        config = await response.json();
+    } catch (error) {
+        console.error('Failed to load configuration:', error);
+        throw error;
+    }
+}
 
 // DOM elements
 const localVideo = document.getElementById('localVideo');
@@ -19,6 +32,11 @@ let peerConnection;
 // Get local media stream
 async function start() {
     try {
+        // Ensure config is loaded
+        if (!config) {
+            await initConfig();
+        }
+        
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         localVideo.srcObject = localStream;
         startButton.disabled = true;
@@ -45,7 +63,7 @@ async function startProcessing() {
 async function negotiate() {
 
     // Create peer connection
-    peerConnection = new RTCPeerConnection(configuration);
+    peerConnection = new RTCPeerConnection(rtcConfiguration);
 
     // Add local stream to peer connection
     localStream.getTracks().forEach(track => {
@@ -76,7 +94,7 @@ async function negotiate() {
             }
         });
         var offer_1 = peerConnection.localDescription;
-        const response = await fetch('video-processor-url-placeholder/offer?' + new URLSearchParams({
+        const response = await fetch(`${config.videoProcessorUrl}/offer?` + new URLSearchParams({
             sdp: offer_1.sdp,
             type: offer_1.type
         }), {
