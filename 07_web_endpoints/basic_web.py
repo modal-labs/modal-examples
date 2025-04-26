@@ -175,7 +175,7 @@ class WebApp:
 # add the `requires_proxy_auth=True` flag to the `fastapi_endpoint` decorator.
 
 
-@app.function(gpu="h100")
+@app.function()
 @modal.fastapi_endpoint(requires_proxy_auth=True, docs=False)
 def expensive_secret():
     return "I didn't care for 'The Godfather'. It insists upon itself."
