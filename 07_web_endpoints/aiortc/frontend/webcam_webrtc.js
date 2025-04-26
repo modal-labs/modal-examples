@@ -80,7 +80,7 @@ async function startStreaming() {
         console.log('Sending ICE candidate:', event.candidate);
         if (event.candidate) {
             const iceCandidate = {
-                candidate: event.candidate.candidate, // sdp string representation of candidate
+                candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
                 sdpMid: event.candidate.sdpMid,
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
                 usernameFragment: event.candidate.usernameFragment

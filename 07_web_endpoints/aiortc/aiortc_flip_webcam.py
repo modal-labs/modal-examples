@@ -1,6 +1,8 @@
-import abc
 from pathlib import Path
 import os
+import time
+import urllib
+import json
 
 import modal
 
@@ -43,7 +45,7 @@ test_timeout = 2.0 * MINUTES
 TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
 TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
 
-class WebRTCPeer(abc.ABC):
+class WebRTCPeer:
 
     @modal.enter()
     async def _setup_peer(self):
@@ -61,7 +63,7 @@ class WebRTCPeer(abc.ABC):
 
         @dataclass
         class IceCandidate:
-            candidate: str
+            candidate_sdp: str
             sdpMid: str
             sdpMLineIndex: int
             usernameFragment: str
@@ -89,7 +91,7 @@ class WebRTCPeer(abc.ABC):
         async def ice_candidate(candidate: IceCandidate):
 
             # convert sdp string to ice candidate object
-            ice_candidate = candidate_from_sdp(candidate.candidate)
+            ice_candidate = candidate_from_sdp(candidate.candidate_sdp)
             ice_candidate.sdpMid = candidate.sdpMid
             ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
             
@@ -110,7 +112,7 @@ class WebRTCPeer(abc.ABC):
 
     async def setup_peer(self):
         """
-        Any custom logic to setup the peer connection
+        Any custom logic when instantiating the peer
         """
         pass
 
@@ -130,16 +132,27 @@ class WebRTCPeer(abc.ABC):
         await self.setup_streams()
 
     async def setup_streams(self):
+        """
+        Any custom logic when setting up the connection and streams
+        """
         pass
 
     @modal.exit()
     async def _exit(self):
+
+        import asyncio
+
         await self.exit()
-        for pc in self.pcs:
-            await pc.close()
-        self.pcs.clear()
+
+        if self.pcs:
+            print("Closing peer connections...")
+            await asyncio.gather(*[pc.close() for pc in self.pcs])
+            self.pcs.clear()
 
     async def exit(self):
+        """
+        Any custom logic when shutting down container
+        """
         pass
 
     async def generate_offer(self):
@@ -430,28 +443,27 @@ class WebRTCVideoFlipTester(WebRTCPeer):
 
         return self.web_app
     
-        
 
-@app.local_entrypoint()
-def main():
-
-    import json
-    import time
-    import urllib
+def trigger_webrtc_test():
 
     print(f"Attempting to trigger WebRTC connector at {WebRTCVideoFlipTester().web_endpoints.web_url + '/run_test'}")
-    up, start, delay = False, time.time(), 10
-    while not up:
+    test_triggered, start, delay = False, time.time(), 10
+    while not test_triggered:
         try:
             with urllib.request.urlopen(WebRTCVideoFlipTester().web_endpoints.web_url + "/run_test") as response:
                 if response.getcode() == 200:
-                    up = True
+                    test_triggered = True
         except Exception:
             if time.time() - start > test_timeout:
                 break
             time.sleep(delay)
-    print("Test triggered...")
-    # build request to check connection status
+    
+    return test_triggered
+    
+
+def source_stream_complete():
+
+    # build request to check task status
     headers = {
         "Content-Type": "application/json",
     }
@@ -468,8 +480,8 @@ def main():
             print(f"Response: {return_data}")
         time.sleep(1)
         try:
-            test_complete = return_data["test_complete"]
-            assert test_complete
+            test_completed = return_data["test_complete"]
+            assert test_completed
             print("Test complete!!!!")
             break
         except Exception as e:
@@ -477,8 +489,16 @@ def main():
             time.sleep(1)
             pass
 
-    # assert that the connection was successful
-    assert test_complete, "Test failed to complete"
+    return test_completed
+
+@app.local_entrypoint()
+def main():
+
+
+    assert trigger_webrtc_test(), "Test failed to trigger"
+    assert source_stream_complete(), "Source stream failed to complete"
+
+
 
 
     
