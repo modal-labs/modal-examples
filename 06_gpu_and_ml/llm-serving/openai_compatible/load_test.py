@@ -6,7 +6,7 @@ import modal
 
 if modal.is_local():
     workspace = modal.config._profile
-    environment = modal.config.config["environment"]
+    environment = modal.config.config.get("environment") or ""
 else:
     workspace = os.environ["MODAL_WORKSPACE"]
     environment = os.environ["MODAL_ENVIRONMENT"]
@@ -28,9 +28,8 @@ OUT_DIRECTORY = remote_path / datetime.utcnow().replace(microsecond=0).isoformat
 app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 
 workers = 8
-host = (
-    f"https://{workspace}-{environment}--example-vllm-openai-compatible-serve.modal.run"
-)
+prefix = workspace + (f"-{environment}" if environment else "")
+host = f"https://{prefix}--example-vllm-openai-compatible-serve.modal.run"
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",
