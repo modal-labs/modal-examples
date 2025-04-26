@@ -9,7 +9,7 @@ async function getURL() {
     try {
         const response = await fetch('/get_url');
         const config = await response.json();
-        videoProcessorUrl = config.videoProcessorUrl;
+        videoProcessorUrl = config.url;
     } catch (error) {
         console.error('Failed to load url:', error);
         throw error;

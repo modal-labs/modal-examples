@@ -1,7 +1,7 @@
 import abc
 from pathlib import Path
 import os
-from dataclasses import dataclass
+
 import modal
 
 this_directory = Path(__file__).parent.resolve()
@@ -52,9 +52,19 @@ class WebRTCPeer(abc.ABC):
         and call custom init method for
         subclasses
         """
+
+        from dataclasses import dataclass
+
         from fastapi import FastAPI
-        from fastapi.staticfiles import StaticFiles
         from fastapi.middleware.cors import CORSMiddleware
+        from aiortc.sdp import candidate_from_sdp
+
+        @dataclass
+        class IceCandidate:
+            candidate: str
+            sdpMid: str
+            sdpMLineIndex: int
+            usernameFragment: str
 
         self.web_app = FastAPI()
         self.pcs = set()
@@ -68,6 +78,32 @@ class WebRTCPeer(abc.ABC):
             allow_methods=["*"],  # Allows all methods
             allow_headers=["*"],  # Allows all headers
         )
+
+        @self.web_app.get("/get_url")
+        async def get_url():
+            return {
+                "url": self.web_endpoints.web_url
+            }
+        
+        @self.web_app.post("/ice_candidate")
+        async def ice_candidate(candidate: IceCandidate):
+
+            # convert sdp string to ice candidate object
+            ice_candidate = candidate_from_sdp(candidate.candidate)
+            ice_candidate.sdpMid = candidate.sdpMid
+            ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
+            
+            await self.handle_ice_candidate(ice_candidate)
+
+        @self.web_app.get("/offer")
+        async def offer(sdp: str, type: str):
+            
+            self.record_stream = False
+
+            if type != "offer":
+                return {"error": "Invalid offer type"}
+            await self.handle_offer({"sdp": sdp, "type": type})
+            return self.generate_answer()
 
         # call custom init logic
         await self.setup_peer()
@@ -154,8 +190,10 @@ class WebRTCPeer(abc.ABC):
 
 
 # this class responds to an offer
-# to establish a P2P connection
-# and flips the video stream
+# to establish a P2P connection,
+# flips the video stream, and then
+# streams the flipped video back to the provider
+# and/or records the flipped video to a file
 @app.cls(
     image=web_image,
     volumes={
@@ -196,6 +234,7 @@ class WebRTCVideoProcessor(WebRTCPeer):
                 self.track = track
                 self.frame_count = 0
 
+            # this is the essential method we need to implement a custom stream
             async def recv(self):
 
                 frame = await self.track.recv()
@@ -203,17 +242,13 @@ class WebRTCVideoProcessor(WebRTCPeer):
                 img = cv2.flip(img, 0)
 
                 new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-                if self.frame_count == 0:
-                    self.frame_count = frame.pts
-                new_frame.pts = self.frame_count
+                new_frame.pts = frame.pts
                 new_frame.time_base = frame.time_base
-
-                self.frame_count += 3330
 
                 return new_frame
             
         if self.record_stream:
-            print(f"Initializing recorder at {self.output_filepath}")
+            print(f"Initializing video file at {self.output_filepath}")
             if os.path.exists(self.output_filepath):
                 os.remove(self.output_filepath)
             self.recorder = MediaRecorder(self.output_filepath)
@@ -222,19 +257,13 @@ class WebRTCVideoProcessor(WebRTCPeer):
         @self.active_pc.on("connectionstatechange")
         async def on_connectionstatechange():
             if self.active_pc:
-                print(f"Responder side connection state is {self.active_pc.connectionState}")
-                # if self.active_pc.connectionState == "closed":
-                #     if self.recorder:
-                #         await self.recorder.stop()
-                #         self.recorder = None
-                #     self.active_pc = None
-                #     self.relay = None
+                print(f"Video Processor connection state is {self.active_pc.connectionState}")
         
         
         @self.active_pc.on("track")
         def on_track(track):
             
-            print(f"Responder received {track.kind} track: {track}")
+            print(f"Video Processor received {track.kind} track: {track}")
 
             flipped_track = VideoFlipTrack(track)
             
@@ -249,61 +278,26 @@ class WebRTCVideoProcessor(WebRTCPeer):
 
             @track.on("ended")
             async def on_ended():
-                print("VideoFlipper:Incoming Track ended")
+                print("Incoming video track ended")
                 if self.record_stream and self.recorder:
                     await self.recorder.stop()
                     self.recorder = None
 
-    # add responder logic to webapp
+    # add frontend and websocket endpoint for testing
     @modal.asgi_app(label="webrtc-video-flipper")
     def web_endpoints(self):
 
         import json
         from fastapi import WebSocket, WebSocketDisconnect
         from fastapi.responses import HTMLResponse
-        from aiortc import RTCIceCandidate
-        from aiortc.sdp import candidate_from_sdp
 
-        @dataclass
-        class IceCandidate:
-            candidate: str
-            sdpMid: str
-            sdpMLineIndex: int
-            usernameFragment: str
-
-        # create root endpoint (useful for testing container is running)
+        # serve the frontend
         @self.web_app.get("/")
         async def root():
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
         
-        @self.web_app.get("/get_url")
-        async def get_config():
-            return {
-                "videoProcessorUrl": self.web_endpoints.web_url
-            }
-        
-        @self.web_app.post("/ice_candidate")
-        async def process_ice_candidate(candidate: IceCandidate):
-            
-            # convert sdp string to ice candidate object
-            ice_candidate = candidate_from_sdp(candidate.candidate)
-            ice_candidate.sdpMid = candidate.sdpMid
-            ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
-            
-            await self.handle_ice_candidate(ice_candidate)
-
-        @self.web_app.get("/offer")
-        async def process_webcam_peer_offer(sdp: str, type: str):
-            
-            self.record_stream = False
-
-            if type != "offer":
-                return {"error": "Invalid offer type"}
-            await self.handle_offer({"sdp": sdp, "type": type})
-            return self.generate_answer()
-
-        # create websocket endpoint to handle incoming connections
+        # create websocket endpoint to handle signaling for the test
         @self.web_app.websocket("/ws")
         async def test_video_streaming(websocket: WebSocket):
 
@@ -377,7 +371,7 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         import websockets
 
         # setup WebRTC connection using websockets
-        ws_uri = self.video_processor_url.replace("http", "ws") + f"/ws"
+        ws_uri = WebRTCVideoProcessor().web_endpoints.web_url.replace("http", "ws") + f"/ws"
         print(f"Connecting to video flipper websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
@@ -406,19 +400,6 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         
         import asyncio
         from aiortc.contrib.media import MediaPlayer
-        from fastapi.responses import HTMLResponse
-
-        @self.web_app.get("/config")
-        async def get_config():
-            return {
-                "videoProcessorUrl": str(self.video_processor_url)
-            }
-
-        @self.web_app.get("/")
-        async def root():
-            html = open("/frontend/index.html").read()
-            return HTMLResponse(content=html)
-
         
         @self.web_app.get("/run_test")
         async def run_test():
@@ -469,7 +450,7 @@ def main():
             if time.time() - start > test_timeout:
                 break
             time.sleep(delay)
-
+    print("Test triggered...")
     # build request to check connection status
     headers = {
         "Content-Type": "application/json",
