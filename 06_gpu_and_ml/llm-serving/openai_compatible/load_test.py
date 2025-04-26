@@ -1,5 +1,6 @@
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import modal
@@ -13,8 +14,10 @@ else:
 
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install("locust~=2.29.1", "openai~=1.37.1")
+    modal.Image.debian_slim(
+        python_version=f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
+    .pip_install("locust~=2.36.2", "openai~=1.37.1")
     .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .add_local_file(
         Path(__file__).parent / "locustfile.py",
@@ -23,7 +26,9 @@ image = (
 )
 volume = modal.Volume.from_name("loadtest-vllm-oai-results", create_if_missing=True)
 remote_path = Path("/root") / "loadtests"
-OUT_DIRECTORY = remote_path / datetime.utcnow().replace(microsecond=0).isoformat()
+OUT_DIRECTORY = (
+    remote_path / datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+)
 
 app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 
