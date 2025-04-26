@@ -175,7 +175,7 @@ class WebApp:
 # add the `requires_proxy_auth=True` flag to the `fastapi_endpoint` decorator.
 
 
-@app.function(gpu="h100")
+@app.function()
 @modal.fastapi_endpoint(requires_proxy_auth=True, docs=False)
 def expensive_secret():
     return "I didn't care for 'The Godfather'. It insists upon itself."
@@ -184,7 +184,7 @@ def expensive_secret():
 # The `expensive-secret` endpoint URL will still be printed to the output when you `modal serve` or `modal deploy`,
 # along with a "🔑" emoji indicating that it is secured with proxy authentication.
 # If you head to that URL via the browser, you will get a
-# [`407 Proxy Authentication Required`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/407) error code in response.
+# [`401 Unauthorized`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401) error code in response.
 # You should also check the dashboard page for this app (at the URL printed at the very top of the `modal` command output)
 # so you can see that no containers were spun up to handle the request -- this authorization is handled entirely inside Modal's infrastructure.
 
