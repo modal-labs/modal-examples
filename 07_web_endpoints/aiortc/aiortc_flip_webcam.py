@@ -277,14 +277,16 @@ class WebRTCVideoProcessor(WebRTCPeer):
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
         
-        @self.web_app.get("/config")
+        @self.web_app.get("/get_url")
         async def get_config():
             return {
-                "videoProcessorUrl": str(self.web_endpoints.web_url)
+                "videoProcessorUrl": self.web_endpoints.web_url
             }
         
         @self.web_app.post("/ice_candidate")
         async def process_ice_candidate(candidate: IceCandidate):
+            
+            # convert sdp string to ice candidate object
             ice_candidate = candidate_from_sdp(candidate.candidate)
             ice_candidate.sdpMid = candidate.sdpMid
             ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex

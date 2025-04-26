@@ -1,19 +1,17 @@
 // Configuration
-let config = null;
+let videoProcessorUrl = null;
 
 const RTCConfiguration = {
-    // sdpSemantics: 'unified-plan', //newer implementation of WebRTC
     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
-    // iceCandidatePoolSize: 1
 };
 
-// Initialize configuration
-async function initConfig() {
+async function getURL() {
     try {
-        const response = await fetch('/config');
-        config = await response.json();
+        const response = await fetch('/get_url');
+        const config = await response.json();
+        videoProcessorUrl = config.videoProcessorUrl;
     } catch (error) {
-        console.error('Failed to load configuration:', error);
+        console.error('Failed to load url:', error);
         throw error;
     }
 }
@@ -21,26 +19,23 @@ async function initConfig() {
 // DOM elements
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const startButton = document.getElementById('startButton');
-const callButton = document.getElementById('callButton');
-const hangupButton = document.getElementById('hangupButton');
+const startWebcamButton = document.getElementById('startWebcamButton');
+const startStreamingButton = document.getElementById('startStreamingButton');
+const stopStreamingButton = document.getElementById('stopStreamingButton');
 
 // WebRTC variables
 let localStream;
 let peerConnection;
 
 // Get local media stream
-async function start() {
+async function startWebcam() {
     try {
-        // Ensure config is loaded
-        if (!config) {
-            await initConfig();
-        }
         
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         localVideo.srcObject = localStream;
-        startButton.disabled = true;
-        callButton.disabled = false;
+
+        startWebcamButton.disabled = true;
+        startStreamingButton.disabled = false;
         
     } catch (err) {
         console.error('Error accessing media devices:', err);
@@ -48,20 +43,15 @@ async function start() {
 }
 
 // Create and set up peer connection
-async function startProcessing() {
-    callButton.disabled = true;
-    hangupButton.disabled = false;
+async function startStreaming() {
 
-
-    // Create and set local description
-    try {
-        negotiate();
-    } catch (err) {
-        console.error('Error creating offer:', err);
+    if (!videoProcessorUrl) {
+        await getURL();
     }
-}
 
-async function negotiate() {
+    startWebcamButton.disabled = true;
+    startStreamingButton.disabled = true;
+    stopStreamingButton.disabled = false;
 
     // Create peer connection
     peerConnection = new RTCPeerConnection(RTCConfiguration);
@@ -72,38 +62,31 @@ async function negotiate() {
         peerConnection.addTrack(track, localStream);
     });
 
-    console.log('ICE gathering state:', peerConnection.iceGatheringState);
-    console.log('ICE connection state:', peerConnection.iceConnectionState);
-
-    // Handle remote stream
+    // Handle remote stream when triggered
     peerConnection.ontrack = event => {
         console.log('Received remote stream:', event.streams[0]);
         remoteVideo.srcObject = event.streams[0];
     };
 
-    // // Handle connection state changes
-    // peerConnection.onconnectionstatechange = () => {
-    //     console.log('Connection state:', peerConnection.connectionState);
-        
-        
-    // };
-
-    // peerConnection.oniceconnectionstatechange = () => {
-    //     console.log('ICE connection state:', peerConnection.iceConnectionState);
-    // };
-
+    // Handle ICE candidates using ICE trickle pattern
+    // for some devices/networks, waiting for automatic ICE candidate gathering
+    // to complete can take a long time
+    // so we use the ICE trickle pattern to send candidates as they are gathered
+    // which is much, much faster
     peerConnection.onicecandidate = async (event) => {
-        console.log('ICE candidate:', event.candidate);
-        console.log("sending string: ", JSON.stringify(event.candidate));
+        if (!event.candidate) {
+            return;
+        }
+        console.log('Sending ICE candidate:', event.candidate);
         if (event.candidate) {
             const iceCandidate = {
-                candidate: event.candidate.candidate,
+                candidate: event.candidate.candidate, // sdp string representation of candidate
                 sdpMid: event.candidate.sdpMid,
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
                 usernameFragment: event.candidate.usernameFragment
             };
             
-            await fetch(`${config.videoProcessorUrl}/ice_candidate`, {
+            await fetch(`${videoProcessorUrl}/ice_candidate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -113,48 +96,55 @@ async function negotiate() {
         }
     };
 
+
     try {
-        // const offer = await peerConnection.createOffer();
+        negotiate();
+    } catch (err) {
+        console.error('Error creating offer:', err);
+    }
+}
+
+// could use websockets to do this communication
+// directly and asynchrounsly - including ice candidate transfer
+async function negotiate() {
+
+    try {
+
+        // set local description and send as offer to processor
+        console.log('Setting local description...');
         await peerConnection.setLocalDescription();
-        // await new Promise((resolve) => {
-        //     if (peerConnection.iceGatheringState === 'complete') {
-        //         resolve();
-        //     } else {
-        //         function checkState() {
-        //             if (peerConnection.iceGatheringState === 'complete') {
-        //                 console.log('ICE gathering state:', peerConnection.iceGatheringState);
-        //                 peerConnection.removeEventListener('icegatheringstatechange', checkState);
-        //                 resolve();
-        //             }
-        //         }
-        //         peerConnection.addEventListener('icegatheringstatechange', checkState);
-        //     }
-        // });
-        var offer_1 = peerConnection.localDescription;
-        const response = await fetch(`${config.videoProcessorUrl}/offer?` + new URLSearchParams({
-            sdp: offer_1.sdp,
-            type: offer_1.type
+        var offer = peerConnection.localDescription;
+        
+        console.log('Sending offer and awaiting answer...');
+        const response = await fetch(`${videoProcessorUrl}/offer?` + new URLSearchParams({
+            sdp: offer.sdp,
+            type: offer.type
         }), {
             method: 'GET'
         });
         const answer = await response.json();
+
+        // set remote description
         console.log('Received answer:', answer);
-        return peerConnection.setRemoteDescription(answer);
+        console.log('Setting remote description...');
+
+        await peerConnection.setRemoteDescription(answer);
+
     } catch (e) {
         alert(e);
     }
 }
 
 // Hang up the call
-function hangup() {
+function stop_processing() {
     peerConnection.close();
-    // peerConnection = null;
-    hangupButton.disabled = true;
-    callButton.disabled = false;
+    peerConnection = null;
+    stopStreamingButton.disabled = true;
+    startStreamingButton.disabled = false;
     remoteVideo.srcObject = null;
 }
 
 // Event listeners
-startButton.addEventListener('click', start);
-callButton.addEventListener('click', startProcessing);
-hangupButton.addEventListener('click', hangup); 
+startWebcamButton.addEventListener('click', startWebcam);
+startStreamingButton.addEventListener('click', startStreaming);
+stopStreamingButton.addEventListener('click', stop_processing); 
