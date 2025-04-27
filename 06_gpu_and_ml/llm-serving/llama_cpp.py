@@ -18,6 +18,7 @@
 # </center>
 
 from pathlib import Path
+from typing import Optional
 
 import modal
 
@@ -59,10 +60,10 @@ app = modal.App("example-llama-cpp")
 
 @app.local_entrypoint()
 def main(
-    prompt: str = None,
+    prompt: Optional[str] = None,
     model: str = "DeepSeek-R1",  # or "phi-4"
     n_predict: int = -1,  # max number of tokens to predict, -1 is infinite
-    args: str = None,  # string of arguments to pass to llama.cpp's cli
+    args: Optional[str] = None,  # string of arguments to pass to llama.cpp's cli
 ):
     """Run llama.cpp inference on Modal for phi-4 or deepseek r1."""
     import shlex
@@ -75,10 +76,7 @@ def main(
         model_entrypoint_file = f"phi-4-{quant}.gguf"
         model_pattern = f"*{quant}*"
         revision = None
-        if args is None:
-            args = DEFAULT_PHI_ARGS
-        else:
-            args = shlex.split(args)
+        parsed_args = DEFAULT_PHI_ARGS if args is None else shlex.split(args)
     elif model.lower() == "deepseek-r1":
         model_name = "DeepSeek-R1-GGUF"
         quant = "UD-IQ1_S"
@@ -87,10 +85,7 @@ def main(
         )
         model_pattern = f"*{quant}*"
         revision = "02656f62d2aa9da4d3f0cdb34c341d30dd87c3b6"
-        if args is None:
-            args = DEFAULT_DEEPSEEK_R1_ARGS
-        else:
-            args = shlex.split(args)
+        parsed_args = DEFAULT_DEEPSEEK_R1_ARGS if args is None else shlex.split(args)
     else:
         raise ValueError(f"Unknown model {model}")
 
@@ -102,7 +97,7 @@ def main(
         model_entrypoint_file,
         prompt,
         n_predict,
-        args,
+        parsed_args,
         store_output=model.lower() == "deepseek-r1",
     )
     output_path = Path("/tmp") / f"llama-cpp-{model}.txt"
@@ -229,7 +224,7 @@ download_image = (
 @app.function(
     image=download_image, volumes={cache_dir: model_cache}, timeout=30 * MINUTES
 )
-def download_model(repo_id, allow_patterns, revision: str = None):
+def download_model(repo_id, allow_patterns, revision: Optional[str] = None):
     from huggingface_hub import snapshot_download
 
     print(f"🦙 downloading model from {repo_id} if not present")
@@ -316,9 +311,9 @@ results_dir = "/root/results"
 )
 def llama_cpp_inference(
     model_entrypoint_file: str,
-    prompt: str = None,
+    prompt: Optional[str] = None,
     n_predict: int = -1,
-    args: list[str] = None,
+    args: Optional[list[str]] = None,
     store_output: bool = True,
 ):
     import subprocess
