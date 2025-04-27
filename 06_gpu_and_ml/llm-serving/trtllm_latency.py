@@ -182,7 +182,7 @@ def get_quant_config():
     return QuantConfig(quant_algo="FP8")
 
 
-# Quantization is a lossy compression technique. The impact on modal quality can be
+# Quantization is a lossy compression technique. The impact on model quality can be
 # minimized by tuning the quantization parameters on even a small dataset. Typically, we
 # see less than 2% degradation in evaluation metrics when using `fp8`. We'll use the
 # `CalibrationConfig` class to specify the calibration dataset.
@@ -447,7 +447,7 @@ class Model:
 # mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
 # ```
 
-# If you want to see how model latency without all the optimizations, you can run:
+# Use `--mode=slow` to see model latency without optimizations.
 
 # ```bash
 # modal run trtllm_latency.py --mode=slow
