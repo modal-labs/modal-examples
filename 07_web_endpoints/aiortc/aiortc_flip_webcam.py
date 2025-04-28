@@ -57,7 +57,7 @@ class WebRTCPeer:
 
         from dataclasses import dataclass
         import asyncio
-        from fastapi import FastAPI
+        from fastapi import FastAPI, WebSocket, WebSocketDisconnect
         from fastapi.middleware.cors import CORSMiddleware
         from aiortc.sdp import candidate_from_sdp
 
@@ -74,12 +74,7 @@ class WebRTCPeer:
             allow_headers=["*"],  # Allows all headers
         )
 
-        @self.web_app.get("/get_url")
-        async def get_url():
-            return {
-                "url": self.web_endpoints.web_url
-            }
-        
+        # HTTP NEGOTIATIONENDPOINTS
         @dataclass
         class IceCandidate:
             client_id: str
@@ -117,12 +112,79 @@ class WebRTCPeer:
             await self.handle_offer(client_id, {"sdp": sdp, "type": type})
             return self.generate_answer(client_id)
 
-        # call custom init logic
-        await self.setup_peer()
-
         @self.web_app.post("/run_stream")
         async def run_stream(client_id: str):
             await self.run_stream(client_id)
+        
+        # handling signaling through websocket
+        @self.web_app.websocket("/ws/{client_id}")
+        async def ws_negotiation(websocket: WebSocket, client_id: str):
+
+            self.record_stream = True
+
+            # accept websocket connection
+            await websocket.accept()
+
+            # handle websocket messages and loop for lifetime
+            while True:
+                try:
+
+                    if self.pcs.get(client_id):
+
+                        await asyncio.sleep(1.0)
+                        
+                        if self.pcs[client_id].connectionState == "connected":
+                            await websocket.close()
+                            print("Websocket connection closed")
+                            break
+
+                    # get websocket message and parse as json
+                    msg = json.loads(await websocket.receive_text())
+
+                    # handle offer
+                    if msg.get("type") == "offer":
+                        
+                        print("Server received offer...")
+
+                        # handle offer
+                        await self.handle_offer(client_id, msg)
+
+
+                        # await self.recorder.start()
+                        # send answer
+                        await websocket.send_text(json.dumps(self.generate_answer(client_id)))
+
+                        print("Server sent answer...")
+
+                    elif msg.get("type") == "ice_candidate":
+                        candidate = msg.get("candidate")
+                        if not candidate or not self.pcs.get(client_id):
+                            return 
+                        if self.pcs[client_id].connectionState == "connected":
+                            return
+                        
+                        ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
+                        ice_candidate.sdpMid = candidate["sdpMid"]
+                        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
+                        
+                        await self.handle_ice_candidate(client_id, ice_candidate)
+
+                    else:
+                        print(f"Unknown message type: {msg.get('type')}")
+
+                except Exception as e:
+                    if isinstance(e, WebSocketDisconnect):
+                        print("Websocket connection closed")
+                        break
+                    else:
+                        print(f"Error: {e}")
+                        await websocket.close()
+                        break
+
+            await self.run_stream(client_id)
+
+        # call custom init logic
+        await self.setup_peer()
 
     async def setup_peer(self):
         """
@@ -196,7 +258,6 @@ class WebRTCPeer:
         # set local/our description, this also triggers ICE gathering
         await self.pcs[client_id].setLocalDescription(answer)
 
-    
     def generate_answer(self, client_id):
 
         # send local description SDP    
@@ -333,74 +394,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
         
-        # create websocket endpoint to handle signaling for the test
-        @self.web_app.websocket("/ws/{client_id}")
-        async def ws_negotiation(websocket: WebSocket, client_id: str):
-
-            self.record_stream = True
-
-            # accept websocket connection
-            await websocket.accept()
-
-            # handle websocket messages and loop for lifetime
-            while True:
-                try:
-
-                    if self.pcs.get(client_id):
-
-                        await asyncio.sleep(1.0)
-                        
-                        if self.pcs[client_id].connectionState == "connected":
-                            await websocket.close()
-                            print("Websocket connection closed")
-                            break
-
-                    # get websocket message and parse as json
-                    msg = json.loads(await websocket.receive_text())
-
-                    # handle offer
-                    if msg.get("type") == "offer":
-                        
-                        print("Server received offer...")
-
-                        # handle offer
-                        await self.handle_offer(client_id, msg)
-
-
-                        # await self.recorder.start()
-                        # send answer
-                        await websocket.send_text(json.dumps(self.generate_answer(client_id)))
-
-                        print("Server sent answer...")
-
-                    elif msg.get("type") == "ice_candidate":
-                        candidate = msg.get("candidate")
-                        if not candidate or not self.pcs.get(client_id):
-                            return 
-                        if self.pcs[client_id].connectionState == "connected":
-                            return
-                        
-                        ice_candidate = candidate_from_sdp(candidate["candidate"])
-                        ice_candidate.sdpMid = candidate["sdpMid"]
-                        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
-                        
-                        await self.handle_ice_candidate(client_id, ice_candidate)
-
-                    else:
-                        print(f"Unknown message type: {msg.get('type')}")
-
-                except Exception as e:
-                    if isinstance(e, WebSocketDisconnect):
-                        print("Websocket connection closed")
-                        break
-                    else:
-                        print(f"Error: {e}")
-                        await websocket.close()
-                        break
-
-            await self.run_stream(client_id)
-
-                
         return self.web_app
     
 

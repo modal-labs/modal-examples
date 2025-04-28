@@ -17,9 +17,26 @@
             display: flex;
             flex-wrap: wrap;
         }
+        .radio-group {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .radio-group label {
+            margin-right: 15px;
+        }
     </style>
 </head>
 <body>
+    <div class="radio-group">
+        <label>
+            <input type="radio" name="implementation" value="http" checked> HTTP Implementation
+        </label>
+        <label>
+            <input type="radio" name="implementation" value="websocket"> WebSocket Implementation
+        </label>
+    </div>
     <div id="videos">
         <video id="localVideo" autoplay playsinline muted></video>
         <video id="remoteVideo" autoplay playsinline></video>

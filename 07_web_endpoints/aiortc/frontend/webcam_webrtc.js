@@ -1,9 +1,6 @@
-
-
 const rtcConfiguration = {
     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
 };
-
 
 // DOM elements
 const localVideo = document.getElementById('localVideo');
@@ -11,6 +8,17 @@ const remoteVideo = document.getElementById('remoteVideo');
 const startWebcamButton = document.getElementById('startWebcamButton');
 const startStreamingButton = document.getElementById('startStreamingButton');
 const stopStreamingButton = document.getElementById('stopStreamingButton');
+
+// Implementation type (http or websocket)
+let implementationType = 'http';
+
+// Add event listener for radio buttons
+document.querySelectorAll('input[name="implementation"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        implementationType = e.target.value;
+        console.log('Implementation type changed to:', implementationType);
+    });
+});
 
 // WebRTC variables
 let localStream;
@@ -64,7 +72,7 @@ async function startStreaming() {
         if (!event.candidate) {
             return;
         }
-        console.log('Sending ICE candidate:', event.candidate);
+        
         if (event.candidate) {
             const iceCandidate = {
                 client_id: clientID,
@@ -73,26 +81,37 @@ async function startStreaming() {
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
                 usernameFragment: event.candidate.usernameFragment
             };
+
+            console.log('Sending ICE candidate:', iceCandidate);
             
-            await fetch(`/ice_candidate`, {
-                method: 'POST',
-                headers: {
+            if (implementationType === 'http') {
+                await fetch(`/ice_candidate`, {
+                    method: 'POST',
+                    headers: {
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(iceCandidate)
-            });
+                    },
+                    body: JSON.stringify(iceCandidate)
+                });
+            } else {
+                // send ice candidate over ws
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
+                }
+            }
         }
     };
 
     peerConnection.onconnectionstatechange = async () => {
         if (peerConnection.connectionState === 'connected') {
             console.log('Connection state:', peerConnection.connectionState);
-            await fetch(`/run_stream?client_id=${clientID}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            if (implementationType === 'http') {
+                await fetch(`/run_stream?client_id=${clientID}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+            }
         }
     };
 
@@ -110,26 +129,65 @@ async function negotiate() {
 
     try {
 
+        if (implementationType === 'websocket') {
+            // setup websocket connection
+            ws = new WebSocket(`/ws/${clientID}`);
+
+            // wait for websocket to open
+            await new Promise((resolve) => {
+                ws.onopen = resolve;
+            });
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                ws.close();
+            };
+        
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+                ws.close();
+            };
+
+            ws.onmessage = (event) => {
+                console.log('Received message:', event.data);
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'answer') {
+                    console.log('Received answer:', msg.sdp);
+                    peerConnection.setRemoteDescription(msg);
+                }
+    
+            };
+        }
+
         // set local description and send as offer to processor
         console.log('Setting local description...');
         await peerConnection.setLocalDescription();
         var offer = peerConnection.localDescription;
         
         console.log('Sending offer and awaiting answer...');
-        const response = await fetch(`/offer?` + new URLSearchParams({
-            client_id: clientID,
-            sdp: offer.sdp,
-            type: offer.type
-        }), {
-            method: 'GET'
-        });
-        const answer = await response.json();
+        if (implementationType === 'http') {
+            const response = await fetch(`/offer?` + new URLSearchParams({
+                client_id: clientID,
+                sdp: offer.sdp,
+                type: offer.type
+            }), {
+                    method: 'GET'
+                });
+            const answer = await response.json();
+            // set remote description
+            console.log('Received answer:', answer);
+            console.log('Setting remote description...');
+            await peerConnection.setRemoteDescription(answer);
+        } else {
+            // send offer over ws
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({client_id: clientID, type: 'offer', sdp: offer.sdp}));
+            }
+        }
 
-        // set remote description
-        console.log('Received answer:', answer);
-        console.log('Setting remote description...');
+        
 
-        await peerConnection.setRemoteDescription(answer);
+        
 
     } catch (e) {
         alert(e);
