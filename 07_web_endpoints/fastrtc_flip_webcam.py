@@ -8,6 +8,8 @@
 # [FastRTC](https://fastrtc.org/) is a Python library for real-time communication on the web.
 # This example demonstrates how to run a simple FastRTC app in the cloud on Modal.
 
+# In it, we stream webcam video from a browser to a container on Modal,
+# where the video is flipped, annotated, and sent back with under 100ms of delay.
 # You can try it out [here](https://modal-labs-examples--fastrtc-flip-webcam-ui.modal.run/)
 # or just dive straight into the code to run it yourself.
 
@@ -72,9 +74,10 @@ TRACK_CONSTRAINTS = {
 # ICE involves the peers exchanging a list of connections that might be used.
 # We use a fairly simple setup here, where our peer on Modal uses the
 # [Session Traversal Utilities for NAT (STUN)](https://datatracker.ietf.org/doc/html/rfc5389)
-# server provided by Google. This server basically just tells the peer what their
-# IP address and port number appear to be when they talk to it, and it communicates
-# that information to the peer. Note the use of `stun` and port `19302` in the URL in place of
+# server provided by Google. A STUN server basically just reflects back to a client what their
+# IP address and port number appear to be when they talk to it. The peer on Modal communicates
+# that information to the other peer trying to connect to it -- in this case, a browser trying to share a webcam feed.
+# Note the use of `stun` and port `19302` in the URL in place of
 # something more familiar, like `http` and port `80`.
 
 RTC_CONFIG = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]}
