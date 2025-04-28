@@ -27,9 +27,7 @@ def build_models():
         device_map="auto",
         local_files_only=True,
     )
-    m.save_pretrained(
-        model_path, safe_serialization=True, max_shard_size="24GB"
-    )
+    m.save_pretrained(model_path, safe_serialization=True, max_shard_size="24GB")
     tok = AutoTokenizer.from_pretrained(model_path)
     tok.save_pretrained(model_path)
     [p.unlink() for p in Path(model_path).rglob("*.bin")]  # type: ignore
@@ -75,9 +73,7 @@ app = modal.App(
     name="example-stability-lm",
     image=image,
     secrets=[
-        modal.Secret.from_dict(
-            {"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"}
-        )
+        modal.Secret.from_dict({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})
     ],
 )
 
@@ -121,9 +117,7 @@ class StabilityLM:
         "<|padding|>",
         "<|endoftext|>",
     ]
-    model_url: str = modal.parameter(
-        default="stabilityai/stablelm-tuned-alpha-7b"
-    )
+    model_url: str = modal.parameter(default="stabilityai/stablelm-tuned-alpha-7b")
 
     @modal.enter()
     def setup_model(self):
@@ -136,9 +130,7 @@ class StabilityLM:
         import torch
         from transformers import AutoTokenizer, TextIteratorStreamer, pipeline
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_url, local_files_only=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(self.model_url, local_files_only=True)
         self.stop_ids = tokenizer.convert_tokens_to_ids(self.stop_tokens)
         self.streamer = TextIteratorStreamer(
             tokenizer,
@@ -155,9 +147,7 @@ class StabilityLM:
         )
         self.generator.model = torch.compile(self.generator.model)
 
-    def get_config(
-        self, completion_request: CompletionRequest
-    ) -> Dict[str, Any]:
+    def get_config(self, completion_request: CompletionRequest) -> Dict[str, Any]:
         return dict(
             pad_token_id=self.generator.tokenizer.eos_token_id,
             eos_token_id=list(
@@ -206,9 +196,7 @@ class StabilityLM:
         return "".join(self.generate_completion(completion_request))
 
     @modal.method()
-    def generate_stream(
-        self, completion_request: CompletionRequest
-    ) -> Generator:
+    def generate_stream(self, completion_request: CompletionRequest) -> Generator:
         for text in self.generate_completion(completion_request):
             yield text
 

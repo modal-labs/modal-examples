@@ -89,12 +89,8 @@ def main(
 
     print(f"🧬 saving results to disk locally in {output_dir}")
     for ii, (scores, cif) in enumerate(results):
-        (Path(output_dir) / f"{run_id}-scores.model_idx_{ii}.npz").write_bytes(
-            scores
-        )
-        (Path(output_dir) / f"{run_id}-preds.model_idx_{ii}.cif").write_text(
-            cif
-        )
+        (Path(output_dir) / f"{run_id}-scores.model_idx_{ii}.npz").write_bytes(scores)
+        (Path(output_dir) / f"{run_id}-preds.model_idx_{ii}.cif").write_text(cif)
 
 
 # ## Installing Chai-1 Python dependencies on Modal
@@ -157,9 +153,7 @@ image = image.env(  # update the environment variables in the image to...
 # We attach a Volume to a Modal Function that runs Chai-1 and the inference code
 # saves the results to distributed storage, without any fuss or source code changes.
 
-chai_preds_volume = modal.Volume.from_name(
-    "chai1-preds", create_if_missing=True
-)
+chai_preds_volume = modal.Volume.from_name("chai1-preds", create_if_missing=True)
 preds_dir = Path("/preds")
 
 # ## Running Chai-1 on Modal

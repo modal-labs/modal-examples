@@ -129,8 +129,8 @@ class Model:
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_level=SGL_LOG_LEVEL,
         )
-        self.runtime.endpoint.chat_template = (
-            sgl.lang.chat_template.get_chat_template(MODEL_CHAT_TEMPLATE)
+        self.runtime.endpoint.chat_template = sgl.lang.chat_template.get_chat_template(
+            MODEL_CHAT_TEMPLATE
         )
         sgl.set_default_backend(self.runtime)
 
@@ -147,7 +147,9 @@ class Model:
 
         image_url = request.get("image_url")
         if image_url is None:
-            image_url = "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+            image_url = (
+                "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+            )
 
         response = requests.get(image_url)
         response.raise_for_status()
@@ -169,9 +171,7 @@ class Model:
             image_path=image_path, question=question, max_new_tokens=128
         )
         # show the question, image, and response in the terminal for demonstration purposes
-        print(
-            Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep=""
-        )
+        print(Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep="")
         terminal_image = from_file(image_path)
         terminal_image.draw()
         answer = state["answer"]

@@ -14,9 +14,7 @@ import modal
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = modal.NetworkFileSystem.from_name(
-    "dataset-cache-vol", create_if_missing=True
-)
+volume = modal.NetworkFileSystem.from_name("dataset-cache-vol", create_if_missing=True)
 
 app_image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -74,9 +72,7 @@ def populate_podcast_metadata(podcast_id: str):
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
     metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
-    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(
-        gql, podcast_id
-    )
+    pod_metadata: podcast.PodcastMetadata = podcast.fetch_podcast(gql, podcast_id)
 
     with open(metadata_path, "w") as f:
         json.dump(dataclasses.asdict(pod_metadata), f)
@@ -104,9 +100,7 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
     return web_app
 
@@ -117,9 +111,7 @@ def search_podcast(name):
 
     logger.info(f"Searching for '{name}'")
     client = podcast.create_podchaser_client()
-    podcasts_raw = podcast.search_podcast_name(
-        gql, client, name, max_results=10
-    )
+    podcasts_raw = podcast.search_podcast_name(gql, client, name, max_results=10)
     logger.info(f"Found {len(podcasts_raw)} results for '{name}'")
     return [
         podcast.PodcastMetadata(
@@ -163,9 +155,7 @@ def refresh_index():
                 with open(filepath, "r") as f:
                     data = json.load(f)
             except json.decoder.JSONDecodeError:
-                logger.warning(
-                    f"Removing corrupt JSON metadata file: {filepath}."
-                )
+                logger.warning(f"Removing corrupt JSON metadata file: {filepath}.")
                 filepath.unlink()
 
             ep = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
@@ -199,9 +189,7 @@ def refresh_index():
             # Prepare records for JSON serialization
             indexed_episodes.append(dataclasses.asdict(idxd_episode))
 
-    logger.info(
-        f"Matched {len(search_records)} transcripts to episode records."
-    )
+    logger.info(f"Matched {len(search_records)} transcripts to episode records.")
 
     filepath = config.SEARCH_DIR / "all.json"
     logger.info(f"writing {filepath}")
@@ -377,9 +365,7 @@ def process_episode(podcast_id: str, episode_id: str):
         metadata_path = get_episode_metadata_path(podcast_id, episode_id)
         with open(metadata_path, "r") as f:
             data = json.load(f)
-            episode = dacite.from_dict(
-                data_class=podcast.EpisodeMetadata, data=data
-            )
+            episode = dacite.from_dict(data_class=podcast.EpisodeMetadata, data=data)
 
         destination_path = config.RAW_AUDIO_DIR / episode_id
         podcast.store_original_audio(

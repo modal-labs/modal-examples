@@ -41,11 +41,7 @@ volume = modal.CloudBucketMount(
     secret=bucket_creds,
 )
 
-image = (
-    modal.Image.debian_slim()
-    .apt_install("wget")
-    .pip_install("img2dataset~=1.45.0")
-)
+image = modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
 
 app = modal.App("example-laion400-dataset-import", image=image)
 
@@ -64,9 +60,7 @@ def start_monitoring_disk_space(interval: int = 30) -> None:
             )
             time.sleep(interval)
 
-    monitoring_thread = threading.Thread(
-        target=log_disk_space, args=(interval,)
-    )
+    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
     monitoring_thread.daemon = True
     monitoring_thread.start()
 
@@ -103,9 +97,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
             self.pool.join()
 
     with MultithreadedCopier(max_threads=24) as copier:
-        shutil.copytree(
-            src, dest, copy_function=copier.copy, dirs_exist_ok=True
-        )
+        shutil.copytree(src, dest, copy_function=copier.copy, dirs_exist_ok=True)
 
 
 @app.function(
@@ -171,12 +163,6 @@ def import_transform_load() -> None:
         copy_concurrent(tmp_laion400m_meta_path, laion400m_meta_path)
 
     parquet_files = list(laion400m_meta_path.glob("**/*.parquet"))
-    print(
-        f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}."
-    )
+    print(f"Stored {len(parquet_files)} parquet files into {laion400m_meta_path}.")
     print(f"Spawning {len(parquet_files)} to enrich dataset...")
-    list(
-        run_img2dataset_on_part.starmap(
-            (i, f) for i, f in enumerate(parquet_files)
-        )
-    )
+    list(run_img2dataset_on_part.starmap((i, f) for i, f in enumerate(parquet_files)))

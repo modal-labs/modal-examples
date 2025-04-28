@@ -1,13 +1,17 @@
+# ---
+# deploy: true
+# ---
 # # Serve an interactive language model app with latency-optimized TensorRT-LLM (LLaMA 3 8B)
 
 # In this example, we demonstrate how to configure the TensorRT-LLM framework to serve
 # Meta's LLaMA 3 8B model at interactive latencies on Modal.
 
 # Many popular language model applications, like chatbots and code editing,
-# put humans and models in direct interaction. According to
-# [classic results in human-computer interaction](https://lawsofux.com/doherty-threshold/),
-# computer systems need to keep their response times under 400ms
-# in order to keep up with their human users.
+# put humans and models in direct interaction. According to an
+# [oft-cited](https://lawsofux.com/doherty-threshold/)
+# if [scientifically dubious](https://www.flashover.blog/posts/dohertys-threshold-is-a-lie)
+# rule of thumb, computer systems need to keep their response times under 400ms
+# in order to match pace with their human users.
 
 # To hit this target, we use the [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 # inference framework from NVIDIA. TensorRT-LLM is the Lamborghini of inference engines:
@@ -178,7 +182,7 @@ def get_quant_config():
     return QuantConfig(quant_algo="FP8")
 
 
-# Quantization is a lossy compression technique. The impact on modal quality can be
+# Quantization is a lossy compression technique. The impact on model quality can be
 # minimized by tuning the quantization parameters on even a small dataset. Typically, we
 # see less than 2% degradation in evaluation metrics when using `fp8`. We'll use the
 # `CalibrationConfig` class to specify the calibration dataset.
@@ -217,6 +221,7 @@ def get_calib_config():
 # for the key-value (KV) cache.
 
 # The last two parameters are GEMM plugins optimized specifically for low latency,
+# rather than the more typical high arithmetic throughput,
 # the `low_latency` plugins for `gemm` and `gemm_swiglu`.
 
 # The `low_latency_gemm_swiglu_plugin` plugin fuses the two matmul operations
@@ -272,10 +277,16 @@ def get_speculative_config():
 
 # Finally, we'll specify the overall build configuration for the engine. This includes
 # more obvious parameters such as the maximum input length, the maximum number of tokens
-# to process at once before queueing occurs, and the maximum number of prompts
+# to process at once before queueing occurs, and the maximum number of sequences
 # to process at once before queueing occurs.
 
-MAX_CONCURRENT_INPUTS = 1
+# To minimize latency, we set the maximum number of sequences (the "batch size")
+# to just one. We enforce this maximum by setting the number of inputs that the
+# Modal Function is allowed to process at once -- `max_concurrent_inputs`.
+# The default is `1`, so we don't need to set it, but we are setting it explicitly
+# here in case you want to run this code with a different balance of latency and throughput.
+
+MAX_BATCH_SIZE = MAX_CONCURRENT_INPUTS = 1
 
 
 def get_build_config():
@@ -286,7 +297,7 @@ def get_build_config():
         speculative_decoding_mode="LOOKAHEAD_DECODING",
         max_input_len=8192,
         max_num_tokens=16384,
-        max_batch_size=MAX_CONCURRENT_INPUTS,
+        max_batch_size=MAX_BATCH_SIZE,
     )
 
 
@@ -396,7 +407,9 @@ class Model:
             yield output.outputs[0].text_diff
 
     def text_from_prompt(self, prompt):
-        SYSTEM_PROMPT = "You are a helpful, harmless, and honest AI assistant created by Meta."
+        SYSTEM_PROMPT = (
+            "You are a helpful, harmless, and honest AI assistant created by Meta."
+        )
 
         if isinstance(prompt, str):
             prompt = [{"role": "user", "content": prompt}]
@@ -434,7 +447,7 @@ class Model:
 # mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
 # ```
 
-# If you want to see how model latency without all the optimizations, you can run:
+# Use `--mode=slow` to see model latency without optimizations.
 
 # ```bash
 # modal run trtllm_latency.py --mode=slow
@@ -491,9 +504,7 @@ def main(mode: str = "fast"):
 
     p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5) - 1]
     p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9) - 1]
-    print(
-        f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)"
-    )
+    print(f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
 
 
 # Once deployed with `modal deploy`, this `Model.generate` function
@@ -521,7 +532,7 @@ if __name__ == "__main__":
     try:
         Model = modal.Cls.from_name("trtllm-latency", "Model")
         print("🏎️  connecting to model")
-        model = Model(mode="fast")
+        model = Model(mode=sys.argv[1] if len(sys.argv) > 1 else "fast")
         model.boot.remote()
     except modal.exception.NotFoundError as e:
         raise SystemError("Deploy this app first with modal deploy") from e

@@ -36,9 +36,7 @@ async def remote(_idx):
 def local(count: int = 32):
     from collections import Counter
 
-    gpu_counter = Counter(
-        remote.map([i for i in range(count)], order_outputs=False)
-    )
+    gpu_counter = Counter(remote.map([i for i in range(count)], order_outputs=False))
     print(f"ran {gpu_counter.total()} times")
     print(f"on the following {len(gpu_counter.keys())} GPUs:", end="\n")
     print(

@@ -62,9 +62,7 @@ class SentimentAnalysis:
 
     @modal.method()
     def predict(self, phrase: str):
-        pred = self.sentiment_pipeline(
-            phrase, truncation=True, max_length=512, top_k=2
-        )
+        pred = self.sentiment_pipeline(phrase, truncation=True, max_length=512, top_k=2)
         # pred will look like: [{'label': 'NEGATIVE', 'score': 0.99}, {'label': 'POSITIVE', 'score': 0.01}]
         probs = {p["label"]: p["score"] for p in pred}
         return probs["POSITIVE"]
@@ -133,9 +131,7 @@ def main():
     predictor = SentimentAnalysis()
     for review, label in data[:5]:
         prediction = predictor.predict.remote(review)
-        print(
-            f"Sample prediction with positivity score {prediction}:\n{review}\n\n"
-        )
+        print(f"Sample prediction with positivity score {prediction}:\n{review}\n\n")
 
     # Now, let's run batch inference over it
     print("Running batch prediction...")

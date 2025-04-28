@@ -71,9 +71,7 @@ def spawn_server() -> subprocess.Popen:
             # If so, a connection can never be made.
             retcode = process.poll()
             if retcode is not None:
-                raise RuntimeError(
-                    f"launcher exited unexpectedly with code {retcode}"
-                )
+                raise RuntimeError(f"launcher exited unexpectedly with code {retcode}")
 
 
 tei_image = (
@@ -297,9 +295,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     start = time.perf_counter()
     acc_chunks = []
     embeddings = []
-    for resp in model.embed.map(
-        batches, order_outputs=False, return_exceptions=True
-    ):
+    for resp in model.embed.map(batches, order_outputs=False, return_exceptions=True):
         if isinstance(resp, Exception):
             print(f"Exception: {resp}")
             continue
@@ -327,9 +323,7 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     }
 
     if SAVE_TO_DISK:
-        save_dataset_to_intermediate_checkpoint(
-            acc_chunks, embeddings, batch_size
-        )
+        save_dataset_to_intermediate_checkpoint(acc_chunks, embeddings, batch_size)
 
     if UPLOAD_TO_HF:
         upload_result_to_hf(batch_size)

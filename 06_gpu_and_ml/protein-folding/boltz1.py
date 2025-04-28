@@ -47,9 +47,7 @@ app = modal.App(name="example-boltz1-inference")
 
 
 @app.local_entrypoint()
-def main(
-    force_download: bool = False, input_yaml_path: str = None, args: str = ""
-):
+def main(force_download: bool = False, input_yaml_path: str = None, args: str = ""):
     print("🧬 loading model remotely")
     download_model.remote(force_download)
 
@@ -94,9 +92,7 @@ image = modal.Image.debian_slim(python_version="3.12").run_commands(
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 # For details on how we download the weights in this case, see the [Addenda](#addenda).
 
-boltz_model_volume = modal.Volume.from_name(
-    "boltz1-models", create_if_missing=True
-)
+boltz_model_volume = modal.Volume.from_name("boltz1-models", create_if_missing=True)
 models_dir = Path("/models/boltz1")
 
 # ## Running Boltz-1 on Modal
@@ -118,9 +114,7 @@ models_dir = Path("/models/boltz1")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz1_inference(
-    boltz_input_yaml: str, msas: list["MSA"], args=""
-) -> bytes:
+def boltz1_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
     import shlex
     import subprocess
 
@@ -139,9 +133,7 @@ def boltz1_inference(
     )
 
     print("🧬 packaging up outputs")
-    output_bytes = package_outputs(
-        f"boltz_results_{input_path.with_suffix('').name}"
-    )
+    output_bytes = package_outputs(f"boltz_results_{input_path.with_suffix('').name}")
 
     return output_bytes
 

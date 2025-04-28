@@ -120,10 +120,7 @@ def finetune(num_train_epochs: int = 1, size_percentage: int = 10):
         )
 
         labels["input_ids"] = [
-            [
-                l if l != tokenizer.pad_token_id else padding_token_id
-                for l in label
-            ]
+            [l if l != tokenizer.pad_token_id else padding_token_id for l in label]
             for label in labels["input_ids"]
         ]
 
@@ -229,9 +226,7 @@ class Summarizer:
             BASE_MODEL, cache_dir=VOL_MOUNT_PATH / "model/"
         )
 
-        self.summarizer = pipeline(
-            "summarization", tokenizer=tokenizer, model=model
-        )
+        self.summarizer = pipeline("summarization", tokenizer=tokenizer, model=model)
 
     @modal.method()
     def generate(self, input: str) -> str:

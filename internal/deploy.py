@@ -47,9 +47,7 @@ def deploy(
                 file=sys.stderr,
             )
             print(r.stderr)
-            return DeployError(
-                stdout=r.stdout, stderr=r.stderr, code=r.returncode
-            )
+            return DeployError(stdout=r.stdout, stderr=r.stderr, code=r.returncode)
         else:
             print(f"✔️ deployed '{module_with_app.name}")
     return None
@@ -79,12 +77,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             "INFO: dry-run is active. Intended deployments will be displayed to console."
         )
 
-    example_modules = (
-        ex for ex in get_examples() if ex.type == ExampleType.MODULE
-    )
-    filter_pttrn = (
-        (r".*" + arguments.filter + r".*") if arguments.filter else None
-    )
+    example_modules = (ex for ex in get_examples() if ex.type == ExampleType.MODULE)
+    filter_pttrn = (r".*" + arguments.filter + r".*") if arguments.filter else None
     results = [
         deploy(
             deployable=bool(ex_mod.metadata.get("deploy")),

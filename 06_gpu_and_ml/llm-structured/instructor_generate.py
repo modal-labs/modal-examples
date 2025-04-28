@@ -44,9 +44,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 app = modal.App(
     image=image,
     secrets=[
-        modal.Secret.from_name(
-            "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
-        )
+        modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"])
     ],
 )
 
@@ -150,9 +148,7 @@ class ExampleMetadataExtraction(BaseModel):
 class ExampleMetadata(ExampleMetadataExtraction):
     """Metadata about an example from the Modal examples repo."""
 
-    filename: Optional[str] = Field(
-        ..., description="The filename of the example."
-    )
+    filename: Optional[str] = Field(..., description="The filename of the example.")
 
 
 # With these schemas in hand, it's straightforward to write the function that extracts the metadata.
@@ -191,9 +187,7 @@ def extract_example_metadata(
     )
 
     # inject the filename
-    full_metadata = ExampleMetadata(
-        **extracted_metadata.dict(), filename=filename
-    )
+    full_metadata = ExampleMetadata(**extracted_metadata.dict(), filename=filename)
 
     # return it as JSON
     return full_metadata.model_dump_json()

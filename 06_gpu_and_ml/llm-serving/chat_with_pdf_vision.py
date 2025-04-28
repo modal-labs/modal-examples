@@ -208,16 +208,12 @@ class Model:
         # Generated embeddings from the image(s)
         BATCH_SZ = 4
         pdf_embeddings = []
-        batches = [
-            images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)
-        ]
+        batches = [images[i : i + BATCH_SZ] for i in range(0, len(images), BATCH_SZ)]
         for batch in batches:
             batch_images = self.colqwen2_processor.process_images(batch).to(
                 self.colqwen2_model.device
             )
-            pdf_embeddings += list(
-                self.colqwen2_model(**batch_images).to("cpu")
-            )
+            pdf_embeddings += list(self.colqwen2_model(**batch_images).to("cpu"))
 
         # Store the image embeddings in the session, for later retrieval
         session.pdf_embeddings = pdf_embeddings
@@ -292,9 +288,7 @@ class Model:
         )
         inputs = inputs.to("cuda:0")
 
-        generated_ids = self.qwen2_vl_model.generate(
-            **inputs, max_new_tokens=512
-        )
+        generated_ids = self.qwen2_vl_model.generate(**inputs, max_new_tokens=512)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :]
             for in_ids, out_ids in zip(inputs.input_ids, generated_ids)

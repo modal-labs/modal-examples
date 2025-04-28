@@ -101,9 +101,7 @@ def latest_science_stories(n_stories: int = 5) -> List[NYArticle]:
     articles = [
         NYArticle(
             title=u["title"],
-            image_url=(
-                u.get("multimedia")[0]["url"] if u.get("multimedia") else ""
-            ),
+            image_url=(u.get("multimedia")[0]["url"] if u.get("multimedia") else ""),
             url=u.get("url"),
         )
         for u in results["results"]

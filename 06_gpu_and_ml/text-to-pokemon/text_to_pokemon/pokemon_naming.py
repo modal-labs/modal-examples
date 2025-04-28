@@ -132,14 +132,10 @@ def generate_names(
     return list(new_names)
 
 
-def prep_dataset(
-    training_names: list[str], max_sequence_len: int
-) -> TrainingDataset:
+def prep_dataset(training_names: list[str], max_sequence_len: int) -> TrainingDataset:
     import numpy as np
 
-    step_length = (
-        1  # The step length we take to get our samples from our corpus
-    )
+    step_length = 1  # The step length we take to get our samples from our corpus
     # Make it all to a long string
     concat_names = "\n".join(training_names).lower()
 
@@ -213,11 +209,7 @@ def train_rnn(
         dataset.num_unique_chars,
     )
     model = Sequential()
-    model.add(
-        LSTM(
-            latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate
-        )
-    )
+    model.add(LSTM(latent_dim, input_shape=input_shape, recurrent_dropout=dropout_rate))
     model.add(Dense(units=dataset.num_unique_chars, activation="softmax"))
 
     optimizer = RMSprop(learning_rate=0.01)

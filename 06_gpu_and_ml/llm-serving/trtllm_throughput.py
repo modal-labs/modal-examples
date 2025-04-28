@@ -207,9 +207,7 @@ tensorrt_image = (  # update the image by quantizing the model
 
 MAX_INPUT_LEN, MAX_OUTPUT_LEN = 256, 256
 MAX_NUM_TOKENS = 2**17
-MAX_BATCH_SIZE = (
-    1024  # better throughput at larger batch sizes, limited by GPU RAM
-)
+MAX_BATCH_SIZE = 1024  # better throughput at larger batch sizes, limited by GPU RAM
 ENGINE_DIR = "/root/model/model_output"
 
 SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} --max_batch_size={MAX_BATCH_SIZE}"
@@ -249,9 +247,7 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(
-    f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image
-)
+app = modal.App(f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image)
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 
@@ -288,9 +284,7 @@ class Model:
 
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         # LLaMA models do not have a padding token, so we use the EOS token
-        self.tokenizer.add_special_tokens(
-            {"pad_token": self.tokenizer.eos_token}
-        )
+        self.tokenizer.add_special_tokens({"pad_token": self.tokenizer.eos_token})
         # and then we add it from the left, to minimize impact on the output
         self.tokenizer.padding_side = "left"
         self.pad_id = self.tokenizer.pad_token_id
@@ -360,9 +354,7 @@ class Model:
             parsed_prompts, return_tensors="pt", padding=True, truncation=False
         )["input_ids"]
 
-        print(
-            f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8]
-        )
+        print(f"{COLOR['HEADER']}Input tensors:{COLOR['ENDC']}", inputs_t[:, :8])
 
         outputs_t = self.model.generate(inputs_t, **settings)
 
@@ -371,14 +363,11 @@ class Model:
         )  # only one output per input, so we index with 0
 
         responses = [
-            extract_assistant_response(output_text)
-            for output_text in outputs_text
+            extract_assistant_response(output_text) for output_text in outputs_text
         ]
         duration_s = (time.monotonic_ns() - start) / 1e9
 
-        num_tokens = sum(
-            map(lambda r: len(self.tokenizer.encode(r)), responses)
-        )
+        num_tokens = sum(map(lambda r: len(self.tokenizer.encode(r)), responses))
 
         for prompt, response in zip(prompts, responses):
             print(

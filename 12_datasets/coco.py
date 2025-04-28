@@ -50,9 +50,7 @@ def start_monitoring_disk_space(interval: int = 120) -> None:
             )
             time.sleep(interval)
 
-    monitoring_thread = threading.Thread(
-        target=log_disk_space, args=(interval,)
-    )
+    monitoring_thread = threading.Thread(target=log_disk_space, args=(interval,))
     monitoring_thread.daemon = True
     monitoring_thread.start()
 
@@ -100,9 +98,7 @@ def copy_concurrent(src: pathlib.Path, dest: pathlib.Path) -> None:
             self.pool.join()
 
     with MultithreadedCopier(max_threads=48) as copier:
-        shutil.copytree(
-            src, dest, copy_function=copier.copy, dirs_exist_ok=True
-        )
+        shutil.copytree(src, dest, copy_function=copier.copy, dirs_exist_ok=True)
 
 
 # This script uses wget to download ZIP files over HTTP because while the official
@@ -133,9 +129,7 @@ def _do_part(url: str) -> None:
     )  # extract into /tmp/
     zip_path.unlink()  # free up disk space by deleting the zip
     print(f"Copying extract {name} data to volume.")
-    copy_concurrent(
-        extract_tmp_path, dest_path
-    )  # copy from /tmp/ into mounted volume
+    copy_concurrent(extract_tmp_path, dest_path)  # copy from /tmp/ into mounted volume
 
 
 # We can process each part of the dataset in parallel, using a 'parent' Function just to execute

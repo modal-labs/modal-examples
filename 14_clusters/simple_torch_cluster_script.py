@@ -58,9 +58,7 @@ def run(backend):
         tensor = tensor.to(device)
 
     if WORLD_RANK == MASTER_RANK:
-        print(
-            f"{container_name(WORLD_RANK)} sending data to all other containers...\n"
-        )
+        print(f"{container_name(WORLD_RANK)} sending data to all other containers...\n")
         for rank_recv in range(1, WORLD_SIZE):
             dist.send(tensor=tensor, dst=rank_recv)
             print(
@@ -105,9 +103,7 @@ if __name__ == "__main__":
         type=int,
         help="Local rank. Necessary for using the torch.distributed.launch utility.",
     )
-    parser.add_argument(
-        "--backend", type=str, default="gloo", choices=["nccl", "gloo"]
-    )
+    parser.add_argument("--backend", type=str, default="gloo", choices=["nccl", "gloo"])
     args = parser.parse_args()
 
     with init_processes(backend=args.backend):

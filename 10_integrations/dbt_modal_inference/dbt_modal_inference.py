@@ -104,9 +104,7 @@ def dbt_run() -> None:
         "example-trtllm-Meta-Llama-3-8B-Instruct", "generate_web"
     ).hydrate()
 
-    res = dbtRunner().invoke(
-        ["run", "--vars", f"{{'inference_url': '{ref.web_url}'}}"]
-    )
+    res = dbtRunner().invoke(["run", "--vars", f"{{'inference_url': '{ref.web_url}'}}"])
     if res.exception:
         print(res.exception)
 

@@ -136,9 +136,7 @@ def fastapi_app():
 
     from .api import web_app
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
 
     return web_app
 
@@ -176,9 +174,7 @@ def composite_pokemon_card(
     character_i = Image.open(character_img)
 
     # Fit Pokémon character image to size of base card's character illustration window.
-    character_i.thumbnail(
-        size=(pokecard_window_size[0], pokecard_window_size[0])
-    )
+    character_i.thumbnail(size=(pokecard_window_size[0], pokecard_window_size[0]))
     (left, upper, right, lower) = (
         0,
         0,
@@ -203,9 +199,7 @@ def composite_pokemon_card(
     mask_im_blur = mask_im.filter(ImageFilter.GaussianBlur(20))
 
     back_im = base_i.copy()
-    back_im.paste(
-        cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur
-    )
+    back_im.paste(cropped_character_i, pokecard_window_top_right_crnr, mask_im_blur)
 
     # If a (manually uploaded) mini Modal logo exists, paste that discreetly onto the image too :)
     mini_modal_logo = config.CARD_PART_IMGS / "mini-modal-logo.png"
@@ -248,9 +242,7 @@ def create_composite_card(i: int, sample: bytes, prompt: str) -> bytes:
     .starmap over this function to boost performance.
     """
     print(f"Determining base card for generated sample {i}.")
-    closest_card = closest_pokecard_by_color(
-        sample=sample, cards=config.POKEMON_CARDS
-    )
+    closest_card = closest_pokecard_by_color(sample=sample, cards=config.POKEMON_CARDS)
     base_card_url = closest_card["images"]["large"]
     print(f"Closest base card for sample {i} is '{closest_card['name']}'")
     req = urllib.request.Request(
@@ -280,9 +272,7 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
         print(
             "Cached! - prompt has had cards composed before, returning previous Pokémon card results."
         )
-        cards_data = [
-            card_file.read_bytes() for card_file in final_cards_dir.iterdir()
-        ]
+        cards_data = [card_file.read_bytes() for card_file in final_cards_dir.iterdir()]
     else:
         print("No existing final card outputs for prompts. Proceeding...")
         # Produce the Pokémon character samples with the StableDiffusion model.
@@ -290,13 +280,10 @@ def create_pokemon_cards(prompt: str) -> list[dict]:
         print(f"Compositing {len(samples_data)} samples onto cards...")
         cards_data = list(
             create_composite_card.starmap(
-                (i, sample, norm_prompt)
-                for (i, sample) in enumerate(samples_data)
+                (i, sample, norm_prompt) for (i, sample) in enumerate(samples_data)
             )
         )
-        print(
-            f"Persisting {len(cards_data)} results for later disk-cache retrieval."
-        )
+        print(f"Persisting {len(cards_data)} results for later disk-cache retrieval.")
         final_cards_dir.mkdir()
         for i, c_data in enumerate(cards_data):
             c_path = final_cards_dir / f"{i}.png"
