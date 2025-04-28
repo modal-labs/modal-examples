@@ -1,20 +1,9 @@
-// Configuration
-let videoProcessorUrl = null;
+
 
 const rtcConfiguration = {
     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
 };
 
-async function getURL() {
-    try {
-        const response = await fetch('/get_url');
-        const config = await response.json();
-        videoProcessorUrl = config.url;
-    } catch (error) {
-        console.error('Failed to load url:', error);
-        throw error;
-    }
-}
 
 // DOM elements
 const localVideo = document.getElementById('localVideo');
@@ -46,9 +35,6 @@ async function startWebcam() {
 // Create and set up peer connection
 async function startStreaming() {
 
-    if (!videoProcessorUrl) {
-        await getURL();
-    }
 
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
@@ -88,7 +74,7 @@ async function startStreaming() {
                 usernameFragment: event.candidate.usernameFragment
             };
             
-            await fetch(`${videoProcessorUrl}/ice_candidate`, {
+            await fetch(`/ice_candidate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -101,7 +87,7 @@ async function startStreaming() {
     peerConnection.onconnectionstatechange = async () => {
         if (peerConnection.connectionState === 'connected') {
             console.log('Connection state:', peerConnection.connectionState);
-            await fetch(`${videoProcessorUrl}/run_stream?client_id=${clientID}`, {
+            await fetch(`/run_stream?client_id=${clientID}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -130,7 +116,7 @@ async function negotiate() {
         var offer = peerConnection.localDescription;
         
         console.log('Sending offer and awaiting answer...');
-        const response = await fetch(`${videoProcessorUrl}/offer?` + new URLSearchParams({
+        const response = await fetch(`/offer?` + new URLSearchParams({
             client_id: clientID,
             sdp: offer.sdp,
             type: offer.type
