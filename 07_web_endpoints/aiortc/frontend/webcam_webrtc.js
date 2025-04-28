@@ -1,7 +1,7 @@
 // Configuration
 let videoProcessorUrl = null;
 
-const RTCConfiguration = {
+const rtcConfiguration = {
     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
 };
 
@@ -26,6 +26,7 @@ const stopStreamingButton = document.getElementById('stopStreamingButton');
 // WebRTC variables
 let localStream;
 let peerConnection;
+const clientID = crypto.randomUUID();
 
 // Get local media stream
 async function startWebcam() {
@@ -54,7 +55,7 @@ async function startStreaming() {
     stopStreamingButton.disabled = false;
 
     // Create peer connection
-    peerConnection = new RTCPeerConnection(RTCConfiguration);
+    peerConnection = new RTCPeerConnection(rtcConfiguration);
 
     // Add local stream to peer connection
     localStream.getTracks().forEach(track => {
@@ -80,6 +81,7 @@ async function startStreaming() {
         console.log('Sending ICE candidate:', event.candidate);
         if (event.candidate) {
             const iceCandidate = {
+                client_id: clientID,
                 candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
                 sdpMid: event.candidate.sdpMid,
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -92,6 +94,18 @@ async function startStreaming() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(iceCandidate)
+            });
+        }
+    };
+
+    peerConnection.onconnectionstatechange = async () => {
+        if (peerConnection.connectionState === 'connected') {
+            console.log('Connection state:', peerConnection.connectionState);
+            await fetch(`${videoProcessorUrl}/run_stream?client_id=${clientID}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
         }
     };
@@ -117,6 +131,7 @@ async function negotiate() {
         
         console.log('Sending offer and awaiting answer...');
         const response = await fetch(`${videoProcessorUrl}/offer?` + new URLSearchParams({
+            client_id: clientID,
             sdp: offer.sdp,
             type: offer.type
         }), {

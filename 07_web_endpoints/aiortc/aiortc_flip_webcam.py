@@ -56,20 +56,13 @@ class WebRTCPeer:
         """
 
         from dataclasses import dataclass
-
+        import asyncio
         from fastapi import FastAPI
         from fastapi.middleware.cors import CORSMiddleware
         from aiortc.sdp import candidate_from_sdp
 
-        @dataclass
-        class IceCandidate:
-            candidate_sdp: str
-            sdpMid: str
-            sdpMLineIndex: int
-            usernameFragment: str
-
         self.web_app = FastAPI()
-        self.pcs = set()
+        self.pcs = {}
         self.active_pc = None
 
         # Add CORS middleware
@@ -87,28 +80,49 @@ class WebRTCPeer:
                 "url": self.web_endpoints.web_url
             }
         
+        @dataclass
+        class IceCandidate:
+            client_id: str
+            candidate_sdp: str
+            sdpMid: str
+            sdpMLineIndex: int
+            usernameFragment: str
+        
         @self.web_app.post("/ice_candidate")
         async def ice_candidate(candidate: IceCandidate):
 
-            # convert sdp string to ice candidate object
+            if not candidate:
+                return 
+            
+            client_id = candidate.client_id
+            if not self.pcs.get(client_id):
+                await asyncio.sleep(0.5)
+            
+            # if self.pcs[client_id].connectionState == "connected":
+            #     return
+            
             ice_candidate = candidate_from_sdp(candidate.candidate_sdp)
             ice_candidate.sdpMid = candidate.sdpMid
             ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
             
-            await self.handle_ice_candidate(ice_candidate)
+            await self.handle_ice_candidate(client_id, ice_candidate)
 
         @self.web_app.get("/offer")
-        async def offer(sdp: str, type: str):
+        async def offer(client_id: str, sdp: str, type: str):
             
             self.record_stream = False
 
             if type != "offer":
                 return {"error": "Invalid offer type"}
-            await self.handle_offer({"sdp": sdp, "type": type})
-            return self.generate_answer()
+            await self.handle_offer(client_id, {"sdp": sdp, "type": type})
+            return self.generate_answer(client_id)
 
         # call custom init logic
         await self.setup_peer()
+
+        @self.web_app.post("/run_stream")
+        async def run_stream(client_id: str):
+            await self.run_stream(client_id)
 
     async def setup_peer(self):
         """
@@ -116,7 +130,7 @@ class WebRTCPeer:
         """
         pass
 
-    async def _setup_streams(self):
+    async def _setup_streams(self, client_id):
 
         from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
@@ -126,12 +140,12 @@ class WebRTCPeer:
         # is called, but we can also specify our own:
         config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.active_pc = RTCPeerConnection(configuration = config)
-        self.pcs.add(self.active_pc)
+        pc = RTCPeerConnection(configuration = config)
+        self.pcs[client_id] = pc
 
-        await self.setup_streams()
+        await self.setup_streams(client_id)
 
-    async def setup_streams(self):
+    async def setup_streams(self, client_id):
         """
         Any custom logic when setting up the connection and streams
         """
@@ -146,8 +160,8 @@ class WebRTCPeer:
 
         if self.pcs:
             print("Closing peer connections...")
-            await asyncio.gather(*[pc.close() for pc in self.pcs])
-            self.pcs.clear()
+            await asyncio.gather(*[pc.close() for pc in self.pcs.values()])
+            self.pcs = {}
 
     async def exit(self):
         """
@@ -155,51 +169,58 @@ class WebRTCPeer:
         """
         pass
 
-    async def generate_offer(self):
+    async def generate_offer(self, client_id):
 
-        await self._setup_streams()
+        await self._setup_streams(client_id)
         
         # create initial offer
-        offer = await self.active_pc.createOffer()
+        offer = await self.pcs[client_id].createOffer()
         
         # set local/our description, this also triggers and waits for ICE gathering/generation of ICE candidate info
-        await self.active_pc.setLocalDescription(offer)
+        await self.pcs[client_id].setLocalDescription(offer)
 
         # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return {"sdp": self.active_pc.localDescription.sdp, "type": offer.type}
+        return {"sdp": self.pcs[client_id].localDescription.sdp, "type": offer.type}
 
-    async def handle_offer(self, offer):
+    async def handle_offer(self, client_id, offer):
 
         from aiortc import RTCSessionDescription
 
-        await self._setup_streams()
+        await self._setup_streams(client_id)
 
         # set remote description
-        await self.active_pc.setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
+        await self.pcs[client_id].setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
         # create answer
-        answer = await self.active_pc.createAnswer()
+        answer = await self.pcs[client_id].createAnswer()
         # set local/our description, this also triggers ICE gathering
-        await self.active_pc.setLocalDescription(answer)
+        await self.pcs[client_id].setLocalDescription(answer)
 
     
-    def generate_answer(self):
+    def generate_answer(self, client_id):
 
         # send local description SDP    
         # NOTE: we can't use `answer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return {"sdp": self.active_pc.localDescription.sdp, "type": "answer"}
+        return {"sdp": self.pcs[client_id].localDescription.sdp, "type": "answer"}
     
-    async def handle_answer(self, answer):
+    async def handle_answer(self, client_id, answer):
 
         from aiortc import RTCSessionDescription
 
         # set remote peer description
-        await self.active_pc.setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
+        await self.pcs[client_id].setRemoteDescription(RTCSessionDescription(sdp = answer["sdp"], type = answer["type"]))
 
-    async def handle_ice_candidate(self, candidate):
+    async def handle_ice_candidate(self, client_id, candidate):
 
-        await self.active_pc.addIceCandidate(candidate)
+        await self.pcs[client_id].addIceCandidate(candidate)
+
+    async def run_stream(self, client_id):
+
+        import asyncio 
+
+        while self.pcs[client_id].connectionState == "connected":
+            await asyncio.sleep(1.0)
 
 
 # this class responds to an offer
@@ -231,7 +252,7 @@ class WebRTCVideoProcessor(WebRTCPeer):
             name="static",
         )
 
-    async def setup_streams(self):
+    async def setup_streams(self, client_id):
 
         import cv2
 
@@ -267,13 +288,13 @@ class WebRTCVideoProcessor(WebRTCPeer):
             self.recorder = MediaRecorder(self.output_filepath)
             self.relay = MediaRelay()
 
-        @self.active_pc.on("connectionstatechange")
+        @self.pcs[client_id].on("connectionstatechange")
         async def on_connectionstatechange():
-            if self.active_pc:
-                print(f"Video Processor connection state is {self.active_pc.connectionState}")
+            if self.pcs[client_id]:
+                print(f"Video Processor connection state is {self.pcs[client_id].connectionState}")
         
         
-        @self.active_pc.on("track")
+        @self.pcs[client_id].on("track")
         def on_track(track):
             
             print(f"Video Processor received {track.kind} track: {track}")
@@ -284,10 +305,10 @@ class WebRTCVideoProcessor(WebRTCPeer):
                 # relay the flipped track to the recorder and back to the provider
                 self.relay = MediaRelay()
                 self.recorder.addTrack(self.relay.subscribe(flipped_track))
-                self.active_pc.addTrack(self.relay.subscribe(flipped_track))
+                self.pcs[client_id].addTrack(self.relay.subscribe(flipped_track))
             else:
                 self.relay = None
-                self.active_pc.addTrack(flipped_track)
+                self.pcs[client_id].addTrack(flipped_track)
 
             @track.on("ended")
             async def on_ended():
@@ -300,9 +321,11 @@ class WebRTCVideoProcessor(WebRTCPeer):
     @modal.asgi_app(label="webrtc-video-flipper")
     def web_endpoints(self):
 
+        import asyncio
         import json
         from fastapi import WebSocket, WebSocketDisconnect
         from fastapi.responses import HTMLResponse
+        from aiortc.sdp import candidate_from_sdp
 
         # serve the frontend
         @self.web_app.get("/")
@@ -311,8 +334,8 @@ class WebRTCVideoProcessor(WebRTCPeer):
             return HTMLResponse(content=html)
         
         # create websocket endpoint to handle signaling for the test
-        @self.web_app.websocket("/ws")
-        async def test_video_streaming(websocket: WebSocket):
+        @self.web_app.websocket("/ws/{client_id}")
+        async def ws_negotiation(websocket: WebSocket, client_id: str):
 
             self.record_stream = True
 
@@ -322,6 +345,16 @@ class WebRTCVideoProcessor(WebRTCPeer):
             # handle websocket messages and loop for lifetime
             while True:
                 try:
+
+                    if self.pcs.get(client_id):
+
+                        await asyncio.sleep(1.0)
+                        
+                        if self.pcs[client_id].connectionState == "connected":
+                            await websocket.close()
+                            print("Websocket connection closed")
+                            break
+
                     # get websocket message and parse as json
                     msg = json.loads(await websocket.receive_text())
 
@@ -331,21 +364,41 @@ class WebRTCVideoProcessor(WebRTCPeer):
                         print("Server received offer...")
 
                         # handle offer
-                        await self.handle_offer(msg)
+                        await self.handle_offer(client_id, msg)
 
 
-                        await self.recorder.start()
+                        # await self.recorder.start()
                         # send answer
-                        await websocket.send_text(json.dumps(self.generate_answer()))
+                        await websocket.send_text(json.dumps(self.generate_answer(client_id)))
 
                         print("Server sent answer...")
+
+                    elif msg.get("type") == "ice_candidate":
+                        candidate = msg.get("candidate")
+                        if not candidate or not self.pcs.get(client_id):
+                            return 
+                        if self.pcs[client_id].connectionState == "connected":
+                            return
+                        
+                        ice_candidate = candidate_from_sdp(candidate["candidate"])
+                        ice_candidate.sdpMid = candidate["sdpMid"]
+                        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
+                        
+                        await self.handle_ice_candidate(client_id, ice_candidate)
 
                     else:
                         print(f"Unknown message type: {msg.get('type')}")
 
-                except WebSocketDisconnect as e:
-                    await websocket.close()
-                    break
+                except Exception as e:
+                    if isinstance(e, WebSocketDisconnect):
+                        print("Websocket connection closed")
+                        break
+                    else:
+                        print(f"Error: {e}")
+                        await websocket.close()
+                        break
+
+            await self.run_stream(client_id)
 
                 
         return self.web_app
