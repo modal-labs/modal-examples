@@ -19,10 +19,10 @@
 import os
 import time
 import warnings
+from typing import Optional
 from uuid import uuid4
 
 import modal
-import requests
 
 # VLMs are generally larger than LLMs with the same cognitive capability.
 # LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
@@ -81,6 +81,7 @@ vlm_image = (
         "numpy<2",
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.2",
+        "requests==2.32.3",
         "starlette==0.41.2",
         "torch==2.4.0",
         "sglang[all]==0.4.1",
@@ -135,9 +136,10 @@ class Model:
         sgl.set_default_backend(self.runtime)
 
     @modal.fastapi_endpoint(method="POST", docs=True)
-    def generate(self, request: dict):
+    def generate(self, request: dict) -> str:
         from pathlib import Path
 
+        import requests
         import sglang as sgl
         from term_image.image import from_file
 
@@ -170,21 +172,15 @@ class Model:
         state = image_qa.run(
             image_path=image_path, question=question, max_new_tokens=128
         )
-        # show the question, image, and response in the terminal for demonstration purposes
+        # show the question and image in the terminal for demonstration purposes
         print(Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep="")
         terminal_image = from_file(image_path)
         terminal_image.draw()
-        answer = state["answer"]
-        print(
-            Colors.BOLD,
-            Colors.GREEN,
-            f"Answer: {answer}",
-            Colors.END,
-            sep="",
-        )
         print(
             f"request {request_id} completed in {round((time.monotonic_ns() - start) / 1e9, 2)} seconds"
         )
+
+        return state["answer"]
 
     @modal.exit()  # what should a container do before it shuts down?
     def shutdown_runtime(self):
@@ -209,25 +205,37 @@ class Model:
 
 
 @app.local_entrypoint()
-def main(image_url=None, question=None, twice=True):
+def main(
+    image_url: Optional[str] = None, question: Optional[str] = None, twice: bool = True
+):
+    import json
+    import urllib.request
+
     model = Model()
 
-    response = requests.post(
-        model.generate.web_url,
-        json={
+    payload = json.dumps(
+        {
             "image_url": image_url,
             "question": question,
         },
     )
-    assert response.ok, response.status_code
+
+    req = urllib.request.Request(
+        model.generate.web_url,
+        data=payload.encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req) as response:
+        assert response.getcode() == 200, response.getcode()
+        print(json.loads(response.read().decode()))
 
     if twice:
         # second response is faster, because the Function is already running
-        response = requests.post(
-            model.generate.web_url,
-            json={"image_url": image_url, "question": question},
-        )
-        assert response.ok, response.status_code
+        with urllib.request.urlopen(req) as response:
+            assert response.getcode() == 200, response.getcode()
+            print(json.loads(response.read().decode()))
 
 
 # ## Deployment
