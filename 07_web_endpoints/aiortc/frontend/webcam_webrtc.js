@@ -75,7 +75,7 @@ async function startStreaming() {
         
         if (event.candidate) {
             const iceCandidate = {
-                client_id: clientID,
+                peer_id: clientID,
                 candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
                 sdpMid: event.candidate.sdpMid,
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -105,7 +105,7 @@ async function startStreaming() {
         if (peerConnection.connectionState === 'connected') {
             console.log('Connection state:', peerConnection.connectionState);
             if (implementationType === 'http') {
-                await fetch(`/run_stream?client_id=${clientID}`, {
+                await fetch(`/run_stream?peer_id=${clientID}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -167,7 +167,7 @@ async function negotiate() {
         console.log('Sending offer and awaiting answer...');
         if (implementationType === 'http') {
             const response = await fetch(`/offer?` + new URLSearchParams({
-                client_id: clientID,
+                peer_id: clientID,
                 sdp: offer.sdp,
                 type: offer.type
             }), {
@@ -181,7 +181,7 @@ async function negotiate() {
         } else {
             // send offer over ws
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({client_id: clientID, type: 'offer', sdp: offer.sdp}));
+                ws.send(JSON.stringify({peer_id: clientID, type: 'offer', sdp: offer.sdp}));
             }
         }
 
