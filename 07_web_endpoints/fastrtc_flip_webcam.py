@@ -1,5 +1,6 @@
 # ---
 # deploy: true
+# lambda-test: false
 # ---
 
 # # Run a FastRTC app on Modal
