@@ -165,8 +165,8 @@ def ui():
 # modal deploy 07_web_endponts/fastrtc_flip_webcam.py
 # ```
 
-# Note that Modal is a serverless platform with usage-based pricing, so this application
-# will spin down and cost you nothing when it is not in use.
+# Note that Modal is a serverless platform with [usage-based pricing](https://modal.com/pricing),
+# so this application will spin down and cost you nothing when it is not in use.
 
 # ## Addenda
 
