@@ -1,5 +1,6 @@
-import modal
 from pathlib import Path
+
+import modal
 
 this_folder = Path(__file__).parent.resolve()
 
@@ -21,7 +22,7 @@ image = (
         "opencv-python",
         "tensorrt",
         "torch",
-        "onnxruntime-gpu"
+        "onnxruntime-gpu",
     )
     .add_local_dir(this_folder, remote_path="/assets")
 )
@@ -33,38 +34,37 @@ app = modal.App(
 
 MAX_CONCURRENT_INPUTS = 10
 
+
 @app.cls(
     gpu="A100",
     image=image,
     # gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
     # and allow it to scale to 100 concurrent inputs
-    min_containers=1, # let's keep it hot so it's more fun to share
+    min_containers=1,  # let's keep it hot so it's more fun to share
     max_containers=1,
 )
 @modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
 class YoloWebRTCApp:
-    
     @modal.enter()
     def load_model(self):
-
         import time
-        import numpy as np
 
-        from huggingface_hub import hf_hub_download
         import cv2
+        import numpy as np
         import onnxruntime
+        from huggingface_hub import hf_hub_download
 
         self.last_frame_time = None
 
         onnxruntime.preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)
 
-
         class YOLOv10:
             def __init__(self, path):
                 # Initialize model
                 model_file = hf_hub_download(
-                    repo_id="onnx-community/yolov10n", filename="onnx/model.onnx"
+                    repo_id="onnx-community/yolov10n",
+                    filename="onnx/model.onnx",
                 )
                 self.initialize_model(model_file)
 
@@ -156,16 +156,32 @@ class YoloWebRTCApp:
             def rescale_boxes(self, boxes):
                 # Rescale boxes to original image dimensions
                 input_shape = np.array(
-                    [self.input_width, self.input_height, self.input_width, self.input_height]
+                    [
+                        self.input_width,
+                        self.input_height,
+                        self.input_width,
+                        self.input_height,
+                    ]
                 )
                 boxes = np.divide(boxes, input_shape, dtype=np.float32)
                 boxes *= np.array(
-                    [self.img_width, self.img_height, self.img_width, self.img_height]
+                    [
+                        self.img_width,
+                        self.img_height,
+                        self.img_width,
+                        self.img_height,
+                    ]
                 )
                 return boxes
 
             def draw_detections(
-                self, image, boxes, scores, class_ids, draw_scores=True, mask_alpha=0.4
+                self,
+                image,
+                boxes,
+                scores,
+                class_ids,
+                draw_scores=True,
+                mask_alpha=0.4,
             ):
                 det_img = image.copy()
 
@@ -183,13 +199,17 @@ class YoloWebRTCApp:
 
                     label = self.class_names[class_id]
                     caption = f"{label} {int(score * 100)}%"
-                    self.draw_text(det_img, caption, box, color, font_size, text_thickness)  # type: ignore
+                    self.draw_text(
+                        det_img, caption, box, color, font_size, text_thickness
+                    )  # type: ignore
 
                 return det_img
 
             def get_input_details(self):
                 model_inputs = self.session.get_inputs()
-                self.input_names = [model_inputs[i].name for i in range(len(model_inputs))]
+                self.input_names = [
+                    model_inputs[i].name for i in range(len(model_inputs))
+                ]
 
                 self.input_shape = model_inputs[0].shape
                 self.input_height = self.input_shape[2]
@@ -197,7 +217,9 @@ class YoloWebRTCApp:
 
             def get_output_details(self):
                 model_outputs = self.session.get_outputs()
-                self.output_names = [model_outputs[i].name for i in range(len(model_outputs))]
+                self.output_names = [
+                    model_outputs[i].name for i in range(len(model_outputs))
+                ]
 
             def draw_box(
                 self,
@@ -208,7 +230,6 @@ class YoloWebRTCApp:
             ) -> np.ndarray:
                 x1, y1, x2, y2 = box.astype(int)
                 return cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness)
-
 
             def draw_text(
                 self,
@@ -240,26 +261,21 @@ class YoloWebRTCApp:
                     text_thickness,
                     cv2.LINE_AA,
                 )
-    
-        self.model = YOLOv10("yolov10m.pt")
 
-    
+        self.model = YOLOv10("yolov10m.pt")
 
     @modal.asgi_app()
     def ui(self):
-
         import time
 
         import cv2
-        import numpy as np
         import gradio as gr
-        from gradio import mount_gradio_app
+        import numpy as np
         from fastapi import FastAPI
-        from fastrtc import VideoStreamHandler, Stream
+        from fastrtc import Stream, VideoStreamHandler
+        from gradio import mount_gradio_app
 
-
-        def detection(image, conf_threshold = 0.15, delay_msec = 0):
-
+        def detection(image, conf_threshold=0.15, delay_msec=0):
             now = time.time()
             if self.last_frame_time is None:
                 round_trip_time = np.nan
@@ -278,40 +294,73 @@ class YoloWebRTCApp:
             # Get text size to position it in lower right
             # Split text into two lines and render separately
             text1 = "Round trip time:"
-            text2 = f"{round_trip_time*1000:>6.1f} msec"
+            text2 = f"{round_trip_time * 1000:>6.1f} msec"
             font_scale = 0.8
             thickness = 2
-            
+
             # Get text sizes
-            (text1_width, text1_height), _ = cv2.getTextSize(text1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
-            (text2_width, text2_height), _ = cv2.getTextSize(text2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
-            
+            (text1_width, text1_height), _ = cv2.getTextSize(
+                text1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
+            )
+            (text2_width, text2_height), _ = cv2.getTextSize(
+                text2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
+            )
+
             # Position text in bottom right, with text2 below text1
             margin = 10
             text1_x = new_image.shape[1] - text1_width - margin
             text1_y = new_image.shape[0] - text1_height - margin - text2_height
-            text2_x = new_image.shape[1] - text2_width - margin  
+            text2_x = new_image.shape[1] - text2_width - margin
             text2_y = new_image.shape[0] - margin
 
             # Draw both lines of text
-            cv2.putText(new_image, text1, (text1_x, text1_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
-            cv2.putText(new_image, text2, (text2_x, text2_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0, 128), thickness)
+            cv2.putText(
+                new_image,
+                text1,
+                (text1_x, text1_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (0, 0, 0, 128),
+                thickness,
+            )
+            cv2.putText(
+                new_image,
+                text2,
+                (text2_x, text2_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (0, 0, 0, 128),
+                thickness,
+            )
 
             return new_image
 
-
         with gr.Blocks() as blocks:
             gr.HTML(
-            """
+                """
             <h1 style='text-align: center'>
             Real-Time Object Detection with YOLO, Modal, and FastRTC
             </h1>
             """
             )
             with gr.Column():
-                conf_slider = gr.Slider(minimum=0, maximum=1, step=0.05, value=0.15, label="Confidence Threshold", render=False)
-                delay_slider = gr.Slider(minimum=0, maximum=100, step=1, value=0, label="Delay (ms)", render=False)
-                stream = Stream(
+                conf_slider = gr.Slider(
+                    minimum=0,
+                    maximum=1,
+                    step=0.05,
+                    value=0.15,
+                    label="Confidence Threshold",
+                    render=False,
+                )
+                delay_slider = gr.Slider(
+                    minimum=0,
+                    maximum=100,
+                    step=1,
+                    value=0,
+                    label="Delay (ms)",
+                    render=False,
+                )
+                Stream(
                     handler=VideoStreamHandler(detection, skip_frames=True),
                     modality="video",
                     mode="send-receive",
@@ -321,7 +370,7 @@ class YoloWebRTCApp:
                     ui_args={
                         "title": "Press Record to Start Object Detection",
                     },
-                    track_constraints= {
+                    track_constraints={
                         "width": {"exact": 640},
                         "height": {"exact": 480},
                         "frameRate": {"min": 30},
@@ -330,6 +379,5 @@ class YoloWebRTCApp:
                     additional_inputs=[conf_slider, delay_slider],
                     concurrency_limit=MAX_CONCURRENT_INPUTS,
                 )
-                
-            
+
         return mount_gradio_app(app=FastAPI(), blocks=blocks, path="/")
