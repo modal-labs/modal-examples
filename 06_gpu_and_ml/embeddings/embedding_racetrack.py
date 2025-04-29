@@ -8,11 +8,21 @@
 # we can encode 20,000 images from the [wildflow sweet-coral dataset](https://huggingface.co/datasets/wildflow/sweet-corals "huggingface/wildflow/sweet-coral")
 # using the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity").
 
-# ## BLUF (bottom line up front)
-# We have found that setting concurrency to 2 and then maximizing the batchsize will maximize GPU utilization.
-# If you then enable more containers, throughput goes through the roof.
+# ## Conclusions
+# ### BLUF (Bottom Line Up Front)
+# Set concurrency to around XX. Set batchsize to be as large as possible without overflowing
+# VRAM on your selected GPU. Then set max_containers to the number of total inputs
+# divided by 4*batchsize. Be sure to preprocess your data in the same manner that
+# the model is expecting (e.g., resizing images).
+# ### Why?
+# While batchsize maximizes GPU utilization, the time to form a batch (ie reading images)
+# will ultimately overtake the inference time, whether due to I/O, sending data across a wire, etc.
+# We can make up for this by using idle GPU cores to store additional copies of the model. This
+# GPU packing is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# decorator. Finally, once we maximize GPU utilization, we want to spawn as many containers
+# as we can to distribute the load.
 
-## Setup
+# ## Setup
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
 import asyncio
 import os
@@ -26,28 +36,27 @@ from modal.volume import FileEntry
 from more_itertools import chunked
 from PIL.Image import Image
 
-app_name = "example-embedder"
-
 # ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching (which happens internal to Infinity),
 # by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
-# Here are some parmaeters for controlling these factors:
+# Here are some parameters for controlling these factors:
 # * `batch_size` is a parameter passed to the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"), and it means the usual thing for machine learning inference: a group of images are processed through the neural network together.
-# * `max_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency") argument for the inference app.
-# This takes advantage of the asynchronous nature of the Infinity embedding inference app.
+# * `max_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency") argument for the inference app. This takes advantage of the asynchronous nature of the Infinity embedding inference app.
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 
 batch_size: int = 500
-max_concurrent_inputs: int = 10
-gpu: str = "H100"
-max_containers: int = 1
+max_concurrent_inputs: int = 4
+gpu: str = "L4"
+max_containers: int = 10
 image_cap: int = 20000
 
-# This timeout parameter only needs to include the maximum amount of time it takes to build a batch
-# (e.g. read one batch worth of data). For huge batches it could take a few minutes.
-timeout_seconds: int = 4 * 60
+# This timeout caps the maximum time a single function call is allowed to take. In this example, that
+# includes reading a batch-worth of data and running inference on it. When `batch_size`` is large (e.g. 5000)
+# and with a large value of `max_concurrent_inputs`, where a batch may sit in a queue for a while,
+# this could take several minutes.
+timeout_seconds: int = 5 * 60 * 60
 
 # This model parameter should point to a model on huggingface that is supported by Infinity.
 # Note that your selected model might require specialized imports when
@@ -70,7 +79,9 @@ def find_images_to_encode(image_cap: int = 1) -> list[FileEntry]:
     """
 
     im_path_list = list(
-        filter(lambda x: x.path.endswith(".jpg"), vol.listdir("/data", recursive=True))
+        filter(
+            lambda x: x.path.endswith(".jpg"), vol.listdir("/resized", recursive=True)
+        )
     )
     print(f"Found {len(im_path_list)} JPEGs, ", end="")
 
@@ -95,7 +106,7 @@ simple_image = (
 )
 
 # Initialize the app
-app = modal.App(app_name, image=simple_image, volumes={vol_mnt: vol})
+app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
 
 # Imports inside the container
 with simple_image.imports():
@@ -151,7 +162,7 @@ class InfinityEngine:
         return images
 
     @modal.method()
-    async def embed(self, images: list[str]) -> tuple[float, float]:
+    async def embed(self, images: list[FileEntry]) -> tuple[float, float]:
         # (0) Grab an engine from the queue
         engine = await self.engine_queue.get()
 
@@ -213,7 +224,9 @@ def main():
         std_throughput = embed_througputs.std()
 
         log_msg = (
-            f"simple_volume.py::batch_size={batch_size}::n_ims={n_ims}::concurrency={max_concurrent_inputs}\n"
+            f"EmbeddingRacetrack::batch_size={batch_size}::"
+            f"n_ims={n_ims}::concurrency={max_concurrent_inputs}::"
+            f"max_containers={max_containers}\n"
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
             f"\tEmbedding-only throughput (avg):\t{avg_throughput:.2f} im/s\n"
