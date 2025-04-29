@@ -426,7 +426,6 @@ OUTPUT_VOLUME_PATH = Path("/output")
         OUTPUT_VOLUME_PATH: output_volume
     }
 )
-@modal.concurrent(max_inputs=100)
 class WebRTCVideoProcessorTester(WebRTCPeer):
 
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
