@@ -11,8 +11,8 @@
 //   iceServers = servers;
 // });
 
-const rtcConfiguration = {
-    iceServers: [
+
+const iceTURNServers = [
         {
           urls: "stun:stun.relay.metered.ca:80",
         },
@@ -36,8 +36,17 @@ const rtcConfiguration = {
           username: "9fe1dc70b0e8f69039113e3b",
           credential: "v8hbPkad1WKL3Bxj",
         },
-    ],
-  }
+    ]
+
+const iceSTUNservers = [
+    {
+        urls: "stun:stun.relay.metered.ca:80",
+    },
+]
+
+const rtcConfiguration = {
+    iceServers: iceSTUNservers,
+}
 
 // console.log(iceServers);
 
@@ -59,12 +68,21 @@ const stopStreamingButton = document.getElementById('stopStreamingButton');
 
 // Implementation type (http or websocket)
 let implementationType = 'http';
+let iceServerType = 'stun';
 
 // Add event listener for radio buttons
 document.querySelectorAll('input[name="implementation"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
         implementationType = e.target.value;
         console.log('Implementation type changed to:', implementationType);
+    });
+});
+
+// Add event listener for ICE server radio buttons
+document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        iceServerType = e.target.value;
+        console.log('ICE server type changed to:', iceServerType);
     });
 });
 
@@ -98,8 +116,11 @@ async function startStreaming() {
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
 
-    // Create peer connection
-    peerConnection = new RTCPeerConnection(rtcConfiguration);
+    // Create peer connection with selected ICE servers
+    const selectedIceServers = iceServerType === 'stun' ? iceSTUNservers : iceTURNServers;
+    peerConnection = new RTCPeerConnection({
+        iceServers: selectedIceServers
+    });
 
     // Add local stream to peer connection
     localStream.getTracks().forEach(track => {

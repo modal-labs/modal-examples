@@ -37,6 +37,14 @@
             <input type="radio" name="implementation" value="websocket"> WebSocket Signaling
         </label>
     </div>
+    <div class="radio-group">
+        <label>
+            <input type="radio" name="iceServer" value="stun" checked> STUN Server
+        </label>
+        <label>
+            <input type="radio" name="iceServer" value="turn"> TURN Server
+        </label>
+    </div>
     <div id="videos">
         <video id="localVideo" autoplay playsinline muted></video>
         <video id="remoteVideo" autoplay playsinline></video>
