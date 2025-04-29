@@ -33,14 +33,14 @@ app_name = "example-embedder"
 # by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
 # Here are some parmaeters for controlling these factors:
 # * `batch_size` is a parameter passed to the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"), and it means the usual thing for machine learning inference: a group of images are processed through the neural network together.
-# * `allow_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency") argument for the inference app.
+# * `max_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency") argument for the inference app.
 # This takes advantage of the asynchronous nature of the Infinity embedding inference app.
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 
 batch_size: int = 500
-allow_concurrent_inputs: int = 10
+max_concurrent_inputs: int = 10
 gpu: str = "H100"
 max_containers: int = 1
 image_cap: int = 20000
@@ -112,11 +112,11 @@ with simple_image.imports():
     image=simple_image,
     volumes={vol_mnt: vol},
     timeout=timeout_seconds,
-    allow_concurrent_inputs=allow_concurrent_inputs,
     max_containers=max_containers,
 )
+@modal.concurrent(max_inputs=max_concurrent_inputs)
 class InfinityEngine:
-    n_engines: int = allow_concurrent_inputs
+    n_engines: int = max_concurrent_inputs
 
     @modal.enter()
     async def init_engines(self):
@@ -213,7 +213,7 @@ def main():
         std_throughput = embed_througputs.std()
 
         log_msg = (
-            f"simple_volume.py::batch_size={batch_size}::n_ims={n_ims}::concurrency={allow_concurrent_inputs}\n"
+            f"simple_volume.py::batch_size={batch_size}::n_ims={n_ims}::concurrency={max_concurrent_inputs}\n"
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
             f"\tEmbedding-only throughput (avg):\t{avg_throughput:.2f} im/s\n"
