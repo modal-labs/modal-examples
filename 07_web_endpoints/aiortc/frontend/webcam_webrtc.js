@@ -1,6 +1,54 @@
+//API Key for the credential: 84100256a51e692dea36d11e1b366fac9e00
+
+// Calling the REST API TO fetch the TURN Server Credentials
+// function getIceServers() {
+//   return fetch("https://modal-test-turn.metered.live/api/v1/turn/credentials?apiKey=84100256a51e692dea36d11e1b366fac9e00")
+//     .then(response => response.json());
+// }
+
+// let iceServers;
+// getIceServers().then(servers => {
+//   iceServers = servers;
+// });
+
 const rtcConfiguration = {
-    iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
-};
+    iceServers: [
+        {
+          urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+          urls: "turn:standard.relay.metered.ca:80",
+          username: "9fe1dc70b0e8f69039113e3b",
+          credential: "v8hbPkad1WKL3Bxj",
+        },
+        {
+          urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+          username: "9fe1dc70b0e8f69039113e3b",
+          credential: "v8hbPkad1WKL3Bxj",
+        },
+        {
+          urls: "turn:standard.relay.metered.ca:443",
+          username: "9fe1dc70b0e8f69039113e3b",
+          credential: "v8hbPkad1WKL3Bxj",
+        },
+        {
+          urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+          username: "9fe1dc70b0e8f69039113e3b",
+          credential: "v8hbPkad1WKL3Bxj",
+        },
+    ],
+  }
+
+// console.log(iceServers);
+
+// // Using the iceServers array in the RTCPeerConnection method
+// // var myPeerConnection = new RTCPeerConnection({
+// //   iceServers: iceServers
+// // });
+
+// const rtcConfiguration = {
+//     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
+// };
 
 // DOM elements
 const localVideo = document.getElementById('localVideo');
