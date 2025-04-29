@@ -21,6 +21,7 @@ document.querySelectorAll('input[name="implementation"]').forEach(radio => {
 });
 
 // WebRTC variables
+let ws;
 let localStream;
 let peerConnection;
 const peerID = crypto.randomUUID();
@@ -196,8 +197,13 @@ async function negotiate() {
 
 // Hang up the call
 function stop_processing() {
-    peerConnection.close();
-    peerConnection = null;
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if (ws) {
+        ws.close();
+    }
     stopStreamingButton.disabled = true;
     startStreamingButton.disabled = false;
     remoteVideo.srcObject = null;
