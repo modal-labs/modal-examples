@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/infinity/embedding_racetrack.py::main"]
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/embedding_racetrack.py::main"]
 # ---
 
 # # Modal Cookbook: Recipe for Inference Throughput Maximization
