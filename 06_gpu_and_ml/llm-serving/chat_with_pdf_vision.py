@@ -14,6 +14,7 @@
 # First, we’ll import the libraries we need locally and define some constants.
 
 from pathlib import Path
+from typing import Optional
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -87,7 +88,7 @@ MODEL_REVISION = "aca78372505e6cb469c4fa6a35c60265b00ff5a4"
 
 # A Dict can hold a few gigabytes across keys of size up to 100 MiB,
 # so it works well for our chat session state, which is a few KiB per session,
-# and for our embeddings, with are a few hundred KiB per PDF page,
+# and for our embeddings, which are a few hundred KiB per PDF page,
 # up to about 100,000 pages of PDFs.
 
 # At a larger scale, we'd need to replace this with a database, like Postgres,
@@ -304,7 +305,7 @@ class Model:
 # ## Loading PDFs as images
 
 # Vision-Language Models operate on images, not PDFs directly,
-# so we need to convert out PDFs into images first.
+# so we need to convert our PDFs into images first.
 
 # We separate this from our indexing and chatting logic --
 # we run on a different container with different dependencies.
@@ -341,7 +342,11 @@ def convert_pdf_to_images(pdf_bytes):
 
 
 @app.local_entrypoint()
-def main(question: str = None, pdf_path: str = None, session_id: str = None):
+def main(
+    question: Optional[str] = None,
+    pdf_path: Optional[str] = None,
+    session_id: Optional[str] = None,
+):
     model = Model()
     if session_id is None:
         session_id = str(uuid4())
@@ -353,8 +358,7 @@ def main(question: str = None, pdf_path: str = None, session_id: str = None):
         if pdf_path.startswith("http"):
             pdf_bytes = urlopen(pdf_path).read()
         else:
-            pdf_path = Path(pdf_path)
-            pdf_bytes = pdf_path.read_bytes()
+            pdf_bytes = Path(pdf_path).read_bytes()
 
         print("Indexing PDF from", pdf_path)
         model.index_pdf.remote(session_id, pdf_bytes)
