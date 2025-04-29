@@ -254,7 +254,6 @@ class WebRTCPeer:
         # set local/our description, this also triggers ICE gathering
         await self.pcs[peer_id].setLocalDescription(answer)
 
-
     def generate_answer(self, peer_id):
 
         # send local description SDP    
@@ -356,8 +355,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
             @track.on("ended")
             async def on_ended():
                 print("Incoming video track ended")
-
-    
 
     # add frontend and websocket endpoint for testing
     @modal.asgi_app(label="webrtc-video-flipper")
@@ -464,7 +461,6 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         else:
             return False
                
-
     async def start_webrtc_connection(self):
 
         import asyncio
@@ -501,9 +497,6 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         # loop until video player is finished
         if peer_id:
             await self.run_streams(peer_id)
-
-
-
 
     @modal.asgi_app(label="webrtc-video-provider")
     def web_endpoints(self):
@@ -547,7 +540,6 @@ def trigger_webrtc_test():
     
     return test_triggered
     
-
 def check_test_successful():
 
     headers = {
@@ -571,7 +563,6 @@ def check_test_successful():
             time.sleep(delay)
 
     return test_successful
-
 
 @app.local_entrypoint()
 def main():
