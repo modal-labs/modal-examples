@@ -106,8 +106,8 @@ class WebRTCPeer:
             return self.generate_answer(peer_id)
 
         # run until finished
-        @self.web_app.post("/run_stream")
-        async def run_stream(peer_id: str):
+        @self.web_app.post("/run_streams")
+        async def run_streams(peer_id: str):
             await self._run_streams(peer_id)
         
         # handling signaling through websocket
@@ -621,7 +621,5 @@ def main():
 
     assert trigger_webrtc_test(), "Test failed to trigger"
     assert check_successful_test(), "Test faileda to complete"
-
-
 
     

@@ -28,6 +28,7 @@ const peerID = crypto.randomUUID();
 
 // Get local media stream
 async function startWebcam() {
+
     try {
         
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -103,10 +104,15 @@ async function startStreaming() {
     };
 
     peerConnection.onconnectionstatechange = async () => {
+
         if (peerConnection.connectionState === 'connected') {
+
             console.log('Connection state:', peerConnection.connectionState);
+
+            // this is the functional call that runs while streams are processing
+            // when using http signaling
             if (implementationType === 'http') {
-                await fetch(`/run_stream?peer_id=${peerID}`, {
+                await fetch(`/run_streams?peer_id=${peerID}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -115,7 +121,6 @@ async function startStreaming() {
             }
         }
     };
-
 
     try {
         negotiate();
@@ -131,6 +136,7 @@ async function negotiate() {
     try {
 
         if (implementationType === 'websocket') {
+
             // setup websocket connection
             ws = new WebSocket(`/ws/${peerID}`);
 
@@ -150,7 +156,6 @@ async function negotiate() {
             };
 
             ws.onmessage = (event) => {
-                console.log('Received message:', event.data);
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'answer') {
                     console.log('Received answer:', msg.sdp);
@@ -160,12 +165,12 @@ async function negotiate() {
             };
         }
 
-        // set local description and send as offer to processor
+        // set local description and send as offer to peer
         console.log('Setting local description...');
         await peerConnection.setLocalDescription();
         var offer = peerConnection.localDescription;
         
-        console.log('Sending offer and awaiting answer...');
+        console.log('Sending offer...');
         if (implementationType === 'http') {
             const response = await fetch(`/offer?` + new URLSearchParams({
                 peer_id: peerID,
@@ -177,7 +182,6 @@ async function negotiate() {
             const answer = await response.json();
             // set remote description
             console.log('Received answer:', answer);
-            console.log('Setting remote description...');
             await peerConnection.setRemoteDescription(answer);
         } else {
             // send offer over ws
@@ -186,17 +190,13 @@ async function negotiate() {
             }
         }
 
-        
-
-        
-
     } catch (e) {
         alert(e);
     }
 }
 
-// Hang up the call
-function stop_processing() {
+// Stop streaming
+function stop_streaming() {
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -212,4 +212,4 @@ function stop_processing() {
 // Event listeners
 startWebcamButton.addEventListener('click', startWebcam);
 startStreamingButton.addEventListener('click', startStreaming);
-stopStreamingButton.addEventListener('click', stop_processing); 
+stopStreamingButton.addEventListener('click', stop_streaming); 
