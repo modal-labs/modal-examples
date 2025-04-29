@@ -1,11 +1,11 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/infinity/embedding_racetrack.py::backbone"]
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/infinity/embedding_racetrack.py::main"]
 # ---
 
 # # Modal Cookbook: Recipe for Inference Throughput Maximization
 # In certain applications, the bottom line comes to throughput: process a set of inputs as fast as possible.
 # Let's explore how to maximize throughput by using Modal on an embedding example, and see just how fast
-# we can encode 10,000 images from the [wildflow sweet-coral dataset](https://huggingface.co/datasets/wildflow/sweet-corals "huggingface/wildflow/sweet-coral")
+# we can encode 20,000 images from the [wildflow sweet-coral dataset](https://huggingface.co/datasets/wildflow/sweet-corals "huggingface/wildflow/sweet-coral")
 # using the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity").
 
 # ## BLUF (bottom line up front)
@@ -28,7 +28,7 @@ from PIL.Image import Image
 
 app_name = "example-embedder"
 
-# ## CLI: Key Parameters
+# ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching (which happens internal to Infinity),
 # by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
 # Here are some parmaeters for controlling these factors:
@@ -39,10 +39,10 @@ app_name = "example-embedder"
 # * `max_containers` caps the number of containers allowed to spin-up.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 
+batch_size: int = 500
+allow_concurrent_inputs: int = 10
 gpu: str = "H100"
 max_containers: int = 1
-allow_concurrent_inputs: int = 10
-batch_size: int = 500
 image_cap: int = 20000
 
 # This timeout parameter only needs to include the maximum amount of time it takes to build a batch
@@ -50,14 +50,15 @@ image_cap: int = 20000
 timeout_seconds: int = 4 * 60
 
 # This model parameter should point to a model on huggingface that is supported by Infinity.
-# Note that your specifically chosen model might require specialized imports when
-# designing the image. This [OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT")
+# Note that your selected model might require specialized imports when
+# designing the image in the next section. This [OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT")
 # takes about 4-10s to load into memory.
 model_name = "openai/clip-vit-base-patch16"  # 599 MB
 
 # ## Data setup
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
-# to store the images we want to encode.
+# to store the images we want to encode. We have resized them to 640 x 480 as that is
+# what the selected model was trained on.
 vol_name = "sweet-coral-db-20k"
 vol_mnt = Path("/data")
 vol = modal.Volume.from_name(vol_name, environment_name="ben-dev")
@@ -120,9 +121,8 @@ class InfinityEngine:
     @modal.enter()
     async def init_engines(self):
         print(f"Loading {self.n_engines} models... ", end="")
-        # Init s
+        # Start N engines and put them in an async queue
         self.engine_queue: asyncio.Queue[AsyncEmbeddingEngine] = asyncio.Queue()
-        # start N engines and put them in
         start = perf_counter()
         for _ in range(self.n_engines):
             engine = AsyncEmbeddingEngine.from_args(
