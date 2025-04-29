@@ -13,7 +13,6 @@ web_image = (
     modal.Image
     .debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
-    .run_commands("pip install --upgrade pip")
     .pip_install(
         "fastapi[standard]==0.115.4",
         "aiortc",
