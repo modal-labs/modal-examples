@@ -139,8 +139,7 @@ def goodbye(data: dict) -> str:
 # it'd be a shame to have to do it every time a request comes in!
 
 # Web endpoints can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters),
-# which allows you to manage
-# Note that they don't need the [`modal.method`](https://modal.com/docs/reference/modal.method) decorator.
+# which allows you to manage the container's lifecycle independently from processing individual requests.
 
 # This example will only set the `start_time` instance variable once, on container startup.
 
@@ -185,20 +184,21 @@ def expensive_secret():
 # The `expensive-secret` endpoint URL will still be printed to the output when you `modal serve` or `modal deploy`,
 # along with a "🔑" emoji indicating that it is secured with proxy authentication.
 # If you head to that URL via the browser, you will get a
-# [`407 Proxy Authentication Required`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/407) error code in response.
+# [`401 Unauthorized`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401) error code in response.
 # You should also check the dashboard page for this app (at the URL printed at the very top of the `modal` command output)
 # so you can see that no containers were spun up to handle the request -- this authorization is handled entirely inside Modal's infrastructure.
 
 # You can trigger the web endpoint by [creating a Proxy Auth Token](https://modal.com/settings/proxy-auth-tokens)
-# and then including the base64-encoded string `{TOKEN_ID}:{TOKEN_SECRET}` in a
-# [Proxy-Authorization header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Proxy-Authorization).
+# and then including the token ID and secret in the `Modal-Key` and `Modal-Secret` headers.
 
 # From the command line, that might look like
 
 # ```shell
 # export TOKEN_ID=wk-1234abcd
 # export TOKEN_SECRET=ws-1234abcd
-# curl https://your-workspace-name--expensive-secret.modal.run -H "Proxy-Authorization: Basic $(echo -n $TOKEN_ID:$TOKEN_SECRET | base64)"
+# curl -H "Modal-Key: $TOKEN_ID" \
+#      -H "Modal-Secret: $TOKEN_SECRET" \
+#      https://your-workspace-name--expensive-secret.modal.run
 # ```
 
 # For more details, see the
