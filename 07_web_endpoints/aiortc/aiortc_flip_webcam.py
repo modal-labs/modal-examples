@@ -38,13 +38,6 @@ app = modal.App(
     "aiortc-video-processing"
 )
 
-# set timeout for health checks and connection test
-MINUTES = 60  # seconds
-test_timeout = 2.0 * MINUTES
-
-TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
-TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
-
 class WebRTCPeer:
 
     @modal.enter()
@@ -383,8 +376,7 @@ class WebRTCVideoProcessor(WebRTCPeer):
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
         
-        return self.web_app
-        
+        return self.web_app  
 
 @app.cls(
     image=web_image,
@@ -395,13 +387,26 @@ class WebRTCVideoProcessor(WebRTCPeer):
 @modal.concurrent(max_inputs=100)
 class WebRTCVideoFlipTester(WebRTCPeer):
 
+    TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
+    TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
+    FRAME_DIFFERENCE_THRESHOLD = 5
+    VIDEO_DURATION_BUFFER_SECS = 5.0
 
     async def initialize(self):
 
-        self.input_filepath = TEST_VIDEO_SOURCE_FILE
+        import cv2
+
+        self.input_filepath = self.TEST_VIDEO_SOURCE_FILE
+        # get input video duration in seconds
+        self.input_video = cv2.VideoCapture(self.input_filepath)
+        self.input_video_duration = self.input_video.get(cv2.CAP_PROP_FRAME_COUNT) / self.input_video.get(cv2.CAP_PROP_FPS)
+        self.input_video.release()
+        self.stream_duration = self.input_video_duration + self.VIDEO_DURATION_BUFFER_SECS
+        print(f"Stream duration: {self.stream_duration} seconds")
+
         self.player = None
 
-        self.output_filepath = TEST_VIDEO_RECORD_FILE
+        self.output_filepath = self.TEST_VIDEO_RECORD_FILE
         self.recorder = None
 
     async def setup_streams(self, peer_id):
@@ -440,16 +445,13 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         import asyncio
 
         await self.recorder.start()
-        await asyncio.sleep(15.0)
+        await asyncio.sleep(self.stream_duration)
         await self.pcs[peer_id].close()
 
     def confirm_recording(self):
 
         import cv2
 
-        
-        
-        # try:
         # compare output video length to input video length
         input_video = cv2.VideoCapture(self.input_filepath)
         input_video_length = int(input_video.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -458,20 +460,10 @@ class WebRTCVideoFlipTester(WebRTCPeer):
         input_video.release()
         output_video.release()
 
-        print(f"Input video length: {input_video_length}")
-        print(f"length type: {type(input_video_length)}")
-        print(f"Output video length: {output_video_length}")
-        print(f"length type: {type(output_video_length)}")
-        print(f"input video length - output video length: {input_video_length - output_video_length}")
-        print(f"input video length - output video length < 5: {(input_video_length - output_video_length) < 5}")
-
-        if (input_video_length - output_video_length) < 5:
+        if (input_video_length - output_video_length) < self.FRAME_DIFFERENCE_THRESHOLD:
             return True
         else:
             return False
-        # except Exception as e:
-        #     print(f"Error: {e}")
-        #     return False
                
 
     async def start_webrtc_connection(self):
@@ -535,6 +527,9 @@ class WebRTCVideoFlipTester(WebRTCPeer):
 
         return self.web_app
     
+# set timeout for health checks and connection test
+MINUTES = 60  # seconds
+TEST_TIMEOUT = 2.0 * MINUTES  
 
 def trigger_webrtc_test():
 
@@ -545,9 +540,9 @@ def trigger_webrtc_test():
             with urllib.request.urlopen(WebRTCVideoFlipTester().web_endpoints.web_url + "/run_test") as response:
                 if response.getcode() == 200:
                     test_triggered = response.read().decode()
-                    print(f"response received: {response.read().decode()}")
-        except Exception:
-            if time.time() - start > test_timeout:
+        except Exception as e:
+            print(f"Error: {e}")
+            if time.time() - start > TEST_TIMEOUT:
                 break
             time.sleep(delay)
     
@@ -569,11 +564,10 @@ def check_test_successful():
         try:
             with urllib.request.urlopen(req) as response:
                 test_successful = json.loads(response.read().decode())
-                print(f"response received: {test_successful}")
                 return test_successful
         except Exception as e:
             print(f"Error: {e}")
-            if time.time() - start > test_timeout:
+            if time.time() - start > TEST_TIMEOUT:
                 break
             time.sleep(delay)
 
