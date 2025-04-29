@@ -48,7 +48,7 @@ TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
 class WebRTCPeer:
 
     @modal.enter()
-    async def _setup_peer(self):
+    async def _initialize(self):
         """
         Initialize the peer connection
         and call custom init method for
@@ -65,7 +65,6 @@ class WebRTCPeer:
         self.id = str(uuid.uuid4())
         self.web_app = FastAPI()
         self.pcs = {}
-        self.active_pc = None
 
         # Add CORS middleware
         self.web_app.add_middleware(
@@ -116,13 +115,11 @@ class WebRTCPeer:
 
         @self.web_app.post("/run_stream")
         async def run_stream(peer_id: str):
-            await self.run_stream(peer_id)
+            await self.run_streams(peer_id)
         
         # handling signaling through websocket
         @self.web_app.websocket("/ws/{peer_id}")
         async def ws_negotiation(websocket: WebSocket, peer_id: str):
-
-            self.record_stream = True
 
             # accept websocket connection
             await websocket.accept()
@@ -171,6 +168,8 @@ class WebRTCPeer:
                         
                         await self.handle_ice_candidate(peer_id, ice_candidate)
 
+                    elif msg.get("type") == "identify":
+                        await websocket.send_text(json.dumps({"type": "identify", "peer_id": self.id}))
                     else:
                         print(f"Unknown message type: {msg.get('type')}")
 
@@ -183,28 +182,30 @@ class WebRTCPeer:
                         await websocket.close()
                         break
 
-            await self.run_stream(peer_id)
+            await self._run_streams(peer_id)
 
         # call custom init logic
-        await self.setup_peer()
+        await self.initialize()
 
-    async def setup_peer(self):
+    async def initialize(self):
         """
         Any custom logic when instantiating the peer
         """
         pass
 
-    async def _setup_streams(self, peer_id):
+    async def _setup_peer(self, peer_id):
 
         from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 
         # create peer connection with STUN server
         # aiortc automatically uses google's STUN server when
-        # self.active_pc = RTCPeerConnection()
+        # self.pcs[peer_id] = RTCPeerConnection()
         # is called, but we can also specify our own:
         config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
         pc = RTCPeerConnection(configuration = config)
+        print(f"Created peer connection for {peer_id}")
+
         self.pcs[peer_id] = pc
 
         await self.setup_streams(peer_id)
@@ -235,7 +236,7 @@ class WebRTCPeer:
 
     async def generate_offer(self, peer_id):
 
-        await self._setup_streams(peer_id)
+        await self._setup_peer(peer_id)
         
         # create initial offer
         offer = await self.pcs[peer_id].createOffer()
@@ -245,20 +246,22 @@ class WebRTCPeer:
 
         # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
         # these are embedded in the SDP after setLocalDescription() is called
-        return {"sdp": self.pcs[peer_id].localDescription.sdp, "type": offer.type}
+        return {"sdp": self.pcs[peer_id].localDescription.sdp, "type": offer.type, "peer_id": self.id}
 
     async def handle_offer(self, peer_id, offer):
 
         from aiortc import RTCSessionDescription
 
-        await self._setup_streams(peer_id)
+        await self._setup_peer(peer_id)
 
         # set remote description
         await self.pcs[peer_id].setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
+            
         # create answer
         answer = await self.pcs[peer_id].createAnswer()
         # set local/our description, this also triggers ICE gathering
         await self.pcs[peer_id].setLocalDescription(answer)
+
 
     def generate_answer(self, peer_id):
 
@@ -278,12 +281,17 @@ class WebRTCPeer:
 
         await self.pcs[peer_id].addIceCandidate(candidate)
 
-    async def run_stream(self, peer_id):
+    async def _run_streams(self, peer_id):
 
         import asyncio 
 
+        await self.run_streams(peer_id)
+
         while self.pcs[peer_id].connectionState == "connected":
             await asyncio.sleep(1.0)
+
+    async def run_streams(self, peer_id):
+        pass
 
 
 # this class responds to an offer
@@ -293,21 +301,13 @@ class WebRTCPeer:
 # and/or records the flipped video to a file
 @app.cls(
     image=web_image,
-    volumes={
-        OUTPUT_VOLUME_PATH: output_volume
-    }
 )
 @modal.concurrent(max_inputs=100)
 class WebRTCVideoProcessor(WebRTCPeer):   
 
-    async def setup_peer(self):
+    async def initialize(self):
 
         from fastapi.staticfiles import StaticFiles
-
-        self.output_filepath = TEST_VIDEO_RECORD_FILE
-        self.record_stream = False
-        self.recorder = None
-        self.relay = None
 
         self.web_app.mount(
             "/static",
@@ -329,7 +329,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
             def __init__(self, track):
                 super().__init__()
                 self.track = track
-                self.frame_count = 0
 
             # this is the essential method we need to implement a custom stream
             async def recv(self):
@@ -344,12 +343,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
 
                 return new_frame
             
-        if self.record_stream:
-            print(f"Initializing video file at {self.output_filepath}")
-            if os.path.exists(self.output_filepath):
-                os.remove(self.output_filepath)
-            self.recorder = MediaRecorder(self.output_filepath)
-            self.relay = MediaRelay()
 
         @self.pcs[peer_id].on("connectionstatechange")
         async def on_connectionstatechange():
@@ -359,26 +352,20 @@ class WebRTCVideoProcessor(WebRTCPeer):
         
         @self.pcs[peer_id].on("track")
         def on_track(track):
+
+            from aiortc import RTCPeerConnection
             
             print(f"Video Processor received {track.kind} track: {track}")
-
-            flipped_track = VideoFlipTrack(track)
             
-            if self.record_stream:
-                # relay the flipped track to the recorder and back to the provider
-                self.relay = MediaRelay()
-                self.recorder.addTrack(self.relay.subscribe(flipped_track))
-                self.pcs[peer_id].addTrack(self.relay.subscribe(flipped_track))
-            else:
-                self.relay = None
-                self.pcs[peer_id].addTrack(flipped_track)
+            # create processed track
+            flipped_track = VideoFlipTrack(track)
+            self.pcs[peer_id].addTrack(flipped_track)
 
             @track.on("ended")
             async def on_ended():
                 print("Incoming video track ended")
-                if self.record_stream and self.recorder:
-                    await self.recorder.stop()
-                    self.recorder = None
+
+    
 
     # add frontend and websocket endpoint for testing
     @modal.asgi_app(label="webrtc-video-flipper")
@@ -397,7 +384,7 @@ class WebRTCVideoProcessor(WebRTCPeer):
             return HTMLResponse(content=html)
         
         return self.web_app
-    
+        
 
 @app.cls(
     image=web_image,
@@ -409,37 +396,104 @@ class WebRTCVideoProcessor(WebRTCPeer):
 class WebRTCVideoFlipTester(WebRTCPeer):
 
 
-    async def setup_peer(self):
+    async def initialize(self):
 
         self.input_filepath = TEST_VIDEO_SOURCE_FILE
-        self.video_src = None
-        self.test_task = None
+        self.player = None
 
+        self.output_filepath = TEST_VIDEO_RECORD_FILE
+        self.recorder = None
 
-    async def setup_streams(self):
+    async def setup_streams(self, peer_id):
 
-        if self.video_src:
-            @self.active_pc.on("connectionstatechange")
-            async def on_connectionstatechange():
-                print(f"Provder side connection state updated: {self.active_pc.connectionState}")
+        from aiortc.contrib.media import MediaPlayer, MediaRecorder
+        
+        # setup video source
+        self.video_src = MediaPlayer(self.input_filepath)
+        self.pcs[peer_id].addTrack(self.video_src.video)
 
-            self.active_pc.addTrack(self.video_src.video)
+        # setup video recorder
+        if os.path.exists(self.output_filepath):
+            os.remove(self.output_filepath)
+        self.recorder = MediaRecorder(self.output_filepath)
+
+        @self.pcs[peer_id].on("connectionstatechange")
+        async def on_connectionstatechange():
+            print(f"Stream Tester side connection state updated: {self.pcs[peer_id].connectionState}")
+
+        @self.pcs[peer_id].on("track")
+        def on_track(track):
+            
+            print(f"Test peer received {track.kind} track: {track}")
+            # record track to file
+            self.recorder.addTrack(track)
+            
+            @track.on("ended")
+            async def on_ended():
+                print("Returned processed video track ended")
+                await self.recorder.stop()
+                self.recorder = None
+                self.video_src = None
+                
+    async def run_streams(self, peer_id):
+
+        import asyncio
+
+        await self.recorder.start()
+        await asyncio.sleep(15.0)
+        await self.pcs[peer_id].close()
+
+    def confirm_recording(self):
+
+        import cv2
+
+        
+        
+        # try:
+        # compare output video length to input video length
+        input_video = cv2.VideoCapture(self.input_filepath)
+        input_video_length = int(input_video.get(cv2.CAP_PROP_FRAME_COUNT))
+        output_video = cv2.VideoCapture(self.output_filepath)
+        output_video_length = int(output_video.get(cv2.CAP_PROP_FRAME_COUNT))
+        input_video.release()
+        output_video.release()
+
+        print(f"Input video length: {input_video_length}")
+        print(f"length type: {type(input_video_length)}")
+        print(f"Output video length: {output_video_length}")
+        print(f"length type: {type(output_video_length)}")
+        print(f"input video length - output video length: {input_video_length - output_video_length}")
+        print(f"input video length - output video length < 5: {(input_video_length - output_video_length) < 5}")
+
+        if (input_video_length - output_video_length) < 5:
+            return True
+        else:
+            return False
+        # except Exception as e:
+        #     print(f"Error: {e}")
+        #     return False
+               
 
     async def start_webrtc_connection(self):
 
+        import asyncio
         import json
         import websockets
 
+        peer_id = None
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCVideoProcessor().web_endpoints.web_url.replace("http", "ws") + f"/ws"
+        ws_uri = WebRTCVideoProcessor().web_endpoints.web_url.replace("http", "ws") + f"/ws/{self.id}"
+
         print(f"Connecting to video flipper websocket at {ws_uri}")
         async with websockets.connect(ws_uri) as websocket:
 
-            print(f"Generating provider offer...")
-            offer_msg = await self.generate_offer()
+            await websocket.send(json.dumps({"type": "identify"}))
+            peer_id = json.loads(await websocket.recv())["peer_id"]
+
+            offer_msg = await self.generate_offer(peer_id)
 
             print(f"Sending offer...")
-            await websocket.send(json.dumps(offer_msg.update({"peer_id": self.peer_id})))
+            await websocket.send(json.dumps(offer_msg))
 
             try: 
                 # receive answer
@@ -447,11 +501,16 @@ class WebRTCVideoFlipTester(WebRTCPeer):
 
                 if answer.get("type") == "answer":
                     print(f"Received answer from responder...")
-                    await self.handle_answer(self.peer_id, answer)
+                    await self.handle_answer(peer_id, answer)
 
             except websockets.exceptions.ConnectionClosed as e:
                 print("Connection closed")
                 await websocket.close()
+
+        # loop until video player is finished
+        if peer_id:
+            await self.run_streams(peer_id)
+
 
 
 
@@ -459,34 +518,20 @@ class WebRTCVideoFlipTester(WebRTCPeer):
     def web_endpoints(self):
         
         import asyncio
-        from aiortc.contrib.media import MediaPlayer
         
         @self.web_app.get("/run_test")
         async def run_test():
 
-            self.video_src = MediaPlayer(self.input_filepath)
+            # self.video_src = MediaPlayer(self.input_filepath)
             # start WebRTC connection test
-            self.test_task = asyncio.create_task(self.start_webrtc_connection())
-
-            # loop until video player is finished
-            while self.video_src.video.readyState != "ended":
-
-                await asyncio.sleep(1.0)
-
-            self.video_src = None
+            await self.start_webrtc_connection()
+            return True
             
 
-        @self.web_app.get("/test_complete")
-        async def test_complete():
-
-            if self.test_task is None:
-                test_complete = False
-            else:
-                test_complete = self.test_task.done()
-
-            return {
-                "test_complete": test_complete
-            }
+        @self.web_app.get("/check_test")
+        async def check_test():
+            return self.confirm_recording()
+            
 
         return self.web_app
     
@@ -499,7 +544,8 @@ def trigger_webrtc_test():
         try:
             with urllib.request.urlopen(WebRTCVideoFlipTester().web_endpoints.web_url + "/run_test") as response:
                 if response.getcode() == 200:
-                    test_triggered = True
+                    test_triggered = response.read().decode()
+                    print(f"response received: {response.read().decode()}")
         except Exception:
             if time.time() - start > test_timeout:
                 break
@@ -508,43 +554,37 @@ def trigger_webrtc_test():
     return test_triggered
     
 
-def source_stream_complete():
+def check_test_successful():
 
-    # build request to check task status
     headers = {
         "Content-Type": "application/json",
     }
     req = urllib.request.Request(
-        WebRTCVideoFlipTester().web_endpoints.web_url + "/test_complete",
+        WebRTCVideoFlipTester().web_endpoints.web_url + "/check_test",
         method="GET",
         headers=headers,
     )
-    # test if P2P test is complete once a second
-    now = time.time()
-    while time.time() - now < test_timeout:
-        with urllib.request.urlopen(req) as response:
-            return_data = json.loads(response.read().decode())
-            print(f"Response: {return_data}")
-        time.sleep(1)
+    test_successful, start, delay = False, time.time(), 10
+    while not test_successful:
         try:
-            test_completed = return_data["test_complete"]
-            assert test_completed
-            print("Test complete!!!!")
-            break
+            with urllib.request.urlopen(req) as response:
+                test_successful = json.loads(response.read().decode())
+                print(f"response received: {test_successful}")
+                return test_successful
         except Exception as e:
             print(f"Error: {e}")
-            time.sleep(1)
-            pass
+            if time.time() - start > test_timeout:
+                break
+            time.sleep(delay)
 
-    return test_completed
+    return test_successful
+
 
 @app.local_entrypoint()
 def main():
 
-
     assert trigger_webrtc_test(), "Test failed to trigger"
-    assert source_stream_complete(), "Source stream failed to complete"
-
+    assert check_test_successful(), "Test faileda to complete"
 
 
 

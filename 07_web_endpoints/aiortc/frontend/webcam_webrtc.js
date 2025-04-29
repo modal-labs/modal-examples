@@ -23,7 +23,7 @@ document.querySelectorAll('input[name="implementation"]').forEach(radio => {
 // WebRTC variables
 let localStream;
 let peerConnection;
-const clientID = crypto.randomUUID();
+const peerID = crypto.randomUUID();
 
 // Get local media stream
 async function startWebcam() {
@@ -75,7 +75,7 @@ async function startStreaming() {
         
         if (event.candidate) {
             const iceCandidate = {
-                peer_id: clientID,
+                peer_id: peerID,
                 candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
                 sdpMid: event.candidate.sdpMid,
                 sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -105,7 +105,7 @@ async function startStreaming() {
         if (peerConnection.connectionState === 'connected') {
             console.log('Connection state:', peerConnection.connectionState);
             if (implementationType === 'http') {
-                await fetch(`/run_stream?peer_id=${clientID}`, {
+                await fetch(`/run_stream?peer_id=${peerID}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -131,7 +131,7 @@ async function negotiate() {
 
         if (implementationType === 'websocket') {
             // setup websocket connection
-            ws = new WebSocket(`/ws/${clientID}`);
+            ws = new WebSocket(`/ws/${peerID}`);
 
             // wait for websocket to open
             await new Promise((resolve) => {
@@ -167,7 +167,7 @@ async function negotiate() {
         console.log('Sending offer and awaiting answer...');
         if (implementationType === 'http') {
             const response = await fetch(`/offer?` + new URLSearchParams({
-                peer_id: clientID,
+                peer_id: peerID,
                 sdp: offer.sdp,
                 type: offer.type
             }), {
@@ -181,7 +181,7 @@ async function negotiate() {
         } else {
             // send offer over ws
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({peer_id: clientID, type: 'offer', sdp: offer.sdp}));
+                ws.send(JSON.stringify({peer_id: peerID, type: 'offer', sdp: offer.sdp}));
             }
         }
 
