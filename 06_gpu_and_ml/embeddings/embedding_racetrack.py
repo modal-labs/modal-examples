@@ -31,7 +31,6 @@ from pathlib import Path
 from time import perf_counter
 
 import modal
-import numpy as np
 from modal.volume import FileEntry
 from more_itertools import chunked
 from PIL.Image import Image
@@ -47,9 +46,9 @@ from PIL.Image import Image
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 
 batch_size: int = 500
-max_concurrent_inputs: int = 4
+max_concurrent_inputs: int = 2
 gpu: str = "L4"
-max_containers: int = 10
+max_containers: int = 20
 image_cap: int = 20000
 
 # This timeout caps the maximum time a single function call is allowed to take. In this example, that
@@ -96,6 +95,7 @@ simple_image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         [
+            "numpy",
             "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "sentencepiece",  # for this particular chosen model
             "more-itertools",  # for elegant list batching
@@ -198,6 +198,8 @@ class InfinityEngine:
 # This code is run on your machine.
 @app.local_entrypoint()
 def main():
+    import numpy as np
+
     # (1) Init the model inference app
     start_time = perf_counter()
     embedder = InfinityEngine()
