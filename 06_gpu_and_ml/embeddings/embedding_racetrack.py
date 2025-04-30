@@ -37,7 +37,6 @@ from pathlib import Path
 from time import perf_counter
 
 import modal
-from modal.volume import FileEntry
 
 # ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching (which happens internal to Infinity),
@@ -103,15 +102,10 @@ with simple_image.imports():
 
 
 # ## Image Finder
-@app.function(image=simple_image, volumes={vol_mnt: vol})
-def find_images_to_encode(
-    image_cap: int = 1, batch_size: int = 1
-) -> list[list[os.PathLike]]:
+def find_images_to_encode(image_cap: int = 1, batch_size: int = 1) -> list[os.PathLike]:
     """
     You can modify this function to find and return your data paths.
-    The output should be a list of BATCHES of image paths.
     """
-    from more_itertools import chunked
 
     im_path_list = list(
         filter(
@@ -131,7 +125,7 @@ def find_images_to_encode(
     im_path_list = [x.path for x in im_path_list]
 
     # chunked re-shapes a list into a list of lists (each sublist of size batch_size)
-    return chunked(im_path_list, batch_size), n_ims
+    return im_path_list
 
 
 # ## Inference app
@@ -212,6 +206,14 @@ class InfinityEngine:
             await engine.astop()
 
 
+def chunked(seq, size):
+    """
+    Chunks a sequence into subsequences of length `size`
+    """
+    for i in range(0, len(seq), size):
+        yield seq[i : i + size]
+
+
 # ## Local Entrypoint
 # This code is run on your machine.
 @app.local_entrypoint()
@@ -221,11 +223,12 @@ def main():
     embedder = InfinityEngine()
 
     # (2) Catalog data: modify `find_images_to_encode` to fetch batches of your data.
-    chunked_im_path_list, n_ims = find_images_to_encode.remote(image_cap, batch_size)
+    im_path_list = find_images_to_encode(image_cap, batch_size)
+    n_ims = len(im_path_list)
 
     # (3) Embed batches via remote `map` call
     times, batchsizes = [], []
-    for time, batchsize in embedder.embed.map(chunked_im_path_list):
+    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
         times.append(time)
         batchsizes.append(batchsize)
 
