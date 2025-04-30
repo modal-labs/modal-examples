@@ -106,7 +106,6 @@ class ModalWebRTCServer:
                         try:
                             # get websocket message and parse as json
                             msg = await client_websocket.receive_text()
-                            print(f"Received message from client peer {negotation.client_peer_id}: {msg}")
                             await q.put.aio(
                                 msg,
                                 partition=negotation.client_peer_id

@@ -40,7 +40,7 @@ const iceTURNServers = [
 
 const iceSTUNservers = [
     {
-        urls: "stun:stun.relay.metered.ca:80",
+        urls: "stun:stun.l.google.com:19302",
     },
 ]
 
