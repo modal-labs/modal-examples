@@ -38,7 +38,6 @@ from time import perf_counter
 
 import modal
 from modal.volume import FileEntry
-from PIL.Image import Image
 
 # ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching (which happens internal to Infinity),
@@ -101,6 +100,7 @@ simple_image = (
     .pip_install(
         [
             "numpy",
+            "pillow",
             "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "sentencepiece",  # for this particular chosen model
             "more-itertools",  # for elegant list batching
@@ -117,6 +117,7 @@ app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
 with simple_image.imports():
     from infinity_emb import AsyncEmbeddingEngine, EngineArgs
     from infinity_emb.primitives import Dtype, InferenceEngine
+    from PIL.Image import Image
     from torchvision.io import read_image
     from torchvision.transforms.functional import to_pil_image
 
