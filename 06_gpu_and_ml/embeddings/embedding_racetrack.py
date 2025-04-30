@@ -10,17 +10,23 @@
 
 # ## Conclusions
 # ### BLUF (Bottom Line Up Front)
-# Set concurrency to around XX. Set batchsize to be as large as possible without overflowing
-# VRAM on your selected GPU. Then set max_containers to the number of total inputs
-# divided by 4*batchsize. Be sure to preprocess your data in the same manner that
-# the model is expecting (e.g., resizing images).
+# Set concurrency (`max_concurrent_inputs`)to 2, and set `batch_size` between 100-500.
+# To set `max_containers`, divide the total number of inputs by `max_concurrent_inputs*batchsize`
+# (note: if you have a massive dataset, keep an eye out for diminishing returns on max_containers; but
+# Modal should handle that for you!).
+# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images).
+# If you only want to use one container, increase `batch_size` until you are maxing
+# out the GPU (but keep concurrency, `max_concurrent_inputs`, set to 2).
 # ### Why?
 # While batchsize maximizes GPU utilization, the time to form a batch (ie reading images)
-# will ultimately overtake the inference time, whether due to I/O, sending data across a wire, etc.
-# We can make up for this by using idle GPU cores to store additional copies of the model. This
-# GPU packing is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
-# decorator. Finally, once we maximize GPU utilization, we want to spawn as many containers
-# as we can to distribute the load.
+# will ultimately overtake inference, whether due to I/O, sending data across a wire, etc.
+# We can make up for this by using idle GPU cores to store additional copies of the model:
+# This _GPU packing_ is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# decorator. Once you nail down `batch_size` you can crank up the number of containers to distribute the
+# computational load. High values of concurrency has diminishing returns, we believe,
+# because we are already throttling the CPU with multi-threaded dataloading. The demo herein
+# achieves upward of 650 images / second, and that will increase for larger datasets where the model loading
+# time becomes increasingly negligable
 
 # ## Setup
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
@@ -45,17 +51,17 @@ from PIL.Image import Image
 # * `max_containers` caps the number of containers allowed to spin-up.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 
-batch_size: int = 500
+batch_size: int = 100
 max_concurrent_inputs: int = 2
 gpu: str = "L4"
-max_containers: int = 20
+max_containers: int = 40
 image_cap: int = 20000
 
 # This timeout caps the maximum time a single function call is allowed to take. In this example, that
 # includes reading a batch-worth of data and running inference on it. When `batch_size`` is large (e.g. 5000)
 # and with a large value of `max_concurrent_inputs`, where a batch may sit in a queue for a while,
 # this could take several minutes.
-timeout_seconds: int = 5 * 60 * 60
+timeout_seconds: int = 5 * 60
 
 # This model parameter should point to a model on huggingface that is supported by Infinity.
 # Note that your selected model might require specialized imports when
@@ -65,8 +71,8 @@ model_name = "openai/clip-vit-base-patch16"  # 599 MB
 
 # ## Data setup
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
-# to store the images we want to encode. We have resized them to 640 x 480 as that is
-# what the selected model was trained on.
+# to store the images we want to encode. We have resized them to 224 x 224 as that is
+# what the `openai/clip-vit-base-patch16` model was trained on.
 vol_name = "sweet-coral-db-20k"
 vol_mnt = Path("/data")
 vol = modal.Volume.from_name(vol_name, environment_name="ben-dev")
