@@ -117,9 +117,9 @@ app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
 with simple_image.imports():
     from infinity_emb import AsyncEmbeddingEngine, EngineArgs
     from infinity_emb.primitives import Dtype, InferenceEngine
-    from PIL.Image import Image
     from torchvision.io import read_image
     from torchvision.transforms.functional import to_pil_image
+    from PIL.Image import Image
 
 
 # ## Inference app
@@ -156,7 +156,7 @@ class InfinityEngine:
             await self.engine_queue.put(engine)
         print(f"Took {perf_counter() - start:.4}s.")
 
-    def make_batch(self, im_path_list: list[FileEntry]) -> list[Image]:
+    def make_batch(self, im_path_list: list[FileEntry]) -> list["Image"]:
         # Convert to a list of paths
         def readim(impath: FileEntry):
             """Read with torch, convert back to PIL for Infinity"""
