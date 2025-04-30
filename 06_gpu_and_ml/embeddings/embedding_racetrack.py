@@ -38,7 +38,6 @@ from time import perf_counter
 
 import modal
 from modal.volume import FileEntry
-from more_itertools import chunked
 from PIL.Image import Image
 
 # ## Key Parameters
@@ -205,6 +204,7 @@ class InfinityEngine:
 @app.local_entrypoint()
 def main():
     import numpy as np
+    from more_itertools import chunked
 
     # (1) Init the model inference app
     start_time = perf_counter()
