@@ -5,7 +5,7 @@ import os
 # ...and modal
 import modal
 
-from .webrtc import WebRTCPeer, WebRTCServer
+from .webrtc import ModalWebRTCPeer, ModalWebRTCServer
 
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
@@ -39,7 +39,7 @@ app = modal.App(
 @app.cls(
     image=web_image,
 )
-class WebRTCVideoProcessorServer(WebRTCServer):
+class WebRTCVideoProcessorServer(ModalWebRTCServer):
 
     modal_peer_app_name = "aiortc-server-video-processing-example"
     modal_peer_cls_name = "WebRTCVideoProcessor"
@@ -71,7 +71,7 @@ class WebRTCVideoProcessorServer(WebRTCServer):
 @app.cls(
     image=web_image,
 )
-class WebRTCVideoProcessor(WebRTCPeer):   
+class WebRTCVideoProcessor(ModalWebRTCPeer):   
 
     async def setup_streams(self, peer_id):
 
@@ -142,7 +142,7 @@ OUTPUT_VOLUME_PATH = Path("/output")
         OUTPUT_VOLUME_PATH: output_volume
     }
 )
-class WebRTCVideoProcessorTester(WebRTCPeer):
+class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
@@ -246,7 +246,7 @@ class WebRTCVideoProcessorTester(WebRTCPeer):
 
         peer_id = None
         # setup WebRTC connection using websockets
-        ws_uri = WebRTCVideoProcessor().web_endpoints.web_url.replace("http", "ws") + f"/ws/{self.id}"
+        ws_uri = WebRTCVideoProcessorServer().web_endpoints.web_url.replace("http", "ws") + f"/ws/{self.id}"
         async with websockets.connect(ws_uri) as websocket:
 
             await websocket.send(json.dumps({"type": "identify"}))

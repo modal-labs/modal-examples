@@ -29,14 +29,13 @@ class IceCandidate:
     sdpMLineIndex: int
     usernameFragment: str
 
-class WebRTCServer:
+class ModalWebRTCServer:
     """
     Class that handles WebRTC signaling
     between WebRTC clients and a modal app
     that implements the WebRTCPeer class
     """
-    # negotiations: dict[str, WebRTCNegotiation] = {}
-    modal_peer_app_name: str = modal.parameter()
+    modal_peer_app_name: str = modal.parameter() # not using this, but feels like i should?
     modal_peer_cls_name: str = modal.parameter()
 
     @modal.enter()
@@ -94,12 +93,10 @@ class WebRTCServer:
             modal_peer_instance = self.ModalPeerCls()
 
             with modal.Queue.ephemeral() as q:
+
                 print(f"Spawning modal peer instance for client peer {negotation.client_peer_id}...")
                 modal_peer_instance.run_with_queue.spawn(q, negotation.client_peer_id)
-            # modal_peer_url = modal_peer_instance.web_endpoints.web_url
-            # modal_peer_ws_url = modal_peer_url.replace("http", "ws") + "/ws/" + negotation.modal_peer_id
-
-           
+      
 
                 async def relay_client_messages(client_websocket, q):
 
@@ -107,7 +104,6 @@ class WebRTCServer:
                     while True:
                         
                         try:
-                            print("awaiting websocket message queue...")
                             # get websocket message and parse as json
                             msg = await client_websocket.receive_text()
                             print(f"Received message from client peer {negotation.client_peer_id}: {msg}")
@@ -115,12 +111,10 @@ class WebRTCServer:
                                 msg,
                                 partition=negotation.client_peer_id
                             )
-
                         except Exception as e:
                             if isinstance(e, WebSocketDisconnect):
                                 break
-                            else:
-                                print(f"Error: {e}")
+                            print(f"Error: {e}")
 
                 async def relay_modal_peer_messages(client_websocket, q):
 
@@ -146,7 +140,7 @@ class WebRTCServer:
 
             await client_websocket.close()
 
-class WebRTCPeer:
+class ModalWebRTCPeer:
     """
     Base class for WebRTC peer connections using aiortc 
     that handles connection setup, negotiation, and stream management.
@@ -312,7 +306,6 @@ class WebRTCPeer:
             
             try:
                 # get websocket message and parse as json
-                print("Waiting for message on queue...")
                 msg = json.loads(await q.get.aio(partition=peer_id))
 
                 # handle offer

@@ -5,7 +5,7 @@ import os
 # ...and modal
 import modal
 
-from .webrtc import WebRTCPeer
+from .webrtc import ModalWebRTCPeer
 
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
@@ -45,7 +45,7 @@ app = modal.App(
     image=web_image,
 )
 @modal.concurrent(max_inputs=100)
-class WebRTCVideoProcessor(WebRTCPeer):   
+class WebRTCVideoProcessor(ModalWebRTCPeer):   
 
     async def initialize(self):
 
@@ -134,7 +134,7 @@ OUTPUT_VOLUME_PATH = Path("/output")
         OUTPUT_VOLUME_PATH: output_volume
     }
 )
-class WebRTCVideoProcessorTester(WebRTCPeer):
+class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
