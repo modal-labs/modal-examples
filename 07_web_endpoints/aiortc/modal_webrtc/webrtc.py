@@ -29,11 +29,15 @@ class IceCandidate:
     sdpMLineIndex: int
     usernameFragment: str
 
-class WebRTCSignalMediator:
+class WebRTCServer:
     """
-    Class for handling WebRTC signaling
+    Class that handles WebRTC signaling
+    between WebRTC clients and a modal app
+    that implements the WebRTCPeer class
     """
-    negotiations: dict[str, WebRTCNegotiation] = {}
+    # negotiations: dict[str, WebRTCNegotiation] = {}
+    modal_peer_app_name: str = modal.parameter()
+    modal_peer_cls_name: str = modal.parameter()
 
     @modal.enter()
     def initialize(self):
@@ -43,15 +47,18 @@ class WebRTCSignalMediator:
 
         from fastapi import FastAPI, WebSocket
         
+        
+
+
 
         self.web_app = FastAPI()
         
         # handling signaling through websocket
         @self.web_app.websocket("/ws/{peer_id}")
-        async def ws_negotiation(websocket: WebSocket, peer_id: str):
+        async def ws_negotiation(client_websocket: WebSocket, peer_id: str):
 
             # accept websocket connection
-            await websocket.accept()
+            await client_websocket.accept()
 
             modal_peer_id = str(uuid.uuid4())
             negotation = WebRTCNegotiation(
@@ -59,16 +66,15 @@ class WebRTCSignalMediator:
                 modal_peer_id=modal_peer_id,
                 state=INITIATED
             )
-            negotation_key = negotiation_key_from_negotiation(negotation)
-            self.negotiations[negotation_key] = negotation
+            # negotation_key = negotiation_key_from_negotiation(negotation)
+            # self.negotiations[negotation_key] = negotation
 
             # mediate negotiation
-            asyncio.create_task(
-                self.mediate_negotiation(),
-                websocket,
+            await self.mediate_negotiation(
+                client_websocket,
                 negotation
             )
-                
+
 
     async def mediate_negotiation(self, client_websocket, negotation: WebRTCNegotiation):
             
@@ -76,65 +82,62 @@ class WebRTCSignalMediator:
             import json
 
             from fastapi import WebSocketDisconnect
+            import websockets
 
             from aiortc.sdp import candidate_from_sdp
 
-            client_peer_id = negotation.client_peer_id
+            if not self.modal_peer_app_name or not self.modal_peer_cls_name:
+                print("Modal peer class or app name or class name not set")
+                return
             
-            # handle websocket messages and loop for lifetime
-            while True:
+            self.ModalPeerCls = modal.Cls.from_name(self.modal_peer_app_name, self.modal_peer_cls_name)
+            modal_peer_instance = self.ModalPeerCls()
+            modal_peer_instance.run.spawn(negotation.modal_peer_id)
+            modal_peer_url = modal_peer_instance.web_endpoints.web_url
+            modal_peer_ws_url = modal_peer_url.replace("http", "ws") + "/ws/" + negotation.modal_peer_id
+
+            async with websockets.connect(modal_peer_ws_url) as modal_peer_ws:
+
+                async def relay_client_messages(client_websocket, modal_peer_ws):
+
+                    # handle websocket messages and loop for lifetime
+                    while True:
+                        
+                        try:
+                            # get websocket message and parse as json
+                            msg = await client_websocket.receive_text()
+
+                            await modal_peer_ws.send(msg)
+
+                        except Exception as e:
+                            if isinstance(e, WebSocketDisconnect):
+                                break
+                            else:
+                                print(f"Error: {e}")
+
+                async def relay_modal_peer_messages(client_websocket, modal_peer_ws):
+
+                    # handle websocket messages and loop for lifetime
+                    while True:
+                        
+                        try:
+                            # get websocket message and parse as json
+                            modal_peer_msg = await modal_peer_ws.recv()
+
+                            await client_websocket.send_text(modal_peer_msg)
+
+                        except Exception as e:
+                            if isinstance(e, WebSocketDisconnect):
+                                break
+                            else:
+                                print(f"Error: {e}")
                 
-                try:
-                    # get websocket message and parse as json
-                    msg = json.loads(await client_websocket.receive_text())
+                await asyncio.gather(
+                    relay_client_messages(client_websocket, modal_peer_ws),
+                    relay_modal_peer_messages(client_websocket, modal_peer_ws)
+                )
 
-                    # handle offer
-                    if msg.get("type") == "offer":
-                        
-                        print(f"Peer {self.id} received offer from {client_peer_id}...")
-
-                        await self.handle_offer(client_peer_id, msg)
-                        # generate and send answer
-                        await client_websocket.send_text(
-                            json.dumps(self.generate_answer(client_peer_id))
-                        )
-
-                    # handle ice candidate (trickle ice)
-                    elif msg.get("type") == "ice_candidate":
-
-                        candidate = msg.get("candidate")
-                        
-                        if not candidate or not self.pcs.get(client_peer_id):
-                            return 
-                        
-                        print(f"Peer {self.id} received ice candidate from {client_peer_id}...")
-                        
-                        # parse ice candidate
-                        ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
-                        ice_candidate.sdpMid = candidate["sdpMid"]
-                        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
-                        
-                        await self.handle_ice_candidate(client_peer_id, ice_candidate)
-
-                        # wait and break if connected
-                        # this ensures that we close websocket asap (could remove)
-                        await asyncio.sleep(0.2) 
-                        if self.pcs[client_peer_id].connectionState == "connected":
-                            break
-                    
-                    # get peer's id
-                    elif msg.get("type") == "identify":
-
-                        await client_websocket.send_text(json.dumps({"type": "identify", "peer_id": self.id}))
-                    
-                    else:
-                        print(f"Unknown message type: {msg.get('type')}")
-
-                except Exception as e:
-                    if isinstance(e, WebSocketDisconnect):
-                        break
-                    else:
-                        print(f"Error: {e}")
+            await client_websocket.close()
 
 class WebRTCPeer:
     """
@@ -216,6 +219,11 @@ class WebRTCPeer:
         # call custom init logic
         await self.initialize()
 
+    @modal.asgi_app()
+    def web_endpoints(self):
+
+        return self.web_app
+
     async def ws_negotiation(self, websocket, peer_id: str):
 
         import json
@@ -237,6 +245,7 @@ class WebRTCPeer:
                     print(f"Peer {self.id} received offer from {peer_id}...")
 
                     await self.handle_offer(peer_id, msg)
+                        
                     # generate and send answer
                     await websocket.send_text(
                         json.dumps(self.generate_answer(peer_id))
@@ -282,6 +291,18 @@ class WebRTCPeer:
         await websocket.close()
         print("Websocket connection closed")
 
+    @modal.method()
+    async def run(self, peer_id: str):
+        
+        import asyncio
+
+        while True:
+            if self.pcs.get(peer_id):
+                if self.pcs[peer_id].connectionState == "connected":
+                    break
+            else:
+                await asyncio.sleep(1.0)
+
     async def initialize(self):
         """
         Any custom logic when instantiating the peer
@@ -296,8 +317,7 @@ class WebRTCPeer:
         # aiortc automatically uses google's STUN server when
         # self.pcs[peer_id] = RTCPeerConnection()
         # is called, but we can also specify our own:
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
+        config = RTCConfiguration([RTCIceServer(urls="stun:stun.l.google.com:19302")])
         self.pcs[peer_id] = RTCPeerConnection(configuration = config)
 
         await self.setup_streams(peer_id)

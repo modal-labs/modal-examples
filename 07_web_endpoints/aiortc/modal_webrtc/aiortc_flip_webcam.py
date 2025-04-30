@@ -50,13 +50,19 @@ class WebRTCVideoProcessor(WebRTCPeer):
     async def initialize(self):
 
         from fastapi.staticfiles import StaticFiles
-
+        from fastapi.responses import HTMLResponse
         # frontend files
         self.web_app.mount(
             "/static",
             StaticFiles(directory="/frontend"),
             name="static",
         )
+
+        # serve the frontend
+        @self.web_app.get("/")
+        async def root():
+            html = open("/frontend/index.html").read()
+            return HTMLResponse(content=html)
 
     async def setup_streams(self, peer_id):
 
@@ -105,8 +111,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
         # we create a processed track and add it to the peer connection
         @self.pcs[peer_id].on("track")
         def on_track(track):
-
-            from aiortc import RTCPeerConnection
             
             print(f"Video Processor, {self.id}, received {track.kind} track from {peer_id}")
             
@@ -119,19 +123,6 @@ class WebRTCVideoProcessor(WebRTCPeer):
             async def on_ended():
                 print(f"Video Processor, {self.id}, incoming video track from {peer_id} ended")
 
-    # add frontend end point
-    @modal.asgi_app(label="webrtc-video-processor")
-    def web_endpoints(self):
-
-        from fastapi.responses import HTMLResponse
-
-        # serve the frontend
-        @self.web_app.get("/")
-        async def root():
-            html = open("/frontend/index.html").read()
-            return HTMLResponse(content=html)
-        
-        return self.web_app  
 
 # create an output volume to store the transmitted videos
 output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
