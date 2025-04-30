@@ -74,34 +74,7 @@ vol_name = "sweet-coral-db-20k"
 vol_mnt = Path("/data")
 vol = modal.Volume.from_name(vol_name, environment_name="ben-dev")
 
-# ## Define the image
-simple_image = (
-    modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
-        [
-            "pillow",
-            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
-            "sentencepiece",  # for this particular chosen model
-            "more-itertools",  # for elegant list batching
-            "torchvision",  # for fast image loading
-        ]
-    )
-    .env({"INFINITY_MODEL_ID": model_name, "HF_HOME": "/data"})
-)
 
-# Initialize the app
-app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
-
-# Imports inside the container
-with simple_image.imports():
-    from infinity_emb import AsyncEmbeddingEngine, EngineArgs
-    from infinity_emb.primitives import Dtype, InferenceEngine
-    from PIL.Image import Image
-    from torchvision.io import read_image
-    from torchvision.transforms.functional import to_pil_image
-
-
-# ## Image Finder
 def find_images_to_encode(image_cap: int = 1, batch_size: int = 1) -> list[os.PathLike]:
     """
     You can modify this function to find and return your data paths.
@@ -126,6 +99,32 @@ def find_images_to_encode(image_cap: int = 1, batch_size: int = 1) -> list[os.Pa
 
     # chunked re-shapes a list into a list of lists (each sublist of size batch_size)
     return im_path_list
+
+
+# ## Define the image
+simple_image = (
+    modal.Image.debian_slim(python_version="3.10")
+    .pip_install(
+        [
+            "pillow",
+            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
+            "sentencepiece",  # for this particular chosen model
+            "torchvision",  # for fast image loading
+        ]
+    )
+    .env({"INFINITY_MODEL_ID": model_name, "HF_HOME": "/data"})
+)
+
+# Initialize the app
+app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
+
+# Imports inside the container
+with simple_image.imports():
+    from infinity_emb import AsyncEmbeddingEngine, EngineArgs
+    from infinity_emb.primitives import Dtype, InferenceEngine
+    from PIL.Image import Image
+    from torchvision.io import read_image
+    from torchvision.transforms.functional import to_pil_image
 
 
 # ## Inference app
