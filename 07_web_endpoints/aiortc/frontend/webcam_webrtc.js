@@ -206,7 +206,7 @@ async function negotiate() {
         
             ws.onclose = function() {
                 console.log('WebSocket connection closed');
-                ws.close();
+                ws = null;
             };
 
             ws.onmessage = (event) => {
@@ -216,6 +216,11 @@ async function negotiate() {
                     peerConnection.setRemoteDescription(msg);
                 } else if (msg.type === 'turn_servers') {
                     iceServers = msg.ice_servers;
+                } else if (msg.type === 'connection_status') {
+                    if (msg.status === 'connected') {
+                        console.log('Connection status:', msg.status);
+                        ws.close();
+                    }
                 } else {
                     console.error('Unexpected response from server:', msg);
                 }
@@ -361,15 +366,21 @@ async function negotiate() {
     }
 }
 
-// Stop streaming
-function stop_streaming() {
+// cleanup
+function cleanup() {
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
     if (ws) {
         ws.close();
+        ws = null;
     }
+}
+
+// Stop streaming
+function stop_streaming() {
+    cleanup();
     stopStreamingButton.disabled = true;
     startStreamingButton.disabled = false;
     remoteVideo.srcObject = null;
@@ -379,3 +390,8 @@ function stop_streaming() {
 startWebcamButton.addEventListener('click', startWebcam);
 startStreamingButton.addEventListener('click', startStreaming);
 stopStreamingButton.addEventListener('click', stop_streaming); 
+
+// Add cleanup handler for when browser tab is closed
+window.addEventListener('beforeunload', () => {
+    cleanup();
+});

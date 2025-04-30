@@ -69,15 +69,23 @@ class ModalWebRTCServer:
                         
                         try:
                             # get websocket message and parse as json
-                            msg = await client_websocket.receive_text()
+                            print(f"Server receiving message websocket...")
+                            msg = await asyncio.wait_for(client_websocket.receive_text(), timeout=20)
+                            
+                            # if msg.startswith("close"):
+                            #     print(f"Server closing websocketconnection to client peer {peer_id}...")
+                            #     return
+                            print(f"Server putting message to queue...")
                             await q.put.aio(
                                 msg,
                                 partition=peer_id
                             )
                         except Exception as e:
-                            if isinstance(e, WebSocketDisconnect):
-                                break
-                            print(f"Error: {e}")
+                            if isinstance(e, TimeoutError):
+                                continue
+                            else:
+                                print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
+                                return
 
                 async def relay_modal_peer_messages(client_websocket, q):
 
@@ -86,22 +94,30 @@ class ModalWebRTCServer:
                         
                         try:
                             # get websocket message and parse as json
-                            modal_peer_msg = await q.get.aio(partition='server')
-
+                            print(f"Server getting message from queue...")
+                            modal_peer_msg = await asyncio.wait_for(q.get.aio(partition='server'), timeout=20)
+                            
+                            if modal_peer_msg.startswith("close"):
+                                print(f"Server closing websocket connection to client peer {peer_id}...")
+                                await client_websocket.close()
+                                return
+                            print(f"Server sending message websocket...")
                             await client_websocket.send_text(modal_peer_msg)
 
                         except Exception as e:
-                            if isinstance(e, WebSocketDisconnect):
-                                break
+                            if isinstance(e, TimeoutError):
+                                continue
                             else:
-                                print(f"Error: {e}")
+                                print(f"Error relaying from modal peer to client peer {peer_id}: {e}")
+                                return
                 
                 await asyncio.gather(
                     relay_client_messages(client_websocket, q),
                     relay_modal_peer_messages(client_websocket, q)
                 )
 
-            await client_websocket.close()
+
+            
 
 class ModalWebRTCPeer:
     """
@@ -251,11 +267,22 @@ class ModalWebRTCPeer:
                 # get peer's id
                 elif msg.get("type") == "identify":
 
-                    await websocket.send_text(json.dumps({"type": "identify", "peer_id": self.id}))
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "identify", 
+                                "peer_id": self.id
+                            }
+                        )
+                    )
 
                 elif msg.get("type") == "get_turn_servers":
                     print("Sending turn servers to peer...")
-                    await websocket.send_text(json.dumps(self.get_turn_servers()))
+                    await websocket.send_text(
+                        json.dumps(
+                            self.get_turn_servers()
+                        )
+                    )
                 
                 else:
                     print(f"Unknown message type: {msg.get('type')}")
@@ -282,8 +309,16 @@ class ModalWebRTCPeer:
         while True:
             
             try:
+
+                if self.pcs.get(peer_id) and self.pcs[peer_id].connectionState == "connected":
+                    await q.put.aio(
+                        "close",
+                        partition='server'
+                    )
+                    break
+                
                 # get websocket message and parse as json
-                msg = json.loads(await q.get.aio(partition=peer_id))
+                msg = json.loads(await asyncio.wait_for(q.get.aio(partition=peer_id), timeout=5))
 
                 # handle offer
                 if msg.get("type") == "offer":
@@ -317,9 +352,8 @@ class ModalWebRTCPeer:
 
                     # wait and break if connected
                     # this ensures that we close websocket asap (could remove)
-                    await asyncio.sleep(0.2) 
-                    if self.pcs[peer_id].connectionState == "connected":
-                        break
+                    # await asyncio.sleep(0.2) 
+    
                 
                 # get peer's id
                 elif msg.get("type") == "identify":
@@ -331,7 +365,9 @@ class ModalWebRTCPeer:
                 
                 elif msg.get("type") == "get_turn_servers":
                     await q.put.aio(
-                        json.dumps(self.get_turn_servers()),
+                        json.dumps(
+                            self.get_turn_servers()
+                        ),
                         partition='server'
                     )
 
@@ -339,10 +375,10 @@ class ModalWebRTCPeer:
                     print(f"Unknown message type: {msg.get('type')}")
 
             except Exception as e:
-                print(f"Error: {e}")
-        
-        while self.pcs[peer_id].connectionState == "connected":
-            await asyncio.sleep(1.0)
+                continue
+
+        print(f"Modal peer instance for client peer {peer_id} connected, running streams...")
+        await self._run_streams(peer_id)
 
         print(f"Shutting down modal peer instance for client peer {peer_id}...")
 

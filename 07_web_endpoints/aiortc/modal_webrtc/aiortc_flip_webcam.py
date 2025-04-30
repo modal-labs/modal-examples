@@ -157,9 +157,8 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 
         return {
             "type": "turn_servers",
-            "ice_servers": turn_servers
+            "ice_servers": turn_servers,
         }
-
 
 # create an output volume to store the transmitted videos
 output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
