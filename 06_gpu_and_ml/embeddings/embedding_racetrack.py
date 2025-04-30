@@ -75,31 +75,11 @@ vol_name = "sweet-coral-db-20k"
 vol_mnt = Path("/data")
 vol = modal.Volume.from_name(vol_name, environment_name="ben-dev")
 
-
-def find_images_to_encode(image_cap: int = 1) -> list[FileEntry]:
-    """
-    You can modify this function to find an return a list of your image paths.
-    """
-
-    im_path_list = list(
-        filter(
-            lambda x: x.path.endswith(".jpg"), vol.listdir("/resized", recursive=True)
-        )
-    )
-    print(f"Found {len(im_path_list)} JPEGs, ", end="")
-
-    # Optional: cutoff number of images for testing (set to -1 to encode all)
-    if image_cap > 0:
-        im_path_list = im_path_list[: min(len(im_path_list), image_cap)]
-    return im_path_list
-
-
 # ## Define the image
 simple_image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         [
-            "numpy",
             "pillow",
             "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "sentencepiece",  # for this particular chosen model
@@ -115,13 +95,43 @@ app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
 
 # Imports inside the container
 with simple_image.imports():
-    import numpy as np
     from infinity_emb import AsyncEmbeddingEngine, EngineArgs
     from infinity_emb.primitives import Dtype, InferenceEngine
-    from more_itertools import chunked
     from PIL.Image import Image
     from torchvision.io import read_image
     from torchvision.transforms.functional import to_pil_image
+
+
+# ## Image Finder
+@app.function(image=simple_image, volumes={vol_mnt: vol})
+def find_images_to_encode(
+    image_cap: int = 1, batch_size: int = 1
+) -> list[list[os.PathLike]]:
+    """
+    You can modify this function to find and return your data paths.
+    The output should be a list of BATCHES of image paths.
+    """
+    from more_itertools import chunked
+
+    im_path_list = list(
+        filter(
+            lambda x: x.path.endswith(".jpg"), vol.listdir("/resized", recursive=True)
+        )
+    )
+    print(f"Found {len(im_path_list)} JPEGs, ", end="")
+
+    # Optional: cutoff number of images for testing (set to -1 to encode all)
+    if image_cap > 0:
+        im_path_list = im_path_list[: min(len(im_path_list), image_cap)]
+
+    n_ims = len(im_path_list)
+    print(f"using {n_ims}, ", end="")
+
+    # Convert this list of modal.volume.FileEntry objects into a list of paths
+    im_path_list = [x.path for x in im_path_list]
+
+    # chunked re-shapes a list into a list of lists (each sublist of size batch_size)
+    return chunked(im_path_list, batch_size), n_ims
 
 
 # ## Inference app
@@ -158,11 +168,11 @@ class InfinityEngine:
             await self.engine_queue.put(engine)
         print(f"Took {perf_counter() - start:.4}s.")
 
-    def make_batch(self, im_path_list: list[FileEntry]) -> list["Image"]:
+    def make_batch(self, im_path_list: list[os.PathLike]) -> list["Image"]:
         # Convert to a list of paths
-        def readim(impath: FileEntry):
+        def readim(impath: os.PathLike):
             """Read with torch, convert back to PIL for Infinity"""
-            return to_pil_image(read_image(str(vol_mnt / impath.path)))
+            return to_pil_image(read_image(str(vol_mnt / impath)))
 
         with ThreadPoolExecutor(max_workers=os.cpu_count() * 4) as executor:
             images = list(executor.map(readim, im_path_list))
@@ -170,7 +180,7 @@ class InfinityEngine:
         return images
 
     @modal.method()
-    async def embed(self, images: list[FileEntry]) -> tuple[float, float]:
+    async def embed(self, images: list[os.PathLike]) -> tuple[float, float]:
         # (0) Grab an engine from the queue
         engine = await self.engine_queue.get()
 
@@ -206,21 +216,16 @@ class InfinityEngine:
 # This code is run on your machine.
 @app.local_entrypoint()
 def main():
-    import numpy as np
-    from more_itertools import chunked
-
     # (1) Init the model inference app
     start_time = perf_counter()
     embedder = InfinityEngine()
 
-    # (2) Catalog data: modify `find_images_to_encode` at the top of this file for your usecase.
-    im_path_list = find_images_to_encode(image_cap)
-    n_ims = len(im_path_list)
-    print(f"using {n_ims}.")
+    # (2) Catalog data: modify `find_images_to_encode` to fetch batches of your data.
+    chunked_im_path_list, n_ims = find_images_to_encode.remote(image_cap, batch_size)
 
     # (3) Embed batches via remote `map` call
     times, batchsizes = [], []
-    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
+    for time, batchsize in embedder.embed.map(chunked_im_path_list):
         times.append(time)
         batchsizes.append(batchsize)
 
@@ -228,11 +233,10 @@ def main():
     if n_ims > 0:
         total_duration = perf_counter() - start_time
         total_throughput = n_ims / total_duration
-        embed_througputs = np.array(
-            [batchsize / time for batchsize, time in zip(batchsizes, times)]
-        )
-        avg_throughput = embed_througputs.mean()
-        std_throughput = embed_througputs.std()
+        embed_throughputs = [
+            batchsize / time for batchsize, time in zip(batchsizes, times)
+        ]
+        avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
 
         log_msg = (
             f"EmbeddingRacetrack::batch_size={batch_size}::"
@@ -241,7 +245,6 @@ def main():
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
             f"\tEmbedding-only throughput (avg):\t{avg_throughput:.2f} im/s\n"
-            f"\tEmbedding-only throughput (std dev):\t{std_throughput:.2f} im/s\n"
         )
 
         print(log_msg)
