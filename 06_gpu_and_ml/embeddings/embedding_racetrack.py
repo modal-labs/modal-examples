@@ -10,9 +10,9 @@
 
 # ## Conclusions
 # ### BLUF (Bottom Line Up Front)
-# Set concurrency (`max_concurrent_inputs`)to 2, and set `batch_size` between 100-500.
+# Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` between 100-500.
 # To set `max_containers`, divide the total number of inputs by `max_concurrent_inputs*batchsize`
-# (note: if you have a massive dataset, keep an eye out for diminishing returns on max_containers; but
+# (note: if you have a massive dataset, keep an eye out for diminishing returns on `max_containers`; but
 # Modal should handle that for you!).
 # Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images).
 # If you only want to use one container, increase `batch_size` until you are maxing
@@ -21,12 +21,12 @@
 # While batchsize maximizes GPU utilization, the time to form a batch (ie reading images)
 # will ultimately overtake inference, whether due to I/O, sending data across a wire, etc.
 # We can make up for this by using idle GPU cores to store additional copies of the model:
-# This _GPU packing_ is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# this _GPU packing_ is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
 # decorator. Once you nail down `batch_size` you can crank up the number of containers to distribute the
 # computational load. High values of concurrency has diminishing returns, we believe,
 # because we are already throttling the CPU with multi-threaded dataloading. The demo herein
 # achieves upward of 650 images / second, and that will increase for larger datasets where the model loading
-# time becomes increasingly negligable
+# time becomes increasingly negligable.
 
 # ## Setup
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
@@ -55,7 +55,7 @@ max_containers: int = 40
 image_cap: int = 20000
 
 # This timeout caps the maximum time a single function call is allowed to take. In this example, that
-# includes reading a batch-worth of data and running inference on it. When `batch_size`` is large (e.g. 5000)
+# includes reading a batch-worth of data and running inference on it. When `batch_size` is large (e.g. 5000)
 # and with a large value of `max_concurrent_inputs`, where a batch may sit in a queue for a while,
 # this could take several minutes.
 timeout_seconds: int = 5 * 60
@@ -99,6 +99,14 @@ def find_images_to_encode(image_cap: int = 1, batch_size: int = 1) -> list[os.Pa
 
     # chunked re-shapes a list into a list of lists (each sublist of size batch_size)
     return im_path_list
+
+
+def chunked(seq, size):
+    """
+    Chunks a sequence into subsequences of length `size`
+    """
+    for i in range(0, len(seq), size):
+        yield seq[i : i + size]
 
 
 # ## Define the image
@@ -203,14 +211,6 @@ class InfinityEngine:
         for _ in range(self.n_engines):
             engine = await self.engine_queue.get()
             await engine.astop()
-
-
-def chunked(seq, size):
-    """
-    Chunks a sequence into subsequences of length `size`
-    """
-    for i in range(0, len(seq), size):
-        yield seq[i : i + size]
 
 
 # ## Local Entrypoint
