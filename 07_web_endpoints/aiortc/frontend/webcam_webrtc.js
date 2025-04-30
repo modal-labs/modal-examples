@@ -12,52 +12,37 @@
 // });
 
 // need to setup with .env, these are non-sensitive credentials
-const iceTURNServers = [
-        {
-          urls: "stun:stun.relay.metered.ca:80",
-        },
-        {
-          urls: "turn:standard.relay.metered.ca:80",
-          username: "9fe1dc70b0e8f69039113e3b",
-          credential: "v8hbPkad1WKL3Bxj",
-        },
-        {
-          urls: "turn:standard.relay.metered.ca:80?transport=tcp",
-          username: "9fe1dc70b0e8f69039113e3b",
-          credential: "v8hbPkad1WKL3Bxj",
-        },
-        {
-          urls: "turn:standard.relay.metered.ca:443",
-          username: "9fe1dc70b0e8f69039113e3b",
-          credential: "v8hbPkad1WKL3Bxj",
-        },
-        {
-          urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-          username: "9fe1dc70b0e8f69039113e3b",
-          credential: "v8hbPkad1WKL3Bxj",
-        },
-    ]
+// const iceTURNServers = [
+//         {
+//           urls: "stun:stun.relay.metered.ca:80",
+//         },
+//         {
+//           urls: "turn:standard.relay.metered.ca:80",
+//           username: "9fe1dc70b0e8f69039113e3b",
+//           credential: "v8hbPkad1WKL3Bxj",
+//         },
+//         {
+//           urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+//           username: "9fe1dc70b0e8f69039113e3b",
+//           credential: "v8hbPkad1WKL3Bxj",
+//         },
+//         {
+//           urls: "turn:standard.relay.metered.ca:443",
+//           username: "9fe1dc70b0e8f69039113e3b",
+//           credential: "v8hbPkad1WKL3Bxj",
+//         },
+//         {
+//           urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+//           username: "9fe1dc70b0e8f69039113e3b",
+//           credential: "v8hbPkad1WKL3Bxj",
+//         },
+//     ]
 
 const iceSTUNservers = [
     {
         urls: "stun:stun.l.google.com:19302",
     },
 ]
-
-const rtcConfiguration = {
-    iceServers: iceSTUNservers,
-}
-
-// console.log(iceServers);
-
-// // Using the iceServers array in the RTCPeerConnection method
-// // var myPeerConnection = new RTCPeerConnection({
-// //   iceServers: iceServers
-// // });
-
-// const rtcConfiguration = {
-//     iceServers: [{urls: 'stun:stun.l.google.com:19302'}],
-// };
 
 // DOM elements
 const localVideo = document.getElementById('localVideo');
@@ -90,6 +75,7 @@ document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
 let ws;
 let localStream;
 let peerConnection;
+let iceServers;
 const peerID = crypto.randomUUID();
 
 // Get local media stream
@@ -116,91 +102,90 @@ async function startStreaming() {
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
 
-    // Create peer connection with selected ICE servers
-    const selectedIceServers = iceServerType === 'stun' ? iceSTUNservers : iceTURNServers;
-    peerConnection = new RTCPeerConnection({
-        iceServers: selectedIceServers
-    });
-
-    // Add local stream to peer connection
-    localStream.getTracks().forEach(track => {
-        console.log('Adding track:', track);
-        peerConnection.addTrack(track, localStream);
-    });
-
-    // Handle remote stream when triggered
-    peerConnection.ontrack = event => {
-        console.log('Received remote stream:', event.streams[0]);
-        remoteVideo.srcObject = event.streams[0];
-    };
-
-    // Handle ICE candidates using ICE trickle pattern
-    // for some devices/networks, waiting for automatic ICE candidate gathering
-    // to complete can take a long time
-    // so we use the ICE trickle pattern to send candidates as they are gathered
-    // which is much, much faster
-    peerConnection.onicecandidate = async (event) => {
-        if (!event.candidate) {
-            return;
-        }
-        
-        if (event.candidate) {
-            const iceCandidate = {
-                peer_id: peerID,
-                candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
-                sdpMid: event.candidate.sdpMid,
-                sdpMLineIndex: event.candidate.sdpMLineIndex,
-                usernameFragment: event.candidate.usernameFragment
-            };
-
-            console.log('Sending ICE candidate:', iceCandidate);
-            
-            if (implementationType === 'http') {
-                await fetch(`/ice_candidate`, {
-                    method: 'POST',
-                    headers: {
-                    'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(iceCandidate)
-                });
-            } else {
-                // send ice candidate over ws
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
-                }
-            }
-        }
-    };
-
-    peerConnection.onconnectionstatechange = async () => {
-
-        if (peerConnection.connectionState === 'connected') {
-
-            console.log('Connection state:', peerConnection.connectionState);
-
-            // this is the functional call that runs while streams are processing
-            // when using http signaling
-            if (implementationType === 'http') {
-                await fetch(`/run_streams?peer_id=${peerID}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-            }
-        }
-    };
-
     try {
         negotiate();
     } catch (err) {
         console.error('Error creating offer:', err);
     }
-}
+}    
+
+// async function setupPeerConnection(peerConnection) {}
+
+//     // Add local stream to peer connection
+//     localStream.getTracks().forEach(track => {
+//         console.log('Adding track:', track);
+//         peerConnection.addTrack(track, localStream);
+//     });
+
+//     // Handle remote stream when triggered
+//     peerConnection.ontrack = event => {
+//         console.log('Received remote stream:', event.streams[0]);
+//         remoteVideo.srcObject = event.streams[0];
+//     };
+
+//     // Handle ICE candidates using ICE trickle pattern
+//     // for some devices/networks, waiting for automatic ICE candidate gathering
+//     // to complete can take a long time
+//     // so we use the ICE trickle pattern to send candidates as they are gathered
+//     // which is much, much faster
+//     peerConnection.onicecandidate = async (event) => {
+//         if (!event.candidate) {
+//             return;
+//         }
+        
+//         if (event.candidate) {
+//             const iceCandidate = {
+//                 peer_id: peerID,
+//                 candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
+//                 sdpMid: event.candidate.sdpMid,
+//                 sdpMLineIndex: event.candidate.sdpMLineIndex,
+//                 usernameFragment: event.candidate.usernameFragment
+//             };
+
+//             console.log('Sending ICE candidate:', iceCandidate);
+            
+//             if (implementationType === 'http') {
+//                 await fetch(`/ice_candidate`, {
+//                     method: 'POST',
+//                     headers: {
+//                     'Content-Type': 'application/json'
+//                     },
+//                     body: JSON.stringify(iceCandidate)
+//                 });
+//             } else {
+//                 // send ice candidate over ws
+//                 if (ws.readyState === WebSocket.OPEN) {
+//                     ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
+//                 }
+//             }
+//         }
+//     };
+
+//     peerConnection.onconnectionstatechange = async () => {
+
+//         if (peerConnection.connectionState === 'connected') {
+
+//             console.log('Connection state:', peerConnection.connectionState);
+
+//             // this is the functional call that runs while streams are processing
+//             // when using http signaling
+//             if (implementationType === 'http') {
+//                 await fetch(`/run_streams?peer_id=${peerID}`, {
+//                     method: 'POST',
+//                     headers: {
+//                         'Content-Type': 'application/json'
+//                     }
+//                 });
+//             }
+//         }
+//     };
+
+// }
 
 // could use websockets to do this communication
 // directly and asynchrounsly - including ice candidate transfer
 async function negotiate() {
+    
 
     try {
 
@@ -229,10 +214,122 @@ async function negotiate() {
                 if (msg.type === 'answer') {
                     console.log('Received answer:', msg.sdp);
                     peerConnection.setRemoteDescription(msg);
+                } else if (msg.type === 'turn_servers') {
+                    iceServers = msg.ice_servers;
+                } else {
+                    console.error('Unexpected response from server:', msg);
                 }
-    
             };
         }
+
+        if (iceServerType === 'turn') {
+            console.log('Getting TURN servers...');
+
+            let msg;
+
+            if (implementationType === 'http') {
+                const iceServersResponse = await fetch(`/turn_servers`, {
+                    method: 'GET'
+                });
+                msg = await iceServersResponse.json();
+            } else {
+                await ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: peerID}));
+            }
+        } else {
+            iceServers = iceSTUNservers;
+        }
+
+        // Wait until we have ICE servers
+        if (iceServerType === 'turn') {
+            await new Promise((resolve) => {
+                const checkIceServers = () => {
+                    if (iceServers) {
+                        resolve();
+                    } else {
+                        setTimeout(checkIceServers, 100);
+                    }
+                };
+                checkIceServers();
+            });
+        }
+
+        if (!iceServers || !iceServers.length) {
+            console.error('No ICE servers received');
+            throw new Error('No ICE servers available');
+        }
+        const rtcConfiguration = {
+            iceServers: iceServers
+        }
+        peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+            // Add local stream to peer connection
+        localStream.getTracks().forEach(track => {
+            console.log('Adding track:', track);
+            peerConnection.addTrack(track, localStream);
+        });
+
+        // Handle remote stream when triggered
+        peerConnection.ontrack = event => {
+            console.log('Received remote stream:', event.streams[0]);
+            remoteVideo.srcObject = event.streams[0];
+        };
+
+        // Handle ICE candidates using ICE trickle pattern
+        // for some devices/networks, waiting for automatic ICE candidate gathering
+        // to complete can take a long time
+        // so we use the ICE trickle pattern to send candidates as they are gathered
+        // which is much, much faster
+        peerConnection.onicecandidate = async (event) => {
+            if (!event.candidate) {
+                return;
+            }
+            
+            if (event.candidate) {
+                const iceCandidate = {
+                    peer_id: peerID,
+                    candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
+                    sdpMid: event.candidate.sdpMid,
+                    sdpMLineIndex: event.candidate.sdpMLineIndex,
+                    usernameFragment: event.candidate.usernameFragment
+                };
+
+                console.log('Sending ICE candidate:', iceCandidate);
+                
+                if (implementationType === 'http') {
+                    await fetch(`/ice_candidate`, {
+                        method: 'POST',
+                        headers: {
+                        'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(iceCandidate)
+                    });
+                } else {
+                    // send ice candidate over ws
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
+                    }
+                }
+            }
+        };
+
+        peerConnection.onconnectionstatechange = async () => {
+
+            if (peerConnection.connectionState === 'connected') {
+
+                console.log('Connection state:', peerConnection.connectionState);
+
+                // this is the functional call that runs while streams are processing
+                // when using http signaling
+                if (implementationType === 'http') {
+                    await fetch(`/run_streams?peer_id=${peerID}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            }
+        };
 
         // set local description and send as offer to peer
         console.log('Setting local description...');

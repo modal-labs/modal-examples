@@ -162,6 +162,10 @@ class ModalWebRTCPeer:
                 return {"error": "Invalid offer type"}
             await self.handle_offer(peer_id, {"sdp": sdp, "type": type})
             return self.generate_answer(peer_id)
+        
+        @self.web_app.get("/turn_servers")
+        async def turn_servers():
+            return self.get_turn_servers()
 
         # run until finished
         @self.web_app.post("/run_streams")
@@ -187,6 +191,12 @@ class ModalWebRTCPeer:
     def web_endpoints(self):
 
         return self.web_app
+    
+    def get_turn_servers(self):
+        """
+        Returns a list of TURN servers
+        """
+        pass
 
     async def ws_negotiation(self, websocket, peer_id: str):
 
@@ -242,6 +252,10 @@ class ModalWebRTCPeer:
                 elif msg.get("type") == "identify":
 
                     await websocket.send_text(json.dumps({"type": "identify", "peer_id": self.id}))
+
+                elif msg.get("type") == "get_turn_servers":
+                    print("Sending turn servers to peer...")
+                    await websocket.send_text(json.dumps(self.get_turn_servers()))
                 
                 else:
                     print(f"Unknown message type: {msg.get('type')}")
@@ -315,6 +329,12 @@ class ModalWebRTCPeer:
                         partition='server'
                     )
                 
+                elif msg.get("type") == "get_turn_servers":
+                    await q.put.aio(
+                        json.dumps(self.get_turn_servers()),
+                        partition='server'
+                    )
+
                 else:
                     print(f"Unknown message type: {msg.get('type')}")
 

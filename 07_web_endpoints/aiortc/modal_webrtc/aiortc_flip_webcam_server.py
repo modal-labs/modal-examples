@@ -18,6 +18,7 @@ web_image = (
         "fastapi[standard]==0.115.4",
         "aiortc",
         "opencv-python",
+        "python-dotenv"
     )
     # video file for testing
     .add_local_dir(
@@ -70,6 +71,7 @@ class WebRTCVideoProcessorServer(ModalWebRTCServer):
 # and/or records the flipped video to a file
 @app.cls(
     image=web_image,
+    secrets=[modal.Secret.from_dotenv()]
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):   
 
@@ -131,6 +133,41 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
             @track.on("ended")
             async def on_ended():
                 print(f"Video Processor, {self.id}, incoming video track from {peer_id} ended")
+
+    def get_turn_servers(self):
+
+        import os
+
+        turn_servers = [
+            {
+                "urls": "stun:stun.relay.metered.ca:80",
+            },
+            {
+                "urls": "turn:standard.relay.metered.ca:80",
+                "username": os.environ["TURN_USERNAME"],
+                "credential": os.environ["TURN_CREDENTIAL"],
+            },
+            {
+                "urls": "turn:standard.relay.metered.ca:80?transport=tcp",
+                "username": os.environ["TURN_USERNAME"],
+                "credential": os.environ["TURN_CREDENTIAL"],
+            },
+            {
+                "urls": "turn:standard.relay.metered.ca:443",
+                "username": os.environ["TURN_USERNAME"],
+                "credential": os.environ["TURN_CREDENTIAL"],
+            },
+            {
+                "urls": "turns:standard.relay.metered.ca:443?transport=tcp",
+                "username": os.environ["TURN_USERNAME"],
+                "credential": os.environ["TURN_CREDENTIAL"],
+            },
+        ]
+
+        return {
+            "type": "turn_servers",
+            "ice_servers": turn_servers,
+        }
 
 # create an output volume to store the transmitted videos
 output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
