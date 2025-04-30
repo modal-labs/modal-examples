@@ -92,22 +92,29 @@ class WebRTCServer:
             
             self.ModalPeerCls = modal.Cls.from_name(self.modal_peer_app_name, self.modal_peer_cls_name)
             modal_peer_instance = self.ModalPeerCls()
-            modal_peer_instance.run.spawn(negotation.modal_peer_id)
-            modal_peer_url = modal_peer_instance.web_endpoints.web_url
-            modal_peer_ws_url = modal_peer_url.replace("http", "ws") + "/ws/" + negotation.modal_peer_id
 
-            async with websockets.connect(modal_peer_ws_url) as modal_peer_ws:
+            with modal.Queue.ephemeral() as q:
+                print(f"Spawning modal peer instance for client peer {negotation.client_peer_id}...")
+                modal_peer_instance.run_with_queue.spawn(q, negotation.client_peer_id)
+            # modal_peer_url = modal_peer_instance.web_endpoints.web_url
+            # modal_peer_ws_url = modal_peer_url.replace("http", "ws") + "/ws/" + negotation.modal_peer_id
 
-                async def relay_client_messages(client_websocket, modal_peer_ws):
+           
+
+                async def relay_client_messages(client_websocket, q):
 
                     # handle websocket messages and loop for lifetime
                     while True:
                         
                         try:
+                            print("awaiting websocket message queue...")
                             # get websocket message and parse as json
                             msg = await client_websocket.receive_text()
-
-                            await modal_peer_ws.send(msg)
+                            print(f"Received message from client peer {negotation.client_peer_id}: {msg}")
+                            await q.put.aio(
+                                msg,
+                                partition=negotation.client_peer_id
+                            )
 
                         except Exception as e:
                             if isinstance(e, WebSocketDisconnect):
@@ -115,14 +122,14 @@ class WebRTCServer:
                             else:
                                 print(f"Error: {e}")
 
-                async def relay_modal_peer_messages(client_websocket, modal_peer_ws):
+                async def relay_modal_peer_messages(client_websocket, q):
 
                     # handle websocket messages and loop for lifetime
                     while True:
                         
                         try:
                             # get websocket message and parse as json
-                            modal_peer_msg = await modal_peer_ws.recv()
+                            modal_peer_msg = await q.get.aio(partition='server')
 
                             await client_websocket.send_text(modal_peer_msg)
 
@@ -133,8 +140,8 @@ class WebRTCServer:
                                 print(f"Error: {e}")
                 
                 await asyncio.gather(
-                    relay_client_messages(client_websocket, modal_peer_ws),
-                    relay_modal_peer_messages(client_websocket, modal_peer_ws)
+                    relay_client_messages(client_websocket, q),
+                    relay_modal_peer_messages(client_websocket, q)
                 )
 
             await client_websocket.close()
@@ -292,16 +299,76 @@ class WebRTCPeer:
         print("Websocket connection closed")
 
     @modal.method()
-    async def run(self, peer_id: str):
+    async def run_with_queue(self, q: modal.Queue, peer_id: str):
         
+        import json
         import asyncio
 
+        from aiortc.sdp import candidate_from_sdp
+        
+        print(f"Running modal peer instance for client peer {peer_id}...")
+        # handle websocket messages and loop for lifetime
         while True:
-            if self.pcs.get(peer_id):
-                if self.pcs[peer_id].connectionState == "connected":
-                    break
-            else:
-                await asyncio.sleep(1.0)
+            
+            try:
+                # get websocket message and parse as json
+                print("Waiting for message on queue...")
+                msg = json.loads(await q.get.aio(partition=peer_id))
+
+                # handle offer
+                if msg.get("type") == "offer":
+                    
+                    print(f"Peer {self.id} received offer from {peer_id}...")
+
+                    await self.handle_offer(peer_id, msg)
+                        
+                    # generate and send answer
+                    await q.put.aio(
+                        json.dumps(self.generate_answer(peer_id)),
+                        partition='server'
+                    )
+
+                # handle ice candidate (trickle ice)
+                elif msg.get("type") == "ice_candidate":
+
+                    candidate = msg.get("candidate")
+                    
+                    if not candidate or not self.pcs.get(peer_id):
+                        return 
+                    
+                    print(f"Peer {self.id} received ice candidate from {peer_id}...")
+                    
+                    # parse ice candidate
+                    ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
+                    ice_candidate.sdpMid = candidate["sdpMid"]
+                    ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
+                    
+                    await self.handle_ice_candidate(peer_id, ice_candidate)
+
+                    # wait and break if connected
+                    # this ensures that we close websocket asap (could remove)
+                    await asyncio.sleep(0.2) 
+                    if self.pcs[peer_id].connectionState == "connected":
+                        break
+                
+                # get peer's id
+                elif msg.get("type") == "identify":
+
+                    await q.put.aio(
+                        json.dumps({"type": "identify", "peer_id": self.id}),
+                        partition='server'
+                    )
+                
+                else:
+                    print(f"Unknown message type: {msg.get('type')}")
+
+            except Exception as e:
+                print(f"Error: {e}")
+        
+        while self.pcs[peer_id].connectionState == "connected":
+            await asyncio.sleep(1.0)
+
+        print(f"Shutting down modal peer instance for client peer {peer_id}...")
 
     async def initialize(self):
         """
