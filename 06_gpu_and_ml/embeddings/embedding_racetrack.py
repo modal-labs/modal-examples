@@ -115,11 +115,13 @@ app = modal.App("example-embedder", image=simple_image, volumes={vol_mnt: vol})
 
 # Imports inside the container
 with simple_image.imports():
+    import numpy as np
     from infinity_emb import AsyncEmbeddingEngine, EngineArgs
     from infinity_emb.primitives import Dtype, InferenceEngine
+    from more_itertools import chunked
+    from PIL.Image import Image
     from torchvision.io import read_image
     from torchvision.transforms.functional import to_pil_image
-    from PIL.Image import Image
 
 
 # ## Inference app
