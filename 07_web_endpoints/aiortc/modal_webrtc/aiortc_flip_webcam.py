@@ -1,15 +1,13 @@
 # standard python imports...
-import asyncio
 from pathlib import Path
 import os
-import time
-import urllib
-import json
 
 # ...and modal
 import modal
 
-this_directory = Path(__file__).parent.resolve()
+from .webrtc import WebRTCPeer
+
+assets_parent_directory = Path(__file__).parent.parent.resolve()
 
 # image
 web_image = (
@@ -23,12 +21,12 @@ web_image = (
     )
     # video file for testing
     .add_local_dir(
-        os.path.join(this_directory, "media"), 
+        os.path.join(assets_parent_directory, "media"), 
         remote_path="/media"
     )
     # frontend files
     .add_local_dir(
-        os.path.join(this_directory, "frontend"), 
+        os.path.join(assets_parent_directory, "frontend"), 
         remote_path="/frontend"
     )
 )
@@ -37,287 +35,6 @@ web_image = (
 app = modal.App(
     "aiortc-video-processing-example"
 )
-
-class WebRTCPeer:
-    """
-    Base class for WebRTC peer connections using aiortc 
-    that handles connection setup, negotiation, and stream management.
-
-    This class provides the core WebRTC functionality including:
-    - Peer connection initialization and cleanup
-    - Signaling endpoints via HTTP and WebSocket
-      - SDP offer/answer exchange
-      - Trickle ICE candidate handling
-    - Stream setup and management
-    
-    Subclasses can implement the following methods:
-    - initialize(): Any custom initialization logic
-    - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
-    - run_streams(): Logic for starting streams (not always necessary)
-    - exit(): Any custom cleanup logic
-    """
-
-    @modal.enter()
-    async def _initialize(self):
-
-        import asyncio
-        import uuid
-        from dataclasses import dataclass
-        
-        from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-        from aiortc.sdp import candidate_from_sdp
-
-        self.id = str(uuid.uuid4())
-        self.web_app = FastAPI()
-        self.pcs = {}
-
-        # HTTP NEGOTIATION ENDPOINTS
-        @dataclass
-        class IceCandidate:
-            peer_id: str
-            candidate_sdp: str
-            sdpMid: str
-            sdpMLineIndex: int
-            usernameFragment: str
-        
-        # handle ice candidate (trickle ice)
-        @self.web_app.post("/ice_candidate")
-        async def ice_candidate(candidate: IceCandidate):
-
-            if not candidate:
-                return 
-            
-            print(f"Peer {self.id} received ice candidate from {candidate.peer_id}")
-            
-            peer_id = candidate.peer_id
-            
-            ice_candidate = candidate_from_sdp(candidate.candidate_sdp)
-            ice_candidate.sdpMid = candidate.sdpMid
-            ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
-            
-            await self.handle_ice_candidate(peer_id, ice_candidate)
-
-        @self.web_app.get("/offer")
-        async def offer(peer_id: str, sdp: str, type: str):
-            
-            if type != "offer":
-                return {"error": "Invalid offer type"}
-            await self.handle_offer(peer_id, {"sdp": sdp, "type": type})
-            return self.generate_answer(peer_id)
-
-        # run until finished
-        @self.web_app.post("/run_streams")
-        async def run_streams(peer_id: str):
-            await self._run_streams(peer_id)
-        
-        # handling signaling through websocket
-        @self.web_app.websocket("/ws/{peer_id}")
-        async def ws_negotiation(websocket: WebSocket, peer_id: str):
-
-            # accept websocket connection
-            await websocket.accept()
-
-            # handle websocket messages and loop for lifetime
-            while True:
-                
-                try:
-                    # get websocket message and parse as json
-                    msg = json.loads(await websocket.receive_text())
-
-                    # handle offer
-                    if msg.get("type") == "offer":
-                        
-                        print(f"Peer {self.id} received offer from {peer_id}...")
-
-                        await self.handle_offer(peer_id, msg)
-                        # generate and send answer
-                        await websocket.send_text(
-                            json.dumps(self.generate_answer(peer_id))
-                        )
-
-                    # handle ice candidate (trickle ice)
-                    elif msg.get("type") == "ice_candidate":
-
-                        candidate = msg.get("candidate")
-                        
-                        if not candidate or not self.pcs.get(peer_id):
-                            return 
-                        
-                        print(f"Peer {self.id} received ice candidate from {peer_id}...")
-                        
-                        # parse ice candidate
-                        ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
-                        ice_candidate.sdpMid = candidate["sdpMid"]
-                        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
-                        
-                        await self.handle_ice_candidate(peer_id, ice_candidate)
-
-                        # wait and break if connected
-                        # this ensures that we close websocket asap (could remove)
-                        await asyncio.sleep(0.2) 
-                        if self.pcs[peer_id].connectionState == "connected":
-                            break
-                    
-                    # get peer's id
-                    elif msg.get("type") == "identify":
-
-                        await websocket.send_text(json.dumps({"type": "identify", "peer_id": self.id}))
-                    
-                    else:
-                        print(f"Unknown message type: {msg.get('type')}")
-
-                except Exception as e:
-                    if isinstance(e, WebSocketDisconnect):
-                        break
-                    else:
-                        print(f"Error: {e}")
-            
-            await websocket.close()
-            print("Websocket connection closed")
-
-            # run until complete
-            await self._run_streams(peer_id)
-
-        # call custom init logic
-        await self.initialize()
-
-    async def initialize(self):
-        """
-        Any custom logic when instantiating the peer
-        """
-        pass
-
-    async def _setup_peer_connection(self, peer_id):
-
-        from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
-
-        # create peer connection with STUN server
-        # aiortc automatically uses google's STUN server when
-        # self.pcs[peer_id] = RTCPeerConnection()
-        # is called, but we can also specify our own:
-        config = RTCConfiguration()
-        config.iceServers = [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        self.pcs[peer_id] = RTCPeerConnection(configuration = config)
-
-        await self.setup_streams(peer_id)
-
-        print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
-
-    async def setup_streams(self, peer_id):
-        """
-        Any custom logic when setting up the connection and streams
-        """
-        pass
-
-    async def generate_offer(self, peer_id):
-
-        print(f"Peer {self.id} generating offer for {peer_id}...")
-
-        # initalize peer connection
-        await self._setup_peer_connection(peer_id)
-        # create initial offer
-        offer = await self.pcs[peer_id].createOffer()
-        # set local/our description, this also triggers and waits for ICE gathering/generation of ICE candidate info
-        await self.pcs[peer_id].setLocalDescription(offer)
-        # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
-        # these are embedded in the SDP after setLocalDescription() is called
-        return {"sdp": self.pcs[peer_id].localDescription.sdp, "type": offer.type, "peer_id": self.id}
-
-    async def handle_offer(self, peer_id, offer):
-
-        from aiortc import RTCSessionDescription
-
-        print(f"Peer {self.id} handling offer from {peer_id}...")
-
-        # initalize peer connection and streams
-        await self._setup_peer_connection(peer_id)
-        # set remote description
-        await self.pcs[peer_id].setRemoteDescription(RTCSessionDescription(offer["sdp"], offer["type"]))
-        # create answer
-        answer = await self.pcs[peer_id].createAnswer()
-        # set local/our description, this also triggers ICE gathering
-        await self.pcs[peer_id].setLocalDescription(answer)
-
-    def generate_answer(self, peer_id):
-
-        print(f"Peer {self.id} generating answer for {peer_id}...")
-
-        return {
-            "sdp": self.pcs[peer_id].localDescription.sdp, 
-            "type": "answer", 
-            "peer_id": self.id
-        }
-    
-    async def handle_answer(self, peer_id, answer):
-
-        from aiortc import RTCSessionDescription
-
-        print(f"Peer {self.id} handling answer from {peer_id}...")
-        # set remote peer description
-        await self.pcs[peer_id].setRemoteDescription(
-            RTCSessionDescription(
-                sdp = answer["sdp"], 
-                type = answer["type"]
-            )
-        )
-
-    async def handle_ice_candidate(self, peer_id, candidate):
-
-        import asyncio
-
-        print(f"Peer {self.id} handling ice candidate from {peer_id}...")
-
-        # sometimes this event is called before 
-        # the peer connection is created on this end
-        retries = 5
-        while not self.pcs.get(peer_id) and retries > 0:
-            await asyncio.sleep(0.1)
-            retries -= 1
-
-        if not retries:
-            print(f"Peer {self.id} failed to create peer connection for {peer_id} before ICE candidate event")
-            return
-
-        await self.pcs[peer_id].addIceCandidate(candidate)
-
-    async def _run_streams(self, peer_id):
-
-        import asyncio 
-
-        print(f"Peer {self.id} running streams for {peer_id}...")
-
-        # trigger custom streams if necessary
-        await self.run_streams(peer_id)
-
-        # run until connection is closed
-        while self.pcs[peer_id].connectionState == "connected":
-            await asyncio.sleep(1.0)
-
-    # custom logic for running streams
-    async def run_streams(self, peer_id):
-        pass
-
-    @modal.exit()
-    async def _exit(self):
-
-        import asyncio
-
-        print(f"Shutting down peer: {self.id}...")
-        # call custom exit logic
-        await self.exit()
-
-        # close peer connections
-        if self.pcs:
-            print(f"Closing peer connections for peer {self.id}...")
-            await asyncio.gather(*[pc.close() for pc in self.pcs.values()])
-            self.pcs = {}
-
-    async def exit(self):
-        """
-        Any custom logic when shutting down container
-        """
-        pass
-
 
 # this class responds to an offer
 # to establish a P2P connection,
@@ -427,7 +144,6 @@ OUTPUT_VOLUME_PATH = Path("/output")
     }
 )
 class WebRTCVideoProcessorTester(WebRTCPeer):
-
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
@@ -575,6 +291,9 @@ TEST_TIMEOUT = 2.0 * MINUTES
 # trigger the test locally
 def trigger_webrtc_test():
 
+    import urllib
+    import time
+
     print(f"Triggering WebRTC connector at {WebRTCVideoProcessorTester().web_endpoints.web_url + '/run_test'}")
     test_triggered, start, delay = False, time.time(), 10
     while not test_triggered:
@@ -592,6 +311,10 @@ def trigger_webrtc_test():
     
 # check that the test was successful locally
 def check_successful_test():
+
+    import urllib
+    import json
+    import time
 
     headers = {
         "Content-Type": "application/json",
