@@ -2,25 +2,6 @@ from dataclasses import dataclass
 
 import modal
 
-# SIGNALING STATES
-INITIATED = "initiated"
-OFFERED = "offered"
-ANSWERED = "answered"
-FAILED = "failed"
-
-@dataclass
-class WebRTCNegotiation:
-    """
-    Class for handling WebRTC negotiation
-    """
-    client_peer_id: str
-    modal_peer_id: str
-    state: str = INITIATED
-
-
-def negotiation_key_from_negotiation(negotiation: WebRTCNegotiation):
-    return f"{negotiation.client_peer_id}-{negotiation.modal_peer_id}"
-
 @dataclass
 class IceCandidate:
     peer_id: str
@@ -41,15 +22,11 @@ class ModalWebRTCServer:
     @modal.enter()
     def initialize(self):
 
-        import asyncio
         import uuid
 
         from fastapi import FastAPI, WebSocket
-        
-        
 
-
-
+        self.modal_peer_id = str(uuid.uuid4()) # no longer used but seems worth keeping around
         self.web_app = FastAPI()
         
         # handling signaling through websocket
@@ -57,33 +34,20 @@ class ModalWebRTCServer:
         async def ws_negotiation(client_websocket: WebSocket, peer_id: str):
 
             # accept websocket connection
-            await client_websocket.accept()
-
-            modal_peer_id = str(uuid.uuid4())
-            negotation = WebRTCNegotiation(
-                client_peer_id=peer_id,
-                modal_peer_id=modal_peer_id,
-                state=INITIATED
-            )
-            # negotation_key = negotiation_key_from_negotiation(negotation)
-            # self.negotiations[negotation_key] = negotation
+            await client_websocket.accept()         
 
             # mediate negotiation
             await self.mediate_negotiation(
                 client_websocket,
-                negotation
+                peer_id
             )
 
 
-    async def mediate_negotiation(self, client_websocket, negotation: WebRTCNegotiation):
+    async def mediate_negotiation(self, client_websocket, peer_id: str):
             
             import asyncio
-            import json
 
             from fastapi import WebSocketDisconnect
-            import websockets
-
-            from aiortc.sdp import candidate_from_sdp
 
             if not self.modal_peer_app_name or not self.modal_peer_cls_name:
                 print("Modal peer class or app name or class name not set")
@@ -94,8 +58,8 @@ class ModalWebRTCServer:
 
             with modal.Queue.ephemeral() as q:
 
-                print(f"Spawning modal peer instance for client peer {negotation.client_peer_id}...")
-                modal_peer_instance.run_with_queue.spawn(q, negotation.client_peer_id)
+                print(f"Spawning modal peer instance for client peer {peer_id}...")
+                modal_peer_instance.run_with_queue.spawn(q, peer_id)
       
 
                 async def relay_client_messages(client_websocket, q):
@@ -108,7 +72,7 @@ class ModalWebRTCServer:
                             msg = await client_websocket.receive_text()
                             await q.put.aio(
                                 msg,
-                                partition=negotation.client_peer_id
+                                partition=peer_id
                             )
                         except Exception as e:
                             if isinstance(e, WebSocketDisconnect):

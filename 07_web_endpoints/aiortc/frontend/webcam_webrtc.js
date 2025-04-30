@@ -11,7 +11,7 @@
 //   iceServers = servers;
 // });
 
-
+// need to setup with .env, these are non-sensitive credentials
 const iceTURNServers = [
         {
           urls: "stun:stun.relay.metered.ca:80",
