@@ -151,42 +151,6 @@ class ModalWebRTCPeer:
         self.id = str(uuid.uuid4())
         self.web_app = FastAPI()
         self.pcs = {}
-
-        # HTTP NEGOTIATION ENDPOINTS
-        
-        # handle ice candidate (trickle ice)
-        @self.web_app.post("/ice_candidate")
-        async def ice_candidate(candidate: IceCandidate):
-
-            if not candidate:
-                return 
-            
-            print(f"Peer {self.id} received ice candidate from {candidate.peer_id}")
-            
-            peer_id = candidate.peer_id
-            
-            ice_candidate = candidate_from_sdp(candidate.candidate_sdp)
-            ice_candidate.sdpMid = candidate.sdpMid
-            ice_candidate.sdpMLineIndex = candidate.sdpMLineIndex
-            
-            await self.handle_ice_candidate(peer_id, ice_candidate)
-
-        @self.web_app.get("/offer")
-        async def offer(peer_id: str, sdp: str, type: str):
-            
-            if type != "offer":
-                return {"error": "Invalid offer type"}
-            await self.handle_offer(peer_id, {"sdp": sdp, "type": type})
-            return self.generate_answer(peer_id)
-        
-        @self.web_app.get("/turn_servers")
-        async def turn_servers():
-            return self.get_turn_servers()
-
-        # run until finished
-        @self.web_app.post("/run_streams")
-        async def run_streams(peer_id: str):
-            await self._run_streams(peer_id)
         
         # handling signaling through websocket
         @self.web_app.websocket("/ws/{peer_id}")
@@ -359,6 +323,8 @@ class ModalWebRTCPeer:
                     )
                 
                 elif msg.get("type") == "get_turn_servers":
+
+                    print(f"Sending turn servers to peer {peer_id}...")
                     await q.put.aio(
                         json.dumps(
                             self.get_turn_servers()

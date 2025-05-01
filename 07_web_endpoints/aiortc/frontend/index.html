@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebRTC Webcam Demo</title>
+    <title>WebRTC YOLO Demo</title>
     <style>
         video {
             width: 320px;
@@ -31,14 +31,6 @@
 <body>
     <div class="radio-group">
         <label>
-            <input type="radio" name="implementation" value="http" checked> HTTP Signaling
-        </label>
-        <label>
-            <input type="radio" name="implementation" value="websocket"> WebSocket Signaling
-        </label>
-    </div>
-    <div class="radio-group">
-        <label>
             <input type="radio" name="iceServer" value="stun" checked> STUN Server
         </label>
         <label>
@@ -51,7 +43,7 @@
     </div>
     <div>
         <button id="startWebcamButton">Start Webcam</button>
-        <button id="startStreamingButton" disabled>Start Streaming in the Cloud</button>
+        <button id="startStreamingButton" disabled>Stream YOLO</button>
         <button id="stopStreamingButton" disabled>Stop Streaming</button>
     </div>
     <script src="/static/webcam_webrtc.js"></script>
