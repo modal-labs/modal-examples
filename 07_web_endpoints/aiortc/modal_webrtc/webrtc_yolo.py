@@ -9,6 +9,10 @@ from .modal_webrtc import ModalWebRTCPeer, ModalWebRTCServer
 
 APP_NAME = "aiortc-server-video-processing-example"
 
+# create an output volume to store the transmitted videos and model weights
+CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
+CACHE_PATH = Path("/cache")
+
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
 # image
@@ -24,17 +28,22 @@ webrtc_base_image = (
 )
 
 video_processing_image = (
-    webrtc_base_image
-    .pip_install(
-        "onnxruntime-gpu",
-        "tensorrt",
-        "huggingface-hub",
-        "torch"
-    )
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("python3-opencv", "ffmpeg")
     .env(
         {
             "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
         }
+    )
+    .run_commands("pip install --upgrade pip")
+    .pip_install(
+        "fastapi", 
+        "aiortc",
+        "opencv-python",
+        "tensorrt",
+        "torch",
+        "onnxruntime-gpu",
+        "huggingface-hub"
     )
 )
 server_image = webrtc_base_image.add_local_dir(
@@ -61,36 +70,65 @@ app = modal.App(
     image=video_processing_image,
     secrets=[modal.Secret.from_dotenv()],
     gpu="A100",
+    volumes={
+        CACHE_PATH: CACHE_VOLUME
+    },
+    min_containers=1,
+    buffer_containers=1,
 )
-class WebRTCVideoProcessor(ModalWebRTCPeer):   
+class WebRTCVideoProcessor(ModalWebRTCPeer):
+    yolo_model = None
+
+    async def initialize(self) -> None:
+
+        import onnxruntime
+        from .yolo import YOLOv10
+
+        onnxruntime.preload_dlls()   
+        self.yolo_model = YOLOv10(CACHE_PATH)
     
 
     async def setup_streams(self, peer_id: str):
 
-        import cv2
-
+        import numpy as np
         from aiortc import MediaStreamTrack
         from aiortc.contrib.media import VideoFrame
-        
-        class VideoFlipTrack(MediaStreamTrack):
+
+        class YOLOTrack(MediaStreamTrack):
             """
             Custom media stream track that flips the video stream
             and passes it back to the source peer
             """
 
             kind: str = "video"
+            conf_threshold: float = 0.15
 
-            def __init__(self, track: MediaStreamTrack) -> None:
+            def __init__(self, track: MediaStreamTrack, model) -> None:
                 super().__init__()
                 self.track = track
+                self.yolo_model = model
+                print(f"YOLO Track initialized: {self.yolo_model}")
 
+            def detection(self, image: np.ndarray) -> np.ndarray:
+
+                import cv2
+
+                print(f"Image shape: {image.shape}")
+                image = cv2.resize(image, (self.yolo_model.input_width, self.yolo_model.input_height))
+                print("conf_threshold", self.conf_threshold)
+                image_w_detections = self.yolo_model.detect_objects(image, self.conf_threshold)
+                image_w_detections = cv2.resize(image_w_detections, (500, 500))
+                
+                return image_w_detections
+            
             # this is the essential method we need to implement 
             # to create a custom MediaStreamTrack
             async def recv(self) -> VideoFrame:
 
                 frame = await self.track.recv()
                 img = frame.to_ndarray(format="bgr24")
-                img = cv2.flip(img, 0)
+
+                img = self.detection(img)
 
                 # VideoFrames are from a really nice package called av
                 # which is a pythonic wrapper around ffmpeg
@@ -116,7 +154,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
             print(f"Video Processor, {self.id}, received {track.kind} track from {peer_id}")
             
             # create processed track
-            flipped_track = VideoFlipTrack(track)
+            flipped_track = YOLOTrack(track, self.yolo_model)
             self.pcs[peer_id].addTrack(flipped_track)
 
             # keep us notified when the incoming track ends
@@ -195,18 +233,16 @@ class WebRTCVideoProcessorServer(ModalWebRTCServer):
         return self.web_app
 
 # create an output volume to store the transmitted videos
-output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
-OUTPUT_VOLUME_PATH = Path("/output")
 
 @app.cls(
     image=tester_image,
     volumes={
-        OUTPUT_VOLUME_PATH: output_volume
+        CACHE_PATH: CACHE_VOLUME
     }
 )
 class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
-    TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
+    TEST_VIDEO_RECORD_FILE = CACHE_PATH / "flipped_test_video.mp4"
     # allowed difference between source and recorded video files
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5 
     # extra time to run streams beyond input video duration
