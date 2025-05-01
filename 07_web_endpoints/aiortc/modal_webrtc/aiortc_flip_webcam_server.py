@@ -48,29 +48,30 @@ app = modal.App(
     secrets=[modal.Secret.from_dotenv()]
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):   
+    
 
-    async def setup_streams(self, peer_id):
+    async def setup_streams(self, peer_id: str):
 
         import cv2
 
         from aiortc import MediaStreamTrack
         from aiortc.contrib.media import VideoFrame
-
+        
         class VideoFlipTrack(MediaStreamTrack):
             """
             Custom media stream track that flips the video stream
             and passes it back to the source peer
             """
 
-            kind = "video"
+            kind: str = "video"
 
-            def __init__(self, track):
+            def __init__(self, track: MediaStreamTrack) -> None:
                 super().__init__()
                 self.track = track
 
             # this is the essential method we need to implement 
             # to create a custom MediaStreamTrack
-            async def recv(self):
+            async def recv(self) -> VideoFrame:
 
                 frame = await self.track.recv()
                 img = frame.to_ndarray(format="bgr24")
@@ -88,14 +89,14 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 
         # keep us notified on connection state changes
         @self.pcs[peer_id].on("connectionstatechange")
-        async def on_connectionstatechange():
+        async def on_connectionstatechange() -> None:
             if self.pcs[peer_id]:
                 print(f"Video Processor, {self.id}, connection state to {peer_id}: {self.pcs[peer_id].connectionState}")
         
         # when we receive a track from the source peer
         # we create a processed track and add it to the peer connection
         @self.pcs[peer_id].on("track")
-        def on_track(track):
+        def on_track(track: MediaStreamTrack) -> None:
             
             print(f"Video Processor, {self.id}, received {track.kind} track from {peer_id}")
             
@@ -105,11 +106,11 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 
             # keep us notified when the incoming track ends
             @track.on("ended")
-            async def on_ended():
+            async def on_ended() -> None:
                 print(f"Video Processor, {self.id}, incoming video track from {peer_id} ended")
 
     # some free turn servers we can up to 5 GB
-    def get_turn_servers(self):
+    def get_turn_servers(self) -> dict:
 
         import os
 
@@ -152,13 +153,15 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 )
 class WebRTCVideoProcessorServer(ModalWebRTCServer):
 
+    from fastapi import FastAPI
+
     # lookup info for the WebRTCPeer to run on modal
     # modal_peer_app_name = APP_NAME
     # modal_peer_cls_name = "WebRTCVideoProcessor"
     modal_peer_cls = WebRTCVideoProcessor
 
     @modal.asgi_app(label="webrtc-video-processor-server")
-    def web_endpoints(self):
+    def web_endpoints(self) -> FastAPI:
 
         from fastapi.staticfiles import StaticFiles
         from fastapi.responses import HTMLResponse
@@ -194,7 +197,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     # extra time to run streams beyond input video duration
     VIDEO_DURATION_BUFFER_SECS = 5.0 
 
-    async def initialize(self):
+    async def initialize(self) -> None:
 
         import cv2
 
@@ -212,8 +215,9 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
         self.player = None # video stream source
         self.recorder = None # processed video stream sink
 
-    async def setup_streams(self, peer_id):
+    async def setup_streams(self, peer_id: str) -> None:
 
+        from aiortc import MediaStreamTrack
         from aiortc.contrib.media import MediaPlayer, MediaRecorder
         
         # setup video player and to peer connection
@@ -227,21 +231,21 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
 
         # keep us notified on connection state changes
         @self.pcs[peer_id].on("connectionstatechange")
-        async def on_connectionstatechange():
+        async def on_connectionstatechange() -> None:
             print(f"Video Tester connection state updated: {self.pcs[peer_id].connectionState}")
 
         # when we receive a track back from 
         # the video processing peer we record it 
         # to the output file
         @self.pcs[peer_id].on("track")
-        def on_track(track):
+        def on_track(track: MediaStreamTrack) -> None:
             
             print(f"Video Tester received {track.kind} track from {peer_id}")
             # record track to file
             self.recorder.addTrack(track)
             
             @track.on("ended")
-            async def on_ended():
+            async def on_ended() -> None:
                 print(f"Video Tester's processed video stream ended")
                 # stop recording when incoming track ends to finish writing video
                 await self.recorder.stop()
@@ -249,7 +253,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
                 self.recorder = None
                 self.video_src = None
                 
-    async def run_streams(self, peer_id):
+    async def run_streams(self, peer_id: str) -> None:
 
         import asyncio
 
@@ -267,7 +271,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
 
     # confirm that the output video is (nearly) the same length as the input video
     # we lose a few frames at the beginning
-    def confirm_recording(self):
+    def confirm_recording(self) -> bool:
 
         import cv2
 
@@ -286,7 +290,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
             return False
                
     @modal.method()
-    async def run_video_processing_test(self):
+    async def run_video_processing_test(self) -> bool:
 
         import json
         import websockets
@@ -317,82 +321,19 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
             await self.run_streams(peer_id)
 
         return self.confirm_recording()
-
-    # @modal.asgi_app(label="webrtc-video-processor-tester")
-    # def web_endpoints(self):
-                
-    #     @self.web_app.get("/run_test")
-    #     async def run_test():
-    #         await self.run_video_processing_test()
-    #         return True
-
-    #     @self.web_app.get("/check_test")
-    #     async def check_test():
-    #         return self.confirm_recording()
-
-    #     return self.web_app
     
 # set timeout for health checks and connection test
 MINUTES = 60  # seconds
 TEST_TIMEOUT = 2.0 * MINUTES  
 
-# trigger the test locally
-def trigger_webrtc_test():
-
-    import urllib
-    import time
-
-    print(f"Triggering WebRTC connector at {WebRTCVideoProcessorTester().web_endpoints.web_url + '/run_test'}")
-    test_triggered, start, delay = False, time.time(), 10
-    while not test_triggered:
-        try:
-            with urllib.request.urlopen(WebRTCVideoProcessorTester().web_endpoints.web_url + "/run_test") as response:
-                if response.getcode() == 200:
-                    test_triggered = response.read().decode()
-        except Exception as e:
-            print(f"Error: {e}")
-            if time.time() - start > TEST_TIMEOUT:
-                break
-            time.sleep(delay)
-    
-    return test_triggered
-    
-# check that the test was successful locally
-def check_successful_test():
-
-    import urllib
-    import json
-    import time
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    req = urllib.request.Request(
-        WebRTCVideoProcessorTester().web_endpoints.web_url + "/check_test",
-        method="GET",
-        headers=headers,
-    )
-    test_successful, start, delay = False, time.time(), 10
-    while not test_successful:
-        try:
-            with urllib.request.urlopen(req) as response:
-                test_successful = json.loads(response.read().decode())
-                return test_successful
-        except Exception as e:
-            print(f"Error: {e}")
-            if time.time() - start > TEST_TIMEOUT:
-                break
-            time.sleep(delay)
-
-    return test_successful
-
 # run tests
 @app.local_entrypoint()
 def main():
 
-    video_processor_test = WebRTCVideoProcessorTester()
-    assert video_processor_test.run_video_processing_test.remote(), "Test failed to complete"
-    # assert trigger_webrtc_test(), "Test failed to trigger"
-    # assert check_successful_test(), "Test faileda to complete"
+    assert (
+        WebRTCVideoProcessorTester()
+        .run_video_processing_test
+        .remote()
+    ), "Test failed to complete"
 
     
