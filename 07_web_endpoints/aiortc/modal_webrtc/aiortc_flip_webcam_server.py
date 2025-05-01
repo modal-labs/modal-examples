@@ -5,7 +5,7 @@ import os
 # ...and modal
 import modal
 
-from .webrtc import ModalWebRTCPeer, ModalWebRTCServer
+from .modal_webrtc import ModalWebRTCPeer, ModalWebRTCServer
 
 APP_NAME = "aiortc-server-video-processing-example"
 
