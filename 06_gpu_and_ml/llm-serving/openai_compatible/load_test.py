@@ -21,6 +21,7 @@ image = (
         remote_path="/root/locustfile.py",
     )
 )
+
 volume = modal.Volume.from_name("loadtest-vllm-oai-results", create_if_missing=True)
 remote_path = Path("/root") / "loadtests"
 OUT_DIRECTORY = (
@@ -86,7 +87,7 @@ def main(
         "--autoquit",  # stop once finished...
         "10",  # ...but wait ten seconds
         "--html",  # output an HTML-formatted report
-        html_report_file,  # to this location
+        str(html_report_file),  # to this location
     ]
 
     if exit_code := run_locust.remote(args, wait=True):
