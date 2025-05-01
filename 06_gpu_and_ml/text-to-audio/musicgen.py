@@ -11,6 +11,7 @@
 # ## Setting up dependencies
 
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
 import modal
@@ -195,7 +196,7 @@ class MusicGen:
 
 @app.local_entrypoint()
 def main(
-    prompt: str = None,
+    prompt: Optional[str] = None,
     duration: int = 10,
     overlap: int = 15,
     format: str = "wav",  # or mp3

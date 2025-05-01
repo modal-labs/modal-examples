@@ -17,6 +17,8 @@
 #
 # First we import the components we need from `modal`.
 
+from typing import Optional
+
 import modal
 
 
@@ -165,7 +167,7 @@ prompt_template = (
 
 
 @app.local_entrypoint()
-def cli(prompt: str = None):
+def cli(prompt: Optional[str] = None):
     question = (
         prompt
         or "What are the main differences between Python and JavaScript programming languages?"

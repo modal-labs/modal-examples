@@ -25,7 +25,7 @@ import io
 import random
 import time
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import fastapi
 import modal
@@ -142,10 +142,10 @@ class Inference:
         self,
         image_bytes: bytes,
         prompt: str,
-        negative_prompt: str = None,
-        num_frames: int = None,
-        num_inference_steps: int = None,
-        seed: int = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        seed: Optional[int] = None,
     ) -> str:
         negative_prompt = (
             negative_prompt
@@ -184,10 +184,10 @@ class Inference:
         self,
         image_bytes: Annotated[bytes, fastapi.File()],
         prompt: str,
-        negative_prompt: str = None,
-        num_frames: int = None,
-        num_inference_steps: int = None,
-        seed: int = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        seed: Optional[int] = None,
     ) -> fastapi.Response:
         mp4_name = self.run.local(  # run in the same container
             image_bytes=image_bytes,
@@ -223,10 +223,10 @@ class Inference:
 def entrypoint(
     image_path: str,
     prompt: str,
-    negative_prompt: str = None,
-    num_frames: int = None,
-    num_inference_steps: int = None,
-    seed: int = None,
+    negative_prompt: Optional[str] = None,
+    num_frames: Optional[int] = None,
+    num_inference_steps: Optional[int] = None,
+    seed: Optional[int] = None,
     twice: bool = True,
 ):
     import os
