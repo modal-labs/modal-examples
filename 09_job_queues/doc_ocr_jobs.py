@@ -25,6 +25,8 @@
 # Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
 # Later, we'll use the name provided for our `App` to find it from our web app and submit tasks to it.
 
+from typing import Optional
+
 import modal
 
 app = modal.App("example-doc-ocr-jobs")
@@ -167,7 +169,7 @@ def parse_receipt(image: bytes) -> str:
 
 
 @app.local_entrypoint()
-def main(receipt_filename: str = None):
+def main(receipt_filename: Optional[str] = None):
     from pathlib import Path
 
     import requests

@@ -27,6 +27,7 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
 import modal
@@ -59,10 +60,10 @@ app = modal.App(name="example-chai1-inference")
 @app.local_entrypoint()
 def main(
     force_redownload: bool = False,
-    fasta_file: str = None,
-    inference_config_file: str = None,
-    output_dir: str = None,
-    run_id: str = None,
+    fasta_file: Optional[str] = None,
+    inference_config_file: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    run_id: Optional[str] = None,
 ):
     print("🧬 checking inference dependencies")
     download_inference_dependencies.remote(force=force_redownload)

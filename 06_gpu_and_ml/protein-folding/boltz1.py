@@ -10,6 +10,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import modal
 
@@ -47,7 +48,9 @@ app = modal.App(name="example-boltz1-inference")
 
 
 @app.local_entrypoint()
-def main(force_download: bool = False, input_yaml_path: str = None, args: str = ""):
+def main(
+    force_download: bool = False, input_yaml_path: Optional[str] = None, args: str = ""
+):
     print("🧬 loading model remotely")
     download_model.remote(force_download)
 

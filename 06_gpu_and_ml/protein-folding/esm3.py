@@ -20,6 +20,7 @@
 import base64
 import io
 from pathlib import Path
+from typing import Optional
 
 import modal
 
@@ -330,10 +331,7 @@ def ui():
 
 
 @app.local_entrypoint()
-def main(
-    sequence: str = None,
-    output_dir: str = None,
-):
+def main(sequence: Optional[str] = None, output_dir: Optional[str] = None):
     if sequence is None:
         print("using sequence for insulin [P01308]")
         sequence = "MRTPMLLALLALATLCLAGRADAKPGDAESGKGAAFVSKQEGSEVVKRLRRYLDHWLGAPAPYPDPLEPKREVCELNPDCDELADHIGFQEAYRRFYGPV"
