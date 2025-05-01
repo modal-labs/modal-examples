@@ -89,8 +89,8 @@ VLLM_PORT = 8000
 @app.function(
     image=vllm_image,
     gpu=f"H100:{N_GPU}",
-    # how long should we stay up with no requests?
-    scaledown_window=15 * MINUTES,
+    scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
+    timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
@@ -175,7 +175,7 @@ def serve():
 
 
 @app.local_entrypoint()
-def test(test_timeout=5 * MINUTES):
+def test(test_timeout=10 * MINUTES):
     import json
     import time
     import urllib
