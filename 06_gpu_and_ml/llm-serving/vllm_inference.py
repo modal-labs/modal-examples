@@ -89,8 +89,8 @@ VLLM_PORT = 8000
 @app.function(
     image=vllm_image,
     gpu=f"H100:{N_GPU}",
-    # how long should we stay up with no requests?
-    scaledown_window=15 * MINUTES,
+    scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
+    timeeout=5 * MINUTES,  # vllm can take a long time to initialize
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
