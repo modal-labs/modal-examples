@@ -1,5 +1,4 @@
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,9 +13,7 @@ else:
 
 
 image = (
-    modal.Image.debian_slim(
-        python_version=f"{sys.version_info.major}.{sys.version_info.minor}"
-    )
+    modal.Image.debian_slim(python_version="3.11")
     .pip_install("locust~=2.36.2", "openai~=1.37.1")
     .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .add_local_file(
@@ -36,6 +33,7 @@ workers = 8
 host = (
     f"https://{workspace}-{environment}--example-vllm-openai-compatible-serve.modal.run"
 )
+
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
     "-H",
