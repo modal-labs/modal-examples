@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import modal
 
@@ -80,14 +80,14 @@ def main(
         t,
     ]
 
-    html_report_file = OUT_DIRECTORY / "report.html"
+    html_report_file = str(PosixPath(OUT_DIRECTORY / "report.html"))
     args += [
         "--headless",  # run without browser UI
         "--autostart",  # start test immediately
         "--autoquit",  # stop once finished...
         "10",  # ...but wait ten seconds
         "--html",  # output an HTML-formatted report
-        str(html_report_file),  # to this location
+        html_report_file,  # to this location
     ]
 
     if exit_code := run_locust.remote(args, wait=True):
