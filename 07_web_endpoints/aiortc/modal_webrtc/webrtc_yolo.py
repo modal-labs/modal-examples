@@ -59,7 +59,8 @@ app = modal.App(
 # and then streams the flipped video back to the provider
 @app.cls(
     image=video_processing_image,
-    secrets=[modal.Secret.from_dotenv()]
+    secrets=[modal.Secret.from_dotenv()],
+    gpu="A100",
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):   
     
