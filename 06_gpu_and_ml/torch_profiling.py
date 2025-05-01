@@ -31,6 +31,7 @@
 
 
 from pathlib import Path
+from typing import Optional
 
 import modal
 
@@ -115,7 +116,7 @@ def underutilize(scale=1):
 @app.function(volumes={TRACE_DIR: traces}, **config)
 def profile(
     function,
-    label: str = None,
+    label: Optional[str] = None,
     steps: int = 3,
     schedule=None,
     record_shapes: bool = False,
@@ -189,14 +190,14 @@ def profile(
 @app.local_entrypoint()
 def main(
     function: str = "underutilize",
-    label: str = None,
+    label: Optional[str] = None,
     steps: int = 3,
     schedule=None,
     record_shapes: bool = False,
     profile_memory: bool = False,
     with_stack: bool = False,
     print_rows: int = 10,
-    kwargs_json_path: str = None,
+    kwargs_json_path: Optional[str] = None,
 ):
     if kwargs_json_path is not None:  # use to pass arguments to function
         import json

@@ -1,3 +1,5 @@
+from typing import Optional
+
 import modal
 
 app = modal.App("example-qdrant-in-memory")
@@ -36,7 +38,7 @@ def query(inpt):
 
 
 @app.local_entrypoint()
-def main(inpt: str = None):
+def main(inpt: Optional[str] = None):
     if not inpt:
         inpt = "alpaca"
 

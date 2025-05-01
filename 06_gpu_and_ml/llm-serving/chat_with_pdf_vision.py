@@ -14,6 +14,7 @@
 # First, we’ll import the libraries we need locally and define some constants.
 
 from pathlib import Path
+from typing import Optional
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -341,7 +342,11 @@ def convert_pdf_to_images(pdf_bytes):
 
 
 @app.local_entrypoint()
-def main(question: str = None, pdf_path: str = None, session_id: str = None):
+def main(
+    question: Optional[str] = None,
+    pdf_path: Optional[str] = None,
+    session_id: Optional[str] = None,
+):
     model = Model()
     if session_id is None:
         session_id = str(uuid4())
