@@ -29,20 +29,29 @@ webrtc_base_image = (
 
 video_processing_image = (
     modal.Image.debian_slim(python_version="3.12")
+    .apt_install("locales")
+    .run_commands(
+        "sed -i '/^#\\s*en_US.UTF-8 UTF-8/ s/^#//' /etc/locale.gen", 
+        "locale-gen en_US.UTF-8",
+        "update-locale LANG=en_US.UTF-8"
+    )
     .apt_install("python3-opencv", "ffmpeg")
     .env(
         {
             "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
+            "LANG": "en_US.UTF-8",
         }
     )
-    .run_commands("pip install --upgrade pip")
+    # .run_commands(
+    #     "pip install --upgrade pip"
+    # )
     .pip_install(
         "fastapi", 
         "aiortc",
         "opencv-python",
-        "tensorrt",
+        "tensorrt==10.8.0.43",
         "torch",
-        "onnxruntime-gpu",
+        "onnxruntime-gpu==1.21",
         "huggingface-hub"
     )
 )
