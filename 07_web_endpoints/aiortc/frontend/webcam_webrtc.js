@@ -33,7 +33,12 @@ async function startWebcam() {
 
     try {
         
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            video: {
+                facingMode: { ideal: "environment" }
+            }, 
+            audio: false
+        });
         localVideo.srcObject = localStream;
 
         startWebcamButton.disabled = true;
@@ -46,7 +51,6 @@ async function startWebcam() {
 
 // Create and set up peer connection
 async function startStreaming() {
-
 
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
@@ -61,6 +65,7 @@ async function startStreaming() {
 
 // wait for websocket to open
 const waitForOpenConnection = (socket) => {
+
     return new Promise((resolve, reject) => {
         const maxNumberOfAttempts = 10
         const intervalTime = 1000 //ms
@@ -81,10 +86,7 @@ const waitForOpenConnection = (socket) => {
 
 async function negotiate() {
     
-
     try {
-
-
         // setup websocket connection
         ws = new WebSocket(`/ws/${peerID}`);
         
@@ -219,6 +221,7 @@ async function negotiate() {
 
 // cleanup
 function cleanup() {
+    iceServers = null;
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;

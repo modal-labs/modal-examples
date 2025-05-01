@@ -27,7 +27,19 @@ webrtc_base_image = (
     )
 )
 
-video_processing_image = (
+server_image = webrtc_base_image.add_local_dir(
+    # frontend files
+    os.path.join(assets_parent_directory, "frontend"), 
+    remote_path="/frontend"
+)
+
+tester_image = webrtc_base_image.add_local_dir(
+    # video file for testing
+    os.path.join(assets_parent_directory, "media"), 
+    remote_path="/media"
+)
+
+video_processing_gpu_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("locales")
     .run_commands(
@@ -42,31 +54,17 @@ video_processing_image = (
             "LANG": "en_US.UTF-8",
         }
     )
-    # .run_commands(
-    #     "pip install --upgrade pip"
-    # )
     .pip_install(
-        "fastapi", 
-        "aiortc",
-        "opencv-python",
-        "tensorrt==10.8.0.43",
-        "torch",
-        "onnxruntime-gpu==1.21",
-        "huggingface-hub"
+        "fastapi==0.115.12", 
+        "aiortc==1.11.0",
+        "opencv-python==4.11.0.86",
+        "tensorrt==10.9.0.34",
+        "torch==2.7.0",
+        "onnxruntime-gpu==1.21.0",
+        "huggingface-hub==0.30.2"
     )
 )
-server_image = webrtc_base_image.add_local_dir(
-    # frontend files
-    os.path.join(assets_parent_directory, "frontend"), 
-    remote_path="/frontend"
-)
 
-tester_image = webrtc_base_image.add_local_dir(
-    # video file for testing
-    os.path.join(assets_parent_directory, "media"), 
-    remote_path="/media"
-)
-    
 # instantiate our app
 app = modal.App(
     APP_NAME
@@ -76,7 +74,7 @@ app = modal.App(
 # this class flips and incoming video stream
 # and then streams the flipped video back to the provider
 @app.cls(
-    image=video_processing_image,
+    image=video_processing_gpu_image,
     secrets=[modal.Secret.from_dotenv()],
     gpu="A100",
     volumes={
@@ -120,12 +118,13 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 
                 import cv2
 
+                orig_shape = image.shape[:-1]
                 print(f"Image shape: {image.shape}")
                 image = cv2.resize(image, (self.yolo_model.input_width, self.yolo_model.input_height))
-                print("conf_threshold", self.conf_threshold)
+                print("Resized image shape: ", image.shape)
                 image_w_detections = self.yolo_model.detect_objects(image, self.conf_threshold)
-                image_w_detections = cv2.resize(image_w_detections, (500, 500))
-                
+                image_w_detections = cv2.resize(image_w_detections, (orig_shape[1], orig_shape[0]))
+                print("Resized image with detections shape: ", image_w_detections.shape)
                 return image_w_detections
             
             # this is the essential method we need to implement 
@@ -135,12 +134,12 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
                 frame = await self.track.recv()
                 img = frame.to_ndarray(format="bgr24")
 
-                img = self.detection(img)
+                processed_img = self.detection(img)
 
                 # VideoFrames are from a really nice package called av
                 # which is a pythonic wrapper around ffmpeg
                 # and a dep of aiortc
-                new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+                new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
                 new_frame.pts = frame.pts
                 new_frame.time_base = frame.time_base
 
