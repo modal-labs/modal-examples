@@ -85,6 +85,7 @@ vlm_image = (
         "starlette==0.41.2",
         "torch==2.4.0",
         "sglang[all]==0.4.1",
+        "sgl-kernel==0.1.0",
         # as per sglang website: https://sgl-project.github.io/start/install.html
         extra_options="--find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
     )
