@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import ClassVar
 
 import modal
+
 
 @dataclass
 class IceCandidate:
@@ -18,20 +20,20 @@ class ModalWebRTCServer:
     """
     modal_peer_app_name: str = modal.parameter() # not using this, but feels like i should?
     modal_peer_cls_name: str = modal.parameter()
+    modal_peer_cls: ClassVar = None
 
     @modal.enter()
     def initialize(self):
 
         import uuid
-
         from fastapi import FastAPI, WebSocket
 
         self.modal_peer_id = str(uuid.uuid4()) # no longer used but seems worth keeping around
         self.web_app = FastAPI()
         
-        # handling signaling through websocket
+        # handling signaling through websocket endpoint
         @self.web_app.websocket("/ws/{peer_id}")
-        async def ws_negotiation(client_websocket: WebSocket, peer_id: str):
+        async def ws(client_websocket: WebSocket, peer_id: str):
 
             # accept websocket connection
             await client_websocket.accept()         
@@ -49,12 +51,17 @@ class ModalWebRTCServer:
 
             from fastapi import WebSocketDisconnect
 
-            if not self.modal_peer_app_name or not self.modal_peer_cls_name:
-                print("Modal peer class or app name or class name not set")
+            # if not self.modal_peer_app_name or not self.modal_peer_cls_name:
+            #     print("Modal peer class or app name or class name not set")
+            #     return
+            
+            # self.ModalPeerCls = modal.Cls.from_name(self.modal_peer_app_name, self.modal_peer_cls_name)
+            
+            if not self.modal_peer_cls:
+                print("Modal peer class not set")
                 return
             
-            self.ModalPeerCls = modal.Cls.from_name(self.modal_peer_app_name, self.modal_peer_cls_name)
-            modal_peer_instance = self.ModalPeerCls()
+            modal_peer_instance = self.modal_peer_cls()
 
             with modal.Queue.ephemeral() as q:
 
@@ -69,13 +76,8 @@ class ModalWebRTCServer:
                         
                         try:
                             # get websocket message and parse as json
-                            print(f"Server receiving message websocket...")
                             msg = await asyncio.wait_for(client_websocket.receive_text(), timeout=20)
                             
-                            # if msg.startswith("close"):
-                            #     print(f"Server closing websocketconnection to client peer {peer_id}...")
-                            #     return
-                            print(f"Server putting message to queue...")
                             await q.put.aio(
                                 msg,
                                 partition=peer_id
@@ -84,7 +86,8 @@ class ModalWebRTCServer:
                             if isinstance(e, TimeoutError):
                                 continue
                             else:
-                                print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
+                                if not isinstance(e, WebSocketDisconnect):
+                                    print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
                                 return
 
                 async def relay_modal_peer_messages(client_websocket, q):
@@ -94,14 +97,13 @@ class ModalWebRTCServer:
                         
                         try:
                             # get websocket message and parse as json
-                            print(f"Server getting message from queue...")
                             modal_peer_msg = await asyncio.wait_for(q.get.aio(partition='server'), timeout=20)
                             
                             if modal_peer_msg.startswith("close"):
                                 print(f"Server closing websocket connection to client peer {peer_id}...")
                                 await client_websocket.close()
                                 return
-                            print(f"Server sending message websocket...")
+                            
                             await client_websocket.send_text(modal_peer_msg)
 
                         except Exception as e:
@@ -141,18 +143,16 @@ class ModalWebRTCPeer:
     @modal.enter()
     async def _initialize(self):
 
-        import asyncio
         import uuid
-        import json
         
-        from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+        from fastapi import FastAPI, WebSocket
         from aiortc.sdp import candidate_from_sdp
 
         self.id = str(uuid.uuid4())
         self.web_app = FastAPI()
         self.pcs = {}
 
-        # HTTP NEGOTIATION ENDPOINT
+        # HTTP NEGOTIATION ENDPOINTS
         
         # handle ice candidate (trickle ice)
         @self.web_app.post("/ice_candidate")
@@ -190,7 +190,7 @@ class ModalWebRTCPeer:
         
         # handling signaling through websocket
         @self.web_app.websocket("/ws/{peer_id}")
-        async def ws_negotiation(websocket: WebSocket, peer_id: str):
+        async def ws(websocket: WebSocket, peer_id: str):
 
             # accept websocket connection
             await websocket.accept()
@@ -294,7 +294,7 @@ class ModalWebRTCPeer:
                     print(f"Error: {e}")
         
         await websocket.close()
-        print("Websocket connection closed")
+        print(f"Server websocket connection to peer {peer_id} closed.")
 
     @modal.method()
     async def run_with_queue(self, q: modal.Queue, peer_id: str):
@@ -349,11 +349,6 @@ class ModalWebRTCPeer:
                     ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
                     
                     await self.handle_ice_candidate(peer_id, ice_candidate)
-
-                    # wait and break if connected
-                    # this ensures that we close websocket asap (could remove)
-                    # await asyncio.sleep(0.2) 
-    
                 
                 # get peer's id
                 elif msg.get("type") == "identify":

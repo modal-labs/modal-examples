@@ -7,70 +7,44 @@ import modal
 
 from .webrtc import ModalWebRTCPeer, ModalWebRTCServer
 
+APP_NAME = "aiortc-server-video-processing-example"
+
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
 # image
-web_image = (
+webrtc_image = (
     modal.Image
     .debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
     .pip_install(
         "fastapi[standard]==0.115.4",
-        "aiortc",
-        "opencv-python",
-        "python-dotenv"
-    )
-    # video file for testing
-    .add_local_dir(
-        os.path.join(assets_parent_directory, "media"), 
-        remote_path="/media"
-    )
-    # frontend files
-    .add_local_dir(
-        os.path.join(assets_parent_directory, "frontend"), 
-        remote_path="/frontend"
+        "aiortc==1.11.0",
+        "opencv-python==4.11.0.86",
     )
 )
 
+server_image = webrtc_image.add_local_dir(
+    # frontend files
+    os.path.join(assets_parent_directory, "frontend"), 
+    remote_path="/frontend"
+)
+
+tester_image = webrtc_image.add_local_dir(
+    # video file for testing
+    os.path.join(assets_parent_directory, "media"), 
+    remote_path="/media"
+)
+    
 # instantiate our app
 app = modal.App(
-    "aiortc-server-video-processing-example"
+    APP_NAME
 )
 
+# our modal peer, a subclass of ModalWebRTCPeer
+# this class flips and incoming video stream
+# and then streams the flipped video back to the provider
 @app.cls(
-    image=web_image,
-)
-class WebRTCVideoProcessorServer(ModalWebRTCServer):
-
-    modal_peer_app_name = "aiortc-server-video-processing-example"
-    modal_peer_cls_name = "WebRTCVideoProcessor"
-
-    @modal.asgi_app(label="webrtc-video-processor-server")
-    def web_endpoints(self):
-
-        from fastapi.staticfiles import StaticFiles
-        from fastapi.responses import HTMLResponse
-        # frontend files
-        self.web_app.mount(
-            "/static",
-            StaticFiles(directory="/frontend"),
-            name="static",
-        )
-
-        @self.web_app.get("/")
-        async def root():
-            html = open("/frontend/index.html").read()
-            return HTMLResponse(content=html)
-
-        return self.web_app
-
-# this class responds to an offer
-# to establish a P2P connection,
-# flips the video stream, and then
-# streams the flipped video back to the provider
-# and/or records the flipped video to a file
-@app.cls(
-    image=web_image,
+    image=webrtc_image,
     secrets=[modal.Secret.from_dotenv()]
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):   
@@ -80,7 +54,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
         import cv2
 
         from aiortc import MediaStreamTrack
-        from aiortc.contrib.media import VideoFrame, MediaRelay, MediaRecorder
+        from aiortc.contrib.media import VideoFrame
 
         class VideoFlipTrack(MediaStreamTrack):
             """
@@ -95,7 +69,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
                 self.track = track
 
             # this is the essential method we need to implement 
-            # to create a custom stream
+            # to create a custom MediaStreamTrack
             async def recv(self):
 
                 frame = await self.track.recv()
@@ -134,6 +108,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
             async def on_ended():
                 print(f"Video Processor, {self.id}, incoming video track from {peer_id} ended")
 
+    # some free turn servers we can up to 5 GB
     def get_turn_servers(self):
 
         import os
@@ -168,13 +143,45 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
             "type": "turn_servers",
             "ice_servers": turn_servers,
         }
+    
+# for the server, all we have to do is
+# let it know which ModalWebRTCPeer subclass to spawn
+# attach our front end 
+@app.cls(
+    image=server_image,
+)
+class WebRTCVideoProcessorServer(ModalWebRTCServer):
+
+    # lookup info for the WebRTCPeer to run on modal
+    # modal_peer_app_name = APP_NAME
+    # modal_peer_cls_name = "WebRTCVideoProcessor"
+    modal_peer_cls = WebRTCVideoProcessor
+
+    @modal.asgi_app(label="webrtc-video-processor-server")
+    def web_endpoints(self):
+
+        from fastapi.staticfiles import StaticFiles
+        from fastapi.responses import HTMLResponse
+        # frontend files
+        self.web_app.mount(
+            "/static",
+            StaticFiles(directory="/frontend"),
+            name="static",
+        )
+
+        @self.web_app.get("/")
+        async def root():
+            html = open("/frontend/index.html").read()
+            return HTMLResponse(content=html)
+
+        return self.web_app
 
 # create an output volume to store the transmitted videos
 output_volume = modal.Volume.from_name("aiortc-video-processing", create_if_missing=True)
 OUTPUT_VOLUME_PATH = Path("/output")
 
 @app.cls(
-    image=web_image,
+    image=tester_image,
     volumes={
         OUTPUT_VOLUME_PATH: output_volume
     }
@@ -182,8 +189,10 @@ OUTPUT_VOLUME_PATH = Path("/output")
 class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = OUTPUT_VOLUME_PATH / "flipped_test_video.mp4"
-    DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
-    VIDEO_DURATION_BUFFER_SECS = 5.0
+    # allowed difference between source and recorded video files
+    DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5 
+    # extra time to run streams beyond input video duration
+    VIDEO_DURATION_BUFFER_SECS = 5.0 
 
     async def initialize(self):
 
@@ -276,6 +285,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
         else:
             return False
                
+    @modal.method()
     async def run_video_processing_test(self):
 
         import json
@@ -286,7 +296,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
         ws_uri = WebRTCVideoProcessorServer().web_endpoints.web_url.replace("http", "ws") + f"/ws/{self.id}"
         async with websockets.connect(ws_uri) as websocket:
 
-            await websocket.send(json.dumps({"type": "identify"}))
+            await websocket.send(json.dumps({"type": "identify", "peer_id": self.id}))
             peer_id = json.loads(await websocket.recv())["peer_id"]
 
             offer_msg = await self.generate_offer(peer_id)
@@ -306,19 +316,21 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
         if peer_id:
             await self.run_streams(peer_id)
 
-    @modal.asgi_app(label="webrtc-video-processor-tester")
-    def web_endpoints(self):
+        return self.confirm_recording()
+
+    # @modal.asgi_app(label="webrtc-video-processor-tester")
+    # def web_endpoints(self):
                 
-        @self.web_app.get("/run_test")
-        async def run_test():
-            await self.run_video_processing_test()
-            return True
+    #     @self.web_app.get("/run_test")
+    #     async def run_test():
+    #         await self.run_video_processing_test()
+    #         return True
 
-        @self.web_app.get("/check_test")
-        async def check_test():
-            return self.confirm_recording()
+    #     @self.web_app.get("/check_test")
+    #     async def check_test():
+    #         return self.confirm_recording()
 
-        return self.web_app
+    #     return self.web_app
     
 # set timeout for health checks and connection test
 MINUTES = 60  # seconds
@@ -378,7 +390,9 @@ def check_successful_test():
 @app.local_entrypoint()
 def main():
 
-    assert trigger_webrtc_test(), "Test failed to trigger"
-    assert check_successful_test(), "Test faileda to complete"
+    video_processor_test = WebRTCVideoProcessorTester()
+    assert video_processor_test.run_video_processing_test.remote(), "Test failed to complete"
+    # assert trigger_webrtc_test(), "Test failed to trigger"
+    # assert check_successful_test(), "Test faileda to complete"
 
     
