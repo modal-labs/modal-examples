@@ -151,7 +151,7 @@ def serve():
 # to take it for a spin:
 
 # ```bash
-# # pip install openai==1.13.3
+# # pip install openai==1.76.0
 # python openai_compatible/client.py
 # ```
 
