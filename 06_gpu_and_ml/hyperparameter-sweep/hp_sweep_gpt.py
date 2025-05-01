@@ -50,6 +50,7 @@ import logging as L
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PosixPath
+from typing import Optional
 
 import modal
 from pydantic import BaseModel
@@ -285,8 +286,8 @@ class ModelHyperparameters:
 @app.local_entrypoint()
 def main(
     n_steps: int = 3000,
-    n_steps_before_checkpoint: int = None,
-    n_steps_before_eval: int = None,
+    n_steps_before_checkpoint: Optional[int] = None,
+    n_steps_before_eval: Optional[int] = None,
 ):
     from datetime import datetime
     from itertools import product

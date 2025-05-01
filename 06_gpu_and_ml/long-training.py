@@ -32,6 +32,7 @@
 # We check for this file and resume training from it if it exists.
 
 from pathlib import Path
+from typing import Optional
 
 import modal
 
@@ -136,7 +137,7 @@ def train_interruptible(*args, **kwargs):
 
 
 @app.local_entrypoint()
-def main(experiment: str = None):
+def main(experiment: Optional[str] = None):
     if experiment is None:
         from uuid import uuid4
 
