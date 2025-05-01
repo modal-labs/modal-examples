@@ -1,3 +1,9 @@
+let ws;
+let localStream;
+let peerConnection;
+let iceServers;
+const peerID = crypto.randomUUID();
+let iceServerType = 'stun';
 
 const iceSTUNservers = [
     {
@@ -12,14 +18,6 @@ const startWebcamButton = document.getElementById('startWebcamButton');
 const startStreamingButton = document.getElementById('startStreamingButton');
 const stopStreamingButton = document.getElementById('stopStreamingButton');
 
-// WebRTC variables
-let ws;
-let localStream;
-let peerConnection;
-let iceServers;
-const peerID = crypto.randomUUID();
-let iceServerType = 'stun';
-
 // Add event listener for ICE server radio buttons
 document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -28,13 +26,14 @@ document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
     });
 });
 
-// Get local media stream
+// Get webcam media stream
 async function startWebcam() {
 
     try {
         
         localStream = await navigator.mediaDevices.getUserMedia({ 
             video: {
+                // prefer environment facing camera
                 facingMode: { ideal: "environment" }
             }, 
             audio: false
@@ -63,27 +62,6 @@ async function startStreaming() {
     }
 }    
 
-// wait for websocket to open
-const waitForOpenConnection = (socket) => {
-
-    return new Promise((resolve, reject) => {
-        const maxNumberOfAttempts = 10
-        const intervalTime = 1000 //ms
-
-        let currentAttempt = 0
-        const interval = setInterval(() => {
-            if (currentAttempt > maxNumberOfAttempts - 1) {
-                clearInterval(interval)
-                reject(new Error('Maximum number of attempts exceeded'))
-            } else if (socket.readyState === socket.OPEN) {
-                clearInterval(interval)
-                resolve()
-            }
-            currentAttempt++
-        }, intervalTime)
-    })
-}
-
 async function negotiate() {
     
     try {
@@ -91,7 +69,9 @@ async function negotiate() {
         ws = new WebSocket(`/ws/${peerID}`);
         
         console.log('Waiting for websocket to open...');
-        await waitForOpenConnection(ws);
+        await new Promise((resolve) => {
+            ws.onopen = resolve;
+        });
 
         console.log('Websocket opened');
 
@@ -106,8 +86,10 @@ async function negotiate() {
         };
 
         ws.onmessage = (event) => {
+
             const msg = JSON.parse(event.data);
             console.log('Received answer:', msg);
+            
             if (msg.type === 'answer') {
                 peerConnection.setRemoteDescription(msg);
             } else if (msg.type === 'turn_servers') {
