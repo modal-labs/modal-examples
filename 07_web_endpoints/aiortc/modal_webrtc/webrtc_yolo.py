@@ -73,8 +73,6 @@ app = modal.App(
     volumes={
         CACHE_PATH: CACHE_VOLUME
     },
-    min_containers=1,
-    buffer_containers=1,
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):
     yolo_model = None
