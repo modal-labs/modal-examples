@@ -53,7 +53,7 @@ import modal
 # * `threads_per_core` oversubscription factor for parallelized I/O (image reading)
 # * `batch_size` is a parameter passed to the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"), and it means the usual thing for machine learning inference: a group of images are processed through the neural network together.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
-max_concurrent_inputs: int = 2
+max_concurrent_inputs: int = 4
 gpu: str = "L4"
 max_containers: int = 50
 memory_request: float = 5 * 1024  # MB->GB
@@ -200,6 +200,8 @@ def catalog_jpegs(dataset_namespace: str, cache_dir: str, image_cap: int):
             # Write to modal.Volume
             write_jpeg(preprocessed, write_path)
 
+        # This is a parallelized pre-processing loop that opens compressed images,
+        # preprocesses them to the size expected by our model, and writes as a JPEG.
         for idx, ex in tqdm(enumerate(ds), total=len(ds), desc="Caching images"):
             if (image_cap > 0) and (idx >= image_cap):
                 break
