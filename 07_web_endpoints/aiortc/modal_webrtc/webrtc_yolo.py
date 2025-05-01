@@ -12,7 +12,7 @@ APP_NAME = "aiortc-server-video-processing-example"
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
 # image
-webrtc_image = (
+webrtc_base_image = (
     modal.Image
     .debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
@@ -23,13 +23,27 @@ webrtc_image = (
     )
 )
 
-server_image = webrtc_image.add_local_dir(
+video_processing_image = (
+    webrtc_base_image
+    .pip_install(
+        "onnxruntime-gpu",
+        "tensorrt",
+        "huggingface-hub",
+        "torch"
+    )
+    .env(
+        {
+            "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
+        }
+    )
+)
+server_image = webrtc_base_image.add_local_dir(
     # frontend files
     os.path.join(assets_parent_directory, "frontend"), 
     remote_path="/frontend"
 )
 
-tester_image = webrtc_image.add_local_dir(
+tester_image = webrtc_base_image.add_local_dir(
     # video file for testing
     os.path.join(assets_parent_directory, "media"), 
     remote_path="/media"
@@ -44,7 +58,7 @@ app = modal.App(
 # this class flips and incoming video stream
 # and then streams the flipped video back to the provider
 @app.cls(
-    image=webrtc_image,
+    image=video_processing_image,
     secrets=[modal.Secret.from_dotenv()]
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):   
