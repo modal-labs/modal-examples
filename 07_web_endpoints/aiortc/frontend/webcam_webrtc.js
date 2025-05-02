@@ -119,12 +119,12 @@ async function negotiate() {
             
             if (msg.type === 'answer') {
                 if (iceServerType == 'stun'){
-                    updateStatus('[10:30:46] Establishing WebRTC connection...');
+                    updateStatus('Establishing WebRTC connection...');
                 }
                 peerConnection.setRemoteDescription(msg);
             } else if (msg.type === 'turn_servers') {
                 if (iceServerType == 'turn'){
-                    updateStatus('[10:30:46] Establishing WebRTC connection...');
+                    updateStatus('Establishing WebRTC connection...');
                 }
                 iceServers = msg.ice_servers;
             } else if (msg.type === 'connection_status') {
@@ -213,7 +213,7 @@ async function negotiate() {
         };
 
         peerConnection.onconnectionstatechange = async () => {
-            updateStatus(`[10:30:47] WebRTCConnection state: ${peerConnection.connectionState}`);
+            updateStatus(`WebRTCConnection state: ${peerConnection.connectionState}`);
             if (peerConnection.connectionState === 'connected') {
                 console.log('Connection state:', peerConnection.connectionState);
             }
@@ -254,6 +254,7 @@ function stop_streaming() {
     stopStreamingButton.disabled = true;
     startStreamingButton.disabled = false;
     remoteVideo.srcObject = null;
+    updateStatus('Streaming stopped.');
 }
 
 // Event listeners
