@@ -7,7 +7,7 @@ let iceServerType = 'stun';
 
 // Add status display element
 const statusDisplay = document.getElementById('statusDisplay');
-const MAX_STATUS_HISTORY = 10;
+const MAX_STATUS_HISTORY = 100;
 let statusHistory = [];
 
 // Function to update status
@@ -78,7 +78,7 @@ async function startWebcam() {
 // Create and set up peer connection
 async function startStreaming() {
 
-    updateStatus('Loading YOLO GPU inference in the cloud...');
+    updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
 
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
