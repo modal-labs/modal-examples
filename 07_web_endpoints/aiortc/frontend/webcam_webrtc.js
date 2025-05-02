@@ -15,7 +15,7 @@ function updateStatus(message) {
 
     // Add timestamp to message
     const now = new Date();
-    const timestamp = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: 'numeric', hour12: true });
+    const timestamp = now.toLocaleTimeString();
     const statusLine = `[${timestamp}] ${message}`;
     
     // Add to history
@@ -235,6 +235,15 @@ async function negotiate() {
     }
 }
 
+// Stop streaming
+function stop_streaming() {
+    cleanup();
+    stopStreamingButton.disabled = true;
+    startStreamingButton.disabled = false;
+    remoteVideo.srcObject = null;
+    updateStatus('Streaming stopped.');
+}
+
 // cleanup
 function cleanup() {
     iceServers = null;
@@ -246,15 +255,6 @@ function cleanup() {
         ws.close();
         ws = null;
     }
-}
-
-// Stop streaming
-function stop_streaming() {
-    cleanup();
-    stopStreamingButton.disabled = true;
-    startStreamingButton.disabled = false;
-    remoteVideo.srcObject = null;
-    updateStatus('Streaming stopped.');
 }
 
 // Event listeners
