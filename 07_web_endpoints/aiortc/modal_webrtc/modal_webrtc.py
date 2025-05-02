@@ -254,6 +254,8 @@ class ModalWebRTCPeer:
         from aiortc.sdp import candidate_from_sdp
 
         print(f"Running modal peer instance for client peer {peer_id}...")
+
+        first_msg_received = False  # the first message should come quickly, if not, we lost the peer
         # handle websocket messages and loop for lifetime
         while True:
             try:
@@ -270,6 +272,8 @@ class ModalWebRTCPeer:
                         q.get.aio(partition=peer_id), timeout=5
                     )
                 )
+
+                first_msg_received = True
 
                 # handle offer
                 if msg.get("type") == "offer":
@@ -319,7 +323,13 @@ class ModalWebRTCPeer:
                 else:
                     print(f"Unknown message type: {msg.get('type')}")
 
-            except Exception:
+            except Exception as e:
+                if isinstance(e, TimeoutError):
+                    if not first_msg_received:
+                        print(
+                            f"Modal peer instance for client peer {peer_id} lost connection to client"
+                        )
+                        return
                 continue
 
         print(

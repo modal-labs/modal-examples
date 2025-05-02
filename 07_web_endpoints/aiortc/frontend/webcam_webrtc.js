@@ -2,7 +2,7 @@ let ws;
 let localStream;
 let peerConnection;
 let iceServers;
-const peerID = crypto.randomUUID();
+let peerID; // reset per connection
 let iceServerType = 'stun';
 
 // Add status display element
@@ -83,6 +83,8 @@ async function startStreaming() {
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
+
+    peerID = crypto.randomUUID();
 
     try {
         negotiate();

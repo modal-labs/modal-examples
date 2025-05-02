@@ -78,7 +78,9 @@ app = modal.App(APP_NAME)
     secrets=[modal.Secret.from_dotenv()],
     gpu="A100-40GB",
     volumes={CACHE_PATH: CACHE_VOLUME},
+    # scaledown_window=10, # short scaling window
 )
+@modal.concurrent(target_inputs=4, max_inputs=6)
 class WebRTCVideoProcessor(ModalWebRTCPeer):
     yolo_model = None
 
