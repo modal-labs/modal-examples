@@ -78,7 +78,7 @@ async function startWebcam() {
 // Create and set up peer connection
 async function startStreaming() {
 
-    updateStatus('[10:30:45] Loading YOLO GPU inference in the cloud...');
+    updateStatus('Loading YOLO GPU inference in the cloud...');
 
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
