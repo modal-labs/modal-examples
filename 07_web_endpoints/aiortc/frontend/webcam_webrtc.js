@@ -5,6 +5,36 @@ let iceServers;
 const peerID = crypto.randomUUID();
 let iceServerType = 'stun';
 
+// Add status display element
+const statusDisplay = document.getElementById('statusDisplay');
+const MAX_STATUS_HISTORY = 10;
+let statusHistory = [];
+
+// Function to update status
+function updateStatus(message) {
+
+    // Add timestamp to message
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: 'numeric', hour12: true });
+    const statusLine = `[${timestamp}] ${message}`;
+    
+    // Add to history
+    statusHistory.push(statusLine);
+    
+    // Keep only last 10 messages
+    if (statusHistory.length > MAX_STATUS_HISTORY) {
+        statusHistory.shift();
+    }
+    
+    // Update display
+    statusDisplay.innerHTML = statusHistory.map(line => 
+        `<div class="status-line">${line}</div>`
+    ).join('');
+    
+    // Scroll to bottom
+    statusDisplay.scrollTop = statusDisplay.scrollHeight;
+}
+
 const iceSTUNservers = [
     {
         urls: "stun:stun.l.google.com:19302",
@@ -28,7 +58,6 @@ document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
 
 // Get webcam media stream
 async function startWebcam() {
-
     try {
         
         localStream = await navigator.mediaDevices.getUserMedia({ 
@@ -39,10 +68,8 @@ async function startWebcam() {
             audio: false
         });
         localVideo.srcObject = localStream;
-
         startWebcamButton.disabled = true;
         startStreamingButton.disabled = false;
-        
     } catch (err) {
         console.error('Error accessing media devices:', err);
     }
@@ -50,6 +77,8 @@ async function startWebcam() {
 
 // Create and set up peer connection
 async function startStreaming() {
+
+    updateStatus('[10:30:45] Loading YOLO GPU inference in the cloud...');
 
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
@@ -63,7 +92,6 @@ async function startStreaming() {
 }    
 
 async function negotiate() {
-    
     try {
         // setup websocket connection
         ws = new WebSocket(`/ws/${peerID}`);
@@ -86,13 +114,18 @@ async function negotiate() {
         };
 
         ws.onmessage = (event) => {
-
             const msg = JSON.parse(event.data);
             console.log('Received answer:', msg);
             
             if (msg.type === 'answer') {
+                if (iceServerType == 'stun'){
+                    updateStatus('[10:30:46] Establishing WebRTC connection...');
+                }
                 peerConnection.setRemoteDescription(msg);
             } else if (msg.type === 'turn_servers') {
+                if (iceServerType == 'turn'){
+                    updateStatus('[10:30:46] Establishing WebRTC connection...');
+                }
                 iceServers = msg.ice_servers;
             } else if (msg.type === 'connection_status') {
                 if (msg.status === 'connected') {
@@ -105,6 +138,7 @@ async function negotiate() {
         };
 
         if (iceServerType === 'turn') {
+            
             console.log('Getting TURN servers...');
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: peerID}));
@@ -179,7 +213,7 @@ async function negotiate() {
         };
 
         peerConnection.onconnectionstatechange = async () => {
-
+            updateStatus(`[10:30:47] WebRTCConnection state: ${peerConnection.connectionState}`);
             if (peerConnection.connectionState === 'connected') {
                 console.log('Connection state:', peerConnection.connectionState);
             }
