@@ -76,7 +76,7 @@ app = modal.App(APP_NAME)
 @app.cls(
     image=video_processing_gpu_image,
     secrets=[modal.Secret.from_dotenv()],
-    gpu="A100",
+    gpu="A100-40G",
     volumes={CACHE_PATH: CACHE_VOLUME},
 )
 class WebRTCVideoProcessor(ModalWebRTCPeer):
