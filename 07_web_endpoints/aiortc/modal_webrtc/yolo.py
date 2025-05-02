@@ -80,6 +80,10 @@ class YOLOv10:
     def inference(self, image, input_tensor, conf_threshold=0.3):
         import time
 
+        import onnxruntime
+
+        # set seed to potentially create smoother output in RT setting
+        onnxruntime.set_seed(42)
         start = time.perf_counter()
         outputs = self.session.run(
             self.output_names, {self.input_names[0]: input_tensor}
@@ -150,8 +154,8 @@ class YOLOv10:
         det_img = image.copy()
 
         img_height, img_width = image.shape[:2]
-        font_size = min([img_height, img_width]) * 0.0006
-        text_thickness = int(min([img_height, img_width]) * 0.001)
+        font_size = min([img_height, img_width]) * 0.0012
+        text_thickness = int(min([img_height, img_width]) * 0.004)
 
         # det_img = draw_masks(det_img, boxes, class_ids, mask_alpha)
 
@@ -190,7 +194,7 @@ class YOLOv10:
         image: np.ndarray,
         box: np.ndarray,
         color: tuple[int, int, int] = (0, 0, 255),
-        thickness: int = 2,
+        thickness: int = 5,
     ) -> np.ndarray:
         import cv2
 
@@ -203,8 +207,9 @@ class YOLOv10:
         text: str,
         box: np.ndarray,
         color: tuple[int, int, int] = (0, 0, 255),
-        font_size: float = 0.001,
-        text_thickness: int = 2,
+        font_size: float = 0.100,
+        text_thickness: int = 5,
+        box_thickness: int = 5,
     ) -> np.ndarray:
         import cv2
 
@@ -215,6 +220,7 @@ class YOLOv10:
             fontScale=font_size,
             thickness=text_thickness,
         )
+        x1 = x1 - box_thickness
         th = int(th * 1.2)
 
         cv2.rectangle(image, (x1, y1), (x1 + tw, y1 - th), color, -1)
