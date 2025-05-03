@@ -1,3 +1,7 @@
+# ---
+# args: ["--down-scale", ".0001"]
+# ---
+
 # # Embedding 30 Million Amazon Reviews with GTE-Qwen2-7B-instruct
 
 # This example demonstrates how to create embeddings for a large text dataset. This is
