@@ -22,8 +22,10 @@ class ModalWebRTCServer:
 
     # not using this, but could use it to spawn
     # user defined stream processing functions
+    # however this only works
     modal_peer_app_name: str = modal.parameter()
     modal_peer_cls_name: str = modal.parameter()
+    # we use this classvar instead since we have access to it
     modal_peer_cls: ClassVar = None
 
     @modal.enter()
@@ -264,9 +266,10 @@ class ModalWebRTCPeer:
         # handle websocket messages and loop for lifetime
         while True:
             try:
-                if (
-                    self.pcs.get(peer_id)
-                    and self.pcs[peer_id].connectionState == "connected"
+                if self.pcs.get(peer_id) and (
+                    self.pcs[peer_id].connectionState == "connected"
+                    or self.pcs[peer_id].connectionState == "disconnected"
+                    or self.pcs[peer_id].connectionState == "failed"
                 ):
                     await q.put.aio("close", partition="server")
                     break
