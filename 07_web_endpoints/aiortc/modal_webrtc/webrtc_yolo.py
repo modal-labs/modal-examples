@@ -44,14 +44,22 @@ video_processing_gpu_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("locales")
     .run_commands(
+        # below is necessary for proper use of
+        # the onnxruntime(-gpu) package
+        # uncomment US.UTF-8 locale
         "sed -i '/^#\\s*en_US.UTF-8 UTF-8/ s/^#//' /etc/locale.gen",
+        # generate locale
         "locale-gen en_US.UTF-8",
+        # update locale
         "update-locale LANG=en_US.UTF-8",
     )
     .apt_install("python3-opencv", "ffmpeg")
     .env(
         {
+            # needed to use tensorrt execution provider
+            # with onnxruntime(-gpu)
             "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
+            # (maybe) needed for proper use of onnxruntime(-gpu)
             "LANG": "en_US.UTF-8",
         }
     )
@@ -75,11 +83,13 @@ app = modal.App(APP_NAME)
 # and then streams the flipped video back to the provider
 @app.cls(
     image=video_processing_gpu_image,
+    # local install of `python-dotenv`
+    # pip install python-dotenv
     secrets=[modal.Secret.from_dotenv()],
     gpu="A100-40GB",
     volumes={CACHE_PATH: CACHE_VOLUME},
-    # scaledown_window=10, # short scaling window
 )
+# helps with faster restarts of stream
 @modal.concurrent(target_inputs=4, max_inputs=6)
 class WebRTCVideoProcessor(ModalWebRTCPeer):
     yolo_model = None

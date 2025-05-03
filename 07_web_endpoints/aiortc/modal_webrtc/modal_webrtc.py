@@ -22,7 +22,8 @@ class ModalWebRTCServer:
 
     # not using this, but could use it to spawn
     # user defined stream processing functions
-    # however this only works
+    # however this only works if the modal app is
+    # already deployed
     modal_peer_app_name: str = modal.parameter()
     modal_peer_cls_name: str = modal.parameter()
     # we use this classvar instead since we have access to it
@@ -81,12 +82,11 @@ class ModalWebRTCServer:
                     except Exception as e:
                         if isinstance(e, TimeoutError):
                             continue
-                        else:
-                            if not isinstance(e, WebSocketDisconnect):
-                                print(
-                                    f"Error relaying from client peer to modal peer {peer_id}: {e}"
-                                )
-                            return
+                        elif not isinstance(e, WebSocketDisconnect):
+                            print(
+                                f"Error relaying from client peer to modal peer {peer_id}: {e}"
+                            )
+                        return
 
             async def relay_modal_peer_messages(client_websocket, q):
                 # handle websocket messages and loop for lifetime
