@@ -185,9 +185,9 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
         import os
 
         turn_servers = [
-            {
-                "urls": "stun:stun.relay.metered.ca:80",
-            },
+            # {
+            #     "urls": "stun:stun.relay.metered.ca:80",
+            # },
             {
                 "urls": "turn:standard.relay.metered.ca:80",
                 "username": os.environ["TURN_USERNAME"],

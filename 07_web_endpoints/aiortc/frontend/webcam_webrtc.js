@@ -48,6 +48,10 @@ const startWebcamButton = document.getElementById('startWebcamButton');
 const startStreamingButton = document.getElementById('startStreamingButton');
 const stopStreamingButton = document.getElementById('stopStreamingButton');
 
+startWebcamButton.disabled = false;
+startStreamingButton.disabled = true;
+stopStreamingButton.disabled = true;
+
 // Add event listener for ICE server radio buttons
 document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -251,11 +255,9 @@ function cleanup() {
     iceServers = null;
     if (peerConnection) {
         peerConnection.close();
-        peerConnection = null;
     }
     if (ws) {
         ws.close();
-        ws = null;
     }
 }
 

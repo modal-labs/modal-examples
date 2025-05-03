@@ -72,7 +72,7 @@ class ModalWebRTCServer:
                     try:
                         # get websocket message and parse as json
                         msg = await asyncio.wait_for(
-                            client_websocket.receive_text(), timeout=20
+                            client_websocket.receive_text(), timeout=2
                         )
 
                         await q.put.aio(msg, partition=peer_id)
@@ -92,7 +92,7 @@ class ModalWebRTCServer:
                     try:
                         # get websocket message and parse as json
                         modal_peer_msg = await asyncio.wait_for(
-                            q.get.aio(partition="server"), timeout=20
+                            q.get.aio(partition="server"), timeout=2
                         )
 
                         if modal_peer_msg.startswith("close"):
@@ -183,7 +183,9 @@ class ModalWebRTCPeer:
         while True:
             try:
                 # get websocket message and parse as json
-                msg = json.loads(await websocket.receive_text())
+                msg = await asyncio.wait_for(
+                    json.loads(await websocket.receive_text()), timeout=2
+                )
 
                 # handle offer
                 if msg.get("type") == "offer":
@@ -236,6 +238,9 @@ class ModalWebRTCPeer:
 
                 else:
                     print(f"Unknown message type: {msg.get('type')}")
+
+                if self.pcs[peer_id].connectionState == "failed":
+                    break
 
             except Exception as e:
                 if isinstance(e, WebSocketDisconnect):
