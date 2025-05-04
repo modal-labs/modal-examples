@@ -12,8 +12,9 @@
 
 # We start by defining the image and Modal app.
 
-import modal
 from pathlib import Path
+
+import modal
 
 image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "optuna==4.3.0",
@@ -50,9 +51,9 @@ class OptunaWorker:
     def load_data(self):
         """Loads the data into memory during startup. Here we use a simple digits dataset. For large production
         datasets, we recommend saving your data into a modal Volume and loading the data from the Volume."""
+        import xgboost as xgb
         from sklearn.datasets import load_digits
         from sklearn.model_selection import train_test_split
-        import xgboost as xgb
 
         X, y = load_digits(return_X_y=True)
 
@@ -63,8 +64,8 @@ class OptunaWorker:
     @modal.method()
     def evaluate(self, params: dict, trial_number: int) -> float:
         """Evaluates the XGBoost model for `params`."""
-        import xgboost as xgb
         import numpy as np
+        import xgboost as xgb
         from sklearn.metrics import accuracy_score
 
         # A XGBoost callback that calls back to the Optuna head to define if we should prune
@@ -114,8 +115,8 @@ class OptunaWorker:
 # 3. Run an optuna dashboard to visualize the progress and trials.
 # 4. Concurrently, spawn Optuna workers with a concurrency limit of `CONCURRENCY`.
 
-from typing import TYPE_CHECKING
 import asyncio
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import optuna
@@ -132,8 +133,9 @@ class OptunaHead:
         """Define the optuna study."""
         DATA_DIR.mkdir(exist_ok=True)
         JOURNAL_STORAGE_LOG.touch(exist_ok=True)
-        import optuna
         import os
+
+        import optuna
         from optuna.storages import JournalStorage
         from optuna.storages.journal import JournalFileBackend
 
@@ -198,9 +200,9 @@ class OptunaHead:
     def optuna_dashboard(self):
         """Entry point for the optuna dashboard."""
         volume.reload()
+        import os
         import subprocess
         from shutil import which
-        import os
 
         optuna_dashboard = which("optuna-dashboard")
         assert optuna_dashboard is not None
