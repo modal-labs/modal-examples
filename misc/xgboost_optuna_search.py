@@ -168,7 +168,7 @@ class OptunaHead:
         async with semaphore:
             trial = await asyncio.to_thread(self.study.ask)
             self.trials[trial.number] = trial
-            params = self.get_param_from_trial(trial)
+            params = await asyncio.to_thread(self.get_param_from_trial, trial)
 
             try:
                 result = await OptunaWorker().evaluate.remote.aio(params, trial_number=trial.number)
