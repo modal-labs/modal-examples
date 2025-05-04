@@ -48,7 +48,8 @@ N_TRIALS = 500
 class OptunaWorker:
     @modal.enter()
     def load_data(self):
-        """Loads the data into memory during startup."""
+        """Loads the data into memory during startup. Here we use a simple digits dataset. For large production
+        datasets, we recommend saving your data into a modal Volume and loading the data from the Volume."""
         from sklearn.datasets import load_digits
         from sklearn.model_selection import train_test_split
         import xgboost as xgb
