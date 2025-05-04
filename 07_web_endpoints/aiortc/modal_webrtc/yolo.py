@@ -24,8 +24,7 @@ class YOLOv10:
         import numpy as np
         import onnxruntime
 
-        print(f"loading model from {model_file}")
-        print(onnxruntime.get_available_providers())
+        print(f"Loading model from {model_file}")
 
         self.session = onnxruntime.InferenceSession(
             model_file,
@@ -40,7 +39,6 @@ class YOLOv10:
                 "CUDAExecutionProvider",
             ],
         )
-        print("Model loaded")
         # Get model info
         self.get_input_details()
         self.get_output_details()

@@ -1,11 +1,9 @@
-# standard python imports...
 import os
 from pathlib import Path
 
-# ...and modal
 import modal
 
-from .modal_webrtc import ModalWebRTCPeer, ModalWebRTCServer
+from .modal_webrtc import ModalWebRTCPeer, ModalWebRtcServer
 
 APP_NAME = "aiortc-server-video-processing-example"
 
@@ -17,7 +15,6 @@ CACHE_PATH = Path("/cache")
 
 assets_parent_directory = Path(__file__).parent.parent.resolve()
 
-# image
 webrtc_base_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
@@ -29,7 +26,6 @@ webrtc_base_image = (
 )
 
 server_image = webrtc_base_image.add_local_dir(
-    # frontend files
     os.path.join(assets_parent_directory, "frontend"),
     remote_path="/frontend",
 )
@@ -48,9 +44,7 @@ video_processing_gpu_image = (
         # the onnxruntime(-gpu) package
         # uncomment US.UTF-8 locale
         "sed -i '/^#\\s*en_US.UTF-8 UTF-8/ s/^#//' /etc/locale.gen",
-        # generate locale
         "locale-gen en_US.UTF-8",
-        # update locale
         "update-locale LANG=en_US.UTF-8",
     )
     .apt_install("python3-opencv", "ffmpeg")
@@ -87,25 +81,30 @@ app = modal.App(APP_NAME)
     # pip install python-dotenv
     secrets=[modal.Secret.from_dotenv()],
     gpu="A100-40GB",
+    # we cache the model weights from hf hub
+    # as well as the onnx inference graph
+    # the graph can take a few minutes to build
+    # the very first time you run the app
     volumes={CACHE_PATH: CACHE_VOLUME},
 )
-# helps with faster restarts of stream
+# input concurrency helps with faster restarts of stream
+# by avoiding initliazing a new container for every streaming
+# call. it takes ~15 sec to load the onnx model/session for each
+# container
 @modal.concurrent(target_inputs=4, max_inputs=6)
 class WebRTCVideoProcessor(ModalWebRTCPeer):
     yolo_model = None
 
     async def initialize(self) -> None:
+        import numpy as np
         import onnxruntime
+        from aiortc import MediaStreamTrack
+        from aiortc.contrib.media import VideoFrame
 
         from .yolo import YOLOv10
 
         onnxruntime.preload_dlls()
         self.yolo_model = YOLOv10(CACHE_PATH)
-
-    async def setup_streams(self, peer_id: str):
-        import numpy as np
-        from aiortc import MediaStreamTrack
-        from aiortc.contrib.media import VideoFrame
 
         class YOLOTrack(MediaStreamTrack):
             """
@@ -120,28 +119,22 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
                 super().__init__()
                 self.track = track
                 self.yolo_model = model
-                print(f"YOLO Track initialized: {self.yolo_model}")
 
             def detection(self, image: np.ndarray) -> np.ndarray:
                 import cv2
 
                 orig_shape = image.shape[:-1]
-                print(f"Image shape: {image.shape}")
                 image = cv2.resize(
                     image,
                     (self.yolo_model.input_width, self.yolo_model.input_height),
                 )
-                print("Resized image shape: ", image.shape)
                 image_w_detections = self.yolo_model.detect_objects(
                     image, self.conf_threshold
                 )
                 image_w_detections = cv2.resize(
                     image_w_detections, (orig_shape[1], orig_shape[0])
                 )
-                print(
-                    "Resized image with detections shape: ",
-                    image_w_detections.shape,
-                )
+
                 return image_w_detections
 
             # this is the essential method we need to implement
@@ -163,6 +156,11 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 
                 return new_frame
 
+        self.processing_track_cls = YOLOTrack
+
+    async def setup_streams(self, peer_id: str):
+        from aiortc import MediaStreamTrack
+
         # keep us notified on connection state changes
         @self.pcs[peer_id].on("connectionstatechange")
         async def on_connectionstatechange() -> None:
@@ -180,7 +178,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
             )
 
             # create processed track
-            flipped_track = YOLOTrack(track, self.yolo_model)
+            flipped_track = self.processing_track_cls(track, self.yolo_model)
             self.pcs[peer_id].addTrack(flipped_track)
 
             # keep us notified when the incoming track ends
@@ -195,9 +193,9 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
         import os
 
         turn_servers = [
-            # {
-            #     "urls": "stun:stun.relay.metered.ca:80",
-            # },
+            {
+                "urls": "stun:stun.relay.metered.ca:80",
+            },
             {
                 "urls": "turn:standard.relay.metered.ca:80",
                 "username": os.environ["TURN_USERNAME"],
@@ -232,7 +230,7 @@ class WebRTCVideoProcessor(ModalWebRTCPeer):
 @app.cls(
     image=server_image,
 )
-class WebRTCVideoProcessorServer(ModalWebRTCServer):
+class WebRTCVideoProcessorServer(ModalWebRtcServer):
     from fastapi import FastAPI
 
     # lookup info for the WebRTCPeer to run on modal
@@ -240,8 +238,7 @@ class WebRTCVideoProcessorServer(ModalWebRTCServer):
     # modal_peer_cls_name = "WebRTCVideoProcessor"
     modal_peer_cls = WebRTCVideoProcessor
 
-    @modal.asgi_app(label="webrtc-video-processor-server")
-    def web_endpoints(self) -> FastAPI:
+    def initialize(self):
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
@@ -257,11 +254,6 @@ class WebRTCVideoProcessorServer(ModalWebRTCServer):
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
 
-        return self.web_app
-
-
-# create an output volume to store the transmitted videos
-
 
 @app.cls(image=tester_image, volumes={CACHE_PATH: CACHE_VOLUME})
 class WebRTCVideoProcessorTester(ModalWebRTCPeer):
@@ -271,6 +263,9 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
     # extra time to run streams beyond input video duration
     VIDEO_DURATION_BUFFER_SECS = 5.0
+    WS_OPEN_TIMEOUT = (
+        30  # allow time for container to spin up (can timeout with default 10)
+    )
 
     async def initialize(self) -> None:
         import cv2
@@ -379,15 +374,18 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
             WebRTCVideoProcessorServer().web_endpoints.web_url.replace(
                 "http", "ws"
             )
-            + f"/ws/{self.id}"
+            + f"/ws/{self.id}?modal_peer_app_name={APP_NAME}&modal_peer_cls_name=WebRTCVideoProcessor"
         )
-        async with websockets.connect(ws_uri) as websocket:
+        print(f"ws_uri: {ws_uri}")
+        async with websockets.connect(
+            ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
+        ) as websocket:
             await websocket.send(
                 json.dumps({"type": "identify", "peer_id": self.id})
             )
             peer_id = json.loads(await websocket.recv())["peer_id"]
 
-            offer_msg = await self.generate_offer(peer_id)
+            offer_msg = await self._generate_offer(peer_id)
             await websocket.send(json.dumps(offer_msg))
 
             try:
@@ -395,7 +393,7 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
                 answer = json.loads(await websocket.recv())
 
                 if answer.get("type") == "answer":
-                    await self.handle_answer(peer_id, answer)
+                    await self._handle_answer(peer_id, answer)
 
             except websockets.exceptions.ConnectionClosed:
                 await websocket.close()
@@ -412,7 +410,7 @@ MINUTES = 60  # seconds
 TEST_TIMEOUT = 2.0 * MINUTES
 
 
-# run tests
+# run test
 @app.local_entrypoint()
 def main():
     assert WebRTCVideoProcessorTester().run_video_processing_test.remote(), (

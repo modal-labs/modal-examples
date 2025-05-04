@@ -13,24 +13,23 @@ class IceCandidate:
     usernameFragment: str
 
 
-class ModalWebRTCServer:
+class ModalWebRtcServer:
     """
-    Class that handles WebRTC signaling
-    between WebRTC clients and a modal app
-    that implements the WebRTCPeer class
+    Class that spawns a model peer instance
+    that implements the ModalWebRTCPeer class
+    and handles WebRTC signaling
+    between a WebRTC clients and the modal
+    peer instance.
     """
 
-    # not using this, but could use it to spawn
-    # user defined stream processing functions
-    # however this only works if the modal app is
-    # already deployed
-    modal_peer_app_name: str = modal.parameter()
-    modal_peer_cls_name: str = modal.parameter()
+    # need to test if this works via ws endpoint as query params
+    modal_peer_app_name: str = modal.parameter(default="")
+    modal_peer_cls_name: str = modal.parameter(default="")
     # we use this classvar instead since we have access to it
     modal_peer_cls: ClassVar = None
 
     @modal.enter()
-    def initialize(self):
+    def _initialize(self):
         import uuid
 
         from fastapi import FastAPI, WebSocket
@@ -40,30 +39,57 @@ class ModalWebRTCServer:
         self.web_app = FastAPI()
 
         # handling signaling through websocket endpoint
+        # can set modal.parameter() values to dymamically
+        # choose a ModalWebRTCPeer subclass
+        # need to test
         @self.web_app.websocket("/ws/{peer_id}")
         async def ws(client_websocket: WebSocket, peer_id: str):
+            print(
+                f"Query param, modal_peer_app_name: {client_websocket.query_params.get('modal_peer_app_name')}"
+            )
+            print(
+                f"Query param, modal_peer_cls_name: {client_websocket.query_params.get('modal_peer_cls_name')}"
+            )
+
+            self.modal_peer_app_name = client_websocket.query_params.get(
+                "modal_peer_app_name"
+            )
+            self.modal_peer_cls_name = client_websocket.query_params.get(
+                "modal_peer_cls_name"
+            )
             # accept websocket connection
             await client_websocket.accept()
 
             # mediate negotiation
-            await self.mediate_negotiation(client_websocket, peer_id)
+            await self._mediate_negotiation(client_websocket, peer_id)
 
-    async def mediate_negotiation(self, client_websocket, peer_id: str):
+        self.initialize()
+
+    def initialize(self):
+        pass
+
+    @modal.asgi_app()
+    def web_endpoints(self):
+        return self.web_app
+
+    async def _mediate_negotiation(self, client_websocket, peer_id: str):
         import asyncio
 
         from fastapi import WebSocketDisconnect
 
-        # if not self.modal_peer_app_name or not self.modal_peer_cls_name:
-        #     print("Modal peer class or app name or class name not set")
-        #     return
+        if self.modal_peer_app_name and self.modal_peer_cls_name:
+            print(
+                f"Looking up deployed class by params: {self.modal_peer_app_name}, {self.modal_peer_cls_name}"
+            )
+            self.modal_peer_cls = modal.Cls.from_name(
+                self.modal_peer_app_name, self.modal_peer_cls_name
+            )
 
-        # self.ModalPeerCls = modal.Cls.from_name(self.modal_peer_app_name, self.modal_peer_cls_name)
-
-        if not self.modal_peer_cls:
-            print("Modal peer class not set")
+        if self.modal_peer_cls:
+            modal_peer_instance = self.modal_peer_cls()
+        else:
+            print("Modal peer class not set.")
             return
-
-        modal_peer_instance = self.modal_peer_cls()
 
         with modal.Queue.ephemeral() as q:
             print(f"Spawning modal peer instance for client peer {peer_id}...")
@@ -144,114 +170,20 @@ class ModalWebRTCPeer:
     async def _initialize(self):
         import uuid
 
-        from fastapi import FastAPI, WebSocket
+        from fastapi import FastAPI
 
         self.id = str(uuid.uuid4())
         self.web_app = FastAPI()
         self.pcs = {}
 
-        # handling signaling through websocket
-        @self.web_app.websocket("/ws/{peer_id}")
-        async def ws(websocket: WebSocket, peer_id: str):
-            # accept websocket connection
-            await websocket.accept()
-
-            await self.ws_negotiation(websocket, peer_id)
-
-            # run until complete
-            await self._run_streams(peer_id)
-
         # call custom init logic
         await self.initialize()
 
-    @modal.asgi_app()
-    def web_endpoints(self):
-        return self.web_app
-
-    def get_turn_servers(self):
+    async def initialize(self):
         """
-        Returns a list of TURN servers
+        Any custom logic when instantiating the peer
         """
         pass
-
-    async def ws_negotiation(self, websocket, peer_id: str):
-        import asyncio
-        import json
-
-        from aiortc.sdp import candidate_from_sdp
-        from fastapi import WebSocketDisconnect
-
-        # handle websocket messages and loop for lifetime
-        while True:
-            try:
-                # get websocket message and parse as json
-                msg = await asyncio.wait_for(
-                    json.loads(await websocket.receive_text()), timeout=2
-                )
-
-                # handle offer
-                if msg.get("type") == "offer":
-                    print(f"Peer {self.id} received offer from {peer_id}...")
-
-                    await self.handle_offer(peer_id, msg)
-
-                    # generate and send answer
-                    await websocket.send_text(
-                        json.dumps(self.generate_answer(peer_id))
-                    )
-
-                # handle ice candidate (trickle ice)
-                elif msg.get("type") == "ice_candidate":
-                    candidate = msg.get("candidate")
-
-                    if not candidate or not self.pcs.get(peer_id):
-                        return
-
-                    print(
-                        f"Peer {self.id} received ice candidate from {peer_id}..."
-                    )
-
-                    # parse ice candidate
-                    ice_candidate = candidate_from_sdp(
-                        candidate["candidate_sdp"]
-                    )
-                    ice_candidate.sdpMid = candidate["sdpMid"]
-                    ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
-
-                    await self.handle_ice_candidate(peer_id, ice_candidate)
-
-                    # wait and break if connected
-                    # this ensures that we close websocket asap (could remove)
-                    await asyncio.sleep(0.2)
-                    if self.pcs[peer_id].connectionState == "connected":
-                        break
-
-                # get peer's id
-                elif msg.get("type") == "identify":
-                    await websocket.send_text(
-                        json.dumps({"type": "identify", "peer_id": self.id})
-                    )
-
-                elif msg.get("type") == "get_turn_servers":
-                    print("Sending turn servers to peer...")
-                    await websocket.send_text(
-                        json.dumps(self.get_turn_servers())
-                    )
-
-                else:
-                    print(f"Unknown message type: {msg.get('type')}")
-
-                if self.pcs[peer_id].connectionState == "failed":
-                    break
-
-            except Exception as e:
-                if isinstance(e, WebSocketDisconnect):
-                    break
-                else:
-                    print(f"Error: {e}")
-
-        await websocket.close()
-        print(f"Server websocket connection to peer {peer_id} closed.")
 
     @modal.method()
     async def run_with_queue(self, q: modal.Queue, peer_id: str):
@@ -287,11 +219,11 @@ class ModalWebRTCPeer:
                 if msg.get("type") == "offer":
                     print(f"Peer {self.id} received offer from {peer_id}...")
 
-                    await self.handle_offer(peer_id, msg)
+                    await self._handle_offer(peer_id, msg)
 
                     # generate and send answer
                     await q.put.aio(
-                        json.dumps(self.generate_answer(peer_id)),
+                        json.dumps(self._generate_answer(peer_id)),
                         partition="server",
                     )
 
@@ -313,7 +245,7 @@ class ModalWebRTCPeer:
                     ice_candidate.sdpMid = candidate["sdpMid"]
                     ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
 
-                    await self.handle_ice_candidate(peer_id, ice_candidate)
+                    await self._handle_ice_candidate(peer_id, ice_candidate)
 
                 # get peer's id
                 elif msg.get("type") == "identify":
@@ -347,12 +279,6 @@ class ModalWebRTCPeer:
 
         print(f"Shutting down modal peer instance for client peer {peer_id}...")
 
-    async def initialize(self):
-        """
-        Any custom logic when instantiating the peer
-        """
-        pass
-
     async def _setup_peer_connection(self, peer_id):
         from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection
 
@@ -377,7 +303,13 @@ class ModalWebRTCPeer:
         """
         pass
 
-    async def generate_offer(self, peer_id):
+    def get_turn_servers(self):
+        """
+        Returns a list of TURN servers
+        """
+        pass
+
+    async def _generate_offer(self, peer_id):
         print(f"Peer {self.id} generating offer for {peer_id}...")
 
         # initalize peer connection
@@ -394,7 +326,7 @@ class ModalWebRTCPeer:
             "peer_id": self.id,
         }
 
-    async def handle_offer(self, peer_id, offer):
+    async def _handle_offer(self, peer_id, offer):
         from aiortc import RTCSessionDescription
 
         print(f"Peer {self.id} handling offer from {peer_id}...")
@@ -410,7 +342,7 @@ class ModalWebRTCPeer:
         # set local/our description, this also triggers ICE gathering
         await self.pcs[peer_id].setLocalDescription(answer)
 
-    def generate_answer(self, peer_id):
+    def _generate_answer(self, peer_id):
         print(f"Peer {self.id} generating answer for {peer_id}...")
 
         return {
@@ -419,7 +351,7 @@ class ModalWebRTCPeer:
             "peer_id": self.id,
         }
 
-    async def handle_answer(self, peer_id, answer):
+    async def _handle_answer(self, peer_id, answer):
         from aiortc import RTCSessionDescription
 
         print(f"Peer {self.id} handling answer from {peer_id}...")
@@ -428,7 +360,7 @@ class ModalWebRTCPeer:
             RTCSessionDescription(sdp=answer["sdp"], type=answer["type"])
         )
 
-    async def handle_ice_candidate(self, peer_id, candidate):
+    async def _handle_ice_candidate(self, peer_id, candidate):
         import asyncio
 
         print(f"Peer {self.id} handling ice candidate from {peer_id}...")
