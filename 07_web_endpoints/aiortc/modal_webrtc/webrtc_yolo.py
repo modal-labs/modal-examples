@@ -77,15 +77,19 @@ app = modal.App(APP_NAME)
 # and then streams the flipped video back to the provider
 @app.cls(
     image=video_processing_gpu_image,
-    # local install of `python-dotenv`
-    # pip install python-dotenv
-    secrets=[modal.Secret.from_dotenv()],
     gpu="A100-40GB",
     # we cache the model weights from hf hub
     # as well as the onnx inference graph
     # the graph can take a few minutes to build
     # the very first time you run the app
     volumes={CACHE_PATH: CACHE_VOLUME},
+    # secrete for TURN server
+    # local install of `python-dotenv`
+    # pip install python-dotenv
+    secrets=[modal.Secret.from_dotenv()],
+    # pin the peer container region to one
+    # close to the client(s) to minimize latency
+    # region="us-east-1",
 )
 # input concurrency helps with faster restarts of stream
 # by avoiding initliazing a new container for every streaming
