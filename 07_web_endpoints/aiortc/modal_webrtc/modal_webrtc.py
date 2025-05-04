@@ -170,10 +170,7 @@ class ModalWebRTCPeer:
     async def _initialize(self):
         import uuid
 
-        from fastapi import FastAPI
-
         self.id = str(uuid.uuid4())
-        self.web_app = FastAPI()
         self.pcs = {}
 
         # call custom init logic
