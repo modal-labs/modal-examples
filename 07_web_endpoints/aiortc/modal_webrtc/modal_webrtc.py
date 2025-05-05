@@ -22,10 +22,8 @@ class ModalWebRtcServer:
     peer instance.
     """
 
-    # need to test if this works via ws endpoint as query params
-    modal_peer_app_name: str = modal.parameter(default="")
-    modal_peer_cls_name: str = modal.parameter(default="")
-    # we use this classvar instead since we have access to it
+    # classvar for the modal peer class
+    # so we can instantiate and spawn it later
     modal_peer_cls: ClassVar = None
 
     @modal.enter()
@@ -39,24 +37,8 @@ class ModalWebRtcServer:
         self.web_app = FastAPI()
 
         # handling signaling through websocket endpoint
-        # can set modal.parameter() values to dymamically
-        # choose a ModalWebRTCPeer subclass
-        # need to test
         @self.web_app.websocket("/ws/{peer_id}")
         async def ws(client_websocket: WebSocket, peer_id: str):
-            print(
-                f"Query param, modal_peer_app_name: {client_websocket.query_params.get('modal_peer_app_name')}"
-            )
-            print(
-                f"Query param, modal_peer_cls_name: {client_websocket.query_params.get('modal_peer_cls_name')}"
-            )
-
-            self.modal_peer_app_name = client_websocket.query_params.get(
-                "modal_peer_app_name"
-            )
-            self.modal_peer_cls_name = client_websocket.query_params.get(
-                "modal_peer_cls_name"
-            )
             # accept websocket connection
             await client_websocket.accept()
 
@@ -76,14 +58,6 @@ class ModalWebRtcServer:
         import asyncio
 
         from fastapi import WebSocketDisconnect
-
-        if self.modal_peer_app_name and self.modal_peer_cls_name:
-            print(
-                f"Looking up deployed class by params: {self.modal_peer_app_name}, {self.modal_peer_cls_name}"
-            )
-            self.modal_peer_cls = modal.Cls.from_name(
-                self.modal_peer_app_name, self.modal_peer_cls_name
-            )
 
         if self.modal_peer_cls:
             modal_peer_instance = self.modal_peer_cls()

@@ -373,14 +373,12 @@ class WebRTCVideoProcessorTester(ModalWebRTCPeer):
         import websockets
 
         peer_id = None
-        # setup WebRTC connection using websockets
-        # choose to spawn a deployed app
-        # query_params = f"?modal_peer_app_name={APP_NAME}&modal_peer_cls_name=WebRTCVideoProcessor"
+        # connect to server via websocket
         ws_uri = (
             WebRTCVideoProcessorServer().web_endpoints.web_url.replace(
                 "http", "ws"
             )
-            + f"/ws/{self.id}"  # + query_params
+            + f"/ws/{self.id}"
         )
         print(f"ws_uri: {ws_uri}")
         async with websockets.connect(
