@@ -3,6 +3,7 @@
 # ---
 
 # TODO: deprecation warnings at the beginning??
+# TODO: remove all but necessary aspects of torch compile caching
 
 # # Sharing the Love: Using `torch.compile` Artifacts Across Containers
 # TODO: Brief into to torch.compile: fast startups
