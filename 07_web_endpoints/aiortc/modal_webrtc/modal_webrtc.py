@@ -121,7 +121,7 @@ class ModalWebRtcServer:
             )
 
 
-class ModalWebRTCPeer:
+class ModalWebRtcPeer:
     """
     Base class for WebRTC peer connections using aiortc
     that handles connection setup, negotiation, and stream management.

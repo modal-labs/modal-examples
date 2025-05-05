@@ -3,7 +3,7 @@ from pathlib import Path
 
 import modal
 
-from .modal_webrtc import ModalWebRTCPeer, ModalWebRtcServer
+from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
 APP_NAME = "aiortc-server-video-processing-example"
 
@@ -96,7 +96,7 @@ app = modal.App(APP_NAME)
 # call. it takes ~15 sec to load the onnx model/session for each
 # container
 @modal.concurrent(target_inputs=4, max_inputs=6)
-class WebRTCVideoProcessor(ModalWebRTCPeer):
+class WebRTCVideoProcessor(ModalWebRtcPeer):
     yolo_model = None
 
     async def initialize(self) -> None:
@@ -260,7 +260,7 @@ class WebRTCVideoProcessorServer(ModalWebRtcServer):
 
 
 @app.cls(image=tester_image, volumes={CACHE_PATH: CACHE_VOLUME})
-class WebRTCVideoProcessorTester(ModalWebRTCPeer):
+class WebRTCVideoProcessorTester(ModalWebRtcPeer):
     TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = CACHE_PATH / "flipped_test_video.mp4"
     # allowed difference between source and recorded video files
