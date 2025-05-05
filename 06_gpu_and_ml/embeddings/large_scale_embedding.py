@@ -1,5 +1,5 @@
 # ---
-# args: ["--down-scale", ".0001"]
+# args: ["--down-scale", ".000001"]
 # ---
 
 # # Embedding 30 Million Amazon Reviews with GTE-Qwen2-7B-instruct
