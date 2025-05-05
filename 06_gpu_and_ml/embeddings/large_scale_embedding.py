@@ -138,7 +138,7 @@ inference_image = (
     .pip_install(
         "huggingface_hub[hf_transfer]==0.30.2",
         "httpx==0.28.1",
-        "numpy=2.2.5",
+        "numpy==2.2.5",
         "tqdm==4.67.1",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": MODEL_DIR})
