@@ -2,6 +2,8 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/compiled_embedder.py::main"]
 # ---
 
+# TODO: deprecation warnings at the beginning??
+
 # # Sharing the Love: Using `torch.compile` Artifacts Across Containers
 # TODO: Brief into to torch.compile: fast startups
 # ## BLUF (bottom line up front)
@@ -19,62 +21,8 @@ from typing import Iterator
 
 import modal
 
-os.environ["TORCHINDUCTOR_FX_GRAPH_CACHE"] = "1"
-os.environ["TORCHINDUCTOR_AUTOGRAD_CACHE"] = "1"
-os.environ["TORCHINDUCTOR_CACHE_DIR"] = "/data/model-compile-cache"
-# enable logging of hits/misses
-os.environ["TORCH_LOGS"] = "+torch._inductor.codecache"
-# ## Key Parameters
-# TODO: remove these/ simplify as much as possible
-max_concurrent_inputs: int = 2
-gpu: str = "H100"
-# max_containers: int = 10
-memory_request: float = 5 * 1024  # MB->GB
-core_request: float = 4
-threads_per_core: int = 8
-batch_size: int = 400
-image_cap: int = 1000000
-
-# This timeout caps the maximum time a single function call is allowed to take. In this example, that
-# includes reading a batch-worth of data and running inference on it. When `batch_size` is large (e.g. 5000)
-# and with a large value of `max_concurrent_inputs`, where a batch may sit in a queue for a while,
-# this could take several minutes.
-timeout_seconds: int = 5 * 60
-
-# ## Data and Model Specification
-# This model parameter should point to a model on HuggingFace that is supported by Infinity.
-# Note that your selected model might require specialized imports when
-# designing the image in the next section. This [OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT")
-# takes about 4-10s to load into memory.
-model_name = "openai/clip-vit-base-patch16"  # 599 MB
-model_input_shape = (224, 224)
-model_compile_cache = "model-compile-cache"
-DESTROY_CACHE = True
-
-# We will use a high-performance [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
-# both to cache model weights and to store images we want to encode. The details of
-# setting this volume up are below. Here, we just need to name it so that we can instantiate
-# the Modal application.
-# You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
-hf_secret = modal.Secret.from_name("huggingface-secret")
-# Change this global variable to use a different HF dataset:
-hf_dataset_name = "extracted/microsoft/cats_vs_dogs"
-# This name is important for referencing the volume in other apps or for [browsing](https://modal.com/storage):
-vol_name = "example-embedding-data"
-# This is the location within the container that this Volume will be mounted:
-vol_mnt = Path("/data")
-# Finally, the Volume object can be created:
-data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
-thcompile = vol_mnt / model_compile_cache  # "th_compile"  # for backend
-model_cache_dir = vol_mnt / model_compile_cache  # for manually saved megacache
-
-# in image creations:::
-# RUN python -c " \
-#     from torch.compiler import save_cache_artifacts; \
-#     from transformers import CLIPVisionModel; \
-#     m = CLIPVisionModel.from_pretrained('openai/clip-vit-base-patch16').cuda().eval(); \
-#     torch.compile(m); \
-#     torch.save(torch.compiler.save_cache_artifacts(), '/cache/clip-cache.pt')"
+# ## Volume Setup
+# TODO: bring back the fully reproducible HF->Vol pipelien
 
 
 def find_images_to_encode(image_cap: int = 1) -> list[os.PathLike]:
@@ -93,6 +41,26 @@ def find_images_to_encode(image_cap: int = 1) -> list[os.PathLike]:
     if image_cap > 0:
         im_path_list = im_path_list[: min(len(im_path_list), image_cap)]
     return im_path_list
+
+
+# We will use a high-performance [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume") to
+# 1. cache model weights
+# 2. cache torch.compile traces kernels etc.
+# 3. to store the image dataset we want to encode.
+# The details of setting this volume up are below. Here, we just need to name it so that we can instantiate
+# the Modal application.
+
+# You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
+hf_secret = modal.Secret.from_name("huggingface-secret")
+# Change this global variable to use a different HF dataset:
+hf_dataset_name = "extracted/microsoft/cats_vs_dogs"
+# This name is important for referencing the volume in other apps or for [browsing](https://modal.com/storage):
+vol_name = "example-embedding-data"
+# This is the location within the container that this Volume will be mounted:
+vol_mnt = Path("/data")
+# Finally, the Volume object can be created:
+data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
+TH_CACHE_DIR = vol_mnt / "model-compile-cache"  # "th_compile"  # for backend
 
 
 # ## Define the image
@@ -114,12 +82,10 @@ infinity_image = (
         {
             "HF_HOME": vol_mnt.as_posix(),  # For model and data caching in our Volume
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For fast data transfer
-            "TORCHINDUCTOR_CACHE_DIR": thcompile.as_posix(),
-            "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
-            "TORCHINDUCTOR_AUTOGRAD_CACHE": "1",
-            "TORCH_LOGS": "+torch._inductor.codecache",
-            # "TORCHDYNAMO_VERBOSE": "1",
-            # "TORCH_LOGS": "+dynamo",
+            "TORCHINDUCTOR_CACHE_DIR": TH_CACHE_DIR.as_posix(),
+            "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",  # TODO: necessary?
+            "TORCHINDUCTOR_AUTOGRAD_CACHE": "1",  # TODO: necessary?
+            "TORCH_LOGS": "+torch._inductor.codecache",  # TODO: necessary?
         }
     )
 )
@@ -145,18 +111,23 @@ with infinity_image.imports():
 @app.cls(
     image=infinity_image,
     volumes={vol_mnt: data_volume},
-    timeout=timeout_seconds,
-    buffer_containers=10,
-    # max_containers=max_containers,
-    gpu=gpu,
-    cpu=core_request,
+    timeout=5 * 60,  # 5min timeout for large models + batches
+    cpu=4,
     memory=5 * 1024,  # MB -> GB
 )
-@modal.concurrent(max_inputs=max_concurrent_inputs)
 class TorchCompileEngine:
-    n_engines: int = max_concurrent_inputs
-    model_name: str = model_name
-    cache_dir: Path = model_cache_dir
+    model_name: str = modal.parameter()
+    batch_size: int = modal.parameter(default=100)
+    n_engines: int = modal.parameter(default=1)
+    model_input_chan: int = modal.parameter(default=3)
+    model_input_imheight: int = modal.parameter(default=224)
+    model_input_imwidth: int = modal.parameter(default=224)
+    threads_per_core: int = modal.parameter(default=4)
+    verbose_inference: bool = modal.parameter(default=False)
+    # Cannot currently gracefully set ENV vars from local_entrypoint
+    cache_dir: Path = TH_CACHE_DIR
+    # Condense
+    modal_input_size = (model_input_chan, model_input_imwidth, model_input_imwidth)
 
     def init_th(self):
         major, minor = torch.cuda.get_device_capability(torch.cuda.current_device())
@@ -213,14 +184,18 @@ class TorchCompileEngine:
             model.load_state_dict(state)
 
             # Uses cache under the hood (if available)
-            compiled_model = torch.compile(model)
+            compiled_model = torch.compile(
+                model,
+                mode="reduce-overhead",
+                fullgraph=True,
+            )
 
             # (3.b) Cache the trace only in the 1st container for the 1st model copy
             if (idx == 0) and (not compile_cache.is_file()):
                 # Complete the trace with an inference
                 compiled_model(
                     **self.preprocessor(
-                        images=torch.randn(batch_size, 3, 224, 224),
+                        images=torch.randn(self.batch_size, *self.model_input_shape),
                         device=compiled_model.device,
                         return_tensors="pt",
                     )
@@ -250,7 +225,7 @@ class TorchCompileEngine:
             return read_image(str(vol_mnt / impath))
 
         with ThreadPoolExecutor(
-            max_workers=os.cpu_count() * threads_per_core
+            max_workers=os.cpu_count() * self.threads_per_core
         ) as executor:
             images = list(executor.map(readim, im_path_list))
 
@@ -273,19 +248,20 @@ class TorchCompileEngine:
             st = perf_counter()
             images = self.read_batch(images, engine.device)
             batch_elapsed = perf_counter() - st
-            # print(f"batch_shape: {images.shape}")
+
             # (2) Encode the batch
             st = perf_counter()
             embedding = engine(**images).pooler_output
             embed_elapsed = perf_counter() - st
-            # print(f"made embedding with shape: {embedding.shape}")
+
         finally:
             # No matter what happens, return the engine to the queue
             await self.engine_queue.put(engine)
 
         # (3) Housekeeping
-        # print(f"Time to load batch: {batch_elapsed:.2E}s")
-        # print(f"Time to embed batch: {embed_elapsed:.2E}s")
+        if self.verbose_inference:
+            print(f"Time to load batch: {batch_elapsed:.2E}s")
+            print(f"Time to embed batch: {embed_elapsed:.2E}s")
 
         # (4) You may wish to return the embeddings themselves here
         return embed_elapsed, len(images)
@@ -295,32 +271,34 @@ class TorchCompileEngine:
         """
         trying to get less printouts?...
         """
-
         # how kill async quietly..
-
-        # if DESTROY_CACHE and self.cache_dir.exists():
-        #     num_files = sum(1 for f in self.cache_dir.rglob("*") if f.is_file())
-        #     print(f"*** DESTROYING model cache! ({num_files} files)")
-        #     shutil.rmtree(self.cache_dir.as_posix())
-        #     n_deleted = num_files - sum(
-        #         1 for f in self.cache_dir.rglob("*") if f.is_file()
-        #     )
-        #     print(f"deleted {n_deleted}/{num_files}.")
         return
 
 
 @app.function(image=infinity_image, volumes={vol_mnt: data_volume})
-def destroy_cache():
-    if model_cache_dir.exists():
-        num_files = sum(1 for f in model_cache_dir.rglob("*") if f.is_file())
+def destroy_th_compile_cache(cache_dir):
+    """
+    For timing purposes: deletes torch compile cache dir.
+    """
+    if cache_dir.exists():
+        num_files = sum(1 for f in cache_dir.rglob("*") if f.is_file())
 
-        print(f"\t*** DESTROYING model cache! ({num_files} files)")
-        shutil.rmtree(model_cache_dir.as_posix())
-    else:
         print(
-            f"\t***destroy_cache was called, but path doesnt exist:\n\t{model_cache_dir}"
+            "\t*** DESTROYING model cache! You sure you wanna do that?! "
+            f"({num_files} files)"
         )
+        shutil.rmtree(cache_dir.as_posix())
+    else:
+        print(f"\t***destroy_cache was called, but path doesnt exist:\n\t{cache_dir}")
     return
+
+
+def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLike]]:
+    """
+    Helper function that chunks a sequence into subsequences of length `subseq_size`.
+    """
+    for i in range(0, len(seq), subseq_size):
+        yield seq[i : i + subseq_size]
 
 
 # ## Local Entrypoint
@@ -330,43 +308,60 @@ def destroy_cache():
 # across the batches are autoscaled depending on the app parameters
 # `max_containers` and `max_concurrent_inputs`.
 @app.local_entrypoint()
-def main():
+def main(
+    # with_options parameters:
+    gpu: str = "H100",
+    max_containers: int = 1,
+    allow_concurrent_inputs: int = 1,
+    # modal.parameters:
+    threads_per_core: int = 8,
+    batch_size: int = 500,
+    model_name: str = "openai/clip-vit-base-patch16",  # 599 MB # "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"  #
+    model_input_chan: int = 3,
+    model_input_imheight: int = 224,
+    model_input_imwidth: int = 224,
+    # other
+    image_cap: int = -1,
+    destroy_cache: bool = False,
+    log_file: str = None,  # TODO: remove local logging from example
+):
     start_time = perf_counter()
 
-    if DESTROY_CACHE:
+    # This destroys cache for timing purposes - you probably don't want to do this!
+    if destroy_cache:
         destroy_cache.remote()
 
     # (1) Catalog data: modify `catalog_jpegs` to fetch batches of your data.
     im_path_list = find_images_to_encode(image_cap=image_cap)
-    im_path_list += im_path_list  # 40k
-    im_path_list += im_path_list  # 80k
-    im_path_list += im_path_list  # 160k
-    im_path_list += im_path_list  # 320k
-    im_path_list += im_path_list  # 740k
-    im_path_list += im_path_list  # 1480k
-
-    def chunked(
-        seq: list[os.PathLike], subseq_size: int
-    ) -> Iterator[list[os.PathLike]]:
-        """
-        Helper function that chunks a sequence into subsequences of length `subseq_size`.
-        """
-        for i in range(0, len(seq), subseq_size):
-            yield seq[i : i + subseq_size]
-
-    if image_cap > 0:
-        im_path_list = im_path_list[:image_cap]
-    print(f"using {len(im_path_list)}.")
-    # print(f"Took {vol_setup_time:.2f}s to setup volume.")
     n_ims = len(im_path_list)
 
     # (2) Init the model inference app
     start_time = perf_counter()
-    embedder = TorchCompileEngine()
-    # Call an initial time to trigger standalone model compilation
-    # print("Encoding a test batch before `map` is called...")
-    # embedder.embed.remote(im_path_list[:batch_size])
-    # print("...finna call map.")
+    embedder = TorchCompileEngine.with_options(
+        gpu=gpu,
+        max_containers=max_containers,
+        allow_concurrent_inputs=allow_concurrent_inputs,
+        # Use one of these (instead of max_containers) to optimize throughput
+        # min_containers=min_containers,
+        # buffer_containers=buffer_containers,
+    )(
+        batch_size=batch_size,
+        n_engines=allow_concurrent_inputs,
+        model_name=model_name,
+        model_input_chan=model_input_chan,
+        model_input_imheight=model_input_imheight,
+        model_input_imwidth=model_input_imwidth,
+        threads_per_core=threads_per_core,
+    )
+
+    ############################
+    # Call an initial time to trigger standalone model compilation!
+    if destroy_cache:
+        # TODO: better way to avoid race condition for diff containers
+        # competing to be "first done"?
+        print("Encoding a test batch before `map` is called...")
+        embedder.embed.remote(im_path_list[:batch_size])
+        print("...now we will call map.")
 
     # (3) Embed batches via remote `map` call
     times, batchsizes = [], []
@@ -384,20 +379,48 @@ def main():
         avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
 
         log_msg = (
-            "****************************\n"
-            "****************************\n"
-            "****************************\n"
-            "****************************\n"
             f"EmbeddingRacetrack{gpu}::batch_size={batch_size}::"
-            f"n_ims={n_ims}::concurrency={max_concurrent_inputs}::"
-            f"max_containers={'inf'}::cores={core_request}\n"
+            f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
-            f"\tEmbedding-only throughput (avg):\t{avg_throughput:.2f} im/s\n"
-            "****************************\n"
-            "****************************\n"
-            "****************************\n"
-            "****************************\n"
+            f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
         )
 
         print(log_msg)
+
+        if log_file is not None:
+            local_logfile = Path(log_file).expanduser()
+            local_logfile.parent.mkdir(parents=True, exist_ok=True)
+
+            import csv
+
+            csv_exists = local_logfile.exists()
+            with open(local_logfile, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                if not csv_exists:
+                    # write header
+                    writer.writerow(
+                        [
+                            "batch_size",
+                            "concurrency",
+                            "max_containers",
+                            "gpu",
+                            "n_images",
+                            "total_time",
+                            "total_throughput",
+                            "avg_model_throughput",
+                        ]
+                    )
+                # write your row
+                writer.writerow(
+                    [
+                        batch_size,
+                        allow_concurrent_inputs,
+                        max_containers,
+                        gpu,
+                        n_ims,
+                        total_duration,
+                        total_throughput,
+                        avg_throughput,
+                    ]
+                )
