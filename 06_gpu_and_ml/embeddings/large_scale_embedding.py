@@ -63,7 +63,7 @@ def main(down_scale: float = 1):
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("datasets"),
+    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"),
     timeout=240 * MINUTES,
 )
 def launch_job(down_scale: float = 1):
@@ -135,7 +135,12 @@ TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:89-1.7"
 inference_image = (
     modal.Image.from_registry(TEI_IMAGE, add_python="3.12")
     .dockerfile_commands("ENTRYPOINT []")
-    .pip_install("huggingface_hub[hf_transfer]", "httpx", "numpy", "tqdm")
+    .pip_install(
+        "huggingface_hub[hf_transfer]==0.30.2",
+        "httpx==0.28.1",
+        "numpy=2.2.5",
+        "tqdm==4.67.1",
+    )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": MODEL_DIR})
     .run_function(download_model, volumes={MODEL_DIR: MODEL_CACHE_VOLUME})
 )
