@@ -466,6 +466,7 @@ def main(
     # data
     image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    million_image_test: bool = False,
     # logging (optional)
     log_file: str = None,  # TODO: remove local logging from example
 ):
@@ -480,6 +481,13 @@ def main(
         model_input_shape=(model_input_chan, model_input_imheight, model_input_imwidth),
     )
     print(f"Took {vol_setup_time:.2f}s to setup volume.")
+    if million_image_test:
+        print("WARNING: `million_image_test` FLAG RECEIVED! RESETTING BSZ ETC!")
+        mil = int(1e6)
+        batch_size = 700
+        while len(im_path_list) < mil:
+            im_path_list += im_path_list
+        im_path_list = im_path_list[:mil]
     n_ims = len(im_path_list)
 
     # (1) Init the model inference app

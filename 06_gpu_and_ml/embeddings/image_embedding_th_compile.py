@@ -533,7 +533,7 @@ def main(
     # with_options parameters:
     gpu: str = "A10G",
     max_containers: int = 50,  # this gets overridden if buffer_containers is not None
-    allow_concurrent_inputs: int = 2,
+    allow_concurrent_inputs: int = 1,
     # modal.parameters:
     threads_per_core: int = 8,
     batch_size: int = 32,
@@ -544,6 +544,7 @@ def main(
     # data
     image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    million_image_test: bool = False,
     # torch.compile cache
     destroy_cache: bool = False,
     # logging (optional)
@@ -560,6 +561,13 @@ def main(
         model_input_shape=(model_input_chan, model_input_imheight, model_input_imwidth),
     )
     print(f"Took {vol_setup_time:.2f}s to setup volume.")
+    if million_image_test:
+        print("WARNING: `million_image_test` FLAG RECEIVED!")
+        mil = int(1e6)
+        while len(im_path_list) < mil:
+            im_path_list += im_path_list
+        im_path_list = im_path_list[:mil]
+        batch_size = 128
     n_ims = len(im_path_list)
 
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
@@ -583,15 +591,6 @@ def main(
         model_input_imwidth=model_input_imwidth,
         threads_per_core=threads_per_core,
     )
-
-    ############################
-    # (1.b) Call one initial time to trigger standalone model compilation!
-    if destroy_cache and (buffer_containers is None):
-        # TODO: better way to avoid race condition for diff containers
-        # competing to be "first done"?
-        print("Encoding a test batch before `map` is called...")
-        embedder.embed.remote(im_path_list[:batch_size])
-        print("...now we will call map.")
 
     # (2) Embed batches via remote `map` call
     times, batchsizes = [], []
