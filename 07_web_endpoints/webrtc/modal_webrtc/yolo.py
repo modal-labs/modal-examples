@@ -1,11 +1,14 @@
+import time
 from pathlib import Path
+
+import cv2
+import numpy as np
+import onnxruntime
 
 this_dir = Path(__file__).parent.resolve()
 
 
 class YOLOv10:
-    import numpy as np
-
     def __init__(self, cache_dir):
         from huggingface_hub import hf_hub_download
 
@@ -21,9 +24,6 @@ class YOLOv10:
         print("YOLO model initialized")
 
     def initialize_model(self, model_file):
-        import numpy as np
-        import onnxruntime
-
         print(f"Loading model from {model_file}")
 
         self.session = onnxruntime.InferenceSession(
@@ -58,9 +58,6 @@ class YOLOv10:
         return new_image
 
     def prepare_input(self, image):
-        import cv2
-        import numpy as np
-
         self.img_height, self.img_width = image.shape[:2]
 
         input_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -76,10 +73,6 @@ class YOLOv10:
         return input_tensor
 
     def inference(self, image, input_tensor, conf_threshold=0.3):
-        import time
-
-        import onnxruntime
-
         # set seed to potentially create smoother output in RT setting
         onnxruntime.set_seed(42)
         start = time.perf_counter()
@@ -96,8 +89,6 @@ class YOLOv10:
         return self.draw_detections(image, boxes, scores, class_ids)
 
     def process_output(self, output, conf_threshold=0.3):
-        import numpy as np
-
         predictions = np.squeeze(output[0])
 
         # Filter out object confidence scores below threshold
@@ -129,8 +120,6 @@ class YOLOv10:
         return boxes
 
     def rescale_boxes(self, boxes):
-        import numpy as np
-
         # Rescale boxes to original image dimensions
         input_shape = np.array(
             [
@@ -154,8 +143,6 @@ class YOLOv10:
         img_height, img_width = image.shape[:2]
         font_size = min([img_height, img_width]) * 0.0012
         text_thickness = int(min([img_height, img_width]) * 0.004)
-
-        # det_img = draw_masks(det_img, boxes, class_ids, mask_alpha)
 
         # Draw bounding boxes and labels of detections
         for class_id, box, score in zip(class_ids, boxes, scores):
@@ -194,8 +181,6 @@ class YOLOv10:
         color: tuple[int, int, int] = (0, 0, 255),
         thickness: int = 5,
     ) -> np.ndarray:
-        import cv2
-
         x1, y1, x2, y2 = box.astype(int)
         return cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness)
 
@@ -209,8 +194,6 @@ class YOLOv10:
         text_thickness: int = 5,
         box_thickness: int = 5,
     ) -> np.ndarray:
-        import cv2
-
         x1, y1, x2, y2 = box.astype(int)
         (tw, th), _ = cv2.getTextSize(
             text=text,
