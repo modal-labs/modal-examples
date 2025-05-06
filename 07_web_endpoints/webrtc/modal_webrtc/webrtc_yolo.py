@@ -30,11 +30,11 @@ server_image = webrtc_base_image.add_local_dir(
     remote_path="/frontend",
 )
 
-tester_image = webrtc_base_image.add_local_dir(
-    # video file for testing
-    os.path.join(assets_parent_directory, "media"),
-    remote_path="/media",
-)
+# tester_image = webrtc_base_image.add_local_dir(
+#     # video file for testing
+#     os.path.join(assets_parent_directory, "media"),
+#     remote_path="/media",
+# )
 
 video_processing_gpu_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -259,9 +259,9 @@ class WebRTCVideoProcessorServer(ModalWebRtcServer):
             return HTMLResponse(content=html)
 
 
-@app.cls(image=tester_image, volumes={CACHE_PATH: CACHE_VOLUME})
+@app.cls(image=webrtc_base_image, volumes={CACHE_PATH: CACHE_VOLUME})
 class WebRTCVideoProcessorTester(ModalWebRtcPeer):
-    TEST_VIDEO_SOURCE_FILE = "/media/cliff_jumping.mp4"
+    TEST_VIDEO_SOURCE_URL = "https://modal-cdn.com/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = CACHE_PATH / "flipped_test_video.mp4"
     # allowed difference between source and recorded video files
     DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
@@ -274,19 +274,20 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
     async def initialize(self) -> None:
         import cv2
 
-        self.input_filepath = self.TEST_VIDEO_SOURCE_FILE
-        self.output_filepath = self.TEST_VIDEO_RECORD_FILE
-
         # get input video duration in seconds
-        self.input_video = cv2.VideoCapture(self.input_filepath)
-        self.input_video_duration = self.input_video.get(
+        self.input_video = cv2.VideoCapture(self.TEST_VIDEO_SOURCE_URL)
+        self.input_video_duration_frames = self.input_video.get(
             cv2.CAP_PROP_FRAME_COUNT
-        ) / self.input_video.get(cv2.CAP_PROP_FPS)
+        )
+        self.input_video_duration_seconds = (
+            self.input_video_duration_frames
+            / self.input_video.get(cv2.CAP_PROP_FPS)
+        )
         self.input_video.release()
 
         # set streaming duration to input video duration plus a buffer
         self.stream_duration = (
-            self.input_video_duration + self.VIDEO_DURATION_BUFFER_SECS
+            self.input_video_duration_seconds + self.VIDEO_DURATION_BUFFER_SECS
         )
 
         self.player = None  # video stream source
@@ -297,13 +298,13 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
         from aiortc.contrib.media import MediaPlayer, MediaRecorder
 
         # setup video player and to peer connection
-        self.video_src = MediaPlayer(self.input_filepath)
+        self.video_src = MediaPlayer(self.TEST_VIDEO_SOURCE_URL)
         self.pcs[peer_id].addTrack(self.video_src.video)
 
         # setup video recorder
-        if os.path.exists(self.output_filepath):
-            os.remove(self.output_filepath)
-        self.recorder = MediaRecorder(self.output_filepath)
+        if os.path.exists(self.TEST_VIDEO_RECORD_FILE):
+            os.remove(self.TEST_VIDEO_RECORD_FILE)
+        self.recorder = MediaRecorder(self.TEST_VIDEO_RECORD_FILE)
 
         # keep us notified on connection state changes
         @self.pcs[peer_id].on("connectionstatechange")
@@ -351,16 +352,14 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
         import cv2
 
         # compare output video length to input video length
-        input_video = cv2.VideoCapture(self.input_filepath)
-        input_video_length = int(input_video.get(cv2.CAP_PROP_FRAME_COUNT))
-        input_video.release()
-
-        output_video = cv2.VideoCapture(self.output_filepath)
-        output_video_length = int(output_video.get(cv2.CAP_PROP_FRAME_COUNT))
+        output_video = cv2.VideoCapture(self.TEST_VIDEO_RECORD_FILE)
+        output_video_duration_frames = int(
+            output_video.get(cv2.CAP_PROP_FRAME_COUNT)
+        )
         output_video.release()
 
         if (
-            input_video_length - output_video_length
+            self.input_video_duration_frames - output_video_duration_frames
         ) < self.DURATION_DIFFERENCE_THRESHOLD_FRAMES:
             return True
         else:
@@ -407,11 +406,6 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
             await self.run_streams(peer_id)
 
         return self.confirm_recording()
-
-
-# set timeout for health checks and connection test
-MINUTES = 60  # seconds
-TEST_TIMEOUT = 2.0 * MINUTES
 
 
 # run test
