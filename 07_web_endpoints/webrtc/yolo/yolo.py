@@ -2,10 +2,13 @@
 # lambda-test: false
 # ---
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
 import onnxruntime
+
+this_dir = Path(__file__).parent.resolve()
 
 
 class YOLOv10:
@@ -44,7 +47,8 @@ class YOLOv10:
         self.get_output_details()
 
         # get class names
-        self.class_names = _get_class_names()
+        with open(this_dir / "yolo_classes.txt", "r") as f:
+            self.class_names = f.read().splitlines()
         rng = np.random.default_rng(3)
         self.colors = rng.uniform(0, 255, size=(len(self.class_names), 3))
 
@@ -209,58 +213,3 @@ class YOLOv10:
             text_thickness,
             cv2.LINE_AA,
         )
-
-
-def _get_class_names():
-    return [
-        "person",
-        "bicycle",
-        "car",
-        "motorcycle",
-        "airplane",
-        "bus",
-        "train",
-        "truck",
-        "boat",
-        "traffic light",
-        "fire hydrant",
-        "stop sign",
-        "parking meter",
-        "bench",
-        "bird",
-        "cat",
-        "dog",
-        "horse",
-        "sheep",
-        "cow",
-        "elephant",
-        "bear",
-        "zebra",
-        "giraffe",
-        "backpack",
-        "umbrella",
-        "handbag",
-        "tie",
-        "suitcase",
-        "frisbee",
-        "skis",
-        "snowboard",
-        "sports ball",
-        "kite",
-        "baseball bat",
-        "baseball glove",
-        "skateboard",
-        "surfboard",
-        "tennis racket",
-        "bottle",
-        "wine glass",
-        "cup",
-        "fork",
-        "knife",
-        "spoon",
-        "bowl",
-        "banana",
-        "apple",
-        "sandwich",
-        "orange",
-    ]
