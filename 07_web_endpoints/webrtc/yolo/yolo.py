@@ -1,11 +1,11 @@
+# ---
+# lambda-test: false
+# ---
 import time
-from pathlib import Path
 
 import cv2
 import numpy as np
 import onnxruntime
-
-this_dir = Path(__file__).parent.resolve()
 
 
 class YOLOv10:
@@ -44,8 +44,7 @@ class YOLOv10:
         self.get_output_details()
 
         # get class names
-        with open(this_dir / "yolo_classes.txt", "r") as f:
-            self.class_names = f.read().splitlines()
+        self.class_names = _get_class_names()
         rng = np.random.default_rng(3)
         self.colors = rng.uniform(0, 255, size=(len(self.class_names), 3))
 
@@ -152,17 +151,13 @@ class YOLOv10:
 
             label = self.class_names[class_id]
             caption = f"{label} {int(score * 100)}%"
-            self.draw_text(
-                det_img, caption, box, color, font_size, text_thickness
-            )  # type: ignore
+            self.draw_text(det_img, caption, box, color, font_size, text_thickness)  # type: ignore
 
         return det_img
 
     def get_input_details(self):
         model_inputs = self.session.get_inputs()
-        self.input_names = [
-            model_inputs[i].name for i in range(len(model_inputs))
-        ]
+        self.input_names = [model_inputs[i].name for i in range(len(model_inputs))]
 
         self.input_shape = model_inputs[0].shape
         self.input_height = self.input_shape[2]
@@ -170,9 +165,7 @@ class YOLOv10:
 
     def get_output_details(self):
         model_outputs = self.session.get_outputs()
-        self.output_names = [
-            model_outputs[i].name for i in range(len(model_outputs))
-        ]
+        self.output_names = [model_outputs[i].name for i in range(len(model_outputs))]
 
     def draw_box(
         self,
@@ -216,3 +209,58 @@ class YOLOv10:
             text_thickness,
             cv2.LINE_AA,
         )
+
+
+def _get_class_names():
+    return [
+        "person",
+        "bicycle",
+        "car",
+        "motorcycle",
+        "airplane",
+        "bus",
+        "train",
+        "truck",
+        "boat",
+        "traffic light",
+        "fire hydrant",
+        "stop sign",
+        "parking meter",
+        "bench",
+        "bird",
+        "cat",
+        "dog",
+        "horse",
+        "sheep",
+        "cow",
+        "elephant",
+        "bear",
+        "zebra",
+        "giraffe",
+        "backpack",
+        "umbrella",
+        "handbag",
+        "tie",
+        "suitcase",
+        "frisbee",
+        "skis",
+        "snowboard",
+        "sports ball",
+        "kite",
+        "baseball bat",
+        "baseball glove",
+        "skateboard",
+        "surfboard",
+        "tennis racket",
+        "bottle",
+        "wine glass",
+        "cup",
+        "fork",
+        "knife",
+        "spoon",
+        "bowl",
+        "banana",
+        "apple",
+        "sandwich",
+        "orange",
+    ]

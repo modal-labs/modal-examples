@@ -5,101 +5,77 @@ import modal
 
 from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
-APP_NAME = "aiortc-server-video-processing-example"
+# set up video processing image
 
-# create an output volume to store the transmitted videos and model weights
-CACHE_VOLUME = modal.Volume.from_name(
-    "webrtc-yolo-cache", create_if_missing=True
-)
-CACHE_PATH = Path("/cache")
+py_version = "3.12"
+tensorrt_ld_path = f"/usr/local/lib/python{py_version}/site-packages/tensorrt_libs"
 
-assets_parent_directory = Path(__file__).parent.parent.resolve()
-
-webrtc_base_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .apt_install("python3-opencv", "ffmpeg")
-    .pip_install(
-        "fastapi[standard]==0.115.4",
-        "aiortc==1.11.0",
-        "opencv-python==4.11.0.86",
-    )
-)
-
-server_image = webrtc_base_image.add_local_dir(
-    os.path.join(assets_parent_directory, "frontend"),
-    remote_path="/frontend",
-)
-
-# tester_image = webrtc_base_image.add_local_dir(
-#     # video file for testing
-#     os.path.join(assets_parent_directory, "media"),
-#     remote_path="/media",
-# )
-
-video_processing_gpu_image = (
-    modal.Image.debian_slim(python_version="3.12")
+video_processing_image = (
+    modal.Image.debian_slim(python_version=py_version)  # matching ld path
+    # update locale as required by onnx
     .apt_install("locales")
     .run_commands(
-        # below is necessary for proper use of
-        # the onnxruntime(-gpu) package
-        # uncomment US.UTF-8 locale
-        "sed -i '/^#\\s*en_US.UTF-8 UTF-8/ s/^#//' /etc/locale.gen",
-        "locale-gen en_US.UTF-8",
+        "sed -i '/^#\\s*en_US.UTF-8 UTF-8/ s/^#//' /etc/locale.gen",  # uncomment w sed
+        "locale-gen en_US.UTF-8",  # set locale
         "update-locale LANG=en_US.UTF-8",
     )
+    .env({"LD_LIBRARY_PATH": tensorrt_ld_path, "LANG": "en_US.UTF-8"})
+    # install system dependencies
     .apt_install("python3-opencv", "ffmpeg")
-    .env(
-        {
-            # needed to use tensorrt execution provider
-            # with onnxruntime(-gpu)
-            "LD_LIBRARY_PATH": "/usr/local/lib/python3.12/site-packages/tensorrt_libs",
-            # (maybe) needed for proper use of onnxruntime(-gpu)
-            "LANG": "en_US.UTF-8",
-        }
-    )
-    .pip_install(
-        "fastapi==0.115.12",
-        "aiortc==1.11.0",
-        "opencv-python==4.11.0.86",
-        "tensorrt==10.9.0.34",
-        "torch==2.7.0",
-        "onnxruntime-gpu==1.21.0",
-        "huggingface-hub==0.30.2",
-    )
+)
+
+# now we can install Python packages
+
+video_processing_image = video_processing_image.pip_install(
+    "aiortc==1.11.0",
+    "fastapi==0.115.12",
+    "huggingface-hub==0.30.2",
+    "onnxruntime-gpu==1.21.0",
+    "opencv-python==4.11.0.86",
+    "tensorrt==10.9.0.34",
+    "torch==2.7.0",
 )
 
 # instantiate our app
-app = modal.App(APP_NAME)
+app = modal.App("example-yolo-webrtc")
+
+# create an output volume to store the transmitted videos and model weights
+# we cache the model weights from hf hub
+# as well as the onnx inference graph
+# the graph can take a few minutes to build
+# the very first time you run the app
+# recommend using `modal run`.
+
+CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
+CACHE_PATH = Path("/cache")
+
+cache = {CACHE_PATH: CACHE_VOLUME}
+
+# add TURN server credentials
+turn_secret = modal.Secret.from_dotenv()  # TODO: Modal Secret
 
 
 # our modal peer, a subclass of ModalWebRTCPeer
-# this class flips and incoming video stream
-# and then streams the flipped video back to the provider
+
+
 @app.cls(
-    image=video_processing_gpu_image,
+    image=video_processing_image,
     gpu="A100-40GB",
-    # we cache the model weights from hf hub
-    # as well as the onnx inference graph
-    # the graph can take a few minutes to build
-    # the very first time you run the app
-    volumes={CACHE_PATH: CACHE_VOLUME},
-    # secrete for TURN server
-    # local install of `python-dotenv`
-    # pip install python-dotenv
-    secrets=[modal.Secret.from_dotenv()],
-    # pin the peer container region to one
-    # close to the client(s) to minimize latency
-    # region="us-east-1",
+    volumes=cache,
+    secrets=[turn_secret],
 )
-# input concurrency helps with faster restarts of stream
-# by avoiding initliazing a new container for every streaming
-# call. it takes ~15 sec to load the onnx model/session for each
-# container
-@modal.concurrent(target_inputs=4, max_inputs=6)
-class WebRTCVideoProcessor(ModalWebRtcPeer):
+@modal.concurrent(
+    # input concurrency helps with faster restarts of stream
+    # by avoiding initliazing a new container for every streaming
+    # call. it takes ~15 sec to load the onnx model/session for each
+    # container
+    target_inputs=4,
+    max_inputs=6,
+)
+class ObjDet(ModalWebRtcPeer):
     yolo_model = None
 
-    async def initialize(self) -> None:
+    async def initialize(self):
         import numpy as np
         import onnxruntime
         from aiortc import MediaStreamTrack
@@ -128,18 +104,17 @@ class WebRTCVideoProcessor(ModalWebRtcPeer):
                 import cv2
 
                 orig_shape = image.shape[:-1]
+
                 image = cv2.resize(
                     image,
                     (self.yolo_model.input_width, self.yolo_model.input_height),
                 )
-                image_w_detections = self.yolo_model.detect_objects(
-                    image, self.conf_threshold
-                )
-                image_w_detections = cv2.resize(
-                    image_w_detections, (orig_shape[1], orig_shape[0])
-                )
 
-                return image_w_detections
+                image = self.yolo_model.detect_objects(image, self.conf_threshold)
+
+                image = cv2.resize(image, (orig_shape[1], orig_shape[0]))
+
+                return image
 
             # this is the essential method we need to implement
             # to create a custom MediaStreamTrack
@@ -152,9 +127,7 @@ class WebRTCVideoProcessor(ModalWebRtcPeer):
                 # VideoFrames are from a really nice package called av
                 # which is a pythonic wrapper around ffmpeg
                 # and a dep of aiortc
-                new_frame = VideoFrame.from_ndarray(
-                    processed_img, format="bgr24"
-                )
+                new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
                 new_frame.pts = frame.pts
                 new_frame.time_base = frame.time_base
 
@@ -181,9 +154,8 @@ class WebRTCVideoProcessor(ModalWebRtcPeer):
                 f"Video Processor, {self.id}, received {track.kind} track from {peer_id}"
             )
 
-            # create processed track
-            flipped_track = self.processing_track_cls(track, self.yolo_model)
-            self.pcs[peer_id].addTrack(flipped_track)
+            output_track = self.processing_track_cls(track, self.yolo_model)
+            self.pcs[peer_id].addTrack(output_track)
 
             # keep us notified when the incoming track ends
             @track.on("ended")
@@ -192,66 +164,55 @@ class WebRTCVideoProcessor(ModalWebRtcPeer):
                     f"Video Processor, {self.id}, incoming video track from {peer_id} ended"
                 )
 
-    # some free turn servers we can up to 5 GB
+    # some free turn servers that can handle up to 5 GB of traffic
     def get_turn_servers(self) -> dict:
         import os
 
+        creds = {
+            "username": os.environ["TURN_USERNAME"],
+            "credential": os.environ["TURN_CREDENTIAL"],
+        }
+
         turn_servers = [
-            {
-                "urls": "stun:stun.relay.metered.ca:80",
-            },
-            {
-                "urls": "turn:standard.relay.metered.ca:80",
-                "username": os.environ["TURN_USERNAME"],
-                "credential": os.environ["TURN_CREDENTIAL"],
-            },
-            {
-                "urls": "turn:standard.relay.metered.ca:80?transport=tcp",
-                "username": os.environ["TURN_USERNAME"],
-                "credential": os.environ["TURN_CREDENTIAL"],
-            },
-            {
-                "urls": "turn:standard.relay.metered.ca:443",
-                "username": os.environ["TURN_USERNAME"],
-                "credential": os.environ["TURN_CREDENTIAL"],
-            },
-            {
-                "urls": "turns:standard.relay.metered.ca:443?transport=tcp",
-                "username": os.environ["TURN_USERNAME"],
-                "credential": os.environ["TURN_CREDENTIAL"],
-            },
+            {"urls": "stun:stun.relay.metered.ca:80"},
+            {"urls": "turn:standard.relay.metered.ca:80"} | creds,
+            {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
+            {"urls": "turn:standard.relay.metered.ca:443"} | creds,
+            {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"} | creds,
         ]
 
-        return {
-            "type": "turn_servers",
-            "ice_servers": turn_servers,
-        }
+        return {"type": "turn_servers", "ice_servers": turn_servers}
+
+
+webrtc_base_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("python3-opencv", "ffmpeg")
+    .pip_install(
+        "fastapi[standard]==0.115.4", "aiortc==1.11.0", "opencv-python==4.11.0.86"
+    )
+)
+
+
+assets_parent_directory = Path(__file__).parent.resolve()
+
+server_image = webrtc_base_image.add_local_dir(
+    os.path.join(assets_parent_directory, "frontend"), remote_path="/frontend"
+)
 
 
 # for the server, all we have to do is
 # let it know which ModalWebRTCPeer subclass to spawn
 # attach our front end
-@app.cls(
-    image=server_image,
-)
-class WebRTCVideoProcessorServer(ModalWebRtcServer):
-    from fastapi import FastAPI
-
-    # lookup info for the WebRTCPeer to run on modal
-    # modal_peer_app_name = APP_NAME
-    # modal_peer_cls_name = "WebRTCVideoProcessor"
-    modal_peer_cls = WebRTCVideoProcessor
+@app.cls(image=server_image)
+class WebcamObjDet(ModalWebRtcServer):
+    modal_peer_cls = ObjDet
 
     def initialize(self):
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
         # frontend files
-        self.web_app.mount(
-            "/static",
-            StaticFiles(directory="/frontend"),
-            name="static",
-        )
+        self.web_app.mount("/static", StaticFiles(directory="/frontend"))
 
         @self.web_app.get("/")
         async def root():
@@ -259,17 +220,25 @@ class WebRTCVideoProcessorServer(ModalWebRtcServer):
             return HTMLResponse(content=html)
 
 
-@app.cls(image=webrtc_base_image, volumes={CACHE_PATH: CACHE_VOLUME})
-class WebRTCVideoProcessorTester(ModalWebRtcPeer):
+# run test
+@app.local_entrypoint()
+def test():
+    input_frames, output_frames = TestPeer().run_video_processing_test.remote()
+    # allow a few dropped frames from the connection starting up
+    assert input_frames - output_frames < 5, "Streaming failed"
+
+
+# extra code just for testing
+
+
+@app.cls(image=webrtc_base_image, volumes=cache)
+class TestPeer(ModalWebRtcPeer):
     TEST_VIDEO_SOURCE_URL = "https://modal-cdn.com/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = CACHE_PATH / "flipped_test_video.mp4"
-    # allowed difference between source and recorded video files
-    DURATION_DIFFERENCE_THRESHOLD_FRAMES = 5
     # extra time to run streams beyond input video duration
     VIDEO_DURATION_BUFFER_SECS = 5.0
-    WS_OPEN_TIMEOUT = (
-        30  # allow time for container to spin up (can timeout with default 10)
-    )
+    # allow time for container to spin up (can timeout with default 10)
+    WS_OPEN_TIMEOUT = 30
 
     async def initialize(self) -> None:
         import cv2
@@ -280,8 +249,7 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
             cv2.CAP_PROP_FRAME_COUNT
         )
         self.input_video_duration_seconds = (
-            self.input_video_duration_frames
-            / self.input_video.get(cv2.CAP_PROP_FPS)
+            self.input_video_duration_frames / self.input_video.get(cv2.CAP_PROP_FPS)
         )
         self.input_video.release()
 
@@ -346,24 +314,15 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
         # close peer connection manually
         await self.pcs[peer_id].close()
 
-    # confirm that the output video is (nearly) the same length as the input video
-    # we lose a few frames at the beginning
-    def confirm_recording(self) -> bool:
+    def count_frames(self):
         import cv2
 
         # compare output video length to input video length
         output_video = cv2.VideoCapture(self.TEST_VIDEO_RECORD_FILE)
-        output_video_duration_frames = int(
-            output_video.get(cv2.CAP_PROP_FRAME_COUNT)
-        )
+        output_video_duration_frames = int(output_video.get(cv2.CAP_PROP_FRAME_COUNT))
         output_video.release()
 
-        if (
-            self.input_video_duration_frames - output_video_duration_frames
-        ) < self.DURATION_DIFFERENCE_THRESHOLD_FRAMES:
-            return True
-        else:
-            return False
+        return self.input_video_duration_frames, output_video_duration_frames
 
     @modal.method()
     async def run_video_processing_test(self) -> bool:
@@ -373,19 +332,12 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
 
         peer_id = None
         # connect to server via websocket
-        ws_uri = (
-            WebRTCVideoProcessorServer().web_endpoints.web_url.replace(
-                "http", "ws"
-            )
-            + f"/ws/{self.id}"
-        )
+        ws_uri = WebcamObjDet().web.web_url.replace("http", "ws") + f"/ws/{self.id}"
         print(f"ws_uri: {ws_uri}")
         async with websockets.connect(
             ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
         ) as websocket:
-            await websocket.send(
-                json.dumps({"type": "identify", "peer_id": self.id})
-            )
+            await websocket.send(json.dumps({"type": "identify", "peer_id": self.id}))
             peer_id = json.loads(await websocket.recv())["peer_id"]
 
             offer_msg = await self._generate_offer(peer_id)
@@ -405,12 +357,4 @@ class WebRTCVideoProcessorTester(ModalWebRtcPeer):
         if peer_id:
             await self.run_streams(peer_id)
 
-        return self.confirm_recording()
-
-
-# run test
-@app.local_entrypoint()
-def main():
-    assert WebRTCVideoProcessorTester().run_video_processing_test.remote(), (
-        "Test failed to complete"
-    )
+        return self.count_frames()

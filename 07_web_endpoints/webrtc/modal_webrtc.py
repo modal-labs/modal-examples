@@ -1,0 +1,326 @@
+import asyncio
+import json
+from typing import ClassVar, Optional
+
+import modal
+from fastapi import WebSocketDisconnect
+
+
+class ModalWebRtcServer:
+    """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
+
+    modal_peer_cls: ClassVar = None
+
+    @modal.enter()
+    def _initialize(self):
+        from fastapi import FastAPI, WebSocket
+
+        self.web_app = FastAPI()
+
+        # handle signaling through websocket endpoint
+        @self.web_app.websocket("/ws/{peer_id}")
+        async def ws(client_websocket: WebSocket, peer_id: str):
+            await client_websocket.accept()
+            await self._mediate_negotiation(client_websocket, peer_id)
+
+        self.initialize()
+
+    def initialize(self):
+        pass
+
+    @modal.asgi_app()
+    def web(self):
+        return self.web_app
+
+    async def _mediate_negotiation(self, websocket, peer_id: str):
+        if self.modal_peer_cls:
+            modal_peer = self.modal_peer_cls()
+        else:
+            print("Modal peer class not set")
+            return
+
+        with modal.Queue.ephemeral() as q:
+            print(f"Spawning modal peer instance for client peer {peer_id}...")
+            modal_peer.run_with_queue.spawn(q, peer_id)
+
+            await asyncio.gather(
+                relay_client(websocket, q, peer_id),
+                relay_modal_peer(websocket, q, peer_id),
+            )
+
+
+async def relay_client(websocket, queue, peer_id):
+    while True:
+        try:
+            # get websocket message off queue and parse as json
+            msg = await asyncio.wait_for(websocket.receive_text(), timeout=1)
+
+            await queue.put.aio(msg, partition=peer_id)
+        except Exception as e:
+            if isinstance(e, TimeoutError):
+                continue
+            elif not isinstance(e, WebSocketDisconnect):
+                print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
+            return
+
+
+async def relay_modal_peer(websocket, queue, peer_id):
+    while True:
+        try:
+            # get websocket message off queue and parse from json
+            modal_peer_msg = await asyncio.wait_for(
+                queue.get.aio(partition="server"), timeout=1
+            )
+
+            if modal_peer_msg.startswith("close"):
+                print(
+                    f"Server closing websocket connection to client peer {peer_id}..."
+                )
+                await websocket.close()
+                break
+
+            await websocket.send_text(modal_peer_msg)
+
+        except Exception as e:
+            if isinstance(e, TimeoutError):
+                # nothing on the socket, loop again
+                continue
+            else:
+                print(f"Error relaying from modal peer to client peer {peer_id}: {e}")
+                break
+
+
+class ModalWebRtcPeer:
+    """
+    Base class for WebRTC peer connections using aiortc
+    that handles connection setup, negotiation, and stream management.
+
+    This class provides the core WebRTC functionality including:
+      - Peer connection initialization and cleanup
+      - Signaling endpoints via HTTP and WebSocket
+        - SDP offer/answer exchange
+        - Trickle ICE candidate handling
+      - Stream setup and management
+
+    Subclasses can implement the following methods:
+      - initialize(): Any custom initialization logic
+      - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
+      - run_streams(): Logic for starting streams (not always necessary)
+      - exit(): Any custom cleanup logic
+    """
+
+    @modal.enter()
+    async def _initialize(self):
+        import uuid
+
+        self.id = str(uuid.uuid4())
+        self.pcs = {}
+
+        # call custom init logic
+        await self.initialize()
+
+    async def initialize(self):
+        """Override to add custom logic when creating a peer"""
+
+    async def setup_streams(self, peer_id):
+        """Override to add custom logic when creating a connection and setting up streams"""
+
+    async def run_streams(self, peer_id):
+        """Override to add custom logic when running streams"""
+
+    def get_turn_servers(self) -> Optional[list]:
+        """Override to customize TURN servers"""
+
+    @modal.method()
+    async def run_with_queue(self, queue: modal.Queue, peer_id: str):
+        """Run the RTC peer after establishing a connection by passing WebSocket messages over a Queue."""
+        print(f"Running modal peer instance for client peer {peer_id}...")
+
+        try:
+            await self._connect_over_queue(queue, peer_id)
+        except ConnectionError:
+            return
+
+        print(
+            f"Modal peer instance for client peer {peer_id} connected, running streams..."
+        )
+
+        await self._run_streams(peer_id)
+
+        print(f"Shutting down modal peer instance for client peer {peer_id}...")
+
+    async def _connect_over_queue(self, queue, peer_id):
+        """Connect this peer to another by passing messages along a Modal Queue."""
+        # the first message should come quickly, if not, we lost the peer
+        first_msg_received = False
+
+        msg_handlers = {  # message types we need to handle
+            "offer": self._handle_offer,  # SDP offer
+            "ice_candidate": self._handle_ice_candidate,  # trickled ICE candidate
+            "identify": self._handle_identify,  # identify challenge
+            "get_turn_servers": self._handle_get_turn_servers,  # TURN server request
+        }
+
+        while True:
+            try:
+                if self.pcs.get(peer_id) and (
+                    self.pcs[peer_id].connectionState == "connected"
+                    or self.pcs[peer_id].connectionState == "disconnected"
+                    or self.pcs[peer_id].connectionState == "failed"
+                ):
+                    await queue.put.aio("close", partition="server")
+                    break
+
+                # read and parse websocket message passed over queue
+                msg = json.loads(
+                    await asyncio.wait_for(queue.get.aio(partition=peer_id), timeout=5)
+                )
+
+                first_msg_received = True
+
+                # dispatch the message to its handler
+                if handler := msg_handlers.get(msg.get("type")):
+                    response = await handler(msg, peer_id)
+                else:
+                    print(f"unknown message type: {msg.get('type')}")
+                    response = None
+
+                # pass the message back over the queue to the server
+                if response is not None:
+                    await queue.put.aio(json.dumps(response), partition="server")
+
+            except Exception as e:
+                if isinstance(e, TimeoutError):
+                    if not first_msg_received:
+                        print(
+                            f"Modal peer {self.peer_id}"
+                            f" for client peer {peer_id}"
+                            " couldn't connect to client"
+                        )
+                        raise ConnectionError from e
+                continue
+
+    async def _run_streams(self, peer_id):
+        """Run WebRTC streaming with a peer."""
+        print(f"Peer {self.id} running streams for {peer_id}...")
+
+        await self.run_streams(peer_id)
+
+        # run until connection is closed or broken
+        while self.pcs[peer_id].connectionState == "connected":
+            await asyncio.sleep(0.1)
+
+    async def _handle_offer(self, msg, peer_id):
+        """Handles a peers SDP offer message by producing an SDP answer."""
+        from aiortc import RTCSessionDescription
+
+        print(f"Peer {self.id} handling SDP offer from {peer_id}...")
+
+        await self._setup_peer_connection(peer_id)
+        await self.pcs[peer_id].setRemoteDescription(
+            RTCSessionDescription(msg["sdp"], msg["type"])
+        )
+        answer = await self.pcs[peer_id].createAnswer()
+        # this also triggers ICE gathering
+        await self.pcs[peer_id].setLocalDescription(answer)
+
+        print(f"Peer {self.id} generating answer for {peer_id}...")
+
+        sdp = self.pcs[peer_id].localDescription.sdp
+
+        return {"sdp": sdp, "type": "answer", "peer_id": self.id}
+
+    async def _handle_ice_candidate(self, msg, peer_id):
+        """Add an ICE candidate sent by a peer."""
+        from aiortc.sdp import candidate_from_sdp
+
+        candidate = msg.get("candidate")
+
+        if not candidate or not self.pcs.get(peer_id):
+            raise ValueError
+
+        print(f"Peer {self.id} received ice candidate from {peer_id}...")
+
+        # parse ice candidate
+        ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
+        ice_candidate.sdpMid = candidate["sdpMid"]
+        ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
+
+        await self._add_ice_candidate(peer_id, ice_candidate)
+
+    async def _handle_identify(self, msg, peer_id):
+        """Reply to an identify message with own id."""
+        return {"type": "identify", "peer_id": self.id}
+
+    async def _handle_get_turn_servers(self, msg, peer_id):
+        """Handle a request for TURN servers."""
+        print(f"Sending turn servers to peer {peer_id}...")
+        return self.get_turn_servers()
+
+    async def _setup_peer_connection(self, peer_id):
+        """Creates an RTC peer connection via an ICE server"""
+        from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection
+
+        # aiortc automatically uses google's STUN server,
+        # but we can also specify our own
+        default_ice_server = RTCIceServer(urls="stun:stun.l.google.com:19302")
+        config = RTCConfiguration([default_ice_server])
+
+        self.pcs[peer_id] = RTCPeerConnection(configuration=config)
+
+        await self.setup_streams(peer_id)
+
+        print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
+
+    async def _generate_offer(self, peer_id):
+        print(f"Peer {self.id} generating offer for {peer_id}...")
+
+        await self._setup_peer_connection(peer_id)
+        offer = await self.pcs[peer_id].createOffer()
+        # this also triggers and waits for ICE gathering/generation of ICE candidate info
+        await self.pcs[peer_id].setLocalDescription(offer)
+        # NOTE: we can't use `offer.sdp` because the ICE candidates are not included
+        # these are embedded in the SDP after setLocalDescription() is called
+        sdp = self.pcs[peer_id].localDescription.sdp
+
+        return {"sdp": sdp, "type": offer.type, "peer_id": self.id}
+
+    async def _handle_answer(self, peer_id, answer):
+        from aiortc import RTCSessionDescription
+
+        print(f"Peer {self.id} handling answer from {peer_id}...")
+        # set remote peer description
+        await self.pcs[peer_id].setRemoteDescription(
+            RTCSessionDescription(sdp=answer["sdp"], type=answer["type"])
+        )
+
+    async def _add_ice_candidate(self, peer_id, candidate):
+        print(f"Peer {self.id} handling ice candidate from {peer_id}...")
+
+        # sometimes this event is called before
+        # the peer connection is created on this end
+        retries = 5
+        while not self.pcs.get(peer_id) and retries:
+            await asyncio.sleep(0.1)
+            retries -= 1
+
+        if not retries:
+            print(
+                f"Peer {self.id} failed to create peer connection for {peer_id} before ICE candidate event"
+            )
+            return
+
+        await self.pcs[peer_id].addIceCandidate(candidate)
+
+    @modal.exit()
+    async def _exit(self):
+        print(f"Shutting down peer: {self.id}...")
+        await self.exit()
+
+        if self.pcs:
+            print(f"Closing peer connections for peer {self.id}...")
+            await asyncio.gather(*[pc.close() for pc in self.pcs.values()])
+            self.pcs = {}
+
+    async def exit(self):
+        """Override with any custom logic when shutting down container."""
