@@ -98,7 +98,9 @@ with image.imports():
 )
 def download_model():
     # uses HF_HOME to point download to the model volume
-    DiffusionPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
+    DiffusionPipeline.from_pretrained(
+        "Lightricks/LTX-Video", torch_dtype=torch.bfloat16
+    )
 
 
 # ## Setting up our LTX class
@@ -209,6 +211,7 @@ def main(
 # ## Addenda
 
 # The remainder of the code in this file is utility code.
+
 
 def slugify(prompt):
     for char in string.punctuation:
