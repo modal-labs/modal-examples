@@ -1,9 +1,10 @@
 import asyncio
 import json
+import uuid
 from typing import ClassVar, Optional
 
 import modal
-from fastapi import WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 
 class ModalWebRtcServer:
@@ -13,8 +14,6 @@ class ModalWebRtcServer:
 
     @modal.enter()
     def _initialize(self):
-        from fastapi import FastAPI, WebSocket
-
         self.web_app = FastAPI()
 
         # handle signaling through websocket endpoint
@@ -96,23 +95,21 @@ class ModalWebRtcPeer:
     that handles connection setup, negotiation, and stream management.
 
     This class provides the core WebRTC functionality including:
-      - Peer connection initialization and cleanup
-      - Signaling endpoints via HTTP and WebSocket
-        - SDP offer/answer exchange
-        - Trickle ICE candidate handling
-      - Stream setup and management
+    - Peer connection initialization and cleanup
+    - Signaling handling via `modal.Queue`
+      - SDP offer/answer exchange
+      - Trickle ICE candidate handling
 
     Subclasses can implement the following methods:
-      - initialize(): Any custom initialization logic
-      - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
-      - run_streams(): Logic for starting streams (not always necessary)
-      - exit(): Any custom cleanup logic
+    - initialize(): Any custom initialization logic
+    - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
+    - run_streams(): Logic for starting streams (not always necessary)
+    - get_turn_servers(): Logic for supplying TURN servers to client
+    - exit(): Any custom cleanup logic
     """
 
     @modal.enter()
     async def _initialize(self):
-        import uuid
-
         self.id = str(uuid.uuid4())
         self.pcs = {}
 
