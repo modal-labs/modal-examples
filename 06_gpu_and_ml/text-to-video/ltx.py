@@ -2,16 +2,19 @@
 # cmd: ["modal", "run", "--detach", "06_gpu_and_ml/text-to-video/ltx.py", "--num-inference-steps", "64"]
 # ---
 
-# # Text-to-video generation with LTX
+# # Text-to-video generation with Lightricks LTX-Video
 
 # This example demonstrates how to run the [LTX](https://github.com/Lightricks/LTX-Video)
 # video generation model by [Lightricks](https://www.lightricks.com/) on Modal.
+
+# Generating a 2 second video takes about 3 mins from cold start.
+# Once the container is warm, it takes about 30 seconds to generate a video.
 
 # Here's one that we generated:
 
 # <center>
 # <video controls autoplay loop muted>
-# <source src="https://modal-public-assets.s3.us-east-1.amazonaws.com/snowy-mountain.mp4" type="video/mp4" />
+# <source src="https://modal-cdn.com/blonde-woman-blinking.mp4" type="video/mp4" />
 # </video>
 # </center>
 
@@ -48,7 +51,7 @@ image = (
 # ## Saving outputs
 
 # On Modal, we save large or expensive-to-compute data to
-# [distributed Volumes](https://modal.com/docs/guide/volumes)
+# [distributed Volumes](https://modal.com/docs/guide/volumes).
 
 # We'll use this for saving our LTX weights, as well as our video outputs.
 
@@ -67,7 +70,7 @@ HOURS = 60 * MINUTES
 
 # We download the model weights into Volume cache to speed up cold starts.
 
-# This download takes five minutes or more, depending on traffic
+# This download takes about two minutes, depending on traffic
 # and network speed.
 
 # If you want to launch the download first,
@@ -181,7 +184,7 @@ class LTX:
 
 @app.local_entrypoint()
 def main(
-    prompt="The camera pans over a snow-covered mountain range, revealing a vast expanse of snow-capped peaks and valleys.The mountains are covered in a thick layer of snow, with some areas appearing almost white while others have a slightly darker, almost grayish hue. The peaks are jagged and irregular, with some rising sharply into the sky while others are more rounded. The valleys are deep and narrow, with steep slopes that are also covered in snow. The trees in the foreground are mostly bare, with only a few leaves remaining on their branches. The sky is overcast, with thick clouds obscuring the sun. The overall impression is one of peace and tranquility, with the snow-covered mountains standing as a testament to the power and beauty of nature.",
+    prompt="The camera pans over a snow-covered mountain range, revealing a vast expanse of snow-capped peaks and valleys.The mountains are covered in a thick layer of snow, with some areas appearing almost white while others have a slightly darker, almost grayish hue. The peaks are jagged and irregular, with some rising sharply into the sky while others are more rounded. The valleys are deep and narrow, with steep slopes that are also covered in snow. The trees in the foreground are mostly bare, with only a few leaves remaining on their branches. The sky is overcast, with thick clouds obscuring the sun. The overall impression is one of peace and tranquility.",
     negative_prompt="worst quality, blurry, jittery, distorted",
     num_inference_steps=200,
     guidance_scale=4.5,
@@ -189,7 +192,9 @@ def main(
     width=704,
     height=480,
 ):
+    print(f"🎥 Generating a video from the prompt {prompt}")
     ltx = LTX()
+    start = time.time()
     mp4_name = ltx.generate.remote(
         prompt=str(prompt),
         negative_prompt=str(negative_prompt),
@@ -199,13 +204,15 @@ def main(
         width=width,
         height=height,
     )
-    print(f"LTX video saved to volume at {mp4_name}")
+    duration = time.time() - start
+    print(f"🎥 Generated video in {duration:.3f}s")
+    print(f"🎥 LTX video saved to volume at {mp4_name}")
 
     local_dir = Path("/tmp/ltx")
     local_dir.mkdir(exist_ok=True, parents=True)
     local_path = local_dir / mp4_name
     local_path.write_bytes(b"".join(outputs.read_file(mp4_name)))
-    print(f"LTX video saved locally at {local_path}")
+    print(f"🎥 LTX video saved locally at {local_path}")
 
 
 # ## Addenda
