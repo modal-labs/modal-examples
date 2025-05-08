@@ -128,15 +128,15 @@ class ModalWebRtcPeer:
 
     This class provides the core WebRTC functionality including:
     - Peer connection initialization and cleanup
-    - Signaling endpoints via HTTP and WebSocket
+    - Signaling handling via `modal.Queue`
       - SDP offer/answer exchange
       - Trickle ICE candidate handling
-    - Stream setup and management
 
     Subclasses can implement the following methods:
     - initialize(): Any custom initialization logic
     - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
     - run_streams(): Logic for starting streams (not always necessary)
+    - get_turn_servers(): Logic for supplying TURN servers to client
     - exit(): Any custom cleanup logic
     """
 
@@ -172,7 +172,7 @@ class ModalWebRtcPeer:
                 if self.pcs.get(peer_id) and (
                     self.pcs[peer_id].connectionState == "connected"
                     or self.pcs[peer_id].connectionState == "disconnected"
-                    or self.pcs[peer_id].connectionState == "failed"
+                    # or self.pcs[peer_id].connectionState == "failed"
                 ):
                     await q.put.aio("close", partition="server")
                     break

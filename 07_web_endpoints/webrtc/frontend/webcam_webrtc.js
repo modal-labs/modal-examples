@@ -37,7 +37,11 @@ function updateStatus(message) {
 
 const iceSTUNservers = [
     {
-        urls: "stun:stun.l.google.com:19302",
+        urls: [
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+          ],
     },
 ]
 
@@ -82,13 +86,21 @@ async function startWebcam() {
 // Create and set up peer connection
 async function startStreaming() {
 
-    updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
-
     startWebcamButton.disabled = true;
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
 
     peerID = crypto.randomUUID();
+
+    updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
+    updateStatus('Selected ICE server type: ' + iceServerType);
+    if (peerID) {
+        updateStatus('Peer ID: ' + peerID);
+    }
+    if (ws) {
+        updateStatus('ws state: ' + ws.readyState);
+    }
+    
 
     try {
         negotiate();
@@ -100,14 +112,15 @@ async function startStreaming() {
 async function negotiate() {
     try {
         // setup websocket connection
+        ws_connected = false;
         ws = new WebSocket(`/ws/${peerID}`);
         
         console.log('Waiting for websocket to open...');
-        await new Promise((resolve) => {
-            ws.onopen = resolve;
-        });
-
-        console.log('Websocket opened');
+       
+        ws.onopen = function() {
+            console.log('Websocket opened');
+            ws_connected = true;
+        };
 
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
@@ -116,12 +129,12 @@ async function negotiate() {
     
         ws.onclose = function() {
             console.log('WebSocket connection closed');
-            ws = null;
+            // ws = null;
         };
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            console.log('Received answer:', msg);
+            console.log('Received msg:', msg);
             
             if (msg.type === 'answer') {
                 if (iceServerType == 'stun'){
@@ -143,17 +156,20 @@ async function negotiate() {
             }
         };
 
+        while (!ws_connected) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         if (iceServerType === 'turn') {
-            
+            updateStatus('Getting TURN servers...');
             console.log('Getting TURN servers...');
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: peerID}));
-            }
+            ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: peerID}));
         } else {
+            updateStatus('Using STUN servers...');
             console.log('Using STUN servers...');
             iceServers = iceSTUNservers;
         }
-
+        // let policy = "all";
         // Wait until we have ICE servers
         if (iceServerType === 'turn') {
             await new Promise((resolve) => {
@@ -167,6 +183,7 @@ async function negotiate() {
                 };
                 checkIceServers();
             });
+            // policy = "relay";
         }
 
         if (!iceServers || !iceServers.length) {
@@ -174,9 +191,13 @@ async function negotiate() {
             throw new Error('No ICE servers available');
         }
         const rtcConfiguration = {
-            iceServers: iceServers
+            iceServers: iceServers,
+            // iceTransportPolicy: policy,
+            // rtcpMuxPolicy: "negotiate"
         }
         peerConnection = new RTCPeerConnection(rtcConfiguration);
+
+        console.log(`peerConnection: ${JSON.stringify(peerConnection.getConfiguration())}`);
 
         // Add local stream to peer connection
         localStream.getTracks().forEach(track => {
@@ -212,9 +233,7 @@ async function negotiate() {
                 console.log('Sending ICE candidate:', iceCandidate);
                 
                 // send ice candidate over ws
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
-                }
+                ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
             }
         };
 
@@ -232,9 +251,7 @@ async function negotiate() {
         
         console.log('Sending offer...');
         // send offer over ws
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({peer_id: peerID, type: 'offer', sdp: offer.sdp}));
-        }
+        ws.send(JSON.stringify({peer_id: peerID, type: 'offer', sdp: offer.sdp}));
 
     } catch (e) {
         alert(e);
@@ -242,8 +259,8 @@ async function negotiate() {
 }
 
 // Stop streaming
-function stop_streaming() {
-    cleanup();
+async function stop_streaming() {
+    await cleanup();
     stopStreamingButton.disabled = true;
     startStreamingButton.disabled = false;
     remoteVideo.srcObject = null;
@@ -251,14 +268,15 @@ function stop_streaming() {
 }
 
 // cleanup
-function cleanup() {
+async function cleanup() {
     iceServers = null;
     if (peerConnection) {
-        peerConnection.close();
+        await peerConnection.close();
     }
-    if (ws) {
-        ws.close();
+    if (ws.readyState === WebSocket.OPEN) {
+        await ws.close();
     }
+    
 }
 
 // Event listeners
@@ -267,6 +285,15 @@ startStreamingButton.addEventListener('click', startStreaming);
 stopStreamingButton.addEventListener('click', stop_streaming); 
 
 // Add cleanup handler for when browser tab is closed
-window.addEventListener('beforeunload', () => {
-    cleanup();
+window.addEventListener('beforeunload', async () => {
+    await cleanup();
+    // ensure stun/turn radio and iceServerType are reset
+    document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
+        if (radio.value == "turn") {
+            radio.checked = false;
+        } else {
+            radio.checked = true;
+        }
+    });
+    iceServerType = 'stun';
 });
