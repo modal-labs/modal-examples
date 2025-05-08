@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false
+# ---
 import time
 from pathlib import Path
 
@@ -152,17 +155,13 @@ class YOLOv10:
 
             label = self.class_names[class_id]
             caption = f"{label} {int(score * 100)}%"
-            self.draw_text(
-                det_img, caption, box, color, font_size, text_thickness
-            )  # type: ignore
+            self.draw_text(det_img, caption, box, color, font_size, text_thickness)  # type: ignore
 
         return det_img
 
     def get_input_details(self):
         model_inputs = self.session.get_inputs()
-        self.input_names = [
-            model_inputs[i].name for i in range(len(model_inputs))
-        ]
+        self.input_names = [model_inputs[i].name for i in range(len(model_inputs))]
 
         self.input_shape = model_inputs[0].shape
         self.input_height = self.input_shape[2]
@@ -170,9 +169,7 @@ class YOLOv10:
 
     def get_output_details(self):
         model_outputs = self.session.get_outputs()
-        self.output_names = [
-            model_outputs[i].name for i in range(len(model_outputs))
-        ]
+        self.output_names = [model_outputs[i].name for i in range(len(model_outputs))]
 
     def draw_box(
         self,
