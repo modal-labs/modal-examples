@@ -101,7 +101,7 @@ output_volume = modal.Volume.from_name("outputs", create_if_missing=True)
 
 # ## Implementing LTX-Video inference on Modal
 
-# We wrap the inference logic in a Modal [Cls](https://modal.com/docs/guide/lifecycle-methods)
+# We wrap the inference logic in a Modal [Cls](https://modal.com/docs/guide/lifecycle-functions)
 # that ensures models are loaded and then moved to the GPU once when a new instance
 # starts, rather than every time we run it.
 
