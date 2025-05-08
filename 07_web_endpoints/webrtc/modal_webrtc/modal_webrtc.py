@@ -165,7 +165,9 @@ class ModalWebRtcPeer:
 
         print(f"Running modal peer instance for client peer {peer_id}...")
 
-        first_msg_received = False  # the first message should come quickly, if not, we lost the peer
+        first_msg_received = (
+            False  # the first message should come quickly, if not, we lost the peer
+        )
         # handle websocket messages and loop for lifetime
         while True:
             try:
@@ -179,9 +181,7 @@ class ModalWebRtcPeer:
 
                 # get websocket message and parse as json
                 msg = json.loads(
-                    await asyncio.wait_for(
-                        q.get.aio(partition=peer_id), timeout=5
-                    )
+                    await asyncio.wait_for(q.get.aio(partition=peer_id), timeout=5)
                 )
 
                 first_msg_received = True
@@ -205,14 +205,10 @@ class ModalWebRtcPeer:
                     if not candidate or not self.pcs.get(peer_id):
                         return
 
-                    print(
-                        f"Peer {self.id} received ice candidate from {peer_id}..."
-                    )
+                    print(f"Peer {self.id} received ice candidate from {peer_id}...")
 
                     # parse ice candidate
-                    ice_candidate = candidate_from_sdp(
-                        candidate["candidate_sdp"]
-                    )
+                    ice_candidate = candidate_from_sdp(candidate["candidate_sdp"])
                     ice_candidate.sdpMid = candidate["sdpMid"]
                     ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
 
@@ -257,16 +253,12 @@ class ModalWebRtcPeer:
         # aiortc automatically uses google's STUN server when
         # self.pcs[peer_id] = RTCPeerConnection()
         # is called, but we can also specify our own:
-        config = RTCConfiguration(
-            [RTCIceServer(urls="stun:stun.l.google.com:19302")]
-        )
+        config = RTCConfiguration([RTCIceServer(urls="stun:stun.l.google.com:19302")])
         self.pcs[peer_id] = RTCPeerConnection(configuration=config)
 
         await self.setup_streams(peer_id)
 
-        print(
-            f"Created peer connection and setup streams from {self.id} to {peer_id}"
-        )
+        print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
 
     async def setup_streams(self, peer_id):
         """
