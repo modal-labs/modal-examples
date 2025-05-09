@@ -163,7 +163,7 @@ class ObjDet(ModalWebRtcPeer):
                 )
 
     # some free turn servers that can handle up to 5 GB of traffic
-    def get_turn_servers(self) -> dict:
+    async def get_turn_servers(self, peer_id=None, msg=None) -> dict:
         import os
 
         creds = {

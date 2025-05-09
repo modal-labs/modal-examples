@@ -1,5 +1,6 @@
 import asyncio
 import json
+import traceback
 from typing import ClassVar, Optional
 
 import modal
@@ -55,12 +56,17 @@ async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
             msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
             await q.put.aio(msg, partition=peer_id)
 
-        except Exception:
+        except Exception as e:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
                 return
+            elif isinstance(e, asyncio.TimeoutError):
+                continue
+            else:
+                print(f"Error relaying client message: {type(e)}: {e}")
+                traceback.print_exc()
 
 
 async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
@@ -77,12 +83,17 @@ async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
 
             await websocket.send_text(modal_peer_msg)
 
-        except Exception:
+        except Exception as e:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
                 return
+            elif isinstance(e, asyncio.TimeoutError):
+                continue
+            else:
+                print(f"Error relaying modal peer message: {type(e)}: {e}")
+                traceback.print_exc()
 
 
 class ModalWebRtcPeer:
@@ -123,7 +134,7 @@ class ModalWebRtcPeer:
     async def run_streams(self, peer_id):
         """Override to add custom logic when running streams"""
 
-    def get_turn_servers(self) -> Optional[list]:
+    async def get_turn_servers(self, peer_id=None, msg=None) -> Optional[list]:
         """Override to customize TURN servers"""
 
     async def _setup_peer_connection(self, peer_id):
@@ -186,7 +197,9 @@ class ModalWebRtcPeer:
                 if response is not None:
                     await queue.put.aio(json.dumps(response), partition="server")
 
-            except Exception:
+            except Exception as e:
+                print(f"Error relaying client message: {type(e)}: {e}")
+                traceback.print_exc()
                 continue
 
     async def _run_streams(self, peer_id):
