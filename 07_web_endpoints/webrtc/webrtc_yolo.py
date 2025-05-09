@@ -1,3 +1,12 @@
+# ---
+# deploy: true
+# ---
+
+# # Real-time Webcam Object Detection with WebRTC
+
+# This example combines WebRTC's peer-to-peer video streaming with
+# Modal's efficient GPU scaling to deploy a real-time objection app.
+
 import os
 from pathlib import Path
 
