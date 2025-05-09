@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from typing import ClassVar, Optional
 
 import modal
@@ -107,7 +106,9 @@ class ModalWebRtcPeer:
 
     @modal.enter()
     async def _initialize(self):
-        self.id = str(uuid.uuid4())[:4]
+        import shortuuid
+
+        self.id = shortuuid.uuid()
         self.pcs = {}
 
         # call custom init logic

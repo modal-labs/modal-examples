@@ -34,6 +34,7 @@ video_processing_image = video_processing_image.pip_install(
     "opencv-python==4.11.0.86",
     "tensorrt==10.9.0.34",
     "torch==2.7.0",
+    "shortuuid==1.0.13",
 )
 
 # instantiate our app
@@ -185,7 +186,10 @@ webrtc_base_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
     .pip_install(
-        "fastapi[standard]==0.115.4", "aiortc==1.11.0", "opencv-python==4.11.0.86"
+        "fastapi[standard]==0.115.4",
+        "aiortc==1.11.0",
+        "opencv-python==4.11.0.86",
+        "shortuuid==1.0.13",
     )
 )
 

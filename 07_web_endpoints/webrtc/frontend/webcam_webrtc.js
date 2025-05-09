@@ -1,3 +1,5 @@
+
+
 let ws;
 let localStream;
 let peerConnection;
@@ -9,33 +11,6 @@ let iceServerType = 'stun';
 const statusDisplay = document.getElementById('statusDisplay');
 const MAX_STATUS_HISTORY = 100;
 let statusHistory = [];
-
-// Function to update status
-function updateStatus(message) {
-    
-    console.log(message);
-
-    // Add timestamp to message
-    const now = new Date();
-    const timestamp = now.toLocaleTimeString();
-    const statusLine = `[${timestamp}] ${message}`;
-    
-    // Add to history
-    statusHistory.push(statusLine);
-    
-    // Keep only last 10 messages
-    if (statusHistory.length > MAX_STATUS_HISTORY) {
-        statusHistory.shift();
-    }
-    
-    // Update display
-    statusDisplay.innerHTML = statusHistory.map(line => 
-        `<div class="status-line">${line}</div>`
-    ).join('');
-    
-    // Scroll to bottom
-    statusDisplay.scrollTop = statusDisplay.scrollHeight;
-}
 
 const iceSTUNservers = [
     {
@@ -55,14 +30,6 @@ const stopStreamingButton = document.getElementById('stopStreamingButton');
 startWebcamButton.disabled = false;
 startStreamingButton.disabled = true;
 stopStreamingButton.disabled = true;
-
-// Add event listener for STUN/TURN server radio buttons
-document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-        iceServerType = e.target.value;
-        console.log('ICE server type changed to:', iceServerType);
-    });
-});
 
 // Get webcam media stream
 async function startWebcam() {
@@ -90,7 +57,7 @@ async function startStreaming() {
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
 
-    peerID = crypto.randomUUID().slice(0, 4);
+    peerID = generateShortUUID();
 
     updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
 
@@ -101,20 +68,14 @@ async function startStreaming() {
 async function negotiate() {
     try {
         // setup websocket connection
-        ws_connected = false;
         ws = new WebSocket(`/ws/${peerID}`);
 
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
-            ws.close();
         };
     
         ws.onclose = function() {
             console.log('WebSocket connection closed');
-            if (ws.readyState === WebSocket.OPEN) {
-                console.log('Closing websocket connection...');
-                ws.close();
-            }
         };
 
         ws.onmessage = (event) => {
@@ -247,6 +208,41 @@ async function cleanup() {
     
 }
 
+// Add event listener for STUN/TURN server radio buttons
+document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        iceServerType = e.target.value;
+        console.log('ICE server type changed to:', iceServerType);
+    });
+});
+
+// Function to update status
+function updateStatus(message) {
+    
+    console.log(message);
+
+    // Add timestamp to message
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString();
+    const statusLine = `[${timestamp}] ${message}`;
+    
+    // Add to history
+    statusHistory.push(statusLine);
+    
+    // Keep only last 10 messages
+    if (statusHistory.length > MAX_STATUS_HISTORY) {
+        statusHistory.shift();
+    }
+    
+    // Update display
+    statusDisplay.innerHTML = statusHistory.map(line => 
+        `<div class="status-line">${line}</div>`
+    ).join('');
+    
+    // Scroll to bottom
+    statusDisplay.scrollTop = statusDisplay.scrollHeight;
+}
+
 // Event listeners
 startWebcamButton.addEventListener('click', startWebcam);
 startStreamingButton.addEventListener('click', startStreaming);
@@ -265,3 +261,14 @@ window.addEventListener('beforeunload', async () => {
     });
     iceServerType = 'stun';
 });
+
+// Generate a short, URL-safe UUID
+function generateShortUUID() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    let result = '';
+    // Generate 22 characters (similar to short-uuid's default length)
+    for (let i = 0; i < 22; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
