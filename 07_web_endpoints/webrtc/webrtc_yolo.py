@@ -55,9 +55,6 @@ cache = {CACHE_PATH: CACHE_VOLUME}
 turn_secret = modal.Secret.from_dotenv()  # TODO: Modal Secret
 
 
-# our modal peer, a subclass of ModalWebRTCPeer
-
-
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
@@ -340,7 +337,7 @@ class TestPeer(ModalWebRtcPeer):
             await websocket.send(json.dumps({"type": "identify", "peer_id": self.id}))
             peer_id = json.loads(await websocket.recv())["peer_id"]
 
-            offer_msg = await self._generate_offer(peer_id)
+            offer_msg = await self.generate_offer(peer_id)
             await websocket.send(json.dumps(offer_msg))
 
             try:
@@ -348,7 +345,7 @@ class TestPeer(ModalWebRtcPeer):
                 answer = json.loads(await websocket.recv())
 
                 if answer.get("type") == "answer":
-                    await self._handle_answer(peer_id, answer)
+                    await self.handle_answer(peer_id, answer)
 
             except websockets.exceptions.ConnectionClosed:
                 await websocket.close()
