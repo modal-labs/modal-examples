@@ -1,8 +1,8 @@
 # # Distributed Hyperparameter Optimization with Optuna & XGBoost
-#
+
 # [Optuna](https://optuna.org) is an open-source Python framework designed to automate the process
-# of finding the optimal hyperparameter optimization framework for machine learning models.
-#
+# of finding the optimal hyperparameters for machine learning models.
+
 # This example demonstrates how to parallelize your hyperparameter search with Optuna on Modal with XGBoost,
 # [Hyperband pruning](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.pruners.HyperbandPruner.html),
 # and access to the Optuna Dashboard. Pruning automatically stops unpromising trials at the early stages of training,
@@ -36,6 +36,7 @@ JOURNAL_STORAGE_LOG = DATA_DIR / ".log"
 # ## Optuna Worker
 
 # For this example, we restrict the number of containers to 20 and run 500 trials.
+
 CONCURRENCY = 20
 N_TRIALS = 500
 
@@ -68,14 +69,16 @@ class OptunaWorker:
         import xgboost as xgb
         from sklearn.metrics import accuracy_score
 
-        # A XGBoost callback that calls back to the Optuna head to define if we should prune
+        # An XGBoost callback that checks whether the run should be pruned
         class XGBoostPruningCallback(xgb.callback.TrainingCallback):
             def __init__(self, head, observation_key: str, trial_number: int):
                 self.observation_key = observation_key
                 self.head = head
                 self.trial_number = trial_number
 
-            def after_iteration(self, model: xgb.Booster, epoch: int, evals_log: dict) -> bool:
+            def after_iteration(
+                self, model: xgb.Booster, epoch: int, evals_log: dict
+            ) -> bool:
                 evaluation_results = {}
                 for dataset, metrics in evals_log.items():
                     for metric, scores in metrics.items():
@@ -86,7 +89,9 @@ class OptunaWorker:
                 current_score = evaluation_results[self.observation_key]
 
                 # The Optuna head defines a `should_prune` method that signals to the worker, if it should prune
-                should_prune = self.head.should_prune.remote(current_score, epoch, self.trial_number)
+                should_prune = self.head.should_prune.remote(
+                    current_score, epoch, self.trial_number
+                )
                 return should_prune
 
         optuna_head = OptunaHead()
@@ -108,7 +113,7 @@ class OptunaWorker:
 
 
 # ## Optuna Head
-#
+
 # The Optuna Head object is responsible for:
 # 1. Keeping track of the results of the trials.
 # 2. Decide when a trial should be pruned.
@@ -125,6 +130,8 @@ if TYPE_CHECKING:
 # The Optuna head requires a consistent state to manage the running trials, so we restrict the number of
 # containers to one and allow it to take multiple inputs. With multiple inputs, this one container can handle
 # all the requests from the optuna dashboard and the worker's can all `should_prune` at the same time.
+
+
 @app.cls(cpu=2, memory=2048, volumes={"/data": volume}, max_containers=1)
 @modal.concurrent(max_inputs=1000)
 class OptunaHead:
@@ -153,7 +160,9 @@ class OptunaHead:
         )
 
     @modal.method()
-    def should_prune(self, intermediate_value: float, step: int, trial_number: int) -> bool:
+    def should_prune(
+        self, intermediate_value: float, step: int, trial_number: int
+    ) -> bool:
         """Return True if a trial should be pruned."""
         try:
             trial = self.trials[trial_number]
@@ -174,7 +183,9 @@ class OptunaHead:
             params = await asyncio.to_thread(self.get_param_from_trial, trial)
 
             try:
-                result = await OptunaWorker().evaluate.remote.aio(params, trial_number=trial.number)
+                result = await OptunaWorker().evaluate.remote.aio(
+                    params, trial_number=trial.number
+                )
                 await asyncio.to_thread(
                     self.study.tell,
                     trial,
@@ -183,7 +194,9 @@ class OptunaHead:
                 )
                 print(f"Completed with: {result}, {trial.params}")
             except Exception:
-                await asyncio.to_thread(self.study.tell, trial, state=optuna.trial.TrialState.FAIL)
+                await asyncio.to_thread(
+                    self.study.tell, trial, state=optuna.trial.TrialState.FAIL
+                )
                 print(f"Failed with: {trial.params}")
 
             del self.trials[trial.number]
@@ -230,7 +243,9 @@ class OptunaHead:
             "max_depth": trial.suggest_int("max_depth", 3, 9),
             "eta": trial.suggest_float("eta", 0.01, 0.3, log=True),
             "gamma": trial.suggest_float("gamma", 1e-8, 1.0, log=True),
-            "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+            "grow_policy": trial.suggest_categorical(
+                "grow_policy", ["depthwise", "lossguide"]
+            ),
             "subsample": trial.suggest_float("subsample", 0.5, 1.0),
             "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
             "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
@@ -238,15 +253,19 @@ class OptunaHead:
         }
 
         if param["booster"] == "dart":
-            param["sample_type"] = trial.suggest_categorical("sample_type", ["uniform", "weighted"])
-            param["normalize_type"] = trial.suggest_categorical("normalize_type", ["tree", "forest"])
+            param["sample_type"] = trial.suggest_categorical(
+                "sample_type", ["uniform", "weighted"]
+            )
+            param["normalize_type"] = trial.suggest_categorical(
+                "normalize_type", ["tree", "forest"]
+            )
             param["rate_drop"] = trial.suggest_float("rate_drop", 1e-8, 1.0, log=True)
             param["skip_drop"] = trial.suggest_float("skip_drop", 1e-8, 1.0, log=True)
         return param
 
 
 # ## Deploying and Running the Hyperparameter search
-#
+
 # We deploy this Optuna App by running: `modal deploy xgboost_optuna_search.py`. This will give you access to
 # the optuna dashboard. Finally, we trigger the hyperparameter search by running `python xgboost_optuna_search.py`.
 # This runs the following code, which calls `run_trials` on the Optuna head node.
