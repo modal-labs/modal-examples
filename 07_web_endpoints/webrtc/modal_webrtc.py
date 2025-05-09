@@ -1,6 +1,5 @@
 import asyncio
 import json
-import traceback
 from typing import ClassVar, Optional
 
 import modal
@@ -187,9 +186,7 @@ class ModalWebRtcPeer:
                 if response is not None:
                     await queue.put.aio(json.dumps(response), partition="server")
 
-            except Exception as e:
-                print(f"Error relaying client message: {type(e)}: {e}")
-                traceback.print_exc()
+            except Exception:
                 continue
 
     async def _run_streams(self, peer_id):
