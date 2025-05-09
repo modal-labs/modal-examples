@@ -57,10 +57,10 @@ async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
             await q.put.aio(msg, partition=peer_id)
 
         except Exception:
-            if (
-                websocket.application_state == WebSocketState.DISCONNECTED
-                or websocket.client_state == WebSocketState.DISCONNECTED
-            ):
+            if WebSocketState.DISCONNECTED in [
+                websocket.application_state,
+                websocket.client_state,
+            ]:
                 return
 
 
@@ -79,10 +79,10 @@ async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
             await websocket.send_text(modal_peer_msg)
 
         except Exception:
-            if (
-                websocket.application_state == WebSocketState.DISCONNECTED
-                or websocket.client_state == WebSocketState.DISCONNECTED
-            ):
+            if WebSocketState.DISCONNECTED in [
+                websocket.application_state,
+                websocket.client_state,
+            ]:
                 return
 
 

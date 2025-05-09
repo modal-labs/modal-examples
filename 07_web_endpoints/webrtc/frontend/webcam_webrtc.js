@@ -198,7 +198,6 @@ async function negotiate() {
         peerConnection.onconnectionstatechange = async () => {
             updateStatus(`WebRTCConnection state: ${peerConnection.connectionState}`);
             if (peerConnection.connectionState === 'connected') {
-                await ws.send(JSON.stringify({type: 'close', peer_id: peerID}));
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.close();
                 }
