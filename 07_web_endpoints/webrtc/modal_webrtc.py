@@ -66,7 +66,7 @@ async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
             ):
                 return
             else:
-                print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
+                print(f"Error relaying from client peer, {peer_id}, to modal peer: {e}")
                 traceback.print_exc()
 
 
@@ -161,7 +161,7 @@ class ModalWebRtcPeer:
     async def _connect_over_queue(self, queue, peer_id):
         """Connect this peer to another by passing messages along a Modal Queue."""
         # the first message should come quickly, if not, we lost the peer
-        first_msg_received = False
+        first_msg = False
 
         msg_handlers = {  # message types we need to handle
             "offer": self._handle_offer,  # SDP offer
@@ -173,14 +173,9 @@ class ModalWebRtcPeer:
         while True:
             try:
                 if self.pcs.get(peer_id) and (
-                    self.pcs[peer_id].connectionState == "connected"
-                    or self.pcs[peer_id].connectionState == "closed"
-                    or self.pcs[peer_id].connectionState == "failed"
+                    self.pcs[peer_id].connectionState
+                    in ["connected", "closed", "failed"]
                 ):
-                    print(f"Peer {self.id} closing connection to {peer_id}...")
-                    print(
-                        f"Peer {self.id} connection state: {self.pcs[peer_id].connectionState}"
-                    )
                     await queue.put.aio("close", partition="server")
                     break
 
@@ -191,7 +186,7 @@ class ModalWebRtcPeer:
                     )
                 )
 
-                first_msg_received = True
+                first_msg = True
 
                 # dispatch the message to its handler
                 if handler := msg_handlers.get(msg.get("type")):
@@ -206,7 +201,7 @@ class ModalWebRtcPeer:
 
             except Exception as e:
                 if isinstance(e, TimeoutError):
-                    if not first_msg_received:
+                    if not first_msg:
                         print(
                             f"Modal peer {self.id}"
                             f" for client peer {peer_id}"

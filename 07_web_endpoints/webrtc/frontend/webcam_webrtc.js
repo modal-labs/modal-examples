@@ -12,6 +12,8 @@ let statusHistory = [];
 
 // Function to update status
 function updateStatus(message) {
+    
+    console.log(message);
 
     // Add timestamp to message
     const now = new Date();
@@ -91,20 +93,9 @@ async function startStreaming() {
     peerID = crypto.randomUUID().slice(0, 4);
 
     updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
-    updateStatus('Selected ICE server type: ' + iceServerType);
-    if (peerID) {
-        updateStatus('Peer ID: ' + peerID);
-    }
-    if (ws) {
-        updateStatus('ws state: ' + ws.readyState);
-    }
-    
 
-    try {
-        negotiate();
-    } catch (err) {
-        console.error('Error creating offer:', err);
-    }
+    negotiate();
+
 }    
 
 async function negotiate() {
@@ -112,13 +103,6 @@ async function negotiate() {
         // setup websocket connection
         ws_connected = false;
         ws = new WebSocket(`/ws/${peerID}`);
-        
-        console.log('Waiting for websocket to open...');
-       
-        ws.onopen = function() {
-            console.log('Websocket opened');
-            ws_connected = true;
-        };
 
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
@@ -135,43 +119,36 @@ async function negotiate() {
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            console.log('Received msg:', msg);
             
             if (msg.type === 'answer') {
-                if (iceServerType == 'stun'){
-                    updateStatus('Establishing WebRTC connection...');
-                }
+                updateStatus('Establishing WebRTC connection...');
                 peerConnection.setRemoteDescription(msg);
             } else if (msg.type === 'turn_servers') {
-                if (iceServerType == 'turn'){
-                    updateStatus('Establishing WebRTC connection...');
-                }
                 iceServers = msg.ice_servers;
             } else {
                 console.error('Unexpected response from server:', msg);
             }
         };
 
-        while (!ws_connected) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        console.log('Waiting for websocket to open...');
+        await new Promise((resolve) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                resolve();
+            } else {
+                ws.addEventListener('open', () => resolve(), { once: true });
+            }
+        });
 
         if (iceServerType === 'turn') {
-            updateStatus('Getting TURN servers...');
-            console.log('Getting TURN servers...');
             ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: peerID}));
         } else {
-            updateStatus('Using STUN servers...');
-            console.log('Using STUN servers...');
             iceServers = iceSTUNservers;
         }
-        // let policy = "all";
         // Wait until we have ICE servers
         if (iceServerType === 'turn') {
             await new Promise((resolve) => {
                 const checkIceServers = () => {
                     if (iceServers) {
-                        console.log('ICE servers received:', iceServers);
                         resolve();
                     } else {
                         setTimeout(checkIceServers, 100);
@@ -179,13 +156,8 @@ async function negotiate() {
                 };
                 checkIceServers();
             });
-            // policy = "relay";
         }
 
-        if (!iceServers || !iceServers.length) {
-            console.error('No ICE servers received');
-            throw new Error('No ICE servers available');
-        }
         const rtcConfiguration = {
             iceServers: iceServers,
         }
@@ -203,11 +175,7 @@ async function negotiate() {
             remoteVideo.srcObject = event.streams[0];
         };
 
-        // Handle ICE candidates using ICE trickle pattern
-        // for some devices/networks, waiting for automatic ICE candidate gathering
-        // to complete can take a long time
-        // so we use the ICE trickle pattern to send candidates as they are gathered
-        // which is much, much faster
+        // Handle ICE candidates using Trickle ICE pattern
         peerConnection.onicecandidate = async (event) => {
             if (!event.candidate || !event.candidate.candidate) {
                 return;
@@ -229,7 +197,6 @@ async function negotiate() {
 
         peerConnection.onconnectionstatechange = async () => {
             updateStatus(`WebRTCConnection state: ${peerConnection.connectionState}`);
-            console.log('Connection state:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
                 await ws.send(JSON.stringify({type: 'close', peer_id: peerID}));
                 if (ws.readyState === WebSocket.OPEN) {
