@@ -48,7 +48,7 @@ import modal
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our Modal App runs.
 
-app = modal.App(name="example-dreambooth-flux")
+app = modal.App(name="example-lora-flux")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
@@ -525,14 +525,14 @@ def fastapi_app():
 
 # You can use the `modal` command-line interface to set up, customize, and deploy this app:
 
-# - `modal run dreambooth_app.py` will train the model. Change the `instance_example_urls_file` to point to your own pet's images.
-# - `modal serve dreambooth_app.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-modal-serve) the Gradio interface at a temporary location. Great for iterating on code!
-# - `modal shell dreambooth_app.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#interactive-shell) in our image. Great for debugging environment issues.
+# - `modal run diffusers_lora_finetune.py` will train the model. Change the `instance_example_urls_file` to point to your own pet's images.
+# - `modal serve diffusers_lora_finetune.py` will [serve](https://modal.com/docs/guide/webhooks#developing-with-modal-serve) the Gradio interface at a temporary location. Great for iterating on code!
+# - `modal shell diffusers_lora_finetune.py` is a convenient helper to open a bash [shell](https://modal.com/docs/guide/developing-debugging#interactive-shell) in our image. Great for debugging environment issues.
 
 # Remember, once you've trained your own fine-tuned model, you can deploy it permanently -- for no cost when it is not being used! --
-# using `modal deploy dreambooth_app.py`.
+# using `modal deploy diffusers_lora_finetune.py`.
 
-# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-dreambooth-flux-fastapi-app.modal.run).
+# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-lora-flux-fastapi-app.modal.run).
 
 
 @app.local_entrypoint()
