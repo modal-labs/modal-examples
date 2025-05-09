@@ -90,7 +90,7 @@ async function startStreaming() {
     startStreamingButton.disabled = true;
     stopStreamingButton.disabled = false;
 
-    peerID = crypto.randomUUID();
+    peerID = crypto.randomUUID().slice(0, 4);
 
     updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
     updateStatus('Selected ICE server type: ' + iceServerType);
@@ -129,7 +129,10 @@ async function negotiate() {
     
         ws.onclose = function() {
             console.log('WebSocket connection closed');
-            // ws = null;
+            if (ws.readyState === WebSocket.OPEN) {
+                console.log('Closing websocket connection...');
+                ws.close();
+            }
         };
 
         ws.onmessage = (event) => {
@@ -146,11 +149,6 @@ async function negotiate() {
                     updateStatus('Establishing WebRTC connection...');
                 }
                 iceServers = msg.ice_servers;
-            } else if (msg.type === 'connection_status') {
-                if (msg.status === 'connected') {
-                    console.log('Connection status:', msg.status);
-                    ws.close();
-                }
             } else {
                 console.error('Unexpected response from server:', msg);
             }
@@ -193,7 +191,8 @@ async function negotiate() {
         const rtcConfiguration = {
             iceServers: iceServers,
             // iceTransportPolicy: policy,
-            // rtcpMuxPolicy: "negotiate"
+            // rtcpMuxPolicy: "negotiate",
+            // iceCandidatePoolSize: 20,
         }
         peerConnection = new RTCPeerConnection(rtcConfiguration);
 
@@ -217,30 +216,32 @@ async function negotiate() {
         // so we use the ICE trickle pattern to send candidates as they are gathered
         // which is much, much faster
         peerConnection.onicecandidate = async (event) => {
-            if (!event.candidate) {
+            if (!event.candidate || !event.candidate.candidate) {
                 return;
             }
             
-            if (event.candidate) {
-                const iceCandidate = {
-                    peer_id: peerID,
-                    candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
-                    sdpMid: event.candidate.sdpMid,
-                    sdpMLineIndex: event.candidate.sdpMLineIndex,
-                    usernameFragment: event.candidate.usernameFragment
-                };
+            const iceCandidate = {
+                peer_id: peerID,
+                candidate_sdp: event.candidate.candidate, // sdp string representation of candidate
+                sdpMid: event.candidate.sdpMid,
+                sdpMLineIndex: event.candidate.sdpMLineIndex,
+                usernameFragment: event.candidate.usernameFragment
+            };
 
-                console.log('Sending ICE candidate:', iceCandidate);
-                
-                // send ice candidate over ws
-                ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
-            }
+            console.log('Sending ICE candidate:', iceCandidate);
+            
+            // send ice candidate over ws
+            ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
         };
 
         peerConnection.onconnectionstatechange = async () => {
             updateStatus(`WebRTCConnection state: ${peerConnection.connectionState}`);
+            console.log('Connection state:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
-                console.log('Connection state:', peerConnection.connectionState);
+                console.log('ws state:', ws.readyState);
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
             }
         };
 
@@ -254,7 +255,11 @@ async function negotiate() {
         ws.send(JSON.stringify({peer_id: peerID, type: 'offer', sdp: offer.sdp}));
 
     } catch (e) {
+        console.error('Error negotiating:', e);
         alert(e);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
     }
 }
 
@@ -269,9 +274,12 @@ async function stop_streaming() {
 
 // cleanup
 async function cleanup() {
+    console.log('Cleaning up...');
     iceServers = null;
     if (peerConnection) {
+        console.log('Peer Connection state:', peerConnection.connectionState);
         await peerConnection.close();
+        peerConnection = null;
     }
     if (ws.readyState === WebSocket.OPEN) {
         await ws.close();

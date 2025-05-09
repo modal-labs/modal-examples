@@ -1,10 +1,12 @@
 import asyncio
 import json
+import traceback
 import uuid
 from typing import ClassVar, Optional
 
 import modal
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
+from fastapi.websockets import WebSocketState
 
 
 class ModalWebRtcServer:
@@ -31,7 +33,7 @@ class ModalWebRtcServer:
     def web(self):
         return self.web_app
 
-    async def _mediate_negotiation(self, websocket, peer_id: str):
+    async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
         if self.modal_peer_cls:
             modal_peer = self.modal_peer_cls()
         else:
@@ -47,36 +49,47 @@ class ModalWebRtcServer:
                 relay_modal_peer(websocket, q, peer_id),
             )
 
+        # try closing websocket
+        # try:
+        #     await websocket.close()
+        # except Exception as e:
+        #     print(f"Error closing websocket: {e}")
+        #     traceback.print_exc()
 
-async def relay_client(websocket, queue, peer_id):
+
+async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse as json
-            msg = await asyncio.wait_for(websocket.receive_text(), timeout=1)
+            msg = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+            await q.put.aio(msg, partition=peer_id)
 
-            await queue.put.aio(msg, partition=peer_id)
         except Exception as e:
             if isinstance(e, TimeoutError):
                 continue
-            elif not isinstance(e, WebSocketDisconnect):
+            elif (
+                websocket.application_state == WebSocketState.DISCONNECTED
+                or websocket.client_state == WebSocketState.DISCONNECTED
+            ):
+                return
+            else:
                 print(f"Error relaying from client peer to modal peer {peer_id}: {e}")
-            return
+                traceback.print_exc()
 
 
-async def relay_modal_peer(websocket, queue, peer_id):
+async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse from json
             modal_peer_msg = await asyncio.wait_for(
-                queue.get.aio(partition="server"), timeout=1
+                q.get.aio(partition="server"), timeout=1.0
             )
-
             if modal_peer_msg.startswith("close"):
                 print(
                     f"Server closing websocket connection to client peer {peer_id}..."
                 )
                 await websocket.close()
-                break
+                return
 
             await websocket.send_text(modal_peer_msg)
 
@@ -84,9 +97,15 @@ async def relay_modal_peer(websocket, queue, peer_id):
             if isinstance(e, TimeoutError):
                 # nothing on the socket, loop again
                 continue
+            elif (
+                websocket.application_state == WebSocketState.DISCONNECTED
+                or websocket.client_state == WebSocketState.DISCONNECTED
+            ):
+                print(f"Client peer {peer_id} disconnected FROM SERVER")
+                return
             else:
                 print(f"Error relaying from modal peer to client peer {peer_id}: {e}")
-                break
+                traceback.print_exc()
 
 
 class ModalWebRtcPeer:
@@ -110,7 +129,7 @@ class ModalWebRtcPeer:
 
     @modal.enter()
     async def _initialize(self):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid.uuid4())[:4]
         self.pcs = {}
 
         # call custom init logic
@@ -162,15 +181,21 @@ class ModalWebRtcPeer:
             try:
                 if self.pcs.get(peer_id) and (
                     self.pcs[peer_id].connectionState == "connected"
-                    or self.pcs[peer_id].connectionState == "disconnected"
+                    or self.pcs[peer_id].connectionState == "closed"
                     or self.pcs[peer_id].connectionState == "failed"
                 ):
+                    print(f"Peer {self.id} closing connection to {peer_id}...")
+                    print(
+                        f"Peer {self.id} connection state: {self.pcs[peer_id].connectionState}"
+                    )
                     await queue.put.aio("close", partition="server")
                     break
 
                 # read and parse websocket message passed over queue
                 msg = json.loads(
-                    await asyncio.wait_for(queue.get.aio(partition=peer_id), timeout=5)
+                    await asyncio.wait_for(
+                        queue.get.aio(partition=peer_id), timeout=1.0
+                    )
                 )
 
                 first_msg_received = True
@@ -190,12 +215,14 @@ class ModalWebRtcPeer:
                 if isinstance(e, TimeoutError):
                     if not first_msg_received:
                         print(
-                            f"Modal peer {self.peer_id}"
+                            f"Modal peer {self.id}"
                             f" for client peer {peer_id}"
                             " couldn't connect to client"
                         )
-                        raise ConnectionError from e
-                continue
+                        # raise ConnectionError from e
+                else:
+                    print(f"Error connecting to client peer {peer_id}: {e}")
+                    traceback.print_exc()
 
     async def _run_streams(self, peer_id):
         """Run WebRTC streaming with a peer."""
@@ -206,6 +233,10 @@ class ModalWebRtcPeer:
         # run until connection is closed or broken
         while self.pcs[peer_id].connectionState == "connected":
             await asyncio.sleep(0.1)
+
+        print(
+            f"Peer {self.id} connection state: {self.pcs[peer_id].connectionState}, exiting..."
+        )
 
     async def _handle_offer(self, msg, peer_id):
         """Handles a peers SDP offer message by producing an SDP answer."""
@@ -261,7 +292,7 @@ class ModalWebRtcPeer:
         # aiortc automatically uses google's STUN server,
         # but we can also specify our own
         default_ice_server = RTCIceServer(urls="stun:stun.l.google.com:19302")
-        config = RTCConfiguration([default_ice_server])
+        config = RTCConfiguration(iceServers=[default_ice_server])
 
         self.pcs[peer_id] = RTCPeerConnection(configuration=config)
 

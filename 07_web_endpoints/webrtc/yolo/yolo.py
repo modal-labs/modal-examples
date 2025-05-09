@@ -1,7 +1,6 @@
 # ---
 # lambda-test: false
 # ---
-import time
 from pathlib import Path
 
 import cv2
@@ -27,8 +26,6 @@ class YOLOv10:
         print("YOLO model initialized")
 
     def initialize_model(self, model_file):
-        print(f"Loading model from {model_file}")
-
         self.session = onnxruntime.InferenceSession(
             model_file,
             providers=[
@@ -78,12 +75,12 @@ class YOLOv10:
     def inference(self, image, input_tensor, conf_threshold=0.3):
         # set seed to potentially create smoother output in RT setting
         onnxruntime.set_seed(42)
-        start = time.perf_counter()
+        # start = time.perf_counter()
         outputs = self.session.run(
             self.output_names, {self.input_names[0]: input_tensor}
         )
 
-        print(f"Inference time: {(time.perf_counter() - start) * 1000:.2f} ms")
+        # print(f"Inference time: {(time.perf_counter() - start) * 1000:.2f} ms")
         (
             boxes,
             scores,
