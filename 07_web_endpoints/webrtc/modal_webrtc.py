@@ -1,6 +1,5 @@
 import asyncio
 import json
-import traceback
 import uuid
 from typing import ClassVar, Optional
 
@@ -146,8 +145,6 @@ class ModalWebRtcPeer:
 
     async def _connect_over_queue(self, queue, peer_id):
         """Connect this peer to another by passing messages along a Modal Queue."""
-        # the first message should come quickly, if not, we lost the peer
-        first_msg = False
 
         msg_handlers = {  # message types we need to handle
             "offer": self._handle_offer,  # SDP offer
@@ -172,8 +169,6 @@ class ModalWebRtcPeer:
                     )
                 )
 
-                first_msg = True
-
                 # dispatch the message to its handler
                 if handler := msg_handlers.get(msg.get("type")):
                     response = await handler(msg, peer_id)
@@ -185,18 +180,8 @@ class ModalWebRtcPeer:
                 if response is not None:
                     await queue.put.aio(json.dumps(response), partition="server")
 
-            except Exception as e:
-                if isinstance(e, TimeoutError):
-                    if not first_msg:
-                        print(
-                            f"Modal peer {self.id}"
-                            f" for client peer {peer_id}"
-                            " couldn't connect to client"
-                        )
-                        raise ConnectionError from e
-                else:
-                    print(f"Error connecting to client peer {peer_id}: {e}")
-                    traceback.print_exc()
+            except Exception:
+                continue
 
     async def _run_streams(self, peer_id):
         """Run WebRTC streaming with a peer."""
