@@ -102,9 +102,11 @@ def dbt_run() -> None:
     # first, or change this to use another web endpoint you have:
     ref = modal.Function.from_name(
         "example-trtllm-Meta-Llama-3-8B-Instruct", "generate_web"
-    ).hydrate()
+    )
 
-    res = dbtRunner().invoke(["run", "--vars", f"{{'inference_url': '{ref.web_url}'}}"])
+    res = dbtRunner().invoke(
+        ["run", "--vars", f"{{'inference_url': '{ref.get_web_url()}'}}"]
+    )
     if res.exception:
         print(res.exception)
 

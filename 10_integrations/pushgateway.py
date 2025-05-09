@@ -100,7 +100,7 @@ class ExampleClientApplication:
     @modal.enter()
     def init(self):
         self.registry = CollectorRegistry()
-        self.web_url = serve.web_url
+        self.web_url = serve.get_web_url()
         self.instance_id = os.environ["MODAL_TASK_ID"]
         self.counter = Counter(
             "hello_counter",

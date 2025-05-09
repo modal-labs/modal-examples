@@ -251,7 +251,7 @@ def ui():
             "index.html",
             {
                 "request": request,
-                "inference_url": Inference.web.web_url,
+                "inference_url": Inference.web.get_web_url(),
                 "model_name": "Stable Diffusion 3.5 Large Turbo",
                 "default_prompt": "A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
             },

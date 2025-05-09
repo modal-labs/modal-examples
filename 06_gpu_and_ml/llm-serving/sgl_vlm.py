@@ -222,7 +222,7 @@ def main(
     )
 
     req = urllib.request.Request(
-        model.generate.web_url,
+        model.generate.get_web_url(),
         data=payload.encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
