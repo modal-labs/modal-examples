@@ -210,8 +210,8 @@ class ModalWebRtcPeer:
         await self.pcs[peer_id].setRemoteDescription(
             RTCSessionDescription(msg["sdp"], msg["type"])
         )
+
         answer = await self.pcs[peer_id].createAnswer()
-        # this also triggers ICE gathering
         await self.pcs[peer_id].setLocalDescription(answer)
         sdp = self.pcs[peer_id].localDescription.sdp
 
