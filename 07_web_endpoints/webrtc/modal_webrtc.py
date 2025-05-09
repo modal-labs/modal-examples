@@ -56,17 +56,12 @@ async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
             msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
             await q.put.aio(msg, partition=peer_id)
 
-        except Exception as e:
+        except Exception:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
                 return
-            elif isinstance(e, asyncio.TimeoutError):
-                continue
-            else:
-                print(f"Error relaying client message: {type(e)}: {e}")
-                traceback.print_exc()
 
 
 async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
@@ -83,17 +78,12 @@ async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
 
             await websocket.send_text(modal_peer_msg)
 
-        except Exception as e:
+        except Exception:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
                 return
-            elif isinstance(e, asyncio.TimeoutError):
-                continue
-            else:
-                print(f"Error relaying modal peer message: {type(e)}: {e}")
-                traceback.print_exc()
 
 
 class ModalWebRtcPeer:
