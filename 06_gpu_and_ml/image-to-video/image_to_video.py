@@ -320,7 +320,7 @@ def ui():
             "index.html",
             {
                 "request": request,
-                "inference_url": Inference().web.web_url,
+                "inference_url": Inference().web.get_web_url(),
                 "model_name": "LTX-Video Image to Video",
                 "default_prompt": "A young girl stands calmly in the foreground, looking directly at the camera, as a house fire rages in the background.",
             },
