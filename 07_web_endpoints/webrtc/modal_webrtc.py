@@ -49,19 +49,12 @@ class ModalWebRtcServer:
                 relay_modal_peer(websocket, q, peer_id),
             )
 
-        # try closing websocket
-        # try:
-        #     await websocket.close()
-        # except Exception as e:
-        #     print(f"Error closing websocket: {e}")
-        #     traceback.print_exc()
-
 
 async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse as json
-            msg = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+            msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
             await q.put.aio(msg, partition=peer_id)
 
         except Exception as e:
@@ -82,7 +75,7 @@ async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
         try:
             # get websocket message off queue and parse from json
             modal_peer_msg = await asyncio.wait_for(
-                q.get.aio(partition="server"), timeout=1.0
+                q.get.aio(partition="server"), timeout=0.5
             )
             if modal_peer_msg.startswith("close"):
                 print(
@@ -194,7 +187,7 @@ class ModalWebRtcPeer:
                 # read and parse websocket message passed over queue
                 msg = json.loads(
                     await asyncio.wait_for(
-                        queue.get.aio(partition=peer_id), timeout=1.0
+                        queue.get.aio(partition=peer_id), timeout=0.5
                     )
                 )
 
@@ -219,7 +212,7 @@ class ModalWebRtcPeer:
                             f" for client peer {peer_id}"
                             " couldn't connect to client"
                         )
-                        # raise ConnectionError from e
+                        raise ConnectionError from e
                 else:
                     print(f"Error connecting to client peer {peer_id}: {e}")
                     traceback.print_exc()

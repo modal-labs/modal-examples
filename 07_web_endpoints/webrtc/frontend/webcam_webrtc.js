@@ -39,8 +39,6 @@ const iceSTUNservers = [
     {
         urls: [
             "stun:stun.l.google.com:19302",
-            "stun:stun1.l.google.com:19302",
-            "stun:stun2.l.google.com:19302",
           ],
     },
 ]
@@ -56,7 +54,7 @@ startWebcamButton.disabled = false;
 startStreamingButton.disabled = true;
 stopStreamingButton.disabled = true;
 
-// Add event listener for ICE server radio buttons
+// Add event listener for STUN/TURN server radio buttons
 document.querySelectorAll('input[name="iceServer"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
         iceServerType = e.target.value;
@@ -190,13 +188,8 @@ async function negotiate() {
         }
         const rtcConfiguration = {
             iceServers: iceServers,
-            // iceTransportPolicy: policy,
-            // rtcpMuxPolicy: "negotiate",
-            // iceCandidatePoolSize: 20,
         }
         peerConnection = new RTCPeerConnection(rtcConfiguration);
-
-        console.log(`peerConnection: ${JSON.stringify(peerConnection.getConfiguration())}`);
 
         // Add local stream to peer connection
         localStream.getTracks().forEach(track => {
@@ -228,7 +221,7 @@ async function negotiate() {
                 usernameFragment: event.candidate.usernameFragment
             };
 
-            console.log('Sending ICE candidate:', iceCandidate);
+            console.log('Sending ICE candidate: ', iceCandidate.candidate_sdp);
             
             // send ice candidate over ws
             ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
@@ -238,7 +231,7 @@ async function negotiate() {
             updateStatus(`WebRTCConnection state: ${peerConnection.connectionState}`);
             console.log('Connection state:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
-                console.log('ws state:', ws.readyState);
+                await ws.send(JSON.stringify({type: 'close', peer_id: peerID}));
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.close();
                 }
@@ -283,6 +276,7 @@ async function cleanup() {
     }
     if (ws.readyState === WebSocket.OPEN) {
         await ws.close();
+        ws = null;
     }
     
 }
