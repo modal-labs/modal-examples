@@ -73,7 +73,7 @@ import modal
 # This tells Modal to pre-emptively warm a number of containers before they are strictly
 # needed. In other words it tells Modal to continuously fire up more and more containers
 # until throughput is saturated.
-buffer_containers: int = 10
+buffer_containers: int = None  # 10
 # If you _don't_ want to use this, set `buffer_containers = None`. The rest of the parameters
 # are discussed by their implementation by the local_entrypoint.
 
@@ -160,7 +160,7 @@ with infinity_image.imports():
     volumes={vol_mnt: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
-    timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
+    timeout=24 * 60 * 60,  # if using a large HF dataset, this may need to be longer
 )
 def catalog_jpegs(
     dataset_namespace: str,  # a HuggingFace path like `microsoft/cats_vs_dogs`
@@ -457,6 +457,7 @@ def main(
     max_containers: int = 50,  # warning: this gets overridden if buffer_containers not None
     allow_concurrent_inputs: int = 2,
     # modal.parameters:
+    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     threads_per_core: int = 8,
     batch_size: int = 100,
     model_name: str = "openai/clip-vit-base-patch16",
@@ -500,7 +501,7 @@ def main(
         gpu=gpu, allow_concurrent_inputs=allow_concurrent_inputs, **container_config
     )(
         batch_size=batch_size,
-        n_engines=allow_concurrent_inputs,
+        n_engines=n_models if n_models else allow_concurrent_inputs,
         model_name=model_name,
         threads_per_core=threads_per_core,
     )

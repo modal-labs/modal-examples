@@ -3,6 +3,7 @@
 # ---
 
 # TODO: deprecation warnings at the beginning??
+# TODO: add torch.inference_mode everywhere to both scripts...
 
 # # A Recipe for Throughput Maximization: GPU Packing with torch.compile
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
@@ -39,7 +40,7 @@ import modal
 # This tells Modal to pre-emptively warm a number of containers before they are strictly
 # needed. In other words it tells Modal to continuously fire up more and more containers
 # until throughput is saturated.
-buffer_containers: int = 10
+buffer_containers: int = None  # 10
 # If you _don't_ want to use this, set `buffer_containers = None`. The rest of the parameters
 # are discussed by their implementation by the local_entrypoint.
 
@@ -412,7 +413,9 @@ class TorchCompileEngine:
         if msg:
             print(msg)
 
-    def read_batch(self, im_path_list: list[os.PathLike], device) -> list["Image"]:
+    def read_batch(
+        self, im_path_list: list[os.PathLike], device
+    ) -> list["Image"]:  # TODO: fix this typehint
         """
         Read a batch of data. We use Threads to parallelize this I/O-bound task,
         and finally toss the batch into the CLIPImageProcessorFast preprocessor.
@@ -434,7 +437,9 @@ class TorchCompileEngine:
         )
 
     @modal.method()
-    async def embed(self, images: list[os.PathLike]) -> tuple[float, float]:
+    async def embed(
+        self, images: list[os.PathLike], *args, **kwargs
+    ) -> tuple[float, float]:
         """
         This is the workhorse function. We select a model from the queue, prepare
         a batch, execute inference, and return the time elapsed.
@@ -535,6 +540,7 @@ def main(
     max_containers: int = 50,  # this gets overridden if buffer_containers is not None
     allow_concurrent_inputs: int = 1,
     # modal.parameters:
+    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     threads_per_core: int = 8,
     batch_size: int = 32,
     model_name: str = "openai/clip-vit-base-patch16",  # 599 MB
@@ -567,7 +573,7 @@ def main(
         while len(im_path_list) < mil:
             im_path_list += im_path_list
         im_path_list = im_path_list[:mil]
-        batch_size = 128
+        # batch_size = 128
     n_ims = len(im_path_list)
 
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
@@ -584,7 +590,7 @@ def main(
         gpu=gpu, allow_concurrent_inputs=allow_concurrent_inputs, **container_config
     )(
         batch_size=batch_size,
-        n_engines=allow_concurrent_inputs,
+        n_engines=n_models if n_models else allow_concurrent_inputs,
         model_name=model_name,
         model_input_chan=model_input_chan,
         model_input_imheight=model_input_imheight,
@@ -593,10 +599,11 @@ def main(
     )
 
     # (2) Embed batches via remote `map` call
-    times, batchsizes = [], []
-    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
-        times.append(time)
-        batchsizes.append(batchsize)
+    times, batchsizes = [1], [1]
+    embedder.embed.spawn_map(chunked(im_path_list, batch_size))
+    # for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
+    #     times.append(time)
+    #     batchsizes.append(batchsize)
 
     # (3) Log
     if n_ims > 0:
