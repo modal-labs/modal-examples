@@ -69,10 +69,21 @@
 # #### Navigating an asynchronous negotation
 #
 # The sequence of events involved in connecting two peers is called **the negotation**, and like any negotiation, you can easily ---- it up.
-# For example, if you generate an offer before you add any streaming tracks to the connection, the negotiation will fail. Or if you set a peer's local description But generally, what makes
-# this so tricky is that the negotiation is asynchronous and only observable to us mere application developers through events and browser dashboards (which are honestly pretty sick).
-# Here's a detailed breakdown
+# What makes it particularly tricky is that the negotiation is asynchronous and only observable to us mere application developers through events and browser dashboards (which are honestly pretty sick).
+# Here's a detailed breakdown of (one form of) the negotiation process from the RFC:
 #
+# ![WebRTC Negotiation](https://www.w3.org/TR/2013/WD-webrtc-20130910/images/ladder-2party-simple.svg)
+#
+# In practice, there are a few things to watch out for:
+#
+# 1. There are two ways to send ICE candidates to the other peer:
+#    - The first is to send them embedded in the offer/answer SDP fields. To do this, the intiating peer generates an offer and sets it to its local description. Setting the local description triggers ICE gathering and waits for it to complete.
+# At that point, you can throw out the original offer and send the SDP string assigned to your local description - which will now contain the ICE candidates! This is the simplest way to send candidates.
+#    - The second approach is callled Trickle ICE. Here, you
+#
+# 2. The first peer to send an offer/answer message will generally wait for the other peer to respond before sending its candidates.
+#
+
 
 import os
 from pathlib import Path
