@@ -110,6 +110,7 @@ class ModalWebRtcPeer:
 
         self.id = shortuuid.uuid()
         self.pcs = {}
+        self.pending_candidates = {}
 
         # call custom init logic
         await self.initialize()
@@ -136,7 +137,7 @@ class ModalWebRtcPeer:
             iceServers=[RTCIceServer(urls="stun:stun.l.google.com:19302")]
         )
         self.pcs[peer_id] = RTCPeerConnection(configuration=config)
-
+        self.pending_candidates[peer_id] = []
         await self.setup_streams(peer_id)
 
         print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
@@ -225,7 +226,7 @@ class ModalWebRtcPeer:
 
         candidate = msg.get("candidate")
 
-        if not candidate or not self.pcs.get(peer_id):
+        if not candidate:
             raise ValueError
 
         print(
@@ -237,7 +238,16 @@ class ModalWebRtcPeer:
         ice_candidate.sdpMid = candidate["sdpMid"]
         ice_candidate.sdpMLineIndex = candidate["sdpMLineIndex"]
 
-        await self.pcs[peer_id].addIceCandidate(ice_candidate)
+        if not self.pcs.get(peer_id):
+            self.pending_candidates[peer_id].append(ice_candidate)
+        else:
+            if len(self.pending_candidates[peer_id]) > 0:
+                [
+                    await self.pcs[peer_id].addIceCandidate(c)
+                    for c in self.pending_candidates[peer_id]
+                ]
+                self.pending_candidates[peer_id] = []
+            await self.pcs[peer_id].addIceCandidate(ice_candidate)
 
     async def get_identity(self, peer_id=None, msg=None):
         """Reply to an identify message with own id."""

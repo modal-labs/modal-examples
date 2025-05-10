@@ -16,7 +16,7 @@
 # other low latency web-based communications (e.g. WebSockets) is that it's purpose built for media streaming
 # by enabling two devices on the web to
 # - establish a direct, bidirectional, and managed UDP (or TCP) connection via NAT hole-punching and
-# - coordinate media codecs and other parameters to optimize streaming.
+# - coordinate their capabilities, like media codecs and connection .
 #
 # The term WebRTC refers to both the protocol and API implementations - the primary implementation being
 # the JavaScript API; however, there are other implementations such as `aiortc` in Python. We'll use both
