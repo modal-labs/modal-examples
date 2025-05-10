@@ -10,21 +10,54 @@
 # ## What is WebRTC?
 #
 # WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services).
-# It powers Zoom, Twitch, Peloton, and a host of other services that got us through the pandemic. What makes WebRTC so effective
-# is that it enables two devices on the web
-# 1. to establish a direct UDP (or TCP) connection via NAT hole-punching, and
-# 2. agree on media codecs and other parameters to optimize streaming.
+# It powers Zoom, Twitch, Peloton, and a host of other apps that got us through the pandemic.
 #
+# What makes WebRTC so effective and different from
+# other low latency web-based communications (e.g. WebSockets) is that it's purpose built for media streaming
+# by enabling two devices on the web to
+# - establish a direct, bidirectional, and managed UDP (or TCP) connection via NAT hole-punching and
+# - coordinate media codecs and other parameters to optimize streaming.
 #
-# ## How does it work?
+# The term WebRTC refers to both the protocol and API implementations - the primary implementation being
+# the JavaScript API; however, there are other implementations such as `aiortc` in Python. We'll use both
+# in this example.
 #
-# WebRTC specifies a protocol that allows peers to exchange the necessary information to establish a connection, and it
-# provides a JavaScript API for implementing the protocol in the browser. The simplest way to implement a WebRTC app
-# involves two peers - one that initiates the connection and another that responds - and a signaling server that passes
-# messages between them.
+# ### How does it work?
 #
+# The simple WebRTC app that you'll find in most explainers consists of three players:
+# 1. A peer that initiates the connection
+# 2. A peer that responds to the connection
+# 3. A signaling server that passes messages between the two peer.
 #
+# #### DIAGRAM
 #
+# The connection is established using a quick back and forth. The initating peer offers up a description of itself -
+# its media sources, codec capabilities, IP information, etc - to the other peer through the server. Then the other peer
+# considers that info, and answers with a description of itself that
+# to the other peer through the server. The other peer considers that info, and anwers with a description of itself.
+#
+# Once these messages have been relayed... you're live. Easy, right?
+#
+# Obviously there's more going on under the hood, and there are the RFCs and excellent, in-depth explainers out there already.
+# Here, we'll give you enough info to make sure you're aware of all the moving parts and able to start buildling your own
+# real-time app with Modal.
+#
+# #### Messages and the Session Description Protocol (SDP)
+#
+# SDP defines the format of the messages exchanged between peers. It's a text-based format that allows peers to describe
+# their media capabilities, negotation roles, and ICE candidates. You can probably survive without groking this spec fully,
+# but it doesn't hurt when you're in the throes of debugging a connection issue.
+#
+# Messages are implemented as dictionaries with a `type` key that holds a string describing the message type (e.g. `offer`, `answer`, `candidate`)
+# and a `spd` key that contains the SDP encoded string. Most apps will add their own custom types to handle app-specific logic.
+#
+# #### The Asynchronous Ordering of Events
+#
+# The sequence of events involved in connecting two peers is called **the negotation**, and like any negotiation, you can easily ---- it up.
+# For example, if you generate an offer before you add any streaming tracks to the connection, the negotiation will fail. But generally, what makes
+# this so tricky is that the negotiation is asynchronous and only observable to us developers through events and browser dashboards (which are honestly pretty sick).
+#
+
 
 import os
 from pathlib import Path
