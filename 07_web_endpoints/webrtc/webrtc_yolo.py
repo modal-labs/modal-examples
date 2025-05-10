@@ -4,8 +4,27 @@
 
 # # Real-time Webcam Object Detection with WebRTC
 
-# This example combines WebRTC's peer-to-peer video streaming with
-# Modal's efficient GPU scaling to deploy a real-time objection app.
+# This example combines WebRTC's peer-to-peer video streaming capabilities with
+# Modal's efficient GPU scaling to deploy a real-time, browser-based object detection app.
+#
+# ## What is WebRTC?
+#
+# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services).
+# It powers Zoom, Twitch, Peloton, and a host of other services that got us through the pandemic. What makes WebRTC so effective
+# is that it enables two devices on the web
+# 1. to establish a direct UDP (or TCP) connection via NAT hole-punching, and
+# 2. agree on media codecs and other parameters to optimize streaming.
+#
+#
+# ## How does it work?
+#
+# WebRTC specifies a protocol that allows peers to exchange the necessary information to establish a connection, and it
+# provides a JavaScript API for implementing the protocol in the browser. The simplest way to implement a WebRTC app
+# involves two peers - one that initiates the connection and another that responds - and a signaling server that passes
+# messages between them.
+#
+#
+#
 
 import os
 from pathlib import Path
