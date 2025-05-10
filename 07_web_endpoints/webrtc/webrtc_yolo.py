@@ -32,32 +32,47 @@
 # #### DIAGRAM
 #
 # The connection is established using a quick back and forth. The initating peer offers up a description of itself -
-# its media sources, codec capabilities, IP information, etc - to the other peer through the server. Then the other peer
-# considers that info, and answers with a description of itself that
-# to the other peer through the server. The other peer considers that info, and anwers with a description of itself.
+# its media sources, codec capabilities, IP information, etc - to the other peer through the server. The other peer considers that info,
+# and answers with a description of itself. The info itself is generated and saved using the getter/setters for
+# the local (this peer) and remote (the other peer) descriptions provided by the WebRTC API implementation.
 #
-# Once these messages have been relayed... you're live. Easy, right?
+# #### DIAGRAM
 #
-# Obviously there's more going on under the hood, and there are the RFCs and excellent, in-depth explainers out there already.
-# Here, we'll give you enough info to make sure you're aware of all the moving parts and able to start buildling your own
-# real-time app with Modal.
+# Once these messages have been relayed and saved, there's a brief pause, and then... you're live. The streams are flowing. It just works.
 #
-# #### Messages and the Session Description Protocol (SDP)
+# Obviously there's more going on under the hood, and there are the RFCs and excellent, in-depth explainers out there if you want to deep dive.
+# Here, we'll give you enough info to make sure you're aware of all the essential parts, some of the important nuances that can trip you up,
+# and be prepared to start buildling your own real-time app with Modal.
+#
+# #### Messages, the Session Description Protocol (SDP), and ICE Candidates
+#
+# Messages are implemented as dictionaries with a `type` key that holds a string describing the message type (e.g. `offer`, `answer`, `candidate`)
+# and a `spd` key that contains the SDP encoded string. Most apps will add their own custom types to handle app-specific logic.
 #
 # SDP defines the format of the messages exchanged between peers. It's a text-based format that allows peers to describe
 # their media capabilities, negotation roles, and ICE candidates. You can probably survive without groking this spec fully,
 # but it doesn't hurt when you're in the throes of debugging a connection issue.
 #
-# Messages are implemented as dictionaries with a `type` key that holds a string describing the message type (e.g. `offer`, `answer`, `candidate`)
-# and a `spd` key that contains the SDP encoded string. Most apps will add their own custom types to handle app-specific logic.
+# ICE (Internet Connectivity Establishment) is the protocol that drives hole-punching in WebRTC. It solves the problem of allowing two devices to route to each others ports
+# without needing to do any special configuration beforehand. Each peer makes a request to either a STUN or TURN server which then sends it back a list of candidates.
+# These candidates are basically all of the possible IPs and ports that make up the layers of firewalls and NATs between the peer and its public IP. This process is called ICE gathering.
+# The peers exchange these candidates and then coordinate testing candidate pairs until they successfully connect.
 #
-# #### The Asynchronous Ordering of Events
+# ##### STUN and TURN servers
+#
+# STUN servers allow peers to discover their public IP addresses and ports and establish a direct connection over TCP or UDP. They don't require any authentication, and usually using
+# Google's public STUN server is sufficient.
+#
+# TURN servers are used when one or both peers are behind restrictive NATs that don't allow direct connections using the information in the ICE candidates provided by a STUN server. A TURN
+# server acts as a relay between the peers. These servers enable WebRTC connections under more conditions (e.g. cellular networks), but require authentication and add a small latency due to the extra hop.
+#
+# #### Navigating an asynchronous negotation
 #
 # The sequence of events involved in connecting two peers is called **the negotation**, and like any negotiation, you can easily ---- it up.
-# For example, if you generate an offer before you add any streaming tracks to the connection, the negotiation will fail. But generally, what makes
-# this so tricky is that the negotiation is asynchronous and only observable to us developers through events and browser dashboards (which are honestly pretty sick).
+# For example, if you generate an offer before you add any streaming tracks to the connection, the negotiation will fail. Or if you set a peer's local description But generally, what makes
+# this so tricky is that the negotiation is asynchronous and only observable to us mere application developers through events and browser dashboards (which are honestly pretty sick).
+# Here's a detailed breakdown
 #
-
 
 import os
 from pathlib import Path
