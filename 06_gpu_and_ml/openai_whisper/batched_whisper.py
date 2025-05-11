@@ -156,7 +156,7 @@ async def transcribe_hf_dataset(dataset_name):
     ds = load_dataset(dataset_name, "clean", split="validation")
     print("📂 Dataset loaded")
     batched_whisper = Model()
-    print("📣 Sending data for transcripton")
+    print("📣 Sending data for transcription")
     async for transcription in batched_whisper.transcribe.map.aio(ds["audio"]):
         yield transcription
 
