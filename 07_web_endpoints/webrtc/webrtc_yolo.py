@@ -55,7 +55,28 @@
 
 # ![WebRTC Negotiation Sequence Diagram](https://www.w3.org/TR/2013/WD-webrtc-20130910/images/ladder-2party-simple.svg)
 
+# ##
+
 # ## Building the WebRTC app with Modal
+
+# Now let's see how to build a WebRTC app that processes a user's media stream using Modal GPU containers.
+
+# We'll implement the signalling server and the peer that processes the stream as `modal.Cls`es. The peer providing the media can either run in the user's local browser using the Javascript API or on a Modal container using the Python API `aiortc`.
+
+# ### `FunctionCall` and container lifetimes
+
+# In a typical WebRTC setup, the peers and the server exchange a series of messages, and then the API implementation manages the P2P connection without the need for the application code.
+
+# This presents a slight challenge to run our app cleanly because Modal is built around the `FunctionCall`s as the essential unit of execution, not a user session. It assumes that all calls are independent (i.e. no state-depenedance) and applies auto-scaling rules based on each call's lifetime.
+
+# To match Modal's usage patterns we want our app to meet the following requirements:
+# 1. Only make one Modal call per user to each of the server and GPU peer.
+# 2. The call to the server should end after the WebRTC P2P connection is established.
+# 3. The call to the GPU peer should not return until the connection has been closed, i.e. the user has finished processing the media stream.
+
+# We can do this by using a WebSocket connection from the user to the server which will allow persistant, bidirectional communication. To relay those messages to the GPU peer, we'll use a `modal.Queue`. We could use another WebSocket, but this would mean keeping that connection open as long as the P2P connection was active. This technically works, but the WebSocket has its own layer of management, like timeouts, that adds complexity we don't need.
+
+# ### `ModalWebRtcPeer` and `ModalWebRtcServer`
 
 import os
 from pathlib import Path
