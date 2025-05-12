@@ -28,7 +28,7 @@ HOURS = 60 * MINUTES
 # You can run it with the command
 
 # ```bash
-# modal run --detach large_scale_embedding.py
+# modal run --detach amazon_embeddings.py
 # ```
 
 # By default we `down-scale` to 1/100th of the data for demonstration purposes.
