@@ -249,7 +249,7 @@ def optimize(pipe, compile=True):
     )
 
     # trigger torch compilation
-    print("🔦 running torch compiliation (may take up to 20 minutes)...")
+    print("🔦 running torch compilation (may take up to 20 minutes)...")
 
     pipe(
         "dummy prompt to trigger torch compilation",
