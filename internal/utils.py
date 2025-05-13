@@ -34,9 +34,7 @@ class Example(BaseModel):
     cli_args: Optional[list] = None  # Full command line args to run it
     stem: Optional[str] = None  # stem of path
     tags: Optional[list[str]] = None  # metadata tags for the example
-    env: Optional[dict[str, str]] = (
-        None  # environment variables for the example
-    )
+    env: Optional[dict[str, str]] = None  # environment variables for the example
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -116,9 +114,7 @@ def gather_example_files(
                 else:
                     module = f"{subdir.stem}.{filename.stem}"
                 data = jupytext.read(open(filename_abs), config=config)
-                metadata = data["metadata"]["jupytext"].get(
-                    "root_level_metadata", {}
-                )
+                metadata = data["metadata"]["jupytext"].get("root_level_metadata", {})
                 cmd = metadata.get("cmd", ["modal", "run", repo_filename])
                 args = metadata.get("args", [])
                 tags = metadata.get("tags", [])
@@ -172,4 +168,4 @@ def get_examples_json():
 
 if __name__ == "__main__":
     for example in get_examples():
-        print(example.json())
+        print(example.model_dump_json())

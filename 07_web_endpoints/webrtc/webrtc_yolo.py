@@ -88,17 +88,9 @@
 
 # #### DIAGRAM
 
-# ## Building the object detection app with WebRTC, YOLO, and Modal
+# ## Building the app
 
-# Now let's see how we can combine WebRTC with Modal's on-demand GPUs to build a scalable, real-time object dection app.
-
-# We'll use `aiortc`, Python's lowest-level WebRTC API and run the signaling server and both peers on Modal as `Cls`es. One peer will stream a video file to the other, who will then run inference and return the annotated video as a stream.
-
-# > **_NB_**: We also wave a web frontend that streams a device's webcam using the local browser and the Javascript WebRTC API.
-
-# ### `ModalWebRtc`
-
-# To help you out, we've implemented two classes that abstract away most of the WebRTC and design details. One for a peer and one for the server. We've also ensured that these classes are Modal-ready and even pre-applied some decorators.
+# Okay, with all of that exposition behind us, it's finally time to start coding!
 
 import os
 from pathlib import Path
@@ -107,7 +99,18 @@ import modal
 
 from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
-# set up video processing image
+# You'll notice that we're importing two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, from a local module.
+# We wrote these classes to help you out by abstracting away some of the more complicated stuff we discussed above.
+# The server class handles signaling and the peer class handles the WebRTC/`aiortc` stuff.
+# They are also partially decorated as [`Cls`es](https://modal.com/docs/reference/modal.Cls) so that
+# you only need to add the `app.cls` to your implementation and you're ready to deploy on Modal.
+
+# ### Set up the containers and runtime environments
+
+# We'll start with a simple `Image` and then
+# - set it up to properly use TensorRT and the ONNX Runtime,
+# - install the necessary libs for processing video, `opencv` and `ffmpeg`,
+# - and then finally, install the necessary Python packages.
 
 py_version = "3.12"
 tensorrt_ld_path = f"/usr/local/lib/python{py_version}/site-packages/tensorrt_libs"
@@ -124,45 +127,44 @@ video_processing_image = (
     .env({"LD_LIBRARY_PATH": tensorrt_ld_path, "LANG": "en_US.UTF-8"})
     # install system dependencies
     .apt_install("python3-opencv", "ffmpeg")
+    .pip_install(
+        "aiortc==1.11.0",
+        "fastapi==0.115.12",
+        "huggingface-hub==0.30.2",
+        "onnxruntime-gpu==1.21.0",
+        "opencv-python==4.11.0.86",
+        "tensorrt==10.9.0.34",
+        "torch==2.7.0",
+        "shortuuid==1.0.13",
+    )
 )
 
-# now we can install Python packages
-
-video_processing_image = video_processing_image.pip_install(
-    "aiortc==1.11.0",
-    "fastapi==0.115.12",
-    "huggingface-hub==0.30.2",
-    "onnxruntime-gpu==1.21.0",
-    "opencv-python==4.11.0.86",
-    "tensorrt==10.9.0.34",
-    "torch==2.7.0",
-    "shortuuid==1.0.13",
-)
-
-# instantiate our app
-app = modal.App("example-yolo-webrtc")
-
-# create an output volume to store the transmitted videos and model weights
-# we cache the model weights from hf hub
-# as well as the onnx inference graph
-# the graph can take a few minutes to build
-# the very first time you run the app
-# recommend using `modal run`.
+# We also need to create an output volume to store the model weights,
+# ONNX inference graph, and other artifacts like a video file where
+# we'll write out the processed video stream for testing.
 
 CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
 CACHE_PATH = Path("/cache")
-
 cache = {CACHE_PATH: CACHE_VOLUME}
 
-# add TURN server credentials
-turn_secret = modal.Secret.from_dotenv()  # TODO: Modal Secret
+# The very first time we run the app, downloading the model and building the ONNX inference graph
+# will take a few minutes. After that, the we can load the cached
+# weights and graph which reduces the startup time to about 15 seconds per container.
+
+# And finally, we'll instantiate our app:
+
+app = modal.App("example-yolo-webrtc")
+
+# ### Implementing the Modal GPU peer
 
 
+# The Modal GPU peer is a subclass of the `ModalWebRtcPeer` class.
+# This requires us to implement the `setup_streams` method and
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[turn_secret],
+    secrets=[modal.Secret.from_dotenv()],
 )
 @modal.concurrent(
     # input concurrency helps with faster restarts of stream
