@@ -67,7 +67,8 @@ OUTPUTS_PATH = Path("/outputs")
 # a container boots. This download takes about two minutes,
 # depending on traffic and network speed.
 
-MODEL_VOLUME_NAME = "ltx-model"
+MODEL_VOLUME_NAME = "ltxv-13b-0.9.7-dev-fp8.safetensors"
+# MODEL_VOLUME_NAME = "ltx-model"
 model = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=True)
 
 # We don't have to change any of the Hugging Face code to do this --
