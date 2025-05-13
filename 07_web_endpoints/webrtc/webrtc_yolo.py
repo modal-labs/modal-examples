@@ -10,7 +10,7 @@
 
 # WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services). It powers Zoom, Twitch, and a host of other apps that got us through the pandemic. What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API is purpose built for media streaming.
 # <figure align="middle">
-#   <img src="https://hpbn.co/assets/diagrams/f91164cbbb944d8986c90a1e93afcd82.svg" width="50%" />
+#   <img src="https://hpbn.co/assets/diagrams/f91164cbbb944d8986c90a1e93afcd82.svg" width="60%" />
 #   <figcaption>HTTP-based web stacks (left) and the WebRTC stack (right).</figcaption>
 # </figure>
 
@@ -68,38 +68,37 @@
 
 # When debugging, it's helpful to provide listeners to WebRTC's events and, if a peer is web-based, using the browser's WebRTC debugging tools.
 
+# ## Mapping WebRTC connection lifetimes to Modal function call lifetimes
+
+# With Modal, the `FunctionCall` is the essential unit of execution, and it doesn't make any promises that two calls made in quick succession will be run on the same container. When functions are called, more compute is provided, and when they return, that compute is released. This is necessary for Modal to provide dev-friendly auto-scaling that make it so useful.
+
+# The WebRTC protocol, on the other hand, involves passing messages back and forth, coordinating with asynchronous agents, and running a P2P connection in the background below the application layer. Standard WebRTC apps require coordinating many function calls and may even be idle once the connection has been established.
+
+# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams. For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
+
+# To align our WebRTC app with Modal's assumptions, it needs to meet the following requirements:
+
+# - **The client peer only makes one call to the signaling server which returns after the connection is established.**
+
+#     We can use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal. When the client detects that the P2P connection has been established, it can close the WebSocket which will in turn end the call.
+
+# - **The server only makes one call to the Modal GPU peer which only returns once the connection has been closed, i.e. the user has finished processing the media stream.**
+
+#     To meet this requirement we have the call the GPU peer via `.spawn` which doesn't block the server process and therefore decouples the server and GPU peer function calls. We also pass a `modal.Queue` to the GPU peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the GPU peer goes into a loop until it detects that the P2P connection has been closed.
+
+# #### DIAGRAM
+
 # ## Building the object detection app with WebRTC, YOLO, and Modal
 
 # Now let's see how we can combine WebRTC with Modal's on-demand GPUs to build a scalable, real-time object dection app.
 
 # We'll use `aiortc`, Python's lowest-level WebRTC API and run the signaling server and both peers on Modal as `Cls`es. One peer will stream a video file to the other, who will then run inference and return the annotated video as a stream.
 
-# We also have a web frontend that streams a device's webcam using the local browser and the Javascript WebRTC API.
-
-# ### Matching WebRTC connection lifetimes with Modal function call lifetimes
-
-# With Modal, the `FunctionCall` is the essential unit of execution, and it assumes that each call is independent in terms of ordering. This approach is at the heart of auto-scaling and mapping that make Modal so useful. When functions are called, more compute is provided, and when they return, that compute is released.
-
-# The WebRTC protocol, on the other hand, involves passing messages back and forth, coordinating with asynchronous agents, and running a P2P connection in the background below the application layer. Standard WebRTC apps require coordinating many function calls and may even be idle once the connection has been established.
-
-# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams.
-
-# For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
-
-# To get around these potential issues, our app needs to meet the following requirements:
-# 1. The client peer only makes one call to the signaling server which returns after the connection is established.
-# 2. The server only makes one call to the Modal GPU peer which only returns once the connection has been closed, i.e. the user has finished processing the media stream.
-
-# The design shown below meets these requirements by using a WebSocket for persistant, bidirectional communication between the user and the server. For messaging between the server and the GPU peer, we could use another WebSocket, but this would mean keeping that connection open as long as the P2P connection was active. While this technically works, the WebSocket has its own layer of management (e.g. timeouts) that adds complexity we don't need.
-
-# TODO: Para about logic for choosing when to return from the function calls
-
-# #### DIAGRAM
+# > **_NB_**: We also wave a web frontend that streams a device's webcam using the local browser and the Javascript WebRTC API.
 
 # ### `ModalWebRtc`
 
-# That was a lot of background and preperation, Out before we start coding, it's finally time to get coding. To help you out, we've implemented two classes that abstract away most of the WebRTC and design details. One for a peer and one for the server. We've also ensured that these classes are Modal-ready and even pre-applied some decorators.
-
+# To help you out, we've implemented two classes that abstract away most of the WebRTC and design details. One for a peer and one for the server. We've also ensured that these classes are Modal-ready and even pre-applied some decorators.
 
 import os
 from pathlib import Path
