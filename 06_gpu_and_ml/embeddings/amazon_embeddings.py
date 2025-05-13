@@ -1,3 +1,8 @@
+# ---
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/embeddings/amazon_embeddings.py"]
+# args: ["--dataset-subset", "raw_review_Magazine_Subscriptions"]
+# ---
+
 # # Embed 30 million Amazon reviews with Qwen2-7B
 
 # This example demonstrates how to create embeddings for a large text dataset. This is
