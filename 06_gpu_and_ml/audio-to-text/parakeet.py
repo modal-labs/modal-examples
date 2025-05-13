@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet.py::main"]
+# ---
 # # Real time audio transcription using Parakeet
 
 # [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models from [NVIDIA NeMo](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html) with a FastConformer Encoder and a CTC, RNN-T, or TDT decoder.
