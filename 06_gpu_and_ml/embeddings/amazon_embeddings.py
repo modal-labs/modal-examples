@@ -3,7 +3,7 @@
 # args: ["--dataset-subset", "raw_review_Magazine_Subscriptions"]
 # ---
 
-# # Embed 30 million Amazon reviews with Qwen2-7B
+# # Embed 30 million Amazon reviews at 575k tokens per second with Qwen2-7B
 
 # This example demonstrates how to create embeddings for a large text dataset. This is
 # often necessary to enable semantic search, translation, and other language
