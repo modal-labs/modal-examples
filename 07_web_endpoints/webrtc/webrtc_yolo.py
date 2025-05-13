@@ -75,7 +75,7 @@
 
 # We also have a web frontend that streams a device's webcam using the local browser and the Javascript WebRTC API.
 
-# ### Matching connection and Modal function call lifetimes
+# ### Matching WebRTC connection lifetimes with Modal function call lifetimes
 
 # With Modal, the `FunctionCall` is the essential unit of execution, and it assumes that each call is independent in terms of ordering. This approach is at the heart of auto-scaling and mapping that make Modal so useful. When functions are called, more compute is provided, and when they return, that compute is released.
 
@@ -89,17 +89,16 @@
 # 1. The client peer only makes one call to the signaling server which returns after the connection is established.
 # 2. The server only makes one call to the Modal GPU peer which only returns once the connection has been closed, i.e. the user has finished processing the media stream.
 
-# The design shown below meets these requirements by using a WebSocket for persistant, bidirectional communication between the user to the server. For messaging between the server and the GPU peer, we'll use a `modal.Queue`. We could use another WebSocket, but this would mean keeping that connection open as long as the P2P connection was active. This technically works, but the WebSocket has its own layer of management (e.g. timeouts) that adds complexity we don't need.
+# The design shown below meets these requirements by using a WebSocket for persistant, bidirectional communication between the user and the server. For messaging between the server and the GPU peer, we could use another WebSocket, but this would mean keeping that connection open as long as the P2P connection was active. While this technically works, the WebSocket has its own layer of management (e.g. timeouts) that adds complexity we don't need.
+
+# TODO: Para about logic for choosing when to return from the function calls
 
 # #### DIAGRAM
 
-# ### `ModalWebRtcPeer` and `ModalWebRtcServer`
+# ### `ModalWebRtc`
 
-# That was a lot of background and preperation, but it's finally time to get coding. To help you out, we've implemented two classes that abstract away most of the details and design.
+# That was a lot of background and preperation, Out before we start coding, it's finally time to get coding. To help you out, we've implemented two classes that abstract away most of the WebRTC and design details. One for a peer and one for the server. We've also ensured that these classes are Modal-ready and even pre-applied some decorators.
 
-# `ModalWebRtcPeer`:a base class that can run on Modal and act as either the initiating or responding peer in a WebRTC connection. To implement this class, you need to at least implement `setup_streams` which we'll see moment
-
-# `ModalWebRtcServer`:
 
 import os
 from pathlib import Path
