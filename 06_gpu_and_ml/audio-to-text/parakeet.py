@@ -142,7 +142,15 @@ class Parakeet:
 # use python's `websockets` library to create a websocket client that sends audio data to the server
 # and receives transcriptions in real-time.
 
-# The code is below, but you can also find it [here]().
+# The code is below, but you can also find it [here](https://github.com/modal-labs/modal-examples/blob/zhang-lucy/parakeet/06_gpu_and_ml/audio-to-text/parakeet_client.py). To run it,
+# save it as `parakeet_client.py` and run the following commands:
+
+# ```bash
+# pip install websockets sounddevice numpy
+# python parakeet_client.py --url <your_websocket_url>
+# ```
+
+# The client will record audio from your microphone and send it to the server for transcription.
 
 # ```
 # import asyncio
