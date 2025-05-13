@@ -8,25 +8,24 @@
 
 # ## What is WebRTC?
 
-# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services).
-# It powers Zoom, Twitch, Peloton, and a host of other apps that got us through the pandemic. What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API is purpose built for media streaming.
+# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services). It powers Zoom, Twitch, and a host of other apps that got us through the pandemic. What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API is purpose built for media streaming.
 # <figure align="middle">
 #   <img src="https://hpbn.co/assets/diagrams/f91164cbbb944d8986c90a1e93afcd82.svg" width="50%" />
 #   <figcaption>HTTP-based web stacks (left) and the WebRTC stack (right).</figcaption>
 # </figure>
 
-# In particular, it defines how two peers can establish a direct, bidirectional, and managed UDP (or TCP) connection using the ICE protocol. It then layers on security, real-time streaming protocols. WebRTC specifies both the protocol and the API - the primary implementation being the JavaScript API; however, there are other implementations such as `aiortc` in Python. We'll use both in this example.
+# In particular, it defines how two peers can establish a direct, bidirectional, and managed UDP (or TCP) connection using the ICE protocol. It then layers on security and real-time streaming protocols. WebRTC specifies both the protocol for establishing the connection and the API - the primary implementation being the JavaScript API; however, there are other implementations such as `aiortc` in Python. We'll use `aiortc` in this example, but the Github repo also includes a frontend for a web-based peer using the Javascript API.
 
 # ### How does it work?
 
 # A simple WebRTC app generally consists of three players:
-# 1. a peer that initiates the connection
-# 2. a peer that responds to the connection, and
-# 3. a signaling server that passes messages between the two peers.
+# 1. a peer that initiates the connection (the offer)
+# 2. a peer that responds to the connection (the answer), and
+# 3. a server that passes messages between the two peers (signaling).
 
-# The two peers establish a connection by sending messages back and forth through the signaling server. First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - to the other peer through the server. Then, the other peer either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
+# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - to the other peer through the server. Then, the other peer either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
 
-# Once the peers have exchanged the necessary information, there's a brief pause and then... you're live. It just works.
+# Once the peers have exchanged the necessary information, there's a brief pause... and then you're live. It just works.
 
 # <figure align="middle">
 #   <img src="https://www.mdpi.com/futureinternet/futureinternet-12-00092/article_deploy/html/images/futureinternet-12-00092-g001.png" width="50%" />
@@ -35,15 +34,15 @@
 
 # ### But how does it _really_ work?
 
-# Obviously there's more going on under the hood here. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer. Here, we'll give you enough info to make sure you're aware of the essential parts, some of the nuances that can trip you up, and be prepared to start buildling your own real-time app with Modal.
+# Obviously there's more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer. Here, we'll give you enough info to make sure you're aware of the essential parts, some of the nuances that can trip you up, and be prepared to start buildling your own real-time app with Modal.
 
-# #### Messages, the Session Description Protocol (SDP), and ICE Candidates
+# #### Messages, SDP, and ICE Candidates
 
-# **Messages** are implemented as dictionaries with a `type` key that holds a string describing the message type (e.g. `offer`, `answer`, `candidate`) and a `spd` key that contains the SDP encoded string. Most apps will add their own custom types and keys (e.g. sender ids) to handle app-specific logic.
+# **Messages** are implemented as dictionaries (JSON, Python `dict`s) with a `type` key whose value is a string describing... the message type (e.g. `offer`, `answer`). For WebRTC-specific messages, there will also be an `spd` key that contains the SDP encoded string. Most apps will add their own custom types and keys (e.g. sender ids) to handle app-specific logic.
 
-# **SDP** defines the format of the messages exchanged between peers. It's a text-based format that allows peers to describe their media capabilities, negotation roles, and ICE candidates. You can probably survive without groking this spec fully, but it doesn't hurt when you're in the throes of debugging a connection issue.
+# **SDP (Session Description Protocol)** defines the format of the messages exchanged between peers. It's a text-based format that allows peers to describe their media capabilities, negotation roles, and ICE candidates. You can probably survive without groking this spec fully, but it's probably inevitable once you're in the throes of debugging a connection issue.
 
-# **ICE (Internet Connectivity Establishment)** is the protocol that drives hole-punching in WebRTC. It solves the problem of allowing two devices to route to each others ports without needing to do any special configuration beforehand. Each peer makes a request to either a STUN or TURN server which then sends it back a list of candidates. These candidates contain the IP addresses and relevant ports between that peer's local IP address and its public IP address. The peers exchange these candidates and then coordinate testing candidate pairs until they successfully connect.
+# **ICE (Internet Connectivity Establishment)** is the protocol that drives NAT hole-punching in WebRTC. It solves the problem of allowing two devices to set up a direct UDP/TCP connection without needing to re-configure routers or firewalls. Each peer requests a list of "candidates" from either a STUN or TURN server. These candidates contain the IP and port addresses between that peer's local IP address and public IP address, i.e. the addresses of all the routers and the peer itself. The peers exchange these candidates and then coordinate testing candidate pairs until they successfully connect.
 
 # <figure align="middle">
 #   <img src="https://miro.medium.com/v2/resize:fit:1302/1*HmMdrpVBTP2vYMhrVOdNOw.jpeg" width="50%" />
@@ -52,20 +51,22 @@
 
 # #### STUN and TURN servers
 
-# **STUN** servers allow peers to discover their public IP addresses and ports and establish a direct connection over TCP or UDP. They don't require any authentication, and usually using Google's public STUN server is sufficient.
+# **STUN** servers allow peers to discover their public IP addresses and ports and establish a direct connection over TCP or UDP. They don't require any authentication. Using Google's public STUN server is usually sufficient.
 
-# **TURN** servers are used when one or both peers are behind restrictive NAT or firewall configurations that block direct connections. By requiring authentication, a TURN server is able to directly connect despite the network confiuration and relays packets to the other peer. The tradeoff is that the extra hop adds latency and developers much either run their own TURN server or pay to use one operated by a third-party.
+# **TURN** servers are used when a peer is behind a restrictive NAT or firewall configuration that blocks direct connections. By requiring authentication, a TURN server is able to establish trust and directly connect to a peer. It then relays packets to the other peer - either directly if that peer can use STUN or indirectly through another TURN server (potentially itself) if both peers are behind strict networking rules. The tradeoff is that the extra hops add latency and developers must either run their own TURN server or pay to use one operated by a third-party.
 
 # #### Behind the scenes
 
-# WebRTC deploys several agents (see definition circa 2020 or earlier) who work (asynchronously) behind the scenes to do things like handle the ICE and media stream protocols. While we gladly accept the agents' help, it can also make building a WebRTC app a little tricky since you, as the application developer, only control part of the flow.
+# WebRTC implementations spawn several workers who asychronously take care of things like handling ICE candidates and media streaming. While we gladly accept these workers' help, it can also make building a WebRTC app a little tricky since you, as the application developer, only directly control and observe part of the flow.
 
-# What's more, each WebRTC API may implement some of this work differently *or not all*. If you're going to build an app with WebRTC, make sure to familiarize yourself with the idiosynchrocies of your chosen API - and probably the common browsers as well.
+# What's more, each WebRTC API may implement some of this work differently *or not all*. If you're going to build an app with WebRTC, make sure to familiarize yourself with the idiosynchrocies of your chosen API - and probably the common browsers as well.directly
 
 # <figure align="middle">
 #   <img src="https://hpbn.co/assets/diagrams/f38aae954de1cde63e2dffddc23a13f3.svg" width="50%" />
 #   <figcaption>WebRTC BTS</figcaption>
 # </figure>
+
+# When debugging, it's helpful to provide listeners to WebRTC's events and, if a peer is web-based, using the browser's WebRTC debugging tools.
 
 # ## Building the object detection app with WebRTC, YOLO, and Modal
 
