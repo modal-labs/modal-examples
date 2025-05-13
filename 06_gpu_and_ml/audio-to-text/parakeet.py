@@ -90,6 +90,8 @@ with image.imports():
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
 class Parakeet:
+    import numpy as np
+
     @modal.enter()
     def load(self):
         self.model = nemo_asr.models.ASRModel.from_pretrained(

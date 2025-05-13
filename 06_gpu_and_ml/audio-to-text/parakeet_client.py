@@ -1,3 +1,9 @@
+# ---
+# lambda-test: false
+# ---
+
+# Reference client code for parakeet example
+
 import asyncio
 import websockets
 import sounddevice as sd
