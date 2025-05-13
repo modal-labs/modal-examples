@@ -43,9 +43,17 @@ HOURS = 60 * MINUTES
 
 
 @app.local_entrypoint()
-def main(down_scale: float = 0.001):
+def main(
+    dataset_name: str = "McAuley-Lab/Amazon-Reviews-2023",
+    dataset_subset: str = "raw_review_Books",
+    down_scale: float = 0.001
+):
     out_path = Path("/tmp") / "embeddings-example-fc-ids.json"
-    function_ids = launch_job.remote(down_scale=down_scale)
+    function_ids = launch_job.remote(
+        dataset_name=dataset_name,
+        dataset_subset=dataset_subset,
+        down_scale=down_scale
+    )
     out_path.write_text(json.dumps(function_ids, indent=2) + "\n")
     print(f"output handles saved to {out_path}")
 
@@ -73,7 +81,11 @@ def main(down_scale: float = 0.001):
 @app.function(
     image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=4 * HOURS
 )
-def launch_job(down_scale: float = 1):
+def launch_job(
+    dataset_name: str,
+    dataset_subset: str,
+    down_scale: float
+):
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -82,8 +94,8 @@ def launch_job(down_scale: float = 1):
 
     print("Loading dataset...")
     dataset = load_dataset(
-        "McAuley-Lab/Amazon-Reviews-2023",
-        "raw_review_Books",
+        dataset_name,
+        dataset_subset,
         split="full",
         trust_remote_code=True,
     )
