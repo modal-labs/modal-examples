@@ -84,7 +84,7 @@ def main(
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=4 * HOURS
+    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=2 * HOURS
 )
 def launch_job(
     dataset_name: str,
@@ -202,7 +202,7 @@ inference_image = (
     max_containers=100,
     scaledown_window=5 * MINUTES,  # idle for 5 min without inputs before scaling down
     retries=3,  # handle transient failures and storms in the cloud
-    timeout=20 * MINUTES,  # run for at most 20 min
+    timeout=2 * HOURS,  # run for at most 2 hours
 )
 @modal.concurrent(max_inputs=10)
 class TextEmbeddingsInference:
