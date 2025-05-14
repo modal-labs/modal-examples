@@ -28,18 +28,18 @@
 # </figure>
 
 # Obviously there’s more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer.
-# For this demo, we're going to focus on adapting WebRTC to Modal's design patterns.
+# For this demo, we're going to focus on how to use WebRTC with Modal's design patterns.
 
-# ## Mapping WebRTC connection lifetimes to Modal function call lifetimes
+# ## Coupling WebRTC connection lifetimes to Modal function call lifetimes
 
 # Modal let's you turn your functions into GPU-powered cloud services.
 # When a function is called, Modal provisions the compute, and when it returns, that compute is released.
-# This design is what enables developers to build scalable apps that make Modal so useful.
-# But it also means that Modal function calls are assumed to be indepenedent and self-contained (i.e. they don't launch other processes or tasks which continue working after the function call returns).
+# A core feature of this design is that function calls are assumed to be indepenedent and self-contained, i.e. calls should be to run in any order and they shouldn't launch other processes or tasks which continue working after the function call returns.
+# Modal's ability to dynamically scale compute resources as demand fluctuates is a direct consequence of this assumption.
 
-# WebRTC apps, on the other hand, typically require coordinating many function calls to pass messages between the peers and server.
-# Addtionally, API implementations run asynchronous tasks below the application layer - including the P2P connection itself.
-# This means that an app may only be beginning to its primary work when the function call has returned.
+# WebRTC apps, on the other hand, typically require coordinating many function calls to establish the connection between two peers.
+# Addtionally, API implementations runs several asynchronous tasks below the application layer - including the P2P connection itself.
+# This means that P2P streaming may only just have just begun when the application logic has returned.
 
 # If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams.
 # For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
