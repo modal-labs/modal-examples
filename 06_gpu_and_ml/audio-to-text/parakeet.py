@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet/apps.py::server_app"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet.py::server_app"]
 # ---
 # # Real time audio transcription using Parakeet
 
@@ -21,6 +21,8 @@
 # ```bash
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py::client_app --modal-profile=$(modal profile current)
 # ```
+
+# See troubleshooting section at the bottom if you run into issues.
 
 # Here's what your final output might look like:
 
@@ -217,7 +219,7 @@ def main(modal_profile: str):
     async def run(ws_url):
         audio_queue = asyncio.Queue()
         async with websockets.connect(
-            ws_url, open_timeout=120, ping_interval=None
+            ws_url, open_timeout=240, ping_interval=None
         ) as websocket:
             send_task = asyncio.create_task(send_audio(websocket, audio_queue))
             receive_task = asyncio.create_task(receive_transcriptions(websocket))
@@ -235,7 +237,11 @@ def main(modal_profile: str):
         print("\n🛑 Stopped by user.")
 
 
-# Now you can run the client locally with the following command:
-# ```bash
-# modal run 06_gpu_and_ml/audio-to-text/parakeet/apps.py::client_app --modal-profile=$(modal profile current)
-# ```
+# ## Troubleshooting
+# If you run into issues, here are some things to check:
+# - Make sure you have the latest version of the Modal CLI installed.
+# - The server takes a few seconds to start up on cold start. If your client times out, try
+#   restarting the client.
+# - If you run into websocket URL errors, this may be because you have an environment
+#   set that's not the default. You can override the `url` variable in the client above, with the correct value.
+#   Similarly, if you're `modal deploy`ing the server, make sure to set the correct URL in the client.
