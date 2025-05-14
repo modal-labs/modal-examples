@@ -1,14 +1,13 @@
 # ---
-# lambda-test: false
 # cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet.py::server_app"]
 # ---
 # # Real time audio transcription using Parakeet 🦜
 
-# [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models from [NVIDIA NeMo](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html) with a FastConformer Encoder and a CTC, RNN-T, or TDT decoder.
+# [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
 # We'll show you how to use Parakeet for real-time audio transcription,
 # with a simple python client and a websocket server you can spin up easily in Modal.
 
-# This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the.
+# This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
 # To run this example:
@@ -23,7 +22,7 @@
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py::client_app --modal-profile=$(modal profile current)
 # ```
 
-# See troubleshooting section at the bottom if you run into issues.
+# See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
 
 # Here's what your final output might look like:
 
@@ -53,7 +52,6 @@ BUFFER_SIZE = 8000
 
 
 model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
-
 # ## Configuring dependencies
 # The model runs remotely inside a [custom container](https://modal.com/docs/guide/custom-container). We can define the environment
 # and install our Python dependencies in that container's `Image`.
@@ -62,8 +60,8 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 # You'll need to add Python 3 and pip with the `add_python` option because the image
 # doesn't have these by default.
 
-# Additionally, we install `ffmpeg` for handling audio data and fastapi to create a web
-# server for our websocket.
+# Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
+# server for our websocket. `uv` gives us even more speed on installation!
 
 image = (
     modal.Image.from_registry(
@@ -89,16 +87,14 @@ image = (
 
 with image.imports():
     import nemo.collections.asr as nemo_asr
-    import numpy as np
-
 # ## Implementing real-time audio transcription on Modal
 
-# Now we're ready to implement the transcription model. We wrap inference in a Modal [Cls](https://modal.com/docs/guide/lifecycle-functions) that
-# ensures models are loaded and then moved to the GPU once when a new container starts.
+# Now, we're ready to implement the transcription model. We wrap inference in a [Modal Cls](https://modal.com/docs/guide/lifecycle-functions) that
+# ensures models are loaded and then moved to the GPU once when a new container starts. Couple of notes:
 
-# The `load` method loads the model at start, instead of during inference, using [`modal.enter()`](https://modal.com/docs/reference/modal.enter#modalenter).
-# The `transcribe` method takes a numpy array of audio data, and returns the transcribed text.
-# The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
+# - The `load` method loads the model at start, instead of during inference, using [`modal.enter()`](https://modal.com/docs/reference/modal.enter#modalenter).
+# - The `transcribe` method takes a numpy array of audio data, and returns the transcribed text.
+# - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
 # [websocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription.
 
 # Additionally, since this app is running in its own container, we make a `.remote` call to invoke
@@ -109,8 +105,6 @@ class_name = "parakeet"
 
 @server_app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
 class Parakeet:
-    import numpy as np
-
     @modal.enter()
     def load(self):
         self.model = nemo_asr.models.ASRModel.from_pretrained(
@@ -118,7 +112,10 @@ class Parakeet:
         )
 
     @modal.method()
-    def transcribe(self, audio_data: np.ndarray) -> str:
+    def transcribe(self, audio_bytes: bytes) -> str:
+        import numpy as np
+
+        audio_data = np.frombuffer(audio_bytes, dtype=np.int16)
         output = self.model.transcribe([audio_data])
         return output[0].text
 
@@ -143,11 +140,11 @@ class Parakeet:
                     buffer.extend(chunk)
 
                     if len(buffer) > BUFFER_SIZE:
-                        audio_np = np.frombuffer(bytes(buffer), dtype=np.int16)
+                        audio_bytes = bytes(buffer)
                         buffer.clear()
 
                         try:
-                            text = self.transcribe.remote(audio_np)
+                            text = self.transcribe.remote(audio_bytes)
                             await ws.send_text(text)
                         except Exception as e:
                             print("❌ Transcription error:", e)
@@ -159,12 +156,12 @@ class Parakeet:
 
 
 # ## Client
-# Let's test the model with a simple client that streams audio data to the server, and prints
-# out the transcriptions in real-time to our terminal. We can also run this using modal!
+# Next, let's test the model with a simple client that streams audio data to the server, and prints
+# out the transcriptions in real-time to our terminal. We can also run this using Modal!
 
-## Image
-# Using a secondary image for the client allows us to keep the dependencies separate from the server.
-# We can keep  python's `websockets` library to create a websocket client
+# ## Image
+# Using a secondary image for the client allows us to keep the client dependencies separate from the server dependencies.
+# We'll use  python's `websockets` library to create a websocket client
 # that sends audio data to the server and receives transcriptions in real-time.
 
 
@@ -243,7 +240,7 @@ def main(modal_profile: str):
 # ## Troubleshooting
 # - Make sure you have the latest version of the Modal CLI installed.
 # - The server takes a few seconds to start up on cold start. If your client times out, try
-#   restarting the client.
-# - If you run into websocket URL errors, this may be because you have a non-environment
-#   set. You can override the `url` variable in the client above, with the correct value. (the example uses `main`)
+#   restarting the client. If it continues to time out, try bumping the value of `open_timeout`.
+# - If you run into websocket URL errors, this may be because you have a non-default environment
+#   configured. You can override the `url` variable in the client above, with the correct value.
 #   Similarly, if you're `modal deploy`ing the server, make sure to set the correct URL in the client.
