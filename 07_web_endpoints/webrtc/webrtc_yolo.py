@@ -4,7 +4,7 @@
 
 # # Real-time Webcam Object Detection with WebRTC
 
-# This example combines WebRTC's peer-to-peer media streaming capabilities with Modal's efficient GPU scaling to deploy a real-time, browser-based object detection app.
+# This example combines WebRTC's peer-to-peer media streaming capabilities with Modal's efficient GPU scaling to deploy a real-time object detection app.
 
 # ## What is WebRTC?
 
@@ -23,7 +23,7 @@
 # Once the peers have exchanged the necessary information, there's a brief pause... and then you're live. It just works.
 
 # <figure align="middle">
-#   <img src="https://www.mdpi.com/futureinternet/futureinternet-12-00092/article_deploy/html/images/futureinternet-12-00092-g001.png" width="50%" />
+#   <img src="https://i.imgur.com/6RAKLdf.png" width="60%" />
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
@@ -54,7 +54,10 @@
 
 #     To meet this requirement we have the call the GPU peer via `.spawn` which doesn't block the server process and therefore decouples the server and GPU peer function calls. We also pass a `modal.Queue` to the GPU peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the GPU peer goes into a loop until it detects that the P2P connection has been closed.
 
-# #### DIAGRAM
+# <figure align="middle">
+#   <img src="https://i.imgur.com/FCGoa0e.png" width="60%" />
+#   <figcaption>Connecting with Modal using WebRTC.</figcaption>
+# </figure>
 
 # ## Building the app
 
@@ -77,8 +80,8 @@ from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
 # We'll start with a simple `Image` and then
 # - set it up to properly use TensorRT and the ONNX Runtime,
-# - install the necessary libs for processing video, `opencv` and `ffmpeg`,
-# - and then finally, install the necessary Python packages.
+# - install the necessary libs for processing video, `opencv` and `ffmpeg`, and
+# - install the necessary Python packages.
 
 py_version = "3.12"
 tensorrt_ld_path = f"/usr/local/lib/python{py_version}/site-packages/tensorrt_libs"
@@ -111,74 +114,17 @@ video_processing_image = (
 # ONNX inference graph, and other artifacts like a video file where
 # we'll write out the processed video stream for testing.
 
-CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
-CACHE_PATH = Path("/cache")
-cache = {CACHE_PATH: CACHE_VOLUME}
-
 # The very first time we run the app, downloading the model and building the ONNX inference graph
 # will take a few minutes. After that, the we can load the cached
 # weights and graph which reduces the startup time to about 15 seconds per container.
 
-# And finally, we'll instantiate our app:
+CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
+CACHE_PATH = Path("/cache")
+cache = {CACHE_PATH: CACHE_VOLUME}
 
 app = modal.App("example-yolo-webrtc")
 
 # ### Implementing the Modal GPU peer
-
-
-def get_yolo_track(track, model):
-    import numpy as np
-    from aiortc import MediaStreamTrack
-    from aiortc.contrib.media import VideoFrame
-
-    class YOLOTrack(MediaStreamTrack):
-        """
-        Custom media stream track performs object detection
-        on the video stream and passes it back to the source peer
-        """
-
-        kind: str = "video"
-        conf_threshold: float = 0.15
-
-        def __init__(self, track: MediaStreamTrack, model) -> None:
-            super().__init__()
-            self.track = track
-            self.yolo_model = model
-
-        def detection(self, image: np.ndarray) -> np.ndarray:
-            import cv2
-
-            orig_shape = image.shape[:-1]
-
-            image = cv2.resize(
-                image,
-                (self.yolo_model.input_width, self.yolo_model.input_height),
-            )
-
-            image = self.yolo_model.detect_objects(image, self.conf_threshold)
-
-            image = cv2.resize(image, (orig_shape[1], orig_shape[0]))
-
-            return image
-
-        # this is the essential method we need to implement
-        # to create a custom MediaStreamTrack
-        async def recv(self) -> VideoFrame:
-            frame = await self.track.recv()
-            img = frame.to_ndarray(format="bgr24")
-
-            processed_img = self.detection(img)
-
-            # VideoFrames are from a really nice package called av
-            # which is a pythonic wrapper around ffmpeg
-            # and a dep of aiortc
-            new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-
-            return new_frame
-
-    return YOLOTrack(track, model)
 
 
 # The Modal GPU peer is a subclass of the `ModalWebRtcPeer` class.
@@ -198,17 +144,8 @@ def get_yolo_track(track, model):
     max_inputs=6,
 )
 class ObjDet(ModalWebRtcPeer):
-    yolo_model = None
-
     async def initialize(self):
-        import onnxruntime
-
-        from .yolo import YOLOv10
-
-        onnxruntime.preload_dlls()
-        self.yolo_model = YOLOv10(CACHE_PATH)
-
-        self.processing_track_cls = get_yolo_track()
+        self.yolo_model = get_yolo_model(CACHE_PATH)
 
     async def setup_streams(self, peer_id: str):
         from aiortc import MediaStreamTrack
@@ -296,6 +233,78 @@ class WebcamObjDet(ModalWebRtcServer):
         async def root():
             html = open("/frontend/index.html").read()
             return HTMLResponse(content=html)
+
+
+def get_yolo_model(cache_path):
+    import onnxruntime
+
+    from .yolo import YOLOv10
+
+    onnxruntime.preload_dlls()
+    return YOLOv10(cache_path)
+
+
+def get_yolo_track(track, yolo_model=None):
+    import numpy as np
+    import onnxruntime
+    from aiortc import MediaStreamTrack
+    from aiortc.contrib.media import VideoFrame
+
+    from .yolo import YOLOv10
+
+    class YOLOTrack(MediaStreamTrack):
+        """
+        Custom media stream track performs object detection
+        on the video stream and passes it back to the source peer
+        """
+
+        kind: str = "video"
+        conf_threshold: float = 0.15
+
+        def __init__(self, track: MediaStreamTrack, yolo_model=None) -> None:
+            super().__init__()
+
+            self.track = track
+            if yolo_model is None:
+                onnxruntime.preload_dlls()
+                self.yolo_model = YOLOv10(CACHE_PATH)
+            else:
+                self.yolo_model = yolo_model
+
+        def detection(self, image: np.ndarray) -> np.ndarray:
+            import cv2
+
+            orig_shape = image.shape[:-1]
+
+            image = cv2.resize(
+                image,
+                (self.yolo_model.input_width, self.yolo_model.input_height),
+            )
+
+            image = self.yolo_model.detect_objects(image, self.conf_threshold)
+
+            image = cv2.resize(image, (orig_shape[1], orig_shape[0]))
+
+            return image
+
+        # this is the essential method we need to implement
+        # to create a custom MediaStreamTrack
+        async def recv(self) -> VideoFrame:
+            frame = await self.track.recv()
+            img = frame.to_ndarray(format="bgr24")
+
+            processed_img = self.detection(img)
+
+            # VideoFrames are from a really nice package called av
+            # which is a pythonic wrapper around ffmpeg
+            # and a dep of aiortc
+            new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
+            new_frame.pts = frame.pts
+            new_frame.time_base = frame.time_base
+
+            return new_frame
+
+    return YOLOTrack(track)
 
 
 # run test
