@@ -64,9 +64,9 @@ image = (
     )
     .apt_install("ffmpeg")
     .run_commands(
-        "uv pip install --system hf_transfer huggingface_hub[hf-xet] nemo_toolkit[asr] cuda-python>=12.3",
-        "uv pip install --system 'numpy<2.0'",
-        "uv pip install --system fastapi",
+        "uv pip install --system hf_transfer==0.1.9 huggingface_hub[hf-xet]==0.31.2 nemo_toolkit[asr]==2.3.0 cuda-python==12.9.0",
+        "uv pip install --system 'numpy==1.26.4'",
+        "uv pip install --system fastapi==0.115.12",
     )
 )
 
