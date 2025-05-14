@@ -1,7 +1,8 @@
 # ---
+# lambda-test: false
 # cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet.py::server_app"]
 # ---
-# # Real time audio transcription using Parakeet
+# # Real time audio transcription using Parakeet 🦜
 
 # [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models from [NVIDIA NeMo](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html) with a FastConformer Encoder and a CTC, RNN-T, or TDT decoder.
 # We'll show you how to use Parakeet for real-time audio transcription,
@@ -10,9 +11,9 @@
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the.
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
-# To run this example, you need to have the [Modal CLI](https://modal.com/docs/guide/install) installed and set up.
+# To run this example:
 
-# 1. Command to start the server locally:
+# 1. Start the server locally:
 # ```bash
 # modal serve 06_gpu_and_ml/audio-to-text/parakeet.py::server_app
 # ```
@@ -225,7 +226,7 @@ def main(modal_profile: str):
             receive_task = asyncio.create_task(receive_transcriptions(websocket))
             await asyncio.gather(send_task, receive_task)
 
-    is_dev = True
+    is_dev = True  # set to False if running modal deploy
 
     url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
     ws_url = f"{url}{WS_ENDPOINT}"
@@ -238,10 +239,9 @@ def main(modal_profile: str):
 
 
 # ## Troubleshooting
-# If you run into issues, here are some things to check:
 # - Make sure you have the latest version of the Modal CLI installed.
 # - The server takes a few seconds to start up on cold start. If your client times out, try
 #   restarting the client.
-# - If you run into websocket URL errors, this may be because you have an environment
-#   set that's not the default. You can override the `url` variable in the client above, with the correct value.
+# - If you run into websocket URL errors, this may be because you have a non-environment
+#   set. You can override the `url` variable in the client above, with the correct value. (the example uses `main`)
 #   Similarly, if you're `modal deploy`ing the server, make sure to set the correct URL in the client.
