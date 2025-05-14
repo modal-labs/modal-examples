@@ -8,22 +8,17 @@
 
 # ## What is WebRTC?
 
-# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services). It powers Zoom, Twitch, and a host of other apps that got us through the pandemic. What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API is purpose built for media streaming.
-# <figure align="middle">
-#   <img src="https://hpbn.co/assets/diagrams/f91164cbbb944d8986c90a1e93afcd82.svg" width="60%" />
-#   <figcaption>HTTP-based web stacks (left) and the WebRTC stack (right).</figcaption>
-# </figure>
-
-# In particular, it defines how two peers can establish a direct, bidirectional, and managed UDP (or TCP) connection using the ICE protocol. It then layers on security and real-time streaming protocols. WebRTC specifies both the protocol for establishing the connection and the API - the primary implementation being the JavaScript API; however, there are other implementations such as `aiortc` in Python. We'll use `aiortc` in this example, but the Github repo also includes a frontend for a web-based peer using the Javascript API.
-
-# ### How does it work?
+# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services).
+# It powers Zoom, Twitch, and a host of other apps that got us through the pandemic.
+# What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API are purpose built for media streaming.
 
 # A simple WebRTC app generally consists of three players:
-# 1. a peer that initiates the connection (the offer)
-# 2. a peer that responds to the connection (the answer), and
-# 3. a server that passes messages between the two peers (signaling).
+# 1. a peer that initiates the connection
+# 2. a peer that responds to the connection, and
+# 3. a server that passes messages between the two peers.
 
-# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - to the other peer through the server. Then, the other peer either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
+# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - to the other peer through the server.
+# Then, the other peer either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
 
 # Once the peers have exchanged the necessary information, there's a brief pause... and then you're live. It just works.
 
@@ -32,49 +27,22 @@
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
-# ### But how does it _really_ work?
-
-# Obviously there's more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer. Here, we'll give you enough info to make sure you're aware of the essential parts, some of the nuances that can trip you up, and be prepared to start buildling your own real-time app with Modal.
-
-# #### Messages, SDP, and ICE Candidates
-
-# **Messages** are implemented as dictionaries (JSON, Python `dict`s) with a `type` key whose value is a string describing... the message type (e.g. `offer`, `answer`). For WebRTC-specific messages, there will also be an `spd` key that contains the SDP encoded string. Most apps will add their own custom types and keys (e.g. sender ids) to handle app-specific logic.
-
-# **SDP (Session Description Protocol)** defines the format of the messages exchanged between peers. It's a text-based format that allows peers to describe their media capabilities, negotation roles, and ICE candidates. You can probably survive without groking this spec fully, but it's probably inevitable once you're in the throes of debugging a connection issue.
-
-# **ICE (Internet Connectivity Establishment)** is the protocol that drives NAT hole-punching in WebRTC. It solves the problem of allowing two devices to set up a direct UDP/TCP connection without needing to re-configure routers or firewalls. Each peer requests a list of "candidates" from either a STUN or TURN server. These candidates contain the IP and port addresses between that peer's local IP address and public IP address, i.e. the addresses of all the routers and the peer itself. The peers exchange these candidates and then coordinate testing candidate pairs until they successfully connect.
-
-# <figure align="middle">
-#   <img src="https://miro.medium.com/v2/resize:fit:1302/1*HmMdrpVBTP2vYMhrVOdNOw.jpeg" width="50%" />
-#   <figcaption>A higher resolution view of a WebRTC app.</figcaption>
-# </figure>
-
-# #### STUN and TURN servers
-
-# **STUN** servers allow peers to discover their public IP addresses and ports and establish a direct connection over TCP or UDP. They don't require any authentication. Using Google's public STUN server is usually sufficient.
-
-# **TURN** servers are used when a peer is behind a restrictive NAT or firewall configuration that blocks direct connections. By requiring authentication, a TURN server is able to establish trust and directly connect to a peer. It then relays packets to the other peer - either directly if that peer can use STUN or indirectly through another TURN server (potentially itself) if both peers are behind strict networking rules. The tradeoff is that the extra hops add latency and developers must either run their own TURN server or pay to use one operated by a third-party.
-
-# #### Behind the scenes
-
-# WebRTC implementations spawn several workers who asychronously take care of things like handling ICE candidates and media streaming. While we gladly accept these workers' help, it can also make building a WebRTC app a little tricky since you, as the application developer, only directly control and observe part of the flow.
-
-# What's more, each WebRTC API may implement some of this work differently *or not all*. If you're going to build an app with WebRTC, make sure to familiarize yourself with the idiosynchrocies of your chosen API - and probably the common browsers as well.directly
-
-# <figure align="middle">
-#   <img src="https://hpbn.co/assets/diagrams/f38aae954de1cde63e2dffddc23a13f3.svg" width="50%" />
-#   <figcaption>WebRTC BTS</figcaption>
-# </figure>
-
-# When debugging, it's helpful to provide listeners to WebRTC's events and, if a peer is web-based, using the browser's WebRTC debugging tools.
+# Obviously there’s more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer.
+# For this demo, we're going to focus on adapting WebRTC to Modal's design patterns.
 
 # ## Mapping WebRTC connection lifetimes to Modal function call lifetimes
 
-# With Modal, the `FunctionCall` is the essential unit of execution, and it doesn't make any promises that two calls made in quick succession will be run on the same container. When functions are called, more compute is provided, and when they return, that compute is released. This is necessary for Modal to provide dev-friendly auto-scaling that make it so useful.
+# Modal let's you turn your functions into GPU-powered cloud services.
+# When a function is called, Modal provisions the compute, and when it returns, that compute is released.
+# This design is what enables developers to build scalable apps that make Modal so useful.
+# But it also means that Modal function calls are assumed to be indepenedent and self-contained (i.e. they don't launch other processes or tasks which continue working after the function call returns).
 
-# The WebRTC protocol, on the other hand, involves passing messages back and forth, coordinating with asynchronous agents, and running a P2P connection in the background below the application layer. Standard WebRTC apps require coordinating many function calls and may even be idle once the connection has been established.
+# WebRTC apps, on the other hand, typically require coordinating many function calls to pass messages between the peers and server.
+# Addtionally, API implementations run asynchronous tasks below the application layer - including the P2P connection itself.
+# This means that an app may only be beginning to its primary work when the function call has returned.
 
-# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams. For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
+# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams.
+# For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
 
 # To align our WebRTC app with Modal's assumptions, it needs to meet the following requirements:
 
