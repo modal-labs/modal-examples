@@ -1,4 +1,9 @@
-# # Embed 30 million Amazon reviews with Qwen2-7B
+# ---
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/embeddings/amazon_embeddings.py"]
+# args: ["--dataset-subset", "raw_review_Magazine_Subscriptions"]
+# ---
+
+# # Embed 30 million Amazon reviews at 575k tokens per second with Qwen2-7B
 
 # This example demonstrates how to create embeddings for a large text dataset. This is
 # often necessary to enable semantic search, translation, and other language
@@ -28,7 +33,7 @@ HOURS = 60 * MINUTES
 # You can run it with the command
 
 # ```bash
-# modal run --detach large_scale_embedding.py
+# modal run --detach amazon_embeddings.py
 # ```
 
 # By default we `down-scale` to 1/100th of the data for demonstration purposes.
@@ -43,9 +48,15 @@ HOURS = 60 * MINUTES
 
 
 @app.local_entrypoint()
-def main(down_scale: float = 0.001):
+def main(
+    dataset_name: str = "McAuley-Lab/Amazon-Reviews-2023",
+    dataset_subset: str = "raw_review_Books",
+    down_scale: float = 0.001,
+):
     out_path = Path("/tmp") / "embeddings-example-fc-ids.json"
-    function_ids = launch_job.remote(down_scale=down_scale)
+    function_ids = launch_job.remote(
+        dataset_name=dataset_name, dataset_subset=dataset_subset, down_scale=down_scale
+    )
     out_path.write_text(json.dumps(function_ids, indent=2) + "\n")
     print(f"output handles saved to {out_path}")
 
@@ -71,9 +82,9 @@ def main(down_scale: float = 0.001):
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=4 * HOURS
+    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=2 * HOURS
 )
-def launch_job(down_scale: float = 1):
+def launch_job(dataset_name: str, dataset_subset: str, down_scale: float):
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -82,8 +93,8 @@ def launch_job(down_scale: float = 1):
 
     print("Loading dataset...")
     dataset = load_dataset(
-        "McAuley-Lab/Amazon-Reviews-2023",
-        "raw_review_Books",
+        dataset_name,
+        dataset_subset,
         split="full",
         trust_remote_code=True,
     )
@@ -185,7 +196,7 @@ inference_image = (
     max_containers=100,
     scaledown_window=5 * MINUTES,  # idle for 5 min without inputs before scaling down
     retries=3,  # handle transient failures and storms in the cloud
-    timeout=20 * MINUTES,  # run for at most 20 min
+    timeout=2 * HOURS,  # run for at most 2 hours
 )
 @modal.concurrent(max_inputs=10)
 class TextEmbeddingsInference:
