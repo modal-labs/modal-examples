@@ -158,13 +158,68 @@ app = modal.App("example-yolo-webrtc")
 # ### Implementing the Modal GPU peer
 
 
+def get_yolo_track(track, model):
+    import numpy as np
+    from aiortc import MediaStreamTrack
+    from aiortc.contrib.media import VideoFrame
+
+    class YOLOTrack(MediaStreamTrack):
+        """
+        Custom media stream track performs object detection
+        on the video stream and passes it back to the source peer
+        """
+
+        kind: str = "video"
+        conf_threshold: float = 0.15
+
+        def __init__(self, track: MediaStreamTrack, model) -> None:
+            super().__init__()
+            self.track = track
+            self.yolo_model = model
+
+        def detection(self, image: np.ndarray) -> np.ndarray:
+            import cv2
+
+            orig_shape = image.shape[:-1]
+
+            image = cv2.resize(
+                image,
+                (self.yolo_model.input_width, self.yolo_model.input_height),
+            )
+
+            image = self.yolo_model.detect_objects(image, self.conf_threshold)
+
+            image = cv2.resize(image, (orig_shape[1], orig_shape[0]))
+
+            return image
+
+        # this is the essential method we need to implement
+        # to create a custom MediaStreamTrack
+        async def recv(self) -> VideoFrame:
+            frame = await self.track.recv()
+            img = frame.to_ndarray(format="bgr24")
+
+            processed_img = self.detection(img)
+
+            # VideoFrames are from a really nice package called av
+            # which is a pythonic wrapper around ffmpeg
+            # and a dep of aiortc
+            new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
+            new_frame.pts = frame.pts
+            new_frame.time_base = frame.time_base
+
+            return new_frame
+
+    return YOLOTrack(track, model)
+
+
 # The Modal GPU peer is a subclass of the `ModalWebRtcPeer` class.
 # This requires us to implement the `setup_streams` method and
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[modal.Secret.from_dotenv()],
+    secrets=[modal.Secret.from_dotenv()],  # TODO: Modal Secret
 )
 @modal.concurrent(
     # input concurrency helps with faster restarts of stream
@@ -178,64 +233,14 @@ class ObjDet(ModalWebRtcPeer):
     yolo_model = None
 
     async def initialize(self):
-        import numpy as np
         import onnxruntime
-        from aiortc import MediaStreamTrack
-        from aiortc.contrib.media import VideoFrame
 
         from .yolo import YOLOv10
 
         onnxruntime.preload_dlls()
         self.yolo_model = YOLOv10(CACHE_PATH)
 
-        class YOLOTrack(MediaStreamTrack):
-            """
-            Custom media stream track that flips the video stream
-            and passes it back to the source peer
-            """
-
-            kind: str = "video"
-            conf_threshold: float = 0.15
-
-            def __init__(self, track: MediaStreamTrack, model) -> None:
-                super().__init__()
-                self.track = track
-                self.yolo_model = model
-
-            def detection(self, image: np.ndarray) -> np.ndarray:
-                import cv2
-
-                orig_shape = image.shape[:-1]
-
-                image = cv2.resize(
-                    image,
-                    (self.yolo_model.input_width, self.yolo_model.input_height),
-                )
-
-                image = self.yolo_model.detect_objects(image, self.conf_threshold)
-
-                image = cv2.resize(image, (orig_shape[1], orig_shape[0]))
-
-                return image
-
-            # this is the essential method we need to implement
-            # to create a custom MediaStreamTrack
-            async def recv(self) -> VideoFrame:
-                frame = await self.track.recv()
-                img = frame.to_ndarray(format="bgr24")
-
-                processed_img = self.detection(img)
-
-                # VideoFrames are from a really nice package called av
-                # which is a pythonic wrapper around ffmpeg
-                # and a dep of aiortc
-                new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
-                new_frame.pts = frame.pts
-                new_frame.time_base = frame.time_base
-
-                return new_frame
-
-        self.processing_track_cls = YOLOTrack
+        self.processing_track_cls = get_yolo_track()
 
     async def setup_streams(self, peer_id: str):
         from aiortc import MediaStreamTrack
@@ -256,7 +261,7 @@ class ObjDet(ModalWebRtcPeer):
                 f"Video Processor, {self.id}, received {track.kind} track from {peer_id}"
             )
 
-            output_track = self.processing_track_cls(track, self.yolo_model)
+            output_track = get_yolo_track(track, self.yolo_model)
             self.pcs[peer_id].addTrack(output_track)
 
             # keep us notified when the incoming track ends
