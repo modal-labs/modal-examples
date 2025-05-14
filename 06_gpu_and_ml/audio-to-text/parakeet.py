@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "deploy", "06_gpu_and_ml/audio-to-text/parakeet/apps.py::server_app", "&&", "modal", "run", "06_gpu_and_ml/audio-to-text/parakeet/apps.py::client_app", "--modal-profile=$(modal profile current)"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet/apps.py::server_app"]
 # ---
 # # Real time audio transcription using Parakeet
 
@@ -9,6 +9,18 @@
 
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the.
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+
+# To run this example, you need to have the [Modal CLI](https://modal.com/docs/guide/install) installed and set up.
+
+# 1. Command to start the server locally:
+# ```bash
+# modal serve 06_gpu_and_ml/audio-to-text/parakeet.py::server_app
+# ```
+
+# 2. In a separate terminal, run the client:
+# ```bash
+# modal run 06_gpu_and_ml/audio-to-text/parakeet.py::client_app --modal-profile=$(modal profile current)
+# ```
 
 # Here's what your final output might look like:
 
@@ -211,7 +223,7 @@ def main(modal_profile: str):
             receive_task = asyncio.create_task(receive_transcriptions(websocket))
             await asyncio.gather(send_task, receive_task)
 
-    is_dev = False  # change to True if running modal serve
+    is_dev = True
 
     url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
     ws_url = f"{url}{WS_ENDPOINT}"
@@ -221,3 +233,9 @@ def main(modal_profile: str):
         asyncio.run(run(ws_url))
     except KeyboardInterrupt:
         print("\n🛑 Stopped by user.")
+
+
+# Now you can run the client locally with the following command:
+# ```bash
+# modal run 06_gpu_and_ml/audio-to-text/parakeet/apps.py::client_app --modal-profile=$(modal profile current)
+# ```
