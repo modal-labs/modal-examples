@@ -88,8 +88,8 @@ image = (
 )
 
 with image.imports():
-    import numpy as np
     import nemo.collections.asr as nemo_asr
+    import numpy as np
 
 # ## Implementing real-time audio transcription on Modal
 
@@ -109,6 +109,8 @@ class_name = "parakeet"
 
 @server_app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
 class Parakeet:
+    import numpy as np
+
     @modal.enter()
     def load(self):
         self.model = nemo_asr.models.ASRModel.from_pretrained(
@@ -122,7 +124,7 @@ class Parakeet:
 
     @modal.asgi_app()
     def web(self):
-        from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+        from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 
         web_app = FastAPI()
 
@@ -185,9 +187,9 @@ DTYPE = "int16"  # must be string for deferred eval
 @client_app.local_entrypoint()
 def main(modal_profile: str):
     import asyncio
-    import websockets
+
     import sounddevice as sd
-    import numpy as np
+    import websockets
 
     def make_audio_callback(audio_queue, loop):
         def callback(indata, frames, time, status):
