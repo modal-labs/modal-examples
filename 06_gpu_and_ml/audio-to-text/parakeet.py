@@ -27,15 +27,17 @@
 # Here's what your final output might look like:
 
 # ```
-# ☀️ Waking up model, this may take a few seconds on cold start...
 
-# Recording and streaming... Press Ctrl+C to stop.
-# 📝 Transcription: Hi, how's it going?.
-# 📝 Transcription: Doing well. Great day to be having fun with transcription models
+# 🌐 Downloading audio file...
+# 🎧 Downloaded 6331478 bytes
+# 🔗 Streaming data to WebSocket:
+# wss://modal-labs--parakeet-websocket-parakeet-web-dev.modal.run/ws
+# ☀️ Waking up model, this may take a few seconds on cold start...
+# 📝 Transcription: A Dream Within a Dream
+# 📝 Transcription: Edgar Allan Poe.
 # 📝 Transcription:
-# 📝 Transcription: Good.
-# ^C
-# 🛑 Stopped by user.
+# 📝 Transcription:
+# 📝 Transcription: Take this kiss upon the brow.
 # ```
 
 # ## Setup
@@ -172,11 +174,6 @@ client_app = modal.App("parakeet-client", image=client_image)
 
 WS_ENDPOINT = "/ws"
 
-SAMPLE_RATE = 16000
-CHUNK_DURATION = 1.0
-CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION)
-DTYPE = "int16"  # must be string for deferred eval
-
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
 
@@ -186,7 +183,7 @@ def main(modal_profile: str, audio_url: str = AUDIO_URL):
     import requests
     import websockets
 
-    CHUNK_SIZE = 2048
+    CHUNK_SIZE = 64000
     is_dev = True
     url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
     ws_url = f"{url}{WS_ENDPOINT}"
@@ -262,6 +259,7 @@ def main(modal_profile: str, audio_url: str = AUDIO_URL):
     audio_data = convert_to_mono_16khz(audio_bytes)
 
     print(f"🔗 Streaming data to WebSocket: {ws_url}")
+    print("☀️ Waking up model, this may take a few seconds on cold start...")
     try:
         asyncio.run(run(ws_url, audio_data))
     except KeyboardInterrupt:
