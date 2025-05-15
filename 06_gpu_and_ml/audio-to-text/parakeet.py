@@ -79,9 +79,8 @@ image = (
     )
     .apt_install("ffmpeg")
     .run_commands(
-        "uv pip install --system hf_transfer==0.1.9 huggingface_hub[hf-xet]==0.31.2 nemo_toolkit[asr]==2.3.0 cuda-python==12.9.0",
-        "uv pip install --system 'numpy==1.26.4'",
-        "uv pip install --system fastapi==0.115.12",
+        "uv pip install --system hf_transfer==0.1.9 huggingface_hub[hf-xet]==0.31.2 nemo_toolkit[asr]==2.3.0 cuda-python==12.8.0 fastapi==0.115.12",
+        "uv pip install --system 'numpy==1.26.4'",  # downgrading numpy to avoid issues with CUDA
     )
 )
 
@@ -165,10 +164,8 @@ class Parakeet:
 # that sends audio data to the server and receives transcriptions in real-time.
 
 
-client_image = (
-    modal.Image.debian_slim(python_version="3.10")
-    .apt_install("portaudio19-dev")
-    .pip_install("websockets==15.0.1", "sounddevice==0.5.1", "numpy==2.2.5")
+client_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "websockets==15.0.1", "wave==0.0.2", "numpy==2.2.5"
 )
 client_app = modal.App("parakeet-client", image=client_image)
 
@@ -180,59 +177,93 @@ CHUNK_DURATION = 1.0
 CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION)
 DTYPE = "int16"  # must be string for deferred eval
 
+AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+
 
 @client_app.local_entrypoint()
-def main(modal_profile: str):
+def main(modal_profile: str, audio_url: str = AUDIO_URL):
     import asyncio
-
-    import sounddevice as sd
+    import requests
     import websockets
 
-    def make_audio_callback(audio_queue, loop):
-        def callback(indata, frames, time, status):
-            if status:
-                print("Input stream status:", status)
-            audio_chunk = indata.copy().astype(DTYPE).tobytes()
-            asyncio.run_coroutine_threadsafe(audio_queue.put(audio_chunk), loop)
-
-        return callback
-
-    async def send_audio(websocket, audio_queue):
-        loop = asyncio.get_running_loop()
-        callback = make_audio_callback(audio_queue, loop)
-        with sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=1,
-            dtype=DTYPE,
-            callback=callback,
-            blocksize=CHUNK_SIZE,
-        ):
-            print("🎙️ Recording and streaming... Press Ctrl+C to stop.")
-            while True:
-                audio_chunk = await audio_queue.get()
-                await websocket.send(audio_chunk)
-
-    async def receive_transcriptions(websocket):
-        async for message in websocket:
-            print("📝 Transcription:", message)
-
-    async def run(ws_url):
-        audio_queue = asyncio.Queue()
-        async with websockets.connect(
-            ws_url, open_timeout=240, ping_interval=None
-        ) as websocket:
-            send_task = asyncio.create_task(send_audio(websocket, audio_queue))
-            receive_task = asyncio.create_task(receive_transcriptions(websocket))
-            await asyncio.gather(send_task, receive_task)
-
-    is_dev = True  # set to False if running modal deploy
-
+    CHUNK_SIZE = 2048
+    is_dev = True
     url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
     ws_url = f"{url}{WS_ENDPOINT}"
-    print(f"🌐 Using WebSocket URL: {ws_url}")
-    print("☀️ Waking up model, this may take a few seconds on cold start...\n")
+
+    def convert_to_mono_16khz(audio_bytes: bytes) -> bytes:
+        import io
+        import wave
+        import numpy as np
+
+        with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
+            n_channels = wav_in.getnchannels()
+            sample_width = wav_in.getsampwidth()
+            frame_rate = wav_in.getframerate()
+            n_frames = wav_in.getnframes()
+            frames = wav_in.readframes(n_frames)
+
+        # Determine dtype from sample width
+        if sample_width == 1:
+            dtype = np.uint8
+        elif sample_width == 2:
+            dtype = np.int16
+        elif sample_width == 4:
+            dtype = np.int32
+        else:
+            raise ValueError(f"Unsupported sample width: {sample_width}")
+
+        # Convert frames to NumPy array
+        audio_data = np.frombuffer(frames, dtype=dtype)
+
+        # Downmix to mono if needed
+        if n_channels > 1:
+            audio_data = audio_data.reshape(-1, n_channels)
+            audio_data = audio_data.mean(axis=1).astype(dtype)
+
+        # Resample to 16kHz if needed
+        if frame_rate != 16000:
+            ratio = 16000 / frame_rate
+            new_length = int(len(audio_data) * ratio)
+            indices = np.linspace(0, len(audio_data) - 1, new_length)
+            audio_data = np.interp(
+                indices, np.arange(len(audio_data)), audio_data
+            ).astype(dtype)
+
+        return audio_data.tobytes()
+
+    def chunk_audio(data: bytes, chunk_size: int):
+        for i in range(0, len(data), chunk_size):
+            yield data[i : i + chunk_size]
+
+    async def send_audio(ws, audio_bytes):
+        for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
+            await ws.send(chunk)
+            await asyncio.sleep(0.01)  # simulate real-time pacing
+
+    async def receive_transcriptions(ws):
+        async for message in ws:
+            print("📝 Transcription:", message)
+
+    async def run(ws_url, audio_bytes):
+        async with websockets.connect(
+            ws_url, ping_interval=None, open_timeout=240
+        ) as ws:
+            send_task = asyncio.create_task(send_audio(ws, audio_bytes))
+            receive_task = asyncio.create_task(receive_transcriptions(ws))
+            await asyncio.gather(send_task, receive_task)
+
+    print("🌐 Downloading audio file...")
+    response = requests.get(audio_url)
+    response.raise_for_status()
+    audio_bytes = response.content
+    print(f"🎧 Downloaded {len(audio_bytes)} bytes")
+
+    audio_data = convert_to_mono_16khz(audio_bytes)
+
+    print(f"🔗 Streaming data to WebSocket: {ws_url}")
     try:
-        asyncio.run(run(ws_url))
+        asyncio.run(run(ws_url, audio_data))
     except KeyboardInterrupt:
         print("\n🛑 Stopped by user.")
 
