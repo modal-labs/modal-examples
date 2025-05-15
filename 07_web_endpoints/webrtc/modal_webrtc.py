@@ -1,3 +1,8 @@
+# ---
+# deploy: true
+# lambda-test: false
+# ---
+
 import asyncio
 import json
 from abc import ABC, abstractmethod
