@@ -180,6 +180,7 @@ AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/h
 @client_app.local_entrypoint()
 def main(modal_profile: str, audio_url: str = AUDIO_URL):
     import asyncio
+
     import requests
     import websockets
 
@@ -191,6 +192,7 @@ def main(modal_profile: str, audio_url: str = AUDIO_URL):
     def convert_to_mono_16khz(audio_bytes: bytes) -> bytes:
         import io
         import wave
+
         import numpy as np
 
         with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
