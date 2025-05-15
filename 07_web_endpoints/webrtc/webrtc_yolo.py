@@ -24,7 +24,7 @@
 # Once the peers have agreed on a configuration there's a brief pause... and then you're live.
 
 # <figure align="middle">
-#   <img src="https://i.imgur.com/1BfkJ3y.png" width="95%" />
+#   <img src="https://modal-cdn.com/cdnbot/just_webrtcnhhr0n2h_412df868.webp" width="95%" />
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
@@ -64,7 +64,7 @@
 #     To meet this requirement, the server will the call the cloud peer using Modal's [`.spawn` method](https://modal.com/docs/reference/modal.Function#spawn). `spawn` doesn't block which decouples the server and cloud peer function calls. We also pass a `modal.Queue` to the cloud peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the function we spawned goes into a loop until it detects that the P2P connection has been closed.
 
 # <figure align="middle">
-#   <img src="https://i.imgur.com/zyNSRQP.png" width="80%" />
+#   <img src="https://modal-cdn.com/cdnbot/modal_webrtcjngux8vw_02988d57.webp" width="95%" />
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
