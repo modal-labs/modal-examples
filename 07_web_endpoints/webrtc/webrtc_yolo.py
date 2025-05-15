@@ -8,71 +8,75 @@
 
 # ## What is WebRTC?
 
-# WebRTC (Web Real-Time Communication) is a framework that allows real-time media streaming between browsers (and other services).
-# It powers Zoom, Twitch, and a host of other apps that got us through the pandemic.
-# What makes WebRTC so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API are purpose built for media streaming.
+# WebRTC (Web Real-Time Communication) is a protocol and API specification for real-time media streaming between peers.
+# What makes it so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API are purpose built for media streaming.
+# It's primarily designed for browser applications using the Javascript API, but [APIs exist for other languages](https://www.webrtc-developers.com/did-i-choose-the-right-webrtc-stack/).
+# We'll build our app using the [Python `aiortc` library](https://aiortc.readthedocs.io/en/latest/) to run a peer in the cloud.
 
 # A simple WebRTC app generally consists of three players:
 # 1. a peer that initiates the connection
 # 2. a peer that responds to the connection, and
 # 3. a server that passes messages between the two peers.
 
-# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - to the other peer through the server.
-# Then, the other peer either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
+# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - which is relayed to another peer through the server.
+# The other peer then either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
 
-# Once the peers have exchanged the necessary information, there's a brief pause... and then you're live. It just works.
+# Once the peers have agreed on a configuration there's a brief pause... and then you're live.
 
-# TODO: serve all images from modal-cdn
 # <figure align="middle">
-#   <img src="https://i.imgur.com/o4vgWsR.png" width="80%" />
+#   <img src="https://i.imgur.com/mn4qIwJ.png" width="80%" />
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
-# Obviously there’s more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the RFCs or a more-thorough explainer.
-# For this demo, we're going to focus on how to use WebRTC with Modal's design patterns.
+# [**TODO:** serve all images from modal-cdn, rescale images]
 
-# ## Coupling WebRTC connection lifetimes to Modal function call lifetimes
+# Obviously there’s more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or [a more-thorough explainer](https://webrtcforthecurious.com/).
+# In this document, we'll focus on the Modal-specific details.
+
+# ## A stateless negotiation
 
 # Modal let's you turn your functions into GPU-powered cloud services.
-# When a function is called, Modal provisions the compute, and when it returns, that compute is released.
-# A core feature of this design is that function calls are assumed to be indepenedent and self-contained, i.e. calls should be to run in any order and they shouldn't launch other processes or tasks which continue working after the function call returns.
-# Modal's ability to dynamically scale compute resources as demand fluctuates is a direct consequence of this assumption.
+# When you call a Modal function, you get a GPU.
+# When you call 1000 Modal functions, you get 1000 GPUs.
+# When your functions return, you have 0 GPUs.
 
-# WebRTC apps, on the other hand, typically require coordinating many function calls to establish the connection between two peers.
-# Addtionally, API implementations runs several asynchronous tasks below the application layer - including the P2P connection itself.
-# This means that P2P streaming may only just have just begun when the application logic has returned.
+# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained. In other words, Modal functions are **stateless** and they shouldn't launch other processes or tasks which continue working after the function call returns.
+
+# WebRTC apps, on the other hand, require passing messaging back and forth during the negotiation, and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
+# This means that streaming may only just have just begun when our application logic has finished.
 
 # TODO: resize/scale these diagrams
 # <figure align="middle" style="display: flex; justify-content: space-between;">
 #   <div style="width: 45%;">
-#     <img src="https://i.imgur.com/uQWgtLs.png" width="100%" />
+#     <img src="https://i.imgur.com/LZgu8rW.png" width="100%" />
 #     <figcaption>Stateless is part of the design.</figcaption>
 #   </div>
 #   <div style="width: 45%;">
-#     <img src="https://i.imgur.com/ZF4iKdQ.png" width="100%" />
+#     <img src="https://i.imgur.com/P0vPQpe.png" width="100%" />
 #     <figcaption>A simplified view of a WebRTC negotiation.</figcaption>
 #   </div>
 # </figure>
 
 # If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams.
-# For example, we should't use HTTP for signaling because each message requires a new call. Modal doesn't know these calls are related and therefore can't promise to send them to the same server instance. Likewise, if we return from the call to the Modal GPU peer while the WebRTC connection is still active, Modal will scaledown as if the instance was idle.
+# For example, we can't use HTTP for signaling because each message requires a new call.
+# We also need to ensure that the cloud peer doesn't return when the negotiation finishes.
 
 # To align our WebRTC app with Modal's assumptions, it needs to meet the following requirements:
 
 # - **The client peer only makes one call to the signaling server which returns after the connection is established.**
 
-#     We can use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal. When the client detects that the P2P connection has been established, it can close the WebSocket which will in turn end the call.
+#     We'll use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal. When the client detects that the P2P connection has been established, it closes the WebSocket.
 
-# - **The server only makes one call to the Modal GPU peer which only returns once the connection has been closed, i.e. the user has finished processing the media stream.**
+# - **The server only makes one call to the cloud peer which returns once the P2Pconnection has been closed.**
 
-#     To meet this requirement we have the call the GPU peer via `.spawn` which doesn't block the server process and therefore decouples the server and GPU peer function calls. We also pass a `modal.Queue` to the GPU peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the GPU peer goes into a loop until it detects that the P2P connection has been closed.
+#     To meet this requirement, the server will the call the cloud peer using Modal's [`.spawn` method](https://modal.com/docs/reference/modal.Function#spawn). `spawn` doesn't block which decouples the server and cloud peer function calls. We also pass a `modal.Queue` to the cloud peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the function we spawned goes into a loop until it detects that the P2P connection has been closed.
 
 # <figure align="middle">
-#   <img src="https://i.imgur.com/FfslIg8.png" width="80%" />
+#   <img src="https://i.imgur.com/Vhgy1Lz.png" width="80%" />
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
-# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away most of the boilerplate and ensure everything happens in the right order.
+# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away most of the boilerplate and ensure things happens in the correct order.
 # The server class handles signaling and the peer class handles the WebRTC/`aiortc` stuff.
 # They are also partially decorated as [`Cls`es](https://modal.com/docs/reference/modal.Cls).
 # Add the `app.cls` decorator and some custom logic, and you're ready to deploy on Modal.
@@ -88,7 +92,7 @@ import modal
 
 from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
-# ### Implementing a YOLO `ModalWebRtcPeer`
+# ### Implementing the YOLO `ModalWebRtcPeer`
 
 # We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT. With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (30 fps -> 33.3 milliseconds).
 
@@ -218,7 +222,7 @@ class ObjDet(ModalWebRtcPeer):
         return {"type": "turn_servers", "ice_servers": turn_servers}
 
 
-# #### Implementing a `ModalWebRtcServer`
+# ### Implementing the `ModalWebRtcServer`
 
 # The `ModalWebRtcServer` class is much simpler to implement. The only thing you need to do is provide the `ModalWebRtcPeer` subclass you want to use as the cloud peer. It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
 
@@ -260,7 +264,10 @@ class WebcamObjDet(ModalWebRtcServer):
             return HTMLResponse(content=html)
 
 
-# #### YOLO helper functions
+# ## Addenda
+
+
+# ### YOLO helper functions
 def get_yolo_model(cache_path):
     import onnxruntime
 
@@ -333,7 +340,7 @@ def get_yolo_track(track, yolo_model=None):
     return YOLOTrack(track)
 
 
-# #### Testing with a local entrypoint and two `ModalWebRtcPeer`s
+# ### Testing with a local entrypoint and two `ModalWebRtcPeer`s
 
 
 @app.local_entrypoint()
