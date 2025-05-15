@@ -28,7 +28,8 @@
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
-# Obviously there’s more going on under the hood. If you want to deep dive, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or a [more-thorough explainer](https://webrtcforthecurious.com/).
+# Obviously there’s more going on under the hood.
+# If you want to deep dive, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or a [more-thorough explainer](https://webrtcforthecurious.com/).
 # In this document, we'll focus on the Modal-specific details.
 
 # ## A stateless negotiation
@@ -38,7 +39,8 @@
 # When you call 1000 Modal functions, you get 1000 GPUs.
 # When your functions return, you have 0 GPUs.
 
-# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained. In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
+# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained.
+# In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
 
 # WebRTC apps, on the other hand, require passing messages back and forth and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
@@ -57,11 +59,15 @@
 
 # - **The client peer only makes one call to the signaling server which returns after the connection is established.**
 
-#     We'll use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal. When the client detects that the P2P connection has been established, it closes the WebSocket.
+#     We'll use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal.
+# When the client detects that the P2P connection has been established, it closes the WebSocket.
 
 # - **The server only makes one call to the cloud peer which returns once the P2Pconnection has been closed.**
 
-#     To meet this requirement, the server will the call the cloud peer using Modal's [`.spawn` method](https://modal.com/docs/reference/modal.Function#spawn). `spawn` doesn't block which decouples the server and cloud peer function calls. We also pass a `modal.Queue` to the cloud peer in the spawned function call which we use to pass messages between it and the server. When signaling finishes, the function we spawned goes into a loop until it detects that the P2P connection has been closed.
+#     To meet this requirement, the server will the call the cloud peer using Modal's [`.spawn` method](https://modal.com/docs/reference/modal.Function#spawn).
+# `spawn` doesn't block which decouples the server and cloud peer function calls.
+# We also pass a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) to the cloud peer in the spawned function call which we use to pass messages between it and the server.
+# When signaling finishes, the function we spawned goes into a loop until it detects that the P2P connection has been closed.
 
 # <figure align="middle">
 #   <img src="https://modal-cdn.com/cdnbot/modal_webrtcjngux8vw_02988d57.webp" width="95%" />
@@ -86,7 +92,8 @@ from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
 # ### Implementing the YOLO `ModalWebRtcPeer`
 
-# We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT. With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (usually around 30 milliseconds per frame).
+# We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT.
+# With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (usually around 30 milliseconds per frame).
 
 # #### Setting up the containers and runtime environments
 
@@ -126,8 +133,8 @@ video_processing_image = (
 # ONNX inference graph, and other artifacts like a video file where
 # we'll write out the processed video stream for testing.
 
-# The very first time we run the app, downloading the model and building the ONNX inference graph
-# will take a few minutes. After that, the we can load the cached
+# The very first time we run the app, downloading the model and building the ONNX inference graph will take a few minutes.
+# After that, the we can load the cached
 # weights and graph which reduces the startup time to about 15 seconds per container.
 
 CACHE_VOLUME = modal.Volume.from_name("webrtc-yolo-cache", create_if_missing=True)
@@ -139,16 +146,20 @@ app = modal.App("example-yolo-webrtc")
 # Let's implement our `ModalWebRtcPeer` class to process an incoming video track with YOLO and return an annotated video track to the source peer.
 
 # To implement a `ModalWebRtcPeer`, we need to:
-# - Decorate our subclass with `@app.cls`. We'll use an A100 GPU and grab some secrets from Modal (you'll see what they're for in a moment).
-# - Implement the method `setup_streams`. This is where we'll use `aiortc` to add the logic for processing the incoming video track with YOLO and returning an annotated video track to the source peer.
+# - Decorate our subclass with `@app.cls`.
+# We'll use an A100 GPU and grab some secrets from Modal (you'll see what they're for in a moment).
+# - Implement the method `setup_streams`.
+# This is where we'll use `aiortc` to add the logic for processing the incoming video track with YOLO and returning an annotated video track to the source peer.
 
 # `ModalWebRtcPeer` has a few other methods that users can optionally implement:
 # - `initialize()`: Any custom initialization logic, called when `@modal.enter()` is called
-# - `run_streams()`: Logic for starting streams. This is necessary when the peer is the source of the stream. This is where you'd ensure a webcam was running or start playing a video file (see the TestPeer class)
+# - `run_streams()`: Logic for starting streams. This is necessary when the peer is the source of the stream.
+# This is where you'd ensure a webcam was running or start playing a video file (see the TestPeer class)
 # - `get_turn_servers()`: We haven't talked about TURN servers yet, so for now just know that it's necessary if you want to use WebRTC behind strict NAT or firewall configurations.
 # - `exit()`: Any custom cleanup logic, called when `@modal.exit()` is called.
 
-# In our case, we'll load the YOLO model in `initialize` and also demonstrate how to provide TURN server information with `get_turn_servers`. We're also going to use the `@modal.concurrent` decorator to allow multiple instances of our peer to run on one GPU.
+# In our case, we'll load the YOLO model in `initialize` and also demonstrate how to provide TURN server information with `get_turn_servers`.
+# We're also going to use the `@modal.concurrent` decorator to allow multiple instances of our peer to run on one GPU.
 
 
 @app.cls(
@@ -217,9 +228,13 @@ class ObjDet(ModalWebRtcPeer):
 
 # ### Implementing the `ModalWebRtcServer`
 
-# The `ModalWebRtcServer` class is much simpler to implement. The only thing you need to do is provide the `ModalWebRtcPeer` subclass you want to use as the cloud peer. It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
+# The `ModalWebRtcServer` class is much simpler to implement.
+# The only thing you need to do is provide the `ModalWebRtcPeer` subclass you want to use as the cloud peer.
+# It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
 
-# We're also going to add a frontend to the server which uses the JavaScript API to send a peer's webcam using a web browser. The `ModalWebRtcServer` class has a `web_app` property which is a `fastapi.FastAPI` instance that will be handled by Modal. We'll add the endpoints in the `initialize` method.
+# We're also going to add a frontend to the server which uses the JavaScript API to send a peer's webcam using a web browser.
+# The `ModalWebRtcServer` class has a `web_app` property which is a `fastapi.FastAPI` instance that will be handled by Modal.
+# We'll add the endpoints in the `initialize` method.
 #
 # The JavaScript and HTML files are alongside this example in the Github repo.
 
