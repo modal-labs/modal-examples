@@ -24,13 +24,11 @@
 # Once the peers have agreed on a configuration there's a brief pause... and then you're live.
 
 # <figure align="middle">
-#   <img src="https://i.imgur.com/mn4qIwJ.png" width="80%" />
+#   <img src="https://i.imgur.com/mn4qIwJ.png" width="95%" />
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
-# [**TODO:** serve all images from modal-cdn, rescale images]
-
-# Obviously there’s more going on under the hood. If you want to deep dive into WebRTC, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or [a more-thorough explainer](https://webrtcforthecurious.com/).
+# Obviously there’s more going on under the hood. If you want to deep dive, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or a [more-thorough explainer](https://webrtcforthecurious.com/).
 # In this document, we'll focus on the Modal-specific details.
 
 # ## A stateless negotiation
@@ -40,9 +38,9 @@
 # When you call 1000 Modal functions, you get 1000 GPUs.
 # When your functions return, you have 0 GPUs.
 
-# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained. In other words, Modal functions are **stateless** and they shouldn't launch other processes or tasks which continue working after the function call returns.
+# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained. In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
 
-# WebRTC apps, on the other hand, require passing messaging back and forth during the negotiation, and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
+# WebRTC apps, on the other hand, require passing messages back and forth and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
 
 # TODO: resize/scale these diagrams
@@ -57,7 +55,7 @@
 #   </div>
 # </figure>
 
-# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features and could end up with bugs like prematurely cancelled streams.
+# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features, and could end up with bugs like prematurely cancelled streams.
 # For example, we can't use HTTP for signaling because each message requires a new call.
 # We also need to ensure that the cloud peer doesn't return when the negotiation finishes.
 
@@ -78,8 +76,8 @@
 
 # We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away most of the boilerplate and ensure things happens in the correct order.
 # The server class handles signaling and the peer class handles the WebRTC/`aiortc` stuff.
-# They are also partially decorated as [`Cls`es](https://modal.com/docs/reference/modal.Cls).
-# Add the `app.cls` decorator and some custom logic, and you're ready to deploy on Modal.
+# They are also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
+# Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
 # ## Building the app
 
@@ -94,11 +92,11 @@ from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
 
 # ### Implementing the YOLO `ModalWebRtcPeer`
 
-# We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT. With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (30 fps -> 33.3 milliseconds).
+# We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT. With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (usually around 30 milliseconds per frame).
 
-# #### Set up the containers and runtime environments
+# #### Setting up the containers and runtime environments
 
-# We'll start with a simple `Image` and then
+# We'll start with a simple [`modal.Image`](https://modal.com/docs/reference/modal.Image) and then
 # - set it up to properly use TensorRT and the ONNX Runtime,
 # - install the necessary libs for processing video, `opencv` and `ffmpeg`, and
 # - install the necessary Python packages.
@@ -192,7 +190,7 @@ class ObjDet(ModalWebRtcPeer):
                 f"Video Processor, {self.id}, received {track.kind} track from {peer_id}"
             )
 
-            output_track = get_yolo_track(track, self.yolo_model)
+            output_track = get_yolo_track(track, self.yolo_model)  # see Addenda
             self.pcs[peer_id].addTrack(output_track)
 
             # keep us notified when the incoming track ends
@@ -202,7 +200,8 @@ class ObjDet(ModalWebRtcPeer):
                     f"Video Processor, {self.id}, incoming video track from {peer_id} ended"
                 )
 
-    # some free turn servers that can handle up to 5 GB of traffic
+    # some free turn servers we signed up forthat can handle up to 5 GB of traffic
+    # when they hit the limit they'll stop working
     async def get_turn_servers(self, peer_id=None, msg=None) -> dict:
         import os
 
@@ -330,7 +329,7 @@ def get_yolo_track(track, yolo_model=None):
 
             # VideoFrames are from a really nice package called av
             # which is a pythonic wrapper around ffmpeg
-            # and a dep of aiortc
+            # and a dependency of aiortc
             new_frame = VideoFrame.from_ndarray(processed_img, format="bgr24")
             new_frame.pts = frame.pts
             new_frame.time_base = frame.time_base
@@ -353,7 +352,7 @@ def test():
 @app.cls(image=base_image, volumes=cache)
 class TestPeer(ModalWebRtcPeer):
     TEST_VIDEO_SOURCE_URL = "https://modal-cdn.com/cliff_jumping.mp4"
-    TEST_VIDEO_RECORD_FILE = CACHE_PATH / "flipped_test_video.mp4"
+    TEST_VIDEO_RECORD_FILE = CACHE_PATH / "test_video.mp4"
     # extra time to run streams beyond input video duration
     VIDEO_DURATION_BUFFER_SECS = 5.0
     # allow time for container to spin up (can timeout with default 10)
@@ -424,7 +423,7 @@ class TestPeer(ModalWebRtcPeer):
         print(f"Video Tester running streams for {peer_id}...")
 
         # MediaRecorders need to be started manually
-        # but in most cases the stream is already streaming
+        # but in most cases the track is already streaming
         await self.recorder.start()
 
         # run until sufficient time has passed

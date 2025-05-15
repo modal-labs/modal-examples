@@ -1,5 +1,6 @@
 import asyncio
 import json
+from abc import ABC, abstractmethod
 from typing import ClassVar, Optional
 
 import modal
@@ -85,7 +86,7 @@ async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
                 return
 
 
-class ModalWebRtcPeer:
+class ModalWebRtcPeer(ABC):
     """
     Base class for WebRTC peer connections using aiortc
     that handles connection setup, negotiation, and stream management.
@@ -98,7 +99,7 @@ class ModalWebRtcPeer:
 
     Subclasses can implement the following methods:
     - initialize(): Any custom initialization logic
-    - setup_streams(): Logic for setting up media tracks and streams (this is where the main business logic goes)
+    - setup_streams(): Required logic for setting up media tracks and streams (this is where the main business logic goes)
     - run_streams(): Logic for starting streams (not always necessary)
     - get_turn_servers(): Logic for supplying TURN servers to client
     - exit(): Any custom cleanup logic
@@ -118,8 +119,10 @@ class ModalWebRtcPeer:
     async def initialize(self):
         """Override to add custom logic when creating a peer"""
 
+    @abstractmethod
     async def setup_streams(self, peer_id):
         """Override to add custom logic when creating a connection and setting up streams"""
+        raise NotImplementedError
 
     async def run_streams(self, peer_id):
         """Override to add custom logic when running streams"""
