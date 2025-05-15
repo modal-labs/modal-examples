@@ -165,7 +165,7 @@ app = modal.App("example-yolo-webrtc")
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[modal.Secret.from_name("turn_credentials", environment_name="examples")],
+    secrets=[modal.Secret.from_name("turn-credentials", environment_name="examples")],
 )
 @modal.concurrent(
     target_inputs=3,
