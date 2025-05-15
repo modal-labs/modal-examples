@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["cd", "07_web_endpoints", "&&", "modal", "run", "-m", "webrtc.webrtc_yolo"]
+# cmd: ["modal", "run", "-m", "07_web_endpoints.webrtc.webrtc_yolo"]
 # ---
 
 # # Real-time Webcam Object Detection with WebRTC
