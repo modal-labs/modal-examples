@@ -45,7 +45,6 @@
 # WebRTC apps, on the other hand, require passing messages back and forth and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
 
-# TODO: resize/scale these diagrams
 # <figure align="middle">
 #     <img src="https://modal-cdn.com/cdnbot/sequence_diagramsyt1upmqk_bdb00440.webp" width="95%" />
 #     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful P2P negotiation (right).</figcaption>
@@ -166,7 +165,7 @@ app = modal.App("example-yolo-webrtc")
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[modal.Secret.from_dotenv()],  # TODO: Modal Secret
+    secrets=[modal.Secret.from_name("turn_credentials", environment_name="examples")],
 )
 @modal.concurrent(
     target_inputs=3,
@@ -272,10 +271,15 @@ class WebcamObjDet(ModalWebRtcServer):
             return HTMLResponse(content=html)
 
 
-# ## Addenda
-
-
 # ### YOLO helper functions
+
+# You'll need these two functions to get the app to run.
+
+# The first, `get_yolo_model` sets up the ONNXRuntime and loads the model weights.
+# We call this in the `initialize` method of the `ModalWebRtcPeer` class
+# so it only happens once per container (i.e. when `@modal.enter()` methods are called).
+
+
 def get_yolo_model(cache_path):
     import onnxruntime
 
@@ -283,6 +287,12 @@ def get_yolo_model(cache_path):
 
     onnxruntime.preload_dlls()
     return YOLOv10(cache_path)
+
+
+# The second, `get_yolo_track` creates a custom `MediaStreamTrack` that performs object detection on the video stream.
+#
+# We call this in the `setup_streams` method of the `ModalWebRtcPeer` class
+# so it happens once per peer connection.
 
 
 def get_yolo_track(track, yolo_model=None):
@@ -348,7 +358,12 @@ def get_yolo_track(track, yolo_model=None):
     return YOLOTrack(track)
 
 
-# ### Testing with a local entrypoint and two `ModalWebRtcPeer`s
+# ## Testing
+
+# First we define a `local_entrypoint` to run and evaluate the test.
+# Our test will stream an .mp4 file to the cloud peer and record the annoated video to a new file.
+# The test itself ensurse that the new video is no more than five frames shorter than the source file.
+# The difference is due to dropped frames while the connection is starting up.
 
 
 @app.local_entrypoint()
@@ -356,6 +371,15 @@ def test():
     input_frames, output_frames = TestPeer().run_video_processing_test.remote()
     # allow a few dropped frames from the connection starting up
     assert input_frames - output_frames < 5, "Streaming failed"
+
+
+# Because our test will require Python dependencies outside the standard library, we'll run the test itself in a container on Modal.
+# In fact, this will be another `ModalWebRtcPeer` class. So the test will also demonstrate how to setup WebRTC between Modal containers.
+# There are some details in here regarding the use of `aiortc`'s `MediaPlayer` and `MediaRecorder` classes that won't cover here.
+# Just know that these are `aiortc` specific classes - not a WebRTC thing.
+
+# That said, using these classes does require us to manually `start` and `stop` streams.
+# For example, we'll need to override the `run_streams` method to start the source stream, and we'll make use of the `on_ended` callback to stop the recording.
 
 
 @app.cls(image=base_image, volumes=cache)
