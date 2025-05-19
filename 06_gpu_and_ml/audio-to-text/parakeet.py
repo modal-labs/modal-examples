@@ -19,6 +19,7 @@
 
 # 2. In a separate terminal, run the client:
 # ```bash
+# pip install requests websockets numpy
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py::client_app --modal-profile=$(modal profile current)
 # ```
 
@@ -63,13 +64,12 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 # doesn't have these by default.
 
 # Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
-# server for our websocket. `uv` gives us even more speed on installation!
+# server for our websocket.
 
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04", add_python="3.12"
     )
-    .pip_install("uv")
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
@@ -80,9 +80,13 @@ image = (
         }
     )
     .apt_install("ffmpeg")
-    .run_commands(
-        "uv pip install --system hf_transfer==0.1.9 huggingface_hub[hf-xet]==0.31.2 nemo_toolkit[asr]==2.3.0 cuda-python==12.8.0 fastapi==0.115.12",
-        "uv pip install --system 'numpy==1.26.4'",  # downgrading numpy to avoid issues with CUDA
+    .pip_install(
+        "hf_transfer==0.1.9",
+        "huggingface_hub[hf-xet]==0.31.2",
+        "nemo_toolkit[asr]==2.3.0",
+        "cuda-python==12.8.0",
+        "fastapi==0.115.12",
+        "numpy==1.26.4",  # downgrading numpy to avoid issues with CUDA
     )
 )
 
@@ -182,7 +186,6 @@ def main(modal_profile: str, audio_url: str = AUDIO_URL):
     import asyncio
 
     import requests
-    import websockets
 
     CHUNK_SIZE = 64000
     is_dev = True
@@ -245,6 +248,8 @@ def main(modal_profile: str, audio_url: str = AUDIO_URL):
             print("📝 Transcription:", message)
 
     async def run(ws_url, audio_bytes):
+        import websockets
+
         async with websockets.connect(
             ws_url, ping_interval=None, open_timeout=240
         ) as ws:
