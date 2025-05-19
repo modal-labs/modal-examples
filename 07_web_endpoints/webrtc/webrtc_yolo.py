@@ -5,7 +5,7 @@
 
 # # Real-time Webcam Object Detection with WebRTC
 
-# This example combines WebRTC's peer-to-peer media streaming capabilities with Modal's efficient GPU scaling to deploy a real-time object detection app.
+# This example shows you how to use WebRTC with Modal for real-time, low latency inference on media streams that's serverless and scales efficiently.
 
 # ## What is WebRTC?
 
@@ -35,15 +35,15 @@
 
 # ## A stateless negotiation
 
-# Modal let's you turn your functions into GPU-powered cloud services.
+# Modal let's you turn your functions into scalable, GPU-powered cloud services.
 # When you call a Modal function, you get a GPU.
 # When you call 1000 Modal functions, you get 1000 GPUs.
 # When your functions return, you have 0 GPUs.
 
-# A core feature of Modal's design that makes this possible is that function calls are assumed to be independent and self-contained.
+# A core assumption of Modal that makes this possible is that function calls are independent and self-contained.
 # In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
 
-# WebRTC apps, on the other hand, require passing messages back and forth and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
+# WebRTC apps, on the other hand, require passing messages back and forth (the "negotation") and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
 
 # <figure align="middle">
@@ -51,51 +51,44 @@
 #     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful P2P negotiation (right).</figcaption>
 # </figure>
 
-# If we don't carefully reconcile this disparity, we won't be able to properly leverage Modal's auto-scaling or concurrency features, and could end up with bugs like prematurely cancelled streams.
-# For example, we can't use HTTP for signaling because each message requires a new call.
-# We also need to ensure that the cloud peer doesn't return when the negotiation finishes.
+# To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the negotation and streaming liftetimes with our Modal function call lifetimes.
 
-# To align our WebRTC app with Modal's assumptions, it needs to meet the following requirements:
+# We'll handle passing messages between the client peer and the signaling server using a 
+# (WebSocket)[https://modal.com/docs/guide/webhooks#websockets] for persistant, bidirectional communication within a single function call. 
+# We'll also [`.spawn`](https://modal.com/docs/reference/modal.Function#spawn) the cloud peer when the WebSocket endpoint is called
+# and use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) for message passing between it and the server.
+#
+# 
+# When the P2P connection has been established, we can close the WebSocket and end the function call to the signaling server; 
+# and similarly when the cloud peer detects that the P2P connection has been closed, it will return from the call we `spawn`ed it with.
 
-# - **The client peer only makes one call to the signaling server which returns after the connection is established.**
-
-#     We'll use a WebSocket for persistant, bidirectional communication between the client peer and the signaling server running on Modal.
-# When the client detects that the P2P connection has been established, it closes the WebSocket.
-
-# - **The server only makes one call to the cloud peer which returns once the P2Pconnection has been closed.**
-
-#     To meet this requirement, the server will the call the cloud peer using Modal's [`.spawn` method](https://modal.com/docs/reference/modal.Function#spawn).
-# `spawn` doesn't block which decouples the server and cloud peer function calls.
-# We also pass a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) to the cloud peer in the spawned function call which we use to pass messages between it and the server.
-# When signaling finishes, the function we spawned goes into a loop until it detects that the P2P connection has been closed.
 
 # <figure align="middle">
 #   <img src="https://modal-cdn.com/cdnbot/modal_webrtcjngux8vw_02988d57.webp" width="95%" />
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
-# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away most of the boilerplate and ensure things happens in the correct order.
-# The server class handles signaling and the peer class handles the WebRTC/`aiortc` stuff.
+# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation datails.
 # They are also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
+# You can find the `ModalWebRtcPeer` and `ModalWebRtcServer` classes in the `modal_webrtc.py` file provided alongside this example in the (Github repo)[https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc].
+
 # ## Building the app
 
-# You can find the `ModalWebRtcPeer` and `ModalWebRtcServer` classes in the `modal_webrtc.py` file provided alongside this example in the Github repo.
+# For our WebRTC app, we'll take a client's video stream, run YOLO on it in the cloud, and then stream the annotated video back to the client. Let's get started!
 
 import os
 from pathlib import Path
 
 import modal
 
-from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcServer
+from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcSignalingServer
 
 # ### Implementing the YOLO `ModalWebRtcPeer`
 
-# We're going to run YOLO in the cloud on an A100 GPU with the ONNX Runtime and TensorRT.
+# We're going to run YOLO on an A100 GPU with the ONNX Runtime and TensorRT.
 # With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (usually around 30 milliseconds per frame).
-
-# #### Setting up the containers and runtime environments
 
 # We'll start with a simple [`modal.Image`](https://modal.com/docs/reference/modal.Image) and then
 # - set it up to properly use TensorRT and the ONNX Runtime,
@@ -257,7 +250,7 @@ server_image = base_image.add_local_dir(
 
 
 @app.cls(image=server_image)
-class WebcamObjDet(ModalWebRtcServer):
+class WebcamObjDet(ModalWebRtcSignalingServer):
     modal_peer_cls = ObjDet  # <---- setting the cloud peer
 
     def initialize(self):

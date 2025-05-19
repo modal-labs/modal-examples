@@ -13,7 +13,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.websockets import WebSocketState
 
 
-class ModalWebRtcServer:
+class ModalWebRtcSignalingServer:
     """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
 
     modal_peer_cls: ClassVar = None
