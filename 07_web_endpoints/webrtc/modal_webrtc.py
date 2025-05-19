@@ -16,7 +16,7 @@ from fastapi.websockets import WebSocketState
 class ModalWebRtcSignalingServer:
     """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
 
-    modal_peer_cls: ClassVar = None
+    modal_peer_cls: ClassVar["ModalWebRtcPeer"]
 
     @modal.enter()
     def _initialize(self):
@@ -41,20 +41,20 @@ class ModalWebRtcSignalingServer:
         if self.modal_peer_cls:
             modal_peer = self.modal_peer_cls()
         else:
-            print("Modal peer class not set")
+            raise ValueError("Modal peer class not set")
             return
 
         with modal.Queue.ephemeral() as q:
             print(f"Spawning modal peer instance for client peer {peer_id}...")
-            modal_peer.run_with_queue.spawn(q, peer_id)
+            modal_peer.run.spawn(q, peer_id)
 
             await asyncio.gather(
-                relay_client(websocket, q, peer_id),
-                relay_modal_peer(websocket, q, peer_id),
+                relay_websocket_to_queue(websocket, q, peer_id),
+                relay_queue_to_websocket(websocket, q, peer_id),
             )
 
 
-async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
+async def relay_websocket_to_queue(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse as json
@@ -69,7 +69,7 @@ async def relay_client(websocket: WebSocket, q: modal.Queue, peer_id: str):
                 return
 
 
-async def relay_modal_peer(websocket: WebSocket, q: modal.Queue, peer_id: str):
+async def relay_queue_to_websocket(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse from json
@@ -151,7 +151,7 @@ class ModalWebRtcPeer(ABC):
         print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
 
     @modal.method()
-    async def run_with_queue(self, queue: modal.Queue, peer_id: str):
+    async def run(self, queue: modal.Queue, peer_id: str):
         """Run the RTC peer after establishing a connection by passing WebSocket messages over a Queue."""
         print(f"Running modal peer instance for client peer {peer_id}...")
 
