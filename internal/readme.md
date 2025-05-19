@@ -50,7 +50,8 @@ cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
 
 #### Testing in GitHub Actions
 
-When a PR is opened, any changed examples are run via GitHub Actions.
+When a PR is opened or updated, any changed examples are run via GitHub Actions.
+We also create a preview of the documentation site and share the URL in the PR.
 
 You can find the commands used to execute tests in the `.github/workflows`
 directory. These can be used to run the tests locally. You may need to install
@@ -66,3 +67,12 @@ Examples are executed regularly and at random to check for regressions. The
 results are monitored.
 
 Modal engineers, see `synthetic_monitoring` in the `modal` repo for details.
+
+### Previewing the Documentation Site
+
+Modal engineers can preview the documentation site with a fast-reloading
+development server (`inv just-frontend`) when iterating or with a shareable
+Web deployment with one week TTL (`inv frontend-preview`). See the `modal`
+repo for details.
+
+You can find the process for creating a preview in the GitHub Action.
