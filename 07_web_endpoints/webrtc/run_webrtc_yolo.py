@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["modal", "run", "-m", "07_web_endpoints.webrtc.test_webrtc_yolo"]
+# cmd: ["modal", "run", "-m", "07_web_endpoints.webrtc.run_webrtc_yolo"]
 # ---
 
 
