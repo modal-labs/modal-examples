@@ -1,7 +1,7 @@
 ## `Internal/`
 
-This is internal repository and documentation management code. It does not
-contain examples.
+This folder contains internal repository and documentation management code.
+It does not contain examples.
 
 ### Continuous Integration and Continuous Deployment
 
@@ -18,21 +18,22 @@ set up the testing as well, we appreciate it!
 Examples can include a small frontmatter block in YAML format that controls
 testing and deployment behavior.
 
-Fields:
+Fields include:
 
 - `deploy`: If `true`, the example is deployed as a Modal application with
-  `modal deploy`. If `false`, it is not. Default is `false`.
+  `modal deploy`. If `false`, it is not. Default is `false`. Examples should be
+  deployed only if they are a live demo or they are consumed as a service by
+  other examples.
 - `cmd`: The command to run the example for testing. Default is
   `["modal", "run", "<filename>"]`.
 - `args`: Arguments to pass to the command. Default is `[]`.
 - `lambda-test`: If `true`, the example is tested with the cli command provided
   in `cmd`. If `false`, it is not. Default is `true`. Note that this controls
-  execution in the CI/CD of this repo and in the monitor-based testing.
-- `runtimes`: Control which runtimes the example is executed on in synthetic
-  monitoring. Default is `["runc", "gvisor"]`.
+  execution in the CI/CD of this repo _and_ in the internal AWS Lambda monitor
+  as part of `synthetic_monitoring`.
 - `env`: A dictionary of environment variables to include when testing.
-  Default is `{}`, but note that the environment can be modified in the CI/CD of this repo
-  or in the monitor-based testing.
+  Default is `{}`, but note that the environment can be modified in the CI/CD of
+  this repo or in the monitor-based testing.
 
 Below is an example frontmatter for deploying a web app. Note that here we
 `modal serve` in the test so as to not deploy to prod when testing. Note that in
@@ -51,9 +52,13 @@ cmd: ["modal", "serve", "10_integrations/pushgateway.py"]
 
 When a PR is opened, any changed examples are run via GitHub Actions.
 
-This workflow is intended to catch errors at the time a PR is made -- incuding
+You can find the commands used to execute tests in the `.github/workflows`
+directory. These can be used to run the tests locally. You may need to install
+the `requirements.txt` in this folder to do so.
+
+This workflow is intended to catch errors at the time a PR is made -- including
 both errors in the example and issues with the execution of the example in the
-monitoring system.
+monitoring system, like file imports.
 
 #### Continual Monitoring
 
