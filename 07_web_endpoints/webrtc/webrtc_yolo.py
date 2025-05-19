@@ -68,11 +68,11 @@
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
-# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation datails.
+# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcSignalingServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation datails.
 # They are also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
-# You can find the `ModalWebRtcPeer` and `ModalWebRtcServer` classes in the `modal_webrtc.py` file provided alongside this example in the (Github repo)[https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc].
+# You can find the `ModalWebRtcPeer` and `ModalWebRtcSignalingServer` classes in the `modal_webrtc.py` file provided alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/modal_webrtc.py).
 
 # ## Building the app
 
@@ -113,7 +113,7 @@ video_processing_image = (
     .pip_install(
         "aiortc==1.11.0",
         "fastapi==0.115.12",
-        "huggingface-hub==0.30.2",
+        "huggingface-hub[hf_xet]==0.30.2",
         "onnxruntime-gpu==1.21.0",
         "opencv-python==4.11.0.86",
         "tensorrt==10.9.0.34",
@@ -219,17 +219,17 @@ class ObjDet(ModalWebRtcPeer):
         return {"type": "turn_servers", "ice_servers": turn_servers}
 
 
-# ### Implementing the `ModalWebRtcServer`
+# ### Implementing the `ModalWebRtcSignalingServer`
 
-# The `ModalWebRtcServer` class is much simpler to implement.
+# The `ModalWebRtcSignalingServer` class is much simpler to implement.
 # The only thing you need to do is provide the `ModalWebRtcPeer` subclass you want to use as the cloud peer.
 # It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
 
 # We're also going to add a frontend to the server which uses the JavaScript API to send a peer's webcam using a web browser.
-# The `ModalWebRtcServer` class has a `web_app` property which is a `fastapi.FastAPI` instance that will be handled by Modal.
+# The `ModalWebRtcSignalingServer` class has a `web_app` property which is a `fastapi.FastAPI` instance that will be handled by Modal.
 # We'll add the endpoints in the `initialize` method.
 #
-# The JavaScript and HTML files are alongside this example in the Github repo.
+# The JavaScript and HTML files are alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/yolo).
 
 base_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -477,7 +477,7 @@ class TestPeer(ModalWebRtcPeer):
 
         peer_id = None
         # connect to server via websocket
-        ws_uri = WebcamObjDet().web.web_url.replace("http", "ws") + f"/ws/{self.id}"
+        ws_uri = WebcamObjDet().web.get_web_url().replace("http", "ws") + f"/ws/{self.id}"
         print(f"ws_uri: {ws_uri}")
         async with websockets.connect(
             ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
