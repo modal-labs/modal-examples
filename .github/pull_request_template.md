@@ -42,6 +42,6 @@
     - [ ] Example pins all dependencies to at least [SemVer](https://semver.org/) minor version, `~=x.y.z` or `==x.y`, or we expect this example to work across major versions of the dependency and are committed to maintenance across those versions
       - [ ] Example dependencies with `version < 1` are pinned to patch version, `==0.y.z`
 
-## Outside contributors
+## Outside Contributors
 
 You're great! Thanks for your contribution.
