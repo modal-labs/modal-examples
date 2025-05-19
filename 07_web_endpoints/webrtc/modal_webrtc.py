@@ -12,84 +12,6 @@ from fastapi import FastAPI, WebSocket
 from fastapi.websockets import WebSocketState
 
 
-class ModalWebRtcSignalingServer:
-    """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
-
-    modal_peer_cls: ClassVar["ModalWebRtcPeer"]
-
-    @modal.enter()
-    def _initialize(self):
-        self.web_app = FastAPI()
-
-        # handle signaling through websocket endpoint
-        @self.web_app.websocket("/ws/{peer_id}")
-        async def ws(client_websocket: WebSocket, peer_id: str):
-            await client_websocket.accept()
-            await self._mediate_negotiation(client_websocket, peer_id)
-
-        self.initialize()
-
-    def initialize(self):
-        pass
-
-    @modal.asgi_app()
-    def web(self):
-        return self.web_app
-
-    async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
-        if self.modal_peer_cls:
-            modal_peer = self.modal_peer_cls()
-        else:
-            raise ValueError("Modal peer class not set")
-            return
-
-        with modal.Queue.ephemeral() as q:
-            print(f"Spawning modal peer instance for client peer {peer_id}...")
-            modal_peer.run.spawn(q, peer_id)
-
-            await asyncio.gather(
-                relay_websocket_to_queue(websocket, q, peer_id),
-                relay_queue_to_websocket(websocket, q, peer_id),
-            )
-
-
-async def relay_websocket_to_queue(websocket: WebSocket, q: modal.Queue, peer_id: str):
-    while True:
-        try:
-            # get websocket message off queue and parse as json
-            msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
-            await q.put.aio(msg, partition=peer_id)
-
-        except Exception:
-            if WebSocketState.DISCONNECTED in [
-                websocket.application_state,
-                websocket.client_state,
-            ]:
-                return
-
-
-async def relay_queue_to_websocket(websocket: WebSocket, q: modal.Queue, peer_id: str):
-    while True:
-        try:
-            # get websocket message off queue and parse from json
-            modal_peer_msg = await asyncio.wait_for(
-                q.get.aio(partition="server"), timeout=0.5
-            )
-
-            if modal_peer_msg.startswith("close"):
-                await websocket.close()
-                return
-
-            await websocket.send_text(modal_peer_msg)
-
-        except Exception:
-            if WebSocketState.DISCONNECTED in [
-                websocket.application_state,
-                websocket.client_state,
-            ]:
-                return
-
-
 class ModalWebRtcPeer(ABC):
     """
     Base class for WebRTC peer connections using aiortc
@@ -291,3 +213,81 @@ class ModalWebRtcPeer(ABC):
 
     async def exit(self):
         """Override with any custom logic when shutting down container."""
+
+
+class ModalWebRtcSignalingServer:
+    """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
+
+    modal_peer_cls: ClassVar[ModalWebRtcPeer]
+
+    @modal.enter()
+    def _initialize(self):
+        self.web_app = FastAPI()
+
+        # handle signaling through websocket endpoint
+        @self.web_app.websocket("/ws/{peer_id}")
+        async def ws(client_websocket: WebSocket, peer_id: str):
+            await client_websocket.accept()
+            await self._mediate_negotiation(client_websocket, peer_id)
+
+        self.initialize()
+
+    def initialize(self):
+        pass
+
+    @modal.asgi_app()
+    def web(self):
+        return self.web_app
+
+    async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
+        if self.modal_peer_cls:
+            modal_peer = self.modal_peer_cls()
+        else:
+            raise ValueError("Modal peer class not set")
+            return
+
+        with modal.Queue.ephemeral() as q:
+            print(f"Spawning modal peer instance for client peer {peer_id}...")
+            modal_peer.run.spawn(q, peer_id)
+
+            await asyncio.gather(
+                relay_websocket_to_queue(websocket, q, peer_id),
+                relay_queue_to_websocket(websocket, q, peer_id),
+            )
+
+
+async def relay_websocket_to_queue(websocket: WebSocket, q: modal.Queue, peer_id: str):
+    while True:
+        try:
+            # get websocket message off queue and parse as json
+            msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
+            await q.put.aio(msg, partition=peer_id)
+
+        except Exception:
+            if WebSocketState.DISCONNECTED in [
+                websocket.application_state,
+                websocket.client_state,
+            ]:
+                return
+
+
+async def relay_queue_to_websocket(websocket: WebSocket, q: modal.Queue, peer_id: str):
+    while True:
+        try:
+            # get websocket message off queue and parse from json
+            modal_peer_msg = await asyncio.wait_for(
+                q.get.aio(partition="server"), timeout=0.5
+            )
+
+            if modal_peer_msg.startswith("close"):
+                await websocket.close()
+                return
+
+            await websocket.send_text(modal_peer_msg)
+
+        except Exception:
+            if WebSocketState.DISCONNECTED in [
+                websocket.application_state,
+                websocket.client_state,
+            ]:
+                return
