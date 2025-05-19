@@ -32,7 +32,6 @@
 
 ### ☑️ Content
   - [ ] Example is documented with comments throughout, in a [_Literate Programming_](https://en.wikipedia.org/wiki/Literate_programming) style
-  - [ ] Example includes no large binary files
   - [ ] Example media assets are retrieved from `modal-cdn.com`
 
 ### ☑️ Build Stability
