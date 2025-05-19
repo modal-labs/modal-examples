@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # lambda-test: false
 # ---
 
