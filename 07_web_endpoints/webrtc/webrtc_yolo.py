@@ -53,13 +53,13 @@
 
 # To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the negotation and streaming liftetimes with our Modal function call lifetimes.
 
-# We'll handle passing messages between the client peer and the signaling server using a 
-# (WebSocket)[https://modal.com/docs/guide/webhooks#websockets] for persistant, bidirectional communication within a single function call. 
+# We'll handle passing messages between the client peer and the signaling server using a
+# (WebSocket)[https://modal.com/docs/guide/webhooks#websockets] for persistant, bidirectional communication within a single function call.
 # We'll also [`.spawn`](https://modal.com/docs/reference/modal.Function#spawn) the cloud peer when the WebSocket endpoint is called
 # and use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) for message passing between it and the server.
 #
-# 
-# When the P2P connection has been established, we can close the WebSocket and end the function call to the signaling server; 
+#
+# When the P2P connection has been established, we can close the WebSocket and end the function call to the signaling server;
 # and similarly when the cloud peer detects that the P2P connection has been closed, it will return from the call we `spawn`ed it with.
 
 
@@ -477,7 +477,9 @@ class TestPeer(ModalWebRtcPeer):
 
         peer_id = None
         # connect to server via websocket
-        ws_uri = WebcamObjDet().web.get_web_url().replace("http", "ws") + f"/ws/{self.id}"
+        ws_uri = (
+            WebcamObjDet().web.get_web_url().replace("http", "ws") + f"/ws/{self.id}"
+        )
         print(f"ws_uri: {ws_uri}")
         async with websockets.connect(
             ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
