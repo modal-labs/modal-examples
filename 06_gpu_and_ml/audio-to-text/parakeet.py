@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/audio-to-text/parakeet.py::server_app"]
+# lambda-test: false
 # ---
 # # Real time audio transcription using Parakeet 🦜
 
@@ -170,9 +170,7 @@ class Parakeet:
 # that sends audio data to the server and receives transcriptions in real-time.
 
 
-client_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "websockets==15.0.1", "wave==0.0.2", "numpy==2.2.5"
-)
+client_image = modal.Image.debian_slim(python_version="3.12")
 client_app = modal.App("parakeet-client", image=client_image)
 
 
