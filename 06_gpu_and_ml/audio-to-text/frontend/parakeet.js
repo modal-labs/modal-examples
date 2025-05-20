@@ -3,51 +3,89 @@ let isRecording = false;
 let ws;
 let audioContext;
 let sourceNode;
-let processorNode;
+let workletNode;
 
 const recordButton = document.getElementById('recordButton');
 const transcriptionDiv = document.getElementById('transcription');
 
 // Constants for audio processing
-const CHUNK_SIZE = 64000; // Same as in the Python code
+const BUFFER_SIZE = 64000; 
 const SAMPLE_RATE = 16000; // Target sample rate
+
+// Audio worklet processor code
+const workletCode = `
+class AudioProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.bufferSize = ${BUFFER_SIZE};
+        this.buffer = new Float32Array(this.bufferSize);
+        this.bufferIndex = 0;
+    }
+
+    process(inputs, outputs) {
+        const input = inputs[0];
+        const channel = input[0];
+
+        if (!channel) return true;
+
+        // Fill our buffer
+        for (let i = 0; i < channel.length; i++) {
+            this.buffer[this.bufferIndex++] = channel[i];
+
+            // When buffer is full, send it
+            if (this.bufferIndex >= this.bufferSize) {
+                // Convert to Int16Array
+                const pcmData = new Int16Array(this.bufferSize);
+                for (let j = 0; j < this.bufferSize; j++) {
+                    pcmData[j] = Math.max(-32768, Math.min(32767, Math.round(this.buffer[j] * 32768)));
+                }
+                
+                // Send the buffer
+                this.port.postMessage(pcmData.buffer);
+                
+                // Reset buffer
+                this.bufferIndex = 0;
+            }
+        }
+
+        return true;
+    }
+}
+
+registerProcessor('audio-processor', AudioProcessor);
+`;
 
 async function setupMediaRecorder() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 channelCount: 1, // Mono
-                sampleRate: SAMPLE_RATE,
-                sampleSize: 16
+                sampleRate: SAMPLE_RATE
             } 
         });
         
         // Set up Web Audio API
-        audioContext = new (window.AudioContext || window.webkitAudioContext)({
+        audioContext = new window.AudioContext({
             sampleRate: SAMPLE_RATE
         });
+
+        // Create and load the audio worklet
+        const blob = new Blob([workletCode], { type: 'application/javascript' });
+        const workletUrl = URL.createObjectURL(blob);
+        await audioContext.audioWorklet.addModule(workletUrl);
+        URL.revokeObjectURL(workletUrl);
         
         sourceNode = audioContext.createMediaStreamSource(stream);
-        processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+        workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
         
-        processorNode.onaudioprocess = (e) => {
-            if (!isRecording) return;
-            
-            const inputData = e.inputBuffer.getChannelData(0);
-            // Convert Float32Array to Int16Array
-            const pcmData = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-                // Convert float to 16-bit signed integer
-                pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(inputData[i] * 32768)));
-            }
-            
+        workletNode.port.onmessage = (event) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(pcmData.buffer);
+                ws.send(event.data);
             }
         };
         
-        sourceNode.connect(processorNode);
-        processorNode.connect(audioContext.destination);
+        sourceNode.connect(workletNode);
+        workletNode.connect(audioContext.destination);
         
         return true;
     } catch (err) {
@@ -58,7 +96,6 @@ async function setupMediaRecorder() {
 }
 
 async function connectWebSocket() {
-    // Get the WebSocket URL from the server    
     ws = new WebSocket('/ws');
     
     ws.onopen = () => {
@@ -97,8 +134,8 @@ recordButton.addEventListener('click', async () => {
         if (sourceNode) {
             sourceNode.disconnect();
         }
-        if (processorNode) {
-            processorNode.disconnect();
+        if (workletNode) {
+            workletNode.disconnect();
         }
         if (audioContext) {
             audioContext.close();
