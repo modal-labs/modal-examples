@@ -25,7 +25,8 @@ Fields include:
   deployed only if they are a live demo or they are consumed as a service by
   other examples.
 - `cmd`: The command to run the example for testing. Default is
-  `["modal", "run", "<filename>"]`.
+  `["modal", "run", "<path>"]`. All `path`s should be relative to the
+  root directory of the repository.
 - `args`: Arguments to pass to the command. Default is `[]`.
 - `lambda-test`: If `true`, the example is tested with the cli command provided
   in `cmd`. If `false`, it is not. Default is `true`. Note that this controls
