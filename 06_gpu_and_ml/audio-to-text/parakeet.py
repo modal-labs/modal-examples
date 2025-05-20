@@ -42,11 +42,14 @@
 # ```
 
 # ## Setup
+import os
+from pathlib import Path
+
 import modal
 
 app_name = "parakeet-websocket"
 
-server_app = modal.App(app_name)
+app = modal.App(app_name)
 BUFFER_SIZE = 8000
 
 # ## Volume for caching model weights
@@ -66,6 +69,7 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 # Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
 # server for our websocket.
 
+print(f"front dir: {os.path.join(Path(__file__).parent.resolve(), 'frontend')}")
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04", add_python="3.12"
@@ -88,6 +92,10 @@ image = (
         "fastapi==0.115.12",
         "numpy==1.26.4",  # downgrading numpy to avoid issues with CUDA
     )
+    .add_local_dir(
+        os.path.join(Path(__file__).parent.resolve(), "frontend"),
+        remote_path="/frontend",
+    )
 )
 
 with image.imports():
@@ -108,7 +116,7 @@ with image.imports():
 class_name = "parakeet"
 
 
-@server_app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
+@app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
 class Parakeet:
     @modal.enter()
     def load(self):
@@ -116,7 +124,7 @@ class Parakeet:
             model_name="nvidia/parakeet-tdt-0.6b-v2"
         )
 
-    @modal.method()
+    # @modal.method()
     def transcribe(self, audio_bytes: bytes) -> str:
         import numpy as np
 
@@ -127,12 +135,20 @@ class Parakeet:
     @modal.asgi_app()
     def web(self):
         from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
+        from fastapi.responses import HTMLResponse
+        from fastapi.staticfiles import StaticFiles
 
         web_app = FastAPI()
+        web_app.mount("/static", StaticFiles(directory="/frontend"))
 
         @web_app.get("/status")
         async def status():
             return Response(status_code=200)
+
+        # server frontend
+        @web_app.get("/")
+        async def index():
+            return HTMLResponse(content=open("/frontend/index.html").read())
 
         @web_app.websocket("/ws")
         async def websocket_endpoint(ws: WebSocket):
@@ -149,7 +165,7 @@ class Parakeet:
                         buffer.clear()
 
                         try:
-                            text = self.transcribe.remote(audio_bytes)
+                            text = self.transcribe(audio_bytes)
                             await ws.send_text(text)
                         except Exception as e:
                             print("❌ Transcription error:", e)
@@ -179,7 +195,7 @@ WS_ENDPOINT = "/ws"
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
 
-@server_app.local_entrypoint()
+@app.local_entrypoint()
 def main(audio_url: str = AUDIO_URL):
     import asyncio
 
