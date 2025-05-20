@@ -216,7 +216,20 @@ class ModalWebRtcPeer(ABC):
 
 
 class ModalWebRtcSignalingServer:
-    """Connect a ModalWebRtcPeer with a client by passing signaling WebSocket messages over a Queue."""
+    """
+    Class for WebRTC signaling server between two peers where at least one peer is
+    an implementation of `ModalWebRtcPeer`.
+
+    To start a WebRTC connection, you can call the WebSocket endpoint which requires
+    a `peer_id` as a path parameter. The server will then spawn a `ModalWebRtcPeer`
+    instance and mediate the negotiation process.
+
+    Set your `ModalWebRtcPeer` implementation as the `modal_peer_cls` class variable.
+
+    Subclasses can also implement the following method:
+    - initialize(): Any custom initialization logic for the signaling server which is called
+    when @modal.enter() is called.
+    """
 
     modal_peer_cls: ClassVar[ModalWebRtcPeer]
 
