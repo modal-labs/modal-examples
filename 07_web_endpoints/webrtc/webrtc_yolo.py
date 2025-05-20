@@ -221,7 +221,7 @@ class ObjDet(ModalWebRtcPeer):
 # ### Implementing the `ModalWebRtcSignalingServer`
 
 # The `ModalWebRtcSignalingServer` class is much simpler to implement.
-# The only thing you need to do is provide the `ModalWebRtcPeer` subclass you want to use as the cloud peer.
+# The only thing you need to do is implement the `get_modal_peer` method which will return an instance of our `ModalWebRtcPeer` subclass, `ObjDet`.
 # It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
 
 # We're also going to add a frontend to the server which uses the JavaScript API to send a peer's webcam using a web browser.
@@ -250,7 +250,8 @@ server_image = base_image.add_local_dir(
 
 @app.cls(image=server_image)
 class WebcamObjDet(ModalWebRtcSignalingServer):
-    modal_peer_cls = ObjDet  # <---- setting the cloud peer
+    def get_modal_peer_class(self):
+        return ObjDet
 
     def initialize(self):
         from fastapi.responses import HTMLResponse

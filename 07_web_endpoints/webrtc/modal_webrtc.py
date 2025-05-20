@@ -232,7 +232,7 @@ class ModalWebRtcSignalingServer:
     - Manages the lifecycle of Modal peer instances
 
     To use this class:
-    1. Create a subclass implementing get_modal_peer() to return your ModalWebRtcPeer implementation
+    1. Create a subclass implementing get_modal_peer_class() to return your ModalWebRtcPeer implementation
     2. Optionally override initialize() for custom server setup
     3. Optionally add a frontend route to the `web_app` attribute
     """
@@ -253,7 +253,7 @@ class ModalWebRtcSignalingServer:
         pass
 
     @abstractmethod
-    def get_modal_peer(self) -> ModalWebRtcPeer:
+    def get_modal_peer_class(self) -> type[ModalWebRtcPeer]:
         """
         Abstract method to return the `ModalWebRtcPeer` implementation to use.
         """
@@ -266,12 +266,17 @@ class ModalWebRtcSignalingServer:
         return self.web_app
 
     async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
-        modal_peer = self.get_modal_peer()
-        if not isinstance(modal_peer, ModalWebRtcPeer):
+        modal_peer_class = self.get_modal_peer_class()
+        print(f"Modal peer class: {modal_peer_class}")
+        print(f"{modal_peer_class.__name__}, {modal_peer_class.__bases__}")
+        if not any(
+            base.__name__ == "ModalWebRtcPeer" for base in modal_peer_class.__bases__
+        ):
             raise ValueError("Modal peer must be an instance of `ModalWebRtcPeer`")
 
         with modal.Queue.ephemeral() as q:
             print(f"Spawning modal peer instance for client peer {peer_id}...")
+            modal_peer = modal_peer_class()
             modal_peer.run.spawn(q, peer_id)
 
             await asyncio.gather(
