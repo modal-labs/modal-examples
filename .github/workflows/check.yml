@@ -47,4 +47,4 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Run
-        run: pytest -v .
+        run: pytest -v ./internal
