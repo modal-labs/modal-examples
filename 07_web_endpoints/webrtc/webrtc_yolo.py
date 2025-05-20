@@ -32,7 +32,7 @@
 # If you want to deep dive, we recommend checking out the [RFCs](https://www.rfc-editor.org/rfc/rfc8825) or a [more-thorough explainer](https://webrtcforthecurious.com/).
 # In this document, we'll focus on the Modal-specific details.
 
-# ## A stateless negotiation
+# ## Stateless signaling
 
 # Modal let's you turn your functions into scalable, GPU-powered cloud services.
 # When you call a Modal function, you get a GPU.
@@ -42,15 +42,15 @@
 # A core assumption of Modal that makes this possible is that function calls are independent and self-contained.
 # In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
 
-# WebRTC apps, on the other hand, require passing messages back and forth (the "negotation") and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
+# WebRTC apps, on the other hand, require passing messages back and forth ("signaling") and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
 
 # <figure align="middle">
 #     <img src="https://modal-cdn.com/cdnbot/sequence_diagramsyt1upmqk_bdb00440.webp" width="95%" />
-#     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful P2P negotiation (right).</figcaption>
+#     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful signaling (right).</figcaption>
 # </figure>
 
-# To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the negotation and streaming liftetimes with our Modal function call lifetimes.
+# To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the signaling and streaming liftetimes with our Modal function call lifetimes.
 
 # We'll handle passing messages between the client peer and the signaling server using a
 # (WebSocket)[https://modal.com/docs/guide/webhooks#websockets] for persistant, bidirectional communication within a single function call.
@@ -63,7 +63,7 @@
 
 
 # <figure align="middle">
-#   <img src="https://modal-cdn.com/cdnbot/modal_webrtcjngux8vw_02988d57.webp" width="95%" />
+#   <img src="https://modal-cdn.com/cdnbot/modal_webrtcwx3nrjhp_0f47e9ff.webp" width="95%" />
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 

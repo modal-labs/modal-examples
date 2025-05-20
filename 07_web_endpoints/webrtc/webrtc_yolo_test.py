@@ -1,5 +1,4 @@
 # ---
-# deploy: true
 # cmd: ["modal", "run", "-m", "07_web_endpoints.webrtc.webrtc_yolo_test"]
 # ---
 
@@ -15,7 +14,7 @@ from .webrtc_yolo import (
     cache,
 )
 
-# ## Testing
+# ## Testing WebRTC and Modal
 
 # First we define a `local_entrypoint` to run and evaluate the test.
 # Our test will stream an .mp4 file to the cloud peer and record the annoated video to a new file.
