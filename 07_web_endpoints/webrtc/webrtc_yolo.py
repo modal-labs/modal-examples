@@ -53,13 +53,13 @@
 # To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the signaling and streaming liftetimes with our Modal function call lifetimes.
 
 # We'll handle passing messages between the client peer and the signaling server using a
-# (WebSocket)[https://modal.com/docs/guide/webhooks#websockets] for persistant, bidirectional communication within a single function call.
-# We'll also [`.spawn`](https://modal.com/docs/reference/modal.Function#spawn) the cloud peer when the WebSocket endpoint is called
-# and use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) for message passing between it and the server.
+# [WebSocket](https://modal.com/docs/guide/webhooks#websockets) for persistant, bidirectional communication within a single function call (in this case the Modal call is a web endpoint).
+# We'll also [`.spawn`](https://modal.com/docs/reference/modal.Function#spawn) the cloud peer inside the WebSocket endpoint
+# and pass messages to it using a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue).
 #
-#
-# When the P2P connection has been established, we can close the WebSocket and end the function call to the signaling server;
-# and similarly when the cloud peer detects that the P2P connection has been closed, it will return from the call we `spawn`ed it with.
+# We can then use the state of the P2P connection to determine when to return from the calls to both the signaling server and the cloud peer.
+# When the P2P connection has been _established_, we'll close the WebSocket which in turn ends the call to the signaling server.
+# And when the P2P connection has been _closed_, we'll return from the call to the cloud peer.
 
 
 # <figure align="middle">
@@ -71,7 +71,7 @@
 # They are also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
-# You can find the `ModalWebRtcPeer` and `ModalWebRtcSignalingServer` classes in the `modal_webrtc.py` file provided alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/modal_webrtc.py).
+# You can find them in the `modal_webrtc.py` file provided alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/modal_webrtc.py).
 
 # ## Building the app
 
@@ -221,12 +221,11 @@ class ObjDet(ModalWebRtcPeer):
 # ### Implementing the `ModalWebRtcSignalingServer`
 
 # The `ModalWebRtcSignalingServer` class is much simpler to implement.
-# The only thing you need to do is implement the `get_modal_peer` method which will return an instance of our `ModalWebRtcPeer` subclass, `ObjDet`.
-# It also has an `initialize()` you can optionally override which is called when `@modal.enter()` is called - like in `ModalWebRtcPeer`.
-
-# We're also going to add a frontend to the server which uses the JavaScript API to send a peer's webcam using a web browser.
-# The `ModalWebRtcSignalingServer` class has a `web_app` property which is a `fastapi.FastAPI` instance that will be handled by Modal.
-# We'll add the endpoints in the `initialize` method.
+# The only thing you need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
+#
+# It also has an `initialize()` method you can optionally override (which is called when `@modal.enter()` is called)
+# as well as a `web_app` property which will be [served by Modal](https://modal.com/docs/guide/webhooks#asgi-apps---fastapi-fasthtml-starlette).
+# We'll use these to add a frontend which uses the WebRTC JavaScript API to stream a peer's webcam from the browser.
 #
 # The JavaScript and HTML files are alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/yolo).
 
@@ -267,11 +266,11 @@ class WebcamObjDet(ModalWebRtcSignalingServer):
 
 # ### YOLO helper functions
 
-# You'll need these two functions to get the app to run.
+# The two functions below are used to set up the YOLO model and create our custom [`MediaStreamTrack`](https://aiortc.readthedocs.io/en/latest/api.html#aiortc.MediaStreamTrack).
 
 # The first, `get_yolo_model` sets up the ONNXRuntime and loads the model weights.
 # We call this in the `initialize` method of the `ModalWebRtcPeer` class
-# so it only happens once per container (i.e. when `@modal.enter()` methods are called).
+# so it only happens once per container.
 
 
 def get_yolo_model(cache_path):
@@ -284,7 +283,6 @@ def get_yolo_model(cache_path):
 
 
 # The second, `get_yolo_track` creates a custom `MediaStreamTrack` that performs object detection on the video stream.
-#
 # We call this in the `setup_streams` method of the `ModalWebRtcPeer` class
 # so it happens once per peer connection.
 

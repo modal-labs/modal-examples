@@ -15,7 +15,7 @@ from fastapi.websockets import WebSocketState
 class ModalWebRtcPeer(ABC):
     """
     Base class for implementing WebRTC peer connections in Modal using aiortc.
-    Implement using the `app.Cls` decorator.
+    Implement using the `app.cls` decorator.
 
     This class provides a complete WebRTC peer implementation that handles:
     - Peer connection lifecycle management (creation, negotiation, cleanup)
@@ -223,7 +223,7 @@ class ModalWebRtcPeer(ABC):
 class ModalWebRtcSignalingServer:
     """
     WebRTC signaling server implementation that mediates connections between client peers
-    and Modal-based WebRTC peers. Implement using the `app.Cls` decorator.
+    and Modal-based WebRTC peers. Implement using the `app.cls` decorator.
 
     This server:
     - Provides a WebSocket endpoint (/ws/{peer_id}) for client connections
