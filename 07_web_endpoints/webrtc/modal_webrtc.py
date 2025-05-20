@@ -267,12 +267,12 @@ class ModalWebRtcSignalingServer:
 
     async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
         modal_peer_class = self.get_modal_peer_class()
-        print(f"Modal peer class: {modal_peer_class}")
-        print(f"{modal_peer_class.__name__}, {modal_peer_class.__bases__}")
         if not any(
             base.__name__ == "ModalWebRtcPeer" for base in modal_peer_class.__bases__
         ):
-            raise ValueError("Modal peer must be an instance of `ModalWebRtcPeer`")
+            raise ValueError(
+                "Modal peer class must be an implementation of `ModalWebRtcPeer`"
+            )
 
         with modal.Queue.ephemeral() as q:
             print(f"Spawning modal peer instance for client peer {peer_id}...")
