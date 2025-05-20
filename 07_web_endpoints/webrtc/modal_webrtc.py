@@ -5,7 +5,7 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import ClassVar, Optional
+from typing import Optional
 
 import modal
 from fastapi import FastAPI, WebSocket
@@ -14,21 +14,26 @@ from fastapi.websockets import WebSocketState
 
 class ModalWebRtcPeer(ABC):
     """
-    Base class for WebRTC peer connections using aiortc
-    that handles connection setup, negotiation, and stream management.
+    Base class for implementing WebRTC peer connections in Modal using aiortc.
+    Implement using the `app.Cls` decorator.
 
-    This class provides the core WebRTC functionality including:
-    - Peer connection initialization and cleanup
-    - Signaling handling via `modal.Queue`
-      - SDP offer/answer exchange
-      - Trickle ICE candidate handling
+    This class provides a complete WebRTC peer implementation that handles:
+    - Peer connection lifecycle management (creation, negotiation, cleanup)
+    - Signaling via Modal Queue for SDP offer/answer exchange and ICE candidate handling
+    - Automatic STUN server configuration (defaults to Google's STUN server)
+    - Stream setup and management
 
-    Subclasses can implement the following methods:
-    - initialize(): Any custom initialization logic
-    - setup_streams(): Required logic for setting up media tracks and streams (this is where the main business logic goes)
-    - run_streams(): Logic for starting streams (not always necessary)
-    - get_turn_servers(): Logic for supplying TURN servers to client
-    - exit(): Any custom cleanup logic
+    Required methods to override:
+    - setup_streams(): Implementation for setting up media tracks and streams
+
+    Optional methods to override:
+    - initialize(): Custom initialization logic when peer is created
+    - run_streams(): Implementation for stream runtime logic
+    - get_turn_servers(): Implementation to provide custom TURN server configuration
+    - exit(): Custom cleanup logic when peer is shutting down
+
+    The peer connection is established through a ModalWebRtcSignalingServer that manages
+    the signaling process between this peer and client peers.
     """
 
     @modal.enter()
@@ -217,21 +222,20 @@ class ModalWebRtcPeer(ABC):
 
 class ModalWebRtcSignalingServer:
     """
-    Class for WebRTC signaling server between two peers where at least one peer is
-    an implementation of `ModalWebRtcPeer`.
+    WebRTC signaling server implementation that mediates connections between client peers
+    and Modal-based WebRTC peers. Implement using the `app.Cls` decorator.
 
-    To start a WebRTC connection, you can call the WebSocket endpoint which requires
-    a `peer_id` as a path parameter. The server will then spawn a `ModalWebRtcPeer`
-    instance and mediate the negotiation process.
+    This server:
+    - Provides a WebSocket endpoint (/ws/{peer_id}) for client connections
+    - Spawns Modal-based peer instances for each client connection
+    - Handles the WebRTC signaling process by relaying messages between clients and Modal peers
+    - Manages the lifecycle of Modal peer instances
 
-    Set your `ModalWebRtcPeer` implementation as the `modal_peer_cls` class variable.
-
-    Subclasses can also implement the following method:
-    - initialize(): Any custom initialization logic for the signaling server which is called
-    when @modal.enter() is called.
+    To use this class:
+    1. Create a subclass implementing get_modal_peer() to return your ModalWebRtcPeer implementation
+    2. Optionally override initialize() for custom server setup
+    3. Optionally add a frontend route to the `web_app` attribute
     """
-
-    modal_peer_cls: ClassVar[ModalWebRtcPeer]
 
     @modal.enter()
     def _initialize(self):
@@ -248,16 +252,23 @@ class ModalWebRtcSignalingServer:
     def initialize(self):
         pass
 
+    @abstractmethod
+    def get_modal_peer(self) -> ModalWebRtcPeer:
+        """
+        Abstract method to return the `ModalWebRtcPeer` implementation to use.
+        """
+        raise NotImplementedError(
+            "Implement `get_modal_peer` to use `ModalWebRtcSignalingServer`"
+        )
+
     @modal.asgi_app()
     def web(self):
         return self.web_app
 
     async def _mediate_negotiation(self, websocket: WebSocket, peer_id: str):
-        if self.modal_peer_cls:
-            modal_peer = self.modal_peer_cls()
-        else:
-            raise ValueError("Modal peer class not set")
-            return
+        modal_peer = self.get_modal_peer()
+        if not isinstance(modal_peer, ModalWebRtcPeer):
+            raise ValueError("Modal peer must be an instance of `ModalWebRtcPeer`")
 
         with modal.Queue.ephemeral() as q:
             print(f"Spawning modal peer instance for client peer {peer_id}...")
