@@ -170,8 +170,8 @@ class Parakeet:
 # that sends audio data to the server and receives transcriptions in real-time.
 
 
-client_image = modal.Image.debian_slim(python_version="3.12")
-client_app = modal.App("parakeet-client", image=client_image)
+# client_image = modal.Image.debian_slim(python_version="3.12")
+# client_app = modal.App("parakeet-client", image=client_image)
 
 
 WS_ENDPOINT = "/ws"
@@ -179,16 +179,18 @@ WS_ENDPOINT = "/ws"
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
 
-@client_app.local_entrypoint()
-def main(modal_profile: str, audio_url: str = AUDIO_URL):
+@server_app.local_entrypoint()
+def main(audio_url: str = AUDIO_URL):
     import asyncio
 
     import requests
 
     CHUNK_SIZE = 64000
-    is_dev = True
-    url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
-    ws_url = f"{url}{WS_ENDPOINT}"
+    # is_dev = True
+    # url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
+    # ws_url = f"{url}{WS_ENDPOINT}"
+
+    ws_url = Parakeet().web.get_web_url().replace("http", "ws") + WS_ENDPOINT
 
     def convert_to_mono_16khz(audio_bytes: bytes) -> bytes:
         import io
