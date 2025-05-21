@@ -52,7 +52,7 @@ app_name = "parakeet-websocket"
 app = modal.App(app_name)
 SILENCE_THRESHOLD_OFFSET = 20
 SILENCE_MIN_LENGTH_MSEC = 1000
-
+END_OF_STREAM = b"END_OF_STREAM"
 # ## Volume for caching model weights
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache the model weights.
 # This allows us to avoid downloading the model weights every time we start a new instance.
@@ -128,7 +128,7 @@ class Parakeet:
         )
 
     # @modal.method()
-    def transcribe(self, audio_bytes: bytes) -> str:
+    async def transcribe(self, audio_bytes: bytes) -> str:
         import numpy as np
 
         audio_data = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
@@ -158,6 +158,7 @@ class Parakeet:
             from pydub import AudioSegment, silence
 
             await ws.accept()
+
             # initialize an empty audio segment
             audio_segment = AudioSegment.empty()
 
@@ -165,6 +166,9 @@ class Parakeet:
                 while True:
                     # receive a chunk of audio data and convert it to an audio segment
                     chunk = await ws.receive_bytes()
+                    if chunk == END_OF_STREAM:
+                        await ws.send_bytes(END_OF_STREAM)
+                        break
                     new_audio_segment = AudioSegment(
                         data=chunk,
                         channels=1,
@@ -204,6 +208,60 @@ class Parakeet:
 
         return web_app
 
+    @modal.method()
+    async def run_with_queue(self, q: modal.Queue):
+        from pydub import AudioSegment, silence
+
+        # initialize an empty audio segment
+        audio_segment = AudioSegment.empty()
+
+        try:
+            while True:
+                # receive a chunk of audio data and convert it to an audio segment
+                chunk = await q.get.aio(partition="audio")
+
+                if chunk == END_OF_STREAM:
+                    await q.put.aio(END_OF_STREAM, partition="transcription")
+                    break
+
+                new_audio_segment = AudioSegment(
+                    data=chunk,
+                    channels=1,
+                    sample_width=2,
+                    frame_rate=TARGET_SAMPLE_RATE,
+                )
+                # append the new audio segment to the existing audio segment
+                audio_segment += new_audio_segment
+                # detect silence in the audio segment
+                silent_windows = silence.detect_silence(
+                    audio_segment,
+                    min_silence_len=SILENCE_MIN_LENGTH_MSEC,
+                    silence_thresh=audio_segment.dBFS - SILENCE_THRESHOLD_OFFSET,
+                )
+                # if there are no silent windows, continue
+                if len(silent_windows) == 0:
+                    continue
+                # get the last silent window because
+                # we want to transcribe until the final pause
+                last_window = silent_windows[-1]
+                # if the entire audio segment is silent, reset the audio segment
+                if last_window[0] == 0 and last_window[1] == len(audio_segment):
+                    audio_segment = AudioSegment.empty()
+                    continue
+                # get the segment to transcribe: beginning until last pause
+                segment_to_transcribe = audio_segment[: last_window[1]]
+                # remove the segment to transcribe from the audio segment
+                audio_segment = audio_segment[last_window[1] :]
+                try:
+                    text = await self.transcribe(segment_to_transcribe.raw_data)
+                    await q.put.aio(text, partition="transcription")
+                except Exception as e:
+                    print("❌ Transcription error:", e)
+                    return
+        except Exception:
+            print("Client disconnected")
+            return
+
 
 # ## Client
 # Next, let's test the model with a `local_entrypoint` that streams audio data to the server, and prints
@@ -211,8 +269,6 @@ class Parakeet:
 
 # We'll use  python's `websockets` library to create a websocket client
 # that sends audio data to the server and receives transcriptions in real-time.
-
-WS_ENDPOINT = "/ws"
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 TARGET_SAMPLE_RATE = 16000
@@ -223,9 +279,6 @@ CHUNK_SIZE = 16000  # send one second of audio at a time
 def main(audio_url: str = AUDIO_URL):
     import asyncio
     from urllib.request import urlopen
-
-    ws_url = Parakeet().web.get_web_url().replace("http", "ws") + WS_ENDPOINT
-    transcriptions = []
 
     def preprocess_audio(audio_bytes: bytes) -> bytes:
         import array
@@ -286,29 +339,28 @@ def main(audio_url: str = AUDIO_URL):
         for i in range(0, len(data), chunk_size):
             yield data[i : i + chunk_size]
 
-    async def send_audio(ws, audio_bytes):
+    async def send_audio(q, audio_bytes):
         for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
-            await ws.send(chunk)
+            await q.put.aio(chunk, partition="audio")
             await asyncio.sleep(
                 CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
             )  # simulate real-time pacing
+        await q.put.aio(END_OF_STREAM, partition="audio")
         await asyncio.sleep(5.00)
-        await ws.close()
 
-    async def receive_transcriptions(ws):
-        async for message in ws:
-            transcriptions.append(message)
+    async def receive_transcriptions(q):
+        while True:
+            message = await q.get.aio(partition="transcription")
+            if message == END_OF_STREAM:
+                break
             await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
             print(f"📝 Transcription: {message}")
 
-    async def run(ws_url, audio_bytes):
-        import websockets
-
-        async with websockets.connect(
-            ws_url, ping_interval=None, open_timeout=240
-        ) as ws:
-            send_task = asyncio.create_task(send_audio(ws, audio_bytes))
-            receive_task = asyncio.create_task(receive_transcriptions(ws))
+    async def run(audio_bytes):
+        with modal.Queue.ephemeral() as q:
+            Parakeet().run_with_queue.spawn(q)
+            send_task = asyncio.create_task(send_audio(q, audio_bytes))
+            receive_task = asyncio.create_task(receive_transcriptions(q))
             await asyncio.gather(send_task, receive_task)
 
     print("🌐 Downloading audio file...")
@@ -317,10 +369,9 @@ def main(audio_url: str = AUDIO_URL):
 
     audio_data = preprocess_audio(audio_bytes)
 
-    print(f"🔗 Streaming data to WebSocket: {ws_url}")
     print("☀️ Waking up model, this may take a few seconds on cold start...")
     try:
-        asyncio.run(run(ws_url, audio_data))
+        asyncio.run(run(audio_data))
         print("✅ Transcription complete!")
     except KeyboardInterrupt:
         print("\n🛑 Stopped by user.")
