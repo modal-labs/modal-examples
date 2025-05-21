@@ -1,5 +1,7 @@
 import pathlib
 
+import modal
+
 from . import config, podcast
 from .main import (
     app,
@@ -24,7 +26,7 @@ def _transcribe_serially(
             continue
         logger.info(f"Attempting transcription of ({start}, {end})...")
         try:
-            transcribe_segment(
+            transcribe_segment.local(
                 start=start, end=end, audio_filepath=audio_path, model=model
             )
         except Exception as exc:
@@ -37,7 +39,7 @@ def _transcribe_serially(
 
 @app.function(
     image=app_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     timeout=1000,
 )
 def test_transcribe_handles_dangling_segment():
@@ -81,7 +83,7 @@ def test_transcribe_handles_dangling_segment():
             "test",
             f"{problem_episode['guid_hash']}.transcription.json",
         )
-        transcribe_episode(
+        transcribe_episode.local(
             audio_filepath=audio_path,
             result_path=result_path,
             model=model,
@@ -122,6 +124,12 @@ def test_transcribe_handles_dangling_segment():
         raise
 
 
+@app.local_entrypoint()
+def main():
+    test_transcribe_handles_dangling_segment.remote()
+
+
 if __name__ == "__main__":
-    with app.run():
-        test_transcribe_handles_dangling_segment()
+    with modal.enable_output():
+        with app.run():
+            main()
