@@ -10,17 +10,13 @@
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
-# To run this example:
+# To run this example either:
 
-# 1. Make sure you have `websockets` installed:
-# ```bash
-# pip install websockets
-# ```
-# 2a. Run the browser/microphone frontend:
+# A. Run the browser/microphone frontend:
 # ```bash
 # modal serve -m 06_gpu_and_ml.audio-to-text.parakeet.py
 # ```
-# 2b. Stream a .wav file from URL (default is "Dream Within a Dream" by Edgar Allan Poe):
+# B. Stream a .wav file from URL (default is "Dream Within a Dream" by Edgar Allan Poe):
 # ```bash
 # modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url=<URL_TO_WAV_FILE>
 # ```
@@ -50,7 +46,7 @@ os.environ["MODAL_LOGLEVEL"] = "INFO"
 app_name = "parakeet-websocket"
 
 app = modal.App(app_name)
-SILENCE_THRESHOLD_OFFSET = 20
+SILENCE_THRESHOLD = -45
 SILENCE_MIN_LENGTH_MSEC = 1000
 END_OF_STREAM = b"END_OF_STREAM"
 # ## Volume for caching model weights
@@ -118,6 +114,7 @@ class_name = "parakeet"
 
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
+@modal.concurrent(max_inputs=14, target_inputs=10)
 class Parakeet:
     @modal.enter()
     def load(self):
@@ -137,7 +134,7 @@ class Parakeet:
 
     @modal.asgi_app()
     def web(self):
-        from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
+        from fastapi import FastAPI, Response, WebSocket
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
@@ -153,9 +150,9 @@ class Parakeet:
         async def index():
             return HTMLResponse(content=open("/frontend/index.html").read())
 
-        @web_app.websocket("/ws")
-        async def websocket_endpoint(ws: WebSocket):
-            from pydub import AudioSegment, silence
+        @web_app.websocket("/ws/{client_id}")
+        async def run_with_websocket(ws: WebSocket, client_id: str):
+            from pydub import AudioSegment
 
             await ws.accept()
 
@@ -169,48 +166,23 @@ class Parakeet:
                     if chunk == END_OF_STREAM:
                         await ws.send_bytes(END_OF_STREAM)
                         break
-                    new_audio_segment = AudioSegment(
-                        data=chunk,
-                        channels=1,
-                        sample_width=2,
-                        frame_rate=TARGET_SAMPLE_RATE,
+                    audio_segment, text = await self.handle_audio_chunk(
+                        chunk, audio_segment
                     )
-                    # append the new audio segment to the existing audio segment
-                    audio_segment += new_audio_segment
-                    # detect silence in the audio segment
-                    silent_windows = silence.detect_silence(
-                        audio_segment,
-                        min_silence_len=SILENCE_MIN_LENGTH_MSEC,
-                        silence_thresh=audio_segment.dBFS - SILENCE_THRESHOLD_OFFSET,
-                    )
-                    # if there are no silent windows, continue
-                    if len(silent_windows) == 0:
-                        continue
-                    # get the last silent window because
-                    # we want to transcribe until the final pause
-                    last_window = silent_windows[-1]
-                    # if the entire audio segment is silent, reset the audio segment
-                    if last_window[0] == 0 and last_window[1] == len(audio_segment):
-                        audio_segment = AudioSegment.empty()
-                        continue
-                    # get the segment to transcribe: beginning until last pause
-                    segment_to_transcribe = audio_segment[: last_window[1]]
-                    # remove the segment to transcribe from the audio segment
-                    audio_segment = audio_segment[last_window[1] :]
-                    try:
-                        text = self.transcribe(segment_to_transcribe.raw_data)
+                    if text:
                         await ws.send_text(text)
-                    except Exception as e:
-                        print("❌ Transcription error:", e)
-                        await ws.close(code=1011, reason="Internal server error")
-            except WebSocketDisconnect:
-                print("WebSocket disconnected")
+            except Exception as e:
+                print(f"Error handling websocket: {type(e)}: {e}")
+                try:
+                    await ws.close(code=1011, reason="Internal server error")
+                except Exception as e:
+                    print(f"Error closing websocket: {type(e)}: {e}")
 
         return web_app
 
     @modal.method()
-    async def run_with_queue(self, q: modal.Queue):
-        from pydub import AudioSegment, silence
+    async def run_with_queue(self, q: modal.Queue, client_id: str):
+        from pydub import AudioSegment
 
         # initialize an empty audio segment
         audio_segment = AudioSegment.empty()
@@ -221,54 +193,65 @@ class Parakeet:
                 chunk = await q.get.aio(partition="audio")
 
                 if chunk == END_OF_STREAM:
-                    await q.put.aio(END_OF_STREAM, partition="transcription")
+                    await q.put.aio(
+                        END_OF_STREAM, partition=f"transcription-{client_id}"
+                    )
                     break
 
-                new_audio_segment = AudioSegment(
-                    data=chunk,
-                    channels=1,
-                    sample_width=2,
-                    frame_rate=TARGET_SAMPLE_RATE,
+                audio_segment, text = await self.handle_audio_chunk(
+                    chunk, audio_segment
                 )
-                # append the new audio segment to the existing audio segment
-                audio_segment += new_audio_segment
-                # detect silence in the audio segment
-                silent_windows = silence.detect_silence(
-                    audio_segment,
-                    min_silence_len=SILENCE_MIN_LENGTH_MSEC,
-                    silence_thresh=audio_segment.dBFS - SILENCE_THRESHOLD_OFFSET,
-                )
-                # if there are no silent windows, continue
-                if len(silent_windows) == 0:
-                    continue
-                # get the last silent window because
-                # we want to transcribe until the final pause
-                last_window = silent_windows[-1]
-                # if the entire audio segment is silent, reset the audio segment
-                if last_window[0] == 0 and last_window[1] == len(audio_segment):
-                    audio_segment = AudioSegment.empty()
-                    continue
-                # get the segment to transcribe: beginning until last pause
-                segment_to_transcribe = audio_segment[: last_window[1]]
-                # remove the segment to transcribe from the audio segment
-                audio_segment = audio_segment[last_window[1] :]
-                try:
-                    text = await self.transcribe(segment_to_transcribe.raw_data)
-                    await q.put.aio(text, partition="transcription")
-                except Exception as e:
-                    print("❌ Transcription error:", e)
-                    return
-        except Exception:
-            print("Client disconnected")
+                if text:
+                    await q.put.aio(text, partition=f"transcription-{client_id}")
+        except Exception as e:
+            print(f"Error handling queue: {type(e)}: {e}")
             return
+
+    async def handle_audio_chunk(self, chunk: bytes, audio_segment):
+        from pydub import AudioSegment, silence
+
+        new_audio_segment = AudioSegment(
+            data=chunk,
+            channels=1,
+            sample_width=2,
+            frame_rate=TARGET_SAMPLE_RATE,
+        )
+        # append the new audio segment to the existing audio segment
+        audio_segment += new_audio_segment
+
+        silent_windows = silence.detect_silence(
+            audio_segment,
+            min_silence_len=SILENCE_MIN_LENGTH_MSEC,
+            silence_thresh=SILENCE_THRESHOLD,
+        )
+
+        # if there are no silent windows, continue
+        if len(silent_windows) == 0:
+            return audio_segment, None
+        # get the last silent window because
+        # we want to transcribe until the final pause
+        last_window = silent_windows[-1]
+        # if the entire audio segment is silent, reset the audio segment
+        if last_window[0] == 0 and last_window[1] == len(audio_segment):
+            audio_segment = AudioSegment.empty()
+            return audio_segment, None
+        # get the segment to transcribe: beginning until last pause
+        segment_to_transcribe = audio_segment[: last_window[1]]
+        # remove the segment to transcribe from the audio segment
+        audio_segment = audio_segment[last_window[1] :]
+        try:
+            text = await self.transcribe(segment_to_transcribe.raw_data)
+            return audio_segment, text
+        except Exception as e:
+            print("❌ Transcription error:", e)
+            raise e
 
 
 # ## Client
 # Next, let's test the model with a `local_entrypoint` that streams audio data to the server, and prints
 # out the transcriptions in real-time to our terminal. We can also run this using Modal!
 
-# We'll use  python's `websockets` library to create a websocket client
-# that sends audio data to the server and receives transcriptions in real-time.
+# We'll use modal's `Queue` to pass audio data and transcriptions between your local machine and the server.
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 TARGET_SAMPLE_RATE = 16000
@@ -277,14 +260,16 @@ CHUNK_SIZE = 16000  # send one second of audio at a time
 
 @app.local_entrypoint()
 def main(audio_url: str = AUDIO_URL):
+    import array
     import asyncio
+    import io
+    import uuid
+    import wave
     from urllib.request import urlopen
 
-    def preprocess_audio(audio_bytes: bytes) -> bytes:
-        import array
-        import io
-        import wave
+    id = str(uuid.uuid4())
 
+    def preprocess_audio(audio_bytes: bytes) -> bytes:
         with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
             n_channels = wav_in.getnchannels()
             sample_width = wav_in.getsampwidth()
@@ -350,7 +335,7 @@ def main(audio_url: str = AUDIO_URL):
 
     async def receive_transcriptions(q):
         while True:
-            message = await q.get.aio(partition="transcription")
+            message = await q.get.aio(partition=f"transcription-{id}")
             if message == END_OF_STREAM:
                 break
             await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
@@ -358,7 +343,7 @@ def main(audio_url: str = AUDIO_URL):
 
     async def run(audio_bytes):
         with modal.Queue.ephemeral() as q:
-            Parakeet().run_with_queue.spawn(q)
+            Parakeet().run_with_queue.spawn(q, id)
             send_task = asyncio.create_task(send_audio(q, audio_bytes))
             receive_task = asyncio.create_task(receive_transcriptions(q))
             await asyncio.gather(send_task, receive_task)
@@ -380,4 +365,4 @@ def main(audio_url: str = AUDIO_URL):
 # ## Troubleshooting
 # - Make sure you have the latest version of the Modal CLI installed.
 # - The server takes a few seconds to start up on cold start. If your local client times out, try
-#   restarting the client. If it continues to time out, try bumping the value of `open_timeout`.
+#   restarting the client.

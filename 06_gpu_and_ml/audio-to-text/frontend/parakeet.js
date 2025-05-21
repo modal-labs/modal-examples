@@ -95,8 +95,8 @@ async function setupMediaRecorder() {
     }
 }
 
-async function connectWebSocket() {
-    ws = new WebSocket('/ws');
+async function connectWebSocket(clientId) {
+    ws = new WebSocket(`/ws/${clientId}`);
     
     ws.onopen = () => {
         console.log('WebSocket connected');
@@ -118,13 +118,15 @@ async function connectWebSocket() {
 }
 
 recordButton.addEventListener('click', async () => {
+    
     if (!isRecording) {
         // Start recording
+        let clientId = Math.random().toString(36).substring(2, 15);
         const success = await setupMediaRecorder();
         if (success) {
-            await connectWebSocket();
+            await connectWebSocket(clientId);
             isRecording = true;
-            recordButton.textContent = 'Stop Recording';
+            recordButton.textContent = 'Stop Transcription';
             recordButton.classList.add('recording');
             transcriptionDiv.textContent = ''; // Clear previous transcription
         }
@@ -133,17 +135,21 @@ recordButton.addEventListener('click', async () => {
         isRecording = false;
         if (sourceNode) {
             sourceNode.disconnect();
+            sourceNode = null;
         }
         if (workletNode) {
             workletNode.disconnect();
+            workletNode = null;
         }
         if (audioContext) {
             audioContext.close();
+            audioContext = null;
         }
         if (ws) {
             ws.close();
+            ws = null;
         }
-        recordButton.textContent = 'Start Recording';
+        recordButton.textContent = 'Start Transcribing Mic';
         recordButton.classList.remove('recording');
     }
 });
