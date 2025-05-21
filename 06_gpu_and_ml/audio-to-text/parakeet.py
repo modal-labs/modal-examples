@@ -16,9 +16,9 @@
 # ```bash
 # modal serve -m 06_gpu_and_ml.audio-to-text.parakeet.py
 # ```
-# B. Stream a .wav file from URL (default is "Dream Within a Dream" by Edgar Allan Poe):
+# B. Stream a .wav file from URL (optional, default is "Dream Within a Dream" by Edgar Allan Poe):
 # ```bash
-# modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url=<URL_TO_WAV_FILE>
+# modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
 
 # See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
@@ -29,7 +29,6 @@
 
 # 🌐 Downloading audio file...
 # 🎧 Downloaded 6331478 bytes
-# 🔗 Streaming data to WebSocket: wss://modal-labs-shababo-dev--parakeet-websocket-parakeet-web-dev.modal.run/ws
 # ☀️ Waking up model, this may take a few seconds on cold start...
 # 📝 Transcription: A Dream Within A Dream Edgar Allan Poe
 # 📝 Transcription:
@@ -54,7 +53,7 @@ END_OF_STREAM = b"END_OF_STREAM"
 # This allows us to avoid downloading the model weights every time we start a new instance.
 
 
-model_cache = modal.Volume.from_name("parakeet-model-cache-2", create_if_missing=True)
+model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
 # ## Configuring dependencies
 # The model runs remotely inside a [custom container](https://modal.com/docs/guide/custom-container). We can define the environment
 # and install our Python dependencies in that container's `Image`.
@@ -105,12 +104,8 @@ image = (
 # - The `load` method loads the model at start, instead of during inference, using [`modal.enter()`](https://modal.com/docs/reference/modal.enter#modalenter).
 # - The `transcribe` method takes bytes of audio data, and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
-# [websocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browserfrontend for transcribing audio from your microphone.
-# - Parakeet is designed to output properly punctuated/capitalized English text. Therefore it does not perform well on chunks of audio that are not well-formed sentences.
-# And it also will output ("hallucinate") utterances like "Yeah" or "Mm-hmm" when it runs on silent audio. Therefore we group the incoming audio in the server based on silenece detection
-# using `pydub`.
-
-class_name = "parakeet"
+# [websocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
+# - # Parakeet tries really hard to transcribe everything to English! Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio. We can pre-process the incoming audio in the server by using `pydub`'s silence detection, ensuring that we only pass audio with text to our model.
 
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
@@ -124,7 +119,6 @@ class Parakeet:
             model_name="nvidia/parakeet-tdt-0.6b-v2"
         )
 
-    # @modal.method()
     async def transcribe(self, audio_bytes: bytes) -> str:
         import numpy as np
 
@@ -248,10 +242,10 @@ class Parakeet:
 
 
 # ## Client
-# Next, let's test the model with a `local_entrypoint` that streams audio data to the server, and prints
+# Next, let's test the model with a `local_entrypoint` that streams audio data to the server and prints
 # out the transcriptions in real-time to our terminal. We can also run this using Modal!
 
-# We'll use modal's `Queue` to pass audio data and transcriptions between your local machine and the server.
+# We'll use a [`Modal Queue`](https://modal.com/docs/reference/modal.Queue) to pass audio data and transcriptions between your local machine and the server.
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 TARGET_SAMPLE_RATE = 16000
@@ -260,90 +254,8 @@ CHUNK_SIZE = 16000  # send one second of audio at a time
 
 @app.local_entrypoint()
 def main(audio_url: str = AUDIO_URL):
-    import array
     import asyncio
-    import io
-    import wave
     from urllib.request import urlopen
-
-    def preprocess_audio(audio_bytes: bytes) -> bytes:
-        with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
-            n_channels = wav_in.getnchannels()
-            sample_width = wav_in.getsampwidth()
-            frame_rate = wav_in.getframerate()
-            n_frames = wav_in.getnframes()
-            frames = wav_in.readframes(n_frames)
-
-        # Convert frames to array based on sample width
-        if sample_width == 1:
-            audio_data = array.array("B", frames)  # unsigned char
-        elif sample_width == 2:
-            audio_data = array.array("h", frames)  # signed short
-        elif sample_width == 4:
-            audio_data = array.array("i", frames)  # signed int
-        else:
-            raise ValueError(f"Unsupported sample width: {sample_width}")
-
-        # Downmix to mono if needed
-        if n_channels > 1:
-            mono_data = array.array(audio_data.typecode)
-            for i in range(0, len(audio_data), n_channels):
-                chunk = audio_data[i : i + n_channels]
-                mono_data.append(sum(chunk) // n_channels)
-            audio_data = mono_data
-
-        # Resample to 16kHz if needed
-        if frame_rate != TARGET_SAMPLE_RATE:
-            ratio = TARGET_SAMPLE_RATE / frame_rate
-            new_length = int(len(audio_data) * ratio)
-            resampled_data = array.array(audio_data.typecode)
-
-            for i in range(new_length):
-                # Linear interpolation
-                pos = i / ratio
-                pos_int = int(pos)
-                pos_frac = pos - pos_int
-
-                if pos_int >= len(audio_data) - 1:
-                    sample = audio_data[-1]
-                else:
-                    sample1 = audio_data[pos_int]
-                    sample2 = audio_data[pos_int + 1]
-                    sample = int(sample1 + (sample2 - sample1) * pos_frac)
-
-                resampled_data.append(sample)
-
-            audio_data = resampled_data
-
-        return audio_data.tobytes()
-
-    def chunk_audio(data: bytes, chunk_size: int):
-        for i in range(0, len(data), chunk_size):
-            yield data[i : i + chunk_size]
-
-    async def send_audio(q, audio_bytes):
-        for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
-            await q.put.aio(chunk, partition="audio")
-            await asyncio.sleep(
-                CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
-            )  # simulate real-time pacing
-        await q.put.aio(END_OF_STREAM, partition="audio")
-        await asyncio.sleep(5.00)
-
-    async def receive_transcriptions(q):
-        while True:
-            message = await q.get.aio(partition="transcription")
-            if message == END_OF_STREAM:
-                break
-            await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
-            print(f"📝 Transcription: {message}")
-
-    async def run(audio_bytes):
-        with modal.Queue.ephemeral() as q:
-            Parakeet().run_with_queue.spawn(q)
-            send_task = asyncio.create_task(send_audio(q, audio_bytes))
-            receive_task = asyncio.create_task(receive_transcriptions(q))
-            await asyncio.gather(send_task, receive_task)
 
     print("🌐 Downloading audio file...")
     audio_bytes = urlopen(audio_url).read()
@@ -359,7 +271,119 @@ def main(audio_url: str = AUDIO_URL):
         print("\n🛑 Stopped by user.")
 
 
+# Instead of using the WebSocket endpoint to like the frontend,
+# we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
+# to pass audio data and transcriptions between our local machine and the GPU container.
+#
+# `send_audio` transmits chunks of audio data and then pauses to approximate streaming
+# speech at a natural rate. That said, we set it to faster
+# than real-time to compensate for network latency. Plus, we're not
+# trying to wait forever for this to finish. `receive_transcriptions` is straightforward.
+# It just waits for a transcription and prints it after a small delay to avoid colliding with the print statements
+# from the GPU container.
+#
+# We take full advantage of Modal's asynchronous capabilities here. In `run`, we spawn our function call
+# so it doesn't block, and then we create and wait on the send and receive tasks.
+
+
+async def send_audio(q, audio_bytes):
+    import asyncio
+
+    for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
+        await q.put.aio(chunk, partition="audio")
+        await asyncio.sleep(
+            CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
+        )  # simulate real-time pacing
+    await q.put.aio(END_OF_STREAM, partition="audio")
+    await asyncio.sleep(5.00)
+
+
+async def receive_transcriptions(q):
+    import asyncio
+
+    while True:
+        message = await q.get.aio(partition="transcription")
+        if message == END_OF_STREAM:
+            break
+        await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
+        print(f"📝 Transcription: {message}")
+
+
+async def run(audio_bytes):
+    import asyncio
+
+    with modal.Queue.ephemeral() as q:
+        Parakeet().run_with_queue.spawn(q)
+        send_task = asyncio.create_task(send_audio(q, audio_bytes))
+        receive_task = asyncio.create_task(receive_transcriptions(q))
+        await asyncio.gather(send_task, receive_task)
+
+
 # ## Troubleshooting
 # - Make sure you have the latest version of the Modal CLI installed.
 # - The server takes a few seconds to start up on cold start. If your local client times out, try
 #   restarting the client.
+
+# ## Addenda
+# Helper functions for converting audio to Parakeet's input format and iterating over audio chunks.
+
+
+def preprocess_audio(audio_bytes: bytes) -> bytes:
+    import array
+    import io
+    import wave
+
+    with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
+        n_channels = wav_in.getnchannels()
+        sample_width = wav_in.getsampwidth()
+        frame_rate = wav_in.getframerate()
+        n_frames = wav_in.getnframes()
+        frames = wav_in.readframes(n_frames)
+
+    # Convert frames to array based on sample width
+    if sample_width == 1:
+        audio_data = array.array("B", frames)  # unsigned char
+    elif sample_width == 2:
+        audio_data = array.array("h", frames)  # signed short
+    elif sample_width == 4:
+        audio_data = array.array("i", frames)  # signed int
+    else:
+        raise ValueError(f"Unsupported sample width: {sample_width}")
+
+    # Downmix to mono if needed
+    if n_channels > 1:
+        mono_data = array.array(audio_data.typecode)
+        for i in range(0, len(audio_data), n_channels):
+            chunk = audio_data[i : i + n_channels]
+            mono_data.append(sum(chunk) // n_channels)
+        audio_data = mono_data
+
+    # Resample to 16kHz if needed
+    if frame_rate != TARGET_SAMPLE_RATE:
+        ratio = TARGET_SAMPLE_RATE / frame_rate
+        new_length = int(len(audio_data) * ratio)
+        resampled_data = array.array(audio_data.typecode)
+
+        for i in range(new_length):
+            # Linear interpolation
+            pos = i / ratio
+            pos_int = int(pos)
+            pos_frac = pos - pos_int
+
+            if pos_int >= len(audio_data) - 1:
+                sample = audio_data[-1]
+            else:
+                sample1 = audio_data[pos_int]
+                sample2 = audio_data[pos_int + 1]
+                sample = int(sample1 + (sample2 - sample1) * pos_frac)
+
+            resampled_data.append(sample)
+
+        audio_data = resampled_data
+
+    return audio_data.tobytes()
+
+
+def chunk_audio(data: bytes, chunk_size: int):
+    for i in range(0, len(data), chunk_size):
+        yield data[i : i + chunk_size]
