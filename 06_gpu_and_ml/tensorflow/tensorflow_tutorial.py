@@ -31,6 +31,12 @@ dockerhub_image = modal.Image.from_registry(
 
 app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 
+gcp_hmac_secret = modal.Secret.from_name(
+    "modal-example-gcs-bucket-hmac",
+    required_keys=["GOOGLE_ACCESS_KEY_ID", "GOOGLE_ACCESS_KEY_SECRET"],
+)
+
+
 # ## Logging data to TensorBoard
 
 # Training ML models takes time. Just as we need to monitor long-running systems like databases or web servers for issues,
@@ -38,9 +44,12 @@ app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 # the state of your ML model training. It is packaged as a web server.
 
 # We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
-# The easiest way to do this is to set up a shared filesystem between the training and the web server.
 
-fs = modal.NetworkFileSystem.from_name("tensorflow-tutorial", create_if_missing=True)
+vol = modal.CloudBucketMount(
+    bucket_name="modal-examples-bucket",
+    bucket_endpoint_url="https://storage.googleapis.com",
+    secret=gcp_hmac_secret,
+)
 logdir = "/tensorboard"
 
 # ## Training function
@@ -59,7 +68,7 @@ logdir = "/tensorboard"
 # While these optimizations can be important for some workloads, especially if you are running ML models on a CPU, they are not critical for most cases.
 
 
-@app.function(network_file_systems={logdir: fs}, gpu="T4", timeout=600)
+@app.function(volumes={logdir: vol}, gpu="T4", timeout=600)
 def train():
     import pathlib
 
@@ -155,7 +164,7 @@ def train():
 # Note that this server will be exposed to the public internet!
 
 
-@app.function(network_file_systems={logdir: fs})
+@app.function(volumes={logdir: vol})
 @modal.wsgi_app()
 def tensorboard_app():
     import tensorboard
