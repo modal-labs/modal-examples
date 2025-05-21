@@ -94,6 +94,7 @@ image = (
         "numpy==1.26.4",  # downgrading numpy to avoid issues with CUDA
         "pydub",
     )
+    .entrypoint([])
     .add_local_dir(
         os.path.join(Path(__file__).parent.resolve(), "frontend"),
         remote_path="/frontend",
