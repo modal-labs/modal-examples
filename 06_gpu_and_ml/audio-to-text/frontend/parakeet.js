@@ -9,7 +9,7 @@ const recordButton = document.getElementById('recordButton');
 const transcriptionDiv = document.getElementById('transcription');
 
 // Constants for audio processing
-const BUFFER_SIZE = 64000; 
+const BUFFER_SIZE = 16000; 
 const SAMPLE_RATE = 16000; // Target sample rate
 
 // Audio worklet processor code

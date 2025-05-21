@@ -47,10 +47,12 @@ from pathlib import Path
 
 import modal
 
+os.environ["MODAL_LOGLEVEL"] = "INFO"
 app_name = "parakeet-websocket"
 
 app = modal.App(app_name)
-BUFFER_SIZE = 8000
+SILENCE_THRESHOLD_OFFSET = 20
+SILENCE_MIN_LENGTH_MSEC = 1000
 
 # ## Volume for caching model weights
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache the model weights.
@@ -69,7 +71,6 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 # Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
 # server for our websocket.
 
-print(f"front dir: {os.path.join(Path(__file__).parent.resolve(), 'frontend')}")
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04", add_python="3.12"
@@ -91,6 +92,7 @@ image = (
         "cuda-python==12.8.0",
         "fastapi==0.115.12",
         "numpy==1.26.4",  # downgrading numpy to avoid issues with CUDA
+        "pydub",
     )
     .add_local_dir(
         os.path.join(Path(__file__).parent.resolve(), "frontend"),
@@ -98,8 +100,7 @@ image = (
     )
 )
 
-with image.imports():
-    import nemo.collections.asr as nemo_asr
+
 # ## Implementing real-time audio transcription on Modal
 
 # Now, we're ready to implement the transcription model. We wrap inference in a [Modal Cls](https://modal.com/docs/guide/lifecycle-functions) that
@@ -120,6 +121,11 @@ class_name = "parakeet"
 class Parakeet:
     @modal.enter()
     def load(self):
+        import logging
+
+        import nemo.collections.asr as nemo_asr
+
+        logging.getLogger("nemo_logger").setLevel(logging.ERROR)
         self.model = nemo_asr.models.ASRModel.from_pretrained(
             model_name="nvidia/parakeet-tdt-0.6b-v2"
         )
@@ -152,24 +158,42 @@ class Parakeet:
 
         @web_app.websocket("/ws")
         async def websocket_endpoint(ws: WebSocket):
+            from pydub import AudioSegment, silence
+
             await ws.accept()
-            buffer = bytearray()
+            audio_segment = AudioSegment.empty()
 
             try:
                 while True:
                     chunk = await ws.receive_bytes()
-                    buffer.extend(chunk)
-
-                    if len(buffer) > BUFFER_SIZE:
-                        audio_bytes = bytes(buffer)
-                        buffer.clear()
-
-                        try:
-                            text = self.transcribe(audio_bytes)
-                            await ws.send_text(text)
-                        except Exception as e:
-                            print("❌ Transcription error:", e)
-                            await ws.close(code=1011, reason="Internal server error")
+                    new_audio_segment = AudioSegment(
+                        data=chunk,
+                        channels=1,
+                        sample_width=2,
+                        frame_rate=TARGET_SAMPLE_RATE,
+                    )
+                    audio_segment += new_audio_segment
+                    # print(f"dbfs: {audio_segment.dBFS}")
+                    # print(f"max dbfs: {audio_segment.max_dBFS}")
+                    silent_windows = silence.detect_silence(
+                        audio_segment,
+                        min_silence_len=SILENCE_MIN_LENGTH_MSEC,
+                        silence_thresh=audio_segment.dBFS - SILENCE_THRESHOLD_OFFSET,
+                    )
+                    if len(silent_windows) == 0:
+                        continue
+                    last_window = silent_windows[-1]
+                    if last_window[0] == 0 and last_window[1] == len(audio_segment):
+                        audio_segment = AudioSegment.empty()
+                        continue
+                    segment_to_transcribe = audio_segment[: last_window[1]]
+                    audio_segment = audio_segment[last_window[1] :]
+                    try:
+                        text = self.transcribe(segment_to_transcribe.raw_data)
+                        await ws.send_text(text)
+                    except Exception as e:
+                        print("❌ Transcription error:", e)
+                        await ws.close(code=1011, reason="Internal server error")
             except WebSocketDisconnect:
                 print("WebSocket disconnected")
 
@@ -193,20 +217,27 @@ class Parakeet:
 WS_ENDPOINT = "/ws"
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+TARGET_SAMPLE_RATE = 16000
+CHUNK_SIZE = 16000
 
 
 @app.local_entrypoint()
 def main(audio_url: str = AUDIO_URL):
     import asyncio
 
+    # import logging
     import requests
 
-    CHUNK_SIZE = 64000
-    # is_dev = True
-    # url = f"wss://{modal_profile}--{app_name}-{class_name}-web{'-dev' if is_dev else ''}.modal.run"
-    # ws_url = f"{url}{WS_ENDPOINT}"
+    # Configure logger
+    # logger = logging.getLogger(__name__)
+    # logger.setLevel(logging.INFO)
+    # handler = logging.StreamHandler()
+    # formatter = logging.Formatter('%(message)s')
+    # handler.setFormatter(formatter)
+    # logger.addHandler(handler)
 
     ws_url = Parakeet().web.get_web_url().replace("http", "ws") + WS_ENDPOINT
+    transcriptions = []
 
     def convert_to_mono_16khz(audio_bytes: bytes) -> bytes:
         import io
@@ -240,8 +271,8 @@ def main(audio_url: str = AUDIO_URL):
             audio_data = audio_data.mean(axis=1).astype(dtype)
 
         # Resample to 16kHz if needed
-        if frame_rate != 16000:
-            ratio = 16000 / frame_rate
+        if frame_rate != TARGET_SAMPLE_RATE:
+            ratio = TARGET_SAMPLE_RATE / frame_rate
             new_length = int(len(audio_data) * ratio)
             indices = np.linspace(0, len(audio_data) - 1, new_length)
             audio_data = np.interp(
@@ -257,11 +288,17 @@ def main(audio_url: str = AUDIO_URL):
     async def send_audio(ws, audio_bytes):
         for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
             await ws.send(chunk)
-            await asyncio.sleep(0.01)  # simulate real-time pacing
+            await asyncio.sleep(
+                CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
+            )  # simulate real-time pacing
+        await asyncio.sleep(5.00)
+        await ws.close()
 
     async def receive_transcriptions(ws):
         async for message in ws:
-            print("📝 Transcription:", message)
+            transcriptions.append(message)
+            await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
+            print(f"📝 Transcription: {message}")
 
     async def run(ws_url, audio_bytes):
         import websockets
@@ -285,6 +322,7 @@ def main(audio_url: str = AUDIO_URL):
     print("☀️ Waking up model, this may take a few seconds on cold start...")
     try:
         asyncio.run(run(ws_url, audio_data))
+        print("✅ Transcription complete!")
     except KeyboardInterrupt:
         print("\n🛑 Stopped by user.")
 
