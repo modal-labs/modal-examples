@@ -150,8 +150,9 @@ class Parakeet:
         async def index():
             return HTMLResponse(content=open("/frontend/index.html").read())
 
-        @web_app.websocket("/ws/{client_id}")
-        async def run_with_websocket(ws: WebSocket, client_id: str):
+        @web_app.websocket("/ws")
+        async def run_with_websocket(ws: WebSocket):
+            from fastapi import WebSocketDisconnect
             from pydub import AudioSegment
 
             await ws.accept()
@@ -172,7 +173,8 @@ class Parakeet:
                     if text:
                         await ws.send_text(text)
             except Exception as e:
-                print(f"Error handling websocket: {type(e)}: {e}")
+                if not isinstance(e, WebSocketDisconnect):
+                    print(f"Error handling websocket: {type(e)}: {e}")
                 try:
                     await ws.close(code=1011, reason="Internal server error")
                 except Exception as e:
@@ -181,7 +183,7 @@ class Parakeet:
         return web_app
 
     @modal.method()
-    async def run_with_queue(self, q: modal.Queue, client_id: str):
+    async def run_with_queue(self, q: modal.Queue):
         from pydub import AudioSegment
 
         # initialize an empty audio segment
@@ -193,16 +195,14 @@ class Parakeet:
                 chunk = await q.get.aio(partition="audio")
 
                 if chunk == END_OF_STREAM:
-                    await q.put.aio(
-                        END_OF_STREAM, partition=f"transcription-{client_id}"
-                    )
+                    await q.put.aio(END_OF_STREAM, partition="transcription")
                     break
 
                 audio_segment, text = await self.handle_audio_chunk(
                     chunk, audio_segment
                 )
                 if text:
-                    await q.put.aio(text, partition=f"transcription-{client_id}")
+                    await q.put.aio(text, partition="transcription")
         except Exception as e:
             print(f"Error handling queue: {type(e)}: {e}")
             return
@@ -263,11 +263,8 @@ def main(audio_url: str = AUDIO_URL):
     import array
     import asyncio
     import io
-    import uuid
     import wave
     from urllib.request import urlopen
-
-    id = str(uuid.uuid4())
 
     def preprocess_audio(audio_bytes: bytes) -> bytes:
         with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
@@ -335,7 +332,7 @@ def main(audio_url: str = AUDIO_URL):
 
     async def receive_transcriptions(q):
         while True:
-            message = await q.get.aio(partition=f"transcription-{id}")
+            message = await q.get.aio(partition="transcription")
             if message == END_OF_STREAM:
                 break
             await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
@@ -343,7 +340,7 @@ def main(audio_url: str = AUDIO_URL):
 
     async def run(audio_bytes):
         with modal.Queue.ephemeral() as q:
-            Parakeet().run_with_queue.spawn(q, id)
+            Parakeet().run_with_queue.spawn(q)
             send_task = asyncio.create_task(send_audio(q, audio_bytes))
             receive_task = asyncio.create_task(receive_transcriptions(q))
             await asyncio.gather(send_task, receive_task)

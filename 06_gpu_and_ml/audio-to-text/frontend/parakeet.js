@@ -12,51 +12,9 @@ const transcriptionDiv = document.getElementById('transcription');
 const BUFFER_SIZE = 16000; 
 const SAMPLE_RATE = 16000; // Target sample rate
 
-// Audio worklet processor code
-const workletCode = `
-class AudioProcessor extends AudioWorkletProcessor {
-    constructor() {
-        super();
-        this.bufferSize = ${BUFFER_SIZE};
-        this.buffer = new Float32Array(this.bufferSize);
-        this.bufferIndex = 0;
-    }
-
-    process(inputs, outputs) {
-        const input = inputs[0];
-        const channel = input[0];
-
-        if (!channel) return true;
-
-        // Fill our buffer
-        for (let i = 0; i < channel.length; i++) {
-            this.buffer[this.bufferIndex++] = channel[i];
-
-            // When buffer is full, send it
-            if (this.bufferIndex >= this.bufferSize) {
-                // Convert to Int16Array
-                const pcmData = new Int16Array(this.bufferSize);
-                for (let j = 0; j < this.bufferSize; j++) {
-                    pcmData[j] = Math.max(-32768, Math.min(32767, Math.round(this.buffer[j] * 32768)));
-                }
-                
-                // Send the buffer
-                this.port.postMessage(pcmData.buffer);
-                
-                // Reset buffer
-                this.bufferIndex = 0;
-            }
-        }
-
-        return true;
-    }
-}
-
-registerProcessor('audio-processor', AudioProcessor);
-`;
-
 async function setupMediaRecorder() {
     try {
+        // First get the microphone stream
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 channelCount: 1, // Mono
@@ -64,17 +22,15 @@ async function setupMediaRecorder() {
             } 
         });
         
-        // Set up Web Audio API
+        // Then set up Web Audio API
         audioContext = new window.AudioContext({
             sampleRate: SAMPLE_RATE
         });
 
-        // Create and load the audio worklet
-        const blob = new Blob([workletCode], { type: 'application/javascript' });
-        const workletUrl = URL.createObjectURL(blob);
-        await audioContext.audioWorklet.addModule(workletUrl);
-        URL.revokeObjectURL(workletUrl);
+        // Load the audio worklet
+        await audioContext.audioWorklet.addModule('/static/audio-processor.js');
         
+        // Create source node and worklet node
         sourceNode = audioContext.createMediaStreamSource(stream);
         workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
         
@@ -89,14 +45,20 @@ async function setupMediaRecorder() {
         
         return true;
     } catch (err) {
-        console.error('Error accessing microphone:', err);
-        alert('Error accessing microphone. Please make sure you have granted microphone permissions.');
+        console.error('Error in setupMediaRecorder:', err);
+        if (err.name === 'NotAllowedError') {
+            alert('Microphone access was denied. Please allow microphone access and try again.');
+        } else if (err.name === 'NotFoundError') {
+            alert('No microphone found. Please connect a microphone and try again.');
+        } else {
+            alert('Error accessing microphone: ' + err.message);
+        }
         return false;
     }
 }
 
-async function connectWebSocket(clientId) {
-    ws = new WebSocket(`/ws/${clientId}`);
+async function connectWebSocket() {
+    ws = new WebSocket(`/ws`);
     
     ws.onopen = () => {
         console.log('WebSocket connected');
@@ -118,13 +80,11 @@ async function connectWebSocket(clientId) {
 }
 
 recordButton.addEventListener('click', async () => {
-    
     if (!isRecording) {
         // Start recording
-        let clientId = Math.random().toString(36).substring(2, 15);
         const success = await setupMediaRecorder();
         if (success) {
-            await connectWebSocket(clientId);
+            await connectWebSocket();
             isRecording = true;
             recordButton.textContent = 'Stop Transcription';
             recordButton.classList.add('recording');
