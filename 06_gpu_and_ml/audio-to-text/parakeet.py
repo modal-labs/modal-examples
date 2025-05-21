@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# cmd: ["modal", "run", "-m", "06_gpu_and_ml.audio-to-text.parakeet"]
 # ---
 # # Real time audio transcription using Parakeet 🦜
 
