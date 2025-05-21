@@ -22,7 +22,7 @@
 # ```
 # 2b. Stream a .wav file from URL (default is "Dream Within a Dream" by Edgar Allan Poe):
 # ```bash
-# modal run 06_gpu_and_ml.audio-to-text.parakeet --audio-url=<URL_TO_WAV_FILE>
+# modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url=<URL_TO_WAV_FILE>
 # ```
 
 # See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
