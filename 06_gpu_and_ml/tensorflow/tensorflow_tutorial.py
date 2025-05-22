@@ -37,7 +37,12 @@ app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 # we also need to monitor the training process of our ML models. TensorBoard is a tool that comes with TensorFlow that helps you visualize
 # the state of your ML model training. It is packaged as a web server.
 
-# We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
+# We want to run the web server for TensorBoard at the same time as we are training the
+# TensorFlow model. The easiest way to share data between the training function and the
+# web server is by creating a
+# [Modal Volume](https://modal.com/docs/guide/volumes)
+# that we can attach to both
+# [Functions](https://modal.com/docs/reference/modal.Function).
 
 volume = modal.Volume.from_name("tensorflow-tutorial", create_if_missing=True)
 LOGDIR = "/tensorboard"
@@ -47,9 +52,10 @@ LOGDIR = "/tensorboard"
 # This is basically the same code as [the official example](https://www.tensorflow.org/tutorials/images/classification) from the TensorFlow docs.
 # A few Modal-specific things are worth pointing out:
 
-# * We set up the shared storage with TensorBoard in the arguments to `app.function`
+# * We attach the Volume for sharing data with TensorBoard in the `app.function`
+#   decorator.
 
-# * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU
+# * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU.
 
 # * We put all the TensorFlow imports inside the function body.
 #   This makes it possible to run this example even if you don't have TensorFlow installed on your local computer -- a key benefit of Modal!
@@ -144,18 +150,12 @@ def train():
 # the same standard used by [Flask](https://flask.palletsprojects.com/).
 # Modal [speaks WSGI too](https://modal.com/docs/guide/webhooks#wsgi), so it's straightforward to run TensorBoard in a Modal app.
 
-# The WSGI app isn't exposed directly through the TensorBoard library, but we can build it
-# the same way it's built internally --
-# [see the TensorBoard source code for details](https://github.com/tensorflow/tensorboard/blob/0c5523f4b27046e1ca7064dd75347a5ee6cc7f79/tensorboard/program.py#L466-L476).
+# We will attach the same Volume that we attached to our training function so that
+# TensorBoard can read the logs. For this to work with Modal, we will first
+# create some
+# [WSGI Middleware](https://peps.python.org/pep-3333/)
+# to check the Modal Volume for updates any time the page is reloaded.
 
-# Note that the TensorBoard server runs in a different container.
-# This container shares the same log directory containing the logs from the training.
-# The server does not need GPU support.
-# Note that this server will be exposed to the public internet!
-
-# Making this work with Modal requires one extra step:
-# we add some [WSGI Middleware](https://peps.python.org/pep-3333/) that checks the Modal Volume for updates
-# whenever the whole page is reloaded.
 
 class VolumeMiddleware:
     def __init__(self, app):
@@ -170,6 +170,15 @@ class VolumeMiddleware:
             if route == "/modal-volume-reload":
                 environ["PATH_INFO"] = "/"  # redirect
         return self.app(environ, start_response)
+
+
+# The WSGI app isn't exposed directly through the TensorBoard library, but we can build it
+# the same way it's built internally --
+# [see the TensorBoard source code for details](https://github.com/tensorflow/tensorboard/blob/0c5523f4b27046e1ca7064dd75347a5ee6cc7f79/tensorboard/program.py#L466-L476).
+
+# Note that the TensorBoard server runs in a different container.
+# The server does not need GPU support.
+# Note that this server will be exposed to the public internet!
 
 
 @app.function(
