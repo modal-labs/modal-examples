@@ -4,22 +4,23 @@
 
 # # Real-time Webcam Object Detection with WebRTC
 
-# This example shows you how to use WebRTC with Modal for real-time, low latency inference on media streams that's serverless and scales efficiently.
+# This example demonstrates how to use WebRTC with Modal for real-time, low latency inference on media streams that's serverless and scales efficiently.
 
 # ## What is WebRTC?
 
 # WebRTC (Web Real-Time Communication) is a protocol and API specification for real-time media streaming between peers.
 # What makes it so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API are purpose built for media streaming.
 # It's primarily designed for browser applications using the Javascript API, but [APIs exist for other languages](https://www.webrtc-developers.com/did-i-choose-the-right-webrtc-stack/).
-# We'll build our app using the [Python `aiortc` library](https://aiortc.readthedocs.io/en/latest/) to run a peer in the cloud.
+# We'll build our app using Python's [`aiortc`](https://aiortc.readthedocs.io/en/latest/) package.
 
 # A simple WebRTC app generally consists of three players:
 # 1. a peer that initiates the connection
 # 2. a peer that responds to the connection, and
 # 3. a server that passes messages between the two peers.
 
-# First, the initating peer offers up a description of itself - its media sources, codec capabilities, IP information, etc - which is relayed to another peer through the server.
+# First, one peer initiates the connection by offering up a description of itself - its media sources, codec capabilities, IP information, etc - which is relayed to another peer through the server.
 # The other peer then either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
+# This process is called "signaling" or sometimes the "negotation" in the WebRTC world, and the server that mediates it is usually called the "signaling server".
 
 # Once the peers have agreed on a configuration there's a brief pause... and then you're live.
 
@@ -42,7 +43,7 @@
 # A core assumption of Modal that makes this possible is that function calls are independent and self-contained.
 # In other words, Modal functions are _stateless_ and they shouldn't launch other processes or tasks which continue working after the function call returns.
 
-# WebRTC apps, on the other hand, require passing messages back and forth ("signaling") and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
+# WebRTC apps, on the other hand, require passing messages back and forth, and APIs spawn several "agents" which do work behind the scenes - including managing the P2P connection itself.
 # This means that streaming may only just have just begun when our application logic has finished.
 
 # <figure align="middle">
@@ -50,12 +51,12 @@
 #     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful signaling (right).</figcaption>
 # </figure>
 
-# To ensure we properly leverage Modal's auto-scaling and concurrency features, we need to align the signaling and streaming liftetimes with our Modal function call lifetimes.
+# To ensure we properly leverage Modal's autoscaling and concurrency features, we need to align the signaling and streaming liftetimes with our Modal function call lifetimes.
 
 # We'll handle passing messages between the client peer and the signaling server using a
 # [WebSocket](https://modal.com/docs/guide/webhooks#websockets) for persistant, bidirectional communication within a single function call (in this case the Modal call is a web endpoint).
 # We'll also [`.spawn`](https://modal.com/docs/reference/modal.Function#spawn) the cloud peer inside the WebSocket endpoint
-# and pass messages to it using a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue).
+# and pass messages with it using a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue).
 #
 # We can then use the state of the P2P connection to determine when to return from the calls to both the signaling server and the cloud peer.
 # When the P2P connection has been _established_, we'll close the WebSocket which in turn ends the call to the signaling server.
@@ -68,14 +69,14 @@
 # </figure>
 
 # We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcSignalingServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation datails.
-# They are also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
+# They're also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
 # You can find them in the `modal_webrtc.py` file provided alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/modal_webrtc.py).
 
 # ## Building the app
 
-# For our WebRTC app, we'll take a client's video stream, run YOLO on it in the cloud, and then stream the annotated video back to the client. Let's get started!
+# For our WebRTC app, we'll take a client's video stream, YOLO it with an A100 GPU on Modal, and then stream the annotated video back to the client. Let's get started!
 
 import os
 from pathlib import Path
@@ -139,7 +140,7 @@ app = modal.App("example-yolo-webrtc")
 
 # To implement a `ModalWebRtcPeer`, we need to:
 # - Decorate our subclass with `@app.cls`.
-# We'll use an A100 GPU and grab some secrets from Modal (you'll see what they're for in a moment).
+# We'll use an A100 GPU and grab some secrets from Modal (creds for some free TURN servers - see below).
 # - Implement the method `setup_streams`.
 # This is where we'll use `aiortc` to add the logic for processing the incoming video track with YOLO and returning an annotated video track to the source peer.
 
@@ -147,10 +148,11 @@ app = modal.App("example-yolo-webrtc")
 # - `initialize()`: Any custom initialization logic, called when `@modal.enter()` is called
 # - `run_streams()`: Logic for starting streams. This is necessary when the peer is the source of the stream.
 # This is where you'd ensure a webcam was running or start playing a video file (see the TestPeer class)
-# - `get_turn_servers()`: We haven't talked about TURN servers yet, so for now just know that it's necessary if you want to use WebRTC behind strict NAT or firewall configurations.
+# - `get_turn_servers()`: We haven't talked about TURN servers, but just know that they're necessary if you want to use WebRTC behind strict NAT or firewall configurations.
+# If you don't provide TURN servers you can still use your app using the default STUN servers on many networks.
 # - `exit()`: Any custom cleanup logic, called when `@modal.exit()` is called.
 
-# In our case, we'll load the YOLO model in `initialize` and also demonstrate how to provide TURN server information with `get_turn_servers`.
+# In our case, we'll load the YOLO model in `initialize` and provide TURN server information.
 # We're also going to use the `@modal.concurrent` decorator to allow multiple instances of our peer to run on one GPU.
 
 
@@ -180,7 +182,8 @@ class ObjDet(ModalWebRtcPeer):
                 )
 
         # when we receive a track from the source peer
-        # we create a processed track and add it to the peer connection
+        # we create a processed track and add it to our stream
+        # back to the source peer
         @self.pcs[peer_id].on("track")
         def on_track(track: MediaStreamTrack) -> None:
             print(
@@ -221,9 +224,9 @@ class ObjDet(ModalWebRtcPeer):
 # ### Implementing the `ModalWebRtcSignalingServer`
 
 # The `ModalWebRtcSignalingServer` class is much simpler to implement.
-# The only thing you need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
+# The only thing we need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
 #
-# It also has an `initialize()` method you can optionally override (which is called when `@modal.enter()` is called)
+# It also has an `initialize()` method we can optionally override (which is called when `@modal.enter()` is called)
 # as well as a `web_app` property which will be [served by Modal](https://modal.com/docs/guide/webhooks#asgi-apps---fastapi-fasthtml-starlette).
 # We'll use these to add a frontend which uses the WebRTC JavaScript API to stream a peer's webcam from the browser.
 #
