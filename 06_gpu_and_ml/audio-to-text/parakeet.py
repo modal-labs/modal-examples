@@ -22,14 +22,14 @@
 
 # Here's what your final output might look like:
 
-# ```
-
+# ```bash
 # 🌐 Downloading audio file...
 # 🎧 Downloaded 6331478 bytes
 # ☀️ Waking up model, this may take a few seconds on cold start...
 # 📝 Transcription: A Dream Within A Dream Edgar Allan Poe
 # 📝 Transcription:
 # 📝 Transcription: take this kiss upon the brow, And in parting from you now, Thus much let me avow You are not wrong who deem That my days have been a dream.
+# ...
 # ```
 
 # ## Setup
@@ -246,7 +246,7 @@ class Parakeet:
 # Next, let's test the model with a `local_entrypoint` that streams audio data to the server and prints
 # out the transcriptions in real-time to our terminal. We can also run this using Modal!
 
-# Instead of using the WebSocket endpoint to like the frontend,
+# Instead of using the WebSocket endpoint like the frontend,
 # we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
 # to pass audio data and transcriptions between our local machine and the GPU container.
 
