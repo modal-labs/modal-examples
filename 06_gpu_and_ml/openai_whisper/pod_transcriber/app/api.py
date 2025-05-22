@@ -33,6 +33,8 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
     episode_metadata_path = get_episode_metadata_path(podcast_id, episode_guid_hash)
     transcription_path = get_transcript_path(episode_guid_hash)
 
+    web_app.state.volume.reload()
+
     with open(episode_metadata_path, "r") as f:
         metadata = json.load(f)
 
@@ -50,13 +52,12 @@ async def get_episode(podcast_id: str, episode_guid_hash: str):
 
 @web_app.get("/api/podcast/{podcast_id}")
 async def get_podcast(podcast_id: str):
+    web_app.state.volume.reload()
+
     pod_metadata_path = config.PODCAST_METADATA_DIR / podcast_id / "metadata.json"
     previously_stored = True
     if not pod_metadata_path.exists():
         previously_stored = False
-        # Don't run this Modal function in a separate container in the cloud, because then
-        # we'd be exposed to a race condition with the NFS if we don't wait for the write
-        # to propogate.
         raw_populate_podcast_metadata = populate_podcast_metadata.get_raw_f()
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, raw_populate_podcast_metadata, podcast_id)
@@ -85,6 +86,8 @@ async def get_podcast(podcast_id: str):
 @web_app.post("/api/podcasts")
 async def podcasts_endpoint(request: Request):
     import dataclasses
+
+    web_app.state.volume.reload()
 
     form = await request.form()
     name = form["podcast"]
