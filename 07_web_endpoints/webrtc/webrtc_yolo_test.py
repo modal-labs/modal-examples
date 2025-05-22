@@ -47,7 +47,7 @@ class TestPeer(ModalWebRtcPeer):
     # extra time to run streams beyond input video duration
     VIDEO_DURATION_BUFFER_SECS = 5.0
     # allow time for container to spin up (can timeout with default 10)
-    WS_OPEN_TIMEOUT = 30
+    WS_OPEN_TIMEOUT = 300  # seconds
 
     async def initialize(self) -> None:
         import cv2
@@ -146,7 +146,6 @@ class TestPeer(ModalWebRtcPeer):
         ws_uri = (
             WebcamObjDet().web.get_web_url().replace("http", "ws") + f"/ws/{self.id}"
         )
-        print(f"ws_uri: {ws_uri}")
         async with websockets.connect(
             ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
         ) as websocket:

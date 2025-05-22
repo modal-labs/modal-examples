@@ -155,12 +155,20 @@ app = modal.App("example-yolo-webrtc")
 # In our case, we'll load the YOLO model in `initialize` and provide TURN server information.
 # We're also going to use the `@modal.concurrent` decorator to allow multiple instances of our peer to run on one GPU.
 
+# **Setting the Region**
+# To optimize latency, we want to make the physical distance of the P2P connection
+# between your local machine and the GPU container as short as possible.
+# We'll use the `region` parameter of the `cls` decorator to set the region of the GPU container.
+# You should set this to the closest region to your local machine or users.
+# See the [region selection](https://modal.com/docs/guide/region-selection) guide for more information.
+
 
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
     secrets=[modal.Secret.from_name("turn-credentials", environment_name="examples")],
+    region="us-west",  # set to your region
 )
 @modal.concurrent(
     target_inputs=3,
