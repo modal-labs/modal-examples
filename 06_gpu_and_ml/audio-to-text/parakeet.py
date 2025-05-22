@@ -1,6 +1,3 @@
-# ---
-# cmd: ["modal", "run", "-m", "06_gpu_and_ml.audio-to-text.parakeet"]
-# ---
 # # Real time audio transcription using Parakeet 🦜
 
 # [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
@@ -14,11 +11,11 @@
 
 # - run the browser/microphone frontend, or
 # ```bash
-# modal serve -m 06_gpu_and_ml.audio-to-text.parakeet.py
+# modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
 # ```
 # - stream a .wav file from a URL (optional, default is "Dream Within a Dream" by Edgar Allan Poe).
 # ```bash
-# modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+# modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
 
 # See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
