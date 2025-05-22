@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #controls {
+            margin: 20px 0;
+        }
+        #recordButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        #recordButton.recording {
+            background-color: #f44336;
+        }
+        #transcription {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Transcription</h1>
+    <p><em>Tip: Turn your microphone volume up for better transcription quality.</em></p>
+    <div id="controls">
+        <button id="recordButton">Start Transcribing Mic</button>
+    </div>
+    <div id="transcription"></div>
+    <script src="/static/parakeet.js"></script>
+</body>
+</html>
