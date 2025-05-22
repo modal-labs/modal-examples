@@ -33,6 +33,7 @@
 # ```
 
 # ## Setup
+import asyncio
 import os
 from pathlib import Path
 
@@ -257,7 +258,6 @@ CHUNK_SIZE = 16000  # send one second of audio at a time
 
 @app.local_entrypoint()
 def main(audio_url: str = AUDIO_URL):
-    import asyncio
     from urllib.request import urlopen
 
     print("🌐 Downloading audio file...")
@@ -283,8 +283,6 @@ def main(audio_url: str = AUDIO_URL):
 
 
 async def send_audio(q, audio_bytes):
-    import asyncio
-
     for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
         await q.put.aio(chunk, partition="audio")
         await asyncio.sleep(
@@ -300,8 +298,6 @@ async def send_audio(q, audio_bytes):
 
 
 async def receive_transcriptions(q):
-    import asyncio
-
     while True:
         message = await q.get.aio(partition="transcription")
         if message == END_OF_STREAM:
@@ -315,8 +311,6 @@ async def receive_transcriptions(q):
 
 
 async def run(audio_bytes):
-    import asyncio
-
     with modal.Queue.ephemeral() as q:
         Parakeet().run_with_queue.spawn(q)
         send_task = asyncio.create_task(send_audio(q, audio_bytes))
