@@ -14,10 +14,11 @@
 # ## Import dependencies and set up paths
 
 # We start by importing the necessary libraries and defining our storage paths.
-# We use Modal Volumes for caching model artifacts and Modal CloudBucketMounts for 
+# We use Modal Volumes for caching model artifacts and Modal CloudBucketMounts for
 # storing generated images.
 
 from __future__ import annotations
+
 from pathlib import Path
 
 import modal
@@ -36,7 +37,7 @@ CLOUD_BUCKET_NAME = "CLOUDFLARE R2 BUCKET NAME"
 # ## Building the container image
 
 # We start with an NVIDIA CUDA base image that includes the necessary GPU drivers
-# and development tools. 
+# and development tools.
 
 # Image configuration and setup
 cuda_version = "12.6.3"
@@ -50,32 +51,29 @@ nvidia_cuda_image = modal.Image.from_registry(
 
 # We then install all the Python dependencies needed for FLUX.1 inference.
 
-flux_endpoint_image = (
-    nvidia_cuda_image
-    .pip_install(
-        "accelerate==1.6.0",
-        "boto3==1.37.35",
-        "diffusers==0.33.1",
-        "fastapi[standard]==0.115.12",
-        "huggingface-hub[hf_transfer]==0.30.2",
-        "numpy==2.2.4",
-        "opencv-python-headless==4.11.0.86",
-        "para-attn==0.3.32",
-        "pydantic==2.11.4",
-        "safetensors==0.5.3",
-        "sentencepiece==0.2.0",
-        "torch==2.7.0",
-        "transformers==4.51.3",
-    )
-    .env({
+flux_endpoint_image = nvidia_cuda_image.pip_install(
+    "accelerate==1.6.0",
+    "boto3==1.37.35",
+    "diffusers==0.33.1",
+    "fastapi[standard]==0.115.12",
+    "huggingface-hub[hf_transfer]==0.30.2",
+    "numpy==2.2.4",
+    "opencv-python-headless==4.11.0.86",
+    "para-attn==0.3.32",
+    "pydantic==2.11.4",
+    "safetensors==0.5.3",
+    "sentencepiece==0.2.0",
+    "torch==2.7.0",
+    "transformers==4.51.3",
+).env(
+    {
         "HF_HUB_ENABLE_HF_TRANSFER": "1",
         "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
-
         "CUDA_CACHE_PATH": str(CONTAINER_CACHE_DIR / ".nv_cache"),
         "HF_HUB_CACHE": str(CONTAINER_CACHE_DIR / ".hf_hub_cache"),
         "TORCHINDUCTOR_CACHE_DIR": str(CONTAINER_CACHE_DIR / ".inductor_cache"),
-        "TRITON_CACHE_DIR": str(CONTAINER_CACHE_DIR / ".triton_cache")
-    })
+        "TRITON_CACHE_DIR": str(CONTAINER_CACHE_DIR / ".triton_cache"),
+    }
 )
 
 # ## Creating the Modal app
@@ -90,7 +88,6 @@ with flux_endpoint_image.imports():
     import os
     import time
     import uuid
-
     from enum import Enum
     from typing import Optional
 
@@ -98,7 +95,6 @@ with flux_endpoint_image.imports():
     import cv2
     import numpy as np
     import torch
-
     from diffusers import FluxPipeline
     from para_attn.first_block_cache.diffusers_adapters import apply_cache_on_pipe
     from pydantic import BaseModel, Field
@@ -136,10 +132,13 @@ with flux_endpoint_image.imports():
 # class decorator to control the lifecycle of our cloud container as well as to
 # configure auto-scaling parameters, the GPU type, and necessary secrets.
 
+
 @app.cls(
     secrets=[
         modal.Secret.from_name("huggingface-secret"),
-        modal.Secret.from_name("r2-secret", required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"])
+        modal.Secret.from_name(
+            "r2-secret", required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+        ),
     ],
     gpu="H100",
     volumes={
@@ -147,26 +146,29 @@ with flux_endpoint_image.imports():
         CONTAINER_CLOUD_MOUNT_DIR: modal.CloudBucketMount(
             bucket_name=CLOUD_BUCKET_NAME,
             bucket_endpoint_url=f"https://{CLOUD_BUCKET_ACCOUNT_ID}.r2.cloudflarestorage.com",
-            secret=modal.Secret.from_name("r2-secret", required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"])
-        )
+            secret=modal.Secret.from_name(
+                "r2-secret",
+                required_keys=["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+            ),
+        ),
     },
     min_containers=1,
     buffer_containers=0,
-    scaledown_window=300, # 5 minutes
-    timeout=3600, # 1 hour
-    enable_memory_snapshot=True
+    scaledown_window=300,  # 5 minutes
+    timeout=3600,  # 1 hour
+    enable_memory_snapshot=True,
 )
 class FluxService:
     # ## Model optimization methods
-    
+
     # These methods apply various optimizations to make model inference faster.
     # The main optimizations are first block cache and torch compile.
-    
+
     def _optimize(self):
         # apply first block cache, see: [ParaAttention](https://github.com/chengzeyi/ParaAttention)
         apply_cache_on_pipe(
             self.pipe,
-            residual_diff_threshold=0.12 # don't recommend going higher
+            residual_diff_threshold=0.12,  # don't recommend going higher
         )
 
         # fuse qkv projections
@@ -188,15 +190,11 @@ class FluxService:
 
         # mark layers for compilation with dynamic shapes enabled
         self.pipe.transformer = torch.compile(
-            self.pipe.transformer,
-            mode="max-autotune-no-cudagraphs",
-            dynamic=True
+            self.pipe.transformer, mode="max-autotune-no-cudagraphs", dynamic=True
         )
 
         self.pipe.vae.decode = torch.compile(
-            self.pipe.vae.decode,
-            mode="max-autotune-no-cudagraphs",
-            dynamic=True
+            self.pipe.vae.decode, mode="max-autotune-no-cudagraphs", dynamic=True
         )
 
     def _compile(self):
@@ -212,34 +210,24 @@ class FluxService:
                     if "SymFloat" in str(e) and "size" in str(e):
                         # return not the same, instead of crashing
                         return False
-                    raise 
+                    raise
 
             post_grad.same_meta = _safe_same_meta
 
         print("triggering torch compile")
-        self.pipe(
-            "dummy prompt",
-            height=1024,
-            width=1024,
-            num_images_per_prompt=1
-        )
+        self.pipe("dummy prompt", height=1024, width=1024, num_images_per_prompt=1)
 
         # comment this out if you only need num_images_per_prompt=1
         print("recompiling for dynamic batch size")
-        self.pipe(
-            "dummy prompt",
-            height=1024,
-            width=1024,
-            num_images_per_prompt=2
-        )
+        self.pipe("dummy prompt", height=1024, width=1024, num_images_per_prompt=2)
 
     # ## Mega-cache management
-    
+
     # PyTorch "mega-cache" serializes compiled model artifacts into a blob that
     # can be easily transferred to another machine with the same GPU.
-    
+
     def _load_mega_cache(self):
-        print(f"loading torch mega-cache")
+        print("loading torch mega-cache")
         try:
             if self.mega_cache_bin_path.exists():
                 with open(self.mega_cache_bin_path, "rb") as f:
@@ -253,7 +241,7 @@ class FluxService:
             print(f"error loading torch mega-cache: {e}")
 
     def _save_mega_cache(self):
-        print(f"saving torch mega-cache")
+        print("saving torch mega-cache")
         try:
             artifacts = torch.compiler.save_cache_artifacts()
             artifact_bytes, _ = artifacts
@@ -265,7 +253,7 @@ class FluxService:
             CONTAINER_CACHE_VOLUME.commit()
         except Exception as e:
             print(f"error saving torch mega-cache: {e}")
-    
+
     # ## Memory Snapshotting
 
     # We utilize memory snapshotting to avoid reloading model weights into host memory
@@ -273,11 +261,11 @@ class FluxService:
 
     @modal.enter(snap=True)
     def load(self):
-        print(f"downloading (if necessary) and loading model")
+        print("downloading (if necessary) and loading model")
         self.pipe = FluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-dev",
             torch_dtype=torch.bfloat16,
-            use_safetensors=True
+            use_safetensors=True,
         ).to("cpu")
 
         # Set up mega cache paths
@@ -301,20 +289,24 @@ class FluxService:
                 endpoint_url=f"https://{CLOUD_BUCKET_ACCOUNT_ID}.r2.cloudflarestorage.com",
                 aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
                 aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-                region_name="auto"
+                region_name="auto",
             )
         except Exception as e:
             print(f"Error initiating s3 client: {e}")
             raise
 
     # ## The main inference endpoint
-    
+
     # This method handles incoming requests, generates images, and uploads them
     # to cloud storage.
-    
+
     @modal.fastapi_endpoint(method="POST")
     def inference(self, request: InferenceRequest):
-        generator = torch.Generator("cuda").manual_seed(request.seed) if request.seed is not None else None
+        generator = (
+            torch.Generator("cuda").manual_seed(request.seed)
+            if request.seed is not None
+            else None
+        )
 
         # Time the inference
         torch.cuda.synchronize()
@@ -333,7 +325,7 @@ class FluxService:
             guidance_scale=request.guidance_scale,
             num_images_per_prompt=request.num_images,
             generator=generator,
-            output_type="np"
+            output_type="np",
         ).images
 
         torch.cuda.synchronize()
@@ -371,8 +363,8 @@ class FluxService:
             # This allows clients to download the image directly from R2
             signed_url = self.s3_client.generate_presigned_url(
                 "get_object",
-                Params={'Bucket': CLOUD_BUCKET_NAME, 'Key': filename_with_ext},
-                ExpiresIn=86400 # 24 hour expiry
+                Params={"Bucket": CLOUD_BUCKET_NAME, "Key": filename_with_ext},
+                ExpiresIn=86400,  # 24 hour expiry
             )
             return signed_url
 
