@@ -32,8 +32,6 @@
 # 📝 Transcription: That my days have been a dream.
 # ...
 # ```
-# See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
-
 
 # ## Setup
 import asyncio
@@ -314,11 +312,6 @@ async def run(audio_bytes):
         receive_task = asyncio.create_task(receive_transcriptions(q))
         await asyncio.gather(send_task, receive_task)
 
-
-# ## Troubleshooting
-# - Make sure you have the latest version of the Modal CLI installed.
-# - The server takes a few seconds to start up on cold start. If your local client times out, try
-#   restarting the client.
 
 # ## Addenda
 # Helper functions for converting audio to Parakeet's input format and iterating over audio chunks.
