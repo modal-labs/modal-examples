@@ -13,7 +13,7 @@
 # ```bash
 # modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
 # ```
-# - Or, stream a `.wav` file directly from a URL to simulate real-time transcription in your terminal:
+# - Or, stream a `.wav` file directly from a URL to run transcription from your terminal:
 # ```bash
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
@@ -44,7 +44,7 @@ import modal
 
 os.environ["MODAL_LOGLEVEL"] = "INFO"
 
-app = modal.App("parakeet-websocket")
+app = modal.App("example-parakeet-websocket")
 SILENCE_THRESHOLD = -45
 SILENCE_MIN_LENGTH_MSEC = 1000
 END_OF_STREAM = b"END_OF_STREAM"
