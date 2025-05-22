@@ -12,11 +12,11 @@
 
 # To run this example either:
 
-# A. Run the browser/microphone frontend:
+# - run the browser/microphone frontend, or
 # ```bash
 # modal serve -m 06_gpu_and_ml.audio-to-text.parakeet.py
 # ```
-# B. Stream a .wav file from URL (optional, default is "Dream Within a Dream" by Edgar Allan Poe):
+# - stream a .wav file from a URL (optional, default is "Dream Within a Dream" by Edgar Allan Poe).
 # ```bash
 # modal run -m 06_gpu_and_ml.audio-to-text.parakeet --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
@@ -105,7 +105,11 @@ image = (
 # - The `transcribe` method takes bytes of audio data, and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
 # [websocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
-# - # Parakeet tries really hard to transcribe everything to English! Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio. We can pre-process the incoming audio in the server by using `pydub`'s silence detection, ensuring that we only pass audio with text to our model.
+
+# Parakeet tries really hard to transcribe everything to English!
+# Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio.
+# We can pre-process the incoming audio in the server by using `pydub`'s silence detection,
+# ensuring that we only pass audio with text to our model.
 
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
@@ -245,7 +249,9 @@ class Parakeet:
 # Next, let's test the model with a `local_entrypoint` that streams audio data to the server and prints
 # out the transcriptions in real-time to our terminal. We can also run this using Modal!
 
-# We'll use a [`Modal Queue`](https://modal.com/docs/reference/modal.Queue) to pass audio data and transcriptions between your local machine and the server.
+# Instead of using the WebSocket endpoint to like the frontend,
+# we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
+# to pass audio data and transcriptions between our local machine and the GPU container.
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 TARGET_SAMPLE_RATE = 16000
@@ -271,19 +277,12 @@ def main(audio_url: str = AUDIO_URL):
         print("\n🛑 Stopped by user.")
 
 
-# Instead of using the WebSocket endpoint to like the frontend,
-# we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
-# to pass audio data and transcriptions between our local machine and the GPU container.
+# Below are the three main functions that coordinate streaming audio and receiving transcriptions.
 #
 # `send_audio` transmits chunks of audio data and then pauses to approximate streaming
 # speech at a natural rate. That said, we set it to faster
 # than real-time to compensate for network latency. Plus, we're not
-# trying to wait forever for this to finish. `receive_transcriptions` is straightforward.
-# It just waits for a transcription and prints it after a small delay to avoid colliding with the print statements
-# from the GPU container.
-#
-# We take full advantage of Modal's asynchronous capabilities here. In `run`, we spawn our function call
-# so it doesn't block, and then we create and wait on the send and receive tasks.
+# trying to wait forever for this to finish.
 
 
 async def send_audio(q, audio_bytes):
@@ -298,6 +297,11 @@ async def send_audio(q, audio_bytes):
     await asyncio.sleep(5.00)
 
 
+# `receive_transcriptions` is straightforward.
+# It just waits for a transcription and prints it after a small delay to avoid colliding with the print statements
+# from the GPU container.
+
+
 async def receive_transcriptions(q):
     import asyncio
 
@@ -307,6 +311,10 @@ async def receive_transcriptions(q):
             break
         await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
         print(f"📝 Transcription: {message}")
+
+
+# We take full advantage of Modal's asynchronous capabilities here. In `run`, we spawn our function call
+# so it doesn't block, and then we create and wait on the send and receive tasks.
 
 
 async def run(audio_bytes):
