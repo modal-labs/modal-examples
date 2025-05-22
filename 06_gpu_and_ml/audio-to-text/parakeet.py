@@ -9,16 +9,15 @@
 
 # To run this example, either:
 
-# - Run the browser/microphone frontend - Modal can handle the deployment of both the frontend and backend in a single app! You should see a browser window pop up - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
+# - Run the browser/microphone frontend. Modal handles the deployment of both the frontend and backend in a single app! You should see a browser window pop up - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
 # ```bash
 # modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
 # ```
-# - Or, stream a `.wav` file directly from a URL to simulate real-time transcription!
+# - Or, stream a `.wav` file directly from a URL to simulate real-time transcription in your terminal:
 # ```bash
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
-
-# Here's what your final output might look like:
+# You should see output like the following in your terminal:
 
 # ```bash
 # 🌐 Downloading audio file...
@@ -33,7 +32,6 @@
 # 📝 Transcription: That my days have been a dream.
 # ...
 # ```
-
 # See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
 
 
