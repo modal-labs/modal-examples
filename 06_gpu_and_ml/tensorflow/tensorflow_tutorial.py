@@ -39,7 +39,7 @@ app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 
 # We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
 
-vol = modal.Volume.from_name("tensorflow-tutorial", create_if_missing=True)
+volume = modal.Volume.from_name("tensorflow-tutorial", create_if_missing=True)
 LOGDIR = "/tensorboard"
 
 # ## Training function
@@ -58,7 +58,7 @@ LOGDIR = "/tensorboard"
 # While these optimizations can be important for some workloads, especially if you are running ML models on a CPU, they are not critical for most cases.
 
 
-@app.function(volumes={LOGDIR: vol}, gpu="T4", timeout=600)
+@app.function(volumes={LOGDIR: volume}, gpu="T4", timeout=600)
 def train():
     import pathlib
 
@@ -164,7 +164,7 @@ class VolumeMiddleware:
     def __call__(self, environ, start_response):
         if (route := environ.get("PATH_INFO")) in ["/", "/modal-volume-reload"]:
             try:
-                traces.reload()
+                volume.reload()
             except Exception as e:
                 print("Exception while re-loading traces: ", e)
             if route == "/modal-volume-reload":
@@ -173,7 +173,7 @@ class VolumeMiddleware:
 
 
 @app.function(
-    volumes={LOGDIR: vol},
+    volumes={LOGDIR: volume},
     max_containers=1,  # single replica
     scaledown_window=5 * 60,  # five minute idle time
 )
