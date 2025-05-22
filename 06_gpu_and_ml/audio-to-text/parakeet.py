@@ -2,7 +2,7 @@
 
 # [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
 # We'll show you how to use Parakeet for real-time audio transcription,
-# with a simple python client and a websocket server you can spin up easily in Modal.
+# with a simple Python client and a GPU server you can spin up easily in Modal.
 
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
@@ -50,14 +50,13 @@ END_OF_STREAM = b"END_OF_STREAM"
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache the model weights.
 # This allows us to avoid downloading the model weights every time we start a new instance.
 
-
 model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
 # ## Configuring dependencies
 # The model runs remotely inside a [custom container](https://modal.com/docs/guide/custom-container). We can define the environment
 # and install our Python dependencies in that container's `Image`.
 
 # For inference, we recommend using the official NVIDIA CUDA Docker images from Docker Hub.
-# You'll need to add Python 3 and pip with the `add_python` option because the image
+# You'll need to install Python and pip with the `add_python` option because the image
 # doesn't have these by default.
 
 # Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
@@ -92,7 +91,6 @@ image = (
         remote_path="/frontend",
     )
 )
-
 
 # ## Implementing real-time audio transcription on Modal
 
