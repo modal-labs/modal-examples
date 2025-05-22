@@ -14,7 +14,8 @@ import modal
 from . import config, podcast, search
 
 logger = config.get_logger(__name__)
-volume = modal.NetworkFileSystem.from_name("dataset-cache-vol", create_if_missing=True)
+
+volume = modal.Volume.from_name("dataset-cache-vol", create_if_missing=True)
 
 app_image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -64,7 +65,7 @@ def get_transcript_path(guid_hash: str) -> pathlib.Path:
     return config.TRANSCRIPTIONS_DIR / f"{guid_hash}.json"
 
 
-@app.function(network_file_systems={config.CACHE_DIR: volume})
+@app.function(volumes={config.CACHE_DIR: volume})
 def populate_podcast_metadata(podcast_id: str):
     from gql import gql
 
@@ -86,12 +87,14 @@ def populate_podcast_metadata(podcast_id: str):
         with open(metadata_path, "w") as f:
             json.dump(dataclasses.asdict(ep), f)
 
+    volume.commit()
+
     logger.info(f"Populated metadata for {pod_metadata.title}")
 
 
 @app.function(
     image=app_image.add_local_dir(config.ASSETS_PATH, remote_path="/assets"),
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     min_containers=2,
 )
 @modal.asgi_app()
@@ -101,6 +104,8 @@ def fastapi_app():
     from .api import web_app
 
     web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
+
+    web_app.state.volume = volume
 
     return web_app
 
@@ -128,7 +133,7 @@ def search_podcast(name):
 
 @app.function(
     image=search_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     timeout=(400 * 60),
 )
 def refresh_index():
@@ -213,6 +218,8 @@ def refresh_index():
     with open(filepath, "w") as f:
         json.dump(search_dict, f)
 
+    volume.commit()
+
 
 def split_silences(
     path: str, min_segment_length: float = 30.0, min_silence_length: float = 1.0
@@ -267,7 +274,7 @@ def split_silences(
 
 @app.function(
     image=app_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     cpu=2,
     timeout=400,
 )
@@ -315,7 +322,7 @@ def transcribe_segment(
 
 @app.function(
     image=app_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     timeout=900,
 )
 def transcribe_episode(
@@ -343,10 +350,12 @@ def transcribe_episode(
     with open(result_path, "w") as f:
         json.dump(result, f, indent=4)
 
+    volume.commit()
+
 
 @app.function(
     image=app_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
     timeout=900,
 )
 def process_episode(podcast_id: str, episode_id: str):
@@ -373,6 +382,8 @@ def process_episode(podcast_id: str, episode_id: str):
             destination=destination_path,
         )
 
+        volume.commit()
+
         logger.info(
             f"Using the {model.name} model which has {model.params} parameters."
         )
@@ -398,7 +409,7 @@ def process_episode(podcast_id: str, episode_id: str):
 
 @app.function(
     image=app_image,
-    network_file_systems={config.CACHE_DIR: volume},
+    volumes={config.CACHE_DIR: volume},
 )
 def fetch_episodes(show_name: str, podcast_id: str, max_episodes=100):
     import hashlib
