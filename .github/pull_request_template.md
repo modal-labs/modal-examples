@@ -11,7 +11,7 @@
 - [ ] New example for the GitHub repo
   - [ ] New example for the documentation site (Linked from a discoverable page, e.g. via the sidebar in `/docs/examples`)
 - [ ] Example updates (Bug fixes, new features, etc.)
-- [ ] Other (changes to the codebase, but not to examples)
+- [ ] Other (Changes to the codebase, but not to examples)
 
 ## Documentation Site Checklist
 
@@ -28,11 +28,11 @@
   - [ ] Example is configured for testing in the synthetic monitoring system
     - [ ] Example is tested by executing with `modal run`, or an alternative `cmd` is provided in the example frontmatter (e.g. `cmd: ["modal", "serve"]`)
     - [ ] Example is tested by running the `cmd` with no arguments, or the `args` are provided in the example frontmatter (e.g. `args: ["--prompt", "Formula for room temperature superconductor:"]`
-    - [ ] Example does _not_ require third-party dependencies besides `fastapi` to be installed locally (e.g. does not import `requests` or `torch` in the global scope or in the scope of a `local_entrypoint`)
+    - [ ] Example does _not_ require third-party dependencies besides `fastapi` to be installed locally (e.g. does not import `requests` or `torch` in the global scope or other code executed locally)
 
 ### ☑️ Content
   - [ ] Example is documented with comments throughout, in a [_Literate Programming_](https://en.wikipedia.org/wiki/Literate_programming) style
-  - [ ] Example media assets are retrieved from `modal-cdn.com`
+  - [ ] All media assets for the example that are rendered in the documentation site page are retrieved from `modal-cdn.com`
 
 ### ☑️ Build Stability
   - [ ] Example pins all dependencies in container images
