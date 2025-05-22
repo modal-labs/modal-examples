@@ -94,18 +94,18 @@ image = (
 
 # ## Implementing real-time audio transcription on Modal
 
-# Now, we're ready to implement the transcription model. We wrap inference in a [Modal Cls](https://modal.com/docs/guide/lifecycle-functions) that
+# Now we're ready to implement the transcription model. We wrap inference in a [modal.Cls](https://modal.com/docs/guide/lifecycle-functions) that
 # ensures models are loaded and then moved to the GPU once when a new container starts. Couple of notes:
 
 # - The `load` method loads the model at start, instead of during inference, using [`modal.enter()`](https://modal.com/docs/reference/modal.enter#modalenter).
 # - The `transcribe` method takes bytes of audio data, and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
-# [websocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
+# [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
 
 # Parakeet tries really hard to transcribe everything to English!
 # Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio.
 # We can pre-process the incoming audio in the server by using `pydub`'s silence detection,
-# ensuring that we only pass audio with text to our model.
+# ensuring that we only pass audio with speech to our model.
 
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
@@ -242,8 +242,8 @@ class Parakeet:
 
 
 # ## Client
-# Next, let's test the model with a `local_entrypoint` that streams audio data to the server and prints
-# out the transcriptions in real-time to our terminal. We can also run this using Modal!
+# Next, let's test the model with a [`local_entrypoint`](https://modal.com/docs/reference/modal.App#local_entrypoint) that streams audio data to the server and prints
+# out the transcriptions to our terminal in real-time.
 
 # Instead of using the WebSocket endpoint like the frontend,
 # we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
@@ -287,7 +287,6 @@ async def send_audio(q, audio_bytes):
             CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
         )  # simulate real-time pacing
     await q.put.aio(END_OF_STREAM, partition="audio")
-    await asyncio.sleep(5.00)
 
 
 # `receive_transcriptions` is straightforward.
