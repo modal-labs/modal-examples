@@ -1,6 +1,5 @@
 # ---
-# deploy: true
-# lambda-test: false
+# lambda-test: false  # long-running
 # ---
 #
 # This script demonstrated how to ingest the https://github.com/RosettaCommons/RoseTTAFold protein-folding

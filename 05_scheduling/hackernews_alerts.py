@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# lambda-test: false  # missing-secret
 # ---
 
 # # Run cron jobs in the cloud to search Hacker News

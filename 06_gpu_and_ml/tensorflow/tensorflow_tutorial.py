@@ -37,20 +37,25 @@ app = modal.App("example-tensorflow-tutorial", image=dockerhub_image)
 # we also need to monitor the training process of our ML models. TensorBoard is a tool that comes with TensorFlow that helps you visualize
 # the state of your ML model training. It is packaged as a web server.
 
-# We want to run the web server for TensorBoard at the same time as we are training the TensorFlow model.
-# The easiest way to do this is to set up a shared filesystem between the training and the web server.
+# We want to run the web server for TensorBoard at the same time as we are training the
+# TensorFlow model. The easiest way to share data between the training function and the
+# web server is by creating a
+# [Modal Volume](https://modal.com/docs/guide/volumes)
+# that we can attach to both
+# [Functions](https://modal.com/docs/reference/modal.Function).
 
-fs = modal.NetworkFileSystem.from_name("tensorflow-tutorial", create_if_missing=True)
-logdir = "/tensorboard"
+volume = modal.Volume.from_name("tensorflow-tutorial", create_if_missing=True)
+LOGDIR = "/tensorboard"
 
 # ## Training function
 
 # This is basically the same code as [the official example](https://www.tensorflow.org/tutorials/images/classification) from the TensorFlow docs.
 # A few Modal-specific things are worth pointing out:
 
-# * We set up the shared storage with TensorBoard in the arguments to `app.function`
+# * We attach the Volume for sharing data with TensorBoard in the `app.function`
+#   decorator.
 
-# * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU
+# * We also annotate this function with `gpu="T4"` to make sure it runs on a GPU.
 
 # * We put all the TensorFlow imports inside the function body.
 #   This makes it possible to run this example even if you don't have TensorFlow installed on your local computer -- a key benefit of Modal!
@@ -59,7 +64,7 @@ logdir = "/tensorboard"
 # While these optimizations can be important for some workloads, especially if you are running ML models on a CPU, they are not critical for most cases.
 
 
-@app.function(network_file_systems={logdir: fs}, gpu="T4", timeout=600)
+@app.function(volumes={LOGDIR: volume}, gpu="T4", timeout=600)
 def train():
     import pathlib
 
@@ -127,7 +132,7 @@ def train():
     model.summary()
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        log_dir=logdir,
+        log_dir=LOGDIR,
         histogram_freq=1,
     )
 
@@ -145,23 +150,49 @@ def train():
 # the same standard used by [Flask](https://flask.palletsprojects.com/).
 # Modal [speaks WSGI too](https://modal.com/docs/guide/webhooks#wsgi), so it's straightforward to run TensorBoard in a Modal app.
 
+# We will attach the same Volume that we attached to our training function so that
+# TensorBoard can read the logs. For this to work with Modal, we will first
+# create some
+# [WSGI Middleware](https://peps.python.org/pep-3333/)
+# to check the Modal Volume for updates any time the page is reloaded.
+
+
+class VolumeMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        if (route := environ.get("PATH_INFO")) in ["/", "/modal-volume-reload"]:
+            try:
+                volume.reload()
+            except Exception as e:
+                print("Exception while re-loading traces: ", e)
+            if route == "/modal-volume-reload":
+                environ["PATH_INFO"] = "/"  # redirect
+        return self.app(environ, start_response)
+
+
 # The WSGI app isn't exposed directly through the TensorBoard library, but we can build it
 # the same way it's built internally --
 # [see the TensorBoard source code for details](https://github.com/tensorflow/tensorboard/blob/0c5523f4b27046e1ca7064dd75347a5ee6cc7f79/tensorboard/program.py#L466-L476).
 
 # Note that the TensorBoard server runs in a different container.
-# This container shares the same log directory containing the logs from the training.
 # The server does not need GPU support.
 # Note that this server will be exposed to the public internet!
 
 
-@app.function(network_file_systems={logdir: fs})
+@app.function(
+    volumes={LOGDIR: volume},
+    max_containers=1,  # single replica
+    scaledown_window=5 * 60,  # five minute idle time
+)
+@modal.concurrent(max_inputs=100)  # 100 concurrent request threads
 @modal.wsgi_app()
 def tensorboard_app():
     import tensorboard
 
     board = tensorboard.program.TensorBoard()
-    board.configure(logdir=logdir)
+    board.configure(logdir=LOGDIR)
     (data_provider, deprecated_multiplexer) = board._make_data_provider()
     wsgi_app = tensorboard.backend.application.TensorBoardWSGIApp(
         board.flags,
@@ -169,6 +200,7 @@ def tensorboard_app():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
+        experimental_middlewares=[VolumeMiddleware],
     )
     return wsgi_app
 
