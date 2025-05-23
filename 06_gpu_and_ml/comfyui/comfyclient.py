@@ -4,11 +4,11 @@
 # ---
 
 import argparse
+import json
 import pathlib
 import sys
 import time
-
-import requests
+import urllib.request
 
 OUTPUT_DIR = pathlib.Path("/tmp/comfyui")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
@@ -16,25 +16,24 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 def main(args: argparse.Namespace):
     url = f"https://{args.modal_workspace}--example-comfyui-comfyui-api{'-dev' if args.dev else ''}.modal.run/"
-    data = {
-        "prompt": args.prompt,
-    }
-    print(f"Sending request to {url} with prompt: {data['prompt']}")
+    data = json.dumps({"prompt": args.prompt}).encode("utf-8")
+    print(f"Sending request to {url} with prompt: {args.prompt}")
     print("Waiting for response...")
     start_time = time.time()
-    res = requests.post(url, json=data)
-    if res.status_code == 200:
-        end_time = time.time()
-        print(
-            f"Image finished generating in {round(end_time - start_time, 1)} seconds!"
-        )
-        filename = OUTPUT_DIR / f"{slugify(args.prompt)}.png"
-        filename.write_bytes(res.content)
-        print(f"saved to '{filename}'")
-    else:
-        if res.status_code == 404:
+    req = urllib.request.Request(
+        url, data=data, headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(req) as response:
+            assert response.status == 200, response.status
+            elapsed = round(time.time() - start_time, 1)
+            print(f"Image finished generating in {elapsed} seconds!")
+            filename = OUTPUT_DIR / f"{slugify(args.prompt)}.png"
+            filename.write_bytes(response.read())
+            print(f"Saved to '{filename}'")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
             print(f"Workflow API not found at {url}")
-        res.raise_for_status()
 
 
 def parse_args(arglist: list[str]) -> argparse.Namespace:
