@@ -170,9 +170,8 @@ def parse_receipt(image: bytes) -> str:
 
 @app.local_entrypoint()
 def main(receipt_filename: Optional[str] = None):
+    import urllib.request
     from pathlib import Path
-
-    import requests
 
     if receipt_filename is None:
         receipt_filename = Path(__file__).parent / "receipt.png"
@@ -183,9 +182,9 @@ def main(receipt_filename: Optional[str] = None):
         image = receipt_filename.read_bytes()
         print(f"running OCR on {receipt_filename}")
     else:
-        receipt_url = (
-            "https://nwlc.org/wp-content/uploads/2022/01/Brandys-walmart-receipt-8.webp"
-        )
-        image = requests.get(receipt_url).content
+        receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
+        request = urllib.request.Request(receipt_url)
+        with urllib.request.urlopen(request) as response:
+            image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
     print(parse_receipt.remote(image))
