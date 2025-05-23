@@ -1,6 +1,5 @@
 # ---
-# deploy: true
-# lambda-test: false
+# lambda-test: false  # long-running
 # ---
 #
 # This script demonstrates ingestion of the [COCO](https://cocodataset.org/#download) (Common Objects in Context)

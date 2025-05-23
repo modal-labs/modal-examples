@@ -1,6 +1,5 @@
 # ---
-# deploy: true
-# lambda-test: false
+# lambda-test: false  # long-running
 # ---
 #
 # This scripts demonstrates how to ingest the famous ImageNet (https://www.image-net.org/)
