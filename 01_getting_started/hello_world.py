@@ -118,7 +118,7 @@ def main():
 # or [fine-tuning](https://modal.com/docs/examples/slack-finetune)
 # * Manipulating [audio](https://modal.com/docs/examples/musicgen)
 # or [images](https://modal.com/docs/examples/diffusers_lora_finetune)
-# * [Collecting financial data](https://modal.com/docs/examples/fetch_stock_prices) to backtest a trading algorithm
+# * [Embedding huge text datasets](https://modal.com/docs/examples/amazon_embeddings) at lightning fast speeds
 
 # Modal lets you parallelize that operation effortlessly by running hundreds or
 # thousands of containers in the cloud.

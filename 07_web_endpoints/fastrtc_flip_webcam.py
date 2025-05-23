@@ -1,6 +1,5 @@
 # ---
-# deploy: true
-# lambda-test: false
+# cmd: ["modal", "serve", "07_web_endpoints/fastrtc_flip_webcam.py"]
 # ---
 
 # # Run a FastRTC app on Modal

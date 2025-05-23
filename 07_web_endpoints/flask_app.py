@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# cmd: ["modal", "serve", "07_web_endpoints/flask_app.py"]
 # ---
 
 # # Deploy Flask app with Modal

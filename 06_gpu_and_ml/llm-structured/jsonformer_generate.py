@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# lambda-test: false  # deprecated
 # ---
 # # Structured output generation with Jsonformer
 #

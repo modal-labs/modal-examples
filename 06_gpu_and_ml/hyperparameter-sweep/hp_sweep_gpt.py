@@ -354,6 +354,26 @@ def main(
 # display the progress of our training across all 8 models. We'll use the latest
 # logs for the most recent experiment written to the Volume.
 
+# To ensure we have the latest data we add some
+# [WSGI Middleware](https://peps.python.org/pep-3333/)
+# that checks the Modal Volume for updates when the page is reloaded.
+
+
+class VolumeMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        if (route := environ.get("PATH_INFO")) in ["/", "/modal-volume-reload"]:
+            try:
+                volume.reload()
+            except Exception as e:
+                print("Exception while re-loading traces: ", e)
+            if route == "/modal-volume-reload":
+                environ["PATH_INFO"] = "/"  # redirect
+        return self.app(environ, start_response)
+
+
 # To ensure a unique color per experiment you can click the palette (🎨) icon
 # under TensorBoard > Time Series > Run and use the Regex:
 # `E(\d{4})-(\d{2})-(\d{2})-(\d{6})\.(\d{6})`
@@ -380,18 +400,6 @@ def main(
 @modal.concurrent(max_inputs=1000)
 @modal.wsgi_app()
 def monitor_training():
-    import time
-
-    print("📈 TensorBoard: Waiting for logs...")
-    ct = 0
-    while not tb_log_path.exists():
-        ct += 1
-        if ct > 10:
-            raise Exception("No logs found after 10 seconds.")
-        volume.reload()  # make sure we have the latest data.
-        time.sleep(1)
-
-    # start TensorBoard server looking at all experiments
     board = tensorboard.program.TensorBoard()
     board.configure(logdir=str(tb_log_path))
     (data_provider, deprecated_multiplexer) = board._make_data_provider()
@@ -401,6 +409,7 @@ def monitor_training():
         data_provider,
         board.assets_zip_provider,
         deprecated_multiplexer,
+        experimental_middlewares=[VolumeMiddleware],
     )
     return wsgi_app
 

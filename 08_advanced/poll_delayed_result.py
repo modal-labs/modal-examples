@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# cmd: ["modal", "serve", "08_advanced/poll_delayed_result.py"]
 # ---
 
 # # Polling for a delayed result on Modal
