@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-# ---
-# lambda-test: false
-# ---
-
 # # Syntax for making modal scripts executable
 
 # This example shows how you can add a shebang to a script that is meant to be invoked with `modal run`.
