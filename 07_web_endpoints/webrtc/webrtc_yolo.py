@@ -25,7 +25,7 @@
 # Once the peers have agreed on a configuration there's a brief pause... and then you're live.
 
 # <figure align="middle">
-#   <img src="https://modal-cdn.com/cdnbot/just_webrtcnhhr0n2h_412df868.webp" width="95%" />
+#   <img src="https://modal-cdn.com/cdnbot/just_webrtc-1oic3iems_a4a8e77c.webp" width="95%" />
 #   <figcaption>Your basic WebRTC app.</figcaption>
 # </figure>
 
@@ -47,7 +47,7 @@
 # This means that streaming may only just have just begun when our application logic has finished.
 
 # <figure align="middle">
-#     <img src="https://modal-cdn.com/cdnbot/sequence_diagramsyt1upmqk_bdb00440.webp" width="95%" />
+#     <img src="https://modal-cdn.com/cdnbot/flow_comparisong6iibzq3_638bdd84.webp" width="95%" />
 #     <figcaption>Modal's stateless autoscaling (left) and WebRTC's stateful signaling (right).</figcaption>
 # </figure>
 
@@ -64,7 +64,7 @@
 
 
 # <figure align="middle">
-#   <img src="https://modal-cdn.com/cdnbot/modal_webrtcwx3nrjhp_0f47e9ff.webp" width="95%" />
+#   <img src="https://modal-cdn.com/cdnbot/webrtc_with_modal-2horb680q_eab69b28.webp" width="95%" />
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
@@ -168,11 +168,13 @@ app = modal.App("example-yolo-webrtc")
     gpu="A100-40GB",
     volumes=cache,
     secrets=[modal.Secret.from_name("turn-credentials", environment_name="examples")],
-    region="us-west",  # set to your region
+    region="us-east",  # set to your region
+    min_containers=1,
+    buffer_containers=1,
 )
 @modal.concurrent(
-    target_inputs=3,
-    max_inputs=4,
+    target_inputs=2,
+    max_inputs=3,
 )
 class ObjDet(ModalWebRtcPeer):
     async def initialize(self):
