@@ -10,13 +10,13 @@
 
 # WebRTC (Web Real-Time Communication) is a protocol and API specification for real-time media streaming between peers.
 # What makes it so effective and different from other low latency web-based communications (e.g. WebSockets) is that its stack and API are purpose built for media streaming.
-# It's primarily designed for browser applications using the Javascript API, but [APIs exist for other languages](https://www.webrtc-developers.com/did-i-choose-the-right-webrtc-stack/).
+# It's primarily designed for browser applications using the JavaScript API, but [APIs exist for other languages](https://www.webrtc-developers.com/did-i-choose-the-right-webrtc-stack/).
 # We'll build our app using Python's [`aiortc`](https://aiortc.readthedocs.io/en/latest/) package.
 
 # A simple WebRTC app generally consists of three players:
 # 1. a peer that initiates the connection
 # 2. a peer that responds to the connection, and
-# 3. a server that passes messages between the two peers.
+# 3. a server that passes some initial messages between the two peers.
 
 # First, one peer initiates the connection by offering up a description of itself - its media sources, codec capabilities, IP information, etc - which is relayed to another peer through the server.
 # The other peer then either accepts the offer by providing a compatible description of its own capabilities or rejects it if no compatible configuration is possible.
@@ -35,7 +35,7 @@
 
 # ## Stateless signaling
 
-# Modal let's you turn your functions into scalable, GPU-powered cloud services.
+# Modal lets you turn your functions into scalable, GPU-powered cloud services.
 # When you call a Modal function, you get a GPU.
 # When you call 1000 Modal functions, you get 1000 GPUs.
 # When your functions return, you have 0 GPUs.
@@ -68,7 +68,7 @@
 #   <figcaption>Connecting with Modal using WebRTC.</figcaption>
 # </figure>
 
-# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcSignalingServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation datails.
+# We wrote two classes, `ModalWebRtcPeer` and `ModalWebRtcSignalingServer`, to abstract away all of that stuff as well as a lot of the `aiortc` implementation details.
 # They're also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
