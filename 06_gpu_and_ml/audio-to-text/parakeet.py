@@ -7,20 +7,17 @@
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the
 # top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
-# To run this example either:
+# To run this example, either:
 
-# - run the browser/microphone frontend, or
+# - Run the browser/microphone frontend. Modal handles the deployment of both the frontend and backend in a single app! You should see a browser window pop up - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
 # ```bash
 # modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
 # ```
-# - stream a .wav file from a URL (optional, default is "Dream Within a Dream" by Edgar Allan Poe).
+# - Or, stream a `.wav` file directly from a URL to run transcription from your terminal:
 # ```bash
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
-
-# See [Troubleshooting](https://modal.com/docs/examples/parakeet#client) at the bottom if you run into issues.
-
-# Here's what your final output might look like:
+# You should see output like the following in your terminal:
 
 # ```bash
 # 🌐 Downloading audio file...
@@ -28,7 +25,11 @@
 # ☀️ Waking up model, this may take a few seconds on cold start...
 # 📝 Transcription: A Dream Within A Dream Edgar Allan Poe
 # 📝 Transcription:
-# 📝 Transcription: take this kiss upon the brow, And in parting from you now, Thus much let me avow You are not wrong who deem That my days have been a dream.
+# 📝 Transcription: Take this kiss upon the brow,
+# 📝 Transcription: And in parting from you now,
+# 📝 Transcription: Thus much let me avow,
+# 📝 Transcription: You are not wrong who deem
+# 📝 Transcription: That my days have been a dream.
 # ...
 # ```
 
@@ -40,9 +41,8 @@ from pathlib import Path
 import modal
 
 os.environ["MODAL_LOGLEVEL"] = "INFO"
-app_name = "parakeet-websocket"
 
-app = modal.App(app_name)
+app = modal.App("example-parakeet-websocket")
 SILENCE_THRESHOLD = -45
 SILENCE_MIN_LENGTH_MSEC = 1000
 END_OF_STREAM = b"END_OF_STREAM"
@@ -101,6 +101,7 @@ image = (
 # - The `transcribe` method takes bytes of audio data, and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
 # [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
+# - The `run_with_queue` method takes a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) and passes audio data and transcriptions between our local machine and the GPU container.
 
 # Parakeet tries really hard to transcribe everything to English!
 # Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio.
@@ -275,9 +276,7 @@ def main(audio_url: str = AUDIO_URL):
 # Below are the three main functions that coordinate streaming audio and receiving transcriptions.
 #
 # `send_audio` transmits chunks of audio data and then pauses to approximate streaming
-# speech at a natural rate. That said, we set it to faster
-# than real-time to compensate for network latency. Plus, we're not
-# trying to wait forever for this to finish.
+# speech at a natural rate.
 
 
 async def send_audio(q, audio_bytes):
@@ -289,8 +288,7 @@ async def send_audio(q, audio_bytes):
     await q.put.aio(END_OF_STREAM, partition="audio")
 
 
-# `receive_transcriptions` is straightforward.
-# It just waits for a transcription and prints it after a small delay to avoid colliding with the print statements
+# `receive_transcriptions` waits for a transcription and prints it after a small delay to avoid colliding with the print statements
 # from the GPU container.
 
 
@@ -314,11 +312,6 @@ async def run(audio_bytes):
         receive_task = asyncio.create_task(receive_transcriptions(q))
         await asyncio.gather(send_task, receive_task)
 
-
-# ## Troubleshooting
-# - Make sure you have the latest version of the Modal CLI installed.
-# - The server takes a few seconds to start up on cold start. If your local client times out, try
-#   restarting the client.
 
 # ## Addenda
 # Helper functions for converting audio to Parakeet's input format and iterating over audio chunks.
