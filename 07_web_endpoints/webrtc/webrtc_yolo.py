@@ -22,7 +22,7 @@
 
 # WebRTC (Web Real-Time Communication) is an [IETF Internet protocol](https://www.rfc-editor.org/rfc/rfc8825) and a [W3C API specification](https://www.w3.org/TR/webrtc/) for real-time media streaming between peers
 # over internets or the World Wide Web.
-# What makes it so effective and different from other bidirectional web-based communication protocols (e.g. WebSockets) is that is purpose-built for media streaming in real time.
+# What makes it so effective and different from other bidirectional web-based communication protocols (e.g. WebSockets) is that it's purpose-built for media streaming in real time.
 # It's primarily designed for browser applications using the JavaScript API, but [APIs exist for other languages](https://www.webrtc-developers.com/did-i-choose-the-right-webrtc-stack/).
 # We'll build our app using Python's [`aiortc`](https://aiortc.readthedocs.io/en/latest/) package.
 
@@ -57,7 +57,7 @@
 # When your Functions all return, you spin down to 0 replicas.
 
 # The core constraints of the Modal programming model that make this possible are that Function Calls are stateless and self-contained.
-# In other words, correctly-written Modal Functions don't store information in memory between runs (though they might cache data to the ephemeral local disk for efficiency) and they don't need create processes or tasks which must continue to run after the Function Call returns in order for the application to be correct.
+# In other words, correctly-written Modal Functions don't store information in memory between runs (though they might cache data to the ephemeral local disk for efficiency) and they don't create processes or tasks which must continue to run after the Function Call returns in order for the application to be correct.
 
 # WebRTC apps, on the other hand, require passing messages back and forth in a multi-step protocol, and APIs spawn several "agents" (no, AI is not involved, just processes) which do work behind the scenes - including managing the peer-to-peer (P2P) connection itself.
 # This means that streaming may have only just begun when the application logic in our Function has finished.
@@ -92,8 +92,10 @@
 
 # ## Using `modal_webrtc` to detect objects in webcam footage
 
-# For our WebRTC app, we'll take a client's video stream, run a [YOLO](https://docs.ultralytics.com/tasks/detect/) object detector on it with an A100 GPU on Modal, and then stream the annotated video back to the client. Let's get started!
+# For our WebRTC app, we'll take a client's video stream, run a [YOLO](https://docs.ultralytics.com/tasks/detect/) object detector on it with an A100 GPU on Modal, and then stream the annotated video back to the client.
 # With this setup, we can achieve inference times between 2-4 milliseconds per frame and RTTs below video frame rates (usually around 30 milliseconds per frame).
+
+# Let's get started!
 
 # ### Setup
 
@@ -257,7 +259,7 @@ class ObjDet(ModalWebRtcPeer):
 # ### Implement a `SignalingServer`
 
 # The `ModalWebRtcSignalingServer` class is much simpler to implement.
-# The only thing we need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
+# The main thing we need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
 #
 # It also has an `initialize()` method we can optionally override (called at the beginning of the [container lifecycle](https://modal.com/docs/guides/lifecycle-functions))
 # as well as a `web_app` property which will be [served by Modal](https://modal.com/docs/guide/webhooks#asgi-apps---fastapi-fasthtml-starlette).
