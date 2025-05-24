@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false
+# lambda-test: false  # auxiliary-file
 # ---
 
 import asyncio
