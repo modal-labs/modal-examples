@@ -39,7 +39,7 @@
 
 # Once the peers have agreed on a configuration there's a brief pause to establish communication... and then you're live.
 
-# ![Basic WebRTC architecture](https://modal-cdn.com/cdnbot/just_webrtc-1oic3iems_a4a8e77c.webp)
+# ![Basic WebRTC architecture](https://modal-cdn.com/cdnbot/just_webrtcv373bmuh_3c485799.webp)
 # <small>A basic WebRTC app architecture</small>
 
 # Obviously there’s more going on under the hood.
@@ -69,7 +69,7 @@
 
 # The architecture we recommend for this appears below.
 
-# ![WebRTC on Modal](https://modal-cdn.com/cdnbot/webrtc_with_modal-2horb680q_eab69b28.webp)
+# ![WebRTC on Modal](https://modal-cdn.com/cdnbot/webrtc_with_modal-1ragtchzc_c9ff1149.webp)
 # <small>A clean architecture for WebRTC on Modal</small>
 
 # It handles passing messages between the client peer and the signaling server using a
