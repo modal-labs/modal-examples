@@ -168,4 +168,4 @@ def get_examples_json():
 
 if __name__ == "__main__":
     for example in get_examples():
-        print(example.json())
+        print(example.model_dump_json())

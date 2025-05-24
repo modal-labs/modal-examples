@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "serve", "07_web_endpoints/fastrtc_flip_webcam.py"]
+# deploy: true
 # ---
 
 # # Run a FastRTC app on Modal
@@ -7,7 +8,11 @@
 # [FastRTC](https://fastrtc.org/) is a Python library for real-time communication on the web.
 # This example demonstrates how to run a simple FastRTC app in the cloud on Modal.
 
-# In it, we stream webcam video from a browser to a container on Modal,
+# It's intended to help you get up and running with real-time streaming applications on Modal
+# as quickly as possible. If you're interested in running a production-grade WebRTC app on Modal,
+# see [this example](https://modal.com/docs/examples/webrtc_yolo).
+
+# In this example, we stream webcam video from a browser to a container on Modal,
 # where the video is flipped, annotated, and sent back with under 100ms of delay.
 # You can try it out [here](https://modal-labs-examples--fastrtc-flip-webcam-ui.modal.run/)
 # or just dive straight into the code to run it yourself.

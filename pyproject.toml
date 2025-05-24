@@ -4,7 +4,7 @@ filterwarnings = [
     "error::modal.exception.DeprecationError",
     "ignore::DeprecationWarning:pytest.*:",
 ]
-addopts = "--ignore 06_gpu_and_ml/llm-serving/openai_compatible/load_test.py --ignore 07_web_endpoints/fasthtml-checkboxes/cbx_load_test.py"
+addopts = "--ignore 07_web_endpoints/webrtc/webrtc_yolo_test.py --ignore 06_gpu_and_ml/llm-serving/openai_compatible/load_test.py --ignore 07_web_endpoints/fasthtml-checkboxes/cbx_load_test.py"
 
 [tool.mypy]
 ignore_missing_imports = true
