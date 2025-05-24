@@ -69,7 +69,7 @@
 
 # The architecture we recommend for this appears below.
 
-# ![WebRTC on Modal](https://modal-cdn.com/cdnbot/webrtc_with_modal-1ragtchzc_c9ff1149.webp)
+# ![WebRTC on Modal](https://modal-cdn.com/cdnbot/modal_webrtc-webrtc_with_modalymxvqrxv_1251c7db.webp)
 # <small>A clean architecture for WebRTC on Modal</small>
 
 # It handles passing messages between the client peer and the signaling server using a
