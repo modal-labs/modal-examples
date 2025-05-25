@@ -9,7 +9,7 @@
 
 # To run this example, either:
 
-# - Run the browser/microphone frontend. Modal handles the deployment of both the frontend and backend in a single app! You should see a browser window pop up - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
+# - Run the browser/microphone frontend. Modal handles the deployment of both the frontend and backend in a single app! Click on the link in your terminal to open the frontend in your browser - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
 # ```bash
 # modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
 # ```
@@ -27,9 +27,9 @@
 # 📝 Transcription:
 # 📝 Transcription: Take this kiss upon the brow,
 # 📝 Transcription: And in parting from you now,
-# 📝 Transcription: Thus much let me avow,
-# 📝 Transcription: You are not wrong who deem
-# 📝 Transcription: That my days have been a dream.
+# 📝 Transcription: Thus much let me avow You
+# 📝 Transcription: Are not wrong who deem That
+# 📝 Transcription: My days have been a dream.
 # ...
 # ```
 
@@ -298,7 +298,8 @@ async def receive_transcriptions(q):
         if message == END_OF_STREAM:
             break
         await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
-        print(f"📝 Transcription: {message}")
+
+        output_message_as_transcript(message)
 
 
 # We take full advantage of Modal's asynchronous capabilities here. In `run`, we spawn our function call
@@ -376,3 +377,27 @@ def preprocess_audio(audio_bytes: bytes) -> bytes:
 def chunk_audio(data: bytes, chunk_size: int):
     for i in range(0, len(data), chunk_size):
         yield data[i : i + chunk_size]
+
+
+def output_message_as_transcript(message: str):
+    words = message.strip().split()
+
+    # Group into 5–6 word chunks
+    chunks = []
+    chunk = []
+
+    for word in words:
+        chunk.append(word)
+        if len(chunk) >= 6:
+            chunks.append(" ".join(chunk))
+            chunk = []
+
+    if chunk:
+        chunks.append(" ".join(chunk))
+
+    # Capitalize first word in each chunk and print
+    for chunk in chunks:
+        # Capitalize the first letter of the first word
+        parts = chunk.split(" ", 1)
+        capitalized = parts[0].capitalize() + (" " + parts[1] if len(parts) > 1 else "")
+        print(f"📝 Transcription: {capitalized}")
