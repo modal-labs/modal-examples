@@ -309,14 +309,24 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # run once, on shutdown).
 
 
+container_config = {
+    "min_containers": 2,
+    # "max_containers": 2,
+    # "buffer_containers": 2,
+}
+
+
 @app.cls(
     image=infinity_image,
     volumes={vol_mnt: data_volume},
     cpu=4,
     memory=5 * 1024,  # MB -> GB
+    gpu="A10G",
+    allow_concurrent_inputs=2,
+    **container_config,
 )
 class InfinityEngine:
-    model_name: str = modal.parameter()
+    model_name: str = modal.parameter(default="openai/clip-vit-base-patch16")
     batch_size: int = modal.parameter(default=100)
     n_engines: int = modal.parameter(default=1)
     threads_per_core: int = modal.parameter(default=8)
@@ -446,7 +456,8 @@ class InfinityEngine:
 def main(
     # with_options parameters:
     gpu: str = "A10G",
-    max_containers: int = 50,
+    min_containers: int = 1,
+    max_containers: int = 50,  # warning: this gets overridden if buffer_containers not None
     allow_concurrent_inputs: int = 2,
     # modal.parameters:
     n_models: int = None,  # defaults to match `allow_concurrent_parameters`
@@ -483,17 +494,10 @@ def main(
 
     # (1) Init the model inference app
     # No inputs to with_options if none provided or buffer_used aboe
-    container_config = {"max_containers": max_containers}
+
     # Build the engine
     start_time = perf_counter()
-    embedder = InfinityEngine.with_options(
-        gpu=gpu, **container_config
-    ).with_concurrency(max_inputs=allow_concurrent_inputs)(
-        batch_size=batch_size,
-        n_engines=n_models if n_models else allow_concurrent_inputs,
-        model_name=model_name,
-    )
-
+    embedder = InfinityEngine()
     # (2) Embed batches via remote `map` call
     times, batchsizes = [], []
     for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):

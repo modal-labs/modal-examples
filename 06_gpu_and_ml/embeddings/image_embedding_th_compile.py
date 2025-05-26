@@ -4,6 +4,7 @@
 
 # TODO: deprecation warnings at the beginning??
 # TODO: add torch.inference_mode everywhere to both scripts...
+# TODO: remove all the bugger stuff
 
 # # A Recipe for Throughput Maximization: GPU Packing with torch.compile
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
@@ -23,9 +24,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from time import perf_counter
 from typing import Iterator
+from typing import Optional
 
 import modal
 
+traces = modal.Volume.from_name("example-traces", create_if_missing=True)
+TRACE_DIR = Path("/traces")
 # ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching,
 # by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
@@ -40,10 +44,8 @@ import modal
 # This tells Modal to pre-emptively warm a number of containers before they are strictly
 # needed. In other words it tells Modal to continuously fire up more and more containers
 # until throughput is saturated.
-buffer_containers: int = None  # 10
-# If you _don't_ want to use this, set `buffer_containers = None`. The rest of the parameters
-# are discussed by their implementation by the local_entrypoint.
 
+# buffer_containers: int = 1000  # (50,)
 
 # ## Dataset, Model, and Image Setup
 # This example uses HuggingFace to download data and models. We will use a high-performance
@@ -100,7 +102,7 @@ th_compile_image = (
 app = modal.App(
     "example-compiled-embedder",
     image=th_compile_image,
-    volumes={vol_mnt: data_volume},
+    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
     secrets=[hf_secret],
 )
 
@@ -128,7 +130,7 @@ with th_compile_image.imports():
 
 @app.function(
     image=th_compile_image,
-    volumes={vol_mnt: data_volume},
+    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
     timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
@@ -247,7 +249,6 @@ def catalog_jpegs(
     print(f"Found {n_ims} JPEGs in the Volume.", end="")
     if image_cap > 0:
         im_path_list = im_path_list[: min(image_cap, len(im_path_list))]
-    print(f"using {len(im_path_list)}.")
 
     # Time it
     ds_time_elapsed = perf_counter() - ds_preptime_st
@@ -280,17 +281,14 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # decorator ensures that this method is called once per container, on startup (and `exit` is
 # run once, on shutdown).
 
+
 # If buffer_containers is set, use it, otherwise rely on `with_options`.
-container_config = {"buffer_containers": buffer_containers} if buffer_containers else {}
-
-
 @app.cls(
     image=th_compile_image,
-    volumes={vol_mnt: data_volume},
-    timeout=5 * 60,  # 5min timeout for large models + batches
-    cpu=4,
-    memory=5 * 1024,  # MB -> GB
-    **container_config,
+    volumes={vol_mnt: data_volume},  # , TRACE_DIR: traces},
+    cpu=2.5,
+    memory=2.5 * 1024,  # MB -> GB
+    # buffer_containers=buffer_containers,
 )
 class TorchCompileEngine:
     model_name: str = modal.parameter()
@@ -301,6 +299,7 @@ class TorchCompileEngine:
     model_input_imwidth: int = modal.parameter(default=224)
     threads_per_core: int = modal.parameter(default=4)
     verbose_inference: bool = modal.parameter(default=False)
+    verbose_startup: bool = modal.parameter(default=False)
     # Cannot currently gracefully set ENV vars from local_entrypoint
     cache_dir: Path = TH_CACHE_DIR
     # For logging
@@ -311,6 +310,7 @@ class TorchCompileEngine:
         Have to manually turn this on for torch.compile.
         """
         major, minor = torch.cuda.get_device_capability(torch.cuda.current_device())
+        torch.set_grad_enabled(False)
         if major > 8:
             torch.set_float32_matmul_precision("high")
 
@@ -410,7 +410,7 @@ class TorchCompileEngine:
             msg += f"\n\tmodel{idx} | load+compile{tmp} time: {elapsed:.2E}"
 
         # Log to std out; you could instead write to a modal.Volume
-        if msg:
+        if self.verbose_startup and msg:
             print(msg)
 
     def read_batch(
@@ -446,15 +446,18 @@ class TorchCompileEngine:
 
         NOTE: we throw away the embeddings here; you probably want to return
         them or save them directly to a modal.Volume.
+
+        TODO: do image loading first before awaiting queue
         """
-        # (0) Grab an engine from the queue
-        engine = await self.engine_queue.get()
 
         try:
             # (1) Load batch of image data
             st = perf_counter()
-            images = self.read_batch(images, engine.device)
+            images = self.read_batch(images, "cuda:0")
             batch_elapsed = perf_counter() - st
+
+            # (0) Grab an engine from the queue
+            engine = await self.engine_queue.get()
 
             # (2) Encode the batch
             st = perf_counter()
@@ -487,7 +490,10 @@ class TorchCompileEngine:
 # containers (for measuring startup times).
 
 
-@app.function(image=th_compile_image, volumes={vol_mnt: data_volume})
+@app.function(
+    image=th_compile_image,
+    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+)
 def destroy_th_compile_cache():
     """
     For timing purposes: deletes torch compile cache dir.
@@ -533,24 +539,27 @@ def destroy_th_compile_cache():
 # * `model_input_imheight`: the number of pixels tall your model is expecting the images to be
 # * `model_input_imwidth`: the number of color channels your model is expecting (probably 3)
 #
+# @app.function(
+#     image=th_compile_image,
+#     volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+# )
 @app.local_entrypoint()
 def main(
     # with_options parameters:
-    gpu: str = "A10G",
-    max_containers: int = 50,  # this gets overridden if buffer_containers is not None
-    allow_concurrent_inputs: int = 1,
+    gpu: str = "any",
+    max_containers: int = None,  # this gets overridden if buffer_containers is not None
+    allow_concurrent_inputs: int = 4,
     # modal.parameters:
-    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
-    threads_per_core: int = 8,
-    batch_size: int = 32,
-    model_name: str = "openai/clip-vit-base-patch16",  # 599 MB
-    model_input_chan: int = 3,
-    model_input_imheight: int = 224,
-    model_input_imwidth: int = 224,
+    n_models: int = 3,  # defaults to match `allow_concurrent_parameters`
+    model_name: str = "openai/clip-vit-base-patch16",
+    batch_size: int = 512,
+    im_chan: int = 3,
+    im_height: int = 224,
+    im_width: int = 224,
     # data
     image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
-    million_image_test: bool = False,
+    n_million_image_test: float = 0,
     # torch.compile cache
     destroy_cache: bool = False,
     # logging (optional)
@@ -564,63 +573,63 @@ def main(
         dataset_namespace=hf_dataset_name,
         cache_dir=extracted_path,
         image_cap=image_cap,
-        model_input_shape=(model_input_chan, model_input_imheight, model_input_imwidth),
+        model_input_shape=(im_chan, im_height, im_width),
     )
     print(f"Took {vol_setup_time:.2f}s to setup volume.")
-    if million_image_test:
-        print("WARNING: `million_image_test` FLAG RECEIVED!")
-        mil = int(1e6)
+    if n_million_image_test > 0:
+        print(f"WARNING: `{n_million_image_test} million_image_test` FLAG RECEIVED!")
+        mil = int(n_million_image_test * 1e6)
         while len(im_path_list) < mil:
             im_path_list += im_path_list
         im_path_list = im_path_list[:mil]
-        # batch_size = 128
     n_ims = len(im_path_list)
-
+    print(f"Embedding {n_ims} images at batchsize {batch_size}.")
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
     if destroy_cache:
         destroy_th_compile_cache.remote()
 
     # (1.a) Init the model inference app
     # No inputs to with_options if none provided or buffer_used aboe
-    make_empty = (buffer_containers is not None) or (max_containers is None)
-    container_config = {} if make_empty else {"max_containers": max_containers}
+    container_config = {"max_containers": max_containers} if max_containers else {}
     # Build the engine
     start_time = perf_counter()
-    embedder = TorchCompileEngine.with_options(
-        gpu=gpu, allow_concurrent_inputs=allow_concurrent_inputs, **container_config
-    )(
+    embedder = TorchCompileEngine.with_concurrency(
+        max_inputs=allow_concurrent_inputs
+    ).with_options(gpu=gpu, **container_config)(
         batch_size=batch_size,
         n_engines=n_models if n_models else allow_concurrent_inputs,
         model_name=model_name,
-        model_input_chan=model_input_chan,
-        model_input_imheight=model_input_imheight,
-        model_input_imwidth=model_input_imwidth,
-        threads_per_core=threads_per_core,
+        model_input_chan=im_chan,
+        model_input_imheight=im_height,
+        model_input_imwidth=im_width,
+        threads_per_core=8,
+        verbose_inference=False,
     )
 
     # (2) Embed batches via remote `map` call
-    times, batchsizes = [1], [1]
-    embedder.embed.spawn_map(chunked(im_path_list, batch_size))
-    # for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
-    #     times.append(time)
-    #     batchsizes.append(batchsize)
+    times, batchsizes = [], []
+    # embedder.embed.spawn_map(chunked(im_path_list, batch_size))
+    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
+        times.append(time)
+        batchsizes.append(batchsize)
 
     # (3) Log
     if n_ims > 0:
         total_duration = perf_counter() - start_time
         total_throughput = n_ims / total_duration
-        embed_throughputs = [
-            batchsize / time for batchsize, time in zip(batchsizes, times)
-        ]
-        avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
 
         log_msg = (
             f"{embedder.name}{gpu}::batch_size={batch_size}::"
             f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
-            f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
         )
+        if times:
+            embed_throughputs = [
+                batchsize / time for batchsize, time in zip(batchsizes, times)
+            ]
+            avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
+            log_msg += f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
 
         print(log_msg)
 
@@ -660,3 +669,106 @@ def main(
                         avg_throughput,
                     ]
                 )
+
+
+# @app.function(
+#     image=th_compile_image,
+#     volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+# )
+# def profile(
+#     function,
+#     label: Optional[str] = None,
+#     steps: int = 3,
+#     schedule=None,
+#     record_shapes: bool = False,
+#     profile_memory: bool = False,
+#     with_stack: bool = False,
+#     print_rows: int = 0,
+#     **kwargs,
+# ):
+#     from uuid import uuid4
+
+#     if isinstance(function, str):
+#         try:
+#             function = app.registered_functions[function]
+#         except KeyError:
+#             raise ValueError(f"Function {function} not found")
+#     function_name = function.tag
+
+#     output_dir = (
+#         TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
+#     )
+#     output_dir.mkdir(parents=True, exist_ok=True)
+
+#     if schedule is None:
+#         if steps < 3:
+#             raise ValueError("Steps must be at least 3 when using default schedule")
+#         schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
+
+#     schedule = torch.profiler.schedule(**schedule)
+
+#     with torch.profiler.profile(
+#         activities=[
+#             torch.profiler.ProfilerActivity.CPU,
+#             torch.profiler.ProfilerActivity.CUDA,
+#         ],
+#         schedule=schedule,
+#         record_shapes=record_shapes,
+#         profile_memory=profile_memory,
+#         with_stack=with_stack,
+#         on_trace_ready=torch.profiler.tensorboard_trace_handler(output_dir),
+#     ) as prof:
+#         for _ in range(steps):
+#             function.local(**kwargs)  # <-- here we wrap the target Function
+#             prof.step()
+
+#     if print_rows:
+#         print(
+#             prof.key_averages().table(sort_by="cuda_time_total", row_limit=print_rows)
+#         )
+
+#     trace_path = sorted(
+#         output_dir.glob("**/*.pt.trace.json"),
+#         key=lambda pth: pth.stat().st_mtime,
+#         reverse=True,
+#     )[0]
+
+#     print(f"trace saved to {trace_path.relative_to(TRACE_DIR)}")
+
+#     return trace_path.read_text(), trace_path.relative_to(TRACE_DIR)
+
+
+# @app.local_entrypoint()
+# def main2(
+#     function: str = "main",
+#     label: Optional[str] = None,
+#     steps: int = 3,
+#     schedule=None,
+#     record_shapes: bool = False,
+#     profile_memory: bool = False,
+#     with_stack: bool = False,
+#     print_rows: int = 10,
+#     kwargs_json_path: Optional[str] = None,
+# ):
+#     if kwargs_json_path is not None:  # use to pass arguments to function
+#         import json
+
+#         kwargs = json.loads(Path(kwargs_json_path).read_text())
+#     else:
+#         kwargs = {}
+
+#     results, remote_path = profile.remote(
+#         function,
+#         label=label,
+#         steps=steps,
+#         schedule=schedule,
+#         record_shapes=record_shapes,
+#         profile_memory=profile_memory,
+#         with_stack=with_stack,
+#         print_rows=print_rows,
+#         **kwargs,
+#     )
+
+#     output_path = Path("/tmp") / remote_path.name
+#     output_path.write_text(results)
+#     print(f"trace saved locally at {output_path}")
