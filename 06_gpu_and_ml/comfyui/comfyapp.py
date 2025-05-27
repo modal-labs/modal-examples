@@ -23,7 +23,7 @@
 # python 06_gpu_and_ml/comfyui/comfyclient.py --modal-workspace $(modal profile current) --prompt "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"
 # ```
 
-# ![example comfyui image](./flux_gen_image.jpeg)
+# ![example comfyui image](https://modal-cdn.com/cdnbot/flux_gen_imagesenr_0w3_209b7170.webp)
 
 # The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive calls on a warm container should take a few seconds.
 
@@ -64,12 +64,6 @@ image = (
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
 
-# We'll also add our own custom node that patches core ComfyUI so that we can use Modal's [memory snapshot](https://modal.com/docs/guide/memory-snapshot) feature to speed up cold starts (more on that on [running as an API](https://modal.com/docs/examples/comfyapp#running-comfyui-as-an-api)).
-image = image.add_local_dir(
-    local_path=Path(__file__).parent / "memory_snapshot_helper",
-    remote_path="/root/comfy/ComfyUI/custom_nodes/memory_snapshot_helper",
-    copy=True,
-)
 # See [this post](https://modal.com/blog/comfyui-custom-nodes) for more examples
 # on how to install popular custom nodes like ComfyUI Impact Pack and ComfyUI IPAdapter Plus.
 
@@ -164,28 +158,16 @@ def ui():
     scaledown_window=300,  # 5 minute container keep alive after it processes an input
     gpu="L40S",
     volumes={"/cache": vol},
-    enable_memory_snapshot=True,  # snapshot container state for faster cold starts
 )
 @modal.concurrent(max_inputs=5)  # run 5 inputs per container
 class ComfyUI:
     port: int = 8000
 
-    @modal.enter(snap=True)
+    @modal.enter()
     def launch_comfy_background(self):
+        # launch the ComfyUI server exactly once when the container starts
         cmd = f"comfy launch --background -- --port {self.port}"
         subprocess.run(cmd, shell=True, check=True)
-
-    @modal.enter(snap=False)
-    def restore_snapshot(self):
-        # initialize GPU for ComfyUI after snapshot restore
-        # note: requires patching core ComfyUI, see the memory_snapshot_helper directory for more details
-        import requests
-
-        response = requests.post(f"http://127.0.0.1:{self.port}/cuda/set_device")
-        if response.status_code != 200:
-            print("Failed to set CUDA device")
-        else:
-            print("Successfully set CUDA device")
 
     @modal.method()
     def infer(self, workflow_path: str = "/root/workflow_api.json"):
@@ -256,10 +238,10 @@ class ComfyUI:
 
 # This serves the `workflow_api.json` in this repo. When deploying your own workflows, make sure you select the "Export (API)" option in the ComfyUI menu:
 
-# ![comfyui menu](./comfyui_menu.jpeg)
+# ![comfyui menu](https://modal-cdn.com/cdnbot/comfyui_menugo5j8ahx_27d72c45.webp)
 
 # ## More resources
-# - [Alternative approach](https://modal.com/blog/comfyui-mem-snapshots) for deploying ComfyUI with memory snapshots
+# - Use [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to speed up cold starts (check out the `memory_snapshot` directory on [Github](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/comfyui))
 # - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
 
 # - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
