@@ -23,7 +23,7 @@
 # python 06_gpu_and_ml/comfyui/comfyclient.py --modal-workspace $(modal profile current) --prompt "Surreal dreamscape with floating islands, upside-down waterfalls, and impossible geometric structures, all bathed in a soft, ethereal light"
 # ```
 
-# ![example comfyui image](./flux_gen_image.jpeg)
+# ![example comfyui image](https://modal-cdn.com/cdnbot/flux_gen_imagesenr_0w3_209b7170.webp)
 
 # The first inference will take ~1m since the container needs to launch the ComfyUI server and load Flux into memory. Successive calls on a warm container should take a few seconds.
 
@@ -238,7 +238,7 @@ class ComfyUI:
 
 # This serves the `workflow_api.json` in this repo. When deploying your own workflows, make sure you select the "Export (API)" option in the ComfyUI menu:
 
-# ![comfyui menu](./comfyui_menu.jpeg)
+# ![comfyui menu](https://modal-cdn.com/cdnbot/comfyui_menugo5j8ahx_27d72c45.webp)
 
 # ## More resources
 # - Use [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to speed up cold starts (check out the `memory_snapshot` directory on [Github](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/comfyui))
