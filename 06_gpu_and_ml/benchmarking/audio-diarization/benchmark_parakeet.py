@@ -1,6 +1,3 @@
-import time
-from pathlib import Path
-
 import modal
 from common import app, dataset_volume, model_cache
 from utils import write_results
@@ -51,6 +48,8 @@ class Parakeet:
     @modal.method()
     def run(self, file: str) -> tuple[str, str, float, float]:
         import librosa
+        import time
+        from pathlib import Path
 
         # Convert string back to Path for local usage
         file_path = Path(file)
@@ -70,6 +69,8 @@ class Parakeet:
 
 @app.local_entrypoint()
 def benchmark_parakeet():
+    from pathlib import Path
+
     parakeet = Parakeet()
     # Convert paths to strings for serialization
     files = [

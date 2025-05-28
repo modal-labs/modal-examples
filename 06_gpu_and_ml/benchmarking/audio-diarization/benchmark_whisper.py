@@ -1,6 +1,3 @@
-import time
-from pathlib import Path
-
 import modal
 from common import app, dataset_volume, model_cache
 from utils import write_results
@@ -49,6 +46,9 @@ class Whisper:
 
     @modal.method()
     def run(self, file: str):
+        import time
+        from pathlib import Path
+
         # Convert string back to Path for local usage
         file_path = Path(file)
 
@@ -86,6 +86,8 @@ class Whisper:
 
 @app.local_entrypoint()
 def benchmark_whisper():
+    from pathlib import Path
+
     whisper_instance = Whisper()
     # Convert paths to strings for serialization
     files = [

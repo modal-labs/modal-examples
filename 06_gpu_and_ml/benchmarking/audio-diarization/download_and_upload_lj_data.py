@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false  # close to timeout
+# ---
+
 import modal
 from common import app, dataset_volume
 
