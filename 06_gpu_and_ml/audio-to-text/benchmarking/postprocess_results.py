@@ -1,9 +1,9 @@
 import modal
-from common import app, dataset_volume
+from common import DATASET_VOLUME_NAME, app, dataset_volume
 
 image = (
     modal.Image.debian_slim()
-    .pip_install("pandas", "matplotlib")
+    .pip_install("pandas==2.2.3", "matplotlib==3.10.3")
     .add_local_python_source("common")
 )
 
@@ -22,9 +22,13 @@ def postprocess_results():
     import matplotlib.pyplot as plt
     import pandas as pd
 
+    # Set up remote paths
     result_dir = Path("/data/results")
     timestamp = int(time.time())
     output_dir = Path(f"/data/analysis/{timestamp}")
+    output_dir.parents[0].mkdir(
+        exist_ok=True
+    )  # Create /data/analysis if it doesn't exist
     output_dir.mkdir(exist_ok=True)
 
     def get_latest_files(result_dir):
@@ -114,6 +118,11 @@ def postprocess_results():
                     color="black",
                 )
 
+        def save_plot(name):
+            plt.tight_layout()
+            plt.savefig(output_dir / f"{name}.png")
+            plt.close()
+
         # --- Time per second of audio ---
         plt.figure(figsize=(10, 5))
         df.boxplot(column="time_per_second", by="model")
@@ -124,8 +133,7 @@ def postprocess_results():
             "transcription_time"
         ]
         add_median_labels(ax1, "transcription_time")
-        plt.tight_layout()
-        plt.savefig(output_dir / "time_per_second_boxplot.png")
+        save_plot("time_per_second_boxplot")
 
         # --- Raw transcription time ---
         plt.figure(figsize=(10, 5))
@@ -137,8 +145,7 @@ def postprocess_results():
             "transcription_time"
         ]
         add_median_labels(ax1, "transcription_time")
-        plt.tight_layout()
-        plt.savefig(output_dir / "transcription_time_boxplot.png")
+        save_plot("transcription_time_boxplot")
 
         # --- Cost per token ---
         plt.figure(figsize=(10, 5))
@@ -150,8 +157,7 @@ def postprocess_results():
             "cost_per_token_usd"
         ]
         add_median_labels(ax1, "cost_per_token_usd")
-        plt.tight_layout()
-        plt.savefig(output_dir / "cost_per_token_boxplot.png")
+        save_plot("cost_per_token_boxplot")
 
         # --- Cost per second of audio ---
         plt.figure(figsize=(10, 5))
@@ -163,8 +169,7 @@ def postprocess_results():
             column="cost_per_audio_second_usd", by="model", return_type="axes"
         )["cost_per_audio_second_usd"]
         add_median_labels(ax1, "cost_per_audio_second_usd")
-        plt.tight_layout()
-        plt.savefig(output_dir / "cost_per_audio_second_boxplot.png")
+        save_plot("cost_per_audio_second_boxplot")
 
     # Run pipeline
     latest_files = get_latest_files(result_dir)
@@ -173,6 +178,16 @@ def postprocess_results():
     print(f"Total entries found: {len(df)}")
     stats = compute_statistics(df)
 
+    # Save stats to both locations
     stats.to_csv(output_dir / "transcription_stats.csv")
+
+    # Generate plots in both locations
     plot_metrics(df, output_dir)
-    print(f"✅ Analysis complete. Results saved to {output_dir}")
+
+    print("✅ Analysis complete. Results saved to:")
+    print(f"  - Modal volume {DATASET_VOLUME_NAME}: {output_dir}")
+
+    # Also save the raw data for reference
+    df.to_csv(output_dir / "raw_data.csv")
+
+    return str(output_dir)

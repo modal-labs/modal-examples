@@ -1,3 +1,4 @@
+## Benchmarking Audio-to-Text Models - Parakeet, Whisper and WhisperX
 import asyncio
 
 from benchmark_parakeet import Parakeet
@@ -14,6 +15,7 @@ from download_and_upload_lj_data import (
     download_and_upload_lj_data,
     upload_lj_data_subset,
 )
+from parse_token_counts import upload_token_counts
 from postprocess_results import postprocess_results
 from prepare_and_upload_data import process_wav_files
 from utils import print_error, print_header, write_results
@@ -62,16 +64,17 @@ async def main():
             )
 
     # Process data
-    print_header("🔄 Processing data...")
+    print_header("🔄 Processing wav files into appropriate format...")
     process_wav_files.remote()
 
-    # print_header("✨ Parsing metadata to retrieve token counts...")
-    # upload_token_counts.remote()
+    # TODO: This should be in the process data step, will add in next PR
+    print_header("✨ Parsing metadata to retrieve token counts...")
+    upload_token_counts.remote()
 
     print_header("⚡️ Benchmarking all models in parallel...")
     files = [
         str(Path("/data") / Path(f.path)) for f in dataset_volume.listdir("/processed")
-    ][:2]
+    ]
     print(f"Found {len(files)} files to benchmark")
     tasks = [
         asyncio.get_event_loop().run_in_executor(
