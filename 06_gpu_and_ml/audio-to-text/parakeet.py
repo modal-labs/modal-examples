@@ -1,66 +1,73 @@
-# # Real time audio transcription using Parakeet 🦜
+# # Real-time audio transcription using Parakeet
 
-# [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
-# We'll show you how to use Parakeet for real-time audio transcription,
-# with a simple Python client and a GPU server you can spin up easily in Modal.
+# This examples demonstrates the use of Parakeet ASR models for real-time speech-to-text on Modal.
 
-# This example uses the `nvidia/parakeet-tdt-0.6b-v2` model, which, as of May 13, 2025, sits at the
-# top of Hugging Face's [ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+# [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet)
+# is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
+# We'll show you how to use Parakeet for real-time audio transcription on Modal GPUs,
+# with simple Python and browser clients.
 
-# To run this example, either:
+# This example uses the `nvidia/parakeet-tdt-0.6b-v2` model which, as of June 2025, sits at the
+# top of Hugging Face's [Open ASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
-# - Run the browser/microphone frontend. Modal handles the deployment of both the frontend and backend in a single app! Click on the link in your terminal to open the frontend in your browser - make sure you allow access to your microphone. The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
-# ```bash
-# modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
-# ```
-# - Or, stream a `.wav` file directly from a URL to run transcription from your terminal:
+# To try out transcription from your terminal,
+# provide a URL for a `.wav` file to `modal run`:
+
 # ```bash
 # modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
-# You should see output like the following in your terminal:
+
+# You should see output like the following:
 
 # ```bash
-# 🌐 Downloading audio file...
-# 🎧 Downloaded 6331478 bytes
-# ☀️ Waking up model, this may take a few seconds on cold start...
-# 📝 Transcription: A Dream Within A Dream Edgar Allan Poe
-# 📝 Transcription:
-# 📝 Transcription: Take this kiss upon the brow,
-# 📝 Transcription: And in parting from you now,
-# 📝 Transcription: Thus much let me avow You
-# 📝 Transcription: Are not wrong who deem That
-# 📝 Transcription: My days have been a dream.
+# 🎤 Starting Transcription
+# A Dream Within A Dream Edgar Allan Poe
+# take this kiss upon the brow, And in parting from you now, Thus much let me avow You are not wrong who deem That my days have been a dream.
 # ...
 # ```
 
+# Running a web service you can hit from any browser isn't any harder -- Modal handles the deployment of both the frontend and backend in a single App!
+# Just run
+
+# ```bash
+# modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
+# ```
+
+# and go to the link printed in your terminal.
+
+# The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
+
 # ## Setup
+
 import asyncio
 import os
+import sys
 from pathlib import Path
 
 import modal
 
-os.environ["MODAL_LOGLEVEL"] = "INFO"
+app = modal.App("example-parakeet")
 
-app = modal.App("example-parakeet-websocket")
-SILENCE_THRESHOLD = -45
-SILENCE_MIN_LENGTH_MSEC = 1000
-END_OF_STREAM = b"END_OF_STREAM"
 # ## Volume for caching model weights
+
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache the model weights.
 # This allows us to avoid downloading the model weights every time we start a new instance.
 
-model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
-# ## Configuring dependencies
-# The model runs remotely inside a [custom container](https://modal.com/docs/guide/custom-container). We can define the environment
-# and install our Python dependencies in that container's `Image`.
+# For more on storing models on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
-# For inference, we recommend using the official NVIDIA CUDA Docker images from Docker Hub.
+model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
+
+# ## Configuring dependencies
+
+# The model runs remotely inside a container on Modal. We can define the environment
+# and install our Python dependencies in that container's [`Image`](https://modal.com/docs/guide/images).
+
+# For finicky setups like NeMO's, we recommend using the official NVIDIA CUDA Docker images from Docker Hub.
 # You'll need to install Python and pip with the `add_python` option because the image
 # doesn't have these by default.
 
 # Additionally, we install `ffmpeg` for handling audio data and `fastapi` to create a web
-# server for our websocket.
+# server for our WebSocket.
 
 image = (
     modal.Image.from_registry(
@@ -82,31 +89,35 @@ image = (
         "nemo_toolkit[asr]==2.3.0",
         "cuda-python==12.8.0",
         "fastapi==0.115.12",
-        "numpy==1.26.4",  # downgrading numpy to avoid issues with CUDA
+        "numpy<2",
         "pydub==0.25.1",
     )
-    .entrypoint([])
-    .add_local_dir(
-        os.path.join(Path(__file__).parent.resolve(), "frontend"),
+    .entrypoint([])  # silence chatty logs by container on start
+    .add_local_dir(  # changes fastest, so make this the last layer
+        Path(__file__).parent / "frontend",
         remote_path="/frontend",
     )
 )
 
 # ## Implementing real-time audio transcription on Modal
 
-# Now we're ready to implement the transcription model. We wrap inference in a [modal.Cls](https://modal.com/docs/guide/lifecycle-functions) that
-# ensures models are loaded and then moved to the GPU once when a new container starts. Couple of notes:
+# Now we're ready to implement transcription. We wrap inference in a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions) that
+# ensures models are loaded and then moved to the GPU once when a new container starts.
 
-# - The `load` method loads the model at start, instead of during inference, using [`modal.enter()`](https://modal.com/docs/reference/modal.enter#modalenter).
-# - The `transcribe` method takes bytes of audio data, and returns the transcribed text.
+# A couples of notes about this code:
+# - The `transcribe` method takes bytes of audio data and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
 # [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
 # - The `run_with_queue` method takes a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) and passes audio data and transcriptions between our local machine and the GPU container.
 
 # Parakeet tries really hard to transcribe everything to English!
 # Hence it tends to output utterances like "Yeah" or "Mm-hmm" when it runs on silent audio.
-# We can pre-process the incoming audio in the server by using `pydub`'s silence detection,
-# ensuring that we only pass audio with speech to our model.
+# We pre-process the incoming audio in the server using `pydub`'s silence detection,
+# ensuring that we don't pass silence into our model.
+
+END_OF_STREAM = (
+    b"END_OF_STREAM_8f13d09"  # byte sequence indicating a stream is finished
+)
 
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
@@ -140,7 +151,7 @@ class Parakeet:
         async def status():
             return Response(status_code=200)
 
-        # server frontend
+        # serve frontend
         @web_app.get("/")
         async def index():
             return HTMLResponse(content=open("/frontend/index.html").read())
@@ -202,7 +213,13 @@ class Parakeet:
             print(f"Error handling queue: {type(e)}: {e}")
             return
 
-    async def handle_audio_chunk(self, chunk: bytes, audio_segment):
+    async def handle_audio_chunk(
+        self,
+        chunk: bytes,
+        audio_segment,
+        silence_thresh=-45,  # dB
+        min_silence_len=1000,  # ms
+    ):
         from pydub import AudioSegment, silence
 
         new_audio_segment = AudioSegment(
