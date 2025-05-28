@@ -236,111 +236,103 @@ class Parakeet:
             sample_width=2,
             frame_rate=TARGET_SAMPLE_RATE,
         )
+
         # append the new audio segment to the existing audio segment
         audio_segment += new_audio_segment
 
+        # detect windows of silence
         silent_windows = silence.detect_silence(
             audio_segment,
-            min_silence_len=SILENCE_MIN_LENGTH_MSEC,
-            silence_thresh=SILENCE_THRESHOLD,
+            min_silence_len=min_silence_len,
+            silence_thresh=silence_thresh,
         )
 
         # if there are no silent windows, continue
         if len(silent_windows) == 0:
             return audio_segment, None
+
         # get the last silent window because
         # we want to transcribe until the final pause
         last_window = silent_windows[-1]
+
         # if the entire audio segment is silent, reset the audio segment
         if last_window[0] == 0 and last_window[1] == len(audio_segment):
             audio_segment = AudioSegment.empty()
             return audio_segment, None
+
         # get the segment to transcribe: beginning until last pause
         segment_to_transcribe = audio_segment[: last_window[1]]
+
         # remove the segment to transcribe from the audio segment
         audio_segment = audio_segment[last_window[1] :]
         try:
-            text = await self.transcribe(segment_to_transcribe.raw_data)
+            text = self.transcribe(segment_to_transcribe.raw_data)
             return audio_segment, text
         except Exception as e:
             print("❌ Transcription error:", e)
             raise e
 
 
-# ## Client
-# Next, let's test the model with a [`local_entrypoint`](https://modal.com/docs/reference/modal.App#local_entrypoint) that streams audio data to the server and prints
-# out the transcriptions to our terminal in real-time.
+# ## Running transcription from a local Python client
 
-# Instead of using the WebSocket endpoint like the frontend,
+# Next, let's test the model with a [`local_entrypoint`](https://modal.com/docs/reference/modal.App#local_entrypoint) that streams audio data to the server and prints
+# out the transcriptions to our terminal as they arrive.
+
+# Instead of using the WebSocket endpoint like the browser frontend,
 # we'll use a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue)
 # to pass audio data and transcriptions between our local machine and the GPU container.
 
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
-TARGET_SAMPLE_RATE = 16000
-CHUNK_SIZE = 16000  # send one second of audio at a time
+TARGET_SAMPLE_RATE = 16_000
+CHUNK_SIZE = 16_000  # send one second of audio at a time
 
 
 @app.local_entrypoint()
-def main(audio_url: str = AUDIO_URL):
+async def main(audio_url: str = AUDIO_URL):
     from urllib.request import urlopen
 
-    print("🌐 Downloading audio file...")
+    print(f"🌐 Downloading audio file from {audio_url}")
     audio_bytes = urlopen(audio_url).read()
     print(f"🎧 Downloaded {len(audio_bytes)} bytes")
 
     audio_data = preprocess_audio(audio_bytes)
 
-    print("☀️ Waking up model, this may take a few seconds on cold start...")
-    try:
-        asyncio.run(run(audio_data))
-        print("✅ Transcription complete!")
-    except KeyboardInterrupt:
-        print("\n🛑 Stopped by user.")
+    print("🎤 Starting Transcription")
+    with modal.Queue.ephemeral() as q:
+        Parakeet().run_with_queue.spawn(q)
+        send = asyncio.create_task(send_audio(q, audio_data))
+        recv = asyncio.create_task(receive_text(q))
+        await asyncio.gather(send, recv)
+    print("✅ Transcription complete!")
 
 
-# Below are the three main functions that coordinate streaming audio and receiving transcriptions.
-#
-# `send_audio` transmits chunks of audio data and then pauses to approximate streaming
-# speech at a natural rate.
+# Below are the two functions that coordinate streaming audio and receiving transcriptions.
+
+# `send_audio` transmits chunks of audio data with a slight delay,
+# as though it was being streamed from a live source, like a microphone.
+# `receive_text` waits for transcribed text to arrive and prints it.
 
 
 async def send_audio(q, audio_bytes):
     for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
         await q.put.aio(chunk, partition="audio")
-        await asyncio.sleep(
-            CHUNK_SIZE / TARGET_SAMPLE_RATE / 8
-        )  # simulate real-time pacing
+        await asyncio.sleep(CHUNK_SIZE / TARGET_SAMPLE_RATE / 8)
     await q.put.aio(END_OF_STREAM, partition="audio")
 
 
-# `receive_transcriptions` waits for a transcription and prints it after a small delay to avoid colliding with the print statements
-# from the GPU container.
-
-
-async def receive_transcriptions(q):
+async def receive_text(q):
     while True:
         message = await q.get.aio(partition="transcription")
         if message == END_OF_STREAM:
             break
-        await asyncio.sleep(1.00)  # add a delay to avoid stdout collision
 
-        output_message_as_transcript(message)
-
-
-# We take full advantage of Modal's asynchronous capabilities here. In `run`, we spawn our function call
-# so it doesn't block, and then we create and wait on the send and receive tasks.
-
-
-async def run(audio_bytes):
-    with modal.Queue.ephemeral() as q:
-        Parakeet().run_with_queue.spawn(q)
-        send_task = asyncio.create_task(send_audio(q, audio_bytes))
-        receive_task = asyncio.create_task(receive_transcriptions(q))
-        await asyncio.gather(send_task, receive_task)
+        print(message)
 
 
 # ## Addenda
-# Helper functions for converting audio to Parakeet's input format and iterating over audio chunks.
+
+# The remainder of the code in this example is boilerplate,
+# mostly for handling Parakeet's input format.
 
 
 def preprocess_audio(audio_bytes: bytes) -> bytes:
