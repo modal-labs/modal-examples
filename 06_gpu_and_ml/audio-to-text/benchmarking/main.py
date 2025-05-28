@@ -14,8 +14,8 @@ from download_and_upload_lj_data import (
     download_and_upload_lj_data,
     upload_lj_data_subset,
 )
-from parse_token_counts import upload_token_counts
 from postprocess_results import postprocess_results
+from prepare_and_upload_data import process_wav_files
 from utils import print_error, print_header, write_results
 
 MODEL_CONFIGS = [
@@ -44,6 +44,7 @@ def run_model_sync(model_name, instance, files):
 async def main():
     from pathlib import Path
 
+    # Download and upload data
     if REDOWNLOAD_DATA:
         if USE_DATASET_SUBSET:
             print_header("🔄 Downloading and uploading LJSpeech data subset...")
@@ -60,8 +61,12 @@ async def main():
                 "Data not found in volume. Please re-run app.py with REDOWNLOAD_DATA=True. Note that this will take several minutes.",
             )
 
-    print_header("✨ Parsing metadata to retrieve token counts...")
-    upload_token_counts.remote()
+    # Process data
+    print_header("🔄 Processing data...")
+    process_wav_files.remote()
+
+    # print_header("✨ Parsing metadata to retrieve token counts...")
+    # upload_token_counts.remote()
 
     print_header("⚡️ Benchmarking all models in parallel...")
     files = [

@@ -2,9 +2,10 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/audio-to-text/benchmarking/download_and_upload_lj_data.py::upload_lj_data_subset"]
 # ---
 
-import modal
-from common import app, dataset_volume, DATASET_VOLUME_NAME
 from pathlib import Path
+
+import modal
+from common import DATASET_VOLUME_NAME, app, dataset_volume
 
 # Full dataset
 DATA_URL = "https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2"
@@ -66,8 +67,8 @@ def download_and_upload_lj_data():
 )
 def upload_lj_data_subset():
     """Upload a subset of LJSpeech files from a local ZIP file to the Modal volume."""
-    import zipfile
     import tempfile
+    import zipfile
     from pathlib import Path
 
     with tempfile.TemporaryDirectory() as tmpdir:

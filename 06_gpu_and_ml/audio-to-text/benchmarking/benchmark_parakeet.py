@@ -47,9 +47,10 @@ class Parakeet:
 
     @modal.method()
     def run(self, file: str) -> tuple[str, str, float, float]:
-        import librosa
         import time
         from pathlib import Path
+
+        import librosa
 
         # Convert string back to Path for local usage
         file_path = Path(file)

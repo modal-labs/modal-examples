@@ -1,9 +1,9 @@
-import itertools
-import wave
-from pathlib import Path
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml/audio-to-text/benchmarking/prepare_and_upload_data.py::process_wav_files"]
+# ---
 
 import modal
-from common import app, dataset_volume
+from common import DATASET_VOLUME_NAME, app, dataset_volume
 
 data_prep_image = (
     modal.Image.debian_slim()
@@ -18,6 +18,9 @@ data_prep_image = (
 )
 def convert_to_mono_16khz(input_path: str, output_dir: str):
     """Converts an input WAV file to 16khz mono and stores output in `output_path` WAV file."""
+    import wave
+    from pathlib import Path
+
     import numpy as np
 
     # Open the input WAV file
@@ -72,8 +75,13 @@ def convert_to_mono_16khz(input_path: str, output_dir: str):
         wav_out.writeframes(audio_data.tobytes())
 
 
-@app.local_entrypoint()
+@app.function(
+    volumes={"/data": dataset_volume},
+    image=data_prep_image,
+)
 def process_wav_files():
+    import itertools
+
     print("Processing files to 16kHz mono...")
     output_dir = "/data/processed"
     files = [
@@ -83,4 +91,6 @@ def process_wav_files():
 
     # Process all files in parallel
     list(convert_to_mono_16khz.starmap(inputs))
-    print(f"✨ All done! Data processed and available in the {output_dir}")
+    print(
+        f"✨ All done! Data processed and available in the {output_dir} in the Modal Volume {DATASET_VOLUME_NAME}"
+    )
