@@ -10,7 +10,10 @@ from common import (
     app,
     dataset_volume,
 )
-from download_and_upload_lj_data import download_and_upload_lj_data
+from download_and_upload_lj_data import (
+    download_and_upload_lj_data,
+    upload_lj_data_subset,
+)
 from parse_token_counts import upload_token_counts
 from postprocess_results import postprocess_results
 from utils import print_error, print_header, write_results
@@ -42,8 +45,12 @@ async def main():
     from pathlib import Path
 
     if REDOWNLOAD_DATA:
-        print_header("🔄 Downloading and uploading LJSpeech data...")
-        download_and_upload_lj_data.remote()
+        if USE_DATASET_SUBSET:
+            print_header("🔄 Downloading and uploading LJSpeech data subset...")
+            upload_lj_data_subset.remote()
+        else:
+            print_header("🔄 Downloading and uploading LJSpeech data...")
+            download_and_upload_lj_data.remote()
     else:
         print("Skipping data download")
         try:
