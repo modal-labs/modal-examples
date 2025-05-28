@@ -125,17 +125,25 @@ END_OF_STREAM = (
 class Parakeet:
     @modal.enter()
     def load(self):
+        import logging
+
         import nemo.collections.asr as nemo_asr
+
+        # silence chatty logs from nemo
+        logging.getLogger("nemo_logger").setLevel(logging.CRITICAL)
 
         self.model = nemo_asr.models.ASRModel.from_pretrained(
             model_name="nvidia/parakeet-tdt-0.6b-v2"
         )
 
-    async def transcribe(self, audio_bytes: bytes) -> str:
+    def transcribe(self, audio_bytes: bytes) -> str:
         import numpy as np
 
         audio_data = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
-        output = self.model.transcribe([audio_data])
+
+        with NoStdStreams():  # hide output, see https://github.com/NVIDIA/NeMo/discussions/3281#discussioncomment-2251217
+            output = self.model.transcribe([audio_data])
+
         return output[0].text
 
     @modal.asgi_app()
@@ -396,25 +404,15 @@ def chunk_audio(data: bytes, chunk_size: int):
         yield data[i : i + chunk_size]
 
 
-def output_message_as_transcript(message: str):
-    words = message.strip().split()
+class NoStdStreams(object):
+    def __init__(self):
+        self.devnull = open(os.devnull, "w")
 
-    # Group into 5–6 word chunks
-    chunks = []
-    chunk = []
+    def __enter__(self):
+        self._stdout, self._stderr = sys.stdout, sys.stderr
+        self._stdout.flush(), self._stderr.flush()
+        sys.stdout, sys.stderr = self.devnull, self.devnull
 
-    for word in words:
-        chunk.append(word)
-        if len(chunk) >= 6:
-            chunks.append(" ".join(chunk))
-            chunk = []
-
-    if chunk:
-        chunks.append(" ".join(chunk))
-
-    # Capitalize first word in each chunk and print
-    for chunk in chunks:
-        # Capitalize the first letter of the first word
-        parts = chunk.split(" ", 1)
-        capitalized = parts[0].capitalize() + (" " + parts[1] if len(parts) > 1 else "")
-        print(f"📝 Transcription: {capitalized}")
+    def __exit__(self, exc_type, exc_value, traceback):
+        sys.stdout, sys.stderr = self._stdout, self._stderr
+        self.devnull.close()
