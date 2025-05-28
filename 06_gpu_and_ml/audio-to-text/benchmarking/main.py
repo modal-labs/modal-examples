@@ -21,7 +21,11 @@ MODEL_CONFIGS = [
     ("WhisperX", f"whisperx-{WHISPERX_MODEL_NAME}", WhisperX()),
 ]
 
-REDOWNLOAD_DATA = False
+# Default behavior downloads the local data subset
+# To skip download (on subsequent runs), set REDOWNLOAD_DATA to False
+# To use the full dataset, set USE_DATASET_SUBSET to False
+REDOWNLOAD_DATA = True
+USE_DATASET_SUBSET = True
 
 
 def run_model_sync(model_name, instance, files):

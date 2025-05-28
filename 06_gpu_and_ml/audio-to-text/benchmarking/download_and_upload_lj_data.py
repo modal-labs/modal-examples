@@ -50,3 +50,35 @@ def download_and_upload_lj_data():
                     batch.put_file(str(path), remote_path)
 
         print("✅ Upload complete!")
+
+
+@app.function(
+    volumes={"/data": dataset_volume},
+    image=image,
+    timeout=1200,  # 20 minutes
+)
+def upload_lj_data_subset():
+    """Upload a subset of LJSpeech files from a local ZIP file to the Modal volume."""
+    import zipfile
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        zip_path = Path(__file__).parent / "LJSpeech-1.1-subset.zip"
+
+        print("📦 Extracting dataset...")
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(path=tmpdir_path)
+
+        dataset_dir = tmpdir_path / "LJSpeech-1.1"
+
+        print("☁️ Uploading to Modal volume under 'raw/'...")
+        with dataset_volume.batch_upload() as batch:
+            for path in dataset_dir.rglob("*"):
+                if path.is_file():
+                    relative_path = path.relative_to(dataset_dir)
+                    remote_path = f"/raw/{relative_path}"
+                    batch.put_file(str(path), remote_path)
+
+        print("✅ Upload complete!")

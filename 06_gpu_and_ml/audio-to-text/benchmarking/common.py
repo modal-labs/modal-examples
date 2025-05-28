@@ -10,9 +10,9 @@ WHISPER_MODEL_NAME = "openai/whisper-large-v3-turbo"
 WHISPERX_MODEL_NAME = "large-v2"
 
 # App + volume
-APP_NAME = "audio-diarization-benchmarking-app"
+APP_NAME = "audio-diarization-benchmarking-app-2"
 MODEL_CACHE_VOLUME_NAME = "audio-diarization-model-cache"
-DATASET_VOLUME_NAME = "audio-diarization-benchmarking-data"
+DATASET_VOLUME_NAME = "audio-diarization-benchmarking-data-2"
 
 app = modal.App(APP_NAME)
 dataset_volume = modal.Volume.from_name(DATASET_VOLUME_NAME, create_if_missing=True)
