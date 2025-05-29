@@ -37,6 +37,8 @@ MODEL_CONFIGS = [
     ("WhisperX", f"whisperx-{WHISPERX_MODEL_NAME}", WhisperX()),
 ]
 
+# ## Download and upload data
+
 # For this example, the default behavior downloads just a small subset of the dataset.
 # The full download, extracting and uploading takes about 15 minutes.
 #
@@ -46,11 +48,24 @@ REDOWNLOAD_DATA = True
 USE_DATASET_SUBSET = True
 
 
+# ## Run model inference in parallel
+# We'll run the models in parallel using `asyncio`, and then postprocess the results.
+# This is super fast! We use `.map` to offload the expensive computation
+
+
+def run_model_sync(model_name, instance, files):
+    results = list(instance.run.map(files))
+    results_path = write_results(results, model_name)
+    with dataset_volume.batch_upload() as batch:
+        batch.put_file(results_path, f"/results/{results_path}")
+    print(f"✅ {model_name} results uploaded to /results/{results_path}")
+    return model_name, results
+
+
 @app.local_entrypoint()
 async def main():
     from pathlib import Path
 
-    # Download and upload data
     if REDOWNLOAD_DATA:
         if USE_DATASET_SUBSET:
             print_header("🔄 Downloading and uploading LJSpeech data subset...")
@@ -67,7 +82,6 @@ async def main():
                 "Data not found in volume. Please re-run app.py with REDOWNLOAD_DATA=True. Note that this will take several minutes.",
             )
 
-    # Process data
     print_header("🔄 Processing wav files into appropriate format...")
     process_wav_files.remote()
 
@@ -80,14 +94,6 @@ async def main():
         str(Path("/data") / Path(f.path)) for f in dataset_volume.listdir("/processed")
     ]
     print(f"Found {len(files)} files to benchmark")
-
-    def run_model_sync(model_name, instance, files):
-        results = list(instance.run.map(files))
-        results_path = write_results(results, model_name)
-        with dataset_volume.batch_upload() as batch:
-            batch.put_file(results_path, f"/results/{results_path}")
-        print(f"✅ {model_name} results uploaded to /results/{results_path}")
-        return model_name, results
 
     tasks = [
         asyncio.get_event_loop().run_in_executor(
