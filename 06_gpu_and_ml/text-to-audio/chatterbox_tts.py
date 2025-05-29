@@ -1,3 +1,8 @@
+# ---
+# output-directory: "/tmp/chatterbox-tts"
+# ---
+
+
 # # Create a Chatterbox TTS API on Modal
 
 # This example demonstrates how to deploy a text-to-speech (TTS) API using the Chatterbox TTS model on Modal.
@@ -76,9 +81,10 @@ class Chatterbox:
 # And query the endpoint with:
 #
 # ```shell
+# mkdir -p /tmp/chatterbox-tts  # create tmp directory
 # curl -X POST --get "https://modal-labs-luis-dev--chatterbox-api-example-chatterbox-generate.modal.run" \
 #   --data-urlencode "prompt=Chatterbox running on Modal"
-#   --output output.wav
+#   --output /tmp/chatterbox-tts/output.wav
 # ```
 #
 # You'll receive a WAV file named `output.wav` containing the generated audio.
