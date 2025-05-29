@@ -15,6 +15,7 @@
 # Import the necessary modules for Modal deployment and TTS functionality.
 
 import io
+
 import modal
 
 # ## Define a container image
@@ -34,7 +35,6 @@ app = modal.App("chatterbox-api-example", image=image)
 with image.imports():
     import torchaudio as ta
     from chatterbox.tts import ChatterboxTTS
-    from fastapi import FastAPI
     from fastapi.responses import StreamingResponse
 
 # ## The TTS model class
