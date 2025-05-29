@@ -23,7 +23,9 @@ import modal
 # - `chatterbox-tts`: The TTS model library
 # - `fastapi`: Web framework for creating the API endpoint
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install("chatterbox-tts==0.1.1", "fastapi[standard]")
+image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "chatterbox-tts==0.1.1", "fastapi[standard]"
+)
 app = modal.App("chatterbox-api-example", image=image)
 
 # Import the required libraries within the image context to ensure they're available
@@ -43,6 +45,7 @@ with image.imports():
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
 # - `enable_memory_snapshot=True`: Enable [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to optimize cold boot times
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container
+
 
 @app.cls(gpu="a10g", scaledown_window=60 * 5, enable_memory_snapshot=True)
 @modal.concurrent(max_inputs=10)
@@ -72,6 +75,7 @@ class Chatterbox:
             io.BytesIO(buffer.read()),
             media_type="audio/wav",
         )
+
 
 # Now deploy the Chatterbox API with:
 #
