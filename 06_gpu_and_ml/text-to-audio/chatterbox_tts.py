@@ -1,6 +1,7 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
 # lambda-test: false
+# cmd: ["modal", "serve", "06_gpu_and_ml/test-to-audio/chatterbox_tts.py"]
 # ---
 
 
@@ -87,7 +88,8 @@ class Chatterbox:
 #
 # ```shell
 # mkdir -p /tmp/chatterbox-tts  # create tmp directory
-# curl -X POST --get "https://modal-labs-luis-dev--chatterbox-api-example-chatterbox-generate.modal.run" \
+#
+# curl -X POST --get "<YOUR-ENDPOINT-URL>" \
 #   --data-urlencode "prompt=Chatterbox running on Modal"
 #   --output /tmp/chatterbox-tts/output.wav
 # ```
