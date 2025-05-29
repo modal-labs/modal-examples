@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 import modal
 from common import DATASET_VOLUME_NAME, app, dataset_volume
 

@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 # ## Benchmarking Audio-to-Text Models - Parakeet, Whisper and WhisperX
 
 # This example demonstrates how to benchmark multiple audio-to-text models at

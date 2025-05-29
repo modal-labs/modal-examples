@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 import csv
 import json
 from pathlib import Path

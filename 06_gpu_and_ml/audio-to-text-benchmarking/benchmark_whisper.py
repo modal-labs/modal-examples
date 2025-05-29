@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 import modal
 from common import app, dataset_volume, model_cache
 from utils import write_results

@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/audio-to-text/benchmarking/download_and_upload_lj_data.py::upload_lj_data_subset"]
+# lambda-test: false
 # ---
 
 from pathlib import Path

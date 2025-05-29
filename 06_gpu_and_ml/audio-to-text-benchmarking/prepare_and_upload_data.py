@@ -1,6 +1,7 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/audio-to-text/benchmarking/prepare_and_upload_data.py::process_wav_files"]
+# lambda-test: false
 # ---
+
 
 import modal
 from common import DATASET_VOLUME_NAME, app, dataset_volume
