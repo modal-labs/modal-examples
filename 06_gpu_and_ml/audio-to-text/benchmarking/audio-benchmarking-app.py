@@ -1,4 +1,15 @@
 ## Benchmarking Audio-to-Text Models - Parakeet, Whisper and WhisperX
+
+# This example demonstrates how to benchmark multiple audio-to-text models at
+# lightning fast speeds. In just a single Modal app, we will:
+# 1. Download and upload the [LJSpeech dataset](https://keithito.com/LJ-Speech-Dataset/) to a Modal Volume.
+# 2. Process the audio `.wav` files into a suitable format.
+# 3. Benchmark the Parakeet, Whisper and WhisperX models in parallel.
+# 4. Postprocess and plot the results, and save them to a Modal volume.
+
+# The full code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/benchmarking).
+# We'll start by importing the necessary modules and defining the model configurations.
+
 import asyncio
 
 from benchmark_parakeet import Parakeet
@@ -26,20 +37,13 @@ MODEL_CONFIGS = [
     ("WhisperX", f"whisperx-{WHISPERX_MODEL_NAME}", WhisperX()),
 ]
 
-# Default behavior downloads the local data subset
-# To skip download (on subsequent runs), set REDOWNLOAD_DATA to False
-# To use the full dataset, set USE_DATASET_SUBSET to False
+# For this example, the default behavior downloads just a small subset of the dataset.
+# The full download, extracting and uploading takes about 15 minutes.
+#
+# To skip download (on subsequent runs), set `REDOWNLOAD_DATA` to False.
+# To use the full dataset, set `USE_DATASET_SUBSET` to False.
 REDOWNLOAD_DATA = True
 USE_DATASET_SUBSET = True
-
-
-def run_model_sync(model_name, instance, files):
-    results = list(instance.run.map(files))
-    results_path = write_results(results, model_name)
-    with dataset_volume.batch_upload() as batch:
-        batch.put_file(results_path, f"/results/{results_path}")
-    print(f"✅ {model_name} results uploaded to /results/{results_path}")
-    return model_name, results
 
 
 @app.local_entrypoint()
@@ -76,6 +80,15 @@ async def main():
         str(Path("/data") / Path(f.path)) for f in dataset_volume.listdir("/processed")
     ]
     print(f"Found {len(files)} files to benchmark")
+
+    def run_model_sync(model_name, instance, files):
+        results = list(instance.run.map(files))
+        results_path = write_results(results, model_name)
+        with dataset_volume.batch_upload() as batch:
+            batch.put_file(results_path, f"/results/{results_path}")
+        print(f"✅ {model_name} results uploaded to /results/{results_path}")
+        return model_name, results
+
     tasks = [
         asyncio.get_event_loop().run_in_executor(
             None, run_model_sync, model_name, instance, files
