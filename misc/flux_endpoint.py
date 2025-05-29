@@ -98,7 +98,6 @@ with flux_endpoint_image.imports():
     from diffusers import FluxPipeline
     from para_attn.first_block_cache.diffusers_adapters import apply_cache_on_pipe
     from pydantic import BaseModel, Field
-    from torch._inductor.fx_passes import post_grad
 
     # Supported output formats for generated images
     class OutputFormat(Enum):
@@ -200,6 +199,8 @@ class FluxService:
     def _compile(self):
         # monkey-patch torch inductor remove_noop_ops pass for para-attn dynamic compilation
         # swallow AttributeError: 'SymFloat' object has no attribute 'size' and return false
+        from torch._inductor.fx_passes import post_grad
+
         if not hasattr(post_grad, "_orig_same_meta"):
             post_grad._orig_same_meta = post_grad.same_meta
 
