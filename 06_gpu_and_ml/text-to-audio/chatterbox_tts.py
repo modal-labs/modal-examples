@@ -91,10 +91,10 @@ class Chatterbox:
 #
 # curl -X POST --get "<YOUR-ENDPOINT-URL>" \
 #   --data-urlencode "prompt=Chatterbox running on Modal"
-#   --output /tmp/chatterbox-tts/output.wav
+#   --output output.wav
 # ```
 #
-# You'll receive a WAV file named `/tmp/chatterbox-tts/output.wav` containing the generated audio.
+# You'll receive a WAV file named `output.wav` containing the generated audio.
 #
 # This app takes about 30 seconds to cold boot, mostly dominated by loading
 # the Chatterbox model into GPU memory. It takes 2-3s to generate a 5s audio clip.
