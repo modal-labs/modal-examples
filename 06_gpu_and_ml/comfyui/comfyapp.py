@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Dict
 
 import modal
+import modal.experimental
 
 image = (  # build up a Modal Image to run ComfyUI, step by step
     modal.Image.debian_slim(  # start from basic Linux with Python
