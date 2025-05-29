@@ -1,4 +1,4 @@
-## Benchmarking Audio-to-Text Models - Parakeet, Whisper and WhisperX
+# ## Benchmarking Audio-to-Text Models - Parakeet, Whisper and WhisperX
 
 # This example demonstrates how to benchmark multiple audio-to-text models at
 # lightning fast speeds. In just a single Modal app, we will:
@@ -50,7 +50,8 @@ USE_DATASET_SUBSET = True
 
 # ## Run model inference in parallel
 # We'll run the models in parallel using `asyncio`, and then postprocess the results.
-# This is super fast! We use `.map` to offload the expensive computation
+# This is super fast! We use `.map` to offload the expensive computation, spinning
+# up multiple containers in parallel.
 
 
 def run_model_sync(model_name, instance, files):
@@ -105,3 +106,8 @@ async def main():
 
     print_header("🔮 Postprocessing results...")
     postprocess_results.remote()
+
+
+# ## Plotting the results
+# The results are saved to the same Modal Volume as the data, in the `/data/analysis`
+# directory!

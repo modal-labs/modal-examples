@@ -38,7 +38,7 @@ with whisperx_image.imports():
 
 @app.cls(
     gpu="a10g",
-    secrets=[modal.Secret.from_name("huggingface-token")],
+    secrets=[modal.Secret.from_name("huggingface-secret")],
     volumes={
         "/data": dataset_volume,
         "/cache": model_cache,

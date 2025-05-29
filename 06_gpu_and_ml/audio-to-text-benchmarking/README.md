@@ -8,9 +8,9 @@ models:
 - [**whisper-large-v3-turbo**](https://huggingface.co/openai/whisper-large-v3-turbo): using vLLM
 - [**whisperx**](https://github.com/m-bain/whisperX): using Python
 
-If you're familiar with all the functions here, feel free to kick them all off with
+If you're familiar with all the functions here, feel free to kick them all off with:
 
-```
+```shell
 modal run main.py
 ```
 
