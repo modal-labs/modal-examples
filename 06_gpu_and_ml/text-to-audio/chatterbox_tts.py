@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
+# lambda-test: false
 # ---
 
 
@@ -22,7 +23,7 @@ import modal
 # - `chatterbox-tts`: The TTS model library
 # - `fastapi`: Web framework for creating the API endpoint
 
-image = modal.Image.debian_slim().pip_install("chatterbox-tts==0.1.1", "fastapi[standard]")
+image = modal.Image.debian_slim(python_version="3.12").pip_install("chatterbox-tts==0.1.1", "fastapi[standard]")
 app = modal.App("chatterbox-api-example", image=image)
 
 # Import the required libraries within the image context to ensure they're available
