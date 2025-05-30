@@ -24,12 +24,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from time import perf_counter
 from typing import Iterator
-from typing import Optional
 
 import modal
 
-traces = modal.Volume.from_name("example-traces", create_if_missing=True)
-TRACE_DIR = Path("/traces")
 # ## Key Parameters
 # There are three ways to parallelize inference for this usecase: via batching,
 # by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
@@ -59,17 +56,17 @@ TRACE_DIR = Path("/traces")
 # You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
 hf_secret = modal.Secret.from_name("huggingface-secret")
 
+
+# Create a persisted dict - the data gets retained between app runs
+racetrack_dict = modal.Dict.from_name("racetrack-times", create_if_missing=True)
+
 # This name is important for referencing the volume in other apps or for
 # [browsing](https://modal.com/storage):
-vol_name = "example-embedding-data"
-
-# This is the location within the container where this Volume will be mounted:
-vol_mnt = Path("/data")
-
-# Finally, the Volume object can be created:
-data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
+data_volume = modal.Volume.from_name("example-embedding-data", create_if_missing=True)
 
 # The location within the volume where torch.compile's caching backends should point to:
+# This is the location within the container where this Volume will be mounted:
+vol_mnt = Path("/data")
 TH_CACHE_DIR = vol_mnt / "model-compile-cache"
 
 # ### Define the image
@@ -102,7 +99,7 @@ th_compile_image = (
 app = modal.App(
     "example-compiled-embedder",
     image=th_compile_image,
-    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+    volumes={vol_mnt: data_volume},
     secrets=[hf_secret],
 )
 
@@ -130,7 +127,7 @@ with th_compile_image.imports():
 
 @app.function(
     image=th_compile_image,
-    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+    volumes={vol_mnt: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
     timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
@@ -140,7 +137,8 @@ def catalog_jpegs(
     cache_dir: str,  # a subdir where the JPEGs will be extracted into the volume long-form
     image_cap: int,  # hard cap on the number of images to be processed (e.g. for timing, debugging)
     model_input_shape: tuple[int, int, int],  # JPEGs will be preprocessed to this shape
-    threads_per_cpu: int = 4,  # threads per CPU for I/O oversubscription
+    threads_per_core: int = 8,  # threads per CPU for I/O oversubscription
+    n_million_image_test: float = None,
 ) -> tuple[
     list[os.PathLike],  # the function returns a list of paths,
     float,  # and the time it took to prepare
@@ -202,7 +200,9 @@ def catalog_jpegs(
         # You could use ProcessPool if there is significant work per image, or even
         # GPU acceleration and batch preprocessing. We keep it simple here for the example.
         futures = []
-        with ThreadPoolExecutor(max_workers=os.cpu_count * threads_per_cpu) as executor:
+        with ThreadPoolExecutor(
+            max_workers=os.cpu_count * threads_per_core
+        ) as executor:
             for idx, ex in enumerate(ds):
                 if image_cap > 0 and idx >= image_cap:
                     break
@@ -250,9 +250,15 @@ def catalog_jpegs(
     if image_cap > 0:
         im_path_list = im_path_list[: min(image_cap, len(im_path_list))]
 
-    # Time it
-    ds_time_elapsed = perf_counter() - ds_preptime_st
-    return im_path_list, ds_time_elapsed
+    print(f"Took {perf_counter() - ds_preptime_st:.2f}s to setup volume.")
+    if n_million_image_test > 0:
+        print(f"WARNING: `{n_million_image_test} million_image_test` FLAG RECEIVED!")
+        mil = int(n_million_image_test * 1e6)
+        while len(im_path_list) < mil:
+            im_path_list += im_path_list
+        im_path_list = im_path_list[:mil]
+
+    return im_path_list
 
 
 def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLike]]:
@@ -285,7 +291,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # If buffer_containers is set, use it, otherwise rely on `with_options`.
 @app.cls(
     image=th_compile_image,
-    volumes={vol_mnt: data_volume},  # , TRACE_DIR: traces},
+    volumes={vol_mnt: data_volume},
     cpu=2.5,
     memory=2.5 * 1024,  # MB -> GB
     # buffer_containers=buffer_containers,
@@ -297,9 +303,10 @@ class TorchCompileEngine:
     model_input_chan: int = modal.parameter(default=3)
     model_input_imheight: int = modal.parameter(default=224)
     model_input_imwidth: int = modal.parameter(default=224)
-    threads_per_core: int = modal.parameter(default=4)
+    threads_per_core: int = modal.parameter(default=8)
     verbose_inference: bool = modal.parameter(default=False)
     verbose_startup: bool = modal.parameter(default=False)
+    exp_tag: str = modal.parameter(default="default-tag")
     # Cannot currently gracefully set ENV vars from local_entrypoint
     cache_dir: Path = TH_CACHE_DIR
     # For logging
@@ -492,7 +499,7 @@ class TorchCompileEngine:
 
 @app.function(
     image=th_compile_image,
-    volumes={vol_mnt: data_volume, TRACE_DIR: traces},
+    volumes={vol_mnt: data_volume},
 )
 def destroy_th_compile_cache():
     """
@@ -538,61 +545,52 @@ def destroy_th_compile_cache():
 # * `model_input_chan`: the number of color channels your model is expecting (probably 3)
 # * `model_input_imheight`: the number of pixels tall your model is expecting the images to be
 # * `model_input_imwidth`: the number of color channels your model is expecting (probably 3)
-#
-# @app.function(
-#     image=th_compile_image,
-#     volumes={vol_mnt: data_volume, TRACE_DIR: traces},
-# )
+
+
 @app.local_entrypoint()
 def main(
-    # with_options parameters:
+    # APP CONFIG
     gpu: str = "any",
     max_containers: int = None,  # this gets overridden if buffer_containers is not None
     allow_concurrent_inputs: int = 4,
-    # modal.parameters:
+    # MODEL CONFIG
     n_models: int = 3,  # defaults to match `allow_concurrent_parameters`
     model_name: str = "openai/clip-vit-base-patch16",
     batch_size: int = 512,
+    # DATA CONFIG
     im_chan: int = 3,
     im_height: int = 224,
     im_width: int = 224,
-    # data
-    image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    image_cap: int = -1,
     n_million_image_test: float = 0,
     # torch.compile cache
     destroy_cache: bool = False,
-    # logging (optional)
-    log_file: str = None,  # TODO: remove local logging from example
+    exp_tag: str = "default-tag",
 ):
-    start_time = perf_counter()
+    racetrack_dict[f"{exp_tag}-exp-start"] = perf_counter()
 
     # (0.a) Catalog data: modify `catalog_jpegs` to fetch batches of your data paths.
     extracted_path = Path("extracted") / hf_dataset_name
-    im_path_list, vol_setup_time = catalog_jpegs.remote(
+    im_path_list = catalog_jpegs.remote(
         dataset_namespace=hf_dataset_name,
         cache_dir=extracted_path,
         image_cap=image_cap,
         model_input_shape=(im_chan, im_height, im_width),
+        n_million_image_test=n_million_image_test,
     )
-    print(f"Took {vol_setup_time:.2f}s to setup volume.")
-    if n_million_image_test > 0:
-        print(f"WARNING: `{n_million_image_test} million_image_test` FLAG RECEIVED!")
-        mil = int(n_million_image_test * 1e6)
-        while len(im_path_list) < mil:
-            im_path_list += im_path_list
-        im_path_list = im_path_list[:mil]
-    n_ims = len(im_path_list)
-    print(f"Embedding {n_ims} images at batchsize {batch_size}.")
+    print(f"Embedding {len(im_path_list)} images at batchsize {batch_size}.")
+
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
     if destroy_cache:
         destroy_th_compile_cache.remote()
 
-    # (1.a) Init the model inference app
-    # No inputs to with_options if none provided or buffer_used aboe
-    container_config = {"max_containers": max_containers} if max_containers else {}
+    # (1) Init the model inference app
+
     # Build the engine
-    start_time = perf_counter()
+    racetrack_dict[f"{exp_tag}-embedder-init"] = perf_counter()
+
+    container_config = {"max_containers": max_containers} if max_containers else {}
     embedder = TorchCompileEngine.with_concurrency(
         max_inputs=allow_concurrent_inputs
     ).with_options(gpu=gpu, **container_config)(
@@ -602,173 +600,9 @@ def main(
         model_input_chan=im_chan,
         model_input_imheight=im_height,
         model_input_imwidth=im_width,
-        threads_per_core=8,
         verbose_inference=False,
     )
 
     # (2) Embed batches via remote `map` call
-    times, batchsizes = [], []
-    # embedder.embed.spawn_map(chunked(im_path_list, batch_size))
-    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
-        times.append(time)
-        batchsizes.append(batchsize)
-
-    # (3) Log
-    if n_ims > 0:
-        total_duration = perf_counter() - start_time
-        total_throughput = n_ims / total_duration
-
-        log_msg = (
-            f"{embedder.name}{gpu}::batch_size={batch_size}::"
-            f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
-            f"\tTotal time:\t{total_duration / 60:.2f} min\n"
-            f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
-        )
-        if times:
-            embed_throughputs = [
-                batchsize / time for batchsize, time in zip(batchsizes, times)
-            ]
-            avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
-            log_msg += f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
-
-        print(log_msg)
-
-        if log_file is not None:
-            local_logfile = Path(log_file).expanduser()
-            local_logfile.parent.mkdir(parents=True, exist_ok=True)
-
-            import csv
-
-            csv_exists = local_logfile.exists()
-            with open(local_logfile, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                if not csv_exists:
-                    # write header
-                    writer.writerow(
-                        [
-                            "batch_size",
-                            "concurrency",
-                            "max_containers",
-                            "gpu",
-                            "n_images",
-                            "total_time",
-                            "total_throughput",
-                            "avg_model_throughput",
-                        ]
-                    )
-                # write your row
-                writer.writerow(
-                    [
-                        batch_size,
-                        allow_concurrent_inputs,
-                        max_containers,
-                        gpu,
-                        n_ims,
-                        total_duration,
-                        total_throughput,
-                        avg_throughput,
-                    ]
-                )
-
-
-# @app.function(
-#     image=th_compile_image,
-#     volumes={vol_mnt: data_volume, TRACE_DIR: traces},
-# )
-# def profile(
-#     function,
-#     label: Optional[str] = None,
-#     steps: int = 3,
-#     schedule=None,
-#     record_shapes: bool = False,
-#     profile_memory: bool = False,
-#     with_stack: bool = False,
-#     print_rows: int = 0,
-#     **kwargs,
-# ):
-#     from uuid import uuid4
-
-#     if isinstance(function, str):
-#         try:
-#             function = app.registered_functions[function]
-#         except KeyError:
-#             raise ValueError(f"Function {function} not found")
-#     function_name = function.tag
-
-#     output_dir = (
-#         TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
-#     )
-#     output_dir.mkdir(parents=True, exist_ok=True)
-
-#     if schedule is None:
-#         if steps < 3:
-#             raise ValueError("Steps must be at least 3 when using default schedule")
-#         schedule = {"wait": 1, "warmup": 1, "active": steps - 2, "repeat": 0}
-
-#     schedule = torch.profiler.schedule(**schedule)
-
-#     with torch.profiler.profile(
-#         activities=[
-#             torch.profiler.ProfilerActivity.CPU,
-#             torch.profiler.ProfilerActivity.CUDA,
-#         ],
-#         schedule=schedule,
-#         record_shapes=record_shapes,
-#         profile_memory=profile_memory,
-#         with_stack=with_stack,
-#         on_trace_ready=torch.profiler.tensorboard_trace_handler(output_dir),
-#     ) as prof:
-#         for _ in range(steps):
-#             function.local(**kwargs)  # <-- here we wrap the target Function
-#             prof.step()
-
-#     if print_rows:
-#         print(
-#             prof.key_averages().table(sort_by="cuda_time_total", row_limit=print_rows)
-#         )
-
-#     trace_path = sorted(
-#         output_dir.glob("**/*.pt.trace.json"),
-#         key=lambda pth: pth.stat().st_mtime,
-#         reverse=True,
-#     )[0]
-
-#     print(f"trace saved to {trace_path.relative_to(TRACE_DIR)}")
-
-#     return trace_path.read_text(), trace_path.relative_to(TRACE_DIR)
-
-
-# @app.local_entrypoint()
-# def main2(
-#     function: str = "main",
-#     label: Optional[str] = None,
-#     steps: int = 3,
-#     schedule=None,
-#     record_shapes: bool = False,
-#     profile_memory: bool = False,
-#     with_stack: bool = False,
-#     print_rows: int = 10,
-#     kwargs_json_path: Optional[str] = None,
-# ):
-#     if kwargs_json_path is not None:  # use to pass arguments to function
-#         import json
-
-#         kwargs = json.loads(Path(kwargs_json_path).read_text())
-#     else:
-#         kwargs = {}
-
-#     results, remote_path = profile.remote(
-#         function,
-#         label=label,
-#         steps=steps,
-#         schedule=schedule,
-#         record_shapes=record_shapes,
-#         profile_memory=profile_memory,
-#         with_stack=with_stack,
-#         print_rows=print_rows,
-#         **kwargs,
-#     )
-
-#     output_path = Path("/tmp") / remote_path.name
-#     output_path.write_text(results)
-#     print(f"trace saved locally at {output_path}")
+    racetrack_dict[f"{exp_tag}-embedding-begin"] = perf_counter()
+    embedder.embed.spawn_map(chunked(im_path_list, batch_size))
