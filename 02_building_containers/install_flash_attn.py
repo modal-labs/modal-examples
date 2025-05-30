@@ -27,7 +27,7 @@ image = modal.Image.debian_slim(python_version="3.13").pip_install(
 )
 
 
-# And here is a brief demo proving that it works!
+# And here is a demo verifying that it works!
 @app.function(gpu="L40S", image=image)
 def run_flash_attn():
     import torch
