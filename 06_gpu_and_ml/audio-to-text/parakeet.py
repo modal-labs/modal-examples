@@ -266,7 +266,7 @@ class Parakeet:
             return
 
     async def audio_preprocessor(
-        self, audio_queue, segment_queue, silence_thresh=-45, min_silence_len=1000
+        self, audio_queue, segment_queue, silence_thresh=-50, min_silence_len=500
     ):
         from pydub import AudioSegment, silence
 
@@ -283,11 +283,10 @@ class Parakeet:
                 sample_width=2,
                 frame_rate=TARGET_SAMPLE_RATE,
             )
-
             # Only run silence detection if we have enough audio buffered
-            print(f"new_audio_segment: {len(new_audio_segment)}")
-            if len(new_audio_segment) < 3 * min_silence_len / 1000 * TARGET_SAMPLE_RATE:
-                print(len(new_audio_segment))
+            # print(f"new_audio_segment: {len(new_audio_segment)}")
+            if len(new_audio_segment) < 3 * min_silence_len:
+                # print(len(new_audio_segment))
                 continue
 
             # Only run silence detection on the new chunk
@@ -296,26 +295,34 @@ class Parakeet:
                 min_silence_len=min_silence_len,
                 silence_thresh=silence_thresh,
             )
-            print(silent_windows)  # Debug: can be removed
+            # print(silent_windows)  # Debug: can be removed
             # Adjust indices to the full buffer
             prev_len = len(audio_segment)
             audio_segment += new_audio_segment
-            new_len = len(audio_segment)
-            print(f"new_len: {new_len}, prev_len: {prev_len}")
-            for window in silent_windows:
-                start, end = window
+            new_audio_segment = AudioSegment.empty()
+            # print(f"new_len: {len(audio_segment)} prev_len: {prev_len}")
+            if len(silent_windows) == 0:
+                continue
+            for i in range(len(silent_windows)):
+                start, end = silent_windows[i]
                 abs_start = prev_len + start
                 abs_end = prev_len + end
-                # If the silence window ends at the end of the buffer, we have a segment to transcribe
-                if abs_end == new_len:
-                    # If the entire buffer is silent, reset
-                    if abs_start == 0 and abs_end == new_len:
-                        audio_segment = AudioSegment.empty()
-                        break
-                    segment_to_transcribe = audio_segment[:abs_end]
-                    audio_segment = audio_segment[abs_end:]
-                    await segment_queue.put(segment_to_transcribe.raw_data)
-                    break  # Only process the first such window per chunk for efficiency
+                silent_windows[i] = (abs_start, abs_end)
+            # print(silent_windows)  # Debug: can be removed
+            last_window = silent_windows[-1]
+            if last_window[0] < min_silence_len:
+                if last_window[1] == len(audio_segment) - 1:
+                    audio_segment = AudioSegment.empty()
+                else:
+                    audio_segment = audio_segment[
+                        last_window[1] - min_silence_len / 2 :
+                    ]
+                continue
+            segment_to_transcribe = audio_segment[
+                : last_window[0] + min_silence_len / 2
+            ]
+            audio_segment = audio_segment[last_window[1] - min_silence_len / 2 :]
+            await segment_queue.put(segment_to_transcribe.raw_data)
 
     async def transcriber(self, segment_queue, text_queue):
         while True:
@@ -348,18 +355,63 @@ CHUNK_SIZE = 16_000  # send one second of audio at a time
 
 @app.local_entrypoint()
 async def main(audio_url: str = AUDIO_URL):
+    import array
+    import io
+    import wave
     from urllib.request import urlopen
 
     print(f"🌐 Downloading audio file from {audio_url}")
     audio_bytes = urlopen(audio_url).read()
     print(f"🎧 Downloaded {len(audio_bytes)} bytes")
 
-    audio_data = preprocess_audio(audio_bytes)
+    # Load WAV and extract samples using standard library
+    with wave.open(io.BytesIO(audio_bytes), "rb") as wav_in:
+        n_channels = wav_in.getnchannels()
+        sample_width = wav_in.getsampwidth()
+        frame_rate = wav_in.getframerate()
+        n_frames = wav_in.getnframes()
+        frames = wav_in.readframes(n_frames)
+
+    # Convert frames to array based on sample width
+    if sample_width == 1:
+        audio_data = array.array("B", frames)  # unsigned char
+    elif sample_width == 2:
+        audio_data = array.array("h", frames)  # signed short
+    elif sample_width == 4:
+        audio_data = array.array("i", frames)  # signed int
+    else:
+        raise ValueError(f"Unsupported sample width: {sample_width}")
+
+    # Downmix to mono if needed
+    if n_channels > 1:
+        mono_data = array.array(audio_data.typecode)
+        for i in range(0, len(audio_data), n_channels):
+            chunk = audio_data[i : i + n_channels]
+            mono_data.append(sum(chunk) // n_channels)
+        audio_data = mono_data
+
+    # Resample to 16kHz if needed
+    if frame_rate != TARGET_SAMPLE_RATE:
+        ratio = TARGET_SAMPLE_RATE / frame_rate
+        new_length = int(len(audio_data) * ratio)
+        resampled_data = array.array(audio_data.typecode)
+        for i in range(new_length):
+            pos = i / ratio
+            pos_int = int(pos)
+            pos_frac = pos - pos_int
+            if pos_int >= len(audio_data) - 1:
+                sample = audio_data[-1]
+            else:
+                sample1 = audio_data[pos_int]
+                sample2 = audio_data[pos_int + 1]
+                sample = int(sample1 + (sample2 - sample1) * pos_frac)
+            resampled_data.append(sample)
+        audio_data = resampled_data
 
     print("🎤 Starting Transcription")
     with modal.Queue.ephemeral() as q:
         Parakeet().run_with_queue.spawn(q)
-        send = asyncio.create_task(send_audio(q, audio_data))
+        send = asyncio.create_task(send_audio(q, audio_data, sample_width))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)
     print("✅ Transcription complete!")
@@ -372,11 +424,13 @@ async def main(audio_url: str = AUDIO_URL):
 # `receive_text` waits for transcribed text to arrive and prints it.
 
 
-async def send_audio(q, audio_bytes):
-    for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
-        await q.put.aio(chunk, partition="audio")
-        # await asyncio.sleep(CHUNK_SIZE / TARGET_SAMPLE_RATE / 8)
-        await asyncio.sleep(0.1)
+async def send_audio(q, audio_data, sample_width):
+    for i in range(0, len(audio_data), CHUNK_SIZE):
+        chunk = audio_data[i : i + CHUNK_SIZE]
+        # Convert chunk to bytes
+        chunk_bytes = chunk.tobytes()
+        await q.put.aio(chunk_bytes, partition="audio")
+        await asyncio.sleep(0.01)
     await q.put.aio(END_OF_STREAM, partition="audio")
 
 
