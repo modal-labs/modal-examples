@@ -62,7 +62,7 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 # The model runs remotely inside a container on Modal. We can define the environment
 # and install our Python dependencies in that container's [`Image`](https://modal.com/docs/guide/images).
 
-# For finicky setups like NeMO's, we recommend using the official NVIDIA CUDA Docker images from Docker Hub.
+# For finicky setups like NeMo's, we recommend using the official NVIDIA CUDA Docker images from Docker Hub.
 # You'll need to install Python and pip with the `add_python` option because the image
 # doesn't have these by default.
 
@@ -167,25 +167,49 @@ class Parakeet:
         @web_app.websocket("/ws")
         async def run_with_websocket(ws: WebSocket):
             from fastapi import WebSocketDisconnect
-            from pydub import AudioSegment
 
             await ws.accept()
 
-            # initialize an empty audio segment
-            audio_segment = AudioSegment.empty()
+            audio_queue = asyncio.Queue()
+            segment_queue = asyncio.Queue()
+            text_queue = asyncio.Queue()
+
+            async def receiver():
+                try:
+                    while True:
+                        chunk = await ws.receive_bytes()
+                        await audio_queue.put(chunk)
+                        if chunk == END_OF_STREAM:
+                            break
+                except Exception as e:
+                    await audio_queue.put(END_OF_STREAM)
+                    raise e
+
+            async def sender():
+                try:
+                    while True:
+                        text = await text_queue.get()
+                        if text == END_OF_STREAM:
+                            await ws.send_bytes(END_OF_STREAM)
+                            break
+                        await ws.send_text(text)
+                except Exception as e:
+                    raise e
+
+            # Use the shared preprocessor and transcriber logic
+            preprocessor_task = asyncio.create_task(
+                self.audio_preprocessor(audio_queue, segment_queue)
+            )
+            transcriber_task = asyncio.create_task(
+                self.transcriber(segment_queue, text_queue)
+            )
+            receiver_task = asyncio.create_task(receiver())
+            sender_task = asyncio.create_task(sender())
 
             try:
-                while True:
-                    # receive a chunk of audio data and convert it to an audio segment
-                    chunk = await ws.receive_bytes()
-                    if chunk == END_OF_STREAM:
-                        await ws.send_bytes(END_OF_STREAM)
-                        break
-                    audio_segment, text = await self.handle_audio_chunk(
-                        chunk, audio_segment
-                    )
-                    if text:
-                        await ws.send_text(text)
+                await asyncio.gather(
+                    receiver_task, preprocessor_task, transcriber_task, sender_task
+                )
             except Exception as e:
                 if not isinstance(e, WebSocketDisconnect):
                     print(f"Error handling websocket: {type(e)}: {e}")
@@ -198,79 +222,114 @@ class Parakeet:
 
     @modal.method()
     async def run_with_queue(self, q: modal.Queue):
-        from pydub import AudioSegment
+        audio_queue = asyncio.Queue()
+        segment_queue = asyncio.Queue()
+        text_queue = asyncio.Queue()
 
-        # initialize an empty audio segment
-        audio_segment = AudioSegment.empty()
+        async def receiver():
+            try:
+                while True:
+                    chunk = await q.get.aio(partition="audio")
+                    await audio_queue.put(chunk)
+                    if chunk == END_OF_STREAM:
+                        break
+            except Exception as e:
+                await audio_queue.put(END_OF_STREAM)
+                raise e
+
+        async def sender():
+            try:
+                while True:
+                    text = await text_queue.get()
+                    if text == END_OF_STREAM:
+                        await q.put.aio(END_OF_STREAM, partition="transcription")
+                        break
+                    await q.put.aio(text, partition="transcription")
+            except Exception as e:
+                raise e
+
+        preprocessor_task = asyncio.create_task(
+            self.audio_preprocessor(audio_queue, segment_queue)
+        )
+        transcriber_task = asyncio.create_task(
+            self.transcriber(segment_queue, text_queue)
+        )
+        receiver_task = asyncio.create_task(receiver())
+        sender_task = asyncio.create_task(sender())
 
         try:
-            while True:
-                # receive a chunk of audio data and convert it to an audio segment
-                chunk = await q.get.aio(partition="audio")
-
-                if chunk == END_OF_STREAM:
-                    await q.put.aio(END_OF_STREAM, partition="transcription")
-                    break
-
-                audio_segment, text = await self.handle_audio_chunk(
-                    chunk, audio_segment
-                )
-                if text:
-                    await q.put.aio(text, partition="transcription")
+            await asyncio.gather(
+                receiver_task, preprocessor_task, transcriber_task, sender_task
+            )
         except Exception as e:
             print(f"Error handling queue: {type(e)}: {e}")
             return
 
-    async def handle_audio_chunk(
-        self,
-        chunk: bytes,
-        audio_segment,
-        silence_thresh=-45,  # dB
-        min_silence_len=1000,  # ms
+    async def audio_preprocessor(
+        self, audio_queue, segment_queue, silence_thresh=-45, min_silence_len=1000
     ):
         from pydub import AudioSegment, silence
 
-        new_audio_segment = AudioSegment(
-            data=chunk,
-            channels=1,
-            sample_width=2,
-            frame_rate=TARGET_SAMPLE_RATE,
-        )
+        audio_segment = AudioSegment.empty()
+        new_audio_segment = AudioSegment.empty()
+        while True:
+            chunk = await audio_queue.get()
+            if chunk == END_OF_STREAM:
+                await segment_queue.put(END_OF_STREAM)
+                break
+            new_audio_segment += AudioSegment(
+                data=chunk,
+                channels=1,
+                sample_width=2,
+                frame_rate=TARGET_SAMPLE_RATE,
+            )
 
-        # append the new audio segment to the existing audio segment
-        audio_segment += new_audio_segment
+            # Only run silence detection if we have enough audio buffered
+            print(f"new_audio_segment: {len(new_audio_segment)}")
+            if len(new_audio_segment) < 3 * min_silence_len / 1000 * TARGET_SAMPLE_RATE:
+                print(len(new_audio_segment))
+                continue
 
-        # detect windows of silence
-        silent_windows = silence.detect_silence(
-            audio_segment,
-            min_silence_len=min_silence_len,
-            silence_thresh=silence_thresh,
-        )
+            # Only run silence detection on the new chunk
+            silent_windows = silence.detect_silence(
+                new_audio_segment,
+                min_silence_len=min_silence_len,
+                silence_thresh=silence_thresh,
+            )
+            print(silent_windows)  # Debug: can be removed
+            # Adjust indices to the full buffer
+            prev_len = len(audio_segment)
+            audio_segment += new_audio_segment
+            new_len = len(audio_segment)
+            print(f"new_len: {new_len}, prev_len: {prev_len}")
+            for window in silent_windows:
+                start, end = window
+                abs_start = prev_len + start
+                abs_end = prev_len + end
+                # If the silence window ends at the end of the buffer, we have a segment to transcribe
+                if abs_end == new_len:
+                    # If the entire buffer is silent, reset
+                    if abs_start == 0 and abs_end == new_len:
+                        audio_segment = AudioSegment.empty()
+                        break
+                    segment_to_transcribe = audio_segment[:abs_end]
+                    audio_segment = audio_segment[abs_end:]
+                    await segment_queue.put(segment_to_transcribe.raw_data)
+                    break  # Only process the first such window per chunk for efficiency
 
-        # if there are no silent windows, continue
-        if len(silent_windows) == 0:
-            return audio_segment, None
-
-        # get the last silent window because
-        # we want to transcribe until the final pause
-        last_window = silent_windows[-1]
-
-        # if the entire audio segment is silent, reset the audio segment
-        if last_window[0] == 0 and last_window[1] == len(audio_segment):
-            audio_segment = AudioSegment.empty()
-            return audio_segment, None
-
-        # get the segment to transcribe: beginning until last pause
-        segment_to_transcribe = audio_segment[: last_window[1]]
-
-        # remove the segment to transcribe from the audio segment
-        audio_segment = audio_segment[last_window[1] :]
-        try:
-            text = self.transcribe(segment_to_transcribe.raw_data)
-            return audio_segment, text
-        except Exception as e:
-            print("❌ Transcription error:", e)
-            raise e
+    async def transcriber(self, segment_queue, text_queue):
+        while True:
+            segment = await segment_queue.get()
+            if segment == END_OF_STREAM:
+                await text_queue.put(END_OF_STREAM)
+                break
+            try:
+                text = self.transcribe(segment)
+                await text_queue.put(text)
+            except Exception as e:
+                print("❌ Transcription error:", e)
+                # Optionally, you could put an error message on the queue or skip
+                continue
 
 
 # ## Running transcription from a local Python client
@@ -316,7 +375,8 @@ async def main(audio_url: str = AUDIO_URL):
 async def send_audio(q, audio_bytes):
     for chunk in chunk_audio(audio_bytes, CHUNK_SIZE):
         await q.put.aio(chunk, partition="audio")
-        await asyncio.sleep(CHUNK_SIZE / TARGET_SAMPLE_RATE / 8)
+        # await asyncio.sleep(CHUNK_SIZE / TARGET_SAMPLE_RATE / 8)
+        await asyncio.sleep(0.1)
     await q.put.aio(END_OF_STREAM, partition="audio")
 
 
