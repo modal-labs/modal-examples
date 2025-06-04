@@ -58,7 +58,7 @@ vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 # [here](https://neuralmagic.com/blog/introducing-machete-a-mixed-input-gemm-kernel-optimized-for-nvidia-hopper-gpus/).
 
 MODELS_DIR = "/llamas"
-MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
+MODEL_NAME = "RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16"  # "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
 MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
 
 # Although vLLM will download weights on-demand, we want to cache them if possible. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes),
@@ -108,8 +108,8 @@ def serve():
         "serve",
         "--uvicorn-log-level=info",
         MODEL_NAME,
-        "--revision",
-        MODEL_REVISION,
+        # "--revision",
+        # MODEL_REVISION,
         "--host",
         "0.0.0.0",
         "--port",
