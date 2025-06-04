@@ -5,15 +5,15 @@
 
 # ## Local env imports
 # # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
-import os
 import asyncio
+import csv
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 from time import perf_counter
-from typing import Iterator, Sequence, Tuple, List
+from typing import Iterator, List, Sequence, Tuple
 
 import modal
-
 
 # ────────────────────────────── Constants ──────────────────────────────
 HF_SECRET = modal.Secret.from_name("huggingface-secret")
@@ -21,6 +21,11 @@ VOL_NAME = "example-embedding-data"
 VOL_MNT = Path("/data")
 data_volume = modal.Volume.from_name(VOL_NAME, create_if_missing=True)
 MODEL_REPO = VOL_MNT / "triton_repo"  # will hold model.plan + config
+
+
+IN_NAME, IN_PATH = "clip_input", "/clip_input"
+OUT_NAME, OUT_PATH = "clip_output", "/clip_output"
+DTYPE = "FP16"
 
 
 # image with Triton + torch + tritonclient (tiny helper)
@@ -57,13 +62,16 @@ app = modal.App(
 )
 
 with TRITON_IMAGE.imports():
-    import torch, torchvision  # noqa: F401   – for torchscript
-    from transformers import CLIPVisionModel, CLIPImageProcessorFast
+    import numpy as np
+    import torch  # noqa: F401   – for torchscript
+    import torchvision
+    import tritonclient.grpc as grpcclient
     from torchvision.io import read_image
-    from torchvision.transforms.functional import to_pil_image
-    import tritonclient.http as httpclient
+    from tqdm import tqdm
+    from transformers import CLIPImageProcessorFast, CLIPVisionModel
+    from tritonclient.utils import shared_memory as shm
 
-##
+
 # ## Dataset Setup
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
 # to store the images we want to encode. For your usecase, can simply replace the
@@ -77,24 +85,21 @@ with TRITON_IMAGE.imports():
 # files and directories. If you have a larger dataset, you may need to consider other storage
 # options such as a [CloudBucketMount](https://modal.com/docs/examples/rosettafold).
 
-# A note on preprocessing: Infinity will handle resizing and other preprocessing in case
-# your images are not the same size as what the model is expecting; however, this will
-# significantly degrade throughput. We recommend batch-processing (if possible).
-
 
 @app.function(
     image=TRITON_IMAGE,
     volumes={VOL_MNT: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
-    timeout=24 * 60 * 60,  # if using a large HF dataset, this may need to be longer
+    timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
 )
 def catalog_jpegs(
     dataset_namespace: str,  # a HuggingFace path like `microsoft/cats_vs_dogs`
     cache_dir: str,  # a subdir where the JPEGs will be extracted into the volume long-form
     image_cap: int,  # hard cap on the number of images to be processed (e.g. for timing, debugging)
     model_input_shape: tuple[int, int, int],  # JPEGs will be preprocessed to this shape
-    threads_per_cpu: int = 4,  # threads per CPU for I/O oversubscription
+    threads_per_core: int = 8,  # threads per CPU for I/O oversubscription
+    n_million_image_test: float = None,
 ) -> tuple[
     list[os.PathLike],  # the function returns a list of paths,
     float,  # and the time it took to prepare
@@ -156,7 +161,9 @@ def catalog_jpegs(
         # You could use ProcessPool if there is significant work per image, or even
         # GPU acceleration and batch preprocessing. We keep it simple here for the example.
         futures = []
-        with ThreadPoolExecutor(max_workers=os.cpu_count * threads_per_cpu) as executor:
+        with ThreadPoolExecutor(
+            max_workers=os.cpu_count * threads_per_core
+        ) as executor:
             for idx, ex in enumerate(ds):
                 if image_cap > 0 and idx >= image_cap:
                     break
@@ -203,11 +210,16 @@ def catalog_jpegs(
     print(f"Found {n_ims} JPEGs in the Volume.", end="")
     if image_cap > 0:
         im_path_list = im_path_list[: min(image_cap, len(im_path_list))]
-    print(f"using {len(im_path_list)}.")
 
-    # Time it
-    ds_time_elapsed = perf_counter() - ds_preptime_st
-    return im_path_list, ds_time_elapsed
+    print(f"Took {perf_counter() - ds_preptime_st:.2f}s to setup volume.")
+    if n_million_image_test > 0:
+        print(f"WARNING: `{n_million_image_test} million_image_test` FLAG RECEIVED!")
+        mil = int(n_million_image_test * 1e6)
+        while len(im_path_list) < mil:
+            im_path_list += im_path_list
+        im_path_list = im_path_list[:mil]
+
+    return im_path_list
 
 
 def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLike]]:
@@ -223,8 +235,8 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
     image=TRITON_IMAGE,
     volumes={VOL_MNT: data_volume},
     cpu=4,
-    memory=5 * 1024,  # MB -> GB
-    timeout=10 * 60,
+    memory=2.5 * 1024,  # MB -> GB
+    buffer_containers=20,
 )
 class TritonServer:
     model_name: str = modal.parameter()
@@ -235,6 +247,9 @@ class TritonServer:
     model_input_chan: int = modal.parameter(default=3)
     model_input_imheight: int = modal.parameter(default=224)
     model_input_imwidth: int = modal.parameter(default=224)
+    output_dim: int = modal.parameter(default=768)
+
+    force_rebuild: bool = modal.parameter(default=False)
     name: str = "Triton"
 
     def set_names(
@@ -262,6 +277,7 @@ class TritonServer:
 
         import subprocess
         import time
+
         import tritonclient.http as http
 
         self._client = http.InferenceServerClient(url="localhost:8000")
@@ -281,17 +297,29 @@ class TritonServer:
             self._client.load_model(self.triton_model_name)  # ← added line
 
         # Heartbeat
-        self._client = httpclient.InferenceServerClient(url="localhost:8000")
-        seconds_wait = 60
-        for _ in range(seconds_wait * 2):  # wait up to 1min
+        self._client = grpcclient.InferenceServerClient(url="localhost:8001")
+
+        minutes_wait = 2
+        check_rate_hz = 2
+        n_iter = minutes_wait * 60 * check_rate_hz
+        for idx in tqdm(
+            range(n_iter), total=n_iter, desc="Waiting for server hearbeat"
+        ):
             try:
                 if self._client.is_model_ready(self.triton_model_name):
                     break
             except Exception:
                 pass
-            time.sleep(0.5)
+            time.sleep(1 / check_rate_hz)
+            if (idx / check_rate_hz) == int(idx / check_rate_hz):
+                print(".", end="")
         else:
             raise RuntimeError("Triton failed to become ready")
+
+        self.executor = ThreadPoolExecutor(
+            max_workers=os.cpu_count() * 8,
+            thread_name_prefix="img-io",
+        )
 
     def gpu_pool_flags(self, headroom_pct: float = 0.10):
         """
@@ -345,7 +373,7 @@ class TritonServer:
             "model.pt" if self.triton_backend == "pytorch" else "model.plan"
         )
         cfg_file = Path(MODEL_REPO) / self.triton_model_name / "config.pbtxt"
-        if artifact.exists() and cfg_file.exists():
+        if artifact.exists() and cfg_file.exists() and (not self.force_rebuild):
             print("Model repo already complete – skip build.")
             return
 
@@ -437,7 +465,7 @@ class TritonServer:
         cfg_text = self.make_config(
             name=self.triton_model_name,
             dtype=dtype,
-            output_dim=512,
+            output_dim=self.output_dim,
             instances=self.n_engines,
         )
         cfg_file.write_text(cfg_text)
@@ -498,41 +526,78 @@ class TritonServer:
             """
         return dedent(cfg)
 
-    def read_batch(
-        self,
-        im_path_list: list[os.PathLike],
-    ) -> list["Image"]:  # TODO: fix this typehint
+    @staticmethod
+    def readim(impath: os.PathLike):
         """
-        Read a batch of data. We use Threads to parallelize this I/O-bound task,
-        and finally toss the batch into the CLIPImageProcessorFast preprocessor.
+        Prepends this container's volume mount location to the image path.
         """
+        return read_image(str(VOL_MNT / impath))
 
-        def readim(impath: os.PathLike):
-            """
-            Prepends this container's volume mount location to the image path.
-            """
-            return read_image(str(VOL_MNT / impath))
+    # --------------------------------------------------------------------------
+    def _ensure_region(self, name, path, byte_size):
+        """Create or grow a system-SHM block and remember its handle."""
 
-        with ThreadPoolExecutor(max_workers=os.cpu_count() * 8) as executor:
-            images = list(executor.map(readim, im_path_list))
+        if not hasattr(self, "_shm"):
+            self._shm = {}
 
-        return (torch.stack(images).to(torch.float16) / 255).numpy()
+        # first time
+        if name not in self._shm:
+            self._shm[name] = shm.create_shared_memory_region(name, path, byte_size)
+            self._client.register_system_shared_memory(name, path, byte_size)
+            return
 
+        # # need more space
+        # cur = shm.get_shared_memory_byte_size(self._shm[name])
+        # if byte_size > cur:
+        #     self._client.unregister_system_shared_memory(name, path)
+        #     shm.destroy_shared_memory_region(path)
+        #     self._shm[name] = shm.create_shared_memory_region(name, path, byte_size)
+        #     self._client.register_system_shared_memory(name, path, byte_size)
+
+    # --------------------------------------------------------------------------
+    def _load_batch(self, img_paths):
+        batch = (
+            torch.stack(list(self.executor.map(self.readim, img_paths))).to(
+                torch.float16
+            )
+            / 255
+        ).numpy()
+        # input SHM
+        self._ensure_region(IN_NAME, IN_PATH, batch.nbytes)
+        shm.set_shared_memory_region(self._shm[IN_NAME], [batch])
+
+        # output SHM (same batch-size)
+        out_bytes = batch.shape[0] * self.output_dim * batch.dtype.itemsize
+        self._ensure_region(OUT_NAME, OUT_PATH, out_bytes)
+
+        return batch.shape, batch.nbytes, out_bytes
+
+    # --------------------------------------------------------------------------
     @modal.method()
-    async def embed(self, imgs: list[os.PathLike]) -> Tuple[float, int]:
-        """Read batch → POST to Triton → return latency + count"""
-        st = perf_counter()
-        batch = self.read_batch(imgs)
-        msg = f"Time to create batch: {perf_counter() - st:.2e}"
-        st = perf_counter()
-        inp = httpclient.InferInput("input0", batch.shape, "FP16")
-        inp.set_data_from_numpy(batch, binary_data=True)
+    async def embed(self, imgs: list[os.PathLike]) -> tuple[float, int]:
+        t0 = perf_counter()
+        in_shape, in_bytes, out_bytes = self._load_batch(imgs)
+        t_prep = perf_counter() - t0
 
-        out = httpclient.InferRequestedOutput("output0")
-        _ = self._client.infer(self.triton_model_name, [inp], outputs=[out])
-        inftime = perf_counter() - st
-        msg += f" || Time to inf: {inftime:.2e}"
-        return inftime, len(imgs)
+        # Build request
+        inp = grpcclient.InferInput("input0", in_shape, DTYPE)
+        inp.set_shared_memory(IN_NAME, in_bytes)
+
+        out = grpcclient.InferRequestedOutput("output0")
+        out.set_shared_memory(OUT_NAME, out_bytes)
+
+        # Inference
+        t1 = perf_counter()
+        self._client.infer(self.triton_model_name, [inp], outputs=[out])
+        t_inf = perf_counter() - t1
+
+        # # (If you need the vectors:)
+        # vecs = shm.get_contents_as_numpy(
+        #     self._shm[OUT_NAME], (in_shape[0], self.output_dim), DTYPE
+        # )
+
+        print(f"\tBatchCreate={t_prep * 1e3:.1f} ms\n\tInference={t_inf * 1e3:.1f} ms")
+        return t_prep, t_inf, len(imgs)
 
     @modal.exit()
     def _cleanup(self):
@@ -568,42 +633,39 @@ def main(
     gpu: str = "A10G",
     min_containers: int = 1,
     max_containers: int = 50,  # this gets overridden if buffer_containers is not None
-    allow_concurrent_inputs: int = 1,
+    input_concurrency: int = 2,
     # modal.parameters:
     n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     model_name: str = "openai/clip-vit-base-patch16",
-    batch_size: int = 100,
+    batch_size: int = 512,
     im_chan: int = 3,
     im_height: int = 224,
     im_width: int = 224,
     # data
     image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
-    million_image_test: bool = False,
+    n_million_image_test: float = 0,
     # triton cache
     destroy_cache: bool = False,
     # logging (optional)
-    log_file: str = None,  # TODO: remove local logging from example
+    log_file: str = "/home/ec2-user/modal-examples/06_gpu_and_ml/embeddings/_triton.csv",
     triton_backend: str = "pytorch",
     n_gpu: int = 1,
+    force_rebuild: bool = False,
 ):
     start_time = perf_counter()
 
     # (0.a) Catalog data: modify `catalog_jpegs` to fetch batches of your data paths.
     extracted_path = Path("extracted") / hf_dataset_name
-    im_path_list, vol_setup_time = catalog_jpegs.remote(
+    im_path_list = catalog_jpegs.remote(
         dataset_namespace=hf_dataset_name,
         cache_dir=extracted_path,
         image_cap=image_cap,
         model_input_shape=(im_chan, im_height, im_width),
+        n_million_image_test=n_million_image_test,
     )
-    print(f"Took {vol_setup_time:.2f}s to setup volume.")
-    if million_image_test:
-        print("WARNING: `million_image_test` FLAG RECEIVED! RESETTING BSZ ETC!")
-        mil = int(1e6)
-        while len(im_path_list) < mil:
-            im_path_list += im_path_list
-        im_path_list = im_path_list[:mil]
+    print(f"Embedding {len(im_path_list)} images at batchsize {batch_size}.")
+
     n_ims = len(im_path_list)
 
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
@@ -615,95 +677,106 @@ def main(
     # No inputs to with_options if none provided or buffer_used aboe
     buffer_containers = None
     make_empty = (buffer_containers is not None) or (max_containers is None)
-    container_config = {} if make_empty else {"max_containers": max_containers}
     # Build the engine
     start_time = perf_counter()
-    # embedder = TorchCompileEngine.with_options(
-    #     gpu=gpu, allow_concurrent_inputs=allow_concurrent_inputs, **container_config
-    # )(
-    #     batch_size=batch_size,
-    #     n_engines=n_models if n_models else allow_concurrent_inputs,
-    #     model_name=model_name,
-    #     model_input_chan=model_input_chan,
-    #     model_input_imheight=model_input_imheight,
-    #     model_input_imwidth=model_input_imwidth,
-    #     threads_per_core=threads_per_core,
-    # )
 
-    embedder = TritonServer.with_options(
+    embedder = TritonServer.with_concurrency(
+        max_inputs=input_concurrency,
+    ).with_options(
         gpu=f"{gpu}:{n_gpu}",
         max_containers=max_containers,
-    ).with_concurrency(
-        max_inputs=allow_concurrent_inputs,
     )(
         batch_size=batch_size,
-        n_engines=allow_concurrent_inputs,
+        n_engines=input_concurrency,
         triton_backend=triton_backend,
         model_name=model_name,
         model_input_chan=im_chan,
         model_input_imheight=im_height,
         model_input_imwidth=im_width,
+        force_rebuild=force_rebuild,
     )
 
     # (2) Embed batches via remote `map` call
-    times, batchsizes = [], []
+    preptimes, inftimes, batchsizes = [], [], []
     # embedder.embed.spawn_map(chunked(im_path_list, batch_size))
-    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
-        times.append(time)
+    for preptime, inftime, batchsize in embedder.embed.map(
+        chunked(im_path_list, batch_size)
+    ):
+        preptimes.append(preptime)
+        inftimes.append(inftime)
         batchsizes.append(batchsize)
 
-    # (3) Log
+    # (3) Log & persist results
     if n_ims > 0:
-        total_duration = perf_counter() - start_time
-        total_throughput = n_ims / total_duration
-        embed_throughputs = [
-            batchsize / time for batchsize, time in zip(batchsizes, times)
-        ]
-        avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
+        total_duration = perf_counter() - start_time  # end-to-end wall-clock
+        overall_throughput = n_ims / total_duration  # imgs / s, wall-clock
+
+        # per-container metrics
+        inf_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, inftimes)]
+        prep_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, preptimes)]
+
+        avg_inf_throughput = sum(inf_throughputs) / len(inf_throughputs)
+        best_inf_throughput = max(inf_throughputs)
+
+        avg_prep_throughput = sum(prep_throughputs) / len(prep_throughputs)
+        best_prep_throughput = max(prep_throughputs)
+
+        total_prep_time = sum(preptimes)
+        total_inf_time = sum(inftimes)
 
         log_msg = (
             f"{embedder.name}{gpu}::batch_size={batch_size}::"
-            f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
-            f"\tTotal time:\t{total_duration / 60:.2f} min\n"
-            f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
-            f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
+            f"n_ims={n_ims}::concurrency={input_concurrency}\n"
+            f"\tTotal wall time:\t{total_duration / 60:.2f} min\n"
+            f"\tOverall throughput:\t{overall_throughput:.2f} im/s\n"
+            f"\tPrep time (sum):\t{total_prep_time:.2f} s\n"
+            f"\tInference time (sum):\t{total_inf_time:.2f} s\n"
+            f"\tPrep throughput  (avg/best):\t{avg_prep_throughput:.2f} / "
+            f"{best_prep_throughput:.2f} im/s\n"
+            f"\tInfer throughput (avg/best):\t{avg_inf_throughput:.2f} / "
+            f"{best_inf_throughput:.2f} im/s\n"
         )
-
         print(log_msg)
 
-        if log_file is not None:
-            local_logfile = Path(log_file).expanduser()
-            local_logfile.parent.mkdir(parents=True, exist_ok=True)
+        # ── optional CSV ───────────────────────────────────────────────────────────
+        if log_file:
+            path = Path(log_file).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
 
-            import csv
+            header = [
+                "batch_size",
+                "concurrency",
+                "max_containers",
+                "gpu",
+                "n_images",
+                "total_wall_time",
+                "overall_throughput",
+                "total_prep_time",
+                "total_inf_time",
+                "avg_prep_thpt",
+                "best_prep_thpt",
+                "avg_inf_thpt",
+                "best_inf_thpt",
+            ]
+            row = [
+                batch_size,
+                input_concurrency,
+                max_containers,
+                gpu,
+                n_ims,
+                total_duration,
+                overall_throughput,
+                total_prep_time,
+                total_inf_time,
+                avg_prep_throughput,
+                best_prep_throughput,
+                avg_inf_throughput,
+                best_inf_throughput,
+            ]
 
-            csv_exists = local_logfile.exists()
-            with open(local_logfile, "a", newline="", encoding="utf-8") as f:
+            write_header = not path.exists()
+            with path.open("a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                if not csv_exists:
-                    # write header
-                    writer.writerow(
-                        [
-                            "batch_size",
-                            "concurrency",
-                            "max_containers",
-                            "gpu",
-                            "n_images",
-                            "total_time",
-                            "total_throughput",
-                            "avg_model_throughput",
-                        ]
-                    )
-                # write your row
-                writer.writerow(
-                    [
-                        batch_size,
-                        allow_concurrent_inputs,
-                        max_containers,
-                        gpu,
-                        n_ims,
-                        total_duration,
-                        total_throughput,
-                        avg_throughput,
-                    ]
-                )
+                if write_header:
+                    writer.writerow(header)
+                writer.writerow(row)
