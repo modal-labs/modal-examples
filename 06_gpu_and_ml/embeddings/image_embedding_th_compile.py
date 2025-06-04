@@ -1,11 +1,9 @@
 # ---
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_th_compile.py::main"]
 # ---
-
 # TODO: deprecation warnings at the beginning??
 # TODO: add torch.inference_mode everywhere to both scripts...
 # TODO: remove all the bugger stuff
-
 # # A Recipe for Throughput Maximization: GPU Packing with torch.compile
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
 # This example presents a Modal recipe for maximizing image embedding throughput,
@@ -14,15 +12,15 @@
 # recipe ABC
 # ### Why?
 # compile discussion
-
 # ## Local env imports
 # # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
 import asyncio
+import csv
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, time_ns
 from typing import Iterator
 
 import modal
@@ -58,7 +56,7 @@ hf_secret = modal.Secret.from_name("huggingface-secret")
 
 
 # Create a persisted dict - the data gets retained between app runs
-racetrack_dict = modal.Dict.from_name("racetrack-times", create_if_missing=True)
+racetrack_dict = modal.Dict.from_name("laion2B", create_if_missing=True)
 
 # This name is important for referencing the volume in other apps or for
 # [browsing](https://modal.com/storage):
@@ -273,7 +271,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # Here we define a [modal.cls](https://modal.com/docs/reference/modal.Cls#modalcls)
 # that wraps an AsyncQueue of `torch.compile`'d models.
 # Some important notes:
-# 1. We let Modal handle management of concurrent inputs via the `allow_concurrent_inputs`
+# 1. We let Modal handle management of concurrent inputs via the `input_concurrency`
 # parameter, which we pass to the class constructor in our `main` local_entrypoint below. This
 # parameter sets both the number of concurrent inputs (via with_options) and the class variable
 # `n_engines` (via modal.parameters). If you aren't using `with_options` you can use the
@@ -294,7 +292,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
     volumes={vol_mnt: data_volume},
     cpu=2.5,
     memory=2.5 * 1024,  # MB -> GB
-    # buffer_containers=buffer_containers,
+    buffer_containers=50,
 )
 class TorchCompileEngine:
     model_name: str = modal.parameter()
@@ -304,8 +302,6 @@ class TorchCompileEngine:
     model_input_imheight: int = modal.parameter(default=224)
     model_input_imwidth: int = modal.parameter(default=224)
     threads_per_core: int = modal.parameter(default=8)
-    verbose_inference: bool = modal.parameter(default=False)
-    verbose_startup: bool = modal.parameter(default=False)
     exp_tag: str = modal.parameter(default="default-tag")
     # Cannot currently gracefully set ENV vars from local_entrypoint
     cache_dir: Path = TH_CACHE_DIR
@@ -330,6 +326,9 @@ class TorchCompileEngine:
         sequent containers can use that cache (which takes 50%-60% the time
         as the first torch.compile call).
         """
+        key = f"{self.exp_tag}-first.ctr.start"
+        racetrack_dict[key] = racetrack_dict.get(key, time_ns())
+
         # (0) Setup
         # Torch backend
         self.init_th()
@@ -353,16 +352,11 @@ class TorchCompileEngine:
         # or to check for a cache (we want it to check for a cache!)
         torch.compiler.set_stance("eager_on_recompile")
 
-        # We will build up a message but just print once at the end.
-        msg = "new container!"
-
         # (1) Load raw model weights and preprocessor once per container
-        st = perf_counter()
         base = CLIPVisionModel.from_pretrained(self.model_name)
         self.preprocessor = CLIPImageProcessorFast.from_pretrained(
             self.model_name, usefast=True
         )
-        msg += f"\n\ttime to call from_pretrained: {perf_counter() - st:.2E}"
 
         # Only save what we need
         config = base.config
@@ -371,20 +365,15 @@ class TorchCompileEngine:
 
         # (2) Check for trace artifacts cache
         if compile_cache.is_file():
-            st = perf_counter()
             cache = compile_cache.read_bytes()
             with safe_globals([CacheInfo]):
                 torch.compiler.load_cache_artifacts(cache)
-            msg += f"\n\tth.compile cache exists; time to load it: {perf_counter() - st:.2E}"
-        else:
-            msg += "\n\tth.compile cache not found"
 
         # (3) Build an Async Queue of compiled models
         self.engine_queue = asyncio.Queue()
 
         for idx in range(self.n_engines):
             # (3.a) Build a CLIPVisionModel model from weights
-            st = perf_counter()
             model = CLIPVisionModel(config).eval().cuda()
             model.load_state_dict(state)
 
@@ -409,39 +398,21 @@ class TorchCompileEngine:
                 compile_cache.parent.mkdir(exist_ok=True, parents=True)
                 artifact_bytes, cache_info = torch.compiler.save_cache_artifacts()
                 compile_cache.write_bytes(artifact_bytes)
-                tmp = " (incl. trace, save cache)"
-            else:
-                tmp = ""
+
             await self.engine_queue.put(compiled_model)
-            elapsed = perf_counter() - st
-            msg += f"\n\tmodel{idx} | load+compile{tmp} time: {elapsed:.2E}"
 
-        # Log to std out; you could instead write to a modal.Volume
-        if self.verbose_startup and msg:
-            print(msg)
+            # (4) initialize threadpool for dataloading
+            self.executor = ThreadPoolExecutor(
+                max_workers=os.cpu_count() * self.threads_per_core,
+                thread_name_prefix="img-io",
+            )
 
-    def read_batch(
-        self, im_path_list: list[os.PathLike], device
-    ) -> list["Image"]:  # TODO: fix this typehint
+    @staticmethod
+    def readim(impath: os.PathLike):
         """
-        Read a batch of data. We use Threads to parallelize this I/O-bound task,
-        and finally toss the batch into the CLIPImageProcessorFast preprocessor.
+        Prepends this container's volume mount location to the image path.
         """
-
-        def readim(impath: os.PathLike):
-            """
-            Prepends this container's volume mount location to the image path.
-            """
-            return read_image(str(vol_mnt / impath))
-
-        with ThreadPoolExecutor(
-            max_workers=os.cpu_count() * self.threads_per_core
-        ) as executor:
-            images = list(executor.map(readim, im_path_list))
-
-        return self.preprocessor(
-            images=torch.stack(images), device=device, return_tensors="pt"
-        )
+        return read_image(str(vol_mnt / impath))
 
     @modal.method()
     async def embed(
@@ -458,12 +429,16 @@ class TorchCompileEngine:
         """
 
         try:
-            # (1) Load batch of image data
+            # (0) Load batch of image data
             st = perf_counter()
-            images = self.read_batch(images, "cuda:0")
+            images = self.preprocessor(
+                images=torch.stack(list(self.executor.map(self.readim, images))),
+                device="cuda:0",
+                return_tensors="pt",
+            )
             batch_elapsed = perf_counter() - st
 
-            # (0) Grab an engine from the queue
+            # (1) Grab an engine from the queue
             engine = await self.engine_queue.get()
 
             # (2) Encode the batch
@@ -475,20 +450,16 @@ class TorchCompileEngine:
             # No matter what happens, return the engine to the queue
             await self.engine_queue.put(engine)
 
-        # (3) Housekeeping
-        if self.verbose_inference:
-            print(f"Time to load batch: {batch_elapsed:.2E}s")
-            print(f"Time to embed batch: {embed_elapsed:.2E}s")
-
-        # (4) You may wish to return the embeddings themselves here
-        return embed_elapsed, len(images)
+        # (3) You may wish to return the embeddings themselves here
+        return batch_elapsed, embed_elapsed, len(images)
 
     @modal.exit()
     async def exit(self) -> None:
         """
         trying to get less printouts?...
         """
-        # TODO: how kill async quietly..
+        self.executor.shutdown(wait=True)
+        racetrack_dict[f"{self.exp_tag}-last.ctr.complete"] = time_ns()
         return
 
 
@@ -528,7 +499,7 @@ def destroy_th_compile_cache():
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up. Note that this cannot
 # be used with `buffer_containers`: *if you want to use this, set* `buffer_containers=None` *above!*
-# * `allow_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# * `input_concurrency` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
 # argument for the inference app via the
 # [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options) API.
 # * `threads_per_core` oversubscription factor for parallelized I/O (image reading).
@@ -552,11 +523,11 @@ def main(
     # APP CONFIG
     gpu: str = "any",
     max_containers: int = None,  # this gets overridden if buffer_containers is not None
-    allow_concurrent_inputs: int = 4,
+    input_concurrency: int = 2,
     # MODEL CONFIG
-    n_models: int = 3,  # defaults to match `allow_concurrent_parameters`
+    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     model_name: str = "openai/clip-vit-base-patch16",
-    batch_size: int = 512,
+    batch_size: int = 32,
     # DATA CONFIG
     im_chan: int = 3,
     im_height: int = 224,
@@ -567,8 +538,10 @@ def main(
     # torch.compile cache
     destroy_cache: bool = False,
     exp_tag: str = "default-tag",
+    log_file: str = "/home/ec2-user/modal-examples/06_gpu_and_ml/embeddings/_triton.csv",
 ):
-    racetrack_dict[f"{exp_tag}-exp-start"] = perf_counter()
+    start_time = perf_counter()
+    racetrack_dict[f"{exp_tag}-exp.start"] = time_ns()
 
     # (0.a) Catalog data: modify `catalog_jpegs` to fetch batches of your data paths.
     extracted_path = Path("extracted") / hf_dataset_name
@@ -588,21 +561,105 @@ def main(
     # (1) Init the model inference app
 
     # Build the engine
-    racetrack_dict[f"{exp_tag}-embedder-init"] = perf_counter()
+    racetrack_dict[f"{exp_tag}-embedder.init"] = time_ns()
 
     container_config = {"max_containers": max_containers} if max_containers else {}
     embedder = TorchCompileEngine.with_concurrency(
-        max_inputs=allow_concurrent_inputs
+        max_inputs=input_concurrency
     ).with_options(gpu=gpu, **container_config)(
         batch_size=batch_size,
-        n_engines=n_models if n_models else allow_concurrent_inputs,
+        n_engines=n_models if n_models else input_concurrency,
         model_name=model_name,
         model_input_chan=im_chan,
         model_input_imheight=im_height,
         model_input_imwidth=im_width,
-        verbose_inference=False,
+        exp_tag=exp_tag,
     )
-
+    n_ims = len(im_path_list)
     # (2) Embed batches via remote `map` call
-    racetrack_dict[f"{exp_tag}-embedding-begin"] = perf_counter()
-    embedder.embed.spawn_map(chunked(im_path_list, batch_size))
+    # (2) Embed batches via remote `map` call
+    preptimes, inftimes, batchsizes = [], [], []
+    # embedder.embed.spawn_map(chunked(im_path_list, batch_size))
+    for preptime, inftime, batchsize in embedder.embed.map(
+        chunked(im_path_list, batch_size)
+    ):
+        preptimes.append(preptime)
+        inftimes.append(inftime)
+        batchsizes.append(batchsize)
+
+    # (3) Log & persist results
+    if n_ims > 0:
+        total_duration = perf_counter() - start_time  # end-to-end wall-clock
+        overall_throughput = n_ims / total_duration  # imgs / s, wall-clock
+
+        # per-container metrics
+        inf_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, inftimes)]
+        prep_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, preptimes)]
+
+        avg_inf_throughput = sum(inf_throughputs) / len(inf_throughputs)
+        best_inf_throughput = max(inf_throughputs)
+
+        avg_prep_throughput = sum(prep_throughputs) / len(prep_throughputs)
+        best_prep_throughput = max(prep_throughputs)
+
+        total_prep_time = sum(preptimes)
+        total_inf_time = sum(inftimes)
+
+        log_msg = (
+            f"{embedder.name}{gpu}::batch_size={batch_size}::"
+            f"n_ims={n_ims}::concurrency={input_concurrency}\n"
+            f"\tTotal wall time:\t{total_duration / 60:.2f} min\n"
+            f"\tOverall throughput:\t{overall_throughput:.2f} im/s\n"
+            f"\tPrep time (sum):\t{total_prep_time:.2f} s\n"
+            f"\tInference time (sum):\t{total_inf_time:.2f} s\n"
+            f"\tPrep throughput  (avg/best):\t{avg_prep_throughput:.2f} / "
+            f"{best_prep_throughput:.2f} im/s\n"
+            f"\tInfer throughput (avg/best):\t{avg_inf_throughput:.2f} / "
+            f"{best_inf_throughput:.2f} im/s\n"
+        )
+        print(log_msg)
+
+        # ── optional CSV ───────────────────────────────────────────────────────────
+        if log_file:
+            path = Path(log_file).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            header = [
+                "batch_size",
+                "concurrency",
+                "n_models",
+                "max_containers",
+                "gpu",
+                "n_images",
+                "total_wall_time",
+                "overall_throughput",
+                "total_prep_time",
+                "total_inf_time",
+                "avg_prep_thpt",
+                "best_prep_thpt",
+                "avg_inf_thpt",
+                "best_inf_thpt",
+            ]
+            row = [
+                batch_size,
+                input_concurrency,
+                n_models,
+                max_containers,
+                gpu,
+                n_ims,
+                total_duration,
+                overall_throughput,
+                total_prep_time,
+                total_inf_time,
+                avg_prep_throughput,
+                best_prep_throughput,
+                avg_inf_throughput,
+                best_inf_throughput,
+            ]
+
+            write_header = not path.exists()
+            with path.open("a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                if write_header:
+                    writer.writerow(header)
+                writer.writerow(row)
