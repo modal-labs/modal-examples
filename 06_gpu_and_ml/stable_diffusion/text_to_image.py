@@ -71,7 +71,7 @@ with image.imports():
 
 # ## Implementing SD3.5 Large Turbo inference on Modal
 
-# We wrap inference in a Modal [Cls](https://modal.com/docs/guide/lifecycle-methods)
+# We wrap inference in a Modal [Cls](https://modal.com/docs/guide/lifecycle-functions)
 # that ensures models are loaded and then moved to the GPU once when a new container
 # starts, before the container picks up any work.
 
