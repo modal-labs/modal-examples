@@ -171,7 +171,7 @@ class Inference:
             num_inference_steps=num_inference_steps,
         ).frames[0]
 
-        mp4_name = slugify(prompt)
+        mp4_name = f"{seed}_{''.join(c if c.isalnum() else '-' for c in prompt[:100])}.mp4"
         diffusers.utils.export_to_video(
             video, f"{Path(OUTPUT_PATH) / mp4_name}", fps=24
         )
@@ -336,4 +336,4 @@ def ui():
 
 
 def slugify(s: str) -> str:
-    return f"{time.strftime('%Y%m%d_%H%M%S')}_{''.join(c if c.isalnum() else '-' for c in s[:100]).strip('-')}.mp4"
+    return 
