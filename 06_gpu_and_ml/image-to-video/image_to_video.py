@@ -333,7 +333,3 @@ def ui():
     )
 
     return web_app
-
-
-def slugify(s: str) -> str:
-    return 
