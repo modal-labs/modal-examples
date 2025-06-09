@@ -171,7 +171,9 @@ class Inference:
             num_inference_steps=num_inference_steps,
         ).frames[0]
 
-        mp4_name = f"{seed}_{''.join(c if c.isalnum() else '-' for c in prompt[:100])}.mp4"
+        mp4_name = (
+            f"{seed}_{''.join(c if c.isalnum() else '-' for c in prompt[:100])}.mp4"
+        )
         diffusers.utils.export_to_video(
             video, f"{Path(OUTPUT_PATH) / mp4_name}", fps=24
         )
