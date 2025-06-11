@@ -12,8 +12,8 @@
 # ## BLUF (Bottom Line Up Front)
 # Set concurrency (`max_concurrent_inputs`) to 3, and set `batch_size` as high as possible without
 # hitting OOM errors (model-dependent).
-# To get maximum throughput at any cost, set buffer_containers to 10. 
-# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
+# To get maximum throughput at any cost, set buffer_containers to 10.
+# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images;
 # doing this on-the-fly will greatly reduce throughput).
 # If you only want to use one container, increase `batch_size` until you are maxing
 # out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2).
@@ -34,16 +34,14 @@
 # ## Local env imports
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
 import asyncio
-import csv
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from time import perf_counter, time_ns
+from time import perf_counter
 from typing import Iterator
 
 import modal
-
 
 # ## Dataset, Model, and Image Setup
 # This example uses HuggingFace to download data and models. We will use a high-performance
@@ -285,6 +283,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # 3. Since image loading is a significant cost, we have a multi-threaded batch
 # constructor. Persistent threads are initialized in `init_engines`.
 
+
 @app.cls(
     image=th_compile_image,
     volumes={VOL_MNT: data_volume},
@@ -433,7 +432,7 @@ class TorchCompileEngine:
 
             # (2) Encode the batch
             st = perf_counter()
-            embedding = engine(**images).pooler_output
+            _ = engine(**images).pooler_output
             embed_elapsed = perf_counter() - st
 
         finally:
@@ -524,7 +523,7 @@ def destroy_th_compile_cache():
 def main(
     # APP CONFIG
     gpu: str = "H100",
-    max_containers: int = 50, 
+    max_containers: int = 50,
     max_concurrent_inputs: int = 2,
     # MODEL CONFIG
     model_name: str = "openai/clip-vit-base-patch16",

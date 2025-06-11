@@ -14,8 +14,8 @@
 # ## BLUF (Bottom Line Up Front)
 # Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` as high as possible without
 # hitting OOM errors (model-dependent).
-# To get maximum throughput at any cost, set buffer_containers to 10. 
-# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
+# To get maximum throughput at any cost, set buffer_containers to 10.
+# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images;
 # doing this on-the-fly will greatly reduce throughput).
 # If you only want to use one container, increase `batch_size` until you are maxing
 # out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2).
