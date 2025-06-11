@@ -11,13 +11,11 @@
 
 # ## Local env imports
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
-import asyncio
-import csv
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from time import perf_counter
-from typing import Iterator, List, Sequence, Tuple
+from typing import Iterator, List
 
 import modal
 
@@ -263,6 +261,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # image embedding examples: this is because Triton provides a (relatively) convenient interface
 # for zero-copy data transfer from the client (i.e. this Modal app) to the server.
 
+
 @app.cls(
     image=triton_image,
     volumes={VOL_MNT: data_volume},
@@ -381,11 +380,9 @@ class TritonServer:
         """
         Build a Triton-ready repo for CLIP vision encoder.
         """
-        import torch
         from pathlib import Path
-        from textwrap import dedent
-        from torchvision.io import read_image
-        from torch.onnx import export as onnx_export
+
+        import torch
 
         repo_dir = Path(MODEL_REPO) / self.triton_model_name / version
         repo_dir.mkdir(parents=True, exist_ok=True)
@@ -498,7 +495,7 @@ class TritonServer:
             {{ kind: KIND_GPU, count: {instances} }}
             ]
             
-            """
+            """  # noqa: W293
 
         cfg += f"""
             optimization {{ execution_accelerators {{
@@ -518,7 +515,7 @@ class TritonServer:
         """
         return read_image(str(VOL_MNT / impath))
 
-    def _ensure_region(self, name:str, path:os.PathLike, byte_size:int):
+    def _ensure_region(self, name: str, path: os.PathLike, byte_size: int):
         """
         Create a system shared-memory block and remember its handle.
         """
@@ -532,7 +529,7 @@ class TritonServer:
             self._client.register_system_shared_memory(name, path, byte_size)
             return
 
-    def _load_batch(self, img_paths:List[str]):
+    def _load_batch(self, img_paths: List[str]):
         """
         Given a list of image paths, load them into a shared memory block.
         """
@@ -597,6 +594,7 @@ class TritonServer:
 # it deletes the torch.compile cache dir we use for sharing a cache across
 # containers (for measuring startup times).
 
+
 @app.function(image=triton_image, volumes={VOL_MNT: data_volume})
 def destroy_triton_cache():
     """
@@ -615,8 +613,6 @@ def destroy_triton_cache():
     else:
         print(f"\t***destroy_cache was called, but path doesnt exist:\n\t{MODEL_REPO}")
     return
-
-
 
 
 # ## Local Entrypoint
@@ -651,8 +647,8 @@ def destroy_triton_cache():
 # * `model_name` a HuggingFace model path a la [openai/clip-vit-base-patch16]([OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT"));
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 # * `hf_dataset_name` a HuggingFace data path a la "microsoft/cats_vs_dogs"
-# * `triton_backend`: 'pytorch' for now; can modify to use other backends 
-# 
+# * `triton_backend`: 'pytorch' for now; can modify to use other backends
+#
 # These three parameters are used to pre-process images to the correct size in a big batch
 # before inference.
 # * `im_chan`: the number of color channels your model is expecting (probably 3)
@@ -702,7 +698,6 @@ def main(
 
     # (1.a) Init the model inference app
     # No inputs to with_options if none provided or buffer_used aboe
-    buffer_containers = None
     autoscaling_config = {"max_containers": max_containers} if max_containers else {}
     # Build the engine
     start_time = perf_counter()
