@@ -10,6 +10,7 @@ from utils import (
     get_examples,
     get_examples_json,
     render_example_md,
+    check_links,
 )
 
 examples = [ex for ex in get_examples() if ex.type == ExampleType.MODULE]
@@ -46,6 +47,11 @@ def test_render(example):
     md = render_example_md(example)
     assert isinstance(md, str)
     assert len(md) > 0
+
+
+@pytest.mark.parametrize("example", examples, ids=example_ids)
+def test_check_links(example):
+    assert check_links(example.filename)
 
 
 def test_json():

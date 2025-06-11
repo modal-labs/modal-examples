@@ -4,11 +4,11 @@ import warnings
 from enum import Enum
 from pathlib import Path
 from typing import Iterator, Optional
+import requests
 
 from pydantic import BaseModel
 
 EXAMPLES_ROOT = Path(__file__).parent.parent
-
 
 with warnings.catch_warnings():
     # This triggers some dumb warning in jupyter_core
@@ -164,6 +164,46 @@ def get_examples() -> Iterator[Example]:
 def get_examples_json():
     examples = list(ex.dict() for ex in get_examples())
     return json.dumps(examples)
+
+
+def _extract_links_from_file(file_path):
+    """Extract all markdown-style links from a Python file's comments."""
+    link_pattern = re.compile(r"\[.*?\]\((https?://[^\s)]+)\)")
+    links = []
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip().startswith("#"):
+                matches = link_pattern.findall(line)
+                links.extend(matches)
+
+    return links
+
+
+def _check_link(url):
+    """Return True if the URL is valid (status < 400), else False."""
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=10)
+        return response.status_code < 400
+    except requests.RequestException:
+        return False
+
+
+def check_links(file_path):
+    links = _extract_links_from_file(file_path)
+    if not links:
+        print(f"No links found in {file_path}")
+        return True
+
+    print(f"Checking {len(links)} links in {file_path}...")
+    all_valid = True
+    for url in links:
+        valid = _check_link(url)
+        print(f"{'✅' if valid else '❌'} {url}")
+        if not valid:
+            all_valid = False
+
+    return all_valid
 
 
 if __name__ == "__main__":
