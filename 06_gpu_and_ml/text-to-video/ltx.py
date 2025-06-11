@@ -95,7 +95,7 @@ image = image.env({"HF_HOME": str(MODEL_PATH)})
 # before the container is marked ready for inputs.
 
 # This helps reduce tail latencies caused by cold starts.
-# For details and more tips, see [this guide](https://modal.com/guide/cold-start).
+# For details and more tips, see [this guide](https://modal.com/docs/guide/cold-start#cold-start-performance).
 
 # The actual inference code is in a `modal.method` of the class.
 

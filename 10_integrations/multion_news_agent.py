@@ -34,11 +34,11 @@ multion_image = modal.Image.debian_slim().pip_install("multion")
 
 # The MultiOn API enables building the next level of web automation & custom AI agents capable of performing complex actions on the internet with just a few lines of code.
 
-# To get started, first create an account with [MultiOn](https://app.multion.ai/),
+# To get started, first create an account with [MultiOn](https://www.multion.ai/),
 # install the [MultiOn chrome extension](https://chrome.google.com/webstore/detail/ddmjhdbknfidiopmbaceghhhbgbpenmm)
 # and login to your Twitter account in your browser.
-# To use the API, create a [MultiOn API Key](https://app.multion.ai/api-keys)
-# and store it as a Modal sEcret on [the dashboard](https://modal.com/secrets)
+# To use the API, create a MultiOn API Key
+# and store it as a Modal Secret on [the dashboard](https://modal.com/secrets)
 
 
 @app.function(image=multion_image, secrets=[modal.Secret.from_name("MULTION_API_KEY")])

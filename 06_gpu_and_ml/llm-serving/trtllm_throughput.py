@@ -217,7 +217,6 @@ SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} 
 # [here](https://github.com/NVIDIA/TensorRT-LLM/tree/b0880169d0fb8cd0363049d91aa548e58a41be07/examples/llama),
 # which you can use to adjust the arguments to fit your workloads,
 # e.g. adjusting rotary embeddings and block sizes for longer contexts.
-# We also recommend the [official TRT-LLM best practices guide](https://nvidia.github.io/TensorRT-LLM/performance/perf-best-practices.html).
 
 # To make best use of our 8bit floating point hardware, and the weights and KV cache we have quantized,
 # we activate the 8bit floating point fused multi-head attention plugin.
