@@ -632,7 +632,7 @@ def main(
     # with_options parameters:
     gpu: str = "A10G",
     min_containers: int = 1,
-    max_containers: int = 50,  # this gets overridden if buffer_containers is not None
+    max_containers: int = None,  # this gets overridden if buffer_containers is not None
     input_concurrency: int = 2,
     # modal.parameters:
     n_models: int = None,  # defaults to match `allow_concurrent_parameters`
@@ -676,18 +676,15 @@ def main(
     # (1.a) Init the model inference app
     # No inputs to with_options if none provided or buffer_used aboe
     buffer_containers = None
-    make_empty = (buffer_containers is not None) or (max_containers is None)
+    autoscaling_config = {"max_containers": max_containers} if max_containers else {}
     # Build the engine
     start_time = perf_counter()
 
     embedder = TritonServer.with_concurrency(
         max_inputs=input_concurrency,
-    ).with_options(
-        gpu=f"{gpu}:{n_gpu}",
-        max_containers=max_containers,
-    )(
+    ).with_options(gpu=f"{gpu}:{n_gpu}", *autoscaling_config)(
         batch_size=batch_size,
-        n_engines=input_concurrency,
+        n_engines=n_models if n_models else input_concurrency,
         triton_backend=triton_backend,
         model_name=model_name,
         model_input_chan=im_chan,
@@ -746,6 +743,7 @@ def main(
             header = [
                 "batch_size",
                 "concurrency",
+                "n_models",
                 "max_containers",
                 "gpu",
                 "n_images",
@@ -761,6 +759,7 @@ def main(
             row = [
                 batch_size,
                 input_concurrency,
+                n_models,
                 max_containers,
                 gpu,
                 n_ims,

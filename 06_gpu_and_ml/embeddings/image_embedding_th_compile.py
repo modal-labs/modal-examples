@@ -1,9 +1,36 @@
 # ---
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_th_compile.py::main"]
 # ---
-# TODO: deprecation warnings at the beginning??
-# TODO: add torch.inference_mode everywhere to both scripts...
-# TODO: remove all the bugger stuff
+
+# # Image Embedding Throughput Maximization with torch.compile
+# In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
+# This example presents a Modal recipe for maximizing image embedding throughput using
+# regular torch code, not worrying about complicated model gateway servers.
+# This lets us control the bare-bones code and achieve the highest
+# overall throughput for a multi-container app.
+#
+# ## BLUF (Bottom Line Up Front)
+# Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` as high as possible without
+# hitting OOM errors (model-dependent).
+# To get maximum throughput at any cost, set buffer_containers to 10. 
+# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
+# doing this on-the-fly will greatly reduce throughput).
+# If you only want to use one container, increase `batch_size` until you are maxing
+# out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2).
+
+# ### Why?
+# The two killers of throughput in this context are: cold-start time and the time to
+# form a batch (i.e. reading the images from disk). While batch size maximizes GPU utilization,
+# To avoid idle GPU cores during batch formation, we set use idle GPU cores to store additional
+# copies of the model: this high-level form of _GPU packing_ is achieved via an async queue and the
+# [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# decorator, called functionally through [modal.cls.with_concurrency](https://modal.com/docs/reference/modal.Cls#with_concurrency).
+
+# Once you nail down an effective `batch_size` for your problem, you can crank up the number of containers
+# to fan-out the computational load. Set buffer_containers > 0 so that Modal continuously spins up more
+# and more containers until the task is complete; otherwise set it to None, and use max_containers to cap
+# the number of containers allowed.
+
 # # A Recipe for Throughput Maximization: GPU Packing with torch.compile
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
 # This example presents a Modal recipe for maximizing image embedding throughput,

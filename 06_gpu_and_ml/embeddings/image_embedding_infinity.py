@@ -2,7 +2,7 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_infinity.py::main"]
 # ---
 
-# # A Recipe for Throughput Maximization: GPU Packing with Infinity Inference
+# # Image Embedding Throughput Maximization with Infinity Inference
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
 # This example presents a Modal recipe for maximizing image embedding throughput using the
 # [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"),
@@ -11,36 +11,32 @@
 # Check out [this example](https://modal.com/docs/examples/image_embedding_th_compile) to see how
 # to use Modal to natively accomplish these features and achieve even higher throughput (nearly 2x)!
 #
-# TODO: remove buffer container discussion/replace with min_containers
-# ## Conclusions
-# ### BLUF (Bottom Line Up Front)
-# Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` around 100.
-# To get maximum throughput at any cost, set buffer_containers to 10; otherwise set it to None
-# and set max_containers based on your budget.
-# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images).
+# ## BLUF (Bottom Line Up Front)
+# Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` as high as possible without
+# hitting OOM errors (model-dependent).
+# To get maximum throughput at any cost, set buffer_containers to 10. 
+# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
+# doing this on-the-fly will greatly reduce throughput).
 # If you only want to use one container, increase `batch_size` until you are maxing
-# out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2). The example herein achieves
-# around 700 images / second overall throughput, embedding the entire
-# [cats vs dogs](https://huggingface.co/datasets/microsoft/cats_vs_dogs)
-# dataset in about 30s.
+# out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2).
 
 # ### Why?
-# While batch size maximizes GPU utilization, the time to form a batch (ie reading images)
-# will ultimately overtake inference, whether due to I/O, sending data across a wire, etc.
-# We can make up for this by using idle GPU cores to store additional copies of the model:
-# this high-level form of _GPU packing_ is achieved via an async queue and the
+# The two killers of throughput in this context are: cold-start time and the time to
+# form a batch (i.e. reading the images from disk). While batch size maximizes GPU utilization,
+# To avoid idle GPU cores during batch formation, we set use idle GPU cores to store additional
+# copies of the model: this high-level form of _GPU packing_ is achieved via an async queue and the
 # [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
-# decorator, called indirectly through [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options).
+# decorator, called functionally through [modal.cls.with_concurrency](https://modal.com/docs/reference/modal.Cls#with_concurrency).
 
 # Once you nail down an effective `batch_size` for your problem, you can crank up the number of containers
-# to distribute the computational load. Set buffer_containers > 0 so that Modal continuously spins up more
+# to fan-out the computational load. Set buffer_containers > 0 so that Modal continuously spins up more
 # and more containers until the task is complete; otherwise set it to None, and use max_containers to cap
 # the number of containers allowed.
 
-# High values of concurrency has diminishing returns, we believe,
-# because we are already throttling the CPU with multi-threaded dataloading, and because of the way
-# Infinity handles batches of inputs. We have a [more advanced example](https://modal.com/docs/examples/image_embedding_th_compile)
-# that directly uses torch.compile (without Infinity), which uses Modal's native capabilities to
+# ### Other Examples
+# TODO: links to other posts here
+# (https://modal.com/docs/examples/image_embedding_th_compile)
+# We have more advanced examples that directly uses torch.compile (without Infinity), which uses Modal's native capabilities to
 # manage queuing etc., and can take better advantage of the concurrency feature.
 
 # The demo herein should achieve around 700 images/second (around 200-300 images/second per model),
@@ -58,21 +54,6 @@ from time import perf_counter
 from typing import Iterator
 
 import modal
-
-# ## Key Parameters
-# There are three ways to parallelize inference for this usecase: via batching,
-# by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
-#
-# Modal provides two ways to dynamically parameterize classes: through
-# [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options)
-# and through
-# [modal.parameter](https://modal.com/docs/reference/modal.parameter#modalparameter).
-# The app.local_entrypoint() main function at the bottom of this example uses these
-# features to dynamically construct the inference engine class wrapper. One feature
-# that is not currently support via `with_options` is the `buffer_containers` parameter.
-# This tells Modal to pre-emptively warm a number of containers before they are strictly
-# needed. In other words it tells Modal to continuously fire up more and more containers
-# until throughput is saturated.
 
 # ## Dataset, Model, and Image Setup
 # This example uses HuggingFace to download data and models. We will use a high-performance
@@ -149,7 +130,7 @@ with infinity_image.imports():
 
 # A note on preprocessing: Infinity will handle resizing and other preprocessing in case
 # your images are not the same size as what the model is expecting; however, this will
-# significantly degrade throughput. We recommend batch-processing (if possible).
+# significantly degrade throughput. We recommend batch-preprocessing ahead of time (if possible).
 
 
 @app.function(
@@ -416,7 +397,19 @@ class InfinityEngine:
 # ## Local Entrypoint
 # This is the backbone of the example: it parses inputs, grabs a list of data, instantiates
 # the InfinityEngine embedder application, and passes data to it via `map`.
+## There are three ways to parallelize inference for this usecase: via batching,
+# by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
 #
+# Modal provides two ways to dynamically parameterize classes: through
+# [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options)
+# and through
+# [modal.parameter](https://modal.com/docs/reference/modal.parameter#modalparameter).
+# The app.local_entrypoint() main function at the bottom of this example uses these
+# features to dynamically construct the inference engine class wrapper. One feature
+# that is not currently support via `with_options` is the `buffer_containers` parameter.
+# This tells Modal to pre-emptively warm a number of containers before they are strictly
+# needed. In other words it tells Modal to continuously fire up more and more containers
+# until throughput is saturated.
 # Inputs:
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up. Note that this cannot
