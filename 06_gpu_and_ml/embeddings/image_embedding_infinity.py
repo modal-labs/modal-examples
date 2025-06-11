@@ -34,15 +34,11 @@
 # the number of containers allowed.
 
 # ### Other Examples
-# TODO: links to other posts here
-# (https://modal.com/docs/examples/image_embedding_th_compile)
-# We have more advanced examples that directly uses torch.compile (without Infinity), which uses Modal's native capabilities to
-# manage queuing etc., and can take better advantage of the concurrency feature.
-
-# The demo herein should achieve around 700 images/second (around 200-300 images/second per model),
-# but that number will increase dramatically for larger datasets where more and more containers spawn.
-# We have clocked 9500 images/second using Infinity on a 1M image dataset, and twice that in our torch.compile
-# example.
+# To see more modern image embedding examples, see:
+# 1. [torch.compile](https://modal.com/docs/examples/image_embedding_th_compile):
+# a cold-start optimized, bare-bones torch code server
+# 2. [triton.torch](https://modal.com/docs/examples/image_embedding_triton_torch):
+# a more modern, optimized model serving gateway
 
 # ## Local env imports
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
@@ -68,13 +64,10 @@ hf_secret = modal.Secret.from_name("huggingface-secret")
 
 # This name is important for referencing the volume in other apps or for
 # [browsing](https://modal.com/storage):
-vol_name = "example-embedding-data"
+data_volume = modal.Volume.from_name("example-embedding-data", create_if_missing=True)
 
 # This is the location within the container where this Volume will be mounted:
-vol_mnt = Path("/data")
-
-# Finally, the Volume object can be created:
-data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
+VOL_MNT = Path("/data")
 
 # ### Define the image
 infinity_image = (
@@ -93,7 +86,7 @@ infinity_image = (
     .env(
         {
             # For fast HuggingFace model and data caching and download in our Volume
-            "HF_HOME": vol_mnt.as_posix(),
+            "HF_HOME": VOL_MNT.as_posix(),
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
         }
     )
@@ -103,7 +96,7 @@ infinity_image = (
 app = modal.App(
     "example-infinity-embedder",
     image=infinity_image,
-    volumes={vol_mnt: data_volume},
+    volumes={VOL_MNT: data_volume},
     secrets=[hf_secret],
 )
 
@@ -135,10 +128,10 @@ with infinity_image.imports():
 
 @app.function(
     image=infinity_image,
-    volumes={vol_mnt: data_volume},
+    volumes={VOL_MNT: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
-    timeout=24 * 60 * 60,  # if using a large HF dataset, this may need to be longer
+    timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
 )
 def catalog_jpegs(
     dataset_namespace: str,  # a HuggingFace path like `microsoft/cats_vs_dogs`
@@ -176,7 +169,7 @@ def catalog_jpegs(
         )
 
         # Create an `extraction` cache dir where we will create explicit JPEGs
-        mounted_cache_dir = vol_mnt / cache_dir
+        mounted_cache_dir = VOL_MNT / cache_dir
         mounted_cache_dir.mkdir(exist_ok=True, parents=True)
 
         # Preprocessing pipeline: resize in bulk now instead of on-the-fly later
@@ -235,7 +228,7 @@ def catalog_jpegs(
         ]
 
     # Check for extracted-JPEG cache dir within the modal.Volume
-    if (vol_mnt / cache_dir).is_dir():
+    if (VOL_MNT / cache_dir).is_dir():
         im_path_list = list_all_jpegs(cache_dir)
         n_ims = len(im_path_list)
     else:
@@ -277,14 +270,14 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # concurrency feature, but we found that using them together still helps.
 # In [another example](https://modal.com/docs/examples/image_embedding_th_compile),
 # we show how to achieve a similar setup without Infinity.
-# 2. The variable `allow_concurrent_inputs` passed to the `main` local_entrypoint is
-# used to set both the number of concurrent inputs (via with_options) and the class variable
-# `n_engines` (via modal.parameters). If you aren't using `with_options` you can use the
+# 2. The variable `max_concurrent_inputs` passed to the `main` local_entrypoint is
+# used to set both the number of concurrent inputs (via `with_concurrency`) and the class variable
+# `n_engines` (via modal.parameters). If you aren't using `with_concurrency` you can use the
 # [modal.concurrent](https://modal.com/docs/guide/concurrent-inputs#input-concurrency)
 # decorator directly.
 # 3. In `init_engines`, we are creating exactly one Infinity inference
 # engine for each concurrently-passed batch of data. This is a high-level version of GPU packing suitable
-# for use with a high-level inference engine like Infinity.
+# for use with an inference engine like Infinity.
 # 4. The [@modal.enter](https://modal.com/docs/reference/modal.enter#modalenter)
 # decorator ensures that this method is called once per container, on startup (and `exit` is
 # run once, on shutdown).
@@ -292,7 +285,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 
 @app.cls(
     image=infinity_image,
-    volumes={vol_mnt: data_volume},
+    volumes={VOL_MNT: data_volume},
     cpu=4,
     memory=5 * 1024,  # MB -> GB
 )
@@ -302,7 +295,6 @@ class InfinityEngine:
     n_engines: int = modal.parameter(default=1)
     threads_per_core: int = modal.parameter(default=8)
     verbose_inference: bool = modal.parameter(default=False)
-    # For logging
     name: str = "InfinityEngine"
 
     @modal.enter()
@@ -340,7 +332,7 @@ class InfinityEngine:
 
         def readim(impath: os.PathLike):
             """Read with torch, convert back to PIL for Infinity"""
-            return to_pil_image(read_image(str(vol_mnt / impath)))
+            return to_pil_image(read_image(str(VOL_MNT / impath)))
 
         with ThreadPoolExecutor(
             max_workers=os.cpu_count() * self.threads_per_core
@@ -396,25 +388,27 @@ class InfinityEngine:
 
 # ## Local Entrypoint
 # This is the backbone of the example: it parses inputs, grabs a list of data, instantiates
-# the InfinityEngine embedder application, and passes data to it via `map`.
-## There are three ways to parallelize inference for this usecase: via batching,
-# by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
-#
+# the InfinityEngine embedder application, and passes data to it via `map`. `map` spawns
+# more and more containers until the list of batches are all processed.
+# ### Class Parameterization
 # Modal provides two ways to dynamically parameterize classes: through
 # [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options)
 # and through
 # [modal.parameter](https://modal.com/docs/reference/modal.parameter#modalparameter).
 # The app.local_entrypoint() main function at the bottom of this example uses these
-# features to dynamically construct the inference engine class wrapper. One feature
-# that is not currently support via `with_options` is the `buffer_containers` parameter.
-# This tells Modal to pre-emptively warm a number of containers before they are strictly
+# features to dynamically construct the inference engine class wrapper. Some features
+# are not currently support via `with_options`, e.g. the `buffer_containers` and
+# `min_containers` parameters.
+# `buffer_containers` this tells Modal to pre-emptively warm a number of containers before they are strictly
 # needed. In other words it tells Modal to continuously fire up more and more containers
-# until throughput is saturated.
-# Inputs:
+# until throughput is saturated. To maximize throughput, set `buffer_containers` in the
+# app.cls decorator.
+#
+# ### Inputs:
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up. Note that this cannot
 # be used with `buffer_containers`: *if you want to use this, set* `buffer_containers=None` *above!*
-# * `allow_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# * `max_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
 # argument for the inference app via the
 # [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options) API.
 # This takes advantage of the asynchronous nature of the Infinity embedding inference app.
@@ -440,9 +434,8 @@ def main(
     # with_options parameters:
     gpu: str = "A10G",
     max_containers: int = 50,
-    allow_concurrent_inputs: int = 2,
+    max_concurrent_inputs: int = 2,
     # modal.parameters:
-    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     model_name: str = "openai/clip-vit-base-patch16",
     batch_size: int = 100,
     im_chan: int = 3,
@@ -452,8 +445,6 @@ def main(
     image_cap: int = -1,
     hf_dataset_name: str = "microsoft/cats_vs_dogs",
     million_image_test: bool = False,
-    # logging (optional)
-    log_file: str = None,  # TODO: remove local logging from example
 ):
     start_time = perf_counter()
 
@@ -481,9 +472,9 @@ def main(
     start_time = perf_counter()
     embedder = InfinityEngine.with_options(
         gpu=gpu, **container_config
-    ).with_concurrency(max_inputs=allow_concurrent_inputs)(
+    ).with_concurrency(max_inputs=max_concurrent_inputs)(
         batch_size=batch_size,
-        n_engines=n_models if n_models else allow_concurrent_inputs,
+        n_engines=max_concurrent_inputs,
         model_name=model_name,
     )
 
@@ -504,47 +495,10 @@ def main(
 
         log_msg = (
             f"{embedder.name}{gpu}::batch_size={batch_size}::"
-            f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
+            f"n_ims={n_ims}::concurrency={max_concurrent_inputs}::"
             f"\tTotal time:\t{total_duration / 60:.2f} min\n"
             f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
             f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
         )
 
         print(log_msg)
-
-        if log_file is not None:
-            local_logfile = Path(log_file).expanduser()
-            local_logfile.parent.mkdir(parents=True, exist_ok=True)
-
-            import csv
-
-            csv_exists = local_logfile.exists()
-            with open(local_logfile, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                if not csv_exists:
-                    # write header
-                    writer.writerow(
-                        [
-                            "batch_size",
-                            "concurrency",
-                            "max_containers",
-                            "gpu",
-                            "n_images",
-                            "total_time",
-                            "total_throughput",
-                            "avg_model_throughput",
-                        ]
-                    )
-                # write your row
-                writer.writerow(
-                    [
-                        batch_size,
-                        allow_concurrent_inputs,
-                        max_containers,
-                        gpu,
-                        n_ims,
-                        total_duration,
-                        total_throughput,
-                        avg_throughput,
-                    ]
-                )

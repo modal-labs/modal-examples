@@ -1,7 +1,13 @@
-#!/usr/bin/env python3
+# ---
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_th_compile.py::main"]
+# ---
 
-# # Maximizing throughput on Triton Inference Server
-
+# # Image Embedding Throughput Maximization with the Triton Inference Server
+# The [Triton Inference Server](https://github.com/triton-inference-server)
+# is a powerful model serving gateway (or inference engine) that uses advanced,
+# CUDA-level memory optimization that yields extremely high throughput. This
+# demo shows how to serve an image embedding model with Triton, including a
+# zero-copy inference subroutine.
 
 # ## Local env imports
 # # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).

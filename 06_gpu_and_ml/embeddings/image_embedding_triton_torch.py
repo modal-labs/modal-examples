@@ -2,48 +2,24 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_th_compile.py::main"]
 # ---
 
-# # Image Embedding Throughput Maximization with torch.compile
-# In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
-# This example presents a Modal recipe for maximizing image embedding throughput using
-# regular torch code, setting aside the nuances of model gateway servers (inference engines).
-# This lets us minimize cold-start time, which ultimately yields the best multi-container throughput
-# despite hosting a more simply optimized model.
-#
-# ## BLUF (Bottom Line Up Front)
-# Set concurrency (`max_concurrent_inputs`) to 3, and set `batch_size` as high as possible without
-# hitting OOM errors (model-dependent).
-# To get maximum throughput at any cost, set buffer_containers to 10. 
-# Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
-# doing this on-the-fly will greatly reduce throughput).
-# If you only want to use one container, increase `batch_size` until you are maxing
-# out the GPU (but keep concurrency, `max_concurrent_inputs`, capped around 2).
-
-# ### Why?
-# The two killers of throughput in this context are: cold-start time and the time to
-# form a batch (i.e. reading the images from disk). While batch size maximizes GPU utilization,
-# To avoid idle GPU cores during batch formation, we set use idle GPU cores to store additional
-# copies of the model: this high-level form of _GPU packing_ is achieved via an async queue and the
-# [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
-# decorator, called functionally through [modal.cls.with_concurrency](https://modal.com/docs/reference/modal.Cls#with_concurrency).
-
-# Once you nail down an effective `batch_size` for your problem, you can crank up the number of containers
-# to fan-out the computational load. Set buffer_containers > 0 so that Modal continuously spins up more
-# and more containers until the task is complete; otherwise set it to None, and use max_containers to cap
-# the number of containers allowed.
+# # Image Embedding Throughput Maximization with the Triton Inference Server
+# The [Triton Inference Server](https://github.com/triton-inference-server)
+# is a powerful model serving gateway (or inference engine) that uses advanced,
+# CUDA-level memory optimization that yields extremely high throughput. This
+# demo shows how to serve an image embedding model with Triton, including a
+# zero-copy inference subroutine.
 
 # ## Local env imports
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
 import asyncio
 import csv
 import os
-import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from time import perf_counter, time_ns
-from typing import Iterator
+from time import perf_counter
+from typing import Iterator, List, Sequence, Tuple
 
 import modal
-
 
 # ## Dataset, Model, and Image Setup
 # This example uses HuggingFace to download data and models. We will use a high-performance
@@ -55,56 +31,58 @@ import modal
 # ### Volume Initialization
 # You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
 hf_secret = modal.Secret.from_name("huggingface-secret")
-
-# This name is important for referencing the volume in other apps or for
-# [browsing](https://modal.com/storage):
 data_volume = modal.Volume.from_name("example-embedding-data", create_if_missing=True)
-
-# The location within the volume where torch.compile's caching backends should point to:
-# This is the location within the container where this Volume will be mounted:
 VOL_MNT = Path("/data")
-TH_CACHE_DIR = VOL_MNT / "model-compile-cache"
+MODEL_REPO = VOL_MNT / "triton_repo"  # will hold model.plan + config
 
-# ### Define the image
-th_compile_image = (
-    modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
-        [
-            "datasets",  # for huggingface data download
-            "hf_transfer",  # for fast huggingface data download
-            "tqdm",  # progress bar for dataset download
-            "torch",  # torch.compile
-            "transformers",  # CLIPVisionModel etc.
-            "torchvision",  # for fast image loading
-        ]
+# Constants used to built Triton config on-the-fly
+IN_NAME, IN_PATH = "clip_input", "/clip_input"
+OUT_NAME, OUT_PATH = "clip_output", "/clip_output"
+DTYPE = "FP16"
+
+
+# image with Triton + torch + tritonclient (tiny helper)
+triton_image = (
+    modal.Image.from_registry(
+        "nvcr.io/nvidia/tritonserver:24.03-py3", add_python="3.10"
     )
+    .pip_install("uv")
+    .run_commands(
+        "uv pip install --system --no-cache-dir torch torchvision torchaudio "
+        "--index-url https://download.pytorch.org/whl/cu121"
+    )
+    .run_commands(
+        "uv pip install --system --no-cache-dir transformers pillow tritonclient[all] "
+        "tqdm hf_transfer tensorrt onnx "
+    )
+    .run_commands("uv pip install --system pynvml")
     .env(
         {
-            # For fast HuggingFace model and data caching and download in our Volume
             "HF_HOME": VOL_MNT.as_posix(),
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            # Enables speedy caching across containers
-            "TORCHINDUCTOR_CACHE_DIR": TH_CACHE_DIR.as_posix(),
-            "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
-            "TORCHINDUCTOR_AUTOGRAD_CACHE": "1",
+            # Tell Triton where the repo will be mounted
+            "MODEL_REPO": MODEL_REPO.as_posix(),
         }
     )
+    .entrypoint([])
 )
 
-# Initialize the app
 app = modal.App(
-    "example-torch-embedder",
-    image=th_compile_image,
+    "example-triton-embedder",
+    image=triton_image,
     volumes={VOL_MNT: data_volume},
     secrets=[hf_secret],
 )
 
-# Imports inside the container
-with th_compile_image.imports():
-    import torch
-    from torch.serialization import safe_globals
+with triton_image.imports():
+    import numpy as np
+    import torch  # noqa: F401   – for torchscript
+    import torchvision
+    import tritonclient.grpc as grpcclient
     from torchvision.io import read_image
+    from tqdm import tqdm
     from transformers import CLIPImageProcessorFast, CLIPVisionModel
+    from tritonclient.utils import shared_memory as shm
 
 
 # ## Dataset Setup
@@ -122,7 +100,7 @@ with th_compile_image.imports():
 
 
 @app.function(
-    image=th_compile_image,
+    image=triton_image,
     volumes={VOL_MNT: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
@@ -267,7 +245,7 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 
 # ## Inference app
 # Here we define a [modal.cls](https://modal.com/docs/reference/modal.Cls#modalcls)
-# that wraps an AsyncQueue of `torch.compile`'d models.
+# that manages a Triton Inference Server.
 # Some important notes:
 # 1. We let Modal handle management of concurrent inputs via the `max_concurrent_inputs`
 # parameter, which we pass to the class constructor in our `main` local_entrypoint below. This
@@ -275,131 +253,263 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 # `n_engines` (via modal.parameters). If you aren't using `with_options` you can use the
 # [modal.concurrent](https://modal.com/docs/guide/concurrent-inputs#input-concurrency)
 # decorator directly.
-# 2. The [@modal.enter](https://modal.com/docs/reference/modal.enter#modalenter)
-# decorator around `init_engines` ensures that this method is called once per container, on startup (and `exit` is
-# run once, on shutdown). In `init_engines`, we are compiling one copy of the model for each concurrently-passed
-# batch of data. For the first copy of the model in the first container, we cache
-# the artifact bytes generated by torch.compile to our Modal Volume so that other models
-# (across containers) can access then. This saves several seconds per model per container
-# cold-start.
-# 3. Since image loading is a significant cost, we have a multi-threaded batch
-# constructor. Persistent threads are initialized in `init_engines`.
+# 2. In `_start_triton`, the first step is to organize the artifacts and configs Triton
+# needs to start up a model. This is how we pass `n_engines` and specify a backend.
+# Triton supports [several backends](https://github.com/triton-inference-server#:~:text=TensorRT%2C%20TensorFlow%2C%20PyTorch%2C%20Python%2C%20ONNX%20Runtime%2C%20and%20OpenVino.),
+# but we have only sussed out the PyTorch backend for this example, so it can be compared
+# with our [bare-bones torch.compile](https://modal.com/docs/examples/image_embedding_th_compile)
+# peer example. If the server fails to set up properly and return a heartbeat, an error is raised.
+# 3. `ensure_region`, `read_batch`, and `embed` are much more complicated than in the other
+# image embedding examples: this is because Triton provides a (relatively) convenient interface
+# for zero-copy data transfer from the client (i.e. this Modal app) to the server.
 
 @app.cls(
-    image=th_compile_image,
+    image=triton_image,
     volumes={VOL_MNT: data_volume},
-    cpu=2.5,
+    cpu=4,
     memory=2.5 * 1024,  # MB -> GB
 )
-class TorchCompileEngine:
+class TritonServer:
     model_name: str = modal.parameter()
-    batch_size: int = modal.parameter(default=100)
+    batch_size: int = modal.parameter(default=1)
     n_engines: int = modal.parameter(default=1)
+    triton_backend: str = modal.parameter(default="pytorch")
+
     model_input_chan: int = modal.parameter(default=3)
     model_input_imheight: int = modal.parameter(default=224)
     model_input_imwidth: int = modal.parameter(default=224)
-    threads_per_core: int = modal.parameter(default=8)
-    exp_tag: str = modal.parameter(default="default-tag")
-    cache_dir: Path = TH_CACHE_DIR
-    # For logging
-    name: str = "TorchCompileEngine"
+    output_dim: int = modal.parameter(default=768)
 
-    def init_th(self):
-        """
-        Have to manually turn this on for torch.compile.
-        """
-        major, minor = torch.cuda.get_device_capability(torch.cuda.current_device())
-        torch.set_grad_enabled(False)
-        if major > 8:
-            torch.set_float32_matmul_precision("high")
+    force_rebuild: bool = modal.parameter(default=False)
+    name: str = "Triton"
 
-    @modal.enter()
-    async def init_engines(self):
+    def set_names(
+        self,
+    ):
         """
-        Once per container start, `self.n_engines` models will be initialized
-        (one for each concurrently served input via Modal). The first container
-        needs to compute a trace and cache the kernels to our modal.Volume; sub-
-        sequent containers can use that cache (which saves 50%-60% the time
-        compared to the first torch.compile call).
+        Turn 'openai/clip-vit-base-patch16' → 'openai_clip-vit-base-patch16'
+        (slashes, spaces and dots are not allowed in model dir names)
         """
-
-        # (0) Setup
-        # Torch backend
-        self.init_th()
-        # This makes sure n-th container finds the cache created by the first one
-        data_volume.reload()
-        # This is where we will cache torch.compile artifacts
-        compile_cache: Path = Path(self.cache_dir) / (
-            self.model_name.replace("/", "_") + "_compiled_model_cache.pt"
+        safe_name = (
+            self.model_name.replace("/", "_").replace(" ", "_").replace(".", "_")
         )
-        # Condense modal.parameter values
-        model_input_shape = (
+        self.triton_model_name = f"{safe_name}_cc{self.n_engines}_bsz{self.batch_size}"
+        self.in_shape = (
             self.batch_size,
             self.model_input_chan,
-            self.model_input_imwidth,
+            self.model_input_imheight,
             self.model_input_imwidth,
         )
 
-        from torch.compiler._cache import CacheInfo
+    @modal.enter()
+    async def _start_triton(self):
+        self.set_names()
+        self.build_triton_repo()
 
-        # This tells torch to dynamically decide whether to recompile from scratch
-        # or to check for a cache (we want it to check for a cache!)
-        torch.compiler.set_stance("eager_on_recompile")
+        import subprocess
+        import time
 
-        # (1) Load raw model weights and preprocessor once per container
-        base = CLIPVisionModel.from_pretrained(self.model_name)
-        self.preprocessor = CLIPImageProcessorFast.from_pretrained(
-            self.model_name, usefast=True
+        import tritonclient.http as http
+
+        self._client = http.InferenceServerClient(url="localhost:8000")
+        # start triton in background
+        self._proc = subprocess.Popen(
+            [
+                "tritonserver",
+                f"--model-repository={MODEL_REPO}",
+                "--exit-on-error=true",
+                "--model-control-mode=none",  # autoload
+                *self.gpu_pool_flags(),
+            ]
         )
 
-        # Only save what we need
-        config = base.config
-        state = base.state_dict()
-        del base
+        # Load
+        if "--model-control-mode=explicit" in self._proc.args:
+            self._client.load_model(self.triton_model_name)
 
-        # (2) Check for trace artifacts cache
-        if compile_cache.is_file():
-            cache = compile_cache.read_bytes()
-            with safe_globals([CacheInfo]):
-                torch.compiler.load_cache_artifacts(cache)
+        # Heartbeat
+        self._client = grpcclient.InferenceServerClient(url="localhost:8001")
 
-        # (3) Build an Async Queue of compiled models
-        self.engine_queue = asyncio.Queue()
+        # Wait for Triton to start; crash if it fails.
+        minutes_wait = 2
+        check_rate_hz = 2
+        n_iter = minutes_wait * 60 * check_rate_hz
+        for idx in tqdm(
+            range(n_iter), total=n_iter, desc="Waiting for server hearbeat"
+        ):
+            try:
+                if self._client.is_model_ready(self.triton_model_name):
+                    break
+            except Exception:
+                pass
+            time.sleep(1 / check_rate_hz)
+            if (idx / check_rate_hz) == int(idx / check_rate_hz):
+                print(".", end="")
+        else:
+            raise RuntimeError("Triton failed to become ready")
 
-        for idx in range(self.n_engines):
-            # (3.a) Build a CLIPVisionModel model from weights
-            model = CLIPVisionModel(config).eval().cuda()
-            model.load_state_dict(state)
+        self.executor = ThreadPoolExecutor(
+            max_workers=os.cpu_count() * 8,
+            thread_name_prefix="img-io",
+        )
 
-            # Uses cache under the hood (if available)
-            compiled_model = torch.compile(
-                model,
-                mode="reduce-overhead",
-                fullgraph=True,
+    def gpu_pool_flags(self, headroom_pct: float = 0.10):
+        """
+        Return CLI flag strings that give Triton ~90 % of every visible GPU
+        and ¼ of that amount for pinned host memory.
+        """
+        import pynvml
+
+        pynvml.nvmlInit()
+        flags = []
+        total_pool = 0
+
+        for idx in range(pynvml.nvmlDeviceGetCount()):
+            h = pynvml.nvmlDeviceGetHandleByIndex(idx)
+            total = pynvml.nvmlDeviceGetMemoryInfo(h).total  # bytes
+            pool = int(total * (1 - headroom_pct))
+            flags.append(f"--cuda-memory-pool-byte-size={idx}:{pool}")
+            total_pool = max(total_pool, pool)  # use biggest for pin
+        flags.append(f"--pinned-memory-pool-byte-size={total_pool // 4}")
+        return flags
+
+    def build_triton_repo(
+        self,
+        version: str = "1",
+        fp16: bool = True,
+    ):
+        """
+        Build a Triton-ready repo for CLIP vision encoder.
+        """
+        import torch
+        from pathlib import Path
+        from textwrap import dedent
+        from torchvision.io import read_image
+        from torch.onnx import export as onnx_export
+
+        repo_dir = Path(MODEL_REPO) / self.triton_model_name / version
+        repo_dir.mkdir(parents=True, exist_ok=True)
+
+        # 0. short-circuit if artifacts & config already exist
+        artifact = repo_dir / (
+            "model.pt" if self.triton_backend == "pytorch" else "model.plan"
+        )
+        cfg_file = Path(MODEL_REPO) / self.triton_model_name / "config.pbtxt"
+        if artifact.exists() and cfg_file.exists() and (not self.force_rebuild):
+            print("Model repo already complete – skip build.")
+            return
+
+        print("Building torch model...", end="")
+        st = perf_counter()
+
+        # 1.  Build Torch module (used for all backends)
+        class ClipEmbedder(torch.nn.Module):
+            def __init__(self, hf_name: str, fp16: bool):
+                super().__init__()
+                self.clip = CLIPVisionModel.from_pretrained(hf_name)
+                if fp16:
+                    self.clip.half()
+                self.clip.eval()
+
+            @torch.no_grad()
+            def forward(self, pixels: torch.Tensor):
+                return self.clip(pixel_values=pixels).pooler_output
+
+        model = ClipEmbedder(self.model_name, fp16).eval().cuda()
+        example = torch.randn(
+            self.in_shape,
+            device="cuda",
+            dtype=torch.float16 if fp16 else torch.float32,
+        )
+        print(f"took {perf_counter() - st:.2E}s")
+
+        # 2.  Write backend-specific artifact
+        if self.triton_backend == "pytorch":
+            print("doing torch trace...", end="")
+            st = perf_counter()
+            traced = torch.jit.trace(model, example, strict=False).cpu()
+            # rename io so we have input0 / output0
+            graph = traced.inlined_graph
+            g_inputs, g_outputs = list(graph.inputs()), list(graph.outputs())
+            g_inputs[0].setDebugName("input0")
+            g_outputs[0].setDebugName("output0")
+            traced.save(artifact)
+            # Free GPU memory
+            del model, traced
+            torch.cuda.empty_cache()
+            print(f"took {perf_counter() - st:.2E}s")
+
+        else:
+            raise NotImplementedError(
+                f"Triton backend `{self.triton_backend}` not"
+                "implemented yet; try `pytorch`!"
             )
 
-            # (3.b) Cache the trace only in the 1st container for the 1st model copy
-            if (idx == 0) and (not compile_cache.is_file()):
-                # Complete the trace with an inference
-                compiled_model(
-                    **self.preprocessor(
-                        images=torch.randn(model_input_shape),
-                        device=compiled_model.device,
-                        return_tensors="pt",
-                    )
-                )
-                # Extract and save artifacts
-                compile_cache.parent.mkdir(exist_ok=True, parents=True)
-                artifact_bytes, cache_info = torch.compiler.save_cache_artifacts()
-                compile_cache.write_bytes(artifact_bytes)
+        # 3.  Generate config.pbtxt
+        dtype = "TYPE_FP16" if fp16 else "TYPE_FP32"
+        cfg_text = self.make_config(
+            name=self.triton_model_name,
+            dtype=dtype,
+            output_dim=self.output_dim,
+            instances=self.n_engines,
+        )
+        cfg_file.write_text(cfg_text)
 
-            await self.engine_queue.put(compiled_model)
+        data_volume.commit()  # persist for future containers
+        print(f"✓ wrote {artifact.name} + config for backend='{self.triton_backend}'")
 
-            # (4) initialize threadpool for dataloading
-            self.executor = ThreadPoolExecutor(
-                max_workers=os.cpu_count() * self.threads_per_core,
-                thread_name_prefix="img-io",
-            )
+    def make_config(
+        self,
+        name: str,
+        dtype: str,
+        output_dim: int,
+        instances: int = 1,
+    ) -> str:
+        """Return a minimal, left-aligned Triton config.pbtxt."""
+        from textwrap import dedent
+
+        # Config basics: choose a backend
+        cfg = f"""\
+            name: "{name}"
+            backend: "{self.triton_backend}"
+            max_batch_size: {self.batch_size}
+            """
+        # Set inputs/outputs info
+        cfg += f"""\
+            input [
+            {{
+                name: "input0"
+                data_type: {dtype}
+                dims: [ {", ".join(map(str, self.in_shape[1:]))} ]
+            }}
+            ]
+
+            output [
+            {{
+                name: "output0"
+                data_type: {dtype}
+                dims: [ {output_dim} ]
+            }}
+            ]
+            """
+        # Multi-model concurrency within a single (each) GPU
+        cfg += f"""
+            instance_group [
+            {{ kind: KIND_GPU, count: {instances} }}
+            ]
+            
+            """
+
+        cfg += f"""
+            optimization {{ execution_accelerators {{
+            gpu_execution_accelerator : [ {{
+                name : "{self.triton_backend}"
+                parameters {{ key: "precision_mode" value: "{dtype}" }}
+                parameters {{ key: "max_workspace_size_bytes" value: "1073741824" }}
+                }}]
+            }}}}
+            """
+        return dedent(cfg)
 
     @staticmethod
     def readim(impath: os.PathLike):
@@ -408,10 +518,43 @@ class TorchCompileEngine:
         """
         return read_image(str(VOL_MNT / impath))
 
+    def _ensure_region(self, name:str, path:os.PathLike, byte_size:int):
+        """
+        Create a system shared-memory block and remember its handle.
+        """
+
+        if not hasattr(self, "_shm"):
+            self._shm = {}
+
+        # first time
+        if name not in self._shm:
+            self._shm[name] = shm.create_shared_memory_region(name, path, byte_size)
+            self._client.register_system_shared_memory(name, path, byte_size)
+            return
+
+    def _load_batch(self, img_paths:List[str]):
+        """
+        Given a list of image paths, load them into a shared memory block.
+        """
+        batch = (
+            torch.stack(list(self.executor.map(self.readim, img_paths))).to(
+                torch.float16
+            )
+            / 255
+        ).numpy()
+
+        # input SHM
+        self._ensure_region(IN_NAME, IN_PATH, batch.nbytes)
+        shm.set_shared_memory_region(self._shm[IN_NAME], [batch])
+
+        # output SHM
+        out_bytes = batch.shape[0] * self.output_dim * batch.dtype.itemsize
+        self._ensure_region(OUT_NAME, OUT_PATH, out_bytes)
+
+        return batch.shape, batch.nbytes, out_bytes
+
     @modal.method()
-    async def embed(
-        self, images: list[os.PathLike], *args, **kwargs
-    ) -> tuple[float, float, int]:
+    async def embed(self, imgs: list[os.PathLike]) -> tuple[float, float, int]:
         """
         This is the workhorse function. We select a model from the queue, prepare
         a batch, execute inference, and return the time elapsed.
@@ -419,70 +562,66 @@ class TorchCompileEngine:
         NOTE: we throw away the embeddings here; you probably want to return
         them or save them directly to a modal.Volume.
         """
-        # (0) Grab an engine from the queue
-        engine = await self.engine_queue.get()
-        try:
-            # (1) Load batch of image data
-            st = perf_counter()
-            images = self.preprocessor(
-                images=torch.stack(list(self.executor.map(self.readim, images))),
-                device="cuda:0",
-                return_tensors="pt",
-            )
-            batch_elapsed = perf_counter() - st
+        # Load data from volume into shared memory block
+        t0 = perf_counter()
+        in_shape, in_bytes, out_bytes = self._load_batch(imgs)
+        t_prep = perf_counter() - t0
 
-            # (2) Encode the batch
-            st = perf_counter()
-            embedding = engine(**images).pooler_output
-            embed_elapsed = perf_counter() - st
+        # Tell Triton where to get the data
+        inp = grpcclient.InferInput("input0", in_shape, DTYPE)
+        inp.set_shared_memory(IN_NAME, in_bytes)
 
-        finally:
-            # No matter what happens, return the engine to the queue
-            await self.engine_queue.put(engine)
+        out = grpcclient.InferRequestedOutput("output0")
+        out.set_shared_memory(OUT_NAME, out_bytes)
 
-        # (3) You may wish to return the embeddings themselves here
-        return batch_elapsed, embed_elapsed, len(images)
+        # Inference
+        t1 = perf_counter()
+        self._client.infer(self.triton_model_name, [inp], outputs=[out])
+        t_inf = perf_counter() - t1
+
+        # # (If you need the vectors:)
+        # vecs = shm.get_contents_as_numpy(
+        #     self._shm[OUT_NAME], (in_shape[0], self.output_dim), DTYPE
+        # )
+
+        print(f"\tBatchCreate={t_prep * 1e3:.1f} ms\n\tInference={t_inf * 1e3:.1f} ms")
+        return t_prep, t_inf, len(imgs)
 
     @modal.exit()
-    async def exit(self) -> None:
-        """
-        trying to get less printouts?...
-        """
-        self.executor.shutdown(wait=True)
-        return
+    def _cleanup(self):
+        self._proc.terminate()
+        self.executor.shutdown()
 
 
 # This modal.function is a helper that you probably don't need to call:
 # it deletes the torch.compile cache dir we use for sharing a cache across
 # containers (for measuring startup times).
 
-
-@app.function(
-    image=th_compile_image,
-    volumes={VOL_MNT: data_volume},
-)
-def destroy_th_compile_cache():
+@app.function(image=triton_image, volumes={VOL_MNT: data_volume})
+def destroy_triton_cache():
     """
     For timing purposes: deletes torch compile cache dir.
     """
-    if TH_CACHE_DIR.exists():
-        num_files = sum(1 for f in TH_CACHE_DIR.rglob("*") if f.is_file())
+    import shutil
+
+    if MODEL_REPO.exists():
+        num_files = sum(1 for f in MODEL_REPO.rglob("*") if f.is_file())
 
         print(
             "\t*** DESTROYING model cache! You sure you wanna do that?! "
             f"({num_files} files)"
         )
-        shutil.rmtree(TH_CACHE_DIR.as_posix())
+        shutil.rmtree(MODEL_REPO.as_posix())
     else:
-        print(
-            f"\t***destroy_cache was called, but path doesnt exist:\n\t{TH_CACHE_DIR}"
-        )
+        print(f"\t***destroy_cache was called, but path doesnt exist:\n\t{MODEL_REPO}")
     return
+
+
 
 
 # ## Local Entrypoint
 # This is the backbone of the example: it parses inputs, grabs a list of data, instantiates
-# the TorchCompileEngine embedder application, and passes data to it via `map`. `map` spawns
+# the TritonServer embedder application, and passes data to it via `map`. `map` spawns
 # more and more containers until the list of batches are all processed.
 # ### Class Parameterization
 # Modal provides two ways to dynamically parameterize classes: through
@@ -512,33 +651,34 @@ def destroy_th_compile_cache():
 # * `model_name` a HuggingFace model path a la [openai/clip-vit-base-patch16]([OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT"));
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 # * `hf_dataset_name` a HuggingFace data path a la "microsoft/cats_vs_dogs"
-# * `log_file` (optional) points to a local path where a CSV of times will be logged
-#
+# * `triton_backend`: 'pytorch' for now; can modify to use other backends 
+# 
 # These three parameters are used to pre-process images to the correct size in a big batch
 # before inference.
 # * `im_chan`: the number of color channels your model is expecting (probably 3)
 # * `im_height`: the number of pixels tall your model is expecting the images to be
 # * `im_width`: the number of color channels your model is expecting (probably 3)
-#
+##
 @app.local_entrypoint()
 def main(
-    # APP CONFIG
-    gpu: str = "H100",
-    max_containers: int = 50, 
+    # with_options parameters:
+    gpu: str = "A10G",
+    max_containers: int = None,  # this gets overridden if buffer_containers is not None
     max_concurrent_inputs: int = 2,
-    # MODEL CONFIG
+    # modal.parameters:
     model_name: str = "openai/clip-vit-base-patch16",
     batch_size: int = 512,
-    # DATA CONFIG
     im_chan: int = 3,
     im_height: int = 224,
     im_width: int = 224,
-    hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    # data
     image_cap: int = -1,
+    hf_dataset_name: str = "microsoft/cats_vs_dogs",
     n_million_image_test: float = 0,
-    # torch.compile cache
+    # triton cache
     destroy_cache: bool = False,
-    exp_tag: str = "default-tag",
+    triton_backend: str = "pytorch",
+    force_rebuild: bool = False,
 ):
     start_time = perf_counter()
 
@@ -551,27 +691,33 @@ def main(
         model_input_shape=(im_chan, im_height, im_width),
         n_million_image_test=n_million_image_test,
     )
+    print(f"Embedding {len(im_path_list)} images at batchsize {batch_size}.")
+
     n_ims = len(im_path_list)
-    print(f"Embedding {n_ims} images at batchsize {batch_size}.")
 
     # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
+
     if destroy_cache:
-        destroy_th_compile_cache.remote()
+        destroy_triton_cache.remote()
 
-    # (1) Init the model inference app
-
+    # (1.a) Init the model inference app
+    # No inputs to with_options if none provided or buffer_used aboe
+    buffer_containers = None
+    autoscaling_config = {"max_containers": max_containers} if max_containers else {}
     # Build the engine
-    container_config = {"max_containers": max_containers} if max_containers else {}
-    embedder = TorchCompileEngine.with_concurrency(
-        max_inputs=max_concurrent_inputs
-    ).with_options(gpu=gpu, **container_config)(
+    start_time = perf_counter()
+
+    embedder = TritonServer.with_concurrency(
+        max_inputs=max_concurrent_inputs,
+    ).with_options(gpu=f"{gpu}", *autoscaling_config)(
         batch_size=batch_size,
         n_engines=max_concurrent_inputs,
+        triton_backend=triton_backend,
         model_name=model_name,
         model_input_chan=im_chan,
         model_input_imheight=im_height,
         model_input_imwidth=im_width,
-        exp_tag=exp_tag,
+        force_rebuild=force_rebuild,
     )
 
     # (2) Embed batches via remote `map` call
