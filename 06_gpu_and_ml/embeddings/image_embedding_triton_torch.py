@@ -31,7 +31,7 @@ import modal
 hf_secret = modal.Secret.from_name("huggingface-secret")
 data_volume = modal.Volume.from_name("example-embedding-data", create_if_missing=True)
 VOL_MNT = Path("/data")
-MODEL_REPO = VOL_MNT / "triton_repo"  # will hold model.plan + config
+TRITON_CACHE = VOL_MNT / "triton_repo"  # will hold model.plan + config
 
 # Constants used to built Triton config on-the-fly
 IN_NAME, IN_PATH = "clip_input", "/clip_input"
@@ -59,7 +59,7 @@ triton_image = (
             "HF_HOME": VOL_MNT.as_posix(),
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
             # Tell Triton where the repo will be mounted
-            "MODEL_REPO": MODEL_REPO.as_posix(),
+            "MODEL_REPO": TRITON_CACHE.as_posix(),
         }
     )
     .entrypoint([])
@@ -73,13 +73,11 @@ app = modal.App(
 )
 
 with triton_image.imports():
-    import numpy as np
-    import torch  # noqa: F401   – for torchscript
-    import torchvision
+    import torch
     import tritonclient.grpc as grpcclient
     from torchvision.io import read_image
     from tqdm import tqdm
-    from transformers import CLIPImageProcessorFast, CLIPVisionModel
+    from transformers import CLIPVisionModel
     from tritonclient.utils import shared_memory as shm
 
 
@@ -315,7 +313,7 @@ class TritonServer:
         self._proc = subprocess.Popen(
             [
                 "tritonserver",
-                f"--model-repository={MODEL_REPO}",
+                f"--model-repository={TRITON_CACHE}",
                 "--exit-on-error=true",
                 "--model-control-mode=none",  # autoload
                 *self.gpu_pool_flags(),
@@ -384,14 +382,14 @@ class TritonServer:
 
         import torch
 
-        repo_dir = Path(MODEL_REPO) / self.triton_model_name / version
+        repo_dir = Path(TRITON_CACHE) / self.triton_model_name / version
         repo_dir.mkdir(parents=True, exist_ok=True)
 
         # 0. short-circuit if artifacts & config already exist
         artifact = repo_dir / (
             "model.pt" if self.triton_backend == "pytorch" else "model.plan"
         )
-        cfg_file = Path(MODEL_REPO) / self.triton_model_name / "config.pbtxt"
+        cfg_file = Path(TRITON_CACHE) / self.triton_model_name / "config.pbtxt"
         if artifact.exists() and cfg_file.exists() and (not self.force_rebuild):
             print("Model repo already complete – skip build.")
             return
@@ -602,16 +600,18 @@ def destroy_triton_cache():
     """
     import shutil
 
-    if MODEL_REPO.exists():
-        num_files = sum(1 for f in MODEL_REPO.rglob("*") if f.is_file())
+    if TRITON_CACHE.exists():
+        num_files = sum(1 for f in TRITON_CACHE.rglob("*") if f.is_file())
 
         print(
             "\t*** DESTROYING model cache! You sure you wanna do that?! "
             f"({num_files} files)"
         )
-        shutil.rmtree(MODEL_REPO.as_posix())
+        shutil.rmtree(TRITON_CACHE.as_posix())
     else:
-        print(f"\t***destroy_cache was called, but path doesnt exist:\n\t{MODEL_REPO}")
+        print(
+            f"\t***destroy_cache was called, but path doesnt exist:\n\t{TRITON_CACHE}"
+        )
     return
 
 
