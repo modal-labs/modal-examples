@@ -1,16 +1,18 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_th_compile.py::main"]
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embedding_infinity.py::main"]
 # ---
 
-# # Image Embedding Throughput Maximization with torch.compile
+# # Image Embedding Throughput Maximization with Infinity Inference
 # In certain applications, the bottom line comes to *throughput*: process a batch of inputs as fast as possible.
-# This example presents a Modal recipe for maximizing image embedding throughput using
-# regular torch code, setting aside the nuances of model gateway servers (inference engines).
-# This lets us minimize cold-start time, which ultimately yields the best multi-container throughput
-# despite hosting a more simply optimized model.
+# This example presents a Modal recipe for maximizing image embedding throughput using the
+# [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"),
+# a popular inference engine that manages asychronous queuing and model serving.
+#
+# Check out [this example](https://modal.com/docs/examples/image_embedding_th_compile) to see how
+# to use Modal to natively accomplish these features and achieve even higher throughput (nearly 2x)!
 #
 # ## BLUF (Bottom Line Up Front)
-# Set concurrency (`max_concurrent_inputs`) to 3, and set `batch_size` as high as possible without
+# Set concurrency (`max_concurrent_inputs`) to 2, and set `batch_size` as high as possible without
 # hitting OOM errors (model-dependent).
 # To get maximum throughput at any cost, set buffer_containers to 10. 
 # Be sure to preprocess your data in the same manner that the model is expecting (e.g., resizing images; 
@@ -31,19 +33,23 @@
 # and more containers until the task is complete; otherwise set it to None, and use max_containers to cap
 # the number of containers allowed.
 
+# ### Other Examples
+# To see more modern image embedding examples, see:
+# 1. [torch.compile](https://modal.com/docs/examples/image_embedding_th_compile):
+# a cold-start optimized, bare-bones torch code server
+# 2. [triton.torch](https://modal.com/docs/examples/image_embedding_triton_torch):
+# a more modern, optimized model serving gateway
+
 # ## Local env imports
 # Import everything we need for the locally-run Python (everything in our local_entrypoint function at the bottom).
 import asyncio
-import csv
 import os
-import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from time import perf_counter, time_ns
+from time import perf_counter
 from typing import Iterator
 
 import modal
-
 
 # ## Dataset, Model, and Image Setup
 # This example uses HuggingFace to download data and models. We will use a high-performance
@@ -58,54 +64,52 @@ hf_secret = modal.Secret.from_name("huggingface-secret")
 
 # This name is important for referencing the volume in other apps or for
 # [browsing](https://modal.com/storage):
-data_volume = modal.Volume.from_name("example-embedding-data", create_if_missing=True)
+vol_name = "example-embedding-data"
 
-# The location within the volume where torch.compile's caching backends should point to:
 # This is the location within the container where this Volume will be mounted:
-VOL_MNT = Path("/data")
-TH_CACHE_DIR = VOL_MNT / "model-compile-cache"
+vol_mnt = Path("/data")
+
+# Finally, the Volume object can be created:
+data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
 
 # ### Define the image
-th_compile_image = (
+infinity_image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         [
+            "pillow",  # for Infinity input typehint
             "datasets",  # for huggingface data download
             "hf_transfer",  # for fast huggingface data download
             "tqdm",  # progress bar for dataset download
-            "torch",  # torch.compile
-            "transformers",  # CLIPVisionModel etc.
+            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
+            "sentencepiece",  # for this particular chosen model
             "torchvision",  # for fast image loading
         ]
     )
     .env(
         {
             # For fast HuggingFace model and data caching and download in our Volume
-            "HF_HOME": VOL_MNT.as_posix(),
+            "HF_HOME": vol_mnt.as_posix(),
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            # Enables speedy caching across containers
-            "TORCHINDUCTOR_CACHE_DIR": TH_CACHE_DIR.as_posix(),
-            "TORCHINDUCTOR_FX_GRAPH_CACHE": "1",
-            "TORCHINDUCTOR_AUTOGRAD_CACHE": "1",
         }
     )
 )
 
 # Initialize the app
 app = modal.App(
-    "example-torch-embedder",
-    image=th_compile_image,
-    volumes={VOL_MNT: data_volume},
+    "example-infinity-embedder",
+    image=infinity_image,
+    volumes={vol_mnt: data_volume},
     secrets=[hf_secret],
 )
 
 # Imports inside the container
-with th_compile_image.imports():
-    import torch
-    from torch.serialization import safe_globals
+with infinity_image.imports():
+    from infinity_emb import AsyncEmbeddingEngine, EngineArgs
+    from infinity_emb.primitives import Dtype, InferenceEngine
+    from PIL.Image import Image
     from torchvision.io import read_image
-    from transformers import CLIPImageProcessorFast, CLIPVisionModel
-
+    from torchvision.transforms.functional import to_pil_image
 
 # ## Dataset Setup
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
@@ -120,21 +124,24 @@ with th_compile_image.imports():
 # files and directories. If you have a larger dataset, you may need to consider other storage
 # options such as a [CloudBucketMount](https://modal.com/docs/examples/rosettafold).
 
+# A note on preprocessing: Infinity will handle resizing and other preprocessing in case
+# your images are not the same size as what the model is expecting; however, this will
+# significantly degrade throughput. We recommend batch-preprocessing ahead of time (if possible).
+
 
 @app.function(
-    image=th_compile_image,
-    volumes={VOL_MNT: data_volume},
+    image=infinity_image,
+    volumes={vol_mnt: data_volume},
     max_containers=1,  # We only want one container to handle volume setup
     cpu=4,  # HuggingFace will use multi-process parallelism to download
-    timeout=10 * 60,  # if using a large HF dataset, this may need to be longer
+    timeout=24 * 60 * 60,  # if using a large HF dataset, this may need to be longer
 )
 def catalog_jpegs(
     dataset_namespace: str,  # a HuggingFace path like `microsoft/cats_vs_dogs`
     cache_dir: str,  # a subdir where the JPEGs will be extracted into the volume long-form
     image_cap: int,  # hard cap on the number of images to be processed (e.g. for timing, debugging)
     model_input_shape: tuple[int, int, int],  # JPEGs will be preprocessed to this shape
-    threads_per_core: int = 8,  # threads per CPU for I/O oversubscription
-    n_million_image_test: float = None,
+    threads_per_cpu: int = 4,  # threads per CPU for I/O oversubscription
 ) -> tuple[
     list[os.PathLike],  # the function returns a list of paths,
     float,  # and the time it took to prepare
@@ -165,7 +172,7 @@ def catalog_jpegs(
         )
 
         # Create an `extraction` cache dir where we will create explicit JPEGs
-        mounted_cache_dir = VOL_MNT / cache_dir
+        mounted_cache_dir = vol_mnt / cache_dir
         mounted_cache_dir.mkdir(exist_ok=True, parents=True)
 
         # Preprocessing pipeline: resize in bulk now instead of on-the-fly later
@@ -196,9 +203,7 @@ def catalog_jpegs(
         # You could use ProcessPool if there is significant work per image, or even
         # GPU acceleration and batch preprocessing. We keep it simple here for the example.
         futures = []
-        with ThreadPoolExecutor(
-            max_workers=os.cpu_count * threads_per_core
-        ) as executor:
+        with ThreadPoolExecutor(max_workers=os.cpu_count * threads_per_cpu) as executor:
             for idx, ex in enumerate(ds):
                 if image_cap > 0 and idx >= image_cap:
                     break
@@ -226,7 +231,7 @@ def catalog_jpegs(
         ]
 
     # Check for extracted-JPEG cache dir within the modal.Volume
-    if (VOL_MNT / cache_dir).is_dir():
+    if (vol_mnt / cache_dir).is_dir():
         im_path_list = list_all_jpegs(cache_dir)
         n_ims = len(im_path_list)
     else:
@@ -245,16 +250,11 @@ def catalog_jpegs(
     print(f"Found {n_ims} JPEGs in the Volume.", end="")
     if image_cap > 0:
         im_path_list = im_path_list[: min(image_cap, len(im_path_list))]
+    print(f"using {len(im_path_list)}.")
 
-    print(f"Took {perf_counter() - ds_preptime_st:.2f}s to setup volume.")
-    if n_million_image_test > 0:
-        print(f"WARNING: `{n_million_image_test} million_image_test` FLAG RECEIVED!")
-        mil = int(n_million_image_test * 1e6)
-        while len(im_path_list) < mil:
-            im_path_list += im_path_list
-        im_path_list = im_path_list[:mil]
-
-    return im_path_list
+    # Time it
+    ds_time_elapsed = perf_counter() - ds_preptime_st
+    return im_path_list, ds_time_elapsed
 
 
 def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLike]]:
@@ -267,151 +267,86 @@ def chunked(seq: list[os.PathLike], subseq_size: int) -> Iterator[list[os.PathLi
 
 # ## Inference app
 # Here we define a [modal.cls](https://modal.com/docs/reference/modal.Cls#modalcls)
-# that wraps an AsyncQueue of `torch.compile`'d models.
-# Some important notes:
-# 1. We let Modal handle management of concurrent inputs via the `max_concurrent_inputs`
-# parameter, which we pass to the class constructor in our `main` local_entrypoint below. This
-# parameter sets both the number of concurrent inputs (via with_options) and the class variable
+# that wraps [Infinity's AsyncEmbeddingEngine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity").
+# Some important observations:
+# 1. Infinity handles asynchronous queuing internally. This is actually redundant with Modal's
+# concurrency feature, but we found that using them together still helps.
+# In [another example](https://modal.com/docs/examples/image_embedding_th_compile),
+# we show how to achieve a similar setup without Infinity.
+# 2. The variable `allow_concurrent_inputs` passed to the `main` local_entrypoint is
+# used to set both the number of concurrent inputs (via with_options) and the class variable
 # `n_engines` (via modal.parameters). If you aren't using `with_options` you can use the
 # [modal.concurrent](https://modal.com/docs/guide/concurrent-inputs#input-concurrency)
 # decorator directly.
-# 2. The [@modal.enter](https://modal.com/docs/reference/modal.enter#modalenter)
-# decorator around `init_engines` ensures that this method is called once per container, on startup (and `exit` is
-# run once, on shutdown). In `init_engines`, we are compiling one copy of the model for each concurrently-passed
-# batch of data. For the first copy of the model in the first container, we cache
-# the artifact bytes generated by torch.compile to our Modal Volume so that other models
-# (across containers) can access then. This saves several seconds per model per container
-# cold-start.
-# 3. Since image loading is a significant cost, we have a multi-threaded batch
-# constructor. Persistent threads are initialized in `init_engines`.
+# 3. In `init_engines`, we are creating exactly one Infinity inference
+# engine for each concurrently-passed batch of data. This is a high-level version of GPU packing suitable
+# for use with a high-level inference engine like Infinity.
+# 4. The [@modal.enter](https://modal.com/docs/reference/modal.enter#modalenter)
+# decorator ensures that this method is called once per container, on startup (and `exit` is
+# run once, on shutdown).
+
 
 @app.cls(
-    image=th_compile_image,
-    volumes={VOL_MNT: data_volume},
-    cpu=2.5,
-    memory=2.5 * 1024,  # MB -> GB
+    image=infinity_image,
+    volumes={vol_mnt: data_volume},
+    cpu=4,
+    memory=5 * 1024,  # MB -> GB
 )
-class TorchCompileEngine:
+class InfinityEngine:
     model_name: str = modal.parameter()
     batch_size: int = modal.parameter(default=100)
     n_engines: int = modal.parameter(default=1)
-    model_input_chan: int = modal.parameter(default=3)
-    model_input_imheight: int = modal.parameter(default=224)
-    model_input_imwidth: int = modal.parameter(default=224)
     threads_per_core: int = modal.parameter(default=8)
-    exp_tag: str = modal.parameter(default="default-tag")
-    cache_dir: Path = TH_CACHE_DIR
+    verbose_inference: bool = modal.parameter(default=False)
     # For logging
-    name: str = "TorchCompileEngine"
-
-    def init_th(self):
-        """
-        Have to manually turn this on for torch.compile.
-        """
-        major, minor = torch.cuda.get_device_capability(torch.cuda.current_device())
-        torch.set_grad_enabled(False)
-        if major > 8:
-            torch.set_float32_matmul_precision("high")
+    name: str = "InfinityEngine"
 
     @modal.enter()
     async def init_engines(self):
         """
-        Once per container start, `self.n_engines` models will be initialized
-        (one for each concurrently served input via Modal). The first container
-        needs to compute a trace and cache the kernels to our modal.Volume; sub-
-        sequent containers can use that cache (which saves 50%-60% the time
-        compared to the first torch.compile call).
+        On container start, starts `self.n_engines` copies of the selected model
+        and puts them in an async queue.
         """
-
-        # (0) Setup
-        # Torch backend
-        self.init_th()
-        # This makes sure n-th container finds the cache created by the first one
-        data_volume.reload()
-        # This is where we will cache torch.compile artifacts
-        compile_cache: Path = Path(self.cache_dir) / (
-            self.model_name.replace("/", "_") + "_compiled_model_cache.pt"
-        )
-        # Condense modal.parameter values
-        model_input_shape = (
-            self.batch_size,
-            self.model_input_chan,
-            self.model_input_imwidth,
-            self.model_input_imwidth,
-        )
-
-        from torch.compiler._cache import CacheInfo
-
-        # This tells torch to dynamically decide whether to recompile from scratch
-        # or to check for a cache (we want it to check for a cache!)
-        torch.compiler.set_stance("eager_on_recompile")
-
-        # (1) Load raw model weights and preprocessor once per container
-        base = CLIPVisionModel.from_pretrained(self.model_name)
-        self.preprocessor = CLIPImageProcessorFast.from_pretrained(
-            self.model_name, usefast=True
-        )
-
-        # Only save what we need
-        config = base.config
-        state = base.state_dict()
-        del base
-
-        # (2) Check for trace artifacts cache
-        if compile_cache.is_file():
-            cache = compile_cache.read_bytes()
-            with safe_globals([CacheInfo]):
-                torch.compiler.load_cache_artifacts(cache)
-
-        # (3) Build an Async Queue of compiled models
-        self.engine_queue = asyncio.Queue()
-
-        for idx in range(self.n_engines):
-            # (3.a) Build a CLIPVisionModel model from weights
-            model = CLIPVisionModel(config).eval().cuda()
-            model.load_state_dict(state)
-
-            # Uses cache under the hood (if available)
-            compiled_model = torch.compile(
-                model,
-                mode="reduce-overhead",
-                fullgraph=True,
-            )
-
-            # (3.b) Cache the trace only in the 1st container for the 1st model copy
-            if (idx == 0) and (not compile_cache.is_file()):
-                # Complete the trace with an inference
-                compiled_model(
-                    **self.preprocessor(
-                        images=torch.randn(model_input_shape),
-                        device=compiled_model.device,
-                        return_tensors="pt",
-                    )
+        print(f"Loading {self.n_engines} models... ", end="")
+        self.engine_queue: asyncio.Queue[AsyncEmbeddingEngine] = asyncio.Queue()
+        start = perf_counter()
+        for _ in range(self.n_engines):
+            engine = AsyncEmbeddingEngine.from_args(
+                EngineArgs(
+                    model_name_or_path=self.model_name,
+                    batch_size=self.batch_size,
+                    model_warmup=False,
+                    engine=InferenceEngine.torch,
+                    dtype=Dtype.float16,
+                    device="cuda",
                 )
-                # Extract and save artifacts
-                compile_cache.parent.mkdir(exist_ok=True, parents=True)
-                artifact_bytes, cache_info = torch.compiler.save_cache_artifacts()
-                compile_cache.write_bytes(artifact_bytes)
-
-            await self.engine_queue.put(compiled_model)
-
-            # (4) initialize threadpool for dataloading
-            self.executor = ThreadPoolExecutor(
-                max_workers=os.cpu_count() * self.threads_per_core,
-                thread_name_prefix="img-io",
             )
+            await engine.astart()
+            await self.engine_queue.put(engine)
+        print(f"Took {perf_counter() - start:.4}s.")
 
-    @staticmethod
-    def readim(impath: os.PathLike):
+    def read_batch(self, im_path_list: list[os.PathLike]) -> list["Image"]:
         """
-        Prepends this container's volume mount location to the image path.
+        Read a batch of data. Infinity is expecting PIL.Image.Image type
+        inputs, but it's faster to read from disk with torchvision's `read_image`
+        and convert to PIL than it is to read directly with PIL.
+
+        This process is parallelized over the batch with multithreaded data reading.
         """
-        return read_image(str(VOL_MNT / impath))
+
+        def readim(impath: os.PathLike):
+            """Read with torch, convert back to PIL for Infinity"""
+            return to_pil_image(read_image(str(vol_mnt / impath)))
+
+        with ThreadPoolExecutor(
+            max_workers=os.cpu_count() * self.threads_per_core
+        ) as executor:
+            images = list(executor.map(readim, im_path_list))
+
+        return images
 
     @modal.method()
-    async def embed(
-        self, images: list[os.PathLike], *args, **kwargs
-    ) -> tuple[float, float, int]:
+    async def embed(self, images: list[os.PathLike]) -> tuple[float, float]:
         """
         This is the workhorse function. We select a model from the queue, prepare
         a batch, execute inference, and return the time elapsed.
@@ -421,197 +356,191 @@ class TorchCompileEngine:
         """
         # (0) Grab an engine from the queue
         engine = await self.engine_queue.get()
+
         try:
             # (1) Load batch of image data
             st = perf_counter()
-            images = self.preprocessor(
-                images=torch.stack(list(self.executor.map(self.readim, images))),
-                device="cuda:0",
-                return_tensors="pt",
-            )
+            images = self.read_batch(images)
             batch_elapsed = perf_counter() - st
 
             # (2) Encode the batch
             st = perf_counter()
-            embedding = engine(**images).pooler_output
+            # Infinity Engine is async
+            embedding, _ = await engine.image_embed(images=images)
             embed_elapsed = perf_counter() - st
-
         finally:
             # No matter what happens, return the engine to the queue
             await self.engine_queue.put(engine)
 
-        # (3) You may wish to return the embeddings themselves here
-        return batch_elapsed, embed_elapsed, len(images)
+        # (3) Housekeeping
+        if self.verbose_inference:
+            print(f"Time to load batch: {batch_elapsed:.2f}s")
+            print(f"Time to embed batch: {embed_elapsed:.2f}s")
+
+        # (4) You may wish to return the embeddings themselves here
+        return embed_elapsed, len(images)
 
     @modal.exit()
     async def exit(self) -> None:
         """
-        trying to get less printouts?...
+        Shut down each of the engines.
         """
-        self.executor.shutdown(wait=True)
-        return
-
-
-# This modal.function is a helper that you probably don't need to call:
-# it deletes the torch.compile cache dir we use for sharing a cache across
-# containers (for measuring startup times).
-
-
-@app.function(
-    image=th_compile_image,
-    volumes={VOL_MNT: data_volume},
-)
-def destroy_th_compile_cache():
-    """
-    For timing purposes: deletes torch compile cache dir.
-    """
-    if TH_CACHE_DIR.exists():
-        num_files = sum(1 for f in TH_CACHE_DIR.rglob("*") if f.is_file())
-
-        print(
-            "\t*** DESTROYING model cache! You sure you wanna do that?! "
-            f"({num_files} files)"
-        )
-        shutil.rmtree(TH_CACHE_DIR.as_posix())
-    else:
-        print(
-            f"\t***destroy_cache was called, but path doesnt exist:\n\t{TH_CACHE_DIR}"
-        )
-    return
+        for _ in range(self.n_engines):
+            engine = await self.engine_queue.get()
+            await engine.astop()
 
 
 # ## Local Entrypoint
 # This is the backbone of the example: it parses inputs, grabs a list of data, instantiates
-# the TorchCompileEngine embedder application, and passes data to it via `map`. `map` spawns
-# more and more containers until the list of batches are all processed.
-# ### Class Parameterization
+# the InfinityEngine embedder application, and passes data to it via `map`.
+## There are three ways to parallelize inference for this usecase: via batching,
+# by packing individual GPU(s) with multiple copies of the model, and by fanning out across multiple containers.
+#
 # Modal provides two ways to dynamically parameterize classes: through
 # [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options)
 # and through
 # [modal.parameter](https://modal.com/docs/reference/modal.parameter#modalparameter).
 # The app.local_entrypoint() main function at the bottom of this example uses these
-# features to dynamically construct the inference engine class wrapper. Some features
-# are not currently support via `with_options`, e.g. the `buffer_containers` and
-# `min_containers` parameters.
-# `buffer_containers` this tells Modal to pre-emptively warm a number of containers before they are strictly
+# features to dynamically construct the inference engine class wrapper. One feature
+# that is not currently support via `with_options` is the `buffer_containers` parameter.
+# This tells Modal to pre-emptively warm a number of containers before they are strictly
 # needed. In other words it tells Modal to continuously fire up more and more containers
-# until throughput is saturated. To maximize throughput, set `buffer_containers` in the
-# app.cls decorator.
-#
-# ### Inputs:
+# until throughput is saturated.
+# Inputs:
 # * `gpu` is a string specifying the GPU to be used.
 # * `max_containers` caps the number of containers allowed to spin-up. Note that this cannot
 # be used with `buffer_containers`: *if you want to use this, set* `buffer_containers=None` *above!*
-# * `max_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# * `allow_concurrent_inputs` sets the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
 # argument for the inference app via the
 # [modal.cls.with_options](https://modal.com/docs/reference/modal.Cls#with_options) API.
-# This takes advantage of the asynchronous nature of the embedding inference app.
+# This takes advantage of the asynchronous nature of the Infinity embedding inference app.
 # * `threads_per_core` oversubscription factor for parallelized I/O (image reading).
-# * `batch_size` means the usual thing for machine learning inference: a group of images are processed
-#  through the neural network together. This is used during model compilation and `embed`,
+# * `batch_size` is a parameter passed to the [Infinity inference engine](https://github.com/michaelfeil/infinity "github/michaelfeil/infinity"),
+# and it means the usual thing for machine learning inference: a group of images are processed
+#  through the neural network together.
 # * `model_name` a HuggingFace model path a la [openai/clip-vit-base-patch16]([OpenAI model](https://huggingface.co/openai/clip-vit-base-patch16 "OpenAI ViT"));
+# Infinity will automatically load it and prepare it for asynchronous serving.
 # * `image_cap` caps the number of images used in this example (e.g. for debugging/testing)
 # * `hf_dataset_name` a HuggingFace data path a la "microsoft/cats_vs_dogs"
 # * `log_file` (optional) points to a local path where a CSV of times will be logged
 #
 # These three parameters are used to pre-process images to the correct size in a big batch
-# before inference.
+# before inference. However, if you have the wrong numbers or aren't sure, Infinity will
+# automatically handle resizing (at a cost to throughput).
 # * `im_chan`: the number of color channels your model is expecting (probably 3)
 # * `im_height`: the number of pixels tall your model is expecting the images to be
 # * `im_width`: the number of color channels your model is expecting (probably 3)
 #
 @app.local_entrypoint()
 def main(
-    # APP CONFIG
-    gpu: str = "H100",
-    max_containers: int = 50, 
-    max_concurrent_inputs: int = 2,
-    # MODEL CONFIG
+    # with_options parameters:
+    gpu: str = "A10G",
+    max_containers: int = 50,
+    allow_concurrent_inputs: int = 2,
+    # modal.parameters:
+    n_models: int = None,  # defaults to match `allow_concurrent_parameters`
     model_name: str = "openai/clip-vit-base-patch16",
-    batch_size: int = 512,
-    # DATA CONFIG
+    batch_size: int = 100,
     im_chan: int = 3,
     im_height: int = 224,
     im_width: int = 224,
-    hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    # data
     image_cap: int = -1,
-    n_million_image_test: float = 0,
-    # torch.compile cache
-    destroy_cache: bool = False,
-    exp_tag: str = "default-tag",
+    hf_dataset_name: str = "microsoft/cats_vs_dogs",
+    million_image_test: bool = False,
+    # logging (optional)
+    log_file: str = None,  # TODO: remove local logging from example
 ):
     start_time = perf_counter()
 
-    # (0.a) Catalog data: modify `catalog_jpegs` to fetch batches of your data paths.
+    # (0) Catalog data: modify `catalog_jpegs` to fetch batches of your data paths.
     extracted_path = Path("extracted") / hf_dataset_name
-    im_path_list = catalog_jpegs.remote(
+    im_path_list, vol_setup_time = catalog_jpegs.remote(
         dataset_namespace=hf_dataset_name,
         cache_dir=extracted_path,
         image_cap=image_cap,
         model_input_shape=(im_chan, im_height, im_width),
-        n_million_image_test=n_million_image_test,
     )
+    print(f"Took {vol_setup_time:.2f}s to setup volume.")
+    if million_image_test:
+        print("WARNING: `million_image_test` FLAG RECEIVED! RESETTING BSZ ETC!")
+        mil = int(1e6)
+        while len(im_path_list) < mil:
+            im_path_list += im_path_list
+        im_path_list = im_path_list[:mil]
     n_ims = len(im_path_list)
-    print(f"Embedding {n_ims} images at batchsize {batch_size}.")
-
-    # (0.b) This destroys cache for timing purposes - you probably don't want to do this!
-    if destroy_cache:
-        destroy_th_compile_cache.remote()
 
     # (1) Init the model inference app
-
+    # No inputs to with_options if none provided or buffer_used aboe
+    container_config = {"max_containers": max_containers}
     # Build the engine
-    container_config = {"max_containers": max_containers} if max_containers else {}
-    embedder = TorchCompileEngine.with_concurrency(
-        max_inputs=max_concurrent_inputs
-    ).with_options(gpu=gpu, **container_config)(
+    start_time = perf_counter()
+    embedder = InfinityEngine.with_options(
+        gpu=gpu, **container_config
+    ).with_concurrency(max_inputs=allow_concurrent_inputs)(
         batch_size=batch_size,
-        n_engines=max_concurrent_inputs,
+        n_engines=n_models if n_models else allow_concurrent_inputs,
         model_name=model_name,
-        model_input_chan=im_chan,
-        model_input_imheight=im_height,
-        model_input_imwidth=im_width,
-        exp_tag=exp_tag,
     )
 
     # (2) Embed batches via remote `map` call
-    preptimes, inftimes, batchsizes = [], [], []
-    # embedder.embed.spawn_map(chunked(im_path_list, batch_size))
-    for preptime, inftime, batchsize in embedder.embed.map(
-        chunked(im_path_list, batch_size)
-    ):
-        preptimes.append(preptime)
-        inftimes.append(inftime)
+    times, batchsizes = [], []
+    for time, batchsize in embedder.embed.map(chunked(im_path_list, batch_size)):
+        times.append(time)
         batchsizes.append(batchsize)
 
-    # (3) Log & persist results
+    # (3) Log
     if n_ims > 0:
-        total_duration = perf_counter() - start_time  # end-to-end wall-clock
-        overall_throughput = n_ims / total_duration  # imgs / s, wall-clock
-
-        # per-container metrics
-        inf_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, inftimes)]
-        prep_throughputs = [bs / t if t else 0 for bs, t in zip(batchsizes, preptimes)]
-
-        avg_inf_throughput = sum(inf_throughputs) / len(inf_throughputs)
-        best_inf_throughput = max(inf_throughputs)
-
-        avg_prep_throughput = sum(prep_throughputs) / len(prep_throughputs)
-        best_prep_throughput = max(prep_throughputs)
-
-        total_prep_time = sum(preptimes)
-        total_inf_time = sum(inftimes)
+        total_duration = perf_counter() - start_time
+        total_throughput = n_ims / total_duration
+        embed_throughputs = [
+            batchsize / time for batchsize, time in zip(batchsizes, times)
+        ]
+        avg_throughput = sum(embed_throughputs) / len(embed_throughputs)
 
         log_msg = (
             f"{embedder.name}{gpu}::batch_size={batch_size}::"
-            f"n_ims={n_ims}::concurrency={max_concurrent_inputs}\n"
-            f"\tTotal wall time:\t{total_duration / 60:.2f} min\n"
-            f"\tOverall throughput:\t{overall_throughput:.2f} im/s\n"
-            f"\tPrep time (sum):\t{total_prep_time:.2f} s\n"
-            f"\tInference time (sum):\t{total_inf_time:.2f} s\n"
-            f"\tPrep throughput  (avg/best):\t{avg_prep_throughput:.2f} / "
-            f"{best_prep_throughput:.2f} im/s\n"
-            f"\tInfer throughput (avg/best):\t{avg_inf_throughput:.2f} / "
-            f"{best_inf_throughput:.2f} im/s\n"
+            f"n_ims={n_ims}::concurrency={allow_concurrent_inputs}::"
+            f"\tTotal time:\t{total_duration / 60:.2f} min\n"
+            f"\tOverall throughput:\t{total_throughput:.2f} im/s\n"
+            f"\tSingle-model throughput (avg):\t{avg_throughput:.2f} im/s\n"
         )
+
         print(log_msg)
+
+        if log_file is not None:
+            local_logfile = Path(log_file).expanduser()
+            local_logfile.parent.mkdir(parents=True, exist_ok=True)
+
+            import csv
+
+            csv_exists = local_logfile.exists()
+            with open(local_logfile, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                if not csv_exists:
+                    # write header
+                    writer.writerow(
+                        [
+                            "batch_size",
+                            "concurrency",
+                            "max_containers",
+                            "gpu",
+                            "n_images",
+                            "total_time",
+                            "total_throughput",
+                            "avg_model_throughput",
+                        ]
+                    )
+                # write your row
+                writer.writerow(
+                    [
+                        batch_size,
+                        allow_concurrent_inputs,
+                        max_containers,
+                        gpu,
+                        n_ims,
+                        total_duration,
+                        total_throughput,
+                        avg_throughput,
+                    ]
+                )
