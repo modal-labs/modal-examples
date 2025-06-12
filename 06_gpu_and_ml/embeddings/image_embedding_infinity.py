@@ -470,9 +470,9 @@ def main(
     container_config = {"max_containers": max_containers}
     # Build the engine
     start_time = perf_counter()
-    embedder = InfinityEngine.with_options(
-        gpu=gpu, **container_config
-    ).with_concurrency(max_inputs=max_concurrent_inputs)(
+    embedder = InfinityEngine.with_concurrency(
+        max_inputs=max_concurrent_inputs
+    ).with_options(gpu=gpu, **container_config)(
         batch_size=batch_size,
         n_engines=max_concurrent_inputs,
         model_name=model_name,

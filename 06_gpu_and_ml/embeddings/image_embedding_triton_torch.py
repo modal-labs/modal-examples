@@ -704,7 +704,7 @@ def main(
 
     embedder = TritonServer.with_concurrency(
         max_inputs=max_concurrent_inputs,
-    ).with_options(gpu=f"{gpu}", *autoscaling_config)(
+    ).with_options(gpu=f"{gpu}", **autoscaling_config)(
         batch_size=batch_size,
         n_engines=max_concurrent_inputs,
         triton_backend=triton_backend,
