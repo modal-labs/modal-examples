@@ -38,18 +38,9 @@ jobs:
         run: |
           uv pip install --system -r modal/requirements.dev.txt
 
-      - name: Checkout client repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
-        with:
-          repository: modal-labs/modal-client
-          token: ${{ secrets.GH_PAT }}
-          path: client
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Install client repo
+      - name: Install client
         run: |
-          uv pip install --system -e client
+          uv pip install --system modal
 
       - name: Install node
         uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
@@ -62,10 +53,8 @@ jobs:
 
       - name: Compile protos
         run: |
-          cd client
-          inv protoc type-stubs
-          cd ../modal
           inv protoc
+        working-directory: modal
 
       - name: Checkout examples repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
