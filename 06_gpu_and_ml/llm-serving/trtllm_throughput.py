@@ -217,7 +217,7 @@ SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} 
 # [here](https://github.com/NVIDIA/TensorRT-LLM/tree/b0880169d0fb8cd0363049d91aa548e58a41be07/examples/llama),
 # which you can use to adjust the arguments to fit your workloads,
 # e.g. adjusting rotary embeddings and block sizes for longer contexts.
-# We also recommend referring to [NVIDIA's documentation on TRT-LLM](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/getting_started/trtllm_user_guide.html) for best practices!
+# For more performance tuning tips, check out [NVIDIA's official TensorRT-LLM performance guide](https://nvidia.github.io/TensorRT-LLM/0.21.0rc1/performance/performance-tuning-guide/index.html).
 
 
 # To make best use of our 8bit floating point hardware, and the weights and KV cache we have quantized,
