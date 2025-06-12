@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://modal.com">
-    <img src="https://modal-cdn.com/bigicon.png" height="96">
+    <img src="https://modal-cdn.com/Modal-Primary-Logo.png" height="96">
     <h3 align="center">Modal Examples</h3>
   </a>
 </p>
