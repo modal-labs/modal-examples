@@ -174,7 +174,7 @@ def download_lora(repository_id: str) -> Optional[str]:
 # We load Stable Diffusion XL 1.0 as a base model, then, when doing inference,
 # we load whichever LoRA the user specifies from the S3 bucket.
 # For more on the decorators we use on the methods below to speed up building and booting,
-# check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-hooks).
+# check out the [container lifecycle hooks guide](https://modal.com/docs/guide/lifecycle-functions).
 
 
 @app.cls(
