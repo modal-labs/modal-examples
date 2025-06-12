@@ -523,7 +523,7 @@ def destroy_th_compile_cache():
 def main(
     # APP CONFIG
     gpu: str = "H100",
-    max_containers: int = 50,
+    max_containers: int = 10,
     max_concurrent_inputs: int = 2,
     # MODEL CONFIG
     model_name: str = "openai/clip-vit-base-patch16",

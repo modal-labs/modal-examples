@@ -658,8 +658,8 @@ def destroy_triton_cache():
 @app.local_entrypoint()
 def main(
     # with_options parameters:
-    gpu: str = "A10G",
-    max_containers: int = None,  # this gets overridden if buffer_containers is not None
+    gpu: str = "H100",
+    max_containers: int = 10,  # this gets overridden if buffer_containers is not None
     max_concurrent_inputs: int = 2,
     # modal.parameters:
     model_name: str = "openai/clip-vit-base-patch16",

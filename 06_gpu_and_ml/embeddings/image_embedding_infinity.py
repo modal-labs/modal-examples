@@ -433,7 +433,7 @@ class InfinityEngine:
 def main(
     # with_options parameters:
     gpu: str = "A10G",
-    max_containers: int = 50,
+    max_containers: int = 10,
     max_concurrent_inputs: int = 2,
     # modal.parameters:
     model_name: str = "openai/clip-vit-base-patch16",
