@@ -279,6 +279,7 @@ async def _send_request(
                 chunk["object"] == "chat.completion.chunk"
             )  # or something went horribly wrong
             print(chunk["choices"][0]["delta"]["content"], end="")
+    print()
 
 
 # We also include a basic example of a load-testing setup using
