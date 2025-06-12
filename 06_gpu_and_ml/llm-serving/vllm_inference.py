@@ -1,6 +1,5 @@
 # ---
 # pytest: false
-# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/vllm_inference.py"]
 # ---
 
 # # Run OpenAI-compatible LLM inference with LLaMA 3.1-8B and vLLM
