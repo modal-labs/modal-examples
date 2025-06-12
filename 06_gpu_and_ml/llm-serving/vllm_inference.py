@@ -234,10 +234,10 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
     if content is None:
         content = "Explain the singular value decomposition."
 
-    messages = [
+    messages = [  # OpenAI chat format
         system_prompt,
         {"role": "user", "content": content},
-    ]  # OpenAI chat format
+    ]
 
     async with aiohttp.ClientSession(base_url=url) as session:
         print(f"Running health check for server at {url}")
@@ -257,7 +257,7 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
 async def _send_request(
     session: aiohttp.ClientSession, model: str, messages: list
 ) -> None:
-    # `stream=True` tells an OpenAI-compatible backend to stream chunks.
+    # `stream=True` tells an OpenAI-compatible backend to stream chunks
     payload: dict[str, Any] = {"messages": messages, "model": model, "stream": True}
 
     headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
