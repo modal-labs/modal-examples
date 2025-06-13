@@ -22,7 +22,6 @@ import modal
 # ## Define a container image
 
 # We start with Modal's baseline `debian_slim` image and install the required packages.
-# - `chatterbox-tts`: The TTS model library
 # - `fastapi`: Web framework for creating the API endpoint
 AUDIO_URL = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
@@ -66,26 +65,6 @@ class Model:
 
     @modal.fastapi_endpoint(docs=True, method="POST")
     def generate(self, audio_url: str, output_text: str):
-
-        whisper_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        def run_asr(audio):
-            audio_file = open(audio, "rb")
-            transcript = whisper_client.audio.transcriptions.create(
-                file=audio_file,
-                model="whisper-1",
-                response_format="verbose_json",
-                timestamp_granularities=["word"]
-            )
-            word_times = [{
-                "word": word.word,
-                "start": word.start,
-                "end": word.end
-            } for word in transcript.words]
-
-            return transcript.text, transcript.text, word_times
-
-
         print(f"🌐 Downloading audio file from {audio_url}")
         import tempfile
         
@@ -98,7 +77,6 @@ class Model:
             temp_file_path = temp_file.name
         
         input_text, _, word_times = run_asr(temp_file_path)
-            
         # Get the audio data and sample rate from inpainter
         sample_rate, audio_data = self.inpainter.inpaint(
             InpaintInput(
@@ -135,7 +113,7 @@ class Model:
 # mkdir -p /tmp/playdiffusion  # create tmp directory
 #
 # curl -X POST --get https://modal-labs-advay-dev--playdiffusion-api-example-model-generate.modal.run \
-#   --data-urlencode "audio_url=https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/127389__acclivity__thetimehascome.wav" \
+#   --data-urlencode "audio_url=https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" \
 #   --data-urlencode "output_text=November, '9 PM. I'm standing in  alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." \
 #   --output /tmp/playdiffusion/output.wav
 # ```
