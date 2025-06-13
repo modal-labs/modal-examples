@@ -16,7 +16,7 @@
 # Import the necessary modules for Modal deployment and TTS functionality.
 
 import io
-
+import tempfile
 import modal
 
 # ## Define a container image
@@ -36,8 +36,7 @@ app = modal.App("playdiffusion-api-example", image=image)
 
 with image.imports():
     import io
-    import numpy as np
-    import soundfile as sf    
+    import soundfile as sf
     from playdiffusion import PlayDiffusion, InpaintInput
     from fastapi.responses import StreamingResponse
     from urllib.request import urlopen
@@ -56,27 +55,18 @@ with image.imports():
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container
 
 
-@app.cls(gpu="a10g", scaledown_window=60 * 5, secrets=[modal.Secret.from_name("openai-secret", environment_name="main")], enable_memory_snapshot=True)
+@app.cls(gpu="a10g", scaledown_window=60 * 5, enable_memory_snapshot=True)
 @modal.concurrent(max_inputs=10)
 class Model:
     @modal.enter()
     def load(self):
         self.inpainter = PlayDiffusion()
 
-    @modal.fastapi_endpoint(docs=True, method="POST")
-    def generate(self, audio_url: str, output_text: str):
-        print(f"🌐 Downloading audio file from {audio_url}")
-        import tempfile
-        
+    @modal.method()
+    def generate(self, audio_url: str, input_text: str, output_text: str, word_times): 
         # Create a temporary file to store the audio
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
-            # Download and write the audio to the temporary file
-            audio_bytes = urlopen(audio_url).read()
-            temp_file.write(audio_bytes)
-            temp_file.flush()  # Ensure data is written to disk
-            temp_file_path = temp_file.name
+        audio_bytes, temp_file_path = write_to_tempfile(audio_url)
         
-        input_text, _, word_times = run_asr(temp_file_path)
         # Get the audio data and sample rate from inpainter
         sample_rate, audio_data = self.inpainter.inpaint(
             InpaintInput(
@@ -101,6 +91,52 @@ class Model:
             media_type="audio/wav"
         )
 
+@app.function(secrets=[modal.Secret.from_name("openai-secret")])
+def run_asr(audio_url):
+    audio_bytes, _ = write_to_tempfile(audio_url)
+
+    whisper_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    audio_file = open(audio_bytes, "rb")
+    transcript = whisper_client.audio.transcriptions.create(
+        file=audio_file,
+        model="whisper-1",
+        response_format="verbose_json",
+        timestamp_granularities=["word"]
+    )
+    word_times = [{
+        "word": word.word,
+        "start": word.start,
+        "end": word.end
+    } for word in transcript.words]
+
+    return transcript.text, word_times
+
+
+@app.local_entrypoint()
+def main(audio_url, output_text, output_path):
+    input_text, word_times = run_asr.remote(audio_url)
+    playdiffusion_model = Model()
+    output_audio = playdiffusion_model.generate(audio_url, input_text, output_text, word_times)
+    # Create output directory if it doesn't exist
+    os.makedirs("/tmp/playdiffusion", exist_ok=True)
+    
+    # Save the output audio to the specified path
+    output_path = os.path.join("/tmp/playdiffusion", "output.wav")
+    with open(output_path, "wb") as f:
+        f.write(output_audio)
+
+
+def write_to_tempfile(audio_url):
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+        # Download and write the audio to the temporary file
+        audio_bytes = urlopen(audio_url).read()
+        temp_file.write(audio_bytes)
+        temp_file.flush()  # Ensure data is written to disk
+        temp_file_path = temp_file.name
+    
+    return audio_bytes, temp_file_path
+
+
 # Now deploy the PlayDiffusion API with:
 #
 # ```shell
@@ -111,6 +147,10 @@ class Model:
 #
 # ```shell
 # mkdir -p /tmp/playdiffusion  # create tmp directory
+
+# We need to generate the word level timestamps and transcript of the modal
+
+
 #
 # curl -X POST --get https://modal-labs-advay-dev--playdiffusion-api-example-model-generate.modal.run \
 #   --data-urlencode "audio_url=https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" \
