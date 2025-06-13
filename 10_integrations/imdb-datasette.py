@@ -8,7 +8,7 @@
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is IMDB movie and TV show data which is refreshed daily.
-# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
+# Try it out for yourself [here](https://modal-labs--example-imdb-datasette-ui.modal.run).
 
 # Some Modal features it uses:
 
@@ -33,7 +33,7 @@ from urllib.request import urlretrieve
 
 import modal
 
-app = modal.App("example-imdb-datasette")
+app = modal.App("example-imdb-datasette-1")
 imdb_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("setuptools")
@@ -55,12 +55,10 @@ VOLUME_DIR = "/cache-vol"
 DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
-
 # ## Getting a dataset
 
 # IMDB datasets are available at https://datasets.imdbws.com/
-# IMDB publishes data that is updated daily. The full dataset contains 10+ million titles,
-# but we'll filter it to only include movies and TV series from 1990 onwards to keep it manageable.
+# IMDB publishes data that is updated daily. We'll filter it to only include movies and TV series.
 
 # IMDB datasets we'll download
 IMDB_FILES = [
@@ -112,28 +110,17 @@ def parse_tsv_file(filepath, table_name, batch_size=50000):
     """Parse a gzipped TSV file and yield batches of records."""
     import csv
     
-    print(f"Processing {filepath.name}...")
-    
     with gzip.open(filepath, 'rt', encoding='utf-8') as gz_file:
         reader = csv.DictReader(gz_file, delimiter='\t')
         batch = []
         total_processed = 0
         
         for row in reader:
-            # Filter: Only keep movies and TV series, skip other types
+            # Filter: Only keep movies and TV series
             title_type = row.get('titleType', '')
             if title_type not in ['movie', 'tvSeries', 'tvMiniSeries']:
                 continue
             
-            # Filter: Only keep titles from 1990 onwards
-            try:
-                start_year = int(row.get('startYear', '0'))
-                if start_year < 1990:
-                    continue
-            except (ValueError, TypeError):
-                continue
-            
-            # Clean up the data - replace \N with None
             cleaned_row = {k: (None if v == '\\N' else v) for k, v in row.items()}
             
             # Type conversions for titles
@@ -162,7 +149,6 @@ def parse_tsv_file(filepath, table_name, batch_size=50000):
             total_processed += 1
             
             if len(batch) >= batch_size:
-                print(f"Processing... {total_processed:,} titles filtered")
                 yield batch
                 batch = []
         
@@ -170,17 +156,16 @@ def parse_tsv_file(filepath, table_name, batch_size=50000):
         if batch:
             yield batch
         
-        print(f"Finished processing. Total titles kept: {total_processed:,}")
+        print(f"Finished processing {total_processed:,} titles.")
 
 
 # ## Inserting into SQLite
-
 # Process IMDB data files and create SQLite database with proper indexes and views.
 
 @app.function(
     image=imdb_image,
     volumes={VOLUME_DIR: volume},
-    timeout=900,  # 15 minutes should be enough with filtering
+    timeout=900, 
 )
 def prep_db():
     """Process IMDB data files and create SQLite database."""
@@ -203,7 +188,6 @@ def prep_db():
             for i, batch in enumerate(parse_tsv_file(titles_file, 'titles', batch_size=100000)):
                 titles_table.insert_all(batch, batch_size=100000, truncate=(i == 0))
                 batch_count += len(batch)
-                print(f"Inserted batch {i+1} ({len(batch)} titles, total: {batch_count:,})")
             
             print(f"Total titles in database: {batch_count:,}")
             
@@ -216,23 +200,7 @@ def prep_db():
             titles_table.create_index(["genres"], if_not_exists=True)
             print("Created indexes for titles table")
         
-        # Create useful views for common queries
-        db.execute("""
-            CREATE VIEW IF NOT EXISTS movies_by_year AS
-            SELECT 
-                startYear,
-                COUNT(*) as movie_count,
-                COUNT(CASE WHEN genres LIKE '%Action%' THEN 1 END) as action_count,
-                COUNT(CASE WHEN genres LIKE '%Comedy%' THEN 1 END) as comedy_count,
-                COUNT(CASE WHEN genres LIKE '%Drama%' THEN 1 END) as drama_count
-            FROM titles
-            WHERE titleType = 'movie'
-            AND startYear IS NOT NULL
-            AND startYear >= 1900
-            GROUP BY startYear
-            ORDER BY startYear DESC
-        """)
-        
+        # Create views for interesting queries
         db.execute("""
             CREATE VIEW IF NOT EXISTS recent_movies AS
             SELECT 
@@ -372,12 +340,11 @@ def ui():
                             FROM titles
                             WHERE titleType = 'movie'
                             AND genres IS NOT NULL
-                            AND startYear >= 2020
                             GROUP BY genres
                             ORDER BY count DESC
                             LIMIT 25
                         """,
-                        "title": "Popular Genre Combinations (2020+)"
+                        "title": "Popular Genres"
                     }
                 }
             }
@@ -387,7 +354,7 @@ def ui():
     ds = Datasette(
         files=[DB_PATH],
         settings={
-            "sql_time_limit_ms": 30000,  # 30 second timeout for complex queries
+            "sql_time_limit_ms": 60000,
             "max_returned_rows": 10000,
             "allow_download": True,
             "facet_time_limit_ms": 5000,
