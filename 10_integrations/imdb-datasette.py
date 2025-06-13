@@ -4,11 +4,11 @@
 
 # # Publish interactive datasets with Datasette
 
-# ![Datasette user interface](./covid_datasette_ui.png)
+# ![Datasette user interface](./imdb_datasette_ui.png)
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
-# is COVID-19 case data from Johns Hopkins University which is refreshed daily.
-# Try it out for yourself [here](https://modal-labs-examples--example-covid-datasette-ui.modal.run).
+# is IMDB movie and TV show data which is refreshed daily.
+# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
 
 # Some Modal features it uses:
 
@@ -21,14 +21,12 @@
 # ## Basic setup
 
 # Let's get started writing code.
-# For the Modal container image we need a few Python packages,
-# including `GitPython`, which we'll use to download the dataset.
+# For the Modal container image we need a few Python packages.
 
 import asyncio
-import multiprocessing
+import gzip
 import pathlib
 import shutil
-import subprocess
 import tempfile
 from datetime import datetime
 from urllib.request import urlretrieve
@@ -36,10 +34,10 @@ from urllib.request import urlretrieve
 import modal
 
 app = modal.App("example-imdb-datasette")
-datasette_image = (
+imdb_image = (
     modal.Image.debian_slim(python_version="3.12")
+    .pip_install("setuptools")
     .pip_install("datasette~=0.63.2", "sqlite-utils")
-    .apt_install("unzip")
 )
 
 # ## Persistent dataset storage
@@ -54,158 +52,230 @@ volume = modal.Volume.from_name(
 
 DB_FILENAME = "imdb.db"
 VOLUME_DIR = "/cache-vol"
-REPORTS_DIR = pathlib.Path(VOLUME_DIR, "IMDB")
+DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 
 # ## Getting a dataset
 
-# Johns Hopkins has been publishing up-to-date COVID-19 pandemic data on GitHub since early February 2020, and
-# as of late September 2022 daily reporting is still rolling in. Their dataset is what this example will use to
-# show off Modal and Datasette's capabilities.
+# IMDB datasets are available at https://datasets.imdbws.com/
+# IMDB publishes data that is updated daily. The full dataset contains 10+ million titles,
+# but we'll filter it to only include movies and TV series from 1990 onwards to keep it manageable.
 
-# The full git repository size for the dataset is over 6GB, but we only need to shallow clone around 300MB.
-
+# IMDB datasets we'll download
+IMDB_FILES = [
+    "title.basics.tsv.gz",      # Core movie/TV info
+]
 
 @app.function(
-    image=datasette_image,
+    image=imdb_image,
     volumes={VOLUME_DIR: volume},
     retries=2,
+    timeout=1800,  # 30 minutes for large downloads
 )
-def download_dataset(cache=True):
-    if REPORTS_DIR.exists() and cache:
-        print(f"Dataset already present and {cache=}. Skipping download.")
+def download_dataset(force_refresh=False):
+    """Download IMDB dataset files."""
+    if DATA_DIR.exists() and not force_refresh:
+        print(f"Dataset already present and force_refresh={force_refresh}. Skipping download.")
         return
-    elif REPORTS_DIR.exists():
+    elif DATA_DIR.exists():
         print("Cleaning dataset before re-downloading...")
-        shutil.rmtree(REPORTS_DIR)
+        shutil.rmtree(DATA_DIR)
 
-    print("Downloading dataset...")
-    urlretrieve(
-        "https://github.com/CSSEGISandData/COVID-19/archive/refs/heads/master.zip",
-        "/tmp/covid-19.zip",
-    )
-
-    print("Unpacking archive...")
-    prefix = "COVID-19-master/csse_covid_19_data/csse_covid_19_daily_reports"
-    with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run(f"unzip /tmp/covid-19.zip {prefix}/* -d {tmpdir}", shell=True)
-        REPORTS_DIR.mkdir(parents=True)
-        tmpdir_path = pathlib.Path(tmpdir)
-        subprocess.run(f"mv {tmpdir_path / prefix}/* {REPORTS_DIR}", shell=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    
+    print("Downloading IMDB datasets...")
+    base_url = "https://datasets.imdbws.com/"
+    
+    for filename in IMDB_FILES:
+        print(f"Downloading {filename}...")
+        url = base_url + filename
+        output_path = DATA_DIR / filename
+        
+        try:
+            urlretrieve(url, output_path)
+            print(f"Successfully downloaded {filename}")
+        except Exception as e:
+            print(f"Error downloading {filename}: {e}")
+            raise
 
     print("Committing the volume...")
     volume.commit()
-
     print("Finished downloading dataset.")
 
 
-# ## Data munging
+# ## Data processing
 
-# This dataset is no swamp, but a bit of data cleaning is still in order. The following two
-# functions read a handful of `.csv` files and clean the data, before inserting it into
-# SQLite.
+# IMDB data comes as gzipped TSV files. We need to decompress and parse them properly.
 
-
-def load_daily_reports():
-    daily_reports = list(REPORTS_DIR.glob("*.csv"))
-    if not daily_reports:
-        raise RuntimeError(f"Could not find any daily reports in {REPORTS_DIR}.")
-
-    # Preload report files to speed up sequential loading
-    pool = multiprocessing.Pool(128)
-    pool.map(preload_report, daily_reports)
-
-    for filepath in daily_reports:
-        yield from load_report(filepath)
-
-
-def preload_report(filepath):
-    filepath.read_bytes()
-
-
-def load_report(filepath):
+def parse_tsv_file(filepath, table_name, batch_size=50000):
+    """Parse a gzipped TSV file and yield batches of records."""
     import csv
-
-    mm, dd, yyyy = filepath.stem.split("-")
-    with filepath.open() as fp:
-        for row in csv.DictReader(fp):
-            province_or_state = (
-                row.get("\ufeffProvince/State")
-                or row.get("Province/State")
-                or row.get("Province_State")
-                or None
-            )
-            country_or_region = row.get("Country_Region") or row.get("Country/Region")
-            yield {
-                "day": f"{yyyy}-{mm}-{dd}",
-                "country_or_region": (
-                    country_or_region.strip() if country_or_region else None
-                ),
-                "province_or_state": (
-                    province_or_state.strip() if province_or_state else None
-                ),
-                "confirmed": int(float(row["Confirmed"] or 0)),
-                "deaths": int(float(row["Deaths"] or 0)),
-                "recovered": int(float(row["Recovered"] or 0)),
-                "active": int(row["Active"]) if row.get("Active") else None,
-                "last_update": row.get("Last Update") or row.get("Last_Update") or None,
-            }
+    
+    print(f"Processing {filepath.name}...")
+    
+    with gzip.open(filepath, 'rt', encoding='utf-8') as gz_file:
+        reader = csv.DictReader(gz_file, delimiter='\t')
+        batch = []
+        total_processed = 0
+        
+        for row in reader:
+            # Filter: Only keep movies and TV series, skip other types
+            title_type = row.get('titleType', '')
+            if title_type not in ['movie', 'tvSeries', 'tvMiniSeries']:
+                continue
+            
+            # Filter: Only keep titles from 1990 onwards
+            try:
+                start_year = int(row.get('startYear', '0'))
+                if start_year < 1990:
+                    continue
+            except (ValueError, TypeError):
+                continue
+            
+            # Clean up the data - replace \N with None
+            cleaned_row = {k: (None if v == '\\N' else v) for k, v in row.items()}
+            
+            # Type conversions for titles
+            if cleaned_row.get('runtimeMinutes'):
+                try:
+                    cleaned_row['runtimeMinutes'] = int(cleaned_row['runtimeMinutes'])
+                except (ValueError, TypeError):
+                    cleaned_row['runtimeMinutes'] = None
+            
+            if cleaned_row.get('startYear'):
+                try:
+                    cleaned_row['startYear'] = int(cleaned_row['startYear'])
+                except (ValueError, TypeError):
+                    cleaned_row['startYear'] = None
+                    
+            if cleaned_row.get('endYear'):
+                try:
+                    cleaned_row['endYear'] = int(cleaned_row['endYear'])
+                except (ValueError, TypeError):
+                    cleaned_row['endYear'] = None
+                    
+            # Convert isAdult to boolean
+            cleaned_row['isAdult'] = cleaned_row.get('isAdult') == '1'
+            
+            batch.append(cleaned_row)
+            total_processed += 1
+            
+            if len(batch) >= batch_size:
+                print(f"Processing... {total_processed:,} titles filtered")
+                yield batch
+                batch = []
+        
+        # Yield any remaining records
+        if batch:
+            yield batch
+        
+        print(f"Finished processing. Total titles kept: {total_processed:,}")
 
 
 # ## Inserting into SQLite
 
-# With the CSV processing out of the way, we're ready to create an SQLite DB and feed data into it.
-# Importantly, the `prep_db` function mounts the same volume used by `download_dataset()`, and
-# rows are batch inserted with progress logged after each batch, as the full COVID-19 has millions
-# of rows and does take some time to be fully inserted.
-
-# A more sophisticated implementation would only load new data instead of performing a full refresh,
-# but we're keeping things simple for this example!
-
-
-def chunks(it, size):
-    import itertools
-
-    return iter(lambda: tuple(itertools.islice(it, size)), ())
-
+# Process IMDB data files and create SQLite database with proper indexes and views.
 
 @app.function(
-    image=datasette_image,
+    image=imdb_image,
     volumes={VOLUME_DIR: volume},
-    timeout=900,
+    timeout=900,  # 15 minutes should be enough with filtering
 )
 def prep_db():
+    """Process IMDB data files and create SQLite database."""
     import sqlite_utils
-
+    
     volume.reload()
-    print("Loading daily reports...")
-    records = load_daily_reports()
-
-    # Update database in a local temp dir
+    
+    # Create database in a temporary directory first
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = pathlib.Path(tmpdir)
         tmp_db_path = tmpdir_path / DB_FILENAME
-        if DB_PATH.exists():
-            shutil.copyfile(DB_PATH, tmp_db_path)
+        
         db = sqlite_utils.Database(tmp_db_path)
-        table = db["johns_hopkins_csse_daily_reports"]
-
-        batch_size = 100_000
-        for i, batch in enumerate(chunks(records, size=batch_size)):
-            truncate = True if i == 0 else False
-            table.insert_all(batch, batch_size=batch_size, truncate=truncate)
-            print(f"Inserted {len(batch)} rows into DB.")
-
-        table.create_index(["day"], if_not_exists=True)
-        table.create_index(["province_or_state"], if_not_exists=True)
-        table.create_index(["country_or_region"], if_not_exists=True)
-
+        
+        # Process title.basics.tsv.gz
+        titles_file = DATA_DIR / "title.basics.tsv.gz"
+        if titles_file.exists():
+            titles_table = db["titles"]
+            batch_count = 0
+            for i, batch in enumerate(parse_tsv_file(titles_file, 'titles', batch_size=100000)):
+                titles_table.insert_all(batch, batch_size=100000, truncate=(i == 0))
+                batch_count += len(batch)
+                print(f"Inserted batch {i+1} ({len(batch)} titles, total: {batch_count:,})")
+            
+            print(f"Total titles in database: {batch_count:,}")
+            
+            # Create indexes for titles
+            print("Creating indexes...")
+            titles_table.create_index(["tconst"], if_not_exists=True, unique=True)
+            titles_table.create_index(["primaryTitle"], if_not_exists=True)
+            titles_table.create_index(["titleType"], if_not_exists=True)
+            titles_table.create_index(["startYear"], if_not_exists=True)
+            titles_table.create_index(["genres"], if_not_exists=True)
+            print("Created indexes for titles table")
+        
+        # Create useful views for common queries
+        db.execute("""
+            CREATE VIEW IF NOT EXISTS movies_by_year AS
+            SELECT 
+                startYear,
+                COUNT(*) as movie_count,
+                COUNT(CASE WHEN genres LIKE '%Action%' THEN 1 END) as action_count,
+                COUNT(CASE WHEN genres LIKE '%Comedy%' THEN 1 END) as comedy_count,
+                COUNT(CASE WHEN genres LIKE '%Drama%' THEN 1 END) as drama_count
+            FROM titles
+            WHERE titleType = 'movie'
+            AND startYear IS NOT NULL
+            AND startYear >= 1900
+            GROUP BY startYear
+            ORDER BY startYear DESC
+        """)
+        
+        db.execute("""
+            CREATE VIEW IF NOT EXISTS recent_movies AS
+            SELECT 
+                tconst,
+                primaryTitle,
+                startYear,
+                genres,
+                runtimeMinutes
+            FROM titles
+            WHERE titleType = 'movie'
+            AND startYear >= 2020
+            ORDER BY startYear DESC, primaryTitle
+        """)
+        
+        db.execute("""
+            CREATE VIEW IF NOT EXISTS genre_stats AS
+            SELECT 
+                CASE 
+                    WHEN genres LIKE '%Action%' THEN 'Action'
+                    WHEN genres LIKE '%Comedy%' THEN 'Comedy'
+                    WHEN genres LIKE '%Drama%' THEN 'Drama'
+                    WHEN genres LIKE '%Horror%' THEN 'Horror'
+                    WHEN genres LIKE '%Romance%' THEN 'Romance'
+                    WHEN genres LIKE '%Thriller%' THEN 'Thriller'
+                    WHEN genres LIKE '%Documentary%' THEN 'Documentary'
+                    WHEN genres LIKE '%Animation%' THEN 'Animation'
+                    ELSE 'Other'
+                END as genre,
+                COUNT(*) as title_count,
+                AVG(runtimeMinutes) as avg_runtime
+            FROM titles
+            WHERE titleType = 'movie'
+            AND runtimeMinutes IS NOT NULL
+            GROUP BY genre
+            ORDER BY title_count DESC
+        """)
+        
         db.close()
-
+        
+        # Copy the database to the volume
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(tmp_db_path, DB_PATH)
-
+    
     print("Syncing DB with volume.")
     volume.commit()
     print("Volume changes committed.")
@@ -213,15 +283,15 @@ def prep_db():
 
 # ## Keep it fresh
 
-# Johns Hopkins commits new data to the dataset repository every day, so we set up
+# IMDB updates their data daily, so we set up
 # a [scheduled](https://modal.com/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
 
-
-@app.function(schedule=modal.Period(hours=24), timeout=1000)
+@app.function(schedule=modal.Period(hours=24), timeout=4000)
 def refresh_db():
+    """Scheduled function to refresh the database daily."""
     print(f"Running scheduled refresh at {datetime.now()}")
-    download_dataset.remote(cache=False)
+    download_dataset.remote(force_refresh=True)
     prep_db.remote()
 
 
@@ -231,38 +301,123 @@ def refresh_db():
 # The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return its app server.
 
-
 @app.function(
-    image=datasette_image,
+    image=imdb_image,
     volumes={VOLUME_DIR: volume},
 )
 @modal.concurrent(max_inputs=16)
 @modal.asgi_app()
 def ui():
+    """Web endpoint for Datasette UI."""
     from datasette.app import Datasette
-
-    ds = Datasette(files=[DB_PATH], settings={"sql_time_limit_ms": 10000})
+    
+    # Configure Datasette with custom metadata
+    metadata = {
+        "title": "IMDB Database Explorer",
+        "description": "Explore IMDB movie and TV show data",
+        "databases": {
+            "imdb": {
+                "tables": {
+                    "titles": {
+                        "description": "Basic information about all titles (movies, TV shows, etc.)",
+                        "columns": {
+                            "tconst": "Unique identifier",
+                            "titleType": "Type (movie, tvSeries, short, etc.)",
+                            "primaryTitle": "Main title",
+                            "originalTitle": "Original language title",
+                            "isAdult": "Adult content flag",
+                            "startYear": "Release year",
+                            "endYear": "End year (for TV series)",
+                            "runtimeMinutes": "Runtime in minutes",
+                            "genres": "Comma-separated genres"
+                        }
+                    }
+                },
+                "queries": {
+                    "movies_2024": {
+                        "sql": """
+                            SELECT 
+                                primaryTitle as title,
+                                genres,
+                                runtimeMinutes as runtime
+                            FROM titles
+                            WHERE titleType = 'movie'
+                            AND startYear = 2024
+                            ORDER BY primaryTitle
+                            LIMIT 100
+                        """,
+                        "title": "Movies Released in 2024"
+                    },
+                    "longest_movies": {
+                        "sql": """
+                            SELECT 
+                                primaryTitle as title,
+                                startYear as year,
+                                runtimeMinutes as runtime,
+                                genres
+                            FROM titles
+                            WHERE titleType = 'movie'
+                            AND runtimeMinutes IS NOT NULL
+                            AND runtimeMinutes > 180
+                            ORDER BY runtimeMinutes DESC
+                            LIMIT 50
+                        """,
+                        "title": "Longest Movies (3+ hours)"
+                    },
+                    "genre_breakdown": {
+                        "sql": """
+                            SELECT 
+                                genres,
+                                COUNT(*) as count
+                            FROM titles
+                            WHERE titleType = 'movie'
+                            AND genres IS NOT NULL
+                            AND startYear >= 2020
+                            GROUP BY genres
+                            ORDER BY count DESC
+                            LIMIT 25
+                        """,
+                        "title": "Popular Genre Combinations (2020+)"
+                    }
+                }
+            }
+        }
+    }
+    
+    ds = Datasette(
+        files=[DB_PATH],
+        settings={
+            "sql_time_limit_ms": 30000,  # 30 second timeout for complex queries
+            "max_returned_rows": 10000,
+            "allow_download": True,
+            "facet_time_limit_ms": 5000,
+            "allow_facet": True,
+        },
+        metadata=metadata
+    )
     asyncio.run(ds.invoke_startup())
     return ds.app()
 
 
 # ## Publishing to the web
 
-# Run this script using `modal run covid_datasette.py` and it will create the database.
+# Run this script using `modal run imdb_datasette.py` and it will create the database.
 
-# You can then use `modal serve covid_datasette.py` to create a short-lived web URL
+# You can then use `modal serve imdb_datasette.py` to create a short-lived web URL
 # that exists until you terminate the script.
 
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
-# Just run `modal deploy covid_datasette.py`.
-
+# Just run `modal deploy imdb_datasette.py`.
 
 @app.local_entrypoint()
 def run():
-    print("Downloading COVID-19 dataset...")
+    print("Downloading IMDB dataset...")
     download_dataset.remote()
-    print("Prepping SQLite DB...")
+    print("Processing data and creating SQLite DB...")
     prep_db.remote()
+    print("\nDatabase ready! You can now run:")
+    print("  modal serve imdb_datasette.py  # For development")
+    print("  modal deploy imdb_datasette.py  # For production deployment")
 
 
-# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-covid-datasette-app.modal.run/covid-19).
+# You can explore the data at the deployed web endpoint.
