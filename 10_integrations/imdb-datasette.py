@@ -35,7 +35,7 @@ from urllib.request import urlretrieve
 
 import modal
 
-app = modal.App("example-covid-datasette")
+app = modal.App("example-imdb-datasette")
 datasette_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("datasette~=0.63.2", "sqlite-utils")
@@ -49,12 +49,12 @@ datasette_image = (
 # [`Volume`](https://modal.com/docs/guide/volumes).
 
 volume = modal.Volume.from_name(
-    "example-covid-datasette-cache-vol", create_if_missing=True
+    "example-imdb-datasette-cache-vol", create_if_missing=True
 )
 
-DB_FILENAME = "covid-19.db"
+DB_FILENAME = "imdb.db"
 VOLUME_DIR = "/cache-vol"
-REPORTS_DIR = pathlib.Path(VOLUME_DIR, "COVID-19")
+REPORTS_DIR = pathlib.Path(VOLUME_DIR, "IMDB")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 
