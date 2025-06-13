@@ -24,9 +24,11 @@
 # For the Modal container image we need a few Python packages.
 
 import asyncio
+import argparse
 import gzip
 import pathlib
 import shutil
+import tqdm
 import tempfile
 from datetime import datetime
 from urllib.request import urlretrieve
@@ -37,6 +39,7 @@ app = modal.App("example-imdb-datasette-1")
 imdb_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("setuptools")
+    .pip_install("tqdm")
     .pip_install("datasette~=0.63.2", "sqlite-utils")
 )
 
@@ -106,7 +109,7 @@ def download_dataset(force_refresh=False):
 
 # IMDB data comes as gzipped TSV files. We need to decompress and parse them properly.
 
-def parse_tsv_file(filepath, table_name, batch_size=50000):
+def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
     """Parse a gzipped TSV file and yield batches of records."""
     import csv
     
@@ -117,10 +120,11 @@ def parse_tsv_file(filepath, table_name, batch_size=50000):
         
         for row in reader:
             # Filter: Only keep movies and TV series
-            title_type = row.get('titleType', '')
-            if title_type not in ['movie', 'tvSeries', 'tvMiniSeries']:
-                continue
+            if filter_year:
+                if row.get('startYear') < filter_year:
+                    continue
             
+
             cleaned_row = {k: (None if v == '\\N' else v) for k, v in row.items()}
             
             # Type conversions for titles
@@ -167,7 +171,7 @@ def parse_tsv_file(filepath, table_name, batch_size=50000):
     volumes={VOLUME_DIR: volume},
     timeout=900, 
 )
-def prep_db():
+def prep_db(filter_year=None):
     """Process IMDB data files and create SQLite database."""
     import sqlite_utils
     
@@ -182,13 +186,20 @@ def prep_db():
         
         # Process title.basics.tsv.gz
         titles_file = DATA_DIR / "title.basics.tsv.gz"
+        
         if titles_file.exists():
             titles_table = db["titles"]
             batch_count = 0
-            for i, batch in enumerate(parse_tsv_file(titles_file, 'titles', batch_size=100000)):
-                titles_table.insert_all(batch, batch_size=100000, truncate=(i == 0))
-                batch_count += len(batch)
+            total_processed = 0
             
+            with tqdm.tqdm(desc="Processing titles", unit=" batches") as pbar:
+                for i, batch in enumerate(parse_tsv_file(titles_file, batch_size=50000, filter_year=filter_year)):
+                    titles_table.insert_all(batch, batch_size=50000, truncate=(i == 0))
+                    batch_count += len(batch)
+                    total_processed += len(batch)
+                    pbar.update(1)
+                    pbar.set_postfix({"titles": f"{total_processed:,}"})
+
             print(f"Total titles in database: {batch_count:,}")
             
             # Create indexes for titles
@@ -377,11 +388,25 @@ def ui():
 # Just run `modal deploy imdb_datasette.py`.
 
 @app.local_entrypoint()
-def run():
+def run(*arglist):
+    parser = argparse.ArgumentParser(description="IMDB Datasette App")
+    parser.add_argument("--force-refresh", action="store_true", help="Force refresh the dataset")
+    parser.add_argument("--filter-year", type=int, help="Filter data to be after a specific year")
+    args = parser.parse_args(args=arglist)
+
+    force_refresh = args.force_refresh
+    filter_year = args.filter_year
+
+    if force_refresh:
+        print("Force refreshing the dataset...")
+
+    if filter_year:
+        print(f"Filtering data to be after {filter_year}")
+
     print("Downloading IMDB dataset...")
-    download_dataset.remote()
+    download_dataset.remote(force_refresh=force_refresh)
     print("Processing data and creating SQLite DB...")
-    prep_db.remote()
+    prep_db.remote(filter_year=filter_year)
     print("\nDatabase ready! You can now run:")
     print("  modal serve imdb_datasette.py  # For development")
     print("  modal deploy imdb_datasette.py  # For production deployment")
