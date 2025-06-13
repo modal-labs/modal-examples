@@ -1,32 +1,30 @@
-# # PyTorch with CUDA GPU support
-#
-# This example shows how you can use CUDA GPUs in Modal, with a minimal PyTorch
-# image. You can specify GPU requirements in the `app.function` decorator.
-
-import time
-
 import modal
 
-app = modal.App(
-    "example-import-torch",
-    image=modal.Image.debian_slim().pip_install("torch"),
+app = modal.App("example-import-torch")
+
+
+torch_image = modal.Image.debian_slim().pip_install(
+    "torch==2.7",
+    extra_index_url="https://download.pytorch.org/whl/cu128",
+    force_build=True,  # trigger a build every time, just for demonstration purposes
+    # remove if you're using this in production!
 )
 
 
-@app.function(gpu="any")
-def gpu_function():
-    import subprocess
+@app.function(gpu="B200", image=torch_image)
+def torch() -> list[list[int]]:
+    import math
 
     import torch
 
-    subprocess.run(["nvidia-smi"])
-    print("Torch version:", torch.__version__)
-    print("CUDA available:", torch.cuda.is_available())
-    print("CUDA device count:", torch.cuda.device_count())
+    print(torch.cuda.get_device_properties("cuda:0"))
+
+    matrix = torch.randn(1024, 1024) / math.sqrt(1024)
+    matrix = matrix @ matrix
+
+    return matrix.detach().cpu().tolist()
 
 
-if __name__ == "__main__":
-    t0 = time.time()
-    with app.run():
-        gpu_function.remote()
-    print("Full time spent:", time.time() - t0)
+@app.local_entrypoint()
+def main():
+    print(torch.remote()[:1])
