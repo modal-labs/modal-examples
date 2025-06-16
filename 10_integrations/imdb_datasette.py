@@ -23,7 +23,6 @@
 # Let's get started writing code.
 # For the Modal container image we need a few Python packages.
 
-import argparse
 import asyncio
 import gzip
 import pathlib
@@ -86,38 +85,38 @@ def download_dataset(force_refresh=False):
     TEMP_DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data-temp")
     if TEMP_DATA_DIR.exists():
         shutil.rmtree(TEMP_DATA_DIR)
-    
+
     TEMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Downloading IMDB dataset...")
 
     try:
-         for filename in IMDB_FILES:
-             print(f"Downloading {filename}...")
-             url = BASE_URL + filename
-             output_path = TEMP_DATA_DIR / filename
- 
-             urlretrieve(url, output_path)
-             print(f"Successfully downloaded {filename}")
- 
-         if DATA_DIR.exists():
-             # move the current data to a backup location
-             OLD_DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data-old")
-             if OLD_DATA_DIR.exists():
-                 shutil.rmtree(OLD_DATA_DIR)
-             shutil.move(DATA_DIR, OLD_DATA_DIR)
-             
-             # move the new data into place
-             shutil.move(TEMP_DATA_DIR, DATA_DIR)
-             
-             # clean up the old data
-             shutil.rmtree(OLD_DATA_DIR)
-         else:
-             shutil.move(TEMP_DATA_DIR, DATA_DIR)
- 
-         volume.commit()
-         print("Finished downloading dataset.")
- 
+        for filename in IMDB_FILES:
+            print(f"Downloading {filename}...")
+            url = BASE_URL + filename
+            output_path = TEMP_DATA_DIR / filename
+
+            urlretrieve(url, output_path)
+            print(f"Successfully downloaded {filename}")
+
+        if DATA_DIR.exists():
+            # move the current data to a backup location
+            OLD_DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data-old")
+            if OLD_DATA_DIR.exists():
+                shutil.rmtree(OLD_DATA_DIR)
+            shutil.move(DATA_DIR, OLD_DATA_DIR)
+
+            # move the new data into place
+            shutil.move(TEMP_DATA_DIR, DATA_DIR)
+
+            # clean up the old data
+            shutil.rmtree(OLD_DATA_DIR)
+        else:
+            shutil.move(TEMP_DATA_DIR, DATA_DIR)
+
+        volume.commit()
+        print("Finished downloading dataset.")
+
     except Exception as e:
         print(f"Error during download: {e}")
         if TEMP_DATA_DIR.exists():
@@ -150,27 +149,6 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
                     continue
 
             cleaned_row = {k: (None if v == "\\N" else v) for k, v in row.items()}
-
-            # Type conversions for titles
-            if cleaned_row.get("runtimeMinutes"):
-                try:
-                    cleaned_row["runtimeMinutes"] = int(cleaned_row["runtimeMinutes"])
-                except (ValueError, TypeError):
-                    cleaned_row["runtimeMinutes"] = None
-
-            if cleaned_row.get("startYear"):
-                try:
-                    cleaned_row["startYear"] = int(cleaned_row["startYear"])
-                except (ValueError, TypeError):
-                    cleaned_row["startYear"] = None
-
-            if cleaned_row.get("endYear"):
-                try:
-                    cleaned_row["endYear"] = int(cleaned_row["endYear"])
-                except (ValueError, TypeError):
-                    cleaned_row["endYear"] = None
-
-
             batch.append(cleaned_row)
             total_processed += 1
 
@@ -387,6 +365,7 @@ metadata = {
     },
 }
 
+
 @app.function(
     image=imdb_image,
     volumes={VOLUME_DIR: volume},
@@ -424,19 +403,7 @@ def ui():
 
 
 @app.local_entrypoint()
-def run(*arglist):
-    parser = argparse.ArgumentParser(description="IMDB Datasette App")
-    parser.add_argument(
-        "--force-refresh", action="store_true", help="Force refresh the dataset"
-    )
-    parser.add_argument(
-        "--filter-year", type=int, help="Filter data to be after a specific year"
-    )
-    args = parser.parse_args(args=arglist)
-
-    force_refresh = args.force_refresh
-    filter_year = args.filter_year
-
+def run(force_refresh: bool = False, filter_year: int = None):
     if force_refresh:
         print("Force refreshing the dataset...")
 
