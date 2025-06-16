@@ -191,7 +191,7 @@ def prep_db(filter_year=None):
             batch_count = 0
             total_processed = 0
             
-            with tqdm.tqdm(desc="Processing titles", unit=" batches") as pbar:
+            with tqdm.tqdm(desc="Processing titles", unit=" batches", leave=True) as pbar:
                 for i, batch in enumerate(parse_tsv_file(titles_file, batch_size=50000, filter_year=filter_year)):
                     titles_table.insert_all(batch, batch_size=50000, truncate=(i == 0))
                     batch_count += len(batch)
