@@ -23,8 +23,8 @@
 # Let's get started writing code.
 # For the Modal container image we need a few Python packages.
 
-import asyncio
 import argparse
+import asyncio
 import gzip
 import pathlib
 import shutil
@@ -64,8 +64,9 @@ DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 # IMDB datasets we'll download
 IMDB_FILES = [
-    "title.basics.tsv.gz",      # Core movie/TV info
+    "title.basics.tsv.gz",  # Core movie/TV info
 ]
+
 
 @app.function(
     image=imdb_image,
@@ -76,22 +77,24 @@ IMDB_FILES = [
 def download_dataset(force_refresh=False):
     """Download IMDB dataset files."""
     if DATA_DIR.exists() and not force_refresh:
-        print(f"Dataset already present and force_refresh={force_refresh}. Skipping download.")
+        print(
+            f"Dataset already present and force_refresh={force_refresh}. Skipping download."
+        )
         return
     elif DATA_DIR.exists():
         print("Cleaning dataset before re-downloading...")
         shutil.rmtree(DATA_DIR)
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     print("Downloading IMDB datasets...")
     base_url = "https://datasets.imdbws.com/"
-    
+
     for filename in IMDB_FILES:
         print(f"Downloading {filename}...")
         url = base_url + filename
         output_path = DATA_DIR / filename
-        
+
         try:
             urlretrieve(url, output_path)
             print(f"Successfully downloaded {filename}")
@@ -108,91 +111,99 @@ def download_dataset(force_refresh=False):
 
 # IMDB data comes as gzipped TSV files. We need to decompress and parse them properly.
 
+
 def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
     """Parse a gzipped TSV file and yield batches of records."""
     import csv
-    
-    with gzip.open(filepath, 'rt', encoding='utf-8') as gz_file:
-        reader = csv.DictReader(gz_file, delimiter='\t')
+
+    with gzip.open(filepath, "rt", encoding="utf-8") as gz_file:
+        reader = csv.DictReader(gz_file, delimiter="\t")
         batch = []
         total_processed = 0
-        
+
         for row in reader:
             # Filter: Only keep movies and TV series
             if filter_year:
-                if row.get('startYear') < filter_year:
+                if row.get("startYear") < filter_year:
                     continue
-            
 
-            cleaned_row = {k: (None if v == '\\N' else v) for k, v in row.items()}
-            
+            cleaned_row = {k: (None if v == "\\N" else v) for k, v in row.items()}
+
             # Type conversions for titles
-            if cleaned_row.get('runtimeMinutes'):
+            if cleaned_row.get("runtimeMinutes"):
                 try:
-                    cleaned_row['runtimeMinutes'] = int(cleaned_row['runtimeMinutes'])
+                    cleaned_row["runtimeMinutes"] = int(cleaned_row["runtimeMinutes"])
                 except (ValueError, TypeError):
-                    cleaned_row['runtimeMinutes'] = None
-            
-            if cleaned_row.get('startYear'):
+                    cleaned_row["runtimeMinutes"] = None
+
+            if cleaned_row.get("startYear"):
                 try:
-                    cleaned_row['startYear'] = int(cleaned_row['startYear'])
+                    cleaned_row["startYear"] = int(cleaned_row["startYear"])
                 except (ValueError, TypeError):
-                    cleaned_row['startYear'] = None
-                    
-            if cleaned_row.get('endYear'):
+                    cleaned_row["startYear"] = None
+
+            if cleaned_row.get("endYear"):
                 try:
-                    cleaned_row['endYear'] = int(cleaned_row['endYear'])
+                    cleaned_row["endYear"] = int(cleaned_row["endYear"])
                 except (ValueError, TypeError):
-                    cleaned_row['endYear'] = None
-                    
+                    cleaned_row["endYear"] = None
+
             # Convert isAdult to boolean
-            cleaned_row['isAdult'] = cleaned_row.get('isAdult') == '1'
-            
+            cleaned_row["isAdult"] = cleaned_row.get("isAdult") == "1"
+
             batch.append(cleaned_row)
             total_processed += 1
-            
+
             if len(batch) >= batch_size:
                 yield batch
                 batch = []
-        
+
         # Yield any remaining records
         if batch:
             yield batch
-        
+
         print(f"Finished processing {total_processed:,} titles.")
+
 
 # ## Inserting into SQLite
 # Process IMDB data files and create SQLite database with proper indexes and views.
 
+
 @app.function(
     image=imdb_image,
     volumes={VOLUME_DIR: volume},
-    timeout=900, 
+    timeout=900,
 )
 def prep_db(filter_year=None):
     """Process IMDB data files and create SQLite database."""
     import sqlite_utils
     import tqdm
-    
+
     volume.reload()
-    
+
     # Create database in a temporary directory first
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = pathlib.Path(tmpdir)
         tmp_db_path = tmpdir_path / DB_FILENAME
-        
+
         db = sqlite_utils.Database(tmp_db_path)
-        
+
         # Process title.basics.tsv.gz
         titles_file = DATA_DIR / "title.basics.tsv.gz"
-        
+
         if titles_file.exists():
             titles_table = db["titles"]
             batch_count = 0
             total_processed = 0
-            
-            with tqdm.tqdm(desc="Processing titles", unit=" batches", leave=True) as pbar:
-                for i, batch in enumerate(parse_tsv_file(titles_file, batch_size=50000, filter_year=filter_year)):
+
+            with tqdm.tqdm(
+                desc="Processing titles", unit=" batches", leave=True
+            ) as pbar:
+                for i, batch in enumerate(
+                    parse_tsv_file(
+                        titles_file, batch_size=50000, filter_year=filter_year
+                    )
+                ):
                     titles_table.insert_all(batch, batch_size=50000, truncate=(i == 0))
                     batch_count += len(batch)
                     total_processed += len(batch)
@@ -200,7 +211,7 @@ def prep_db(filter_year=None):
                     pbar.set_postfix({"titles": f"{total_processed:,}"})
 
             print(f"Total titles in database: {batch_count:,}")
-            
+
             # Create indexes for titles so we can query the database faster
             print("Creating indexes...")
             titles_table.create_index(["tconst"], if_not_exists=True, unique=True)
@@ -209,7 +220,7 @@ def prep_db(filter_year=None):
             titles_table.create_index(["startYear"], if_not_exists=True)
             titles_table.create_index(["genres"], if_not_exists=True)
             print("Created indexes for titles table")
-        
+
         # Create views for some interesting queries
         db.execute("""
             CREATE VIEW IF NOT EXISTS recent_movies AS
@@ -224,7 +235,7 @@ def prep_db(filter_year=None):
             AND startYear >= 2020
             ORDER BY startYear DESC, primaryTitle
         """)
-        
+
         db.execute("""
             CREATE VIEW IF NOT EXISTS genre_stats AS
             SELECT 
@@ -247,13 +258,13 @@ def prep_db(filter_year=None):
             GROUP BY genre
             ORDER BY title_count DESC
         """)
-        
+
         db.close()
-        
+
         # Copy the database to the volume
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(tmp_db_path, DB_PATH)
-    
+
     print("Syncing DB with volume.")
     volume.commit()
     print("Volume changes committed.")
@@ -264,6 +275,7 @@ def prep_db(filter_year=None):
 # IMDB updates their data daily, so we set up
 # a [scheduled](https://modal.com/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
+
 
 @app.function(schedule=modal.Period(hours=24), timeout=4000)
 def refresh_db():
@@ -279,6 +291,7 @@ def refresh_db():
 # The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return its app server.
 
+
 @app.function(
     image=imdb_image,
     volumes={VOLUME_DIR: volume},
@@ -288,7 +301,7 @@ def refresh_db():
 def ui():
     """Web endpoint for Datasette UI."""
     from datasette.app import Datasette
-    
+
     # Configure Datasette with custom metadata
     metadata = {
         "title": "IMDB Database Explorer",
@@ -307,8 +320,8 @@ def ui():
                             "startYear": "Release year",
                             "endYear": "End year (for TV series)",
                             "runtimeMinutes": "Runtime in minutes",
-                            "genres": "Comma-separated genres"
-                        }
+                            "genres": "Comma-separated genres",
+                        },
                     }
                 },
                 "queries": {
@@ -324,7 +337,7 @@ def ui():
                             ORDER BY primaryTitle
                             LIMIT 100
                         """,
-                        "title": "Movies Released in 2024"
+                        "title": "Movies Released in 2024",
                     },
                     "longest_movies": {
                         "sql": """
@@ -340,7 +353,7 @@ def ui():
                             ORDER BY runtimeMinutes DESC
                             LIMIT 50
                         """,
-                        "title": "Longest Movies (3+ hours)"
+                        "title": "Longest Movies (3+ hours)",
                     },
                     "genre_breakdown": {
                         "sql": """
@@ -354,13 +367,13 @@ def ui():
                             ORDER BY count DESC
                             LIMIT 25
                         """,
-                        "title": "Popular Genres"
-                    }
-                }
+                        "title": "Popular Genres",
+                    },
+                },
             }
-        }
+        },
     }
-    
+
     ds = Datasette(
         files=[DB_PATH],
         settings={
@@ -370,7 +383,7 @@ def ui():
             "facet_time_limit_ms": 5000,
             "allow_facet": True,
         },
-        metadata=metadata
+        metadata=metadata,
     )
     asyncio.run(ds.invoke_startup())
     return ds.app()
@@ -386,11 +399,16 @@ def ui():
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
 # Just run `modal deploy imdb_datasette.py`.
 
+
 @app.local_entrypoint()
 def run(*arglist):
     parser = argparse.ArgumentParser(description="IMDB Datasette App")
-    parser.add_argument("--force-refresh", action="store_true", help="Force refresh the dataset")
-    parser.add_argument("--filter-year", type=int, help="Filter data to be after a specific year")
+    parser.add_argument(
+        "--force-refresh", action="store_true", help="Force refresh the dataset"
+    )
+    parser.add_argument(
+        "--filter-year", type=int, help="Filter data to be after a specific year"
+    )
     args = parser.parse_args(args=arglist)
 
     force_refresh = args.force_refresh
