@@ -122,6 +122,10 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
         total_processed = 0
 
         for row in reader:
+            # Do not process a row if isAdult is true
+            if row.get("isAdult") == "1":
+                continue
+
             # Filter: Only keep movies and TV series
             if filter_year:
                 if row.get("startYear") < filter_year:
@@ -148,8 +152,6 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
                 except (ValueError, TypeError):
                     cleaned_row["endYear"] = None
 
-            # Convert isAdult to boolean
-            cleaned_row["isAdult"] = cleaned_row.get("isAdult") == "1"
 
             batch.append(cleaned_row)
             total_processed += 1
@@ -166,6 +168,7 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 
 
 # ## Inserting into SQLite
+
 # Process IMDB data files and create SQLite database with proper indexes and views.
 
 
@@ -291,6 +294,80 @@ def refresh_db():
 # The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return its app server.
 
+# Let's define a metadata object for the database
+
+# Configure Datasette with custom metadata
+
+metadata = {
+    "title": "IMDB Database Explorer",
+    "description": "Explore IMDB movie and TV show data",
+    "databases": {
+        "imdb": {
+            "tables": {
+                "titles": {
+                    "description": "Basic information about all titles (movies, TV shows, etc.)",
+                    "columns": {
+                        "tconst": "Unique identifier",
+                        "titleType": "Type (movie, tvSeries, short, etc.)",
+                        "primaryTitle": "Main title",
+                        "originalTitle": "Original language title",
+                        "isAdult": "Adult content flag",
+                        "startYear": "Release year",
+                        "endYear": "End year (for TV series)",
+                        "runtimeMinutes": "Runtime in minutes",
+                        "genres": "Comma-separated genres",
+                    },
+                }
+            },
+            "queries": {
+                "movies_2024": {
+                    "sql": """
+                        SELECT
+                            primaryTitle as title,
+                            genres,
+                            runtimeMinutes as runtime
+                        FROM titles
+                        WHERE titleType = 'movie'
+                        AND startYear = 2024
+                        ORDER BY primaryTitle
+                        LIMIT 100
+                    """,
+                    "title": "Movies Released in 2024",
+                },
+                "longest_movies": {
+                    "sql": """
+                        SELECT
+                            primaryTitle as title,
+                            startYear as year,
+                            runtimeMinutes as runtime,
+                            genres
+                        FROM titles
+                        WHERE titleType = 'movie'
+                        AND runtimeMinutes IS NOT NULL
+                        AND runtimeMinutes > 180
+                        ORDER BY runtimeMinutes DESC
+                        LIMIT 50
+                    """,
+                    "title": "Longest Movies (3+ hours)",
+                },
+                "genre_breakdown": {
+                    "sql": """
+                        SELECT
+                            genres,
+                            COUNT(*) as count
+                        FROM titles
+                        WHERE titleType = 'movie'
+                        AND genres IS NOT NULL
+                        GROUP BY genres
+                        ORDER BY count DESC
+                        LIMIT 25
+                    """,
+                    "title": "Popular Genres",
+                },
+            },
+        }
+    },
+}
 
 @app.function(
     image=imdb_image,
@@ -301,78 +378,6 @@ def refresh_db():
 def ui():
     """Web endpoint for Datasette UI."""
     from datasette.app import Datasette
-
-    # Configure Datasette with custom metadata
-    metadata = {
-        "title": "IMDB Database Explorer",
-        "description": "Explore IMDB movie and TV show data",
-        "databases": {
-            "imdb": {
-                "tables": {
-                    "titles": {
-                        "description": "Basic information about all titles (movies, TV shows, etc.)",
-                        "columns": {
-                            "tconst": "Unique identifier",
-                            "titleType": "Type (movie, tvSeries, short, etc.)",
-                            "primaryTitle": "Main title",
-                            "originalTitle": "Original language title",
-                            "isAdult": "Adult content flag",
-                            "startYear": "Release year",
-                            "endYear": "End year (for TV series)",
-                            "runtimeMinutes": "Runtime in minutes",
-                            "genres": "Comma-separated genres",
-                        },
-                    }
-                },
-                "queries": {
-                    "movies_2024": {
-                        "sql": """
-                            SELECT
-                                primaryTitle as title,
-                                genres,
-                                runtimeMinutes as runtime
-                            FROM titles
-                            WHERE titleType = 'movie'
-                            AND startYear = 2024
-                            ORDER BY primaryTitle
-                            LIMIT 100
-                        """,
-                        "title": "Movies Released in 2024",
-                    },
-                    "longest_movies": {
-                        "sql": """
-                            SELECT
-                                primaryTitle as title,
-                                startYear as year,
-                                runtimeMinutes as runtime,
-                                genres
-                            FROM titles
-                            WHERE titleType = 'movie'
-                            AND runtimeMinutes IS NOT NULL
-                            AND runtimeMinutes > 180
-                            ORDER BY runtimeMinutes DESC
-                            LIMIT 50
-                        """,
-                        "title": "Longest Movies (3+ hours)",
-                    },
-                    "genre_breakdown": {
-                        "sql": """
-                            SELECT
-                                genres,
-                                COUNT(*) as count
-                            FROM titles
-                            WHERE titleType = 'movie'
-                            AND genres IS NOT NULL
-                            GROUP BY genres
-                            ORDER BY count DESC
-                            LIMIT 25
-                        """,
-                        "title": "Popular Genres",
-                    },
-                },
-            }
-        },
-    }
 
     ds = Datasette(
         files=[DB_PATH],
