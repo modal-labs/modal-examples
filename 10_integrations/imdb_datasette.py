@@ -373,7 +373,7 @@ def ui():
 # `modal run imdb_datasette.py --filter-year year`
 
 # You can then use `modal serve imdb_datasette.py` to create a short-lived web URL
-# that exists until you terminate the script
+# that exists until you terminate the script.
 
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
 # Just run `modal deploy imdb_datasette.py` and your app will be deployed in seconds!
