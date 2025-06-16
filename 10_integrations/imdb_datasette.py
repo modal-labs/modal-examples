@@ -396,4 +396,4 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("  modal deploy imdb_datasette.py  # For production deployment")
 
 
-# You can explore the data at the (deployed web endpoint)[https://modal-labs-examples--example-imdb-datasette-ui.modal.run].
+# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
