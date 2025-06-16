@@ -4,7 +4,7 @@
 
 # # Publish interactive datasets with Datasette
 
-# ![Datasette user interface](./imdb_datasette_ui.png)
+# ![Datasette user interface](https://modal-cdn.com/cdnbot/imdb_datasetteqzaj3q9d_a83d82fd.webp)
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is IMDB movie and TV show data which is refreshed daily.
@@ -33,7 +33,7 @@ from urllib.request import urlretrieve
 
 import modal
 
-app = modal.App("example-imdb-datasette-1")
+app = modal.App("example-imdb-datasette")
 imdb_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("setuptools")
