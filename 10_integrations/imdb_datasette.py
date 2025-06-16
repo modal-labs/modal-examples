@@ -6,17 +6,18 @@
 
 # ![Datasette user interface](https://modal-cdn.com/cdnbot/imdb_datasetteqzaj3q9d_a83d82fd.webp)
 
-# This example shows how to serve a Datasette application on Modal. The published dataset
-# is IMDB movie and TV show data which is refreshed daily.
+# Build and deploy an interactive movie database that automatically updates daily with the latest IMDB data.
+# This example shows how to serve a Datasette application on Modal with millions of movie and TV show records.
+
 # Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
 
 # Some Modal features it uses:
 
-# * Volumes: a persisted volume lets us store and grow the published dataset over time.
+# * [Volumes](https://modal.com/docs/guide/volumes): a persisted volume lets us store and grow the published dataset over time.
 
-# * Scheduled functions: the underlying dataset is refreshed daily, so we schedule a function to run daily.
+# * [Scheduled functions](https://modal.com/docs/guide/cron#scheduling-remote-cron-jobs): the underlying dataset is refreshed daily, so we schedule a function to run daily.
 
-# * Web endpoints: exposes the Datasette application for web browser interaction and API requests.
+# * [Web endpoints](https://modal.com/docs/guide/webhooks#web-endpoints): exposes the Datasette application for web browser interaction and API requests.
 
 # ## Basic setup
 
@@ -34,11 +35,8 @@ from urllib.request import urlretrieve
 import modal
 
 app = modal.App("example-imdb-datasette")
-imdb_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install("setuptools")
-    .pip_install("tqdm")
-    .pip_install("datasette~=0.63.2", "sqlite-utils")
+imdb_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "datasette~=0.63.2", "sqlite-utils", "tqdm", "setuptools"
 )
 
 # ## Persistent dataset storage
@@ -334,7 +332,7 @@ metadata = {
     },
 }
 
-# Now we can define the web endpoint that will serve the Datasette application.
+# Now we can define the web endpoint that will serve the Datasette application
 
 
 @app.function(
@@ -364,17 +362,21 @@ def ui():
 
 # ## Publishing to the web
 
-# Run this script using `modal run imdb_datasette.py` and it will create the database.
+# Run this script using `modal run imdb_datasette.py` and it will create the database under 5 minutes!
 
-# If you would like to force a refresh of the dataset, you can use `modal run imdb_datasette.py --force-refresh`.
+# If you would like to force a refresh of the dataset, you can use:
 
-# If you would like to filter the data to be after a specific year, you can use `modal run imdb_datasette.py --filter-year year`.
+# `modal run imdb_datasette.py --force-refresh`
+
+# If you would like to filter the data to be after a specific year, you can use:
+
+# `modal run imdb_datasette.py --filter-year year`
 
 # You can then use `modal serve imdb_datasette.py` to create a short-lived web URL
-# that exists until you terminate the script.
+# that exists until you terminate the script
 
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
-# Just run `modal deploy imdb_datasette.py`.
+# Just run `modal deploy imdb_datasette.py` and your app will be deployed in seconds!
 
 
 @app.local_entrypoint()
@@ -394,4 +396,4 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("  modal deploy imdb_datasette.py  # For production deployment")
 
 
-# You can explore the data at the deployed web endpoint.
+# You can explore the data at the (deployed web endpoint)[https://modal-labs-examples--example-imdb-datasette-ui.modal.run].
