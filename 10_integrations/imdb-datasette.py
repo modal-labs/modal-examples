@@ -162,7 +162,6 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
         
         print(f"Finished processing {total_processed:,} titles.")
 
-
 # ## Inserting into SQLite
 # Process IMDB data files and create SQLite database with proper indexes and views.
 
@@ -202,7 +201,7 @@ def prep_db(filter_year=None):
 
             print(f"Total titles in database: {batch_count:,}")
             
-            # Create indexes for titles
+            # Create indexes for titles so we can query the database faster
             print("Creating indexes...")
             titles_table.create_index(["tconst"], if_not_exists=True, unique=True)
             titles_table.create_index(["primaryTitle"], if_not_exists=True)
@@ -211,7 +210,7 @@ def prep_db(filter_year=None):
             titles_table.create_index(["genres"], if_not_exists=True)
             print("Created indexes for titles table")
         
-        # Create views for interesting queries
+        # Create views for some interesting queries
         db.execute("""
             CREATE VIEW IF NOT EXISTS recent_movies AS
             SELECT 
