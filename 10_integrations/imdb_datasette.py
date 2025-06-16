@@ -56,6 +56,7 @@ DB_FILENAME = "imdb.db"
 VOLUME_DIR = "/cache-vol"
 DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
+BASE_URL = "https://datasets.imdbws.com/"
 
 # ## Getting a dataset
 
@@ -72,7 +73,7 @@ IMDB_FILES = [
     image=imdb_image,
     volumes={VOLUME_DIR: volume},
     retries=2,
-    timeout=1800,  # 30 minutes for large downloads
+    timeout=1800,
 )
 def download_dataset(force_refresh=False):
     """Download IMDB dataset files."""
@@ -81,30 +82,47 @@ def download_dataset(force_refresh=False):
             f"Dataset already present and force_refresh={force_refresh}. Skipping download."
         )
         return
-    elif DATA_DIR.exists():
-        print("Cleaning dataset before re-downloading...")
-        shutil.rmtree(DATA_DIR)
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TEMP_DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data-temp")
+    if TEMP_DATA_DIR.exists():
+        shutil.rmtree(TEMP_DATA_DIR)
+    
+    TEMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Downloading IMDB datasets...")
-    base_url = "https://datasets.imdbws.com/"
+    print("Downloading IMDB dataset...")
 
-    for filename in IMDB_FILES:
-        print(f"Downloading {filename}...")
-        url = base_url + filename
-        output_path = DATA_DIR / filename
-
-        try:
-            urlretrieve(url, output_path)
-            print(f"Successfully downloaded {filename}")
-        except Exception as e:
-            print(f"Error downloading {filename}: {e}")
-            raise
-
-    print("Committing the volume...")
-    volume.commit()
-    print("Finished downloading dataset.")
+    try:
+         for filename in IMDB_FILES:
+             print(f"Downloading {filename}...")
+             url = BASE_URL + filename
+             output_path = TEMP_DATA_DIR / filename
+ 
+             urlretrieve(url, output_path)
+             print(f"Successfully downloaded {filename}")
+ 
+         if DATA_DIR.exists():
+             # move the current data to a backup location
+             OLD_DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data-old")
+             if OLD_DATA_DIR.exists():
+                 shutil.rmtree(OLD_DATA_DIR)
+             shutil.move(DATA_DIR, OLD_DATA_DIR)
+             
+             # move the new data into place
+             shutil.move(TEMP_DATA_DIR, DATA_DIR)
+             
+             # clean up the old data
+             shutil.rmtree(OLD_DATA_DIR)
+         else:
+             shutil.move(TEMP_DATA_DIR, DATA_DIR)
+ 
+         volume.commit()
+         print("Finished downloading dataset.")
+ 
+    except Exception as e:
+        print(f"Error during download: {e}")
+        if TEMP_DATA_DIR.exists():
+            shutil.rmtree(TEMP_DATA_DIR)
+        raise
 
 
 # ## Data processing
