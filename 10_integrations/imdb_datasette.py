@@ -8,7 +8,7 @@
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is IMDB movie and TV show data which is refreshed daily.
-# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
+# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui-dev.modal.run).
 
 # Some Modal features it uses:
 
