@@ -28,7 +28,6 @@ import argparse
 import gzip
 import pathlib
 import shutil
-import tqdm
 import tempfile
 from datetime import datetime
 from urllib.request import urlretrieve
@@ -173,6 +172,7 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 def prep_db(filter_year=None):
     """Process IMDB data files and create SQLite database."""
     import sqlite_utils
+    import tqdm
     
     volume.reload()
     
