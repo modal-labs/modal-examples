@@ -239,8 +239,6 @@ def prep_db(filter_year=None):
     print("Volume changes committed.")
 
 
-# Now when this runs:
-
 # ## Keep it fresh
 
 # IMDB updates their data daily, so we set up
