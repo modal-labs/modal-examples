@@ -224,7 +224,7 @@ def prep_db(filter_year=None):
         # Create views for some interesting queries
         db.execute("""
             CREATE VIEW IF NOT EXISTS recent_movies AS
-            SELECT 
+            SELECT
                 tconst,
                 primaryTitle,
                 startYear,
@@ -238,8 +238,8 @@ def prep_db(filter_year=None):
 
         db.execute("""
             CREATE VIEW IF NOT EXISTS genre_stats AS
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN genres LIKE '%Action%' THEN 'Action'
                     WHEN genres LIKE '%Comedy%' THEN 'Comedy'
                     WHEN genres LIKE '%Drama%' THEN 'Drama'
@@ -327,7 +327,7 @@ def ui():
                 "queries": {
                     "movies_2024": {
                         "sql": """
-                            SELECT 
+                            SELECT
                                 primaryTitle as title,
                                 genres,
                                 runtimeMinutes as runtime
@@ -341,7 +341,7 @@ def ui():
                     },
                     "longest_movies": {
                         "sql": """
-                            SELECT 
+                            SELECT
                                 primaryTitle as title,
                                 startYear as year,
                                 runtimeMinutes as runtime,
@@ -357,7 +357,7 @@ def ui():
                     },
                     "genre_breakdown": {
                         "sql": """
-                            SELECT 
+                            SELECT
                                 genres,
                                 COUNT(*) as count
                             FROM titles
