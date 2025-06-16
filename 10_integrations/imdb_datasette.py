@@ -8,7 +8,7 @@
 
 # This example shows how to serve a Datasette application on Modal. The published dataset
 # is IMDB movie and TV show data which is refreshed daily.
-# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui-dev.modal.run).
+# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
 
 # Some Modal features it uses:
 
@@ -50,21 +50,21 @@ imdb_image = (
 volume = modal.Volume.from_name(
     "example-imdb-datasette-cache-vol", create_if_missing=True
 )
-
 DB_FILENAME = "imdb.db"
 VOLUME_DIR = "/cache-vol"
 DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
-BASE_URL = "https://datasets.imdbws.com/"
 
 # ## Getting a dataset
 
-# IMDB datasets are available at https://datasets.imdbws.com/
-# IMDB publishes data that is updated daily. We'll filter it to only include movies and TV series.
+# IMDB datasets are available at https://datasets.imdbws.com/.
+# IMDB publishes data that is updated daily.
+# We will download the title.basics.tsv.gz file which contains basic information about all titles (movies, TV shows, etc.).
+# Since we are serving an interactive database which updates daily, we will download the files into a temporary directory and then move them to the volume to prevent downtime.
 
-# IMDB datasets we'll download
+BASE_URL = "https://datasets.imdbws.com/"
 IMDB_FILES = [
-    "title.basics.tsv.gz",  # Core movie/TV info
+    "title.basics.tsv.gz",
 ]
 
 
@@ -126,7 +126,8 @@ def download_dataset(force_refresh=False):
 
 # ## Data processing
 
-# IMDB data comes as gzipped TSV files. We need to decompress and parse them properly.
+# This dataset is no swamp, but a bit of data cleaning is still in order.
+# The following function reads a .tsv file, cleans the data and yields batches of records.
 
 
 def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
@@ -165,7 +166,14 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 
 # ## Inserting into SQLite
 
-# Process IMDB data files and create SQLite database with proper indexes and views.
+# With the TSV processing out of the way, we’re ready to create an SQLite DB and feed data into it.
+
+# Importantly, the prep_db function mounts the same volume used by download_dataset(), and rows are batch inserted with progress logged after each batch,
+# as the full IMDB dataset has millions of rows and does take some time to be fully inserted.
+
+# A more sophisticated implementation would only load new data instead of performing a full refresh,
+# but we’re keeping things simple for this example!
+# We will also create indexes for the titles table to speed up queries.
 
 
 @app.function(
@@ -220,44 +228,6 @@ def prep_db(filter_year=None):
             titles_table.create_index(["genres"], if_not_exists=True)
             print("Created indexes for titles table")
 
-        # Create views for some interesting queries
-        db.execute("""
-            CREATE VIEW IF NOT EXISTS recent_movies AS
-            SELECT
-                tconst,
-                primaryTitle,
-                startYear,
-                genres,
-                runtimeMinutes
-            FROM titles
-            WHERE titleType = 'movie'
-            AND startYear >= 2020
-            ORDER BY startYear DESC, primaryTitle
-        """)
-
-        db.execute("""
-            CREATE VIEW IF NOT EXISTS genre_stats AS
-            SELECT
-                CASE
-                    WHEN genres LIKE '%Action%' THEN 'Action'
-                    WHEN genres LIKE '%Comedy%' THEN 'Comedy'
-                    WHEN genres LIKE '%Drama%' THEN 'Drama'
-                    WHEN genres LIKE '%Horror%' THEN 'Horror'
-                    WHEN genres LIKE '%Romance%' THEN 'Romance'
-                    WHEN genres LIKE '%Thriller%' THEN 'Thriller'
-                    WHEN genres LIKE '%Documentary%' THEN 'Documentary'
-                    WHEN genres LIKE '%Animation%' THEN 'Animation'
-                    ELSE 'Other'
-                END as genre,
-                COUNT(*) as title_count,
-                AVG(runtimeMinutes) as avg_runtime
-            FROM titles
-            WHERE titleType = 'movie'
-            AND runtimeMinutes IS NOT NULL
-            GROUP BY genre
-            ORDER BY title_count DESC
-        """)
-
         db.close()
 
         # Copy the database to the volume
@@ -268,6 +238,8 @@ def prep_db(filter_year=None):
     volume.commit()
     print("Volume changes committed.")
 
+
+# Now when this runs:
 
 # ## Keep it fresh
 
@@ -290,9 +262,8 @@ def refresh_db():
 # The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
 # lines to instantiate the `Datasette` instance and return its app server.
 
-# Let's define a metadata object for the database
-
-# Configure Datasette with custom metadata
+# First, let's define a metadata object for the database.
+# This will be used to configure Datasette to display a custom UI with some pre-defined queries.
 
 metadata = {
     "title": "IMDB Database Explorer",
@@ -365,6 +336,8 @@ metadata = {
     },
 }
 
+# Now we can define the web endpoint that will serve the Datasette application.
+
 
 @app.function(
     image=imdb_image,
@@ -394,6 +367,10 @@ def ui():
 # ## Publishing to the web
 
 # Run this script using `modal run imdb_datasette.py` and it will create the database.
+
+# If you would like to force a refresh of the dataset, you can use `modal run imdb_datasette.py --force-refresh`.
+
+# If you would like to filter the data to be after a specific year, you can use `modal run imdb_datasette.py --filter-year year`.
 
 # You can then use `modal serve imdb_datasette.py` to create a short-lived web URL
 # that exists until you terminate the script.
