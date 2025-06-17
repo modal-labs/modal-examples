@@ -1,5 +1,7 @@
 # # Fold proteins with Boltz-2
 
+# ![Boltz-2](https://modal-cdn.com/cdnbot/boltz_examplecd5u3m0j_9fa47e43.webp)
+
 # Boltz-2 is an open source molecular structure prediction model.
 # In contrast to previous models like Boltz-1, [Chai-1](https://modal.com/docs/examples/chai1), and AlphaFold-3, it not only predicts protein structures but also the [binding affinities](https://en.wikipedia.org/wiki/Ligand_(biochemistry)#Receptor/ligand_binding_affinity) between proteins and [ligands](https://en.wikipedia.org/wiki/Ligand_(biochemistry)).
 # It was created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-2/).
@@ -9,7 +11,6 @@
 
 # ## Setup
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -59,10 +60,8 @@ def main(
         input_yaml_path = here / "data" / "boltz_affinity.yaml"
     input_yaml = input_yaml_path.read_text()
 
-    msas = find_msas(input_yaml_path)
-
     print(f"🧬 running boltz with input from {input_yaml_path}")
-    output = boltz_inference.remote(input_yaml, msas)
+    output = boltz_inference.remote(input_yaml)
 
     output_path = Path("/tmp") / "boltz" / "boltz_result.tar.gz"
     output_path.parent.mkdir(exist_ok=True, parents=True)
@@ -106,10 +105,10 @@ models_dir = Path("/models/boltz")
 # the Volume we created, the Image we defined, and of course a fast GPU!
 
 # Note that the `boltz` command-line tool we use takes the path to a
-# [specially-formatted YAML file](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md)
+# [specially-formatted YAML file](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md#yaml-format)
 # that includes definitions of molecules to predict the structures of and optionally paths to
 # [Multiple Sequence Alignment](https://en.wikipedia.org/wiki/Multiple_sequence_alignment) (MSA) files
-# for any protein molecules. See the [Addenda](#addenda) for details.
+# for any protein molecules. We pass the [--use_msa_server](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md) flag to auto-generate the MSA using the mmseqs2 server.
 
 
 @app.function(
@@ -118,21 +117,19 @@ models_dir = Path("/models/boltz")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
+def boltz_inference(boltz_input_yaml: str, args="") -> bytes:
     import shlex
     import subprocess
 
     input_path = Path("input.yaml")
     input_path.write_text(boltz_input_yaml)
 
-    for msa in msas:
-        msa.path.write_text(msa.data)
-
     args = shlex.split(args)
 
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
-        ["boltz", "predict", input_path, "--use_msa_server", "--cache", str(models_dir)] + args,
+        ["boltz", "predict", input_path, "--use_msa_server", "--cache", str(models_dir)]
+        + args,
         check=True,
     )
 
@@ -179,44 +176,10 @@ def download_model(
     print(f"🧬 model downloaded to {models_dir}")
 
 
-# Additionally, the YAML format accepted by the `boltz predict` command
-# includes the option to specify the sequence alignments for any input
-# `protein` via a path to an MSA file (in the "aligned-FASTA" format,
-# [`.a3m`](https://yanglab.qd.sdu.edu.cn/trRosetta/msa_format.html)).
-
-# To ensure these files are available to the Modal Function running remotely,
-# we parse the YAML file and extract the paths to and data from the MSA files.
-
-
-@dataclass
-class MSA:
-    data: str
-    path: Path
-
-
-def find_msas(boltz_yaml_path: Path) -> list[MSA]:
-    """Finds the MSA data in a YAML file in the Boltz input format.
-
-    See https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md for details."""
-    import yaml
-
-    data = yaml.safe_load(boltz_yaml_path.read_text())
-    data_dir = boltz_yaml_path.parent
-
-    sequences = data["sequences"]
-    msas = []
-    for sequence in sequences:
-        if protein := sequence.get("protein"):
-            if msa_path := protein.get("msa"):
-                if msa_path == "empty":  # special value
-                    continue
-                if not msa_path.startswith("."):
-                    raise ValueError(
-                        f"Must specify MSA paths relative to the input yaml path, but got {msa_path}"
-                    )
-                msa_data = (data_dir / Path(msa_path).name).read_text()
-                msas.append(MSA(msa_data, Path(msa_path)))
-    return msas
+# We package the outputs into a tarball which contains the predicted structure as a
+# [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File)
+# and the binding affinity as a JSON file.
+# You can render the structure with the online [Molstar Viewer](https://molstar.org/viewer).
 
 
 def package_outputs(output_dir: str) -> bytes:
