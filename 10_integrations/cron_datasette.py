@@ -43,19 +43,19 @@ cron_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 # To separate database creation and maintenance from serving, we'll need the underlying
 # database file to be stored persistently. To achieve this we use a
-# [`Volume`](https://modal.com/docs/guide/volumes).
+# [Volume](https://modal.com/docs/guide/volumes).
 
 volume = modal.Volume.from_name(
     "example-cron-datasette-cache-vol", create_if_missing=True
 )
-DB_FILENAME = "cron.db"
+DB_FILENAME = "imdb.db"
 VOLUME_DIR = "/cache-vol"
-DATA_DIR = pathlib.Path(VOLUME_DIR, "cron-data")
+DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 # ## Getting a dataset
 
-# [IMBd Datasets](https://datasets.imdbws.com/) are available publicly and are updated daily.
+# [IMDb Datasets](https://datasets.imdbws.com/) are available publicly and are updated daily.
 # We will download the title.basics.tsv.gz file which contains basic information about all titles (movies, TV shows, etc.).
 # Since we are serving an interactive database which updates daily, we will download the files into a temporary directory and then move them to the volume to prevent downtime.
 
@@ -72,7 +72,7 @@ IMDB_FILES = [
     timeout=1800,
 )
 def download_dataset(force_refresh=False):
-    """Download IMBd dataset files."""
+    """Download IMDb dataset files."""
     if DATA_DIR.exists() and not force_refresh:
         print(
             f"Dataset already present and force_refresh={force_refresh}. Skipping download."
@@ -85,7 +85,7 @@ def download_dataset(force_refresh=False):
 
     TEMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Downloading IMBd dataset...")
+    print("Downloading IMDb dataset...")
 
     try:
         for filename in IMDB_FILES:
@@ -166,7 +166,7 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 # With the TSV processing out of the way, we’re ready to create a SQLite database and feed data into it.
 
 # Importantly, the `prep_db` function mounts the same volume used by `download_dataset`, and rows are batch inserted with progress logged after each batch,
-# as the full IMBd dataset has millions of rows and does take some time to be fully inserted.
+# as the full IMDb dataset has millions of rows and does take some time to be fully inserted.
 
 # A more sophisticated implementation would only load new data instead of performing a full refresh,
 # but we’re keeping things simple for this example!
@@ -179,7 +179,7 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
     timeout=900,
 )
 def prep_db(filter_year=None):
-    """Process IMBd data files and create SQLite database."""
+    """Process IMDb data files and create SQLite database."""
     import sqlite_utils
     import tqdm
 
@@ -236,7 +236,7 @@ def prep_db(filter_year=None):
 
 # ## Keep it fresh
 
-# IMBd updates their data daily, so we set up
+# IMDb updates their data daily, so we set up
 # a [scheduled](https://modal.com/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
 
@@ -318,8 +318,8 @@ queries = {
 
 
 metadata = {
-    "title": "IMBd Database Explorer",
-    "description": "Explore IMBd movie and TV show data",
+    "title": "IMDb Database Explorer",
+    "description": "Explore IMDb movie and TV show data",
     "databases": {
         "imdb": {
             "tables": {
@@ -392,7 +392,7 @@ def run(force_refresh: bool = False, filter_year: int = None):
     if filter_year:
         print(f"Filtering data to be after {filter_year}")
 
-    print("Downloading IMBd dataset...")
+    print("Downloading IMDb dataset...")
     download_dataset.remote(force_refresh=force_refresh)
     print("Processing data and creating SQLite DB...")
     prep_db.remote(filter_year=filter_year)
@@ -401,4 +401,4 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("  modal deploy imdb_datasette.py  # For production deployment")
 
 
-# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
+# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
