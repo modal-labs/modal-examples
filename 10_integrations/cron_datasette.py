@@ -34,9 +34,9 @@ from urllib.request import urlretrieve
 
 import modal
 
-app = modal.App("example-cron-datasette")
+app = modal.App("example-cron-datasette-bluh")
 cron_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "datasette~=0.63.2", "sqlite-utils", "tqdm", "setuptools"
+    "datasette~=0.63.2", "sqlite-utils", "tqdm"
 )
 
 # ## Persistent dataset storage
@@ -137,17 +137,19 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
         total_processed = 0
 
         for row in reader:
-            # Do not process a row if isAdult is true
+            # map missing values to None
+            row = {k: (None if v == "\\N" else v) for k, v in row.items()}
+
+            # remove nsfw data
             if row.get("isAdult") == "1":
                 continue
 
-            # Filter: Only keep movies and TV series
             if filter_year:
-                if row.get("startYear") < filter_year:
+                start_year = int(row.get("startYear", 0) or 0)
+                if start_year < filter_year:
                     continue
 
-            cleaned_row = {k: (None if v == "\\N" else v) for k, v in row.items()}
-            batch.append(cleaned_row)
+            batch.append(row)
             total_processed += 1
 
             if len(batch) >= batch_size:
