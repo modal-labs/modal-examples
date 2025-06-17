@@ -21,7 +21,7 @@
 # so by default these files disappear as soon as the Function finishes running.
 
 # We can ensure these files persist by saving them to a
-# [Modal Volume](https://modal.com/docs/guide/volume).
+# [Modal Volume](https://modal.com/docs/guide/volumes).
 # Volumes are a distributed file system: files can be read or written from
 # by many machines across a network, in this case from inside any Modal Function.
 
