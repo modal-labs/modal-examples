@@ -1,10 +1,10 @@
-# # Fold proteins with Boltz-1
+# # Fold proteins with Boltz-2
 
-# Boltz-1 is an open source molecular structure prediction model that matches the performance of closed source models like AlphaFold 3.
-# It was created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-1/).
-# For details, see [their technical report](https://gcorso.github.io/assets/boltz1.pdf).
+# Boltz-2 is an open source molecular structure prediction model that matches the performance of closed source models like AlphaFold 3.
+# It was created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-2/).
+# For details, see [their technical report](https://gcorso.github.io/assets/boltz2.pdf).
 
-# Here, we demonstrate how to run Boltz-1 on Modal.
+# Here, we demonstrate how to run Boltz-2 on Modal.
 
 # ## Setup
 
@@ -18,28 +18,28 @@ here = Path(__file__).parent  # the directory of this file
 
 MINUTES = 60  # seconds
 
-app = modal.App(name="example-boltz1-inference")
+app = modal.App(name="example-boltz2-inference")
 
 # ## Fold a protein from the command line
 
-# The logic for running Boltz-1 is encapsulated in the function below,
+# The logic for running Boltz-2 is encapsulated in the function below,
 # which you can trigger from the command line by running
 
 # ```shell
-# modal run boltz1
+# modal run boltz2.py
 # ```
 
-# This will set up the environment for running Boltz-1 inference in Modal's cloud,
+# This will set up the environment for running Boltz-2 inference in Modal's cloud,
 # run it, and then save the results locally as a [tarball](https://computing.help.inf.ed.ac.uk/FAQ/whats-tarball-or-how-do-i-unpack-or-create-tgz-or-targz-file).
 # That tarball archive contains, among other things, the predicted structure as a
 # [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File),
 # which you can render with the online [Molstar Viewer](https://molstar.org/viewer).
 
-# You can pass any options for the [`boltz predict` command line tool](https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md)
+# You can pass any options for the [`boltz predict` command line tool](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md)
 # as a string, like
 
 # ``` shell
-# modal run boltz1 --args "--sampling_steps 10"
+# modal run boltz2.py --args "--sampling_steps 10"
 # ```
 
 # To see more options, run the command with the `--help` flag.
@@ -55,21 +55,21 @@ def main(
     download_model.remote(force_download)
 
     if input_yaml_path is None:
-        input_yaml_path = here / "data" / "boltz1_ligand.yaml"
+        input_yaml_path = here / "data" / "boltz2_affinity.yaml"
     input_yaml = input_yaml_path.read_text()
 
     msas = find_msas(input_yaml_path)
 
     print(f"🧬 running boltz with input from {input_yaml_path}")
-    output = boltz1_inference.remote(input_yaml, msas)
+    output = boltz2_inference.remote(input_yaml, msas)
 
-    output_path = Path("/tmp") / "boltz1" / "boltz1_result.tar.gz"
+    output_path = Path("/tmp") / "boltz2" / "boltz2_result.tar.gz"
     output_path.parent.mkdir(exist_ok=True, parents=True)
     print(f"🧬 writing output to {output_path}")
     output_path.write_bytes(output)
 
 
-# ## Installing Boltz-1 Python dependencies on Modal
+# ## Installing Boltz-2 Python dependencies on Modal
 
 # Code running on Modal runs inside containers built from [container images](https://modal.com/docs/guide/images)
 # that include that code's dependencies.
@@ -80,12 +80,12 @@ def main(
 # Here, we do it in a few lines, using the `uv` package manager for extra speed.
 
 image = modal.Image.debian_slim(python_version="3.12").run_commands(
-    "uv pip install --system --compile-bytecode boltz==0.3.2"
+    "uv pip install --system --compile-bytecode boltz==2.1.1"
 )
 
-# ## Storing Boltz-1 model weights on Modal with Volumes
+# ## Storing Boltz-2 model weights on Modal with Volumes
 
-# Not all "dependencies" belong in a container image. Boltz-1, for example, depends on
+# Not all "dependencies" belong in a container image. Boltz-2, for example, depends on
 # the weights of the model and a [Chemical Component Dictionary](https://www.wwpdb.org/data/ccd) (CCD) file.
 
 # Rather than loading them dynamically at run-time (which would add several minutes of GPU time to each inference),
@@ -95,17 +95,17 @@ image = modal.Image.debian_slim(python_version="3.12").run_commands(
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 # For details on how we download the weights in this case, see the [Addenda](#addenda).
 
-boltz_model_volume = modal.Volume.from_name("boltz1-models", create_if_missing=True)
-models_dir = Path("/models/boltz1")
+boltz_model_volume = modal.Volume.from_name("boltz2-models", create_if_missing=True)
+models_dir = Path("/models/boltz2")
 
-# ## Running Boltz-1 on Modal
+# ## Running Boltz-2 on Modal
 
 # To run inference on Modal we wrap our function in a decorator, `@app.function`.
 # We provide that decorator with some arguments that describe the infrastructure our code needs to run:
 # the Volume we created, the Image we defined, and of course a fast GPU!
 
 # Note that the `boltz` command-line tool we use takes the path to a
-# [specially-formatted YAML file](https://github.com/jwohlwend/boltz/blob/2355c62c957e95305527290112e9742d0565c458/docs/prediction.md)
+# [specially-formatted YAML file](https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md)
 # that includes definitions of molecules to predict the structures of and optionally paths to
 # [Multiple Sequence Alignment](https://en.wikipedia.org/wiki/Multiple_sequence_alignment) (MSA) files
 # for any protein molecules. See the [Addenda](#addenda) for details.
@@ -117,7 +117,7 @@ models_dir = Path("/models/boltz1")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz1_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
+def boltz2_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
     import shlex
     import subprocess
 
@@ -163,12 +163,12 @@ download_image = (
 )
 def download_model(
     force_download: bool = False,
-    revision: str = "7c1d83b779e4c65ecc37dfdf0c6b2788076f31e1",
+    revision: str = "6fdef46d763fee7fbb83ca5501ccceff43b85607",
 ):
     from huggingface_hub import snapshot_download
 
     snapshot_download(
-        repo_id="boltz-community/boltz-1",
+        repo_id="boltz-community/boltz-2",
         revision=revision,
         local_dir=models_dir,
         force_download=force_download,
