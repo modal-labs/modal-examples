@@ -36,7 +36,7 @@ import modal
 
 app = modal.App("example-cron-datasette-bluh")
 cron_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "datasette~=0.63.2", "sqlite-utils", "tqdm"
+    "datasette==0.63.3", "sqlite-utils==3.38", "tqdm~=4.67.1"
 )
 
 # ## Persistent dataset storage
