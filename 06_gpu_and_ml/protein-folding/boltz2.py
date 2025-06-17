@@ -131,7 +131,7 @@ def boltz2_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes
 
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
-        ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
+        ["boltz", "predict", input_path, "--use_msa_server", "--cache", str(models_dir)] + args,
         check=True,
     )
 
