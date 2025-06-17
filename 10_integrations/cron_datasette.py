@@ -6,18 +6,18 @@
 
 # ![Datasette user interface](https://modal-cdn.com/cdnbot/imdb_datasetteqzaj3q9d_a83d82fd.webp)
 
-# Build and deploy an interactive movie database that automatically updates daily with the latest IMDB data.
+# Build and deploy an interactive movie database that automatically updates daily with the latest IMDb data.
 # This example shows how to serve a Datasette application on Modal with millions of movie and TV show records.
 
-# Try it out for yourself [here](https://modal-labs-examples--example-imdb-datasette-ui.modal.run).
+# Try it out for yourself [here](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
 
-# Some Modal features it uses:
+# Along the way, we will learn how to use the following Modal features:
 
 # * [Volumes](https://modal.com/docs/guide/volumes): a persisted volume lets us store and grow the published dataset over time.
 
-# * [Scheduled functions](https://modal.com/docs/guide/cron#scheduling-remote-cron-jobs): the underlying dataset is refreshed daily, so we schedule a function to run daily.
+# * [Scheduled functions](https://modal.com/docs/guide/cron): the underlying dataset is refreshed daily, so we schedule a function to run daily.
 
-# * [Web endpoints](https://modal.com/docs/guide/webhooks#web-endpoints): exposes the Datasette application for web browser interaction and API requests.
+# * [Web endpoints](https://modal.com/docs/guide/webhooks): exposes the Datasette application for web browser interaction and API requests.
 
 # ## Basic setup
 
@@ -34,8 +34,8 @@ from urllib.request import urlretrieve
 
 import modal
 
-app = modal.App("example-imdb-datasette")
-imdb_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+app = modal.App("example-cron-datasette")
+cron_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "datasette~=0.63.2", "sqlite-utils", "tqdm", "setuptools"
 )
 
@@ -46,17 +46,16 @@ imdb_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 # [`Volume`](https://modal.com/docs/guide/volumes).
 
 volume = modal.Volume.from_name(
-    "example-imdb-datasette-cache-vol", create_if_missing=True
+    "example-cron-datasette-cache-vol", create_if_missing=True
 )
-DB_FILENAME = "imdb.db"
+DB_FILENAME = "cron.db"
 VOLUME_DIR = "/cache-vol"
-DATA_DIR = pathlib.Path(VOLUME_DIR, "imdb-data")
+DATA_DIR = pathlib.Path(VOLUME_DIR, "cron-data")
 DB_PATH = pathlib.Path(VOLUME_DIR, DB_FILENAME)
 
 # ## Getting a dataset
 
-# IMDB datasets are available at https://datasets.imdbws.com/.
-# IMDB publishes data that is updated daily.
+# [IMBd Datasets](https://datasets.imdbws.com/) are available publicly and are updated daily.
 # We will download the title.basics.tsv.gz file which contains basic information about all titles (movies, TV shows, etc.).
 # Since we are serving an interactive database which updates daily, we will download the files into a temporary directory and then move them to the volume to prevent downtime.
 
@@ -67,13 +66,13 @@ IMDB_FILES = [
 
 
 @app.function(
-    image=imdb_image,
+    image=cron_image,
     volumes={VOLUME_DIR: volume},
     retries=2,
     timeout=1800,
 )
 def download_dataset(force_refresh=False):
-    """Download IMDB dataset files."""
+    """Download IMBd dataset files."""
     if DATA_DIR.exists() and not force_refresh:
         print(
             f"Dataset already present and force_refresh={force_refresh}. Skipping download."
@@ -86,7 +85,7 @@ def download_dataset(force_refresh=False):
 
     TEMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Downloading IMDB dataset...")
+    print("Downloading IMBd dataset...")
 
     try:
         for filename in IMDB_FILES:
@@ -164,10 +163,10 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 
 # ## Inserting into SQLite
 
-# With the TSV processing out of the way, we’re ready to create an SQLite DB and feed data into it.
+# With the TSV processing out of the way, we’re ready to create a SQLite database and feed data into it.
 
-# Importantly, the prep_db function mounts the same volume used by download_dataset(), and rows are batch inserted with progress logged after each batch,
-# as the full IMDB dataset has millions of rows and does take some time to be fully inserted.
+# Importantly, the `prep_db` function mounts the same volume used by `download_dataset`, and rows are batch inserted with progress logged after each batch,
+# as the full IMBd dataset has millions of rows and does take some time to be fully inserted.
 
 # A more sophisticated implementation would only load new data instead of performing a full refresh,
 # but we’re keeping things simple for this example!
@@ -175,12 +174,12 @@ def parse_tsv_file(filepath, batch_size=50000, filter_year=None):
 
 
 @app.function(
-    image=imdb_image,
+    image=cron_image,
     volumes={VOLUME_DIR: volume},
     timeout=900,
 )
 def prep_db(filter_year=None):
-    """Process IMDB data files and create SQLite database."""
+    """Process IMBd data files and create SQLite database."""
     import sqlite_utils
     import tqdm
 
@@ -201,9 +200,7 @@ def prep_db(filter_year=None):
             batch_count = 0
             total_processed = 0
 
-            with tqdm.tqdm(
-                desc="Processing titles", unit=" batches", leave=True
-            ) as pbar:
+            with tqdm.tqdm(desc="Processing titles", unit="batch", leave=True) as pbar:
                 for i, batch in enumerate(
                     parse_tsv_file(
                         titles_file, batch_size=50000, filter_year=filter_year
@@ -239,7 +236,7 @@ def prep_db(filter_year=None):
 
 # ## Keep it fresh
 
-# IMDB updates their data daily, so we set up
+# IMBd updates their data daily, so we set up
 # a [scheduled](https://modal.com/docs/guide/cron) function to automatically refresh the database
 # every 24 hours.
 
@@ -261,30 +258,20 @@ def refresh_db():
 # First, let's define a metadata object for the database.
 # This will be used to configure Datasette to display a custom UI with some pre-defined queries.
 
-metadata = {
-    "title": "IMDB Database Explorer",
-    "description": "Explore IMDB movie and TV show data",
-    "databases": {
-        "imdb": {
-            "tables": {
-                "titles": {
-                    "description": "Basic information about all titles (movies, TV shows, etc.)",
-                    "columns": {
-                        "tconst": "Unique identifier",
-                        "titleType": "Type (movie, tvSeries, short, etc.)",
-                        "primaryTitle": "Main title",
-                        "originalTitle": "Original language title",
-                        "isAdult": "Adult content flag",
-                        "startYear": "Release year",
-                        "endYear": "End year (for TV series)",
-                        "runtimeMinutes": "Runtime in minutes",
-                        "genres": "Comma-separated genres",
-                    },
-                }
-            },
-            "queries": {
-                "movies_2024": {
-                    "sql": """
+columns = {
+    "tconst": "Unique identifier",
+    "titleType": "Type (movie, tvSeries, short, etc.)",
+    "primaryTitle": "Main title",
+    "originalTitle": "Original language title",
+    "startYear": "Release year",
+    "endYear": "End year (for TV series)",
+    "runtimeMinutes": "Runtime in minutes",
+    "genres": "Comma-separated genres",
+}
+
+queries = {
+    "movies_2024": {
+        "sql": """
                         SELECT
                             primaryTitle as title,
                             genres,
@@ -295,10 +282,10 @@ metadata = {
                         ORDER BY primaryTitle
                         LIMIT 100
                     """,
-                    "title": "Movies Released in 2024",
-                },
-                "longest_movies": {
-                    "sql": """
+        "title": "Movies Released in 2024",
+    },
+    "longest_movies": {
+        "sql": """
                         SELECT
                             primaryTitle as title,
                             startYear as year,
@@ -311,10 +298,10 @@ metadata = {
                         ORDER BY runtimeMinutes DESC
                         LIMIT 50
                     """,
-                    "title": "Longest Movies (3+ hours)",
-                },
-                "genre_breakdown": {
-                    "sql": """
+        "title": "Longest Movies (3+ hours)",
+    },
+    "genre_breakdown": {
+        "sql": """
                         SELECT
                             genres,
                             COUNT(*) as count
@@ -325,8 +312,26 @@ metadata = {
                         ORDER BY count DESC
                         LIMIT 25
                     """,
-                    "title": "Popular Genres",
-                },
+        "title": "Popular Genres",
+    },
+}
+
+
+metadata = {
+    "title": "IMBd Database Explorer",
+    "description": "Explore IMBd movie and TV show data",
+    "databases": {
+        "imdb": {
+            "tables": {
+                "titles": {
+                    "description": "Basic information about all titles (movies, TV shows, etc.)",
+                    "columns": columns,
+                }
+            },
+            "queries": {
+                "movies_2024": queries["movies_2024"],
+                "longest_movies": queries["longest_movies"],
+                "genre_breakdown": queries["genre_breakdown"],
             },
         }
     },
@@ -336,7 +341,7 @@ metadata = {
 
 
 @app.function(
-    image=imdb_image,
+    image=cron_image,
     volumes={VOLUME_DIR: volume},
 )
 @modal.concurrent(max_inputs=16)
@@ -387,7 +392,7 @@ def run(force_refresh: bool = False, filter_year: int = None):
     if filter_year:
         print(f"Filtering data to be after {filter_year}")
 
-    print("Downloading IMDB dataset...")
+    print("Downloading IMBd dataset...")
     download_dataset.remote(force_refresh=force_refresh)
     print("Processing data and creating SQLite DB...")
     prep_db.remote(filter_year=filter_year)
