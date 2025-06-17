@@ -9,3 +9,4 @@ sequences:
   - ligand:
       id: [E, F]
       smiles: N[C@@H](Cc1ccc(O)cc1)C(=O)O
+      
