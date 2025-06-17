@@ -1,8 +1,9 @@
 # # Fold proteins with Boltz-2
 
-# Boltz-2 is an open source molecular structure prediction model that matches the performance of closed source models like AlphaFold 3.
+# Boltz-2 is an open source molecular structure prediction model.
+# In contrast to previous models like Boltz-1, [Chai-1](https://modal.com/docs/examples/chai1), and AlphaFold-3, it not only predicts protein structures but also the [binding affinities](https://en.wikipedia.org/wiki/Ligand_(biochemistry)#Receptor/ligand_binding_affinity) between proteins and [ligands](https://en.wikipedia.org/wiki/Ligand_(biochemistry)).
 # It was created by the [MIT Jameel Clinic](https://jclinic.mit.edu/boltz-2/).
-# For details, see [their technical report](https://gcorso.github.io/assets/boltz2.pdf).
+# For details, see [their technical report](https://jeremywohlwend.com/assets/boltz2.pdf).
 
 # Here, we demonstrate how to run Boltz-2 on Modal.
 
@@ -18,7 +19,7 @@ here = Path(__file__).parent  # the directory of this file
 
 MINUTES = 60  # seconds
 
-app = modal.App(name="example-boltz2-inference")
+app = modal.App(name="example-boltz-predict")
 
 # ## Fold a protein from the command line
 
@@ -26,7 +27,7 @@ app = modal.App(name="example-boltz2-inference")
 # which you can trigger from the command line by running
 
 # ```shell
-# modal run boltz2.py
+# modal run boltz_predict.py
 # ```
 
 # This will set up the environment for running Boltz-2 inference in Modal's cloud,
@@ -39,7 +40,7 @@ app = modal.App(name="example-boltz2-inference")
 # as a string, like
 
 # ``` shell
-# modal run boltz2.py --args "--sampling_steps 10"
+# modal run boltz_predict.py --args "--sampling_steps 10"
 # ```
 
 # To see more options, run the command with the `--help` flag.
@@ -55,15 +56,15 @@ def main(
     download_model.remote(force_download)
 
     if input_yaml_path is None:
-        input_yaml_path = here / "data" / "boltz2_affinity.yaml"
+        input_yaml_path = here / "data" / "boltz_affinity.yaml"
     input_yaml = input_yaml_path.read_text()
 
     msas = find_msas(input_yaml_path)
 
     print(f"🧬 running boltz with input from {input_yaml_path}")
-    output = boltz2_inference.remote(input_yaml, msas)
+    output = boltz_inference.remote(input_yaml, msas)
 
-    output_path = Path("/tmp") / "boltz2" / "boltz2_result.tar.gz"
+    output_path = Path("/tmp") / "boltz" / "boltz_result.tar.gz"
     output_path.parent.mkdir(exist_ok=True, parents=True)
     print(f"🧬 writing output to {output_path}")
     output_path.write_bytes(output)
@@ -95,8 +96,8 @@ image = modal.Image.debian_slim(python_version="3.12").run_commands(
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 # For details on how we download the weights in this case, see the [Addenda](#addenda).
 
-boltz_model_volume = modal.Volume.from_name("boltz2-models", create_if_missing=True)
-models_dir = Path("/models/boltz2")
+boltz_model_volume = modal.Volume.from_name("boltz-models", create_if_missing=True)
+models_dir = Path("/models/boltz")
 
 # ## Running Boltz-2 on Modal
 
@@ -117,7 +118,7 @@ models_dir = Path("/models/boltz2")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz2_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
+def boltz_inference(boltz_input_yaml: str, msas: list["MSA"], args="") -> bytes:
     import shlex
     import subprocess
 
