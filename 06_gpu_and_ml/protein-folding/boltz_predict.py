@@ -1,6 +1,10 @@
 # # Fold proteins with Boltz-2
 
-# ![Boltz-2](https://modal-cdn.com/cdnbot/boltz_examplecd5u3m0j_9fa47e43.webp)
+# <figure style="width: 70%; margin: 0 auto; display: block;">
+# <img src="https://modal-cdn.com/cdnbot/boltz_examplecd5u3m0j_9fa47e43.webp" alt="Boltz-2" />
+# <figcaption style="text-align: center"><em>Example of Boltz-2 protein structure prediction
+# of a <a style="text-decoration: underline;" href="https://github.com/jwohlwend/boltz/blob/main/examples/affinity.yaml" target="_blank">protein-ligand complex</a></em></figcaption>
+# </figure>
 
 # Boltz-2 is an open source molecular structure prediction model.
 # In contrast to previous models like Boltz-1, [Chai-1](https://modal.com/docs/examples/chai1), and AlphaFold-3, it not only predicts protein structures but also the [binding affinities](https://en.wikipedia.org/wiki/Ligand_(biochemistry)#Receptor/ligand_binding_affinity) between proteins and [ligands](https://en.wikipedia.org/wiki/Ligand_(biochemistry)).
