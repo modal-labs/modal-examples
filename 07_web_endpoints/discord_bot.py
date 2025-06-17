@@ -43,7 +43,7 @@ app = modal.App("example-discord-bot", image=image)
 
 # In a real application, this might be [music generation](https://modal.com/docs/examples/musicgen),
 # a [chatbot](https://modal.com/docs/examples/chat_with_pdf_vision),
-# or [interacting with a database](https://modal.com/docs/examples/covid_datasette).
+# or [interacting with a database](https://modal.com/docs/examples/cron_datasette).
 
 # Here, we just hit a simple free public API:
 # the [Free Public APIs](https://www.freepublicapis.com) API,
