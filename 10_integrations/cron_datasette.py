@@ -367,21 +367,21 @@ def ui():
 
 # ## Publishing to the web
 
-# Run this script using `modal run imdb_datasette.py` and it will create the database under 5 minutes!
+# Run this script using `modal run cron_datasette.py` and it will create the database under 5 minutes!
 
 # If you would like to force a refresh of the dataset, you can use:
 
-# `modal run imdb_datasette.py --force-refresh`
+# `modal run cron_datasette.py --force-refresh`
 
 # If you would like to filter the data to be after a specific year, you can use:
 
-# `modal run imdb_datasette.py --filter-year year`
+# `modal run cron_datasette.py --filter-year year`
 
-# You can then use `modal serve imdb_datasette.py` to create a short-lived web URL
+# You can then use `modal serve cron_datasette.py` to create a short-lived web URL
 # that exists until you terminate the script.
 
 # When publishing the interactive Datasette app you'll want to create a persistent URL.
-# Just run `modal deploy imdb_datasette.py` and your app will be deployed in seconds!
+# Just run `modal deploy cron_datasette.py` and your app will be deployed in seconds!
 
 
 @app.local_entrypoint()
@@ -397,8 +397,8 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("Processing data and creating SQLite DB...")
     prep_db.remote(filter_year=filter_year)
     print("\nDatabase ready! You can now run:")
-    print("  modal serve imdb_datasette.py  # For development")
-    print("  modal deploy imdb_datasette.py  # For production deployment")
+    print("  modal serve cron_datasette.py  # For development")
+    print("  modal deploy cron_datasette.py  # For production deployment")
 
 
 # You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
