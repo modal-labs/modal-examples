@@ -1,5 +1,5 @@
 # ---
-# mypy: false
+# mypy: ignore-errors
 # ---
 
 # # Use Modal Dicts and Queues together
