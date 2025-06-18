@@ -3,6 +3,9 @@
 # args: ["--no-compile"]
 # ---
 
+# Update: To speed up inference by another >2x, check out the additional optimization
+# techniques we tried in [this blog post](https://modal.com/blog/flux-3x-faster).
+
 # # Run Flux fast on H100s with `torch.compile`
 
 # In this guide, we'll run Flux as fast as possible on Modal using open source tools.
