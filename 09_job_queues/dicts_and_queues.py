@@ -1,3 +1,7 @@
+# ---
+# mypy: false
+# ---
+
 # # Use Modal Dicts and Queues together
 
 # Modal Dicts and Queues store and communicate objects in distributed applications on Modal.
@@ -60,7 +64,7 @@ def crawl_pages(q: modal.Queue, d: modal.Dict, urls: set[str]) -> None:
 
 
 @app.function()
-def scrape(url: str, max_urls=50_000):
+def scrape(url: str, max_urls: int=50_000):
     start_time = datetime.now()
 
     # Create ephemeral dicts and queues
@@ -91,6 +95,6 @@ def scrape(url: str, max_urls=50_000):
 
 
 @app.local_entrypoint()
-def main(starting_url=None, max_urls=10_000):
+def main(starting_url=None, max_urls: int=10_000):
     starting_url = starting_url or "https://www.wikipedia.org/"
     scrape.remote(starting_url, max_urls=max_urls)
