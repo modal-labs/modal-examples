@@ -390,7 +390,7 @@ def get_yolo_track(track, yolo_model=None):
 
             return new_frame
 
-    return YOLOTrack(track)
+    return YOLOTrack(track, yolo_model)
 
 
 # ### Testing a WebRTC application on Modal

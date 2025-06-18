@@ -137,6 +137,7 @@ class TestPeer(ModalWebRtcPeer):
 
     @modal.method()
     async def run_video_processing_test(self) -> bool:
+        import asyncio
         import json
 
         import websockets
@@ -166,7 +167,10 @@ class TestPeer(ModalWebRtcPeer):
                 await websocket.close()
 
         # loop until video player is finished
-        if peer_id:
+        if self.pcs.get(peer_id) and self.pcs[peer_id].connectionState == "connected":
             await self.run_streams(peer_id)
+
+            # wait for peer to finish processing video
+            await asyncio.sleep(5.0)
 
         return self.count_frames()
