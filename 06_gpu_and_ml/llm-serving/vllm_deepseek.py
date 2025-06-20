@@ -7,35 +7,6 @@
 # Our examples repository also includes scripts for running clients and load-testing for OpenAI-compatible APIs
 # [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
 
-# ## Quantization
-
-# The amount of [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram)
-# on a single card is a tight constraint for large models:
-# RAM is measured in billions of bytes and large models have billions of parameters,
-# each of which is two to four bytes.
-# The performance cliff if you need to spill to CPU memory is steep,
-# so all of those parameters must fit in the GPU memory,
-# along with other things like the KV cache built up while processing prompts.
-
-# The simplest way to reduce LLM inference's RAM requirements is to make the model's parameters smaller,
-# fitting their values in a smaller number of bits, like four or eight. This is known as _quantization_.
-
-# NVIDIA's [Blackwell chips](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
-# like the B200, are capable of native [4bit floating point](https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/)
-# calculations in their [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core),
-# so we choose that as our quantization format.
-# These GPUs are capable of nearly twice as many floating point operations per second in 4bit as in 8bit --
-# about [9 PFLOP/s](https://modal.com/blog/introducing-b200-h200).
-
-# Quantization buys us two things:
-
-# - faster startup, since less data has to be moved over the network onto CPU and GPU RAM
-
-# - faster inference, since we get twice the FLOP/s and less data has to be moved from GPU RAM into
-# [on-chip memory](https://modal.com/gpu-glossary/device-hardware/l1-data-cache) and
-# [registers](https://modal.com/gpu-glossary/device-hardware/register-file)
-# with each computation
-
 # ## Set up the container image
 
 # To run code on Modal, we define [container images](https://modal.com/docs/guide/images).
@@ -57,11 +28,9 @@ import modal
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .apt_install("git")
-    .pip_install(
-        "vllm==0.9.1",
-        "huggingface_hub[hf_transfer]==0.32.0",
-        "flashinfer-python==0.2.6.post1",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
+    .pip_install("uv")
+    .run_commands(
+        "uv pip install --system --compile-bytecode vllm==0.9.1 huggingface_hub[hf_transfer]==0.32.0 flashinfer-python==0.2.6.post1 --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu128"
     )
 )
 
@@ -110,8 +79,8 @@ FAST_BOOT = True
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/introducing-b200-h200).
 
-MODEL_NAME = "nvidia/DeepSeek-R1-0528-FP4"  #  "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B"
-MODEL_REVISION = "91cfc7c35acd8ecfc769205989310208b8b81c9c"  # "6e8885a6ff5c1dc5201574c8fd700323f23c25fa"
+MODEL_NAME = "nvidia/DeepSeek-R1-0528-FP4"
+MODEL_REVISION = "91cfc7c35acd8ecfc769205989310208b8b81c9c"
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -153,9 +122,8 @@ MODEL_DIR = MODELS_PATH / MODEL_NAME
 MODEL_SHARD_DIR = MODEL_DIR / "sharded"
 
 
-def download_model_and_shard():
+def download_model():
     from huggingface_hub import snapshot_download
-    from vllm import LLM
 
     print("downloading base model if necessary")
     snapshot_download(
@@ -164,6 +132,10 @@ def download_model_and_shard():
         ignore_patterns=["*.pt", "*.bin"],  # using safetensors
         revision=MODEL_REVISION,
     )
+
+
+def shard_model():
+    from vllm import LLM
 
     print("sharding checkpoint for each GPU")
     llm = LLM(
@@ -204,13 +176,18 @@ def download_model_and_shard():
                 shutil.copy(os.path.join(MODEL_DIR, file), MODEL_SHARD_DIR)
 
 
-vllm_image = vllm_image.env(
-    {
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
-        "HF_HOME": str(MODELS_PATH),
-        "VLLM_CACHE_ROOT": str(ARTIFACTS_PATH),
-    }
-).run_function(download_model_and_shard, volumes=volumes, gpu=GPU_CONFIG)
+MINUTES = 60  # seconds
+vllm_image = (
+    vllm_image.env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
+            "HF_HOME": str(MODELS_PATH),
+            "VLLM_CACHE_ROOT": str(ARTIFACTS_PATH),
+        }
+    )
+    .run_function(download_model, volumes=volumes, timeout=40 * MINUTES)
+    .run_function(shard_model, volumes=volumes, timeout=20 * MINUTES, gpu=GPU_CONFIG)
+)
 
 # On the first container start, we mount the Volume, download the model, and build the engine,
 # which takes a few minutes. Subsequent starts will be much faster,
@@ -232,7 +209,6 @@ vllm_image = vllm_image.env(
 
 app = modal.App(app_name)
 
-MINUTES = 60  # seconds
 MAX_BATCH_SIZE = 32  # how many requests can one replica handle? tune carefully!
 VLLM_PORT = 8000
 
