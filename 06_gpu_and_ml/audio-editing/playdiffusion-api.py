@@ -29,7 +29,7 @@ import modal
 # - `openai`: PlayDiffusion requires a transcript as input. You can either provide the transcript yourself as input, or use a transcription model to transcribe the audio on the fly. In this case we use openai's whisper api, but you can use any model of your choice.
 AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
-# Needs to be 3.11 https://github.com/playht/PlayDiffusion/blob/d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255/pyproject.toml
+# The python version [needs to be](https://github.com/playht/PlayDiffusion/blob/d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255/pyproject.toml) `3.11` 
 image: modal.Image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
@@ -58,9 +58,7 @@ with image.imports():
 # We configure the class to use an A10G GPU with additional parameters:
 # #
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
-# - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container
-
-
+# - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per containerå
 @app.cls(gpu="a10g", scaledown_window=60 * 5)
 @modal.concurrent(max_inputs=10)
 class PlayDiffusionModel:
@@ -108,8 +106,6 @@ class PlayDiffusionModel:
 
 # PlayDiffusion requires a transcript as input. You can either provide the transcript yourself as input, or use a transcription model
 # to transcribe the audio on the fly. In this case we use openai's whisper api, but you can use any model of your choice.
-
-
 @app.function(
     secrets=[modal.Secret.from_name("openai-secret", environment_name="main")]
 )
@@ -130,7 +126,7 @@ def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
 
     return transcript.text, word_times
 
-
+# Finally, we define a local entrypoint
 @app.local_entrypoint()
 def main(audio_url: str, output_text: str, output_path: str) -> None:
     input_text: str
@@ -145,7 +141,10 @@ def main(audio_url: str, output_text: str, output_path: str) -> None:
     with open(output_path, "wb") as f:
         f.write(output_audio)
 
+# Example command line invocation:
+# modal run playdiffusion-api.py --audio-url "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" --output-text "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." --output-path "/tmp/playdiffusion/output.wav"
 
+# Some utility functions 
 def write_to_tempfile(audio_url: str) -> Tuple[bytes, str]:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         # Download and write the audio to the temporary file
@@ -153,7 +152,3 @@ def write_to_tempfile(audio_url: str) -> Tuple[bytes, str]:
         temp_file.write(audio_bytes)
         temp_file_path: str = temp_file.name
     return temp_file_path
-
-
-# Example command line invocation:
-# modal run playdiffusion-api.py --audio-url "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" --output-text "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." --output-path "/tmp/playdiffusion/output.wav"
