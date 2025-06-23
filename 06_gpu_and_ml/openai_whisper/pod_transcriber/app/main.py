@@ -6,9 +6,7 @@ of podcasts.
 import dataclasses
 import datetime
 import json
-import os
 import pathlib
-import sys
 from typing import Iterator, Tuple
 
 import modal
@@ -296,23 +294,6 @@ def split_silences(
     logger.info(f"Split {path} into {num_segments} segments")
 
 
-# Helper class to silence chatty logs from nemo
-
-
-class NoStdStreams(object):
-    def __init__(self):
-        self.devnull = open(os.devnull, "w")
-
-    def __enter__(self):
-        self._stdout, self._stderr = sys.stdout, sys.stderr
-        self._stdout.flush(), self._stderr.flush()
-        sys.stdout, sys.stderr = self.devnull, self.devnull
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        sys.stdout, sys.stderr = self._stdout, self._stderr
-        self.devnull.close()
-
-
 # Parakeet ASR class for handling model loading and transcription
 @app.cls(
     volumes={"/cache": model_cache, config.CACHE_DIR: volume},
@@ -336,12 +317,12 @@ class ParakeetASR:
             model_name=self.model_name
         )
 
-    @modal.method()
+    @modal.batched(max_batch_size=14, wait_ms=10)
     def transcribe_segment(
         self,
-        start: float,
-        end: float,
-        audio_filepath: pathlib.Path,
+        starts: list[float],
+        ends: list[float],
+        audio_filepaths: list[pathlib.Path],
     ):
         import tempfile
         import time
@@ -352,50 +333,62 @@ class ParakeetASR:
 
         t0 = time.time()
 
-        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-            (
-                ffmpeg.input(str(audio_filepath))
-                .filter("atrim", start=start, end=end)
-                .output(
-                    f.name, format="wav", acodec="pcm_s16le", ac=1, ar=16000
-                )  # 16kHz mono
-                .overwrite_output()
-                .run(quiet=True)
+        data = []
+        for start, end in zip(starts, ends):
+            with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+                (
+                    ffmpeg.input(str(audio_filepaths[0]))
+                    .filter("atrim", start=start, end=end)
+                    .output(
+                        f.name, format="wav", acodec="pcm_s16le", ac=1, ar=16000
+                    )  # 16kHz mono
+                    .overwrite_output()
+                    .run(quiet=True)
+                )
+
+                # convert to float32 for Parakeet
+                with wave.open(f.name, "rb") as wav_file:
+                    frames = wav_file.readframes(wav_file.getnframes())
+                    data.append(
+                        np.frombuffer(frames, dtype=np.int16).astype(np.float32)
+                    )
+
+        hypotheses = self.model.transcribe(data, timestamps=True)
+
+        for start, end in zip(starts, ends):
+            logger.info(
+                f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
             )
 
-            # convert to float32 for Parakeet
-            with wave.open(f.name, "rb") as wav_file:
-                frames = wav_file.readframes(wav_file.getnframes())
-                audio_data = np.frombuffer(frames, dtype=np.int16).astype(np.float32)
-
-            with NoStdStreams():  # hide output, see https://github.com/NVIDIA/NeMo/discussions/3281#discussioncomment-2251217
-                hypotheses = self.model.transcribe([audio_data], timestamps=True)
-
-        logger.info(
-            f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
-        )
-
         # Add back offsets.
-        segment_timestamps = hypotheses[0].timestamp["segment"]
-        for stamp in segment_timestamps:
-            stamp["start"] += start
-            stamp["end"] += start
+        lst_segment_timestamps = []
+        for start, end, hypothesis in zip(starts, ends, hypotheses):
+            segment_timestamps = hypothesis.timestamp["segment"]
+            for stamp in segment_timestamps:
+                stamp["start"] += start
+                stamp["end"] += start
+            lst_segment_timestamps.append(segment_timestamps)
 
         # Create result in Whisper-compatible format
-        result = {
-            "text": hypotheses[0].text,
-            "segments": [
-                {
-                    "id": i,
-                    "start": stamp["start"],
-                    "end": stamp["end"],
-                    "text": stamp["segment"],
-                }
-                for i, stamp in enumerate(segment_timestamps)
-            ],
-        }
+        results = [
+            {
+                "text": hypothesis.text,
+                "segments": [
+                    {
+                        "id": i,
+                        "start": stamp["start"],
+                        "end": stamp["end"],
+                        "text": stamp["segment"],
+                    }
+                    for i, stamp in enumerate(segment_timestamps)
+                ],
+            }
+            for start, end, hypothesis, segment_timestamps in zip(
+                starts, ends, hypotheses, lst_segment_timestamps
+            )
+        ]
 
-        return result
+        return results
 
 
 @app.function(
@@ -416,7 +409,10 @@ def transcribe_episode(
     output_text = ""
     output_segments = []
     for result in parakeet.transcribe_segment.starmap(
-        segment_gen, kwargs=dict(audio_filepath=audio_filepath)
+        segment_gen,
+        kwargs=dict(
+            audio_filepaths=audio_filepath
+        ),  # `audio_filepaths` instead of `audio_filepath` since `modal.batched` is used
     ):
         output_text += result["text"]
         output_segments += result["segments"]

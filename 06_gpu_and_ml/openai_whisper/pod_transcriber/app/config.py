@@ -7,7 +7,6 @@ import pathlib
 class ModelSpec:
     name: str
     params: str
-    relative_speed: int  # Higher is faster
 
 
 def get_logger(name, level=logging.INFO):
@@ -41,7 +40,7 @@ transcripts_per_podcast_limit = 2
 
 supported_parakeet_models = {
     "parakeet-tdt-0.6b-v2": ModelSpec(
-        name="nvidia/parakeet-tdt-0.6b-v2", params="600M", relative_speed=2
+        name="nvidia/parakeet-tdt-0.6b-v2", params="600M"
     ),
 }
 
