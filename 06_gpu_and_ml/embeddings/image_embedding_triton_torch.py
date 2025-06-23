@@ -663,7 +663,7 @@ def main(
     max_concurrent_inputs: int = 2,
     # modal.parameters:
     model_name: str = "openai/clip-vit-base-patch16",
-    batch_size: int = 512,
+    batch_size: int = 128,
     im_chan: int = 3,
     im_height: int = 224,
     im_width: int = 224,
