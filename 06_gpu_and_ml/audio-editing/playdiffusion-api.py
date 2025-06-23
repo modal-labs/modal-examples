@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/playdiffusion"
 # lambda-test: false
-# cmd: ["modal", "serve", "06_gpu_and_ml/audio-editing/playdiffusion.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/audio-editing/playdiffusion.py", "--audio-url", "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav", "--output-text", "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." "--output-path", "/tmp/playdiffusion/output.wav"]
 # ---
 
 
@@ -30,8 +30,13 @@ import modal
 AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
 # Needs to be 3.11 https://github.com/playht/PlayDiffusion/blob/d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255/pyproject.toml
-image: modal.Image = modal.Image.debian_slim(python_version="3.11").apt_install("git").pip_install("fastapi[standard]", "openai").run_commands(
-    "pip install git+https://github.com/playht/PlayDiffusion.git@d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255"
+image: modal.Image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("git")
+    .pip_install("fastapi[standard]", "openai")
+    .run_commands(
+        "pip install git+https://github.com/playht/PlayDiffusion.git@d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255"
+    )
 )
 app: modal.App = modal.App("playdiffusion-api-example", image=image)
 
@@ -45,7 +50,6 @@ with image.imports():
     import soundfile as sf
     from openai import OpenAI
     from playdiffusion import InpaintInput, PlayDiffusion
-
 
 
 # ## The model class
@@ -68,7 +72,13 @@ class PlayDiffusionModel:
         self.inpainter = PlayDiffusion()
 
     @modal.method()
-    def generate(self, audio_url: str, input_text: str, output_text: str, word_times: List[Dict[str, Any]]) -> bytes:
+    def generate(
+        self,
+        audio_url: str,
+        input_text: str,
+        output_text: str,
+        word_times: List[Dict[str, Any]],
+    ) -> bytes:
         # Create a temporary file to store the audio
         temp_file_path: str = write_to_tempfile(audio_url)
 
@@ -79,8 +89,8 @@ class PlayDiffusionModel:
             InpaintInput(
                 input_text=input_text,
                 output_text=output_text,
-                input_word_times = word_times,
-                audio=temp_file_path
+                input_word_times=word_times,
+                audio=temp_file_path,
             )
         )
 
@@ -88,17 +98,21 @@ class PlayDiffusionModel:
         buffer: io.BytesIO = io.BytesIO()
 
         # Write the audio data to the buffer as WAV
-        sf.write(buffer, output_audio_data, sample_rate, format='WAV')
+        sf.write(buffer, output_audio_data, sample_rate, format="WAV")
 
         # Reset buffer position to beginning
         buffer.seek(0)
 
         return buffer.getvalue()
 
+
 # PlayDiffusion requires a transcript as input. You can either provide the transcript yourself as input, or use a transcription model
 # to transcribe the audio on the fly. In this case we use openai's whisper api, but you can use any model of your choice.
 
-@app.function(secrets=[modal.Secret.from_name("openai-secret", environment_name="main")])
+
+@app.function(
+    secrets=[modal.Secret.from_name("openai-secret", environment_name="main")]
+)
 def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
     temp_file_path: str = write_to_tempfile(audio_url)
     audio_file = open(temp_file_path, "rb")
@@ -107,13 +121,12 @@ def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
         file=audio_file,
         model="whisper-1",
         response_format="verbose_json",
-        timestamp_granularities=["word"]
+        timestamp_granularities=["word"],
     )
-    word_times: List[Dict[str, Any]] = [{
-        "word": word.word,
-        "start": word.start,
-        "end": word.end
-    } for word in transcript.words]
+    word_times: List[Dict[str, Any]] = [
+        {"word": word.word, "start": word.start, "end": word.end}
+        for word in transcript.words
+    ]
 
     return transcript.text, word_times
 
@@ -124,7 +137,9 @@ def main(audio_url: str, output_text: str, output_path: str) -> None:
     word_times: List[Dict[str, Any]]
     input_text, word_times = run_asr.remote(audio_url)
     playdiffusion_model: PlayDiffusionModel = PlayDiffusionModel()
-    output_audio: bytes = playdiffusion_model.generate.remote(audio_url, input_text, output_text, word_times)
+    output_audio: bytes = playdiffusion_model.generate.remote(
+        audio_url, input_text, output_text, word_times
+    )
 
     # Save the output audio to the specified path
     with open(output_path, "wb") as f:
@@ -132,7 +147,7 @@ def main(audio_url: str, output_text: str, output_path: str) -> None:
 
 
 def write_to_tempfile(audio_url: str) -> Tuple[bytes, str]:
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         # Download and write the audio to the temporary file
         audio_bytes: bytes = urlopen(audio_url).read()
         temp_file.write(audio_bytes)
