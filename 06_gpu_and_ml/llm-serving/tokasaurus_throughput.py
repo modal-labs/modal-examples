@@ -74,7 +74,7 @@ MAX_SEQS_PER_FORWARD = 512
 
 # ## Serving inference
 
-# The function below]spawns a Tokasaurus instance listening at port 10210, serving requests to our model.
+# The function below spawns a Tokasaurus instance listening at port 10210, serving requests to our model.
 # We wrap it in the [`@modal.web_server` decorator](https://modal.com/docs/guide/webhooks#non-asgi-web-servers)
 # to connect it to the Internet.
 
