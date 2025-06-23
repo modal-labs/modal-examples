@@ -1,8 +1,8 @@
 # Modal Podcast Transcriber
 
-This is a complete application that uses [OpenAI Whisper](https://github.com/openai/whisper) to transcribe podcasts. Modal spins up 100-300 containers for a single transcription run, so hours of audio can be transcribed on-demand in a few minutes.
+This is a complete application that uses [NVIDIA Parakeet ASR](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet) to transcribe podcasts. Modal spins up multiple GPU containers for a single transcription run, so hours of audio can be transcribed on-demand in a few minutes.
 
-You can find our deployment of the app [here](https://modal-labs-examples--whisper-pod-transcriber-fastapi-app.modal.run/).
+You can find our deployment of the app [here](https://modal-labs-examples--parakeet-pod-transcriber-fastapi-app.modal.run/).
 
 ## Architecture
 
