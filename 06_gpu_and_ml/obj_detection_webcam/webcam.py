@@ -37,7 +37,7 @@ import modal
 
 # We need to install [transformers](https://github.com/huggingface/transformers)
 # which is a package Huggingface uses for all their models, but also
-# [Pillow](https://python-pillow.org/) which lets us work with images from Python,
+# [Pillow](https://github.com/python-pillow/Pillow) which lets us work with images from Python,
 # and a system font for drawing.
 
 # This example uses the `facebook/detr-resnet-50` pre-trained model,

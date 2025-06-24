@@ -27,9 +27,9 @@ slack_sdk_image = modal.Image.debian_slim().pip_install("slack-sdk")
 
 # Our Slack bot will need access to a bot token.
 # We can use Modal's [Secrets](https://modal.com/secrets) interface to accomplish this.
-# To quickly create a Slack bot secret, navigate to the
-# [create secret](https://modal.com/secrets/create) page, select the Slack secret template
-# from the list options, and follow the instructions in the "Where to find the credentials?" panel.
+# To quickly create a Slack bot secret, click the "Create new secret" button.
+# Then, select the Slack secret template from the list options,
+# and follow the instructions in the "Where to find the credentials?" panel.
 # Name your secret `hn-bot-slack.`
 
 # Now, we define the function `post_to_slack`, which simply instantiates the Slack client using our token,

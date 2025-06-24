@@ -261,7 +261,7 @@ class ObjDet(ModalWebRtcPeer):
 # The `ModalWebRtcSignalingServer` class is much simpler to implement.
 # The main thing we need to do is implement the `get_modal_peer_class` method which will return our implementation of the `ModalWebRtcPeer` class, `ObjDet`.
 #
-# It also has an `initialize()` method we can optionally override (called at the beginning of the [container lifecycle](https://modal.com/docs/guides/lifecycle-functions))
+# It also has an `initialize()` method we can optionally override (called at the beginning of the [container lifecycle](https://modal.com/docs/guide/lifecycle-functions))
 # as well as a `web_app` property which will be [served by Modal](https://modal.com/docs/guide/webhooks#asgi-apps---fastapi-fasthtml-starlette).
 # We'll use these to add a frontend which uses the WebRTC JavaScript API to stream a peer's webcam from the browser.
 #
@@ -390,7 +390,7 @@ def get_yolo_track(track, yolo_model=None):
 
             return new_frame
 
-    return YOLOTrack(track)
+    return YOLOTrack(track, yolo_model)
 
 
 # ### Testing a WebRTC application on Modal

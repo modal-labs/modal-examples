@@ -4,6 +4,7 @@
 
 import asyncio
 import json
+import queue
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -74,17 +75,19 @@ class ModalWebRtcPeer(ABC):
         self.pending_candidates[peer_id] = []
         await self.setup_streams(peer_id)
 
-        print(f"Created peer connection and setup streams from {self.id} to {peer_id}")
+        print(
+            f"{self.id}: Created peer connection and setup streams from {self.id} to {peer_id}"
+        )
 
     @modal.method()
-    async def run(self, queue: modal.Queue, peer_id: str):
+    async def run(self, q: modal.Queue, peer_id: str):
         """Run the RTC peer after establishing a connection by passing WebSocket messages over a Queue."""
-        print(f"Running modal peer instance for client peer {peer_id}...")
+        print(f"{self.id}: Running modal peer instance for client peer: {peer_id}...")
 
-        await self._connect_over_queue(queue, peer_id)
+        await self._connect_over_queue(q, peer_id)
         await self._run_streams(peer_id)
 
-    async def _connect_over_queue(self, queue, peer_id):
+    async def _connect_over_queue(self, q, peer_id):
         """Connect this peer to another by passing messages along a Modal Queue."""
 
         msg_handlers = {  # message types we need to handle
@@ -100,33 +103,34 @@ class ModalWebRtcPeer(ABC):
                     self.pcs[peer_id].connectionState
                     in ["connected", "closed", "failed"]
                 ):
-                    await queue.put.aio("close", partition="server")
+                    print(f"{self.id}: Closing connection to {peer_id} over queue...")
+                    q.put("close", partition="server")
                     break
 
                 # read and parse websocket message passed over queue
-                msg = json.loads(
-                    await asyncio.wait_for(
-                        queue.get.aio(partition=peer_id), timeout=0.5
-                    )
-                )
-
+                msg = json.loads(await q.get.aio(partition=peer_id, timeout=0.5))
                 # dispatch the message to its handler
                 if handler := msg_handlers.get(msg.get("type")):
                     response = await handler(peer_id, msg)
                 else:
-                    print(f"Unknown message type: {msg.get('type')}")
+                    print(f"{self.id}: Unknown message type: {msg.get('type')}")
                     response = None
 
                 # pass the message back over the queue to the server
                 if response is not None:
-                    await queue.put.aio(json.dumps(response), partition="server")
-
-            except Exception:
+                    await q.put.aio(json.dumps(response), partition="server")
+            except queue.Empty:
+                print(f"{self.id}: Queue empty, waiting for message...")
+                pass
+            except Exception as e:
+                print(
+                    f"{self.id}: Error handling message from {peer_id}: {type(e)}: {e}"
+                )
                 continue
 
     async def _run_streams(self, peer_id):
         """Run WebRTC streaming with a peer."""
-        print(f"Modal peer {self.id} running streams for {peer_id}...")
+        print(f"{self.id}:  running streams to {peer_id}...")
 
         await self.run_streams(peer_id)
 
@@ -134,19 +138,18 @@ class ModalWebRtcPeer(ABC):
         while self.pcs[peer_id].connectionState == "connected":
             await asyncio.sleep(0.1)
 
-        print(f"Modal peer {self.id} ending streaming for {peer_id}")
+        print(f"{self.id}:  ending streaming to {peer_id}")
 
     async def handle_offer(self, peer_id, msg):
         """Handles a peers SDP offer message by producing an SDP answer."""
         from aiortc import RTCSessionDescription
 
-        print(f"Peer {self.id} handling SDP offer from {peer_id}...")
+        print(f"{self.id}:  handling SDP offer from {peer_id}...")
 
         await self._setup_peer_connection(peer_id)
         await self.pcs[peer_id].setRemoteDescription(
             RTCSessionDescription(msg["sdp"], msg["type"])
         )
-
         answer = await self.pcs[peer_id].createAnswer()
         await self.pcs[peer_id].setLocalDescription(answer)
         sdp = self.pcs[peer_id].localDescription.sdp
@@ -164,7 +167,7 @@ class ModalWebRtcPeer(ABC):
             raise ValueError
 
         print(
-            f"Modal peer {self.id} received ice candidate from {peer_id}: {candidate['candidate_sdp']}..."
+            f"{self.id}:  received ice candidate from {peer_id}: {candidate['candidate_sdp']}..."
         )
 
         # parse ice candidate
@@ -188,7 +191,7 @@ class ModalWebRtcPeer(ABC):
         return {"type": "identify", "peer_id": self.id}
 
     async def generate_offer(self, peer_id):
-        print(f"Peer {self.id} generating offer for {peer_id}...")
+        print(f"{self.id}:  generating offer for {peer_id}...")
 
         await self._setup_peer_connection(peer_id)
         offer = await self.pcs[peer_id].createOffer()
@@ -200,7 +203,7 @@ class ModalWebRtcPeer(ABC):
     async def handle_answer(self, peer_id, answer):
         from aiortc import RTCSessionDescription
 
-        print(f"Peer {self.id} handling answer from {peer_id}...")
+        print(f"{self.id}:  handling answer from {peer_id}...")
         # set remote peer description
         await self.pcs[peer_id].setRemoteDescription(
             RTCSessionDescription(sdp=answer["sdp"], type=answer["type"])
@@ -208,11 +211,11 @@ class ModalWebRtcPeer(ABC):
 
     @modal.exit()
     async def _exit(self):
-        print(f"Shutting down peer: {self.id}...")
+        print(f"{self.id}: Shutting down...")
         await self.exit()
 
         if self.pcs:
-            print(f"Closing peer connections for peer {self.id}...")
+            print(f"{self.id}: Closing peer connections...")
             await asyncio.gather(*[pc.close() for pc in self.pcs.values()])
             self.pcs = {}
 
@@ -244,8 +247,15 @@ class ModalWebRtcSignalingServer:
         # handle signaling through websocket endpoint
         @self.web_app.websocket("/ws/{peer_id}")
         async def ws(client_websocket: WebSocket, peer_id: str):
-            await client_websocket.accept()
-            await self._mediate_negotiation(client_websocket, peer_id)
+            try:
+                await client_websocket.accept()
+                print(f"Server: Accepted websocket connection from {peer_id}...")
+                await self._mediate_negotiation(client_websocket, peer_id)
+            except Exception as e:
+                print(
+                    f"Server: Error accepting websocket connection from {peer_id}: {type(e)}: {e}"
+                )
+                await client_websocket.close()
 
         self.initialize()
 
@@ -275,7 +285,7 @@ class ModalWebRtcSignalingServer:
             )
 
         with modal.Queue.ephemeral() as q:
-            print(f"Spawning modal peer instance for client peer {peer_id}...")
+            print(f"Server: Spawning modal peer instance for client peer {peer_id}...")
             modal_peer = modal_peer_class()
             modal_peer.run.spawn(q, peer_id)
 
@@ -291,32 +301,40 @@ async def relay_websocket_to_queue(websocket: WebSocket, q: modal.Queue, peer_id
             # get websocket message off queue and parse as json
             msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.5)
             await q.put.aio(msg, partition=peer_id)
-
-        except Exception:
+        except asyncio.TimeoutError:
+            pass
+        except Exception as e:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
+                print("Server: Websocket connection closed")
                 return
+            else:
+                print(f"Server: Error relaying from websocket to queue: {type(e)}: {e}")
 
 
 async def relay_queue_to_websocket(websocket: WebSocket, q: modal.Queue, peer_id: str):
     while True:
         try:
             # get websocket message off queue and parse from json
-            modal_peer_msg = await asyncio.wait_for(
-                q.get.aio(partition="server"), timeout=0.5
-            )
-
+            modal_peer_msg = await q.get.aio(partition="server", timeout=0.5)
             if modal_peer_msg.startswith("close"):
+                print(
+                    "Server: Close received on queue, closing websocket connection..."
+                )
                 await websocket.close()
                 return
 
             await websocket.send_text(modal_peer_msg)
-
-        except Exception:
+        except queue.Empty:
+            pass
+        except Exception as e:
             if WebSocketState.DISCONNECTED in [
                 websocket.application_state,
                 websocket.client_state,
             ]:
+                print("Server: Websocket connection closed")
                 return
+            else:
+                print(f"Server: Error relaying from queue to websocket: {type(e)}: {e}")
