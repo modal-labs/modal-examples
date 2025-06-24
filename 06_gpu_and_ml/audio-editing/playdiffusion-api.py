@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import tempfile
 from typing import Any, Dict, List, Tuple
+from pathlib import Path
 
 import modal
 
@@ -117,7 +118,7 @@ def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
         response_format="verbose_json",
         timestamp_granularities=["word"],
     )
-    word_times: List[Dict[str, Any]] = [
+    word_times: List[Dict[str, Dict[str, str]]] = [
         {"word": word.word, "start": word.start, "end": word.end}
         for word in transcript.words
     ]
@@ -128,8 +129,12 @@ def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
 # Finally, we define a local entrypoint
 @app.local_entrypoint()
 def main(audio_url: str, output_text: str, output_path: str) -> None:
+    # Parse output_path and create parent directory if needed
+    output_path_obj: Path = Path(output_path)
     input_text: str
-    word_times: List[Dict[str, Any]]
+    word_times: List[Dict[str, Dict[str, str]]]
+
+    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     input_text, word_times = run_asr.remote(audio_url)
     playdiffusion_model: PlayDiffusionModel = PlayDiffusionModel()
     output_audio: bytes = playdiffusion_model.generate.remote(
