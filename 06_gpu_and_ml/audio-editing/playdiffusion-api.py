@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import io
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import modal
 
