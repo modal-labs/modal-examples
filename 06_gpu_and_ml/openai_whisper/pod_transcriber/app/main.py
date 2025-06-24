@@ -31,6 +31,11 @@ app_image = (
         "fastapi[standard]==0.115.4",
         "numpy<2",
     )
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
 )
 parakeet_image = (
     modal.Image.from_registry(
@@ -56,18 +61,34 @@ parakeet_image = (
         "ffmpeg-python",
     )
     .entrypoint([])  # silence chatty logs by container on start
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
 )
-search_image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    "scikit-learn~=1.3.0",
-    "tqdm~=4.46.0",
-    "numpy~=1.23.3",
-    "dacite",
+
+
+search_image = (
+    modal.Image.debian_slim(python_version="3.10")
+    .pip_install(
+        "scikit-learn~=1.3.0",
+        "tqdm~=4.46.0",
+        "numpy~=1.23.3",
+        "dacite",
+    )
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
 )
 
 app = modal.App(
     "parakeet-pod-transcriber",
     image=app_image,
     secrets=[modal.Secret.from_name("podchaser")],
+    include_source=False,
 )
 
 in_progress = modal.Dict.from_name(
@@ -115,7 +136,10 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @app.function(
-    image=app_image.add_local_dir(config.ASSETS_PATH, remote_path="/assets"),
+    image=app_image.add_local_dir(
+        config.ASSETS_PATH,
+        remote_path="/assets",
+    ),
     volumes={config.CACHE_DIR: volume},
     min_containers=2,
 )
