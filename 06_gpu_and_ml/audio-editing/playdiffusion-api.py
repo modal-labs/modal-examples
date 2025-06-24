@@ -1,6 +1,7 @@
 # ---
 # output-directory: "/tmp/playdiffusion"
-# lambda-test: false
+# cmd = ["modal", "run", "playdiffusion-api.py", "--audio-url", "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav", "--output-text", "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out.", "--output-path", "/tmp/playdiffusion/output.wav"]
+
 # ---
 
 
@@ -32,7 +33,7 @@ AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/r
 image: modal.Image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
-    .pip_install("fastapi[standard]", "openai")
+    .pip_install("fastapi[standard]==0.115.13d", "openai==1.91.0")
     .run_commands(
         "pip install git+https://github.com/playht/PlayDiffusion.git@d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255"
     )
@@ -62,9 +63,6 @@ with image.imports():
 @app.cls(gpu="a10g", scaledown_window=60 * 5)
 @modal.concurrent(max_inputs=10)
 class PlayDiffusionModel:
-    def __init__(self) -> None:
-        self.inpainter: Optional[PlayDiffusion] = None
-
     @modal.enter()
     def load(self) -> None:
         self.inpainter = PlayDiffusion()
