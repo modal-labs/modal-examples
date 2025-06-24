@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import modalLogImg from "../modal-logo.svg";
+import modalWordmarkImg from "../modal-wordmark.svg";
 
 export default function Footer() {
   return (
@@ -17,7 +17,7 @@ export default function Footer() {
           <span className="p-1 text-md">
             <strong>built with</strong>
           </span>
-          <img className="h-12 w-24" src={modalLogImg}></img>
+          <img className="h-6 mx-2" src={modalWordmarkImg}></img>
         </footer>
       </a>
     </div>
