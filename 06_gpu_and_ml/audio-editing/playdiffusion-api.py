@@ -1,6 +1,6 @@
 # ---
 # output-directory: "/tmp/playdiffusion"
-# cmd = ["modal", "run", "playdiffusion-api.py", "--audio-url", "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav", "--output-text", "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out.", "--output-path", "/tmp/playdiffusion/output.wav"]
+# cmd: ["modal", "run", "playdiffusion-api.py", "--audio-url", "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav", "--output-text", "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out.", "--output-path", "/tmp/playdiffusion/output.wav"]
 
 # ---
 
