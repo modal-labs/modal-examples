@@ -55,10 +55,8 @@ MODEL_CHAT_TEMPLATE = "qwen2-vl"
 # so that it's not downloaded every time the container starts.
 
 MODEL_VOL_PATH = Path("/models")
-MODEL_VOL = modal.Volume.from_name("sgl-vlm-model", create_if_missing=True)
-volumes = {
-    MODEL_VOL_PATH: MODEL_VOL,
-}
+MODEL_VOL = modal.Volume.from_name("sgl-cache", create_if_missing=True)
+volumes = {MODEL_VOL_PATH: MODEL_VOL}
 
 
 def download_model():
