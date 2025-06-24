@@ -19,6 +19,7 @@
 import os
 import time
 import warnings
+from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
@@ -50,20 +51,25 @@ TOKENIZER_PATH = "Qwen/Qwen2-VL-7B-Instruct"
 MODEL_CHAT_TEMPLATE = "qwen2-vl"
 
 # We download it from the Hugging Face Hub using the Python function below.
+# We'll store it in a [Modal Volume](https://modal.com/docs/guide/volumes)
+# so that it's not downloaded every time the container starts.
+
+MODEL_VOL_PATH = Path("/models")
+MODEL_VOL = modal.Volume.from_name("sgl-vlm-model", create_if_missing=True)
+volumes = {
+    MODEL_VOL_PATH: MODEL_VOL,
+}
 
 
-def download_model_to_image():
-    import transformers
+def download_model():
     from huggingface_hub import snapshot_download
 
     snapshot_download(
         MODEL_PATH,
+        local_dir=str(MODEL_VOL_PATH / MODEL_PATH),
         revision=MODEL_REVISION,
         ignore_patterns=["*.pt", "*.bin"],
     )
-
-    # otherwise, this happens on first inference
-    transformers.utils.move_cache()
 
 
 # Modal runs Python functions on containers in the cloud.
@@ -86,11 +92,12 @@ vlm_image = (
         "torch==2.4.0",
         "sglang[all]==0.4.1",
         "sgl-kernel==0.1.0",
+        "hf-xet==1.1.5",
         # as per sglang website: https://sgl-project.github.io/start/install.html
         extra_options="--find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
     )
     .run_function(  # download the model by running a Python function
-        download_model_to_image
+        download_model, volumes=volumes
     )
     .pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
@@ -117,6 +124,7 @@ app = modal.App("example-sgl-vlm")
     timeout=20 * MINUTES,
     scaledown_window=20 * MINUTES,
     image=vlm_image,
+    volumes=volumes,
 )
 @modal.concurrent(max_inputs=100)
 class Model:
@@ -126,8 +134,8 @@ class Model:
         import sglang as sgl
 
         self.runtime = sgl.Runtime(
-            model_path=MODEL_PATH,
-            tokenizer_path=TOKENIZER_PATH,
+            model_path=MODEL_VOL_PATH / MODEL_PATH,
+            tokenizer_path=MODEL_VOL_PATH / TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_level=SGL_LOG_LEVEL,
         )
