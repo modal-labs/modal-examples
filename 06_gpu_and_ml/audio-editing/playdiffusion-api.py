@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import io
 import tempfile
-from typing import Any, Dict, List, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 import modal
 
