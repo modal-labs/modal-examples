@@ -30,15 +30,13 @@
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
 
+import os
 import webbrowser  # for opening generated HTML files in browser
 from pathlib import Path
 
 import modal
 
-# To run TensorRT-LLM on Blackwell GPUs (sm_100), we need:
-#   1. PyTorch with CUDA 12.8 support (required for Blackwell)
-#   2. TensorRT-LLM built from PyPI
-
+# We first install PyTorch with CUDA 12.8 support (required for Blackwell).
 # We also add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
 # and install packages using [uv](https://docs.astral.sh/uv/)
@@ -55,12 +53,13 @@ tensorrt_image = (
         "openmpi-bin",
         "libopenmpi-dev",
     )
-    # fast Python dependency installer
     .pip_install("uv")
     .run_commands(
         "uv pip install --system --compile-bytecode torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
     )
-    .run_commands("uv pip install --system --compile-bytecode mpi4py tensorrt_llm")
+    .run_commands(
+        "uv pip install --system --compile-bytecode mpi4py tensorrt_llm==0.21.0rc2"
+    )
 )
 
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
@@ -162,6 +161,31 @@ def get_plugin_config():
     )
 
 
+# ### Configure speculative decoding
+
+# Speculative decoding is a technique for generating multiple tokens per step,
+# avoiding the auto-regressive bottleneck in the Transformer architecture.
+# Generating multiple tokens in parallel exposes more parallelism to the GPU.
+# It works best for text that has predicable patterns, like code,
+# but it's worth testing for any workload where latency is critical.
+
+# Speculative decoding can use any technique to guess tokens, including running another,
+# smaller language model. Here, we'll use a simple, but popular and effective
+# speculative decoding strategy called "multi-token prediction (MTP) decoding",
+# which essentially uses a smaller model to generate the next token.
+
+
+def get_speculative_config():
+    from tensorrt_llm.llmapi import MTPDecodingConfig
+
+    return MTPDecodingConfig(
+        num_nextn_predict_layers=3,  # number of layers to predict next n tokens
+        use_relaxed_acceptance_for_thinking=True,  # draft token accepted when it's a candidate
+        relaxed_topk=10,  # first k candidates are considered
+        relaxed_delta=0.6,  # delta for relaxed acceptance
+    )
+
+
 # ### Set the build config
 
 # Finally, we'll specify the overall build configuration for the engine. This includes
@@ -213,32 +237,33 @@ app = modal.App(app_name)
 # For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
 
 
+N_GPU = 8
+
+
 @app.cls(
     image=tensorrt_image,
-    gpu="B200:8",
+    gpu=f"B200:{N_GPU}",
     scaledown_window=60 * MINUTES,
     timeout=60 * MINUTES,
     volumes=volumes,
 )
 @modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
 class Model:
-    def build_engine(self, engine_kwargs) -> None:
+    def build_engine(self, engine_path, engine_kwargs):
         llm = LLM(model=MODEL_PATH, **engine_kwargs)
-
+        # llm.save(engine_path)
         return llm
 
     @modal.enter()
     def enter(self):
-        import torch
         from transformers import AutoTokenizer
 
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
         engine_kwargs = {
             "build_config": get_build_config(),
-            "tensor_parallel_size": torch.cuda.device_count(),
-            "ep_size": 2,
-            "enable_attention_dp": True,
+            "speculative_config": get_speculative_config(),
+            "tensor_parallel_size": N_GPU,
             "moe_backend": "TRTLLM",
             "use_cuda_graph": True,
             "backend": "pytorch",
@@ -252,7 +277,13 @@ class Model:
             max_tokens=32768,  # max generated tokens
         )
 
-        self.llm = self.build_engine(engine_kwargs)
+        engine_path = MODEL_PATH / "trtllm_engine"
+        if not os.path.exists(engine_path):
+            print(f"building new engine at {engine_path}")
+            self.llm = self.build_engine(engine_path, engine_kwargs)
+        else:
+            print(f"loading engine from {engine_path}")
+            self.llm = LLM(model=engine_path, **engine_kwargs)
 
     @modal.method()
     async def generate_async(self, prompt):
@@ -331,11 +362,9 @@ def main():
     print(f"Opening in browser: {file_url}")
 
     print("🏎️  opening in browser")
-    try:
-        webbrowser.open(file_url)
-    except Exception as e:
-        print(f"Failed to open browser: {e}")
-        print(f"Please manually open: {file_url}")
+    success = webbrowser.open(file_url)
+    if not success:
+        print(f"Failed to open browser, please manually open: {file_url}")
 
 
 # Once deployed with `modal deploy`, this `Model.generate` function
