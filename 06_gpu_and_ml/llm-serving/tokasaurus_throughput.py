@@ -2,16 +2,42 @@
 # deploy: true
 # ---
 
-# # Serverless Tokasaurus (Qwen2-7B-Instruct)
+# # Serverless Tokasaurus (LLama-3.2-1B-Instruct)
 
-# In this example, we demonstrate how to use the Tokasaurus framework to serve Qwen2-7B-Instruct model
-# at high throughput for structured output extraction from the FineWeb-Edu 10BT sample dataset.
+# In this example, we demonstrate how to use the Tokasaurus framework to serve Llama-3.2-1B-Instruct model
+# at high throughput, benchmarked by [reproducing an experiment](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py)
+# from Large Language Monkeys, where 128 problems from the GSM8K math dataset with 1024 answers to every problem are generated.
+# Using Modal's [concurrent decorator](https://modal.com/docs/guide/concurrent-inputs#enabling-input-concurrency),
+# we achieve a throughput of around 370k tokens/second, nearly 5x higher than what the [authors reported](https://scalingintelligence.stanford.edu/blogs/tokasaurus/).
+
+# Sample results from running the benchmark:
+
+# |    k |   pass@k |
+# |------|----------|
+# |    1 | 0.286522 |
+# |    2 | 0.413421 |
+# |    3 | 0.492062 |
+# |    4 | 0.547901 |
+# |    5 | 0.590428 |
+# |    6 | 0.624252 |
+# |    7 | 0.651968 |
+# |    8 | 0.675185 |
+# |    9 | 0.694966 |
+# |   10 | 0.712049 |
+# |  100 | 0.923327 |
+# | 1000 | 0.991634 |
+# | 1024 | 0.992188 |
+
+# Elapsed time: 248.4 seconds
+# Total input tokens: 91574
+# Total output tokens: 91941963
+# Throughput: 370103.90 tokens/second
 
 # ## Overview
 
 # This guide is intended to document two things:
 # the general process for building Tokasaurus on Modal
-# and a specific configuration for serving the Qwen2-7B-Instruct model.
+# and a specific configuration for serving the Llama-3.2-1B-Instruct model.
 
 # ## Set up the container image
 
@@ -22,6 +48,10 @@
 # We take note of the [CUDA version](https://github.com/ScalingIntelligence/tokasaurus/blob/main/logs/blog_commands.md)
 # the authors used to build the tokasaurus image.
 
+import asyncio
+import json
+import re
+
 import aiohttp
 import modal
 
@@ -30,18 +60,23 @@ toka_image = (
     .apt_install("git")
     .pip_install("uv")
     .run_commands(
-        "uv pip install --system --compile-bytecode tokasaurus==0.0.2 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0"
+        "uv pip install --system --compile-bytecode tokasaurus==0.0.2 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0 tabulate==0.9.0"
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
 
 # ## Download the model weights
 
-# We'll be running a fine-tuned instruction-following model -- Qwen2-7B-Instruct
-# that's trained to chat and follow instructions.
+# We'll be running a fine-tuned instruction-following model -- Llama-3.2-1B-Instruct
+# that's trained to chat and follow instructions. Since this is a gated model,
+# you'll need to [accept the terms of use](https://huggingface.co/meta-llama/Llama-3.2-1B)
+# and create a [Secret](https://modal.com/secrets/)
+# with your Hugging Face token to download the weights.
 
-MODEL_NAME = "Qwen/Qwen2-7B-Instruct"
-MODEL_REVISION = "f2826a00ceef68f0f2b946d945ecc0477ce4450c"  # avoid nasty surprises when repos update!
+secrets = [modal.Secret.from_name("huggingface-secret")]
+
+MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
+MODEL_REVISION = "4e20de362430cd3b72f300e6b0f18e50e7166e08"  # avoid nasty surprises when repos update!
 
 # Although Tokasaurus will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -63,14 +98,50 @@ volumes = {
 # and dynamic Hydragen grouping to exploit shared prefixes via a greedy depth-first search algorithm.
 # For larger models, it supports async tensor parallelism for GPUs with NVLink and a fast implementation of pipeline parallelism for GPUs without.
 
-# We start by maximizing the number of tokens processed per forward pass by adjusting the following two parameters:
-# - `max_tokens_per_forward`: max tokens processed per forward pass, higher values increase throughput but use more activation memory, reducing available KV cache.
+# We start by maximizing the number of tokens processed per forward pass by adjusting the following parameters:
+# - `kv_cache_num_tokens`: max tokens in the KV cache, higher values increase throughput but increase size of KV cache, reducing available KV cache.
+# - `max_tokens_per_forward`: max tokens/seq processed per forward pass, higher values increase throughput but use more activation memory, reducing available KV cache.
 # - `max_seqs_per_forward`: max sequences processed per forward pass, higher values increase batch size and throughput, but require larger KV cache.
 
 # Since we want to maximize the throughput, we set the batch size to the largest value we can fit in GPU RAM.
 
-MAX_TOKENS_PER_FORWARD = 2**17
-MAX_SEQS_PER_FORWARD = 512
+KV_CACHE_NUM_TOKENS = (1024 + 512) * 1024
+MAX_TOKENS_PER_FORWARD = 32768
+MAX_SEQS_PER_FORWARD = 8192
+
+# We could torch compile the model to make it faster and reduce the amount of used activation memory,
+# allowing us to use a larger KV cache. However, it dramatically increases the startup time of the server,
+# so we don't use it here.
+
+TORCH_COMPILE = None
+
+# We also use [Hydragen](https://arxiv.org/abs/2402.05099) to more efficiently compute attention over a batch of sequences that share a common prefix.
+
+USE_HYDRAGEN = "T"
+HYDRAGEN_MIN_GROUP_SIZE = 129
+
+# And some miscellaneous settings:
+
+PAGE_SIZE = 16
+STOP_STRING_NUM_TOKEN_LOOKBACK = 5
+STATS_REPORT_SECONDS = 5.0
+UVICORN_LOG_LEVEL = "info"
+
+MAX_TOKENS = 1024
+TEMPERATURE = 0.6
+TOP_P = 1.0
+STOP_STRING = json.dumps(["Question:"])
+N = 1024
+
+KS = list(range(1, min(11, N + 1)))
+cur = 100
+while True:
+    KS.append(cur)
+    cur *= 10
+    if cur > N:
+        break
+if N not in KS:
+    KS.append(N)
 
 # ## Serving inference
 
@@ -84,7 +155,7 @@ MAX_SEQS_PER_FORWARD = 512
 app = modal.App(app_name)
 
 N_GPU = 1
-GPU_CONFIG = f"H200:{N_GPU}"
+GPU_CONFIG = f"H100:{N_GPU}"
 MINUTES = 60  # seconds
 
 port = 10210
@@ -96,26 +167,28 @@ port = 10210
     scaledown_window=60 * MINUTES,  # how long should we stay up with no requests?
     timeout=60 * MINUTES,  # how long should we wait for container start?
     volumes=volumes,
+    secrets=secrets,
 )
 @modal.concurrent(  # how many requests can one replica handle? tune carefully!
-    max_inputs=min(MAX_SEQS_PER_FORWARD, 1000)  # modal max is 1000
+    max_inputs=4
 )
 @modal.web_server(port=port, startup_timeout=60 * MINUTES)
 def serve():
     import subprocess
 
     cmd = [
-        "toka",
+        "tksrs",
         f"model={MODEL_NAME}",
-        "dp_size=1",
-        f"tp_size={N_GPU}",
-        "pp_size=1",
-        f"max_tokens_per_forward={MAX_TOKENS_PER_FORWARD}",
+        f"kv_cache_num_tokens={KV_CACHE_NUM_TOKENS}",
         f"max_seqs_per_forward={MAX_SEQS_PER_FORWARD}",
-        "page_size=16",  # The page size for the paged KV cache
-        "stop_string_num_token_lookback=5",  # How many tokens to look back for stop string detection
-        "stats_report_seconds=5.0",
-        "uvicorn_log_level=info",
+        f"max_tokens_per_forward={MAX_TOKENS_PER_FORWARD}",
+        f"torch_compile={TORCH_COMPILE}" if TORCH_COMPILE is not None else None,
+        f"use_hydragen={USE_HYDRAGEN}",
+        f"hydragen_min_group_size={HYDRAGEN_MIN_GROUP_SIZE}",
+        f"page_size={PAGE_SIZE}",
+        f"stop_string_num_token_lookback={STOP_STRING_NUM_TOKEN_LOOKBACK}",
+        f"stats_report_seconds={STATS_REPORT_SECONDS}",
+        f"uvicorn_log_level={UVICORN_LOG_LEVEL}",
     ]
 
     print(" ".join(cmd))
@@ -173,109 +246,194 @@ def serve():
 
 
 @app.function(image=toka_image, volumes=volumes)
-def load_dataset(n_samples: int):
+def load_dataset():
     from datasets import load_dataset
 
-    fw = load_dataset(
-        "HuggingFaceFW/fineweb-edu",
-        name="sample-10BT",
-        split="train",
-        streaming=True,
-    )
-    samples = []
-    for chunk in fw:
-        samples.append(chunk["text"])
-        if len(samples) >= n_samples:
-            break
-    return samples
+    raw_test_dataset = list(load_dataset("gsm8k", "main", split="test"))
+    train_dataset = list(load_dataset("gsm8k", "main", split="train"))
+    return raw_test_dataset, train_dataset
+
+
+def _make_prompt(item: dict) -> str:
+    few_shot_items = item["few_shot_items"]
+    few_shot_pieces = []
+    for f in few_shot_items:
+        # https://github.com/EleutherAI/lm-evaluation-harness/blob/568af943e315100af3f00937bfd6947844769ab8/lm_eval/tasks/gsm8k/gsm8k.yaml
+        few_shot_prompt = f"Question: {f['question']}\nAnswer: {f['answer']}\n\n"
+        few_shot_pieces.append(few_shot_prompt)
+    few_shot_prompt = "".join(few_shot_pieces)
+    prompt = few_shot_prompt + f"Question: {item['question']}\nAnswer:"
+    return prompt
+
+
+async def _send_request(session: aiohttp.ClientSession, prompt: str) -> list[str]:
+    payload: dict[str, object] = {
+        "model": "llm",
+        "prompt": prompt,
+        "max_tokens": MAX_TOKENS,
+        "temperature": TEMPERATURE,
+        "top_p": TOP_P,
+        "stop": STOP_STRING,
+        "n": N,
+        "logprobs": None,
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    async with session.post(
+        "/v1/completions", json=payload, headers=headers, timeout=60 * MINUTES
+    ) as resp:
+        resp.raise_for_status()
+        resp_json = await resp.json()
+        return [choice["text"] for choice in resp_json["choices"]]
+
+
+@app.function(image=toka_image)
+def tablify(corrects_list: list[list[bool]]):
+    import numpy as np
+    from tabulate import tabulate
+
+    table = []
+
+    def pass_at_k(n, c, k):
+        """
+        :param n: total number of samples
+        :param c: number of correct samples
+        :param k: k in pass@$k$
+        """
+        if n - c < k:
+            return 1.0
+        return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+
+    for k in KS:
+        to_mean = []
+        for corrects in corrects_list:
+            to_mean.append(pass_at_k(n=len(corrects), c=sum(corrects), k=k))
+        table.append([k, np.mean(to_mean)])
+
+    print(tabulate(table, headers=["k", "pass@k"], tablefmt="github"))
 
 
 @app.function(image=toka_image, volumes=volumes)
-def count_tokens(text: str) -> int:
+def count_input_tokens(text: str) -> int:
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     return len(tokenizer.encode(text))
 
 
+@app.function(image=toka_image, volumes=volumes)
+def count_output_tokens(completions: list[str]) -> int:
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    inner_tokenizer = tokenizer._tokenizer
+    enc_out = inner_tokenizer.encode_batch(completions)
+    n_out_tokens = sum(len(out) for out in enc_out)
+    return n_out_tokens
+
+
 @app.local_entrypoint()
-async def test():
-    import asyncio
+async def test(
+    seed: int = 42,
+    limit: int = 128,
+    num_few_shot: int = 4,
+    reps: int = 1,
+):
     import random
-    import textwrap
     import time
 
-    texts = load_dataset.remote(n_samples=MAX_SEQS_PER_FORWARD)
-    tasks = [
-        "Extract key information and return as JSON with fields: title, main_topic, key_points (array), difficulty_level (beginner/intermediate/advanced), estimated_reading_time_minutes\n\n",
-        "Analyze the content and return as YAML with sections: summary (2-3 sentences), learning_objectives (list), prerequisites (list), related_concepts (list), assessment_questions (list of 3 questions)\n\n",
-        "Create a structured response in XML format with tags: <content_type>, <target_audience>, <core_concepts>, <practical_applications>, <further_reading>\n\n",
-        "Return a JSON object with: topic_category, complexity_score (1-10), essential_vocabulary (array), step_by_step_breakdown (array), common_misconceptions (array)\n\n",
-        "Format as TOML with sections: [metadata] (title, author, date), [content_analysis] (main_theme, subtopics, difficulty), [educational_value] (skills_developed, real_world_relevance, prerequisites)\n\n",
-        "Generate a JSON response with: subject_area, learning_outcomes (array), time_requirements, skill_level, interactive_elements (array), assessment_criteria (object with rubric fields)\n\n",
-        "Return structured data as YAML with: educational_framework (standards_aligned, grade_level), content_structure (sections, key_terminology), pedagogical_approach (teaching_methods, student_activities), evaluation_metrics (assessment_types, success_criteria)\n\n",
-    ]
-    # prepending any string that causes a tokenization change is enough to invalidate KV cache
-    sampled_tasks = random.choices(tasks, k=len(texts))
-    questions = [task + text for task, text in zip(sampled_tasks, texts)]
+    raw_test_dataset, train_dataset = load_dataset.remote()
+    print(f"Number of test items: {len(raw_test_dataset)}")
+    print(f"Number of train items: {len(train_dataset)}")
+
+    random.seed(seed)
+
+    for i, data in enumerate(train_dataset):
+        data["index"] = i
+
+    for i, data in enumerate(raw_test_dataset):
+        data["index"] = i
+    random.shuffle(raw_test_dataset)
+    for i, data in enumerate(raw_test_dataset):
+        data["shuffled_index"] = i
+    if limit is not None:
+        limit = limit
+    else:
+        limit = len(raw_test_dataset)
+    test_dataset = raw_test_dataset[:limit]
+    for i, data in enumerate(test_dataset):
+        few_shot_items = random.sample(train_dataset, num_few_shot)
+        data["few_shot_items"] = few_shot_items
+    print(f"Total number of items to process: {len(test_dataset)}")
 
     url = serve.get_web_url()
+    for _ in range(reps):
+        start = time.time()
 
-    system_prompt = {
-        "role": "system",
-        "content": textwrap.dedent("""
-        You are an expert at extracting structured data from text.
-        You will be given a text and a task.
-        You will need to return the text in the format specified by the task.
-        """),
-    }
-    messages = [
-        [  # OpenAI chat format
-            system_prompt,
-            {"role": "user", "content": question},
-        ]
-        for question in questions
-    ]
+        async def process_item(item):
+            async with aiohttp.ClientSession(base_url=url) as session:
+                return await _send_request(session, _make_prompt(item))
 
-    async with aiohttp.ClientSession(base_url=url) as session:
-        print(f"Generating completions for batch of size {len(messages)}...")
-        start = time.monotonic_ns()
+        tasks = [process_item(item) for item in test_dataset]
+        completions_list = await asyncio.gather(*tasks)
+        for completions in completions_list:
+            assert len(completions) == N
 
-        tasks = []
-        for msg_set in messages:
-            tasks.append(_send_request(session, msg_set))
-        responses = await asyncio.gather(*tasks)
+        ANS_RE_GSM8k = re.compile(r"#### (\-?[\$0-9\.\,]+)")
+        INVALID_ANS_GSM8k = "[invalid]"
+        GSM8K_IGNORE_REGEXES = [",", "\\$", "\\.$"]
 
-        duration_s = (time.monotonic_ns() - start) / 1e9
+        def extract_answer_gsm8k(st):
+            match = ANS_RE_GSM8k.search(st)
+            if match:
+                match_str = match.group(1).strip()
+                if GSM8K_IGNORE_REGEXES is not None:
+                    for s in GSM8K_IGNORE_REGEXES:
+                        match_str = re.sub(s, "", match_str)
+                return match_str
+            else:
+                return INVALID_ANS_GSM8k
 
-        token_counts = []
-        async for count in count_tokens.map.aio(responses):
-            token_counts.append(count)
-        num_tokens = sum(token_counts)
+        lst_results = []
+        for item, completions in zip(test_dataset, completions_list):
+            corrects = []
+            for completion in completions:
+                gt_answer = extract_answer_gsm8k(item["answer"])
+                assert gt_answer != INVALID_ANS_GSM8k
+                corrects.append(extract_answer_gsm8k(completion) == gt_answer)
+            result = {
+                "prompt": _make_prompt(item),
+                "completions": completions,
+                "corrects": corrects,
+            }
+            lst_results.append(result)
 
-        print(
-            f"Generated {num_tokens} tokens from {MODEL_NAME} in {duration_s:.1f} seconds,"
-            f" throughput = {num_tokens / duration_s:.0f} tokens/second for batch of size {len(messages)} on {GPU_CONFIG}."
-        )
+        end = time.time()
 
+        elapsed = end - start
+        print(f"Elapsed time: {elapsed} seconds")
 
-async def _send_request(session: aiohttp.ClientSession, messages: list) -> str:
-    payload: dict[str, object] = {
-        "messages": messages,
-        "model": "llm",
-        "max_tokens": 8192,
-        "n": 1,
-        "temperature": 0.0,
-    }
+        corrects_list = [result["corrects"] for result in lst_results]
+        tablify.remote(corrects_list)
 
-    headers = {"Content-Type": "application/json"}
+        total_input_tokens = 0
+        async for count in count_input_tokens.map.aio(
+            [result["prompt"] for result in lst_results]
+        ):
+            total_input_tokens += count
 
-    async with session.post(
-        "/v1/chat/completions", json=payload, headers=headers, timeout=60 * MINUTES
-    ) as resp:
-        resp.raise_for_status()
-        resp_json = await resp.json()
-        return resp_json["choices"][0]["message"]["content"]
+        total_output_tokens = 0
+        async for count in count_output_tokens.map.aio(
+            [result["completions"] for result in lst_results]
+        ):
+            total_output_tokens += count
+
+        print(f"Total input tokens: {total_input_tokens}")
+        print(f"Total output tokens: {total_output_tokens}")
+
+        throughput = total_output_tokens / elapsed
+        print(f"Throughput: {throughput:.2f} tokens/second")
 
 
 # We also include a basic example of a load-testing setup using
