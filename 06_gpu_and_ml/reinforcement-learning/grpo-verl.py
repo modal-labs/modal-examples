@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 # # Run GRPO on Modal using VERL
 
 # This example demonstrates how to run [GRPO](https://arxiv.org/pdf/2402.03300) on modal using the [verl](https://github.com/volcengine/verl) framework. 
