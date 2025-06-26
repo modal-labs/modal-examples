@@ -40,7 +40,7 @@ class MyAgent:
         ModelExecutor = get_executor_cls()
 
         # If we upstream a modal exeuctor, then we can write:
-        # agent = CodeAgent(tools=[], model=model, executor_type="modal")
+        # agent = CodeAgent(tools=[], model=model, executor_type="modal", executor_kwargs={"app": app})
         agent = CodeAgent(tools=[], model=model)
         agent.python_executor = ModelExecutor([], agent.logger, app=app)
 
