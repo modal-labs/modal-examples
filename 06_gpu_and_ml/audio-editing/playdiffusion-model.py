@@ -7,7 +7,8 @@
 
 # # Run PlayDiffusion on Modal
 
-# This example demonstrates how to run the PlayDiffusion audio editing model on Modal.
+# This example demonstrates how to run the [PlayDiffusion](https://huggingface.co/PlayHT/PlayDiffusion) audio editing model on Modal.
+# PlayDiffusion is a model that takes an input audio and a desired output text, and then modifies the audio to say the output text.
 # The function accepts text prompts and input audio as WAV files and returns generated audio as WAV files.
 # We use Modal's class-based approach with GPU acceleration to provide fast, scalable inference.
 
