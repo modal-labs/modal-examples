@@ -116,7 +116,7 @@ image = (
         "ninja",
         "packaging",
         "wheel",
-        "vllm",
+        "vllm==0.8.5",
     )
     .run_commands("pip install 'verifiers[all]'")
     .run_commands("pip install flash-attn --no-build-isolation")
