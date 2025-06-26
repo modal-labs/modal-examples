@@ -132,7 +132,7 @@ image = image.add_local_file("reward.py", PATH_TO_REWARD_FUNCTION)
 
 # ## Kicking off a training run
 
-# ## We define some constants for the training run
+## We define some constants for the training run
 CHECKPOINTS_PATH: str = "/checkpoints"
 TRAINING_FILES_PATH: str = f"{DATA_PATH}/train.parquet"
 VALIDATION_FILES_PATH: str = f"{DATA_PATH}/test.parquet"
