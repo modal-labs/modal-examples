@@ -14,7 +14,7 @@
 
 # ## Setup
 
-# Import the necessary modules for Modal deployment and TTS functionality.
+# Import the necessary modules
 from __future__ import annotations
 
 import io
