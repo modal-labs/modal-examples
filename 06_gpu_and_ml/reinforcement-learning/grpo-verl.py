@@ -4,6 +4,7 @@
 # GRPO is a reinforcement learning algorithm introduced by DeepSeek, and was used to train DeepSeek R1.
 # Verl is a reinforcement learning training library that is an implementation of [HybridFlow](https://arxiv.org/abs/2409.19256v2), an RLHF framework.
 
+# The full code for this example can be found [here](https://github.com/modal-labs/modal-verl)
 
 # ## Setup
 
