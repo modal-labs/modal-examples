@@ -148,15 +148,19 @@ def math_group_verifier():
 
     vllm_proc = subprocess.Popen(
     "export CUDA_VISIBLE_DEVICES=0 && "
-    f"vf‑vllm --model {model_name} --port 8000 --enforce-eager",
+    "export NCCL_CUMEM_ENABLE=0 && "
+    f"vf-vllm --model {model_name} --port 8000 --enforce-eager",
     shell=True,
 )
-
     train_proc = subprocess.Popen(
     "export CUDA_VISIBLE_DEVICES=1,2,3 && "
+    "export NCCL_DEBUG=INFO && "
+    "export NCCL_CUMEM_ENABLE=0 && "
     "accelerate launch --config-file tmp/zero3.yaml tmp/train.py",
     shell=True,
 )
+
+
 
     train_proc.wait()
     vllm_proc.terminate()
