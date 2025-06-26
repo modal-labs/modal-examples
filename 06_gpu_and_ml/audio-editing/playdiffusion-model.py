@@ -1,14 +1,14 @@
 # ---
 # output-directory: "/tmp/playdiffusion"
-# cmd: ["modal", "run", "06_gpu_and_ml/audio-editing/playdiffusion-api.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/audio-editing/playdiffusion-model.py"]
 # args: ["--audio-url", "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav", "--output-text", "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out.", "--output-path", "/tmp/playdiffusion/output.wav"]
 # ---
 
 
-# # Create a PlayDiffusion API on Modal
+# # Run PlayDiffusion on Modal
 
-# This example demonstrates how to deploy a PlayDiffusion audio editing API using the PlayDiffusion model on Modal.
-# The API accepts text prompts and input audio as WAV files and returns generated audio as WAV files through a FastAPI endpoint.
+# This example demonstrates how to run the PlayDiffusion audio editing model on Modal.
+# The function accepts text prompts and input audio as WAV files and returns generated audio as WAV files.
 # We use Modal's class-based approach with GPU acceleration to provide fast, scalable inference.
 
 # ## Setup
@@ -26,7 +26,6 @@ import modal
 # ## Define a container image
 
 # We start with Modal's baseline `debian_slim` image and install the required packages.
-# - `fastapi`: Web framework for creating the API endpoint
 # - `openai`: PlayDiffusion requires a transcript as input. You can either provide the transcript yourself as input, or use a transcription model to transcribe the audio on the fly. In this case we use openai's whisper api, but you can use any model of your choice.
 AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 
@@ -34,12 +33,12 @@ AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/r
 image: modal.Image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
-    .pip_install("fastapi[standard]==0.115.13", "openai==1.91.0")
+    .pip_install("openai==1.91.0")
     .run_commands(
         "pip install git+https://github.com/playht/PlayDiffusion.git@d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255"
     )
 )
-app: modal.App = modal.App("playdiffusion-api-example", image=image)
+app: modal.App = modal.App("playdiffusion-model-example", image=image)
 
 # Import the required libraries within the image context to ensure they're available
 # when the container runs. This includes audio processing and the TTS model itself.
@@ -147,7 +146,7 @@ def main(audio_url: str, output_text: str, output_path: str) -> None:
 
 
 # Example command line invocation:
-# `modal run playdiffusion-api.py --audio-url "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" --output-text "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." --output-path "/tmp/playdiffusion/output.wav"`
+# `modal run playdiffusion-model.py --audio-url "https://modal-public-assets.s3.us-east-1.amazonaws.com/mono_44100_127389__acclivity__thetimehascome.wav" --output-text "November, '9 PM. I'm standing in alley. After waiting several hours, the time has come. A man with long dark hair approaches. I have to act and fast before he realizes what has happened. I must find out." --output-path "/tmp/playdiffusion/output.wav"`
 
 
 # Some utility functions
