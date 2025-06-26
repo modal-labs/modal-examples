@@ -60,7 +60,7 @@ def get_executor_cls():
             super().__init__(additional_imports, logger)
 
             sandbox_image = (
-                modal.Image.debian_slim().pip_install(*additional_imports).add_local_python_source("sql_engine")
+                modal.Image.debian_slim().pip_install(*additional_imports)
             )
             self.additional_imports = additional_imports
 

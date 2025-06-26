@@ -13,7 +13,7 @@ image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .add_local_python_source("modal_executor")
 )
-app = modal.App("smolagent-text-to-sql")
+app = modal.App("smolagent-simple")
 
 hf_cache_vol = modal.Volume.from_name("smol-agent-huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("smol-agent-vllm-cache", create_if_missing=True)
@@ -36,7 +36,7 @@ class MyAgent:
         from smolagents import VLLMModel, CodeAgent
         from modal_executor import get_executor_cls
 
-        model = VLLMModel(model_id="Qwen/Qwen2.5-Coder-7B-Instruct")
+        model = VLLMModel(model_id="Qwen/Qwen2.5-Coder-7B-Instruct", model_kwargs={"enforce_eager": False})
         ModelExecutor = get_executor_cls()
 
         # If we upstream a modal exeuctor, then we can write:
