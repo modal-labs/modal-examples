@@ -22,7 +22,7 @@ machine_rank: 0
 main_training_function: main
 mixed_precision: bf16
 num_machines: 1
-num_processes: 8
+num_processes: 3
 rdzv_backend: static
 same_network: true
 tpu_env: []
@@ -33,72 +33,61 @@ use_cpu: false
 
 training_script = '''\
 import verifiers as vf
-from verifiers.utils.data_utils import load_example_dataset, extract_boxed_answer
+from verifiers.tools import python
+from verifiers.utils import load_example_dataset
 
-system_prompt = """
-Think step-by-step inside <think>...</think> tags.
+TOOL_PROMPT = """
+Think step-by-step inside <think>...</think> tags in each message, then either call a tool inside <tool>...</tool> tags, or give your final answer inside <answer>...</answer> tags.
 
-Then, give your final numerical answer inside \\boxed{{...}}.
+You have access to the following tools to help solve problems:
+
+{tool_descriptions}
+
+Tools can be called by writing a JSON command inside <tool> tags with:
+- "name": the name of the tool to use
+- "args": the arguments for the tool
+
+Example usage:
+<tool>
+{{"name": "python", "args": {{"code": "import sympy\nx = sympy.symbols('x')\nprint(sympy.solve(x**2 - 4, x))"}}}}
+</tool>
+
+After concluding your message with a tool call,
+you will then see the tool's output inside <result> tags as a new message. \
+You may call tools multiple times if needed. \
+Tool state does not persist between calls. \
+Always use tools to solve problems whenever possible, rather than using your own knowledge.
+
+The <answer>...</answer> tags should contain only your final answer as a numeric expression.
+
+Example:
+<think>
+Let's submit the answer.
+</think>
+<answer>
+\\frac{{1}}{{2}}
+</answer>
 """
 
-parser = vf.ThinkParser(extract_fn=extract_boxed_answer)
+dataset = load_example_dataset("math", split="train")
 
-# env 1: gsm8k
-def gsm8k_answer_reward_func(completion, answer, **kwargs):
-    response = parser.parse_answer(completion) or ''
-    return 1.0 if response == answer else 0.0
-
-rubric1 = vf.Rubric(
-    funcs=[
-        gsm8k_answer_reward_func,
-        parser.get_format_reward_func()
-    ],
-    weights=[1.0, 0.2]
+vf_env = vf.ToolEnv(
+    dataset=dataset,
+    system_prompt=TOOL_PROMPT,
+    few_shot=[],
+    tools=[python],
+    max_steps=3
 )
-
-dataset1 = load_example_dataset("gsm8k", split="train").select(range(1000))
-env1 = vf.SingleTurnEnv(
-    dataset=dataset1,
-    system_prompt=system_prompt,
-    parser=parser,
-    rubric=rubric1,
-)
-
-# env 2: math
-def math_answer_reward_func(completion, answer, **kwargs):
-    response = parser.parse_answer(completion) or ''
-    return 1.0 if response == answer else 0.0
-
-rubric2 = vf.Rubric(
-    funcs=[
-        math_answer_reward_func,
-        parser.get_format_reward_func()
-    ],
-    weights=[1.0, 0.2]
-)
-
-dataset2 = load_example_dataset("math", split="train").select(range(1000))
-env2 = vf.SingleTurnEnv(
-    dataset=dataset2,
-    system_prompt=system_prompt,
-    parser=parser,
-    rubric=rubric2,
-)
-
-vf_env = vf.EnvGroup([env1, env2], env_names=["gsm8k", "math"])
 
 model_name = "willcb/Qwen3-0.6B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 
-training_args = vf.grpo_defaults(run_name=run_name)
-training_args.per_device_train_batch_size     = 16
-training_args.num_generations                = 16
-training_args.gradient_accumulation_steps    = 8
-training_args.num_iterations                 = 1
-training_args.max_prompt_length              = 512
-training_args.max_completion_length          = 2048
-training_args.max_steps                      = 100
+training_args=vf.grpo_defaults(run_name=run_name)
+training_args.num_iterations=2
+training_args.per_device_train_batch_size=8
+training_args.num_generations=8
+training_args.gradient_accumulation_steps=2
 
 trainer = vf.GRPOTrainer(
     model=model,
@@ -106,7 +95,7 @@ trainer = vf.GRPOTrainer(
     env=vf_env,
     args=training_args,
 )
-trainer.train()
+trainer.train() 
 '''
 
 image = (
@@ -120,31 +109,32 @@ image = (
     )
     .run_commands("pip install 'verifiers[all]'")
     .run_commands("pip install flash-attn --no-build-isolation")
+    .env({
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
+        "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+    })
 )
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
-
-def gsm8k_answer_reward_func(completion, answer, parser, **kwargs):
-    response = parser.parse_answer(completion) or ''
-    return 1.0 if response == answer else 0.0
-
-
-def math_answer_reward_func(completion, answer, parser, **kwargs):
-    response = parser.parse_answer(completion) or ''
-    return 1.0 if response == answer else 0.0
-
 @app.function(gpu="H100:4", image=image, volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
-    },)
+    },
+    timeout=3600,
+    secrets=[modal.Secret.from_name("wandb-secret")],
+    )
 def math_group_verifier():
-    import verifiers as vf
-    from verifiers.utils.data_utils import load_example_dataset, extract_boxed_answer
     import subprocess
     import time
     import os
+
+    import wandb
+
+    wandb.init(project="math-rl")
+    wandb.config = {"epochs": 10}
+
 
     os.makedirs("tmp", exist_ok=True)
 
@@ -156,19 +146,17 @@ def math_group_verifier():
     
     model_name = "willcb/Qwen3-0.6B"
 
-    env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = "0"  
-    vllm_proc = subprocess.Popen(["vf-vllm", "--model", model_name, "--port", "8000", "--enforce-eager"], env=env)
+    vllm_proc = subprocess.Popen(
+    "export CUDA_VISIBLE_DEVICES=0 && "
+    f"vf‑vllm --model {model_name} --port 8000 --enforce-eager",
+    shell=True,
+)
 
-    env = os.environ.copy()
-    env["CUDA_VISIBLE_DEVICES"] = "1,2,3"
-    env["NCCL_DEBUG"] = "INFO"
-    train_proc = subprocess.Popen([
-        "accelerate", "launch",
-        "--config-file",   "tmp/zero3.yaml",
-        "tmp/train.py",
-    ], env=env)
-
+    train_proc = subprocess.Popen(
+    "export CUDA_VISIBLE_DEVICES=1,2,3 && "
+    "accelerate launch --config-file tmp/zero3.yaml tmp/train.py",
+    shell=True,
+)
 
     train_proc.wait()
     vllm_proc.terminate()
