@@ -7,36 +7,14 @@
 # In this example, we demonstrate how to use the Tokasaurus framework to serve Llama-3.2-1B-Instruct model
 # at high throughput, benchmarked by [reproducing an experiment](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py)
 # from Large Language Monkeys, where 128 problems from the GSM8K math dataset with 1024 answers to every problem are generated.
-# Using Modal's [concurrent decorator](https://modal.com/docs/guide/concurrent-inputs#enabling-input-concurrency),
-# we achieve a throughput of around 370k tokens/second, nearly 5x higher than what the [authors reported](https://scalingintelligence.stanford.edu/blogs/tokasaurus/).
-
-# Sample results from running the benchmark:
-
-# |    k |   pass@k |
-# |------|----------|
-# |    1 | 0.286522 |
-# |    2 | 0.413421 |
-# |    3 | 0.492062 |
-# |    4 | 0.547901 |
-# |    5 | 0.590428 |
-# |    6 | 0.624252 |
-# |    7 | 0.651968 |
-# |    8 | 0.675185 |
-# |    9 | 0.694966 |
-# |   10 | 0.712049 |
-# |  100 | 0.923327 |
-# | 1000 | 0.991634 |
-# | 1024 | 0.992188 |
-
-# Elapsed time: 248.4 seconds
-# Total input tokens: 91574
-# Total output tokens: 91941963
-# Throughput: 370103.90 tokens/second
+# We reproduce the authors' results, where peak throughput is roughly ~80k tokens/second.
+# However, using Modal's [autoscaling infrastructure](https://modal.com/docs/guide/scale),
+# and staying within the starter plan limit, we achieve a total throughput of ~370k tokens/second.
 
 # ## Overview
 
 # This guide is intended to document two things:
-# the general process for building Tokasaurus on Modal
+# the general process for building Tokasaurus on Modal,
 # and a specific configuration for serving the Llama-3.2-1B-Instruct model.
 
 # ## Set up the container image
@@ -48,7 +26,6 @@
 # We take note of the [CUDA version](https://github.com/ScalingIntelligence/tokasaurus/blob/main/logs/blog_commands.md)
 # the authors used to build the tokasaurus image.
 
-import asyncio
 import json
 import re
 
@@ -112,9 +89,6 @@ MAX_SEQS_PER_FORWARD = 8192
 # We could torch compile the model to make it faster and reduce the amount of used activation memory,
 # allowing us to use a larger KV cache. However, it dramatically increases the startup time of the server,
 # so we don't use it here.
-
-TORCH_COMPILE = None
-
 # We also use [Hydragen](https://arxiv.org/abs/2402.05099) to more efficiently compute attention over a batch of sequences that share a common prefix.
 
 USE_HYDRAGEN = "T"
@@ -133,7 +107,10 @@ TOP_P = 1.0
 STOP_STRING = json.dumps(["Question:"])
 N = 1024
 
-KS = list(range(1, min(11, N + 1)))
+
+KS = list(
+    range(1, min(11, N + 1))
+)  # list of K values for throughput testing [1, 10, ..., N]
 cur = 100
 while True:
     KS.append(cur)
@@ -154,8 +131,7 @@ if N not in KS:
 
 app = modal.App(app_name)
 
-N_GPU = 1
-GPU_CONFIG = f"H100:{N_GPU}"
+GPU_CONFIG = "H100:1"
 MINUTES = 60  # seconds
 
 port = 10210
@@ -168,11 +144,12 @@ port = 10210
     timeout=60 * MINUTES,  # how long should we wait for container start?
     volumes=volumes,
     secrets=secrets,
+    max_containers=10,  # starter plan limit
 )
 @modal.concurrent(  # how many requests can one replica handle? tune carefully!
     max_inputs=4
 )
-@modal.web_server(port=port, startup_timeout=60 * MINUTES)
+@modal.web_server(port=port, startup_timeout=10 * MINUTES)
 def serve():
     import subprocess
 
@@ -182,7 +159,6 @@ def serve():
         f"kv_cache_num_tokens={KV_CACHE_NUM_TOKENS}",
         f"max_seqs_per_forward={MAX_SEQS_PER_FORWARD}",
         f"max_tokens_per_forward={MAX_TOKENS_PER_FORWARD}",
-        f"torch_compile={TORCH_COMPILE}" if TORCH_COMPILE is not None else None,
         f"use_hydragen={USE_HYDRAGEN}",
         f"hydragen_min_group_size={HYDRAGEN_MIN_GROUP_SIZE}",
         f"page_size={PAGE_SIZE}",
@@ -222,15 +198,10 @@ def serve():
 # python openai_compatible/client.py
 # ```
 
-
 # ## Testing the server
 
 # To make it easier to test the server setup, we also include a `local_entrypoint`
 # that measures the throughput of the server.
-# For simplicity, we load the FineWeb-Edu 10BT sample dataset and sample 512 text chunks from it.
-# Then, we'll randomly sample seven distinct tasks (added as prefixes).
-# These prefixes ensure KV cache misses for the remainder of the generations,
-# to keep the benchmark closer to what can be expected in a real workload.
 
 # If you execute the command
 
@@ -258,7 +229,6 @@ def _make_prompt(item: dict) -> str:
     few_shot_items = item["few_shot_items"]
     few_shot_pieces = []
     for f in few_shot_items:
-        # https://github.com/EleutherAI/lm-evaluation-harness/blob/568af943e315100af3f00937bfd6947844769ab8/lm_eval/tasks/gsm8k/gsm8k.yaml
         few_shot_prompt = f"Question: {f['question']}\nAnswer: {f['answer']}\n\n"
         few_shot_pieces.append(few_shot_prompt)
     few_shot_prompt = "".join(few_shot_pieces)
@@ -266,7 +236,11 @@ def _make_prompt(item: dict) -> str:
     return prompt
 
 
-async def _send_request(session: aiohttp.ClientSession, prompt: str) -> list[str]:
+async def _send_request(
+    session: aiohttp.ClientSession, prompt: str
+) -> tuple[list[str], float]:
+    import time
+
     payload: dict[str, object] = {
         "model": "llm",
         "prompt": prompt,
@@ -277,15 +251,33 @@ async def _send_request(session: aiohttp.ClientSession, prompt: str) -> list[str
         "n": N,
         "logprobs": None,
     }
-
     headers = {"Content-Type": "application/json"}
 
+    start = time.time()
     async with session.post(
         "/v1/completions", json=payload, headers=headers, timeout=60 * MINUTES
     ) as resp:
         resp.raise_for_status()
         resp_json = await resp.json()
-        return [choice["text"] for choice in resp_json["choices"]]
+        end = time.time()
+        return [choice["text"] for choice in resp_json["choices"]], end - start
+
+
+ANS_RE_GSM8k = re.compile(r"#### (\-?[\$0-9\.\,]+)")
+INVALID_ANS_GSM8k = "[invalid]"
+GSM8K_IGNORE_REGEXES = [",", "\\$", "\\.$"]
+
+
+def extract_answer_gsm8k(st):
+    match = ANS_RE_GSM8k.search(st)
+    if match:
+        match_str = match.group(1).strip()
+        if GSM8K_IGNORE_REGEXES is not None:
+            for s in GSM8K_IGNORE_REGEXES:
+                match_str = re.sub(s, "", match_str)
+        return match_str
+    else:
+        return INVALID_ANS_GSM8k
 
 
 @app.function(image=toka_image)
@@ -315,22 +307,22 @@ def tablify(corrects_list: list[list[bool]]):
 
 
 @app.function(image=toka_image, volumes=volumes)
-def count_input_tokens(text: str) -> int:
+def count_input_tokens(id: int, text: str) -> int:
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    return len(tokenizer.encode(text))
+    return id, len(tokenizer.encode(text))
 
 
 @app.function(image=toka_image, volumes=volumes)
-def count_output_tokens(completions: list[str]) -> int:
+def count_output_tokens(id: int, completions: list[str]) -> int:
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     inner_tokenizer = tokenizer._tokenizer
     enc_out = inner_tokenizer.encode_batch(completions)
     n_out_tokens = sum(len(out) for out in enc_out)
-    return n_out_tokens
+    return id, n_out_tokens
 
 
 @app.local_entrypoint()
@@ -339,9 +331,10 @@ async def test(
     limit: int = 128,
     num_few_shot: int = 4,
     reps: int = 1,
+    batch_size: int = 128,  # lower in case getting redirect/assertion errors
 ):
+    import asyncio
     import random
-    import time
 
     raw_test_dataset, train_dataset = load_dataset.remote()
     print(f"Number of test items: {len(raw_test_dataset)}")
@@ -367,73 +360,86 @@ async def test(
         data["few_shot_items"] = few_shot_items
     print(f"Total number of items to process: {len(test_dataset)}")
 
-    url = serve.get_web_url()
-    for _ in range(reps):
-        start = time.time()
+    async with aiohttp.ClientSession(base_url=serve.get_web_url()) as session:
+        for _ in range(reps):
+            all_resps = []
 
-        async def process_item(item):
-            async with aiohttp.ClientSession(base_url=url) as session:
-                return await _send_request(session, _make_prompt(item))
+            for i in range(0, len(test_dataset), batch_size):
+                batch = test_dataset[i : i + batch_size]
+                print(
+                    f"Processing batch {i // batch_size + 1}/{(len(test_dataset) + batch_size - 1) // batch_size}"
+                )
 
-        tasks = [process_item(item) for item in test_dataset]
-        completions_list = await asyncio.gather(*tasks)
-        for completions in completions_list:
-            assert len(completions) == N
+                tasks = [_send_request(session, _make_prompt(item)) for item in batch]
+                batch_resps = await asyncio.gather(*tasks)
+                all_resps.extend(batch_resps)
 
-        ANS_RE_GSM8k = re.compile(r"#### (\-?[\$0-9\.\,]+)")
-        INVALID_ANS_GSM8k = "[invalid]"
-        GSM8K_IGNORE_REGEXES = [",", "\\$", "\\.$"]
+                if i + batch_size < len(test_dataset):
+                    await asyncio.sleep(1.0)
 
-        def extract_answer_gsm8k(st):
-            match = ANS_RE_GSM8k.search(st)
-            if match:
-                match_str = match.group(1).strip()
-                if GSM8K_IGNORE_REGEXES is not None:
-                    for s in GSM8K_IGNORE_REGEXES:
-                        match_str = re.sub(s, "", match_str)
-                return match_str
-            else:
-                return INVALID_ANS_GSM8k
+            resps = all_resps
 
-        lst_results = []
-        for item, completions in zip(test_dataset, completions_list):
-            corrects = []
-            for completion in completions:
-                gt_answer = extract_answer_gsm8k(item["answer"])
-                assert gt_answer != INVALID_ANS_GSM8k
-                corrects.append(extract_answer_gsm8k(completion) == gt_answer)
-            result = {
-                "prompt": _make_prompt(item),
-                "completions": completions,
-                "corrects": corrects,
-            }
-            lst_results.append(result)
+            for resp in resps:
+                assert len(resp[0]) == N, (
+                    f"Expected {N} completions, got {len(resp[0])}"
+                )
+                assert resp[1] > 0, f"Elapsed time is {resp[1]} seconds"
 
-        end = time.time()
+            lst_results = []
+            for item, resp in zip(test_dataset, resps):
+                completions, elapsed = resp
+                corrects = []
+                for completion in completions:
+                    gt_answer = extract_answer_gsm8k(item["answer"])
+                    assert gt_answer != INVALID_ANS_GSM8k
+                    corrects.append(extract_answer_gsm8k(completion) == gt_answer)
+                result = {
+                    "prompt": _make_prompt(item),
+                    "completions": completions,
+                    "corrects": corrects,
+                    "elapsed": elapsed,
+                }
+                lst_results.append(result)
 
-        elapsed = end - start
-        print(f"Elapsed time: {elapsed} seconds")
+            corrects_list = [result["corrects"] for result in lst_results]
+            tablify.remote(corrects_list)
 
-        corrects_list = [result["corrects"] for result in lst_results]
-        tablify.remote(corrects_list)
+            input_ct_unordered = {}
+            async for count in count_input_tokens.starmap.aio(
+                [(i, result["prompt"]) for i, result in enumerate(lst_results)]
+            ):
+                input_ct_unordered[count[0]] = count[1]
+            input_ct_ordered = [
+                input_ct_unordered[i] for i in range(len(input_ct_unordered))
+            ]
 
-        total_input_tokens = 0
-        async for count in count_input_tokens.map.aio(
-            [result["prompt"] for result in lst_results]
-        ):
-            total_input_tokens += count
+            output_ct_unordered = {}
+            async for count in count_output_tokens.starmap.aio(
+                [(i, result["completions"]) for i, result in enumerate(lst_results)]
+            ):
+                output_ct_unordered[count[0]] = count[1]
+            output_ct_ordered = [
+                output_ct_unordered[i] for i in range(len(output_ct_unordered))
+            ]
 
-        total_output_tokens = 0
-        async for count in count_output_tokens.map.aio(
-            [result["completions"] for result in lst_results]
-        ):
-            total_output_tokens += count
+            throughputs = [
+                out_ct / result["elapsed"]
+                for out_ct, result in zip(output_ct_ordered, lst_results)
+            ]
 
-        print(f"Total input tokens: {total_input_tokens}")
-        print(f"Total output tokens: {total_output_tokens}")
+            print(
+                f"Average input tokens/container: {sum(input_ct_ordered) / len(input_ct_ordered)}"
+            )
+            print(
+                f"Average output tokens/container: {sum(output_ct_ordered) / len(output_ct_ordered)}"
+            )
+            print(
+                f"Average throughput/container: {sum(throughputs) / len(throughputs):.2f} tokens/second"
+            )
 
-        throughput = total_output_tokens / elapsed
-        print(f"Throughput: {throughput:.2f} tokens/second")
+            print(f"Total input tokens: {sum(input_ct_ordered)}")
+            print(f"Total output tokens: {sum(output_ct_ordered)}")
+            print(f"Total throughput: {sum(throughputs):.2f} tokens/second")
 
 
 # We also include a basic example of a load-testing setup using
