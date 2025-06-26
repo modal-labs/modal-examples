@@ -55,10 +55,10 @@ tensorrt_image = (
     )
     .pip_install("uv")
     .run_commands(
-        "uv pip install --system --compile-bytecode torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
+        "uv pip install --system --compile-bytecode mpi4py tensorrt_llm==1.0.0rc0"
     )
     .run_commands(
-        "uv pip install --system --compile-bytecode mpi4py tensorrt_llm==0.21.0rc2"
+        "uv pip install --system --compile-bytecode torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
     )
 )
 
@@ -129,7 +129,7 @@ tensorrt_image = (
 
 with tensorrt_image.imports():
     from tensorrt_llm import SamplingParams
-    from tensorrt_llm._torch import LLM
+    from tensorrt_llm._tensorrt_engine import LLM
 
 
 # ## Setting up the engine
