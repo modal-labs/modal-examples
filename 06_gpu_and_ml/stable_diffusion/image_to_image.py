@@ -8,9 +8,9 @@
 # the model takes in a prompt and an image and transforms the image to better match the prompt.
 
 # For example, the model transformed the image on the left into the image on the right based on the prompt
-# _dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, Studio Ghibli.
+# "_A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style_"
 
-# ![](https://modal-cdn.com/cdnbot/outputkyaht0zg_6c034cc6.webp)
+# ![](https://modal-cdn.com/cdnbot/contentn1z57lt1_4a3da38f.webp)
 
 # The model is Black Forest Labs' [FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev).
 # Learn more about the model [here](https://bfl.ai/announcements/flux-1-kontext-dev).
@@ -34,10 +34,12 @@ image = (
         "accelerate~=1.8.1",  # Allows `device_map="balanced"``, for computation of optimized device_map
         f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",  # Provides model libraries
         "huggingface-hub[hf-transfer]~=0.33.1",  # Lets us download models from Hugging Face's Hub
-        "Pillow~=11.0.0",  # Image manipulation in Python
+        "Pillow~=11.2.1",  # Image manipulation in Python
         "safetensors~=0.5.3",  # Enables safetensor format as opposed to using unsafe pickle format
         "transformers~=4.53.0",
         "sentencepiece~=0.2.0",
+        "torch==2.7.1",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
     )
 )
 
@@ -82,7 +84,7 @@ with image.imports():
 
 
 @app.cls(
-    image=image, gpu="H100", volumes=volumes, secrets=secrets, scaledown_window=240
+    image=image, gpu="B200", volumes=volumes, secrets=secrets, scaledown_window=240
 )
 class Model:
     @modal.enter()
@@ -127,10 +129,15 @@ class Model:
 # Use `--help` for additional details.
 
 
+@app.function(volumes=volumes)
+def save_image(image_bytes: bytes, output_path: Path):
+    output_path.write_bytes(image_bytes)
+
+
 @app.local_entrypoint()
 def main(
     image_path=Path(__file__).parent / "demo_images/dog.png",
-    prompt="dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k",
+    prompt="A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style",
     strength=0.9,  # increase to favor the prompt over the baseline image
 ):
     print(f"🎨 reading input image from {image_path}")
@@ -141,6 +148,6 @@ def main(
     dir = Path("/tmp/stable-diffusion")
     dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = dir / "output.png"
+    output_path = CACHE_DIR / "output.png"
     print(f"🎨 saving output image to {output_path}")
-    output_path.write_bytes(output_image_bytes)
+    save_image.remote(output_image_bytes, output_path)
