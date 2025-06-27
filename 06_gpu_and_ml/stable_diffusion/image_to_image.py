@@ -8,7 +8,7 @@
 # the model takes in a prompt and an image and transforms the image to better match the prompt.
 
 # For example, the model transformed the image on the left into the image on the right based on the prompt
-# _dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k_.
+# _dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, Studio Ghibli.
 
 # ![](https://modal-cdn.com/cdnbot/outputkyaht0zg_6c034cc6.webp)
 
