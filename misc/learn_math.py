@@ -1,3 +1,9 @@
+'''
+Reward after setp 0 and reward at step n
+use wanb 
+
+'''
+
 import modal
 
 app = modal.App(name="math-rl")
@@ -84,10 +90,11 @@ model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 
 training_args=vf.grpo_defaults(run_name=run_name)
-training_args.num_iterations=2
-training_args.per_device_train_batch_size=8
-training_args.num_generations=8
-training_args.gradient_accumulation_steps=2
+training_args.num_iterations               = 1
+training_args.per_device_train_batch_size  = 8
+training_args.num_generations              = 1
+training_args.gradient_accumulation_steps  = 1
+training_args.num_train_epochs=0.01
 
 trainer = vf.GRPOTrainer(
     model=model,
@@ -96,6 +103,11 @@ trainer = vf.GRPOTrainer(
     args=training_args,
 )
 trainer.train() 
+
+save_path = "/root/math_weights"
+trainer.save_model(save_path)          
+tokenizer.save_pretrained(save_path)  
+print(f"Model and tokenizer saved to {save_path}")
 '''
 
 image = (
@@ -115,12 +127,19 @@ image = (
     })
 )
 
-hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
-vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+HF_CACHE_DIR = "/root/.cache/huggingface"
+HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+
+VLLM_CACHE_DIR = "/root/.cache/vllm"
+VLLM_CACHE_VOL = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+
+WEIGHTS_DIR = "/root/math_weights"
+WEIGHTS_VOL = modal.Volume.from_name("math-rl-weights", create_if_missing=True)
 
 @app.function(gpu="H100:4", image=image, volumes={
-        "/root/.cache/huggingface": hf_cache_vol,
-        "/root/.cache/vllm": vllm_cache_vol,
+        HF_CACHE_DIR: HF_CACHE_VOL,
+        VLLM_CACHE_DIR: VLLM_CACHE_VOL,
+        WEIGHTS_DIR: WEIGHTS_VOL,
     },
     timeout=3600,
     secrets=[modal.Secret.from_name("wandb-secret")],
@@ -159,8 +178,6 @@ def math_group_verifier():
     "accelerate launch --config-file tmp/zero3.yaml tmp/train.py",
     shell=True,
 )
-
-
 
     train_proc.wait()
     vllm_proc.terminate()
