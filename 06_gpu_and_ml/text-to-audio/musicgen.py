@@ -82,7 +82,7 @@ image = image.env(
 # We'll stick with Python and so use FastAPI and Gradio.
 
 web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi[standard]==0.115.4", "gradio==4.44.1"
+    "fastapi[standard]==0.115.4", "gradio==3.50.2"
 )
 
 # This is a totally different environment from the one we run our model in.
