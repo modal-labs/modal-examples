@@ -8,9 +8,9 @@
 # the model takes in a prompt and an image and transforms the image to better match the prompt.
 
 # For example, the model transformed the image on the left into the image on the right based on the prompt
-# "_A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style_"
+# "_A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style_".
 
-# ![](https://modal-cdn.com/cdnbot/contentn1z57lt1_4a3da38f.webp)
+# <img src="https://modal-cdn.com/cdnbot/contentn1z57lt1_4a3da38f.webp" alt="Before and after image transformation" width="200"/>
 
 # The model is Black Forest Labs' [FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev).
 # Learn more about the model [here](https://bfl.ai/announcements/flux-1-kontext-dev).
@@ -129,11 +129,6 @@ class Model:
 # Use `--help` for additional details.
 
 
-@app.function(volumes=volumes)
-def save_image(image_bytes: bytes, output_path: Path):
-    output_path.write_bytes(image_bytes)
-
-
 @app.local_entrypoint()
 def main(
     image_path=Path(__file__).parent / "demo_images/dog.png",
@@ -148,6 +143,6 @@ def main(
     dir = Path("/tmp/stable-diffusion")
     dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = CACHE_DIR / "output.png"
+    output_path = dir / "output.png"
     print(f"🎨 saving output image to {output_path}")
-    save_image.remote(output_image_bytes, output_path)
+    output_path.write_bytes(output_image_bytes)
