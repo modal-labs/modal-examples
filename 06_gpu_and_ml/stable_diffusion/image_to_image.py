@@ -10,9 +10,9 @@
 # For example, the model transformed the image on the left into the image on the right based on the prompt
 # _dog wizard, gandalf, lord of the rings, detailed, fantasy, cute, adorable, Pixar, Disney, 8k_.
 
-# ![](https://modal-cdn.com/cdnbot/sd-im2im-dog-8sanham3_915c7d4c.webp)
+# ![](https://modal-cdn.com/cdnbot/outputkyaht0zg_6c034cc6.webp)
 
-# The model is from Black Forest Labs' [FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev).
+# The model is Black Forest Labs' [FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev).
 # Learn more about the model [here](https://bfl.ai/announcements/flux-1-kontext-dev).
 
 # ## Define a container image
