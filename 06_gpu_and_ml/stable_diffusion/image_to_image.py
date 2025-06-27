@@ -8,7 +8,7 @@
 # the model takes in a prompt and an image and transforms the image to better match the prompt.
 
 # For example, the model transformed the image on the left into the image on the right based on the prompt
-# "A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style"
+# "_A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style_"
 
 # ![](https://modal-cdn.com/cdnbot/contentn1z57lt1_4a3da38f.webp)
 
