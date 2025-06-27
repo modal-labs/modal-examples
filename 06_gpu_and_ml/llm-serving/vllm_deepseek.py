@@ -30,7 +30,19 @@ vllm_image = (
     .apt_install("git")
     .pip_install("uv")
     .run_commands(
-        "uv pip install --system --compile-bytecode vllm==0.9.1 huggingface_hub[hf_transfer]==0.32.0 flashinfer-python==0.2.6.post1 --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu128"
+        "git clone -b feat/sharded-state-v1 --single-branch https://github.com/aarnphm/vllm.git",  # https://github.com/vllm-project/vllm/pull/19971
+        "cd vllm && VLLM_USE_PRECOMPILED=1 uv pip install --system --compile-bytecode --editable .",  # https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html#build-wheel-from-source
+    )
+    .run_commands(
+        "uv pip install --system --compile-bytecode huggingface_hub[hf_transfer]==0.32.0 flashinfer-python==0.2.6.post1 --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu128"
+    )
+    .run_commands(
+        "uv pip install --system --compile-bytecode torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
+    )
+    .env(
+        {
+            "VLLM_LOGGING_LEVEL": "DEBUG",
+        }
     )
 )
 
@@ -47,7 +59,7 @@ vllm_image = (
 # A small number of features, described in the RFC above, may still require the V0 engine prior to removal.
 # Until deprecation, you can use it by setting the below environment variable to `0`.
 
-vllm_image = vllm_image.env({"VLLM_USE_V1": "0"})
+vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 
 # ### Trading off fast boots and token generation performance
 
@@ -186,7 +198,7 @@ vllm_image = (
         }
     )
     .run_function(download_model, volumes=volumes, timeout=40 * MINUTES)
-    .run_function(shard_model, volumes=volumes, timeout=20 * MINUTES, gpu=GPU_CONFIG)
+    .run_function(shard_model, volumes=volumes, timeout=60 * MINUTES, gpu=GPU_CONFIG)
 )
 
 # On the first container start, we mount the Volume, download the model, and build the engine,
@@ -217,11 +229,11 @@ VLLM_PORT = 8000
     image=vllm_image,
     gpu=GPU_CONFIG,
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
-    timeout=10 * MINUTES,  # how long should we wait for container start?
+    timeout=40 * MINUTES,  # how long should we wait for container start?
     volumes=volumes,
 )
 @modal.concurrent(max_inputs=MAX_BATCH_SIZE)
-@modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
+@modal.web_server(port=VLLM_PORT, startup_timeout=40 * MINUTES)
 def serve():
     import subprocess
 
@@ -241,6 +253,8 @@ def serve():
         str(VLLM_PORT),
         "--load-format",
         "sharded_state",
+        "--model-loader-extra-config",
+        '{"strict": false}',
     ]
 
     # enforce-eager disables both Torch compilation and CUDA graph capture
@@ -308,7 +322,7 @@ def serve():
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES):
+async def test(test_timeout=40 * MINUTES):
     url = serve.get_web_url()
 
     system_prompt = {
