@@ -14,7 +14,7 @@
 # our jobs are still safe, for now.
 
 # <center>
-# <a href="https://gist.github.com/charlesfrye/a3788c61019c32cb7947f4f5b1c04818"> <video controls autoplay loop muted> <source src="https://modal-cdn.com/example-flap-py.mp4" type="video/mp4"> </video> </a>
+# <a href="https://gist.github.com/charlesfrye/a3788c61019c32cb7947f4f5b1c04818" aria-label="View the generated code"> <video controls autoplay loop muted aria-hidden="true"> <source src="https://modal-cdn.com/example-flap-py.mp4" type="video/mp4"> </video> </a>
 # </center>
 
 from pathlib import Path
