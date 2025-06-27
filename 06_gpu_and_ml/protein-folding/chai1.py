@@ -19,7 +19,7 @@
 # To experience the full power of Modal, try scaling inference up and running on hundreds or thousands of structures!
 
 # <center>
-# <a href="https://molstar.org/viewer" aria-label="Open the Mol* viewer"> <video controls autoplay loop muted aria-hidden="true"> <source src="https://modal-cdn.com/example-chai1-folding.mp4" type="video/mp4"> </video> </a>
+# <a href="https://molstar.org/viewer" aria-label="Open the Mol* viewer"> <video controls autoplay loop muted> <source src="https://modal-cdn.com/example-chai1-folding.mp4" type="video/mp4"> </video> </a>
 # </center>
 
 # ## Setup
