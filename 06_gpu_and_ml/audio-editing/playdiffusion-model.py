@@ -58,7 +58,8 @@ with image.imports():
 
 # The service is implemented using Modal's class syntax with GPU acceleration.
 # We configure the class to use an A10G GPU with additional parameters:
-# #
+
+
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per containerå
 @app.cls(gpu="a10g", scaledown_window=60 * 5)
