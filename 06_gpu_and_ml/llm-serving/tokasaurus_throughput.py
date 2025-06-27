@@ -2,14 +2,15 @@
 # deploy: true
 # ---
 
-# # Serverless Tokasaurus (LLama-3.2-1B-Instruct)
+# # High-throughput LLM Inference with Tokasaurus (LLama-3.2-1B-Instruct)
 
 # In this example, we demonstrate how to use the Tokasaurus framework to serve Llama-3.2-1B-Instruct model
-# at high throughput, benchmarked by [reproducing an experiment](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py)
+# at high throughput, benchmarked by [running a workload](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py)
 # from Large Language Monkeys, where 128 problems from the GSM8K math dataset with 1024 answers to every problem are generated.
-# We reproduce the authors' results, where peak throughput is roughly ~80k tokens/second.
-# However, using Modal's [autoscaling infrastructure](https://modal.com/docs/guide/scale),
-# and staying within the starter plan limit, we achieve a total throughput of ~370k tokens/second.
+# We reproduce the authors' results showing peak throughput for a single GPU of roughly ~80k tokens/second.
+# Thanks to Modal's [autoscaling infrastructure](https://modal.com/docs/guide/scale),
+# however, we can scale beyond one replica to as many GPUs as you want,
+# increasing the total throughput without any additional effort.
 
 # ## Overview
 
@@ -422,24 +423,27 @@ async def test(
                 output_ct_unordered[i] for i in range(len(output_ct_unordered))
             ]
 
+            total_input_tokens = sum(input_ct_ordered)
+            total_output_tokens = sum(output_ct_ordered)
+            total_elapsed_time = sum(result["elapsed"] for result in lst_results)
+
             throughputs = [
                 out_ct / result["elapsed"]
                 for out_ct, result in zip(output_ct_ordered, lst_results)
             ]
+            avg_input_tokens = total_input_tokens / len(input_ct_ordered)
+            avg_output_tokens = total_output_tokens / len(output_ct_ordered)
+            avg_throughput = sum(throughputs) / len(throughputs)
 
-            print(
-                f"Average input tokens/container: {sum(input_ct_ordered) / len(input_ct_ordered)}"
-            )
-            print(
-                f"Average output tokens/container: {sum(output_ct_ordered) / len(output_ct_ordered)}"
-            )
-            print(
-                f"Average throughput/container: {sum(throughputs) / len(throughputs):.2f} tokens/second"
-            )
+            print(f"Average input tokens/container: {avg_input_tokens:.2f}")
+            print(f"Average output tokens/container: {avg_output_tokens:.2f}")
+            print(f"Average throughput/container: {avg_throughput:.2f} tokens/second")
 
-            print(f"Total input tokens: {sum(input_ct_ordered)}")
-            print(f"Total output tokens: {sum(output_ct_ordered)}")
-            print(f"Total throughput: {sum(throughputs):.2f} tokens/second")
+            total_throughput = total_output_tokens / total_elapsed_time
+
+            print(f"Total input tokens: {total_input_tokens}")
+            print(f"Total output tokens: {total_output_tokens}")
+            print(f"Total throughput: {total_throughput:.2f} tokens/second")
 
 
 # We also include a basic example of a load-testing setup using
