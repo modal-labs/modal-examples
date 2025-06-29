@@ -94,6 +94,12 @@ vlm_image = (
         # as per sglang website: https://sgl-project.github.io/start/install.html
         extra_options="--find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
     )
+    .env(
+        {
+            "HF_HOME": str(MODEL_VOL_PATH),
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+        }
+    )
     .run_function(  # download the model by running a Python function
         download_model, volumes=volumes
     )
@@ -132,8 +138,8 @@ class Model:
         import sglang as sgl
 
         self.runtime = sgl.Runtime(
-            model_path=MODEL_VOL_PATH / MODEL_PATH,
-            tokenizer_path=MODEL_VOL_PATH / TOKENIZER_PATH,
+            model_path=MODEL_PATH,
+            tokenizer_path=TOKENIZER_PATH,
             tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
             log_level=SGL_LOG_LEVEL,
         )
