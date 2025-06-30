@@ -9,8 +9,12 @@ import modal
 from .common import app
 from .stt import STT  # noqa: F401, to make modal deploy also deploy STT
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "python-fasthtml==0.12.20"
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install("uv")
+    .run_commands(
+        "uv pip install --system --compile-bytecode python-fasthtml==0.12.20",
+    )
 )
 
 
@@ -293,7 +297,6 @@ def web():
                             ),
                             cls="w-5/6 overflow-y-auto max-h-64",
                         ),
-                        # Audio control area
                         fh.Div(
                             fh.Div(
                                 id="audio-control",
