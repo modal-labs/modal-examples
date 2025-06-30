@@ -7,6 +7,7 @@
 
 
 import time
+from datetime import datetime
 
 import modal
 
@@ -45,7 +46,7 @@ def health_check_sandbox(daemon_url):
     raise requests.RequestException("Health check failed")
 
 
-@app.function(image=server_image)
+@app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue():
     # This is done so we don't create sandboxes in the ephemeral app
@@ -71,7 +72,7 @@ def add_sandbox_to_queue():
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
 def get_sandbox() -> str:
-    while res := pool_queue.get(block=True):
+    while res := pool_queue.get(timeout=None):
         sb_id, url, expiration_time = res
 
         # backfill + ensures the queue will have at least one sandbox
@@ -95,20 +96,22 @@ def resize_pool(target: int = DEFAULT_POOL_SIZE):
 
     current_size = pool_queue.len()
     diff = target - current_size
+    actual_diff = 0
 
     if diff > 0:
         for _ in add_sandbox_to_queue.starmap(() for _ in range(diff)):
+            actual_diff += 1
             pass
     elif diff < 0:
-        for _ in range(-diff):
-            if res := pool_queue.get(block=False):
-                sb_id, _, _ = res
-                sb = modal.Sandbox.from_id(sb_id)
-                sb.terminate()
-            else:
-                break
+        for res in pool_queue.get_many(n_values=-diff, timeout=0):
+            sb_id, _, _ = res
+            sb = modal.Sandbox.from_id(sb_id)
+            sb.terminate()
+            actual_diff -= 1
 
-    print(f"Changed pool size by {diff:+d}, now at {pool_queue.len()} sandboxes.")
+    print(
+        f"Changed pool size by {actual_diff:+d}, now at {pool_queue.len()} sandboxes."
+    )
 
 
 @app.local_entrypoint()
@@ -118,6 +121,7 @@ def check_pool(verbose: bool = False):
         for sb_id, url, expiration_time in pool_queue.iterate():
             seconds_left = expiration_time - time.time()
             print(
-                f"Sandbox '{sb_id}' is at {url} and expires at {expiration_time} "
-                f"({seconds_left} seconds left)"
+                f"Sandbox '{sb_id}' is at {url} and expires at "
+                f"{datetime.fromtimestamp(expiration_time).isoformat()} "
+                f"({int(seconds_left)} seconds left)"
             )
