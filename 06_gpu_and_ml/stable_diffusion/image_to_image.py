@@ -20,7 +20,7 @@
 # <style>
 # @media (min-width: 768px) {
 #  #image-pair {
-#    flex-direction: row !important;
+#    flex-direction: row;
 #  }
 # }
 # </style>
