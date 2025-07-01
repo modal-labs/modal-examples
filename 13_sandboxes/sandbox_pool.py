@@ -220,6 +220,8 @@ def demo():
         result = response.read().decode("utf-8")
         print(f"Sandbox server response:\n{result}")
 
+    time.sleep(5)  # wait for replacement sandbox to be created
+
     print("\nDraining the pool back to zero...")
     resize_pool(0)
 
