@@ -56,7 +56,7 @@ class STT:
     def enter(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        checkpoint_info = loaders.CheckpointInfo.from_hf_repo("kyutai/stt-1b-en_fr")
+        checkpoint_info = loaders.CheckpointInfo.from_hf_repo(MODEL_NAME)
         self.mimi = checkpoint_info.get_mimi(device=self.device)
         self.frame_size = int(self.mimi.sample_rate / self.mimi.frame_rate)
 
@@ -175,9 +175,9 @@ class STT:
                                 if text_token not in (0, 3):
                                     text = self.text_tokenizer.id_to_piece(text_token)
                                     text = text.replace("▁", " ")
-                                    msg = b"\x02" + bytes(
+                                    msg = b"\x00" + bytes(
                                         text, encoding="utf8"
-                                    )  # prepend "\x02" as a tag to indicate text
+                                    )  # prepend "\x00" as a tag to indicate text
                                     await ws.send_bytes(msg)
 
                 # run all loops concurrently
