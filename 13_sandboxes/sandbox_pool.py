@@ -59,7 +59,7 @@ server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "fastapi[standard]~=0.115.14",
     "requests~=2.32.4",
 )
-sandbox_image = modal.Image.debian_slim()
+sandbox_image = modal.Image.debian_slim(python_version="3.11")
 
 
 SERVER_PORT = 8080
