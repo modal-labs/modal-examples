@@ -2,12 +2,12 @@
 # output-directory: "/tmp/stable-diffusion"
 # ---
 
-# # Transform images with Flux Kontext
+# # Edit images with Flux Kontext
 
 # In this example, we run the Flux Kontext model in _image-to-image_ mode:
-# the model takes in a prompt and an image and transforms the image to better match the prompt.
+# the model takes in a prompt and an image and edits the image to better match the prompt.
 
-# For example, the model transformed the first image into the second based on the prompt
+# For example, the model edited the first image into the second based on the prompt
 # "_A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style_".
 
 #  <img src="https://modal-cdn.com/dog-wizard-ghibli-flux-kontext.jpg" alt="A photo of a dog transformed into a cartoon of a cute dog wizard" />
@@ -28,22 +28,20 @@ import modal
 diffusers_commit_sha = "00f95b9755718aabb65456e791b8408526ae6e76"
 
 image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.from_registry(
+        "nvidia/cuda:12.8.1-devel-ubuntu22.04",
+        add_python="3.12",  # TRT-LLM requires Python 3.12
+    )
+    .entrypoint([])  # remove verbose logging by base image on entry
     .apt_install("git")
-    .pip_install(
-        "accelerate~=1.8.1",  # Allows `device_map="balanced"``, for computation of optimized device_map
-        f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",  # Provides model libraries
-        "huggingface-hub[hf-transfer]~=0.33.1",  # Lets us download models from Hugging Face's Hub
-        "Pillow~=11.2.1",  # Image manipulation in Python
-        "safetensors~=0.5.3",  # Enables safetensor format as opposed to using unsafe pickle format
-        "transformers~=4.53.0",
-        "sentencepiece~=0.2.0",
-        "torch==2.7.1",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
+    .pip_install("uv")
+    .run_commands(
+        f"uv pip install --system --compile-bytecode --index-strategy unsafe-best-match accelerate~=1.8.1 git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha} huggingface-hub[hf-transfer]~=0.33.1 Pillow~=11.2.1 safetensors~=0.5.3 transformers~=4.53.0 sentencepiece~=0.2.0 torch==2.7.1 optimum-quanto==0.2.7 --extra-index-url https://download.pytorch.org/whl/cu128"
     )
 )
 
 MODEL_NAME = "black-forest-labs/FLUX.1-Kontext-dev"
+MODEL_REVISION = "f9fdd1a95e0dfd7653cb0966cda2486745122695"
 
 CACHE_DIR = Path("/cache")
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
@@ -64,9 +62,11 @@ app = modal.App("image-to-image")
 
 with image.imports():
     import torch
-    from diffusers import FluxKontextPipeline
+    from diffusers import FluxKontextPipeline, FluxTransformer2DModel
     from diffusers.utils import load_image
+    from optimum.quanto import freeze, qfloat8, quantize
     from PIL import Image
+    from transformers import T5EncoderModel
 
 
 # ## Setting up and running Flux Kontext
@@ -90,17 +90,49 @@ class Model:
     @modal.enter()
     def enter(self):
         print(f"Downloading {MODEL_NAME} if necessary...")
+
+        dtype = torch.bfloat16
+
+        self.seed = 42
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {self.device}")
+
+        transformer = FluxTransformer2DModel.from_single_file(
+            "https://huggingface.co/Comfy-Org/flux1-kontext-dev_ComfyUI/blob/main/split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
+            torch_dtype=dtype,
+            cache_dir=CACHE_DIR,
+        )
+        quantize(transformer, weights=qfloat8)
+        freeze(transformer)
+
+        text_encoder_2 = T5EncoderModel.from_pretrained(
+            MODEL_NAME,
+            revision=MODEL_REVISION,
+            subfolder="text_encoder_2",
+            torch_dtype=dtype,
+            cache_dir=CACHE_DIR,
+        )
+        quantize(text_encoder_2, weights=qfloat8)
+        freeze(text_encoder_2)
+
         self.pipe = FluxKontextPipeline.from_pretrained(
             MODEL_NAME,
-            revision="f9fdd1a95e0dfd7653cb0966cda2486745122695",
-            torch_dtype=torch.bfloat16,
-            device_map="balanced",
+            revision=MODEL_REVISION,
+            transformer=transformer,
+            text_encoder_2=text_encoder_2,
+            torch_dtype=dtype,
             cache_dir=CACHE_DIR,
         )
 
+        self.pipe.enable_model_cpu_offload()
+
     @modal.method()
     def inference(
-        self, image_bytes: bytes, prompt: str, guidance_scale: float = 2.5
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        guidance_scale: float = 3.5,
+        num_inference_steps: int = 20,
     ) -> bytes:
         init_image = load_image(Image.open(BytesIO(image_bytes))).resize((512, 512))
 
@@ -108,7 +140,9 @@ class Model:
             image=init_image,
             prompt=prompt,
             guidance_scale=guidance_scale,
-            generator=torch.Generator().manual_seed(42),
+            num_inference_steps=num_inference_steps,
+            output_type="pil",
+            generator=torch.Generator(device=self.device).manual_seed(self.seed),
         ).images[0]
 
         byte_stream = BytesIO()
