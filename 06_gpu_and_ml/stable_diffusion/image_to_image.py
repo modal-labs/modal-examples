@@ -94,8 +94,7 @@ class Model:
         dtype = torch.bfloat16
 
         self.seed = 42
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"Using device: {self.device}")
+        self.device = "cuda"
 
         transformer = FluxTransformer2DModel.from_single_file(
             "https://huggingface.co/Comfy-Org/flux1-kontext-dev_ComfyUI/blob/main/split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
@@ -118,13 +117,12 @@ class Model:
         self.pipe = FluxKontextPipeline.from_pretrained(
             MODEL_NAME,
             revision=MODEL_REVISION,
-            transformer=transformer,
-            text_encoder_2=text_encoder_2,
+            transformer=transformer.to(self.device),
+            text_encoder_2=text_encoder_2.to(self.device),
             torch_dtype=dtype,
             cache_dir=CACHE_DIR,
+            device_map="balanced",
         )
-
-        self.pipe.enable_model_cpu_offload()
 
     @modal.method()
     def inference(
