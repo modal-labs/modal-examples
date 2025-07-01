@@ -41,12 +41,6 @@ def web():
 
     fast_app, rt = fh.fast_app(
         hdrs=[
-            # React dependencies
-            fh.Script(src="https://unpkg.com/react@18/umd/react.development.js"),
-            fh.Script(
-                src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
-            ),
-            fh.Script(src="https://unpkg.com/@babel/standalone/babel.min.js"),
             # Audio recording libraries
             fh.Script(
                 src="https://cdn.jsdelivr.net/npm/opus-recorder@latest/dist/recorder.min.js"
@@ -82,7 +76,11 @@ def web():
 
     app_js = dedent(
         """
-        const { useRef, useEffect, useState } = React;
+        let recorder = null;
+        let socket = null;
+        let warmupComplete = false;
+        let completedSentences = [];
+        let pendingSentence = '';
 
         const getBaseURL = () => {
             const currentURL = new URL(window.location.href);
@@ -92,78 +90,74 @@ def web():
             return `${wsProtocol}//${hostname}/ws`;
         }
 
-        const App = () => {
-            // Mic Input
-            const [recorder, setRecorder] = useState(null);
-            const [amplitude, setAmplitude] = useState(0);
+        const updateTextOutput = () => {
+            const container = document.getElementById('text-output');
+            if (!container) return;
 
-            // WebSocket
-            const socketRef = useRef(null);
+            const allSentences = [...completedSentences];
+            if (pendingSentence) {
+                allSentences.push(pendingSentence);
+            }
 
-            // UI State
-            const [warmupComplete, setWarmupComplete] = useState(false);
-            const [completedSentences, setCompletedSentences] = useState([]);
-            const [pendingSentence, setPendingSentence] = useState('');
+            if (warmupComplete) {
+                container.innerHTML = allSentences.map(sentence =>
+                    `<p class="text-gray-300 my-2">${sentence}</p>`
+                ).reverse().join('');
+            } else {
+                container.innerHTML = '<p class="text-gray-400 animate-pulse">Warming up model...</p>';
+            }
 
-            // Mic Input: start the Opus recorder
-            const startRecording = async () => {
-                // prompts user for permission to use microphone
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            container.scrollTop = container.scrollHeight;
+        };
 
-                const recorder = new Recorder({
-                    encoderPath: "https://cdn.jsdelivr.net/npm/opus-recorder@latest/dist/encoderWorker.min.js",
-                    streamPages: true,
-                    encoderApplication: 2049,
-                    encoderFrameSize: 80,  // milliseconds, equal to 1920 samples at 24000 Hz
-                    encoderSampleRate: 24000,  // 24000 to match model's sample rate
-                    maxFramesPerPage: 1,
-                    numberOfChannels: 1,
-                });
+        const startRecording = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-                recorder.ondataavailable = async (arrayBuffer) => {
-                    if (socketRef.current) {
-                        if (socketRef.current.readyState !== WebSocket.OPEN) {
-                            console.log("Socket not open, dropping audio");
-                            return;
-                        }
-                        await socketRef.current.send(arrayBuffer);
-                    }
-                };
+            recorder = new Recorder({
+                encoderPath: "https://cdn.jsdelivr.net/npm/opus-recorder@latest/dist/encoderWorker.min.js",
+                streamPages: true,
+                encoderApplication: 2049,
+                encoderFrameSize: 80,
+                encoderSampleRate: 24000,
+                maxFramesPerPage: 1,
+                numberOfChannels: 1,
+            });
 
-                recorder.start().then(() => {
-                    console.log("Recording started");
-                    setRecorder(recorder);
-                });
-
-                // create a MediaRecorder object for capturing PCM (calculating amplitude)
-                const analyzerContext = new (window.AudioContext || window.webkitAudioContext)();
-                const analyzer = analyzerContext.createAnalyser();
-                analyzer.fftSize = 256;
-                const sourceNode = analyzerContext.createMediaStreamSource(stream);
-                sourceNode.connect(analyzer);
-
-                // Use a separate audio processing function instead of MediaRecorder
-                const processAudio = () => {
-                    const dataArray = new Uint8Array(analyzer.frequencyBinCount);
-                    analyzer.getByteFrequencyData(dataArray);
-                    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-                    setAmplitude(average);
-                    requestAnimationFrame(processAudio);
-                };
-                processAudio();
+            recorder.ondataavailable = async (arrayBuffer) => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    await socket.send(arrayBuffer);
+                }
             };
 
-        // WebSocket: open websocket connection and start recording
-        useEffect(() => {
+            recorder.start().then(() => {
+                console.log("Recording started");
+                recorder.setRecordingGain(1);
+            });
+
+            const analyzerContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyzer = analyzerContext.createAnalyser();
+            analyzer.fftSize = 256;
+            const sourceNode = analyzerContext.createMediaStreamSource(stream);
+            sourceNode.connect(analyzer);
+
+            const processAudio = () => {
+                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                analyzer.getByteFrequencyData(dataArray);
+                requestAnimationFrame(processAudio);
+            };
+            processAudio();
+        };
+
+        const initApp = () => {
             const endpoint = getBaseURL();
             console.log("Connecting to", endpoint);
-            const socket = new WebSocket(endpoint);
-            socketRef.current = socket;
+            socket = new WebSocket(endpoint);
 
             socket.onopen = () => {
                 console.log("WebSocket connection opened");
                 startRecording();
-                setWarmupComplete(true);
+                warmupComplete = true;
+                updateTextOutput();
             };
 
             socket.onmessage = async (event) => {
@@ -172,109 +166,32 @@ def web():
                 const view = new Uint8Array(arrayBuffer);
                 const tag = view[0];
                 const payload = arrayBuffer.slice(1);
-                if (tag === 2) {
+                if (tag === 0) {
                     // text data
                     const decoder = new TextDecoder();
                     const text = decoder.decode(payload);
-
-                    setPendingSentence(prevPending => {
-                        const updatedPending = prevPending + text;
-                        if (updatedPending.endsWith('.') || updatedPending.endsWith('!') || updatedPending.endsWith('?')) {
-                            setCompletedSentences(prevCompleted => [...prevCompleted, updatedPending]);
-                            return '';
-                        }
-                        return updatedPending;
-                    });
+                    pendingSentence += text;
                 }
+
+                if (pendingSentence.endsWith('.') || pendingSentence.endsWith('!') || pendingSentence.endsWith('?')) {
+                    completedSentences.push(pendingSentence);
+                    pendingSentence = '';
+                }
+
+                updateTextOutput();
             };
 
             socket.onclose = () => {
                 console.log("WebSocket connection closed");
             };
 
-            return () => {
-                socket.close();
-            };
-        }, []);
-
-        return React.createElement(React.Fragment, null,
-            React.createElement(AudioControl, { recorder, amplitude }),
-            React.createElement(TextOutput, { warmupComplete, completedSentences, pendingSentence })
-        );
-        }
-
-        const AudioControl = ({ recorder, amplitude }) => {
-            const [muted, setMuted] = useState(true);
-
-            const toggleMute = () => {
-                if (!recorder) return;
-                setMuted(!muted);
-                recorder.setRecordingGain(muted ? 1 : 0);
-            };
-
-            // unmute automatically once the recorder is ready
-            useEffect(() => {
-                if (recorder) {
-                setMuted(false);
-                recorder.setRecordingGain(1);
-                }
-            }, [recorder]);
-
-            const amplitudePercent = amplitude / 255;
-            const maxAmplitude = 0.3; // for scaling
-            const minDiameter = 30; // minimum diameter of the circle in pixels
-            const maxDiameter = 200; // increased maximum diameter to ensure overflow
-
-            var diameter = minDiameter + (maxDiameter - minDiameter) * (amplitudePercent / maxAmplitude);
-            if (muted) diameter = 20;
-
-            const audioEl = document.getElementById('audio-control');
-            if (audioEl) {
-                audioEl.innerHTML = `
-                <div class="w-full h-6 rounded-sm relative overflow-hidden">
-                    <div class="absolute inset-0 flex items-center justify-center">
-                    <div
-                        class="rounded-full transition-all duration-100 ease-out hover:cursor-pointer ${muted ? 'bg-gray-200 hover:bg-red-300' : 'bg-red-500 hover:bg-red-300'}"
-                        onclick="window.toggleMute && window.toggleMute()"
-                        style="width: ${diameter}px; height: ${diameter}px;"
-                    ></div>
-                    </div>
-                </div>
-                `;
-            }
-
-            window.toggleMute = toggleMute;
-
-            return null;
+            updateTextOutput();
         };
 
-        const TextOutput = ({ warmupComplete, completedSentences, pendingSentence }) => {
-            const containerRef = useRef(null);
-            const allSentences = [...completedSentences, pendingSentence];
-            if (pendingSentence.length === 0 && allSentences.length > 1) {
-                allSentences.pop();
-            }
-
-        useEffect(() => {
-            const container = document.getElementById('text-output');
-            if (container) {
-                if (warmupComplete) {
-                    container.innerHTML = allSentences.map((sentence, index) =>
-                    `<p class="text-gray-300 my-2">${sentence}</p>`
-                    ).reverse().join('');
-                } else {
-                    container.innerHTML = '<p class="text-gray-400 animate-pulse">Warming up model...</p>';
-                }
-                container.scrollTop = container.scrollHeight;
-            }
-        }, [completedSentences, pendingSentence, warmupComplete]);
-
-        return null;
-        };
-
-        const container = document.getElementById("react-app");
-        if (container) {
-            ReactDOM.createRoot(container).render(React.createElement(App));
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
         }
         """
     )
@@ -286,27 +203,15 @@ def web():
                 "Kyutai STT",
             ),
             fh.Body(
-                # Main container
                 fh.Div(
-                    # Card container
                     fh.Div(
                         fh.Div(
-                            fh.Div(
-                                id="text-output",
-                                cls="flex flex-col-reverse overflow-y-auto max-h-64 pr-2",
-                            ),
-                            cls="w-5/6 overflow-y-auto max-h-64",
+                            id="text-output",
+                            cls="flex flex-col-reverse overflow-y-auto max-h-64 pr-2",
                         ),
-                        fh.Div(
-                            fh.Div(
-                                id="audio-control",
-                                cls="w-full h-full flex items-center",
-                            ),
-                            cls="w-1/6 ml-4 pl-4",
-                        ),
-                        cls="flex",
+                        cls="w-full overflow-y-auto max-h-64",
                     ),
-                    cls="bg-gray-800 rounded-lg shadow-lg w-full max-w-xl p-6 mb-8",
+                    cls="bg-gray-800 rounded-lg shadow-lg w-full max-w-xl p-6",
                 ),
                 fh.Footer(
                     fh.Span(
@@ -327,15 +232,14 @@ def web():
                             alt="Modal logo",
                             cls="w-24",
                         ),
-                        cls="flex items-center px-3 py-2 rounded-lg bg-gray-800 shadow-lg hover:bg-gray-700 transition-colors duration-200",
+                        cls="flex items-center p-2 rounded-lg bg-gray-800 shadow-lg hover:bg-gray-700 transition-colors duration-200",
                         href="https://modal.com",
                         target="_blank",
                         rel="noopener noreferrer",
                     ),
                     cls="fixed bottom-4 inline-flex items-center justify-center",
                 ),
-                fh.Div(id="react-app"),
-                fh.Script(app_js, type="text/babel"),
+                fh.Script(app_js),
                 cls="relative bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4",
             ),
         )
