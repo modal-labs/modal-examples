@@ -127,11 +127,11 @@ def add_sandbox_to_queue():
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
 def get_sandbox() -> str:
-    while res := pool_queue.get(timeout=None):
-        sb_id, url, expiration_time = res
-
+    while True:
         # backfill + ensures the queue will have at least one sandbox
         add_sandbox_to_queue.spawn()
+
+        sb_id, url, expiration_time = pool_queue.get(timeout=None)
 
         if expiration_time < time.time() + SANDBOX_USE_DURATION_SECONDS:
             print(f"Sandbox {sb_id} does not have enough time left - removing it")
@@ -140,8 +140,6 @@ def get_sandbox() -> str:
             continue
 
         return url
-
-    raise RuntimeError("No sandbox with enough time left")
 
 
 # ## Resizing the pool
