@@ -4,6 +4,46 @@
 # ---
 
 # # Build a pool of warm sandboxes that are healthy and ready to serve requests
+#
+# This example demonstrates how to build a pool of "warm"
+# [Modal sandboxes](https://modal.com/docs/guide/sandbox), and deploy a
+# [Modal web endpoint](https://modal.com/docs/guide/webhook-urls) that let's you claim
+# a sandbox from the pool, getting a URL to the server running in the sandbox.
+#
+# Maintaining a pool of warm sandboxes is useful for example if your sandboxes need
+# to do significant work after being created, like downloading code, installing
+# dependencies, or running tests, before they are ready to serve requests.
+#
+# It uses a [Modal Queue](https://modal.com/docs/guide/dicts-and-queues#modal-queues)
+# to store references to the warm sandboxes, and functionality to maintain the pool
+# by adding and removing sandboxes, checking the current size, etc.
+#
+# The pool keeps track of the time to live for each sandbox, and will always return
+# a sandbox with at least 5 minutes left.
+#
+# ## Setting things up
+#
+# Start by deploying the Modal app:
+#
+# ```bash
+# modal deploy 13_sandboxes/sandbox_pool.py
+# ```
+#
+# This deploys the app with an empty pool. To fill the pool with 3 sandboxes, run
+#
+# ```bash
+# modal run 13_sandboxes/sandbox_pool.py::resize_pool --target 3
+# ```
+#
+# You can check the current size of the pool by running:
+#
+# ```bash
+# modal run 13_sandboxes/sandbox_pool.py::check_pool --verbose
+# ```
+#
+# ## Claiming a sandbox form the pool
+#
+# You can claim a sandbox by sending a GET request to the web endpoint URL.
 
 
 import time
@@ -24,11 +64,14 @@ sandbox_image = modal.Image.debian_slim()
 
 SERVER_PORT = 8080
 HEALTH_CHECK_TIMEOUT_SECONDS = 10
-SANDBOX_TIMEOUT_SECONDS = 60 * 60
-SANDBOX_USE_DURATION_SECONDS = 5 * 60
-DEFAULT_POOL_SIZE = 2
+SANDBOX_TIMEOUT_SECONDS = 5 * 60
+SANDBOX_USE_DURATION_SECONDS = 2 * 60
 
 
+# ## Health check
+#
+# In this example, we run a very simple health check that just ensures that the
+# server is running and responding to requests.
 def health_check_sandbox(daemon_url):
     import requests
 
@@ -46,6 +89,12 @@ def health_check_sandbox(daemon_url):
     raise requests.RequestException("Health check failed")
 
 
+# ## Adding a sandbox to the pool
+#
+# This function is called by the `resize_pool` function to add a sandbox to the pool,
+# and also by the `get_sandbox` function to replace the sandbox that was claimed.
+#
+# It creates a new sandbox, runs the health check, and adds the sandbox to the pool.
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue():
@@ -68,6 +117,12 @@ def add_sandbox_to_queue():
     pool_queue.put((sb.object_id, url, expiration_time))
 
 
+# ## Getting a sandbox from the pool
+#
+# This is deployed as a web endpoint to claim a sandbox from the pool.
+#
+# It checks the pool for a sandbox that has enough time left, and returns the URL
+# to the server running in the sandbox.
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
@@ -89,8 +144,14 @@ def get_sandbox() -> str:
     raise RuntimeError("No sandbox with enough time left")
 
 
+# ## Resizing the pool
+#
+# This function grows or shrinks the pool to the desired size.
+#
+# It can be called programmatically, or manually by running e.g.
+# `modal run 13_sandboxes/sandbox_pool.py::resize_pool --target 3`
 @app.local_entrypoint()
-def resize_pool(target: int = DEFAULT_POOL_SIZE):
+def resize_pool(target: int = 2):
     if target < 0:
         raise ValueError("Target pool size must be non-negative")
 
@@ -114,6 +175,12 @@ def resize_pool(target: int = DEFAULT_POOL_SIZE):
     )
 
 
+# ## Checking the pool
+#
+# This function prints the current state of the pool.
+#
+# It can be called manually by running e.g.
+# `modal run 13_sandboxes/sandbox_pool.py::check_pool --verbose`
 @app.local_entrypoint()
 def check_pool(verbose: bool = False):
     print(f"Number of sandboxes in the pool: {pool_queue.len()}")
@@ -125,3 +192,40 @@ def check_pool(verbose: bool = False):
                 f"{datetime.fromtimestamp(expiration_time).isoformat()} "
                 f"({int(seconds_left)} seconds left)"
             )
+
+
+def demo():
+    import urllib.parse
+    import urllib.request
+
+    app.deploy()
+
+    print("\nSetting pool size to 3...")
+    resize_pool(3)
+
+    print("\nCurrent pool state:")
+    check_pool(verbose=True)
+
+    web_endpoint = modal.Function.from_name("sandbox-pool", "get_sandbox")
+    web_endpoint_url = web_endpoint.get_web_url()
+    print(f"\nWeb endpoint URL: {web_endpoint_url}")
+
+    print("\nClaiming a sandbox by sending a GET request to the web endpoint...")
+    with urllib.request.urlopen(web_endpoint_url) as response:
+        sandbox_server_url = response.read().decode("utf-8").strip(' "')
+        print(f"URL to sandbox server: {sandbox_server_url}")
+
+    print("\nCall the server in the sandbox...")
+    with urllib.request.urlopen(sandbox_server_url) as response:
+        result = response.read().decode("utf-8")
+        print(f"Sandbox server response:\n{result}")
+
+    print("\nDraining the pool back to zero...")
+    resize_pool(0)
+
+    print("\nDouble-checking that the pool is empty:")
+    check_pool(verbose=True)
+
+
+if __name__ == "__main__":
+    demo()
