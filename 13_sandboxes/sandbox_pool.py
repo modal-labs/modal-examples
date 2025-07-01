@@ -56,8 +56,8 @@ app = modal.App("sandbox-pool")
 pool_queue = modal.Queue.from_name("sandbox-pool-buffer", create_if_missing=True)
 
 server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi[standard]",
-    "requests",
+    "fastapi[standard]~=0.115.14",
+    "requests~=2.32.4",
 )
 sandbox_image = modal.Image.debian_slim()
 
