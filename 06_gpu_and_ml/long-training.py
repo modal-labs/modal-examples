@@ -143,8 +143,11 @@ def main(experiment: Optional[str] = None):
 
         experiment = uuid4().hex[:8]
     print(f"⚡️ starting interruptible training experiment {experiment}")
-    train_interruptible.remote(experiment)
+    train_interruptible.spawn(experiment).get()
 
+
+# It's important to use `.spawn(...).get()` because `.remote` created Function Calls
+# expire after 24 hours.
 
 # You can run this with
 # ```bash
