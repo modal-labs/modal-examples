@@ -86,8 +86,8 @@ tensorrt_image = modal.Image.from_registry(
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).pip_install(
-    "tensorrt-llm==0.18.0",
-    "pynvml<12",  # avoid breaking change to pynvml version API
+    "tensorrt-llm==0.20.0",
+    "pynvml>=12.0.0",  # avoid breaking change to pynvml version API
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
