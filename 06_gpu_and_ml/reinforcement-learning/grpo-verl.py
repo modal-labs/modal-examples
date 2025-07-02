@@ -32,18 +32,15 @@ image = (
         "whatcanyousee/verl:ngc-cu124-vllm0.8.5-sglang0.4.6.post5-mcore0.12.1-te2.3-deepseekv3"
     )
     .apt_install("git")
-    .run_commands(
-        [
-            f"git clone https://github.com/volcengine/verl {VERL_REPO_PATH} && cd {VERL_REPO_PATH} && pip install -e .[vllm]"
-        ]
-    )
+    .run_commands([f"git clone https://github.com/volcengine/verl {VERL_REPO_PATH}"])
+    .pip_install("verl[vllm]==0.4.1")
 )
 
 # ## Defining the dataset
 
-# In this example, we'll use reinforcement learning to train a model to solve math problems
-# We use the [GSM8K](https://huggingface.co/datasets/openai/gsm8k) dataset of math problems
-# We use a modal volume to store the data
+# In this example, we'll use reinforcement learning to train a model to solve math problems.
+# We use the [GSM8K](https://huggingface.co/datasets/openai/gsm8k) dataset of math problems.
+# We use a [modal volume](https://modal.com/docs/reference/cli/volume#modal-volume) to store the data
 
 DATA_PATH: str = "/data"
 data_volume = modal.Volume.from_name("grpo-verl-example-data", create_if_missing=True)
@@ -127,7 +124,7 @@ def compute_reward(
 PATH_TO_REWARD_FUNCTION: str = "/root/reward.py"
 REWARD_FUNCTION_NAME: str = "compute_reward"
 
-image = image.add_local_file("reward.py", PATH_TO_REWARD_FUNCTION)
+image = image.add_local_file("./reward.py", PATH_TO_REWARD_FUNCTION)
 
 
 # ## Kicking off a training run
