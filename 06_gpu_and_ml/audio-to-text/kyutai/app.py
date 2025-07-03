@@ -215,6 +215,7 @@ class STT:
         print(f"Model loaded in {round((time.monotonic_ns() - start_time) / 1e9, 2)}s")
 
     def reset_state(self, id: int):
+        import sphn
         import torch
 
         # reset llm chat history for this input
@@ -223,8 +224,16 @@ class STT:
         self.lm_gen.reset_streaming(self.reset_mask)
         self.reset_mask[id] = False
 
-        # reset audio buffer for this input
+        # audio buffer
         self.batch_chunk[id, 0, :] = torch.zeros(self.frame_size)
+        self.opus_stream_inbound[id] = sphn.OpusStreamReader(self.mimi.sample_rate)
+        self.transcription_queue[id] = asyncio.Queue()
+
+        # metrics
+        self.is_first_token[id] = True
+        self.stream_start_time[id] = None
+        self.last_audio_receive_time[id] = None
+        self.audio_receive_lock[id] = asyncio.Lock()
 
     @modal.asgi_app()
     def web(self):
@@ -321,7 +330,6 @@ class STT:
 
                                 assert tokens.shape[1] == self.lm_gen.lm_model.dep_q + 1
 
-                                # Extract the token for this specific slot
                                 text_token = tokens[slot, 0, 0].item()
                                 if text_token not in (0, 3):
                                     text = self.text_tokenizer.id_to_piece(text_token)
@@ -329,12 +337,8 @@ class STT:
                                     self.transcription_queue[slot].put_nowait(text)
 
                                     # calculate latency from when audio was received
-                                    latency_ms = None
                                     if frame_audio_time is not None:
                                         current_time = time.monotonic_ns()
-                                        latency_ms = round(
-                                            (current_time - frame_audio_time) / 1e6, 2
-                                        )
                                         if self.is_first_token[slot]:
                                             self.is_first_token[slot] = False
                                             ttft_ms = round(
@@ -347,6 +351,10 @@ class STT:
                                             )
                                             print(f"TTFT: {ttft_ms}ms")
                                         else:
+                                            latency_ms = round(
+                                                (current_time - frame_audio_time) / 1e6,
+                                                2,
+                                            )
                                             print(f"Latency: {latency_ms}ms")
 
             async def send_loop():
@@ -367,6 +375,7 @@ class STT:
                     )  # prepend "\x00" as a tag to indicate text
                     await ws.send_bytes(msg)
 
+            # run all loops concurrently
             try:
                 tasks = [
                     asyncio.create_task(recv_loop()),
