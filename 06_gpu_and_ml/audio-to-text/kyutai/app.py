@@ -179,7 +179,7 @@ class STT:
         self.text_tokenizer = checkpoint_info.get_text_tokenizer()
 
         # to keep state for each input separate
-        self.slot_table = {}
+        self.inp_tracker = {}
         self.reset_mask = torch.zeros(
             self.batch_size, dtype=torch.bool, device=self.device
         )
@@ -251,10 +251,9 @@ class STT:
         async def websocket_endpoint(ws: WebSocket):
             await ws.accept()
 
-            # get a slot for this input
-            slot = len(self.slot_table)
-            self.slot_table[modal.current_input_id()] = slot
-            self.reset_state(slot)
+            idx = len(self.inp_tracker)  # for reset state on ws disconnect
+            self.inp_tracker[modal.current_input_id()] = idx
+            self.reset_state(idx)
 
             print("Session started")
             tasks = []
@@ -274,14 +273,14 @@ class STT:
                         print("received empty message")
                         continue
 
-                    if self.stream_start_time[slot] is None:
-                        self.stream_start_time[slot] = time.monotonic_ns()
+                    if self.stream_start_time[idx] is None:
+                        self.stream_start_time[idx] = time.monotonic_ns()
 
                     # track when we received audio
-                    async with self.audio_receive_lock[slot]:
-                        self.last_audio_receive_time[slot] = time.monotonic_ns()
+                    async with self.audio_receive_lock[idx]:
+                        self.last_audio_receive_time[idx] = time.monotonic_ns()
 
-                    self.opus_stream_inbound[slot].append_bytes(data)
+                    self.opus_stream_inbound[idx].append_bytes(data)
 
             async def inference_loop():
                 """
@@ -291,7 +290,7 @@ class STT:
 
                 while True:
                     await asyncio.sleep(0.001)
-                    pcm = self.opus_stream_inbound[slot].read_pcm()
+                    pcm = self.opus_stream_inbound[idx].read_pcm()
                     if pcm is None:
                         continue
                     if len(pcm) == 0:
@@ -307,8 +306,8 @@ class STT:
                     # infer on each frame
                     while all_pcm_data.shape[-1] >= self.frame_size:
                         # get the audio receive time for this frame
-                        async with self.audio_receive_lock[slot]:
-                            frame_audio_time = self.last_audio_receive_time[slot]
+                        async with self.audio_receive_lock[idx]:
+                            frame_audio_time = self.last_audio_receive_time[idx]
 
                         chunk = all_pcm_data[: self.frame_size]
                         all_pcm_data = all_pcm_data[self.frame_size :]
@@ -316,7 +315,7 @@ class STT:
                         with torch.no_grad():
                             chunk = torch.from_numpy(chunk)
                             chunk = chunk.to(device=self.device)
-                            self.batch_chunk[slot, 0, :] = chunk
+                            self.batch_chunk[idx, 0, :] = chunk
 
                             # inference on audio chunk
                             codes = self.mimi.encode(self.batch_chunk)
@@ -330,21 +329,21 @@ class STT:
 
                                 assert tokens.shape[1] == self.lm_gen.lm_model.dep_q + 1
 
-                                text_token = tokens[slot, 0, 0].item()
+                                text_token = tokens[idx, 0, 0].item()
                                 if text_token not in (0, 3):
                                     text = self.text_tokenizer.id_to_piece(text_token)
                                     text = text.replace("▁", " ")
-                                    self.transcription_queue[slot].put_nowait(text)
+                                    self.transcription_queue[idx].put_nowait(text)
 
                                     # calculate latency from when audio was received
                                     if frame_audio_time is not None:
                                         current_time = time.monotonic_ns()
-                                        if self.is_first_token[slot]:
-                                            self.is_first_token[slot] = False
+                                        if self.is_first_token[idx]:
+                                            self.is_first_token[idx] = False
                                             ttft_ms = round(
                                                 (
                                                     current_time
-                                                    - self.stream_start_time[slot]
+                                                    - self.stream_start_time[idx]
                                                 )
                                                 / 1e6,
                                                 2,
@@ -364,7 +363,7 @@ class STT:
                 while True:
                     await asyncio.sleep(0.001)
                     try:
-                        text = self.transcription_queue[slot].get_nowait()
+                        text = self.transcription_queue[idx].get_nowait()
                     except asyncio.queues.QueueEmpty:
                         continue
 
@@ -395,7 +394,7 @@ class STT:
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
-                del self.slot_table[modal.current_input_id()]
-                self.reset_state(slot)
+                del self.inp_tracker[modal.current_input_id()]
+                self.reset_state(idx)
 
         return web_app
