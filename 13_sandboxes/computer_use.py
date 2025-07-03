@@ -47,6 +47,10 @@ secret = modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_AP
 
 with modal.enable_output():
     sandbox = modal.Sandbox.create(
+        "sudo",
+        "--preserve-env=ANTHROPIC_API_KEY,DISPLAY_NUM,WIDTH,HEIGHT,PATH",
+        "-u",
+        "computeruse",
         "./entrypoint.sh",
         app=app,
         image=sandbox_image,
