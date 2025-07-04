@@ -54,7 +54,7 @@ import modal
 
 app = modal.App("sandbox-pool")
 
-pool_queue = modal.Queue.from_name("sandbox-pool-buffer", create_if_missing=True)
+pool_queue = modal.Queue.from_name("sandbox-pool-sandboxes", create_if_missing=True)
 
 server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "fastapi[standard]~=0.115.14",
@@ -65,6 +65,12 @@ sandbox_image = modal.Image.debian_slim(python_version="3.11")
 
 SERVER_PORT = 8080
 HEALTH_CHECK_TIMEOUT_SECONDS = 10
+
+# In this example, Sandboxes live for 5 minutes, and we assume that they are used for
+# 2 minutes, meaning that if a Sandbox has less than 3 minutes left, it's considered
+# not having enough time left.
+#
+# You'll want to adjust these values depending on your use case.
 SANDBOX_TIMEOUT_SECONDS = 5 * 60
 SANDBOX_USE_DURATION_SECONDS = 2 * 60
 
@@ -99,15 +105,17 @@ def health_check_sandbox(url: str) -> None:
 
 # ## Adding a Sandbox to the pool
 #
-# This function is called by the `resize_pool` function to add a Sandbox to the pool,
-# and also by the `get_sandbox` function to replace the Sandbox that was claimed.
+# This function creates and adds a new Sandbox to the pool.
 #
 # It creates a new Sandbox, runs the health check, and adds the Sandbox to the pool.
+#
+# We deploy the Sandboxes in a separate Modal App called "sandbox-pool-sandboxes",
+# so that we separate the control app (logs, etc.) from the Sandboxes.
+#
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue() -> None:
-    # This is done so we don't create Sandboxes in the ephemeral app
-    deployed_app = modal.App.lookup("sandbox-pool", create_if_missing=True)
+    deployed_app = modal.App.lookup("sandbox-pool-sandboxes", create_if_missing=True)
 
     server_command = ["python", "-m", "http.server", f"{SERVER_PORT}"]
     sb = modal.Sandbox.create(
@@ -181,6 +189,7 @@ def claim_sandbox() -> str:
     if expiring_sandboxes:
         terminate_sandboxes.spawn(expiring_sandboxes)
 
+    print(sr.url)
     return sr.url
 
 
