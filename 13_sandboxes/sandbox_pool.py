@@ -60,10 +60,12 @@ server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "fastapi[standard]~=0.115.14",
     "requests~=2.32.4",
 )
+
+# Here we define the image that will be used to run the server that runs in the
+# Sandbox. In this simple example, we just run the built in Python HTTP server, that
+# returns a directory listing.
 sandbox_image = modal.Image.debian_slim(python_version="3.11")
-
-
-SERVER_PORT = 8080
+SANDBOX_SERVER_PORT = 8080
 HEALTH_CHECK_TIMEOUT_SECONDS = 10
 
 # In this example, Sandboxes live for 5 minutes, and we assume that they are used for
@@ -111,22 +113,21 @@ def is_healthy(url: str) -> bool:
 #
 # We deploy the Sandboxes in a separate Modal App called "sandbox-pool-sandboxes",
 # so that we separate the control app (logs, etc.) from the Sandboxes.
-#
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue() -> None:
     deployed_app = modal.App.lookup("sandbox-pool-sandboxes", create_if_missing=True)
 
-    server_command = ["python", "-m", "http.server", f"{SERVER_PORT}"]
+    sandbox_cmd = ["python", "-m", "http.server", "8080"]
     sb = modal.Sandbox.create(
-        *server_command,
+        *sandbox_cmd,
         app=deployed_app,
         image=sandbox_image,
-        encrypted_ports=[SERVER_PORT],
+        encrypted_ports=[SANDBOX_SERVER_PORT],
         timeout=SANDBOX_TIMEOUT_SECONDS,
     )
     expires_at = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
-    url = sb.tunnels()[SERVER_PORT].url
+    url = sb.tunnels()[SANDBOX_SERVER_PORT].url
 
     if not is_healthy(url):
         raise Exception("Health check failed")
@@ -148,19 +149,20 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 # ## Claiming a Sandbox from the pool
 #
 # We expose two ways to claim a Sandbox from the pool:
-#
-# - a web endpoint, where GET requests claim a Sandbox and return the Sandbox URL.
-# - a Function that can be called using the Modal SDK for [Python][1], [Go, or JS][2], etc.
+# - a web endpoint
+# - a Function that can be called using the Modal SDK for [Python][1], [Go, or JS][2].
 #
 # [1]: https://github.com/modal-labs/modal-client
 # [2]: https://github.com/modal-labs/libmodal
-#
-# It checks the pool for a Sandbox that has enough time left, and returns the Sandbox URL.
 #
 # The web endpoint is deployed as a Modal web endpoint, and calls the `claim_sandbox`
 # Function using `claim_sandbox.local()`, meaning that it's called in the same process
 # as the web endpoint.
 #
+# The Function can be called using the Modal SDK for [Python][1], [Go, or JS][2].
+#
+# [1]: https://github.com/modal-labs/modal-client
+# [2]: https://github.com/modal-labs/libmodal
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
