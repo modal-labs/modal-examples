@@ -217,5 +217,4 @@ def main():
     train.remote()
 
 
-# You can now run the training using `modal run <filename.py>`
-# If you want to use wandb, run with `export ALLOW_WANDB=true`
+# You can now run the training using `modal run <filename.py>`. By default, results are in wandb
