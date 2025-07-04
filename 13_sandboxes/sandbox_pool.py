@@ -86,7 +86,7 @@ class SandboxReference:
 #
 # In this example, we run a very simple health check that just ensures that the
 # server is running and responding to requests.
-def health_check_sandbox(url: str) -> None:
+def is_healthy(url: str) -> bool:
     import requests
 
     start_time = time.time()
@@ -94,13 +94,13 @@ def health_check_sandbox(url: str) -> None:
         try:
             response = requests.get(url, timeout=HEALTH_CHECK_TIMEOUT_SECONDS)
             response.raise_for_status()
-            return
+            return True
         except requests.RequestException:
             if time.time() - start_time >= HEALTH_CHECK_TIMEOUT_SECONDS:
-                raise
+                return False
             time.sleep(0.1)
 
-    raise requests.RequestException("Health check failed")
+    return False
 
 
 # ## Adding a Sandbox to the pool
@@ -128,7 +128,8 @@ def add_sandbox_to_queue() -> None:
     expires_at = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
     url = sb.tunnels()[SERVER_PORT].url
 
-    health_check_sandbox(url)
+    if not is_healthy(url):
+        raise Exception("Health check failed")
 
     pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
 
@@ -163,12 +164,12 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
-def claim_sandbox_web_endpoint() -> str:
-    return claim_sandbox.local()
+def claim_sandbox_web_endpoint(check_health: bool = False) -> str:
+    return claim_sandbox.local(check_health=check_health)
 
 
-@app.function()
-def claim_sandbox() -> str:
+@app.function(image=server_image)
+def claim_sandbox(check_health: bool = False) -> str:
     expiring_sandboxes: list[str] = []
 
     while True:
@@ -180,7 +181,12 @@ def claim_sandbox() -> str:
             continue
 
         if sr.expires_at < time.time() + SANDBOX_USE_DURATION_SECONDS:
-            print(f"Sandbox {sr.id} does not have enough time left - removing it")
+            print(f"Sandbox '{sr.id}' does not have enough time left - removing it")
+            expiring_sandboxes.append(sr.id)
+            continue
+
+        if check_health and not is_healthy(sr.url):
+            print(f"Sandbox '{sr.id}' is not healthy - removing it")
             expiring_sandboxes.append(sr.id)
             continue
 
