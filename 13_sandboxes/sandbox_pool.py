@@ -47,6 +47,7 @@
 
 
 import time
+from dataclasses import dataclass
 from datetime import datetime
 
 import modal
@@ -68,17 +69,24 @@ SANDBOX_TIMEOUT_SECONDS = 5 * 60
 SANDBOX_USE_DURATION_SECONDS = 2 * 60
 
 
+@dataclass
+class SandboxReference:
+    id: str
+    url: str
+    expires_at: int
+
+
 # ## Health check
 #
 # In this example, we run a very simple health check that just ensures that the
 # server is running and responding to requests.
-def health_check_sandbox(daemon_url):
+def health_check_sandbox(url: str) -> None:
     import requests
 
     start_time = time.time()
     while time.time() - start_time < HEALTH_CHECK_TIMEOUT_SECONDS:
         try:
-            response = requests.get(daemon_url, timeout=HEALTH_CHECK_TIMEOUT_SECONDS)
+            response = requests.get(url, timeout=HEALTH_CHECK_TIMEOUT_SECONDS)
             response.raise_for_status()
             return
         except requests.RequestException:
@@ -97,7 +105,7 @@ def health_check_sandbox(daemon_url):
 # It creates a new Sandbox, runs the health check, and adds the Sandbox to the pool.
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
-def add_sandbox_to_queue():
+def add_sandbox_to_queue() -> None:
     # This is done so we don't create Sandboxes in the ephemeral app
     deployed_app = modal.App.lookup("sandbox-pool", create_if_missing=True)
 
@@ -109,37 +117,71 @@ def add_sandbox_to_queue():
         encrypted_ports=[SERVER_PORT],
         timeout=SANDBOX_TIMEOUT_SECONDS,
     )
-    expiration_time = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
+    expires_at = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
     url = sb.tunnels()[SERVER_PORT].url
 
     health_check_sandbox(url)
 
-    pool_queue.put((sb.object_id, url, expiration_time))
+    pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
 
 
-# ## Getting a Sandbox from the pool
+@app.function()
+def terminate_sandboxes(sandbox_ids: list[str]) -> int:
+    count = 0
+    for id in sandbox_ids:
+        sb = modal.Sandbox.from_id(id)
+        sb.terminate()
+        count += 1
+
+    return count
+
+
+# ## Claiming a Sandbox from the pool
 #
-# This is deployed as a web endpoint to claim a Sandbox from the pool.
+# We expose two ways to claim a Sandbox from the pool:
 #
-# It checks the pool for a Sandbox that has enough time left, and returns the URL
-# to the server running in the Sandbox.
+# - a web endpoint, where GET requests claim a Sandbox and return the Sandbox URL.
+# - a Function that can be called using the Modal SDK for [Python][1], [Go, or JS][2], etc.
+#
+# [1]: https://github.com/modal-labs/modal-client
+# [2]: https://github.com/modal-labs/libmodal
+#
+# It checks the pool for a Sandbox that has enough time left, and returns the Sandbox URL.
+#
+# The web endpoint is deployed as a Modal web endpoint, and calls the `claim_sandbox`
+# Function using `claim_sandbox.local()`, meaning that it's called in the same process
+# as the web endpoint.
+#
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
-def get_sandbox() -> str:
+def claim_sandbox_web_endpoint() -> str:
+    return claim_sandbox.local()
+
+
+@app.function()
+def claim_sandbox() -> str:
+    expiring_sandboxes: list[str] = []
+
     while True:
         # backfill + ensures the queue will have at least one Sandbox
         add_sandbox_to_queue.spawn()
 
-        sb_id, url, expiration_time = pool_queue.get(timeout=None)
-
-        if expiration_time < time.time() + SANDBOX_USE_DURATION_SECONDS:
-            print(f"Sandbox {sb_id} does not have enough time left - removing it")
-            sb = modal.Sandbox.from_id(sb_id)
-            sb.terminate()
+        sr = pool_queue.get(timeout=None)
+        if sr is None:
             continue
 
-        return url
+        if sr.expires_at < time.time() + SANDBOX_USE_DURATION_SECONDS:
+            print(f"Sandbox {sr.id} does not have enough time left - removing it")
+            expiring_sandboxes.append(sr.id)
+            continue
+
+        break
+
+    if expiring_sandboxes:
+        terminate_sandboxes.spawn(expiring_sandboxes)
+
+    return sr.url
 
 
 # ## Resizing the pool
@@ -162,11 +204,9 @@ def resize_pool(target: int = 2):
             actual_diff += 1
             pass
     elif diff < 0:
-        for res in pool_queue.get_many(n_values=-diff, timeout=0):
-            sb_id, _, _ = res
-            sb = modal.Sandbox.from_id(sb_id)
-            sb.terminate()
-            actual_diff -= 1
+        actual_diff -= terminate_sandboxes.local(
+            [sr.id for sr in pool_queue.get_many(n_values=-diff, timeout=0)]
+        )
 
     print(
         f"Changed pool size by {actual_diff:+d}, now at {pool_queue.len()} sandboxes."
@@ -183,11 +223,11 @@ def resize_pool(target: int = 2):
 def check_pool(verbose: bool = False):
     print(f"Number of Sandboxes in the pool: {pool_queue.len()}")
     if verbose:
-        for sb_id, url, expiration_time in pool_queue.iterate():
-            seconds_left = expiration_time - time.time()
+        for sr in pool_queue.iterate():
+            seconds_left = sr.expires_at - time.time()
             print(
-                f"Sandbox '{sb_id}' is at {url} and expires at "
-                f"{datetime.fromtimestamp(expiration_time).isoformat()} "
+                f"Sandbox '{sr.id}' is at {sr.url} and expires at "
+                f"{datetime.fromtimestamp(sr.expires_at).isoformat()} "
                 f"({int(seconds_left)} seconds left)"
             )
 
@@ -204,7 +244,9 @@ def demo():
     print("\nCurrent pool state:")
     check_pool(verbose=True)
 
-    web_endpoint = modal.Function.from_name("sandbox-pool", "get_sandbox")
+    web_endpoint = modal.Function.from_name(
+        "sandbox-pool", "claim_sandbox_web_endpoint"
+    )
     web_endpoint_url = web_endpoint.get_web_url()
     print(f"\nWeb endpoint URL: {web_endpoint_url}")
 
