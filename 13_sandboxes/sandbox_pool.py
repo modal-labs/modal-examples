@@ -1,9 +1,9 @@
 # ---
-# cmd: ["python", "13_sandboxes/sandbox_pool.py"]
+# cmd: ["python", "13_sandboxes/sandbox_pool.py", "demo"]
 # pytest: false
 # ---
 
-# # Build a pool of warm Sandboxes that are healthy and ready to serve requests
+# # Maintain a pool of warm Sandboxes that are healthy and ready to serve requests
 #
 # This example demonstrates how to build a pool of "warm"
 # [Modal Sandboxes](https://modal.com/docs/guide/sandbox), and deploy a
@@ -22,11 +22,12 @@
 # a Sandbox with enough time left.
 #
 # It's structured into two Apps:
-# - `sandbox-pool` is the main App that contains all the functionality for maintaining
-#   the pool.
+# - `sandbox-pool` is the main App that contains all the control logic for maintaining
+#   the pool, exposing ways to claim Sandboxes, etc.
 # - `sandbox-pool-sandboxes` houses all the actual Sandboxes, and nothing else.
 
 
+import argparse
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -56,7 +57,8 @@ HEALTH_CHECK_TIMEOUT_SECONDS = 10
 # You'll want to adjust these values depending on your use case.
 SANDBOX_TIMEOUT_SECONDS = 5 * 60
 SANDBOX_USE_DURATION_SECONDS = 2 * 60
-SANDBOX_POOL_SIZE = 3
+POOL_SIZE = 3
+POOL_MAINTENANCE_SCHEDULE = modal.Period(minutes=2)
 
 
 ## Main implementation
@@ -74,9 +76,18 @@ class SandboxReference:
 
 # ## Health check
 #
-# In this example, we run a very simple health check that just ensures that the
-# server is running and responding to requests.
+# In this example, we run a simple health check that just ensures that the server in the
+# Sandbox is running and responding to requests.
+#
+# If you just want to ensure the sandbox is running, you could for example check
+# `sb.poll() is not None` instead.
 def is_healthy(url: str, wait_for_container_start: bool) -> bool:
+    """Check if a Sandbox is healthy.
+
+    When the Sandbox is first created, the server may not imemediately accept
+    connections, so if `wait_for_container_start` is True, we retry if we fail to
+    connect to the server URL.
+    """
     import requests
 
     start_time = time.time()
@@ -103,11 +114,9 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
     container to start.
     """
     if sr.expires_at < time.time() + SANDBOX_USE_DURATION_SECONDS:
-        print(f"Sandbox '{sr.id}' does not have enough time left")
         return False
 
     if check_health and not is_healthy(sr.url, wait_for_container_start=False):
-        print(f"Sandbox '{sr.id}' is not healthy")
         return False
 
     return True
@@ -115,21 +124,20 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
 
 # ## Adding a Sandbox to the pool
 #
-# This function creates and adds a new Sandbox to the pool.
-#
-# It runs a health check on the Sandbox before adding it.
+# This function creates and adds a new Sandbox to the pool. It runs a health check on
+# the Sandbox before adding it.
 #
 # We deploy the Sandboxes in a separate Modal App called "sandbox-pool-sandboxes",
 # so that we separate the control app (logs, etc.) from the Sandboxes.
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue() -> None:
-    deployed_app = modal.App.lookup("sandbox-pool-sandboxes", create_if_missing=True)
+    sandbox_app = modal.App.lookup("sandbox-pool-sandboxes", create_if_missing=True)
 
     sandbox_cmd = ["python", "-m", "http.server", "8080"]
     sb = modal.Sandbox.create(
         *sandbox_cmd,
-        app=deployed_app,
+        app=sandbox_app,
         image=sandbox_image,
         encrypted_ports=[SANDBOX_SERVER_PORT],
         timeout=SANDBOX_TIMEOUT_SECONDS,
@@ -146,18 +154,20 @@ def add_sandbox_to_queue() -> None:
 # We also have a utility function that can be .spawn()'ed to terminate Sandboxes.
 @app.function()
 def terminate_sandboxes(sandbox_ids: list[str]) -> int:
-    count = 0
+    num_terminated = 0
     for id in sandbox_ids:
         sb = modal.Sandbox.from_id(id)
         sb.terminate()
-        count += 1
+        num_terminated += 1
 
-    return count
+    print(f"Terminated {num_terminated} Sandboxes")
+    return num_terminated
 
 
 # ## Claiming a Sandbox from the pool
 #
-# We expose two ways to claim a Sandbox from the pool:
+# We expose two ways to claim a Sandbox from the pool and get a URL to the server:
+#
 # - a web endpoint
 # - a Function that can be called using the Modal SDK for [Python][1], [Go, or JS][2].
 #
@@ -176,25 +186,29 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=100)
-def claim_sandbox_web_endpoint(check_health: bool = False) -> str:
+def claim_sandbox_web_endpoint(check_health: bool = True) -> str:
     return claim_sandbox.local(check_health=check_health)
 
 
 @app.function(image=server_image)
-def claim_sandbox(check_health: bool = False) -> str:
+def claim_sandbox(check_health: bool = True) -> str:
     to_terminate: list[str] = []
 
-    # Remove any expiring or unhealthy sandboxes, and return the first good one.
+    # Remove any expiring or unhealthy sandboxes, and return the first good one:
     while True:
-        # Backfill and ensure the queue will have at least one Sandbox
+        print(
+            "Adding a new Sandbox to the pool to backfill "
+            "(and ensure we have at least one)..."
+        )
         add_sandbox_to_queue.spawn()
 
-        # timeout=None here means we block in case we need to wait for the backfill.
+        # timeout=None here means we block in case we need to wait for the backfill:
         sr = pool_queue.get(timeout=None)
         if sr is None:
             continue
 
         if not is_still_good(sr, check_health):
+            print(f"Sandbox '{sr.id}' was not good - terminating and trying another...")
             to_terminate.append(sr.id)
             continue
 
@@ -203,6 +217,7 @@ def claim_sandbox(check_health: bool = False) -> str:
     if to_terminate:
         terminate_sandboxes.spawn(to_terminate)
 
+    print(f"Claimed Sandbox '{sr.id}', with URL: {sr.url}")
     return sr.url
 
 
@@ -212,13 +227,17 @@ def claim_sandbox(check_health: bool = False) -> str:
 # expiring or unhealthy sandboxes, then adjusts the pool size to reach the target.
 #
 # It runs on a schedule to ensure the pool doesn't drift too far from the target size.
-@app.function(schedule=modal.Period(minutes=2))
+@app.function(
+    image=server_image,
+    schedule=POOL_MAINTENANCE_SCHEDULE,
+)
 def maintain_pool():
     to_terminate: list[str] = []
 
     # First remove expiring and unhealthy sandboxes
     while True:
-        sr = pool_queue.get(timeout=0)
+        sr = pool_queue.get(block=False)
+
         if sr is None:
             break
 
@@ -232,87 +251,131 @@ def maintain_pool():
         break
 
     if to_terminate:
-        print(f"Terminating {len(to_terminate)} sandboxes...")
+        print(f"Terminating {len(to_terminate)} expiring/unhealthy sandboxes...")
         terminate_sandboxes.spawn(to_terminate)
 
     # Now resize to target
-    diff = SANDBOX_POOL_SIZE - pool_queue.len()
-    actual_diff = 0
+    diff = POOL_SIZE - pool_queue.len()
 
     if diff > 0:
         for _ in add_sandbox_to_queue.starmap(() for _ in range(diff)):
-            actual_diff += 1
             pass
     elif diff < 0:
-        actual_diff -= terminate_sandboxes.local(
+        terminate_sandboxes.spawn(
             [sr.id for sr in pool_queue.get_many(n_values=-diff, timeout=0)]
         )
 
-    print(
-        f"Changed pool size by {actual_diff:+d}, now at {pool_queue.len()} sandboxes."
-    )
+    print(f"Pool size after maintenance: {pool_queue.len()}")
 
 
-# ## Checking the pool
+# ## Local commands for interacting with the pool
 #
-# This function prints the current state of the pool.
+# ### Deploy the app
 #
-# It can be called manually by running e.g.
-# `modal run 13_sandboxes/sandbox_pool.py::check_pool --verbose`
-@app.local_entrypoint()
-def check_pool(verbose: bool = False):
+# This also runs the `maintain_pool` function to ensure the pool is at the correct size
+# without having to wait for the first scheduled maintenance run.
+#
+# Run it with `python 13_sandboxes/sandbox_pool.py deploy`.
+def deploy():
+    print("Deploying the app...")
+    app.deploy()
+    print("Done.")
+
+    print("\nRunning initial pool maintenance...")
+    maintain_pool.remote()
+    print("Done.")
+
+
+# ### Check the current state of the pool
+#
+# Run it with `python 13_sandboxes/sandbox_pool.py check`.
+def check():
     print(f"Number of Sandboxes in the pool: {pool_queue.len()}")
-    if verbose:
-        for sr in pool_queue.iterate():
-            seconds_left = sr.expires_at - time.time()
-            print(
-                f"Sandbox '{sr.id}' is at {sr.url} and expires at "
-                f"{datetime.fromtimestamp(sr.expires_at).isoformat()} "
-                f"({int(seconds_left)} seconds left)"
-            )
+
+    for sr in pool_queue.iterate():
+        seconds_left = sr.expires_at - time.time()
+        print(
+            f"- Sandbox '{sr.id}' is at {sr.url} and expires at "
+            f"{datetime.fromtimestamp(sr.expires_at).isoformat()} "
+            f"({int(seconds_left)} seconds left)"
+        )
 
 
+# ### Claiming a Sandbox from the pool and print its URL
+#
+# This is implemented the same as what you would do if you wanted to call the Function
+# from a Python backend application using the Modal SDK.
+#
+# Run it with `python 13_sandboxes/sandbox_pool.py claim`.
+def claim() -> None:
+    deployed_claim_sandbox = modal.Function.from_name("sandbox-pool", "claim_sandbox")
+    print(deployed_claim_sandbox.remote())
+
+
+# ### Run a demo of the Sandbox pool.
+#
+# This is also implemented the same as what you would do if you wanted to call the
+# Functions from a Python backend application using the Modal SDK.
+#
+# Run it with `python 13_sandboxes/sandbox_pool.py demo`.
 def demo():
-    import urllib.parse
     import urllib.request
 
-    app.deploy()
+    deploy()
 
-    print(f"\nSetting pool size to {SANDBOX_POOL_SIZE}...")
-    maintain_pool()
+    check()
 
-    print("\nCurrent pool state:")
-    check_pool(verbose=True)
-
-    web_endpoint = modal.Function.from_name(
-        "sandbox-pool", "claim_sandbox_web_endpoint"
-    )
-    web_endpoint_url = web_endpoint.get_web_url()
-    print(f"\nWeb endpoint URL: {web_endpoint_url}")
-
-    print("\nClaiming a Sandbox by sending a GET request to the web endpoint...")
-    with urllib.request.urlopen(web_endpoint_url) as response:
-        sandbox_server_url = response.read().decode("utf-8").strip(' "')
-        print(f"URL to Sandbox server: {sandbox_server_url}")
+    print("\nClaiming a Sandbox using the `claim_sandbox` Function...")
+    deployed_claim_sandbox = modal.Function.from_name("sandbox-pool", "claim_sandbox")
+    sandbox_url = deployed_claim_sandbox.remote()
+    print(f"Claimed Sandbox URL: {sandbox_url}")
 
     print("\nCall the server in the Sandbox...")
-    with urllib.request.urlopen(sandbox_server_url) as response:
+    with urllib.request.urlopen(sandbox_url) as response:
         result = response.read().decode("utf-8")
         print(f"Sandbox server response:\n{result}")
 
-    time.sleep(5)  # wait for replacement Sandbox to be created
+    time.sleep(2)  # wait for the pool to be backfilled in the background
+    check()
 
-    print("\nDraining the pool back to zero...")
-    # Note: resize_pool() now targets SANDBOX_POOL_SIZE, so we need to manually drain
-    current_size = pool_queue.len()
-    if current_size > 0:
-        terminate_sandboxes.local(
-            [sr.id for sr in pool_queue.get_many(n_values=current_size, timeout=0)]
-        )
+    deployed_web_endpoint = modal.Function.from_name(
+        "sandbox-pool", "claim_sandbox_web_endpoint"
+    )
+    web_endpoint_url = deployed_web_endpoint.get_web_url()
+    print(f"\nClaiming a Sandbox using the web endpoint at '{web_endpoint_url}'...")
+    with urllib.request.urlopen(web_endpoint_url) as response:
+        sandbox_url = response.read().decode("utf-8").strip(' "')
+        print(f"Claimed Sandbox URL: {sandbox_url}")
 
-    print("\nDouble-checking that the pool is empty:")
-    check_pool(verbose=True)
+    print("\nCall the server in the Sandbox...")
+    with urllib.request.urlopen(sandbox_url) as response:
+        result = response.read().decode("utf-8")
+        print(f"Sandbox server response:\n{result}")
+
+    time.sleep(2)
+    check()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Manage Sandbox pool")
+    parser.add_argument(
+        "command",
+        choices=["check", "deploy", "claim", "demo"],
+        help="Command to execute",
+    )
+    args = parser.parse_args()
+
+    if args.command == "check":
+        check()
+    elif args.command == "claim":
+        claim()
+    elif args.command == "deploy":
+        deploy()
+    elif args.command == "demo":
+        demo()
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":
-    demo()
+    main()
