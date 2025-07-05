@@ -134,6 +134,7 @@ def web():
 
 
 MINUTES = 60
+MAX_BATCH_SIZE = MAX_CONCURRENT_INPUTS = 64
 
 
 @app.cls(
@@ -143,7 +144,7 @@ MINUTES = 60
     scaledown_window=15 * MINUTES,
     timeout=10 * MINUTES,
 )
-@modal.concurrent(max_inputs=64)
+@modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
 class STT:
     @modal.enter()
     def enter(self):
@@ -170,18 +171,28 @@ class STT:
             temp_text=0,
         )
 
-        self.batch_size = 1
+        self.batch_size = MAX_BATCH_SIZE
         self.mimi.streaming_forever(self.batch_size)
         self.lm_gen.streaming_forever(self.batch_size)
 
         self.text_tokenizer = checkpoint_info.get_text_tokenizer()
 
+        # to keep state for each input separate
+        self.input_tracker = {}
+        self.input_tracker_lock = asyncio.Lock()
+        self.available_indices = set(
+            range(self.batch_size)
+        )  # Track available batch positions
+        self.reset_mask = torch.zeros(
+            self.batch_size, dtype=torch.bool, device=self.device
+        )
+        self.batch_chunk = torch.zeros(
+            self.batch_size, 1, self.frame_size, dtype=torch.float32, device=self.device
+        )
+
         # warmup gpus
-        for chunk in range(4):
-            chunk = torch.zeros(
-                1, 1, self.frame_size, dtype=torch.float32, device=self.device
-            )
-            codes = self.mimi.encode(chunk)
+        for _ in range(4):
+            codes = self.mimi.encode(self.batch_chunk)
             for c in range(codes.shape[-1]):
                 tokens = self.lm_gen.step(codes[:, :, c : c + 1])
                 if tokens is None:
@@ -190,22 +201,22 @@ class STT:
 
         print(f"Model loaded in {round((time.monotonic_ns() - start_time) / 1e9, 2)}s")
 
-    def reset_state(self):
-        import sphn
+    def reset_state(self, id: int):
+        import torch
 
-        # use opus format for audio across websocket to safely stream/decode in real-time
-        self.opus_stream_inbound = sphn.OpusStreamReader(self.mimi.sample_rate)
-
-        # queue for out-bound transcription
-        self.transcription_queue = asyncio.Queue()
-
-        # reset llm chat history on each connection
-        self.mimi.reset_streaming()
-        self.lm_gen.reset_streaming()
+        # reset llm chat history for this input
+        self.reset_mask[id] = True
+        self.mimi.reset_streaming(self.reset_mask)
+        self.lm_gen.reset_streaming(self.reset_mask)
+        self.reset_mask[id] = False
+        self.batch_chunk[id] = torch.zeros(
+            1, 1, self.frame_size, dtype=torch.float32, device=self.device
+        )
 
     @modal.asgi_app()
     def web(self):
         import numpy as np
+        import sphn
         import torch
         from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 
@@ -219,26 +230,25 @@ class STT:
         async def websocket_endpoint(ws: WebSocket):
             await ws.accept()
 
-            # clear llm chat history + buffered audio
-            self.reset_state()
+            async with self.input_tracker_lock:
+                idx = self.available_indices.pop()
+                self.input_tracker[idx] = {
+                    "opus_stream_inbound": sphn.OpusStreamReader(self.mimi.sample_rate),
+                    "transcription_queue": asyncio.Queue(),
+                    "is_first_token": True,
+                    "stream_start_time": None,
+                    "last_audio_receive_time": None,
+                }
+            self.reset_state(idx)
 
             print("Session started")
             tasks = []
 
-            # shared state between loops
-            is_first_token = True
-            stream_start_time = None
-            last_audio_receive_time = None
-            audio_receive_lock = asyncio.Lock()
-
             # asyncio to run multiple loops concurrently within single websocket connection
             async def recv_loop():
                 """
-                Receives Opus stream across websocket, appends into opus_stream_inbound.
+                Receives Opus stream across websocket, appends into inbound queue.
                 """
-                nonlocal stream_start_time
-                nonlocal last_audio_receive_time
-
                 while True:
                     data = await ws.receive_bytes()
 
@@ -249,27 +259,37 @@ class STT:
                         print("received empty message")
                         continue
 
-                    if stream_start_time is None:
-                        stream_start_time = time.monotonic_ns()
+                    if idx not in self.input_tracker:
+                        break
 
-                    # track when we received audio
-                    async with audio_receive_lock:
-                        last_audio_receive_time = time.monotonic_ns()
+                    if self.input_tracker[idx]["stream_start_time"] is None:
+                        self.input_tracker[idx]["stream_start_time"] = (
+                            time.monotonic_ns()
+                        )
+                    self.input_tracker[idx]["last_audio_receive_time"] = (
+                        time.monotonic_ns()
+                    )
 
-                    self.opus_stream_inbound.append_bytes(data)
+                    try:
+                        self.input_tracker[idx]["opus_stream_inbound"].append_bytes(
+                            data
+                        )
+                    except Exception as e:  # channel closed
+                        raise e
 
             async def inference_loop():
                 """
                 Runs streaming inference on inbound data, and if any response audio is created, appends it to the outbound stream.
                 """
-                nonlocal is_first_token
-                nonlocal stream_start_time
-                nonlocal last_audio_receive_time
                 all_pcm_data = None
 
                 while True:
                     await asyncio.sleep(0.001)
-                    pcm = self.opus_stream_inbound.read_pcm()
+
+                    if idx not in self.input_tracker:
+                        break
+
+                    pcm = self.input_tracker[idx]["opus_stream_inbound"].read_pcm()
                     if pcm is None:
                         continue
                     if len(pcm) == 0:
@@ -284,19 +304,26 @@ class STT:
 
                     # infer on each frame
                     while all_pcm_data.shape[-1] >= self.frame_size:
+                        if idx not in self.input_tracker:
+                            break
+
                         # get the audio receive time for this frame
-                        async with audio_receive_lock:
-                            frame_audio_time = last_audio_receive_time
+                        frame_audio_time = self.input_tracker[idx][
+                            "last_audio_receive_time"
+                        ]
 
                         chunk = all_pcm_data[: self.frame_size]
                         all_pcm_data = all_pcm_data[self.frame_size :]
 
                         with torch.no_grad():
                             chunk = torch.from_numpy(chunk)
-                            chunk = chunk.to(device=self.device)[None, None]
+                            chunk = chunk.unsqueeze(0).unsqueeze(
+                                0
+                            )  # (1, 1, frame_size)
+                            self.batch_chunk[idx] = chunk.to(device=self.device)
 
                             # inference on audio chunk
-                            codes = self.mimi.encode(chunk)
+                            codes = self.mimi.encode(self.batch_chunk)
 
                             # language model inference against encoded audio
                             for c in range(codes.shape[-1]):
@@ -307,28 +334,41 @@ class STT:
 
                                 assert tokens.shape[1] == self.lm_gen.lm_model.dep_q + 1
 
-                                text_token = tokens[0, 0, 0].item()
+                                text_token = tokens[idx, 0, 0].item()
                                 if text_token not in (0, 3):
                                     text = self.text_tokenizer.id_to_piece(text_token)
                                     text = text.replace("▁", " ")
-                                    self.transcription_queue.put_nowait(text)
+
+                                    if idx not in self.input_tracker:
+                                        break
+
+                                    self.input_tracker[idx][
+                                        "transcription_queue"
+                                    ].put_nowait(text)
 
                                     # calculate latency from when audio was received
-                                    latency_ms = None
                                     if frame_audio_time is not None:
                                         current_time = time.monotonic_ns()
-                                        latency_ms = round(
-                                            (current_time - frame_audio_time) / 1e6, 2
-                                        )
-                                        if is_first_token:
-                                            is_first_token = False
+                                        if self.input_tracker[idx]["is_first_token"]:
+                                            self.input_tracker[idx][
+                                                "is_first_token"
+                                            ] = False
                                             ttft_ms = round(
-                                                (current_time - stream_start_time)
+                                                (
+                                                    current_time
+                                                    - self.input_tracker[idx][
+                                                        "stream_start_time"
+                                                    ]
+                                                )
                                                 / 1e6,
                                                 2,
                                             )
                                             print(f"TTFT: {ttft_ms}ms")
                                         else:
+                                            latency_ms = round(
+                                                (current_time - frame_audio_time) / 1e6,
+                                                2,
+                                            )
                                             print(f"Latency: {latency_ms}ms")
 
             async def send_loop():
@@ -337,17 +377,25 @@ class STT:
                 """
                 while True:
                     await asyncio.sleep(0.001)
+
+                    if idx not in self.input_tracker:
+                        break
+
                     try:
-                        text = self.transcription_queue.get_nowait()
-                        if text is None:
-                            continue
-                        msg = b"\x00" + bytes(
-                            text, encoding="utf8"
-                        )  # prepend "\x00" as a tag to indicate text
-                        await ws.send_bytes(msg)
+                        text = self.input_tracker[idx][
+                            "transcription_queue"
+                        ].get_nowait()
                     except asyncio.queues.QueueEmpty:
                         continue
 
+                    if text is None:
+                        continue
+                    msg = b"\x00" + bytes(
+                        text, encoding="utf8"
+                    )  # prepend "\x00" as a tag to indicate text
+                    await ws.send_bytes(msg)
+
+            # run all loops concurrently
             try:
                 tasks = [
                     asyncio.create_task(recv_loop()),
@@ -367,6 +415,10 @@ class STT:
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
-                self.reset_state()
+                async with self.input_tracker_lock:
+                    if idx in self.input_tracker:
+                        del self.input_tracker[idx]
+                    self.available_indices.add(idx)
+                self.reset_state(idx)
 
         return web_app
