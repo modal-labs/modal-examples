@@ -76,7 +76,7 @@ class SandboxReference:
 #
 # In this example, we run a very simple health check that just ensures that the
 # server is running and responding to requests.
-def is_healthy(url: str) -> bool:
+def is_healthy(url: str, wait_for_container_start: bool) -> bool:
     import requests
 
     start_time = time.time()
@@ -86,7 +86,10 @@ def is_healthy(url: str) -> bool:
             response.raise_for_status()
             return True
         except requests.RequestException:
-            if time.time() - start_time >= HEALTH_CHECK_TIMEOUT_SECONDS:
+            if (
+                not wait_for_container_start
+                or time.time() - start_time >= HEALTH_CHECK_TIMEOUT_SECONDS
+            ):
                 return False
             time.sleep(0.1)
 
@@ -94,11 +97,16 @@ def is_healthy(url: str) -> bool:
 
 
 def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
+    """Check if a Sandbox is still good to use.
+
+    It assumes that it's already been added to the pool, so we don't wait for the
+    container to start.
+    """
     if sr.expires_at < time.time() + SANDBOX_USE_DURATION_SECONDS:
         print(f"Sandbox '{sr.id}' does not have enough time left")
         return False
 
-    if check_health and not is_healthy(sr.url):
+    if check_health and not is_healthy(sr.url, wait_for_container_start=False):
         print(f"Sandbox '{sr.id}' is not healthy")
         return False
 
@@ -129,7 +137,7 @@ def add_sandbox_to_queue() -> None:
     expires_at = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
     url = sb.tunnels()[SANDBOX_SERVER_PORT].url
 
-    if not is_healthy(url):
+    if not is_healthy(url, wait_for_container_start=True):
         raise Exception("Health check failed")
 
     pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
