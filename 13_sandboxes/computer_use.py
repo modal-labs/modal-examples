@@ -5,7 +5,7 @@
 
 # # Run Anthropic's computer use demo in a Modal Sandbox
 
-# This example demonstrates how to run Anthropic's Computer Use demo
+# This example demonstrates how to run Anthropic's [Computer Use demo](https://github.com/anthropics/anthropic-quickstarts/tree/main/computer-use-demo)
 # in a Modal [Sandbox](https://modal.com/docs/guide/sandbox).
 
 # ## Sandbox Setup
