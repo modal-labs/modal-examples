@@ -65,7 +65,7 @@ print(f"🏖️  Sandbox ID: {sandbox.object_id}")
 
 tunnels = sandbox.tunnels()
 for port, tunnel in tunnels.items():
-    print(f"Port {port}: {tunnel.url}")
+    print(f"Waiting for service on port {port} to start at {tunnel.url}")
 
 # We can check on each server's status by making an HTTP request to the server's URL
 # and verifying that it responds with a 200 status code.
