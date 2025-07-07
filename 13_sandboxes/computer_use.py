@@ -42,6 +42,7 @@ secret = modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_AP
 # Now, we can start our Sandbox.
 # We use `modal.enable_output()` to print the Sandbox's image build logs to the console.
 # We'll also expose the ports required for the demo's interfaces:
+
 # - Port 8501 serves the Streamlit UI for interacting with the agent loop
 # - Port 6080 serves the VNC desktop view via a browser-based noVNC client
 
