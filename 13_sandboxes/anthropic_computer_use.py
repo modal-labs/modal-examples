@@ -1,5 +1,5 @@
 # ---
-# cmd: ["python", "13_sandboxes/computer_use.py"]
+# cmd: ["python", "13_sandboxes/anthropic_computer_use.py"]
 # pytest: false
 # ---
 
