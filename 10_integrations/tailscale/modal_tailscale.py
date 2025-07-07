@@ -28,7 +28,7 @@ image = (
 app = modal.App(image=image)
 
 # Packages might not be installed locally. This catches import errors and
-# only attemps imports in the container. 
+# only attempts imports in the container.
 with image.imports():
     import socket
 
