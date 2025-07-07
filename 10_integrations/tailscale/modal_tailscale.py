@@ -27,12 +27,15 @@ image = (
 )
 app = modal.App(image=image)
 
-# Configure Python to use the SOCKS5 proxy globally.
+# Packages might not be installed locally. This catches import errors and
+# only attempts imports in the container.
 with image.imports():
     import socket
 
     import socks
 
+# Configure Python to use the SOCKS5 proxy globally.
+if not modal.is_local():
     socks.set_default_proxy(socks.SOCKS5, "0.0.0.0", 1080)
     socket.socket = socks.socksocket
 
