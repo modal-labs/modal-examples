@@ -121,8 +121,7 @@ class Model:
             text_encoder_2=text_encoder_2.to(self.device),
             torch_dtype=dtype,
             cache_dir=CACHE_DIR,
-            device_map="balanced",
-        )
+        ).to(self.device)
 
     @modal.method()
     def inference(
