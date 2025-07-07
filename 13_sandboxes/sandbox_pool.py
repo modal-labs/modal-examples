@@ -44,15 +44,15 @@ server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 ## Configuration of the pool
 
 # Here we define the image that will be used to run the server that runs in the
-# Sandbox. In this simple example, we just run the built in Python HTTP server, that
+# Sandbox. In this simple example, we just run the built in Python HTTP server that
 # returns a directory listing.
 sandbox_image = modal.Image.debian_slim(python_version="3.11")
 SANDBOX_SERVER_PORT = 8080
 HEALTH_CHECK_TIMEOUT_SECONDS = 10
 
-# In this example, Sandboxes live for 5 minutes, and we assume that they are used for
-# 2 minutes, meaning that if a Sandbox has less than 2 minutes left, it's considered
-# to be expiring too soon, and will be terminated.
+# In this example Sandboxes live for 5 minutes, and we assume that they are used for
+# 2 minutes, meaning that if a Sandbox has less than 2 minutes left it's considered
+# to be expiring too soon and will be terminated.
 #
 # You'll want to adjust these values depending on your use case.
 SANDBOX_TIMEOUT_SECONDS = 5 * 60
@@ -61,9 +61,9 @@ POOL_SIZE = 3
 POOL_MAINTENANCE_SCHEDULE = modal.Period(minutes=2)
 
 
-## Main implementation
+# ## Main implementation
 
-# We keep track of all warm Sandboxes in a Modal Queue of SandboxReference objects.
+# We keep track of all warm Sandboxes in a Modal Queue of `SandboxReference` objects.
 pool_queue = modal.Queue.from_name("sandbox-pool-sandboxes", create_if_missing=True)
 
 
@@ -74,12 +74,12 @@ class SandboxReference:
     expires_at: int
 
 
-# ## Health check
+# ### Health check
 #
-# In this example, we run a simple health check that just ensures that the server in the
-# Sandbox is running and responding to requests.
+# We add a simple health check that just ensures that the server in the Sandbox is
+# running and responding to requests.
 #
-# If you just want to ensure the sandbox is running, you could for example check
+# If you just want to ensure the sandbox is running you could for example check
 # `sb.poll() is not None` instead.
 def is_healthy(url: str, wait_for_container_start: bool) -> bool:
     """Check if a Sandbox is healthy.
@@ -122,13 +122,13 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
     return True
 
 
-# ## Adding a Sandbox to the pool
+# ### Adding a Sandbox to the pool
 #
 # This function creates and adds a new Sandbox to the pool. It runs a health check on
 # the Sandbox before adding it.
 #
-# We deploy the Sandboxes in a separate Modal App called "sandbox-pool-sandboxes",
-# so that we separate the control app (logs, etc.) from the Sandboxes.
+# We deploy the Sandboxes in a separate Modal App called `sandbox-pool-sandboxes`,
+# to separate the control app (logs, etc.) from the Sandboxes.
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue() -> None:
@@ -151,7 +151,7 @@ def add_sandbox_to_queue() -> None:
     pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
 
 
-# We also have a utility function that can be .spawn()'ed to terminate Sandboxes.
+# We also have a utility function that can be `.spawn()`ed to terminate Sandboxes.
 @app.function()
 def terminate_sandboxes(sandbox_ids: list[str]) -> int:
     num_terminated = 0
@@ -164,7 +164,7 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
     return num_terminated
 
 
-# ## Claiming a Sandbox from the pool
+# ### Claiming a Sandbox from the pool
 #
 # We expose two ways to claim a Sandbox from the pool and get a URL to the server:
 #
@@ -221,7 +221,7 @@ def claim_sandbox(check_health: bool = True) -> str:
     return sr.url
 
 
-# ## Maintaining the pool
+# ### Maintaining the pool
 #
 # This function grows or shrinks the pool to SANDBOX_POOL_SIZE. It first removes any
 # expiring or unhealthy sandboxes, then adjusts the pool size to reach the target.
@@ -303,8 +303,8 @@ def check():
 
 # ### Claiming a Sandbox from the pool and print its URL
 #
-# This is implemented the same as what you would do if you wanted to call the Function
-# from a Python backend application using the Modal SDK.
+# This is implemented as if you wanted to call the Function from a Python backend
+# application using the Modal SDK, i.e. using `.from_name()` to get the Function, etc.
 #
 # Run it with `python 13_sandboxes/sandbox_pool.py claim`.
 def claim() -> None:
@@ -314,8 +314,8 @@ def claim() -> None:
 
 # ### Run a demo of the Sandbox pool.
 #
-# This is also implemented the same as what you would do if you wanted to call the
-# Functions from a Python backend application using the Modal SDK.
+# This is implemented as if you wanted to call the Function from a Python backend
+# application using the Modal SDK, i.e. using `.from_name()` to get the Function, etc.
 #
 # Run it with `python 13_sandboxes/sandbox_pool.py demo`.
 def demo():
