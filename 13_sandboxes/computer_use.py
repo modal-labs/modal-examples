@@ -100,3 +100,4 @@ else:
 
 # When finished, you can terminate the sandbox from your [Modal dashboard](https://modal.com/containers)
 # or by running `Sandbox.from_id(sandbox.object_id).terminate()`.
+# The Sandbox will also spin down after one hour.
