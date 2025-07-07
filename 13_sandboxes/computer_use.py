@@ -57,7 +57,7 @@ with modal.enable_output():
         image=sandbox_image,
         secrets=[secret],
         encrypted_ports=[8501, 6080],
-        timeout=60 * 60,
+        timeout=60 * 60,  # stay alive for one hour, maximum one day
     )
 
 print(f"🏖️  Sandbox ID: {sandbox.object_id}")
