@@ -97,7 +97,7 @@ else:
 
 # You can now open the URLs in your browser to interact with the demo!
 # Note: The sandbox logs may mention `localhost:8080`.
-# please ignore this and use the tunnel URLs instead.
+# Ignore this and use the printed tunnel URLs instead.
 
 # When finished, you can terminate the sandbox from your [Modal dashboard](https://modal.com/containers)
 # or by running `Sandbox.from_id(sandbox.object_id).terminate()`.
