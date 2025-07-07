@@ -25,6 +25,9 @@
 # - `sandbox-pool` is the main App that contains all the control logic for maintaining
 #   the pool, exposing ways to claim Sandboxes, etc.
 # - `sandbox-pool-sandboxes` houses all the actual Sandboxes, and nothing else.
+#
+# The implementation borrows from [pawalt](https://github.com/pawalt)'s [Sandbox pool
+# example gist](https://gist.github.com/pawalt/7a505c38bba75cafae0780a5dd40e8b8). 🙏
 
 
 import argparse
