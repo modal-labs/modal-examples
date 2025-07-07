@@ -96,7 +96,7 @@ else:
 
 
 # You can now open the URLs in your browser to interact with the demo!
-# Note: The sandbox logs may mention http://localhost:8080 due to the base image configuration,
+# Note: The sandbox logs may mention `localhost:8080`.
 # please ignore this and use the tunnel URLs instead.
 
 # When finished, you can terminate the sandbox from your [Modal dashboard](https://modal.com/containers)
