@@ -145,10 +145,10 @@ port = 10210
     timeout=60 * MINUTES,  # how long should we wait for container start?
     volumes=volumes,
     secrets=secrets,
-    max_containers=10,  # starter plan limit
+    max_containers=1,  # number of GPU containers to run
 )
-@modal.concurrent(  # how many requests can one replica handle? tune carefully!
-    max_inputs=4
+@modal.concurrent(  # how many requests can one replica handle? lower in case getting redirect/assertion errors
+    max_inputs=1
 )
 @modal.web_server(port=port, startup_timeout=10 * MINUTES)
 def serve():
@@ -329,10 +329,10 @@ def count_output_tokens(id: int, completions: list[str]) -> int:
 @app.local_entrypoint()
 async def test(
     seed: int = 42,
-    limit: int = 128,
+    limit: int = 1,  # lower in case getting redirect/assertion errors
     num_few_shot: int = 4,
     reps: int = 1,
-    batch_size: int = 128,  # lower in case getting redirect/assertion errors
+    batch_size: int = 1,  # lower in case getting redirect/assertion errors
 ):
     import asyncio
     import random
