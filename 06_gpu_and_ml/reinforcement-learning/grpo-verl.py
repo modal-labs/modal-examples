@@ -268,9 +268,9 @@ def serve():
     cmd += ["--tensor-parallel-size", str(NUM_GPUS_PER_NODE)]
     subprocess.Popen(" ".join(cmd), shell=True)
 
-# You can then deploy the server using `modal deploy grpo-verl.py`, and query it using the following curl command
+# You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
 
-# curl -X POST https://modal-labs-advay-dev--grpo-verl-example-serve-dev.modal.run/v1/chat/completions \
+# curl -X POST <INSERT_URL> \
 #   -H "Content-Type: application/json" \
 #   -d '{
 #     "messages": [
