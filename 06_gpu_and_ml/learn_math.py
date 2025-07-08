@@ -146,7 +146,8 @@ def math_group_verifier(trainer_script: str, config_file: str):
         + "\n\n<think>\n\n<answer>"
     )
 
-    inference.remote(prompt)
+    result = inference.remote(prompt)
+    print(result)
 
 
 # ## Inference
