@@ -274,6 +274,7 @@ def serve():
 
 # You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
 
+#```bash
 # curl -X POST <INSERT_URL> \
 #   -H 'Content-Type: application/json' \
 #   -d '{
@@ -283,5 +284,6 @@ def serve():
 #     ],
 #     'temperature': 0.7
 #   }'
+#```
 
 # or in the [following ways](https://modal.com/docs/examples/vllm_inference#interact-with-the-server).
