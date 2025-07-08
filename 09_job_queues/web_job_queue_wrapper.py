@@ -1,5 +1,7 @@
 # ---
-# deploy: true
+# cmd: ["modal", "serve", "06_gpu_and_ml/09_job_queues/web_job_queue_wrapper.py"]
+# deploy: false
+# lambda-test: false
 # mypy: ignore-errors
 # ---
 
@@ -31,6 +33,7 @@ class BackendService():
     def run(self, input_val: str):
         print(f'begin run with {input_val}')
         time.sleep(5)
+        print(f'end run with {input_val}')
         return input_val[::-1] # reverse the string
 
 # Then, we can define a web endpoint that will submit a request to the backend service
@@ -43,7 +46,7 @@ class BackendService():
 # Then we can poll results by checking the ['call graph'](https://modal.com/docs/reference/modal.call_graph)
 # of the `FunctionCall` object.
 
-@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]"))
+@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]==0.116.0"))
 @modal.asgi_app()
 @modal.concurrent(max_inputs=100)
 def web_endpoint():
