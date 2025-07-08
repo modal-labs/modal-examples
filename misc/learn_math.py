@@ -133,9 +133,10 @@ def math_group_verifier(trainer_script: str, config_file: str):
     inference.remote(prompt)
 
 # ## Inference
-# We create a function that will run the inference by loading the model weights from the weights volume.
-# We use the `DEFAULT_TOOL_PROMPT_TEMPLATE` from the verifiers library to format the prompt with the tool descriptions and the problem.
-# Then, we use a tokenizer to tokenize the prompt and the model to generate the response, then decode the response and return it.
+# We define an `inference` Modal function that runs on a single GPU and mounts the weights volume.
+# Then, we load the trained model from the volume (falling back to the base model if needed).
+# To build the prompt, we apply `DEFAULT_TOOL_PROMPT_TEMPLATE` with `TOOL_DESCRIPTIONS` and the problem text.
+# Finally, we tokenize the prompt, generate a response with sampling (temperature, top-p, repetition penalty), then decode and return the answer.
 
 
 @app.function(gpu="H100", image=image, volumes={
