@@ -283,6 +283,9 @@ def main(
         print("-" * 30)
 
     elif mode == "train":
+        import os
+
+        print(os.listdir("."))
         print(
             f"Training with trainer script: {trainer_script} and config file: {config_file}"
         )
