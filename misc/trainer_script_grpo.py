@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false  # training script that is called from learn_math.py
+# ---
+
 # # Training script for training a reasoning model using the verifiers library with sandboxed code execution
 
 # This script is used to train a model using GRPO. This is adapted from the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
