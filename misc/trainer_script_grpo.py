@@ -1,6 +1,4 @@
-# # Training script for GRPO
-
-# # Training Script
+# # Training script for training a reasoning model using the verifiers library with sandboxed code execution
 
 # This script is used to train a model using GRPO. This is adapted from the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
 # Here, we use a Modal Sandbox to execute python code during training. Modal Sandboxes offer an easy way to execute untrusted code in a completely isolated environment.
@@ -34,6 +32,7 @@ def sandbox_exec(code):
     except Exception as e:
         return f"Error: {str(e)}"
     
+# We define the tool prompt for prompting the model. Then, we pass in our `sandbox_exec` function as a tool to the `ToolEnv` definition.
 
 TOOL_PROMPT = """
 Think step-by-step inside <think>...</think> tags in each message, then either call a tool inside <tool>...</tool> tags, or give your final answer inside <answer>...</answer> tags.
