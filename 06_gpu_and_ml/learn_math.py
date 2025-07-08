@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/learn_math.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/learn_math.py", "--mode=train", "--trainer-script=06_gpu_and_ml/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/config_grpo.yaml"]
 # ---
 
 # # Training a reasoning model using the verifiers library with sandboxed code execution
@@ -283,9 +283,6 @@ def main(
         print("-" * 30)
 
     elif mode == "train":
-        import os
-
-        print(os.listdir("."))
         print(
             f"Training with trainer script: {trainer_script} and config file: {config_file}"
         )
