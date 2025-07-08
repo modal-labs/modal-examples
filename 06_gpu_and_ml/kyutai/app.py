@@ -360,3 +360,8 @@ class STT:
                 self.reset_state()
 
         return web_app
+
+
+@app.local_entrypoint()
+def main():
+    return True
