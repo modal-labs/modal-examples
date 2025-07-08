@@ -1,7 +1,5 @@
 import verifiers as vf
-from verifiers.tools import python
 from verifiers.utils import load_example_dataset
-from verifiers.tools import python
 import modal
 
 app = modal.App.lookup("math-rl", create_if_missing=True)
