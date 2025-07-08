@@ -39,7 +39,7 @@ def compute_reward(completion, testcase):
         completion, testcase
     )  # defined below
     p = sb.exec("python", "-c", code_to_execute)
-    sb.wait()
+    p.wait()
     if p.returncode == 0:
         return 1
     else:
