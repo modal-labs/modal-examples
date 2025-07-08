@@ -14,7 +14,7 @@
 # provide a URL for a `.wav` file to `modal run`:
 
 # ```bash
-# modal run 06_gpu_and_ml/audio-to-text/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+# modal run 06_gpu_and_ml/parakeet/parakeet.py --audio-url="https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
 # ```
 
 # You should see output like the following:
@@ -30,12 +30,12 @@
 # Just run
 
 # ```bash
-# modal serve 06_gpu_and_ml/audio-to-text/parakeet.py
+# modal serve 06_gpu_and_ml/parakeet/parakeet.py
 # ```
 
 # and go to the link printed in your terminal.
 
-# The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/audio-to-text/frontend).
+# The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/parakeet/frontend).
 
 # ## Setup
 
