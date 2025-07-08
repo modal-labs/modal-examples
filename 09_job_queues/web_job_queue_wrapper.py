@@ -5,7 +5,7 @@
 # mypy: ignore-errors
 # ---
 
-# # Create a web wrapper for job queue, submission, polling, & results
+# # Create a job monitoring web endpoint
 
 # This simple tutorial shows you how to create an API endpoint that you can use
 # to poll the status of your request.
@@ -41,11 +41,11 @@ class BackendService:
 # Then, we can define a web endpoint that will submit a request to the backend service
 # as well as other API routes for polling or retrieving results.
 
-# To submit jobs asynchronously, we can use ['spawn'](https://modal.com/docs/reference/modal.Function#spawn),
+# To submit jobs asynchronously, we can use [spawn](https://modal.com/docs/reference/modal.Function#spawn),
 # which return a [`FunctionCall`](https://modal.com/docs/reference/modal.FunctionCall) object that represents
 # the submitted job.
 #
-# Then we can poll results by checking the ['call graph'](https://modal.com/docs/reference/modal.call_graph)
+# Then we can poll results by checking the [call graph](https://modal.com/docs/reference/modal.call_graph)
 # of the `FunctionCall` object.
 
 
