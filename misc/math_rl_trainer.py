@@ -1,8 +1,31 @@
 import verifiers as vf
 from verifiers.tools import python
 from verifiers.utils import load_example_dataset
+from verifiers.tools import python
+import modal
 
-# Prompt kept identical
+app = modal.App.lookup("math-rl", create_if_missing=True)
+sb = modal.Sandbox.create(app=app)
+
+def sandbox_exec(code):
+    try:
+        process = sb.exec('python', '-c', code, timeout=10)
+        process.wait()
+        
+        stdout = process.stdout.read()
+        stderr = process.stderr.read()
+        if stderr:
+            return f"Error: {stderr.strip()}"
+        
+        output = stdout.strip() if stdout else ""
+        if len(output) > 1000:
+            output = output[:1000] + "... (truncated to 1000 chars)"
+        
+        return output
+    except Exception as e:
+        return f"Error: {str(e)}"
+    
+
 TOOL_PROMPT = """
 Think step-by-step inside <think>...</think> tags in each message, then either call a tool inside <tool>...</tool> tags, or give your final answer inside <answer>...</answer> tags.
 
@@ -38,7 +61,7 @@ vf_env = vf.ToolEnv(
     dataset=dataset,
     system_prompt=TOOL_PROMPT,
     few_shot=[],
-    tools=[python],
+    tools=[sandbox_exec],
     max_steps=3
 )
 
@@ -64,6 +87,7 @@ trainer = vf.GRPOTrainer(
 )
 trainer.train()
 
+sb.terminate()
 save_path = "/root/math_weights"
 trainer.save_model(save_path)
 tokenizer.save_pretrained(save_path)
