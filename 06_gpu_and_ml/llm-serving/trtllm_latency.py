@@ -88,6 +88,7 @@ tensorrt_image = tensorrt_image.apt_install(
 ).pip_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
+    "flashinfer-python==0.2.5",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )

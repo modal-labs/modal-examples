@@ -22,19 +22,20 @@ image = (
     .run_commands("curl -fsSL https://tailscale.com/install.sh | sh")
     .pip_install("requests==2.32.3", "PySocks==1.7.1")
     .add_local_file("./entrypoint.sh", "/root/entrypoint.sh", copy=True)
-    .dockerfile_commands(
-        "RUN chmod a+x /root/entrypoint.sh",
-        'ENTRYPOINT ["/root/entrypoint.sh"]',
-    )
+    .run_commands("chmod a+x /root/entrypoint.sh")
+    .entrypoint(["/root/entrypoint.sh"])
 )
 app = modal.App(image=image)
 
-# Configure Python to use the SOCKS5 proxy globally.
+# Packages might not be installed locally. This catches import errors and
+# only attempts imports in the container.
 with image.imports():
     import socket
 
     import socks
 
+# Configure Python to use the SOCKS5 proxy globally.
+if not modal.is_local():
     socks.set_default_proxy(socks.SOCKS5, "0.0.0.0", 1080)
     socket.socket = socks.socksocket
 
