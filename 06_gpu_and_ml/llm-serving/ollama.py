@@ -19,6 +19,7 @@
 
 import asyncio
 import subprocess
+import time
 from typing import List
 
 import modal
@@ -287,6 +288,7 @@ async def local_main():
 
     Run with: `modal run ollama.py`
     """
+    start_time = time.time()
     print("Triggering test suite on the OllamaServer...")
     all_test_results = await OllamaServer().run_tests.remote.aio()
     print("\n--- Test Suite Summary ---")
@@ -313,6 +315,8 @@ async def local_main():
         print("No results returned from test function.")
 
     print("\nTest finished. Your Ollama server is ready to use!")
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
 
 
 # ## Deploying to Production
