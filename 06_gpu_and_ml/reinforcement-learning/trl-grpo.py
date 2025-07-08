@@ -71,7 +71,7 @@ def get_generated_code_and_test_cases(completion, testcase):
 # Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions
 # Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function)
 def reward_helper_function(prompts, completions, testcases, **kwargs):
-    return compute_reward.map(zip(completions, testcases))
+    return compute_reward.starmap(zip(completions, testcases))
 
 
 # ## Kicking off a training run
