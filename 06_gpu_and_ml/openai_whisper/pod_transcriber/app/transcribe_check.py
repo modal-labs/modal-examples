@@ -4,11 +4,11 @@ import modal
 
 from . import config, podcast
 from .main import (
+    ParakeetASR,
     app,
     app_image,
     split_silences,
     transcribe_episode,
-    transcribe_segment,
     volume,
 )
 
@@ -18,16 +18,17 @@ logger = config.get_logger(__name__)
 def _transcribe_serially(
     audio_path: pathlib.Path, offset: int = 0
 ) -> list[tuple[float, float]]:
-    model = config.DEFAULT_MODEL
+    model_spec = config.DEFAULT_MODEL
     segment_gen = split_silences(str(audio_path))
     failed_segments = []
+    parakeet = ParakeetASR(model_name=model_spec.name)
     for i, (start, end) in enumerate(segment_gen):
         if i < offset:
             continue
         logger.info(f"Attempting transcription of ({start}, {end})...")
         try:
-            transcribe_segment.local(
-                start=start, end=end, audio_filepath=audio_path, model=model
+            parakeet.transcribe_segment.local(
+                start=start, end=end, audio_filepath=audio_path
             )
         except Exception as exc:
             logger.info(f"Transcription failed for ({start}, {end}).")
@@ -75,7 +76,7 @@ def test_transcribe_handles_dangling_segment():
         destination=audio_path,
     )
 
-    model = config.DEFAULT_MODEL
+    model_spec = config.DEFAULT_MODEL
 
     try:
         result_path = pathlib.Path(
@@ -86,7 +87,7 @@ def test_transcribe_handles_dangling_segment():
         transcribe_episode.local(
             audio_filepath=audio_path,
             result_path=result_path,
-            model=model,
+            model_name=model_spec.name,
         )
     except Exception as exc:
         print(exc)
@@ -102,8 +103,9 @@ def test_transcribe_handles_dangling_segment():
     start = problem_segment[0]
     end = problem_segment[1]
     logger.info(f"Problem segment time range is ({start}, {end})")
+    parakeet = ParakeetASR(model_name=model_spec.name)
     try:
-        transcribe_segment(start=start, end=end, audio_filepath=audio_path, model=model)
+        parakeet.transcribe_segment(start=start, end=end, audio_filepath=audio_path)
     except Exception:
         logger.info(
             "Writing the problem segment to the network file system for further debugging."

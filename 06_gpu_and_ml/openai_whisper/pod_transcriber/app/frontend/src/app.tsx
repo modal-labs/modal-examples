@@ -4,7 +4,6 @@ import Podcast from "./routes/podcast";
 import Episode from "./routes/episode";
 import Footer from "./components/Footer";
 import Spinner from "./components/Spinner";
-import teckStackImgUrl from "./whisper-app-tech-stack.png";
 import { Search as SearchIcon } from "react-feather";
 
 function truncate(str: string, n: number) {
@@ -64,11 +63,6 @@ function Form({ onSubmit, searching }) {
 
   return (
     <form className="flex flex-col space-y-5 items-center">
-      <div>
-        <a href="https://modal.com" target="_blank" rel="noopener noreferrer">
-          <img src={teckStackImgUrl} height="300px" />
-        </a>
-      </div>
       <div className="text-2xl font-semibold text-gray-700">
         Modal Podcast Transcriber
       </div>
@@ -85,7 +79,7 @@ function Form({ onSubmit, searching }) {
           </strong>
         </p>
         <p className="mb-1">
-          Try searching for 'ReactJS', 'data science', or 'software engineer
+          Try searching for 'ReactJS', 'AI', or 'software engineer
           career' podcasts.
         </p>
         <p className="mb-1">

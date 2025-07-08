@@ -295,7 +295,12 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
     start = time.perf_counter()
     acc_chunks = []
     embeddings = []
-    for resp in model.embed.map(batches, order_outputs=False, return_exceptions=True):
+    for resp in model.embed.map(
+        batches,
+        order_outputs=False,
+        return_exceptions=True,
+        wrap_return_exceptions=False,
+    ):
         if isinstance(resp, Exception):
             print(f"Exception: {resp}")
             continue
