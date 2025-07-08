@@ -22,6 +22,8 @@ image = modal.Image.debian_slim().pip_install(
     "trl[vllm]==0.19.0", "datasets==3.5.1", "wandb==0.17.6"
 )
 
+# We define some constants
+
 # ## Defining the reward function
 
 # In this example, we use the OpenCoder-LLM/opc-sft-stage2 dataset to train a model to solve coding problems.
@@ -40,6 +42,8 @@ def compute_reward(completion, testcase):
     )  # defined below
     p = sb.exec("python", "-c", code_to_execute)
     p.wait()
+    sb.terminate()
+    print("ASDSAD", p.returncode)
     if p.returncode == 0:
         return 1
     else:
