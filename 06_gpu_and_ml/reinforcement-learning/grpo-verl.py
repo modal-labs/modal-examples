@@ -26,9 +26,7 @@ app = modal.App("grpo-verl-example")
 
 VERL_REPO_PATH: str = "/root/verl"
 image = (
-    modal.Image.from_registry(
-        "verlai/verl:app-verl0.4-vllm0.8.5-mcore0.12.1"
-    )
+    modal.Image.from_registry("verlai/verl:app-verl0.4-vllm0.8.5-mcore0.12.1")
     .apt_install("git")
     .run_commands([f"git clone https://github.com/volcengine/verl {VERL_REPO_PATH}"])
     .pip_install("verl[vllm]==0.4.1")
@@ -41,7 +39,10 @@ image = (
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) to store the data.
 
 DATA_PATH: str = "/data"
-data_volume: modal.Volume = modal.Volume.from_name("grpo-verl-example-data", create_if_missing=True)
+data_volume: modal.Volume = modal.Volume.from_name(
+    "grpo-verl-example-data", create_if_missing=True
+)
+
 
 # We write a modal Function to populate the Volume with the data.
 @app.function(image=image, volumes={DATA_PATH: data_volume})
@@ -101,6 +102,7 @@ def extract_solution(
 
 # Reward functions need to follow a [predefined signature.](https://verl.readthedocs.io/en/latest/preparation/reward_function.html)
 
+
 def compute_reward(
     data_source: str, solution_str: str, ground_truth: str, extra_info: dict
 ) -> float:
@@ -132,7 +134,7 @@ LEARNING_RATE: str = "1e-6"
 MINI_BATCH_SIZE: int = 128
 MICROBATCH_SIZE_PER_GPU: int = 16
 NUM_GPUS_PER_NODE: int = 8
-GPU_TYPE: str = "H100!" # Exclusively H100s.
+GPU_TYPE: str = "H100!"  # Exclusively H100s.
 
 # We also a define a Volume for storing model checkpoints.
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
@@ -141,6 +143,7 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 
 # Now, we write a Modal Function for kicking off the training run.
 # If you wish to use WANDB, as we do in this code, you'll need to create a WANDB [secret](https://modal.com/docs/guide/secrets#secrets)
+
 
 @app.function(
     image=image,
@@ -199,7 +202,7 @@ def train(*arglist) -> None:
         "trainer.resume_mode=auto",
         # For the custom reward function.
         f"custom_reward_function.path={PATH_TO_REWARD_FUNCTION}",
-        f"custom_reward_function.name={REWARD_FUNCTION_NAME}",  
+        f"custom_reward_function.name={REWARD_FUNCTION_NAME}",
     ]
     if arglist:
         cmd.extend(arglist)
@@ -224,9 +227,11 @@ vllm_image = (
         "flashinfer-python==0.2.6.post1",
         extra_index_url="https://download.pytorch.org/whl/cu128",
     )
-    .env({
-        "VLLM_USE_V1": "1",
-    })
+    .env(
+        {
+            "VLLM_USE_V1": "1",
+        }
+    )
 )
 MINUTES = 60
 VLLM_PORT = 8000
@@ -236,17 +241,15 @@ CHECKPOINTS_PATH = f"{MODELS_PATH}/global_step_{CHECKPOINTS_INDEX}/actor/hugging
 
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
+
 @app.function(
     image=vllm_image,
     gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
-    volumes={
-        "/root/.cache/vllm": vllm_cache_vol,
-        MODELS_PATH: checkpoints_volume
-    },
+    volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_PATH: checkpoints_volume},
 )
-@modal.concurrent( # how many requests can one replica handle? tune carefully!
+@modal.concurrent(  # how many requests can one replica handle? tune carefully!
     max_inputs=32
 )
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
@@ -268,6 +271,7 @@ def serve():
     cmd += ["--tensor-parallel-size", str(NUM_GPUS_PER_NODE)]
     subprocess.Popen(" ".join(cmd), shell=True)
 
+
 # You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
 
 # curl -X POST <INSERT_URL> \
@@ -281,4 +285,3 @@ def serve():
 #   }'
 
 # or in the [following ways](https://modal.com/docs/examples/vllm_inference#interact-with-the-server).
-
