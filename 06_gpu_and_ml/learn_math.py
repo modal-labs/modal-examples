@@ -15,28 +15,28 @@
 
 # ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
-# We install the dependencies for the verifiers library and the flash-attn library following the [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started) in the verifiers library.
+# We install the dependencies for the verifiers and flash-attn libraries, following the verifiers [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started)."
 
 import modal
 
-app = modal.App(name="math-rl")
+app = modal.App(name="learn-math")
 cuda_version = "12.8.0"
 flavor = "devel"
 operating_sys = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 flash_attn_release = (
-    "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/"
-    "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp312-cp312-linux_x86_64.whl"
+    "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.1.post1/"
+    "flash_attn-2.7.1.post1+cu12torch2.6cxx11abiTRUE-cp311-cp311-linux_x86_64.whl"
 )
 
 image = (
-    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.12")
+    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .apt_install("git", "clang")
     .pip_install(
-        "setuptools==80.9.0",
+        "setuptools==69.0.3",
         "wheel==0.45.1",
-        "ninja==1.11.1",
+        "ninja==1.11.1.4",
         "packaging==25.0",
         flash_attn_release,
     )
@@ -49,7 +49,7 @@ image = (
     )
 )
 
-# ## Caching huggingface, vllm, and storing model weights
+# ## Caching Hugging Face, VLLM, and storing model weights
 # We create Modal Volumes to persist:
 # - Hugging Face downloads
 # - VLLM cache
@@ -76,7 +76,7 @@ TOOL_DESCRIPTIONS = """
 # For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
 
 # We create a function that uses 4 H100 GPUs and mounts the defined volumes. Then, we write the training script and the config file to the root directory.
-# We use the `willcb/Qwen3-0.6B` model from huggingface setting up inference via a vllm server. Once, the model is served, we will launch the training script using `accelerate`.
+# We use the willcb/Qwen3-0.6B model from Hugging Face, setting up inference via a VLLM server. Once, the model is served, we will launch the training script using `accelerate`.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
 
@@ -151,7 +151,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
 
 # ## Inference
 # We define an `inference` Modal function that runs on a single GPU and mounts the weights volume.
-# Then, we load the trained model from the volume (falling back to the base model if needed).
+# Then, we load the trained model from the volume, falling back to the base model if necessary.
 # To build the prompt, we apply `DEFAULT_TOOL_PROMPT_TEMPLATE` with `TOOL_DESCRIPTIONS` and the problem text.
 # Finally, we tokenize the prompt, generate a response with sampling (temperature, top-p, repetition penalty), then decode and return the answer.
 
@@ -230,7 +230,7 @@ def inference(prompt: str):
 
 # ## Usage
 # We create a main function that serves as the entrypoint for the app.
-# Supports two modes:
+# It supports two modes:
 # - train: kick off math_group_verifier with the provided training script and config file
 # - inference: invoke inference with prompt string or prompt file
 

@@ -1,6 +1,6 @@
 # ---
 # lambda-test: false  # training script that is called from learn_math.py
-# pytest: false 
+# pytest: false
 # ---
 
 # # Training script for training a reasoning model using the verifiers library with sandboxed code execution
