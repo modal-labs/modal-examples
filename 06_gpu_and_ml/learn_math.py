@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "misc/math_rl.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/learn_math.py"]
 # ---
 
 # # Training a reasoning model using the verifiers library with sandboxed code execution
@@ -36,7 +36,7 @@ image = (
         "packaging==25.0",
     )
     .run_commands("pip install 'verifiers[all]==0.1.1'")
-    .run_commands("pip install flash-attn==2.7.4.post1 --no-build-isolation")
+    .run_commands("MAX_JOBS=128 pip install flash-attn==2.7.4.post1 --no-build-isolation")
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
