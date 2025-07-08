@@ -57,6 +57,8 @@ def web_endpoint():
         """Asynchronously submit a request to the backend service."""
         input_val = (await request.json())['input_val']
         fc = service.run.spawn(input_val)
+        while len(fc.get_call_graph()) == 0:
+            time.sleep(0.1)
         return {"request_id": fc.object_id}
 
     @web_app.get("/requests/{request_id}/status")
