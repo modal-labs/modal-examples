@@ -24,46 +24,52 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastmcp~=2.10.2",
 )
 
-with image.imports():
-    from fastapi import FastAPI
+
+# First, we create the MCP server itself using FastMCP, and add a tool to it that
+# allows LLMs to get the current date and time in a given timezone.
+def make_mcp_server():
     from fastmcp import FastMCP
 
-# First, we create the MCP server itself, using FastMCP.
-mcp = FastMCP("Date and Time MCP Server")
+    mcp = FastMCP("Date and Time MCP Server")
 
+    @mcp.tool()
+    async def current_date_and_time(timezone: str = "UTC") -> str:
+        """Get the current date and time.
 
-# Next, we add a tool to the MCP server, that allows LLMs to get the current date and
-# time in a given timezone.
-@mcp.tool()
-async def current_date_and_time(timezone: str = "UTC") -> str:
-    """Get the current date and time.
+        Args:
+            timezone: The timezone to get the date and time in (optional). Defaults to UTC.
 
-    Args:
-        timezone: The timezone to get the date and time in (optional). Defaults to UTC.
+        Returns:
+            The current date and time in the given timezone, in ISO 8601 format.
+        """
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
 
-    Returns:
-        The current date and time in the given timezone, in ISO 8601 format.
-    """
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
+        try:
+            tz = ZoneInfo(timezone)
+        except Exception:
+            raise ValueError(
+                f"Invalid timezone '{timezone}'. Please use a valid timezone like 'UTC', "
+                "'America/New_York', or 'Europe/Stockholm'."
+            )
+        return datetime.now(tz).isoformat()
 
-    try:
-        tz = ZoneInfo(timezone)
-    except Exception:
-        raise ValueError(
-            f"Invalid timezone '{timezone}'. Please use a valid timezone like 'UTC', "
-            "'America/New_York', or 'Europe/Stockholm'."
-        )
-    return datetime.now(tz).isoformat()
+    return mcp
 
 
 # We then use FastMCP to create a Starlette app with `streamable-http` as transport
-# type, and set `stateless_http=True` to make it stateless. This will then be mounted by
+# type, and set `stateless_http=True` to make it stateless. This will be mounted by
 # FastAPI.
-mcp_app = mcp.http_app(transport="streamable-http", stateless_http=True)
+def make_fastapi_app():
+    from fastapi import FastAPI
 
-fastapi_app = FastAPI(lifespan=mcp_app.router.lifespan_context)
-fastapi_app.mount("/", mcp_app, "mcp")
+    mcp = make_mcp_server()
+    mcp_app = mcp.http_app(transport="streamable-http", stateless_http=True)
+
+    fastapi_app = FastAPI(lifespan=mcp_app.router.lifespan_context)
+    fastapi_app.mount("/", mcp_app, "mcp")
+
+    return fastapi_app
 
 
 # Finally we deploy the FastAPI app as a Modal web endpoint, using [the `asgi_app`
@@ -72,7 +78,7 @@ fastapi_app.mount("/", mcp_app, "mcp")
 @modal.asgi_app()
 def web_endpoint():
     """ASGI web endpoint for the MCP server"""
-    return fastapi_app
+    return make_fastapi_app()
 
 
 # And we're done!
