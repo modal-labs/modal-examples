@@ -4,16 +4,16 @@
 
 # # Training a reasoning model using the verifiers library with sandboxed code execution
 
-# This example demonstrates how to train mathematical reasoning models on Modal using the [verifiers library](https://github.com/willccbb/verifiers) with [Modal Sandboxes](https://modal.com/docs/guide/sandbox) for executing generated code during training.
-# This implementation uses the [verifiers library](https://github.com/willccbb/verifiers) which is a set of tools and abstractions for training LLMs with reinforcement learning in verifiable multi-turn environments via [GRPO](https://arxiv.org/abs/2402.03300).
+# This example demonstrates how to train mathematical reasoning models on Modal using the [verifiers library](https://github.com/willccbb/verifiers) with [Modal Sandboxes](https://modal.com/docs/guide/sandbox) for executing generated code.
+# The [verifiers library](https://github.com/willccbb/verifiers) is a set of tools and abstractions for training LLMs with reinforcement learning in verifiable multi-turn environments via [GRPO](https://arxiv.org/abs/2402.03300).
 
 # This example demonstrates how to:
-# - Launch a distributed GRPO training job on Modal using 4× H100 GPUs using the verifiers library
+# - Launch a distributed GRPO training job on Modal with 4× H100 GPUs
 # - Use VLLM for inference during training
-# - Cache Hugging Face, VLLM, and model weights with [Modal Volumes](https://modal.com/docs/guide/volumes)
-# - Run inference by loading the trained model from  [Modal Volumes](https://modal.com/docs/guide/volumes)
+# - Cache Hugging Face, VLLM, and store the model weights in [Modal Volumes](https://modal.com/docs/guide/volumes)
+# - Run inference by loading the trained model from [Modal Volumes](https://modal.com/docs/guide/volumes)
 
-# #W Setup
+# ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
 # We install the dependencies for the verifiers library and the flash-attn library following the [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started) in the verifiers library.
 
@@ -48,6 +48,7 @@ image = (
 # - Hugging Face downloads 
 # - VLLM cache 
 # - Model weights 
+
 # We define the model name and the tool descriptions for prompting the model.
 
 HF_CACHE_DIR = "/root/.cache/huggingface"
@@ -66,13 +67,11 @@ TOOL_DESCRIPTIONS = """
 
 # ## Training
 # Following the [verifiers example](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py), we will need a training script and a config file.
-# We will be using [this training script](https://www.modal.com/docs/examples/trainer_script_grpo) that uses Modal Sandboxes for executing generated python code during training.
-# We will use the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
-
+# For sandboxed code execution, we will use [this training script](https://www.modal.com/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
 
 # We create a function that uses 4 H100 GPUs and mounts the defined volumes. Then, we write the training script and the config file to the root directory.
 # We use the "willcb/Qwen3-0.6B" model from huggingface for training setup for inference via a vllm server. Once, the model is served, we will launch the training script using accelerate.
-# Once, the training is complete, we will run a single inference from the training set to test our training run.
+# When the training is complete, we will run a single inference from the training set to test our training run.
 
 @app.function(gpu="H100:4", image=image, volumes={
         HF_CACHE_DIR: HF_CACHE_VOL,
@@ -135,6 +134,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
 
 # ## Inference
 # We create a function that will run the inference by loading the model weights from the weights volume.
+# We use the DEFAULT_TOOL_PROMPT_TEMPLATE from the verifiers library to format the prompt with the tool descriptions and the problem.
 # We will use the tokenizer to tokenize the prompt and the model to generate the response, then decode the response and return it.
 
 

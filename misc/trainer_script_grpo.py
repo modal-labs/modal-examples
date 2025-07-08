@@ -1,10 +1,21 @@
+# # Training script for GRPO
+
+# # Training Script
+
+# This script is used to train a model using GRPO. This is adapted from the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
+# Here, we use a Modal Sandbox to execute python code during training. Modal Sandboxes offer an easy way to execute untrusted code in a completely isolated environment.
+# This is a more secure way to execute python code during training.
+
 import verifiers as vf
 from verifiers.utils import load_example_dataset
 import modal
 
+
+# We create a Modal app and a Modal sandbox.
 app = modal.App.lookup("math-rl", create_if_missing=True)
 sb = modal.Sandbox.create(app=app)
 
+# We create a function that will execute the python code in a Modal Sandbox.
 def sandbox_exec(code):
     try:
         process = sb.exec('python', '-c', code, timeout=10)
@@ -51,7 +62,6 @@ The <answer>...</answer> tags should contain only your final answer as a numeric
 
 dataset = (
     load_example_dataset("math", split="train")
-    .shuffle(seed=42)
     .select(range(512))
 )
 
@@ -66,6 +76,9 @@ vf_env = vf.ToolEnv(
 model_name = "willcb/Qwen3-0.6B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
+
+# These parameters are adapted to test the training script via an overfitting test. We will use 512 examples from the training set and overfit the model to them.
+# To learn more about the parameters, please refer to the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
 
 training_args = vf.grpo_defaults(run_name=run_name)
 training_args.num_iterations               = 50
