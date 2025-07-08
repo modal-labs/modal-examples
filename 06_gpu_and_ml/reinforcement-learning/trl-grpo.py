@@ -33,8 +33,7 @@ image = modal.Image.debian_slim().pip_install(
 # For each completion from the model and a test case to test the completion, we define a simple reward function.
 # The function returns 1 if there are no errors, and 0 otherwise.
 @app.function()
-def compute_reward(completion_testcase_tuple):
-    completion, testcase = completion_testcase_tuple
+def compute_reward(completion, testcase):
     sb = modal.Sandbox.create(app=app)
     code_to_execute = get_generated_code_and_test_cases(
         completion, testcase
