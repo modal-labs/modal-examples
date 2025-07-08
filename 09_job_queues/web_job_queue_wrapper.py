@@ -21,20 +21,22 @@ app = modal.App("web_job_queue_wrapper")
 # Next, we'll create a dummy backend service, in reality you may plug an a LLM or Diffusion model here.
 # We'll add artificial delays to simulate a cold boot and a long-running tasks.
 
+
 @app.cls()
-class BackendService():
+class BackendService:
     @modal.enter()
     def enter(self):
-        print('begin cold booting')
+        print("begin cold booting")
         time.sleep(10)
-        print('end cold booting')
+        print("end cold booting")
 
     @modal.method()
     def run(self, input_val: str):
-        print(f'begin run with {input_val}')
+        print(f"begin run with {input_val}")
         time.sleep(5)
-        print(f'end run with {input_val}')
-        return input_val[::-1] # reverse the string
+        print(f"end run with {input_val}")
+        return input_val[::-1]  # reverse the string
+
 
 # Then, we can define a web endpoint that will submit a request to the backend service
 # as well as other API routes for polling or retrieving results.
@@ -46,11 +48,13 @@ class BackendService():
 # Then we can poll results by checking the ['call graph'](https://modal.com/docs/reference/modal.call_graph)
 # of the `FunctionCall` object.
 
+
 @app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]==0.116.0"))
 @modal.asgi_app()
 @modal.concurrent(max_inputs=100)
 def web_endpoint():
     from fastapi import FastAPI, Request
+
     web_app = FastAPI()
 
     service = BackendService()
@@ -58,7 +62,7 @@ def web_endpoint():
     @web_app.post("/run")
     async def submit(request: Request):
         """Asynchronously submit a request to the backend service."""
-        input_val = (await request.json())['input_val']
+        input_val = (await request.json())["input_val"]
         fc = service.run.spawn(input_val)
         while len(fc.get_call_graph()) == 0:
             time.sleep(0.1)
@@ -75,9 +79,10 @@ def web_endpoint():
     @web_app.get("/requests/{request_id}")
     async def result(request_id: str):
         fc = modal.FunctionCall.from_id(request_id)
-        return {'response': fc.get()}
+        return {"response": fc.get()}
 
     return web_app
+
 
 # To test this you can do:
 # ```bash
@@ -103,17 +108,17 @@ def web_endpoint():
 #
 # print(f"got request id: {request_id}, polling status")
 # while True:
-    # status = requests.get(f"{url}/requests/{request_id}/status")
-    # if status.status_code == 200:
-        # data = status.json()
-        # if data['status'] == 'SUCCESS':
-            # print("request completed successfully")
-            # break
-        # else:
-            # print(f"request result is {data['status']}")
-    # else:
-        # print('poll failed:', status)
-    # time.sleep(1)
+# status = requests.get(f"{url}/requests/{request_id}/status")
+# if status.status_code == 200:
+# data = status.json()
+# if data['status'] == 'SUCCESS':
+# print("request completed successfully")
+# break
+# else:
+# print(f"request result is {data['status']}")
+# else:
+# print('poll failed:', status)
+# time.sleep(1)
 #
 # print("retrieving result")
 # result = requests.get(f"{url}/requests/{request_id}")
