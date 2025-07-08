@@ -81,7 +81,7 @@ with image.imports():
     from trl import GRPOConfig, GRPOTrainer
 
 
-# Preprocess the data, renaming columns to
+# Preprocess the data, preparing the columns that `GRPOTrainer` expects
 def load_and_preprocess_data():
     dataset = load_dataset(
         "OpenCoder-LLM/opc-sft-stage2", "educational_instruct", split="train"
