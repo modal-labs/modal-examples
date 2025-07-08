@@ -120,7 +120,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
     tensorrt_image.pip_install(  # add utilities for downloading the model
         "hf-transfer==0.1.8",
         "huggingface_hub==0.26.2",
-        "requests~=2.31.0",
+        "requests~=2.32.2",
     )
     .env(  # hf-transfer for faster downloads
         {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
