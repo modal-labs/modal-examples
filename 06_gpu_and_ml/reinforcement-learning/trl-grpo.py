@@ -116,12 +116,11 @@ def train():
     trainer.train()
 
 
-# To run: `modal run --detach trl-grpu.py::train``
+# To run: `modal run --detach trl-grpo.py::train``
 
-# Speeding up training with vLLM
+# ## Speeding up training with vLLM
 
 # vLLM can be used either in server mode (run vLLM server on separate gpu) or colocate mode (within the training process)
-
 
 @app.function(
     image=image,
@@ -133,7 +132,7 @@ def train_vllm_server_mode():
     dataset = load_and_preprocess_data()
     subprocess.run(
         ["trl", "vllm-serve", "--model", "Qwen/Qwen2-0.5B-Instruct"],
-        env={"CUDA_VISIBLE_DEVICES": "0"},
+        env={"CUDA_VISIBLE_DEVICES": "0"}, # Run on separate GPU
     )
     training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO")
     trainer = GRPOTrainer(
@@ -146,6 +145,7 @@ def train_vllm_server_mode():
     )
     trainer.train()
 
+# You can execute this using `modal run --detach trl-grpo.py::train_vllm_server_mode`
 
 @app.function(
     image=image,
@@ -165,3 +165,5 @@ def train_vllm_colocate_mode():
         vllm_mode="colocate",
     )
     trainer.train()
+
+# You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
