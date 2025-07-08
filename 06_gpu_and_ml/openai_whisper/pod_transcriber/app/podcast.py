@@ -283,7 +283,7 @@ def coalesce_short_transcript_segments(
     segments: list[Segment],
 ) -> list[Segment]:
     """
-    Some extracted transcript segments from openai/whisper are really short, like even just one word.
+    Some extracted transcript segments from ASR models are really short, like even just one word.
     This function accepts a minimum segment length and combines short segments until the minimum is reached.
     """
     minimum_transcript_len = 200  # About 2 sentences.

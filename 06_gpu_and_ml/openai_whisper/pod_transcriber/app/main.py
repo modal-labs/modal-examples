@@ -1,5 +1,5 @@
 """
-whisper-pod-transcriber uses OpenAI's Whisper modal to do speech-to-text transcription
+parakeet-pod-transcriber uses NVIDIA's Parakeet ASR model to do speech-to-text transcription
 of podcasts.
 """
 
@@ -16,36 +16,79 @@ from . import config, podcast, search
 logger = config.get_logger(__name__)
 
 volume = modal.Volume.from_name("dataset-cache-vol", create_if_missing=True)
+model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=True)
 
 app_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git")
+    .apt_install("ffmpeg")
     .pip_install(
-        "git+https://github.com/openai/whisper.git",
         "dacite",
         "jiwer",
         "ffmpeg-python",
         "gql[all]~=3.0.0a5",
         "pandas",
         "loguru==0.6.0",
-        "torchaudio==2.1.0",
         "fastapi[standard]==0.115.4",
         "numpy<2",
     )
-    .apt_install("ffmpeg")
-    .pip_install("ffmpeg-python")
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
 )
-search_image = modal.Image.debian_slim(python_version="3.10").pip_install(
-    "scikit-learn~=1.3.0",
-    "tqdm~=4.46.0",
-    "numpy~=1.23.3",
-    "dacite",
+parakeet_image = (
+    modal.Image.from_registry(
+        "nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04", add_python="3.12"
+    )
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_HOME": "/cache",  # cache directory for Hugging Face models
+            "DEBIAN_FRONTEND": "noninteractive",
+            "CXX": "g++",
+            "CC": "g++",
+        }
+    )
+    .apt_install("ffmpeg")
+    .pip_install(
+        "hf_transfer==0.1.9",
+        "huggingface_hub[hf-xet]==0.31.2",
+        "nemo_toolkit[asr]==2.3.0",
+        "cuda-python==12.8.0",
+        "fastapi==0.115.12",
+        "numpy<2",
+        "ffmpeg-python",
+    )
+    .entrypoint([])  # silence chatty logs by container on start
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
+)
+
+
+search_image = (
+    modal.Image.debian_slim(python_version="3.10")
+    .pip_install(
+        "scikit-learn~=1.3.0",
+        "tqdm~=4.46.0",
+        "numpy~=1.23.3",
+        "dacite",
+    )
+    .add_local_dir(
+        "app",
+        "/root/app",
+        ignore=~modal.FilePatternMatcher("**/*.py"),
+    )
 )
 
 app = modal.App(
-    "whisper-pod-transcriber",
+    "parakeet-pod-transcriber",
     image=app_image,
     secrets=[modal.Secret.from_name("podchaser")],
+    include_source=False,
 )
 
 in_progress = modal.Dict.from_name(
@@ -93,7 +136,10 @@ def populate_podcast_metadata(podcast_id: str):
 
 
 @app.function(
-    image=app_image.add_local_dir(config.ASSETS_PATH, remote_path="/assets"),
+    image=app_image.add_local_dir(
+        config.ASSETS_PATH,
+        remote_path="/assets",
+    ),
     volumes={config.CACHE_DIR: volume},
     min_containers=2,
 )
@@ -272,52 +318,101 @@ def split_silences(
     logger.info(f"Split {path} into {num_segments} segments")
 
 
-@app.function(
-    image=app_image,
-    volumes={config.CACHE_DIR: volume},
-    cpu=2,
-    timeout=400,
+# Parakeet ASR class for handling model loading and transcription
+@app.cls(
+    volumes={"/cache": model_cache, config.CACHE_DIR: volume},
+    image=parakeet_image,
 )
-def transcribe_segment(
-    start: float,
-    end: float,
-    audio_filepath: pathlib.Path,
-    model: config.ModelSpec,
-):
-    import tempfile
-    import time
+class ParakeetASR:
+    model_name: str = modal.parameter()
 
-    import ffmpeg
-    import torch
-    import whisper
+    @modal.enter()
+    def load(
+        self,
+    ):
+        import logging
 
-    t0 = time.time()
-    with tempfile.NamedTemporaryFile(suffix=".mp3") as f:
-        (
-            ffmpeg.input(str(audio_filepath))
-            .filter("atrim", start=start, end=end)
-            .output(f.name)
-            .overwrite_output()
-            .run(quiet=True)
+        import nemo.collections.asr as nemo_asr
+
+        # silence chatty logs from nemo
+        logging.getLogger("nemo_logger").setLevel(logging.CRITICAL)
+
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            model_name=self.model_name
         )
 
-        use_gpu = torch.cuda.is_available()
-        device = "cuda" if use_gpu else "cpu"
-        model = whisper.load_model(
-            model.name, device=device, download_root=config.MODEL_DIR
-        )
-        result = model.transcribe(f.name, language="en", fp16=use_gpu)  # type: ignore
+    @modal.batched(max_batch_size=14, wait_ms=10)
+    def transcribe_segment(
+        self,
+        starts: list[float],
+        ends: list[float],
+        audio_filepaths: list[pathlib.Path],
+    ):
+        import tempfile
+        import time
+        import wave
 
-    logger.info(
-        f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
-    )
+        import ffmpeg
+        import numpy as np
 
-    # Add back offsets.
-    for segment in result["segments"]:
-        segment["start"] += start
-        segment["end"] += start
+        t0 = time.time()
 
-    return result
+        data = []
+        for start, end in zip(starts, ends):
+            with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+                (
+                    ffmpeg.input(str(audio_filepaths[0]))
+                    .filter("atrim", start=start, end=end)
+                    .output(
+                        f.name, format="wav", acodec="pcm_s16le", ac=1, ar=16000
+                    )  # 16kHz mono
+                    .overwrite_output()
+                    .run(quiet=True)
+                )
+
+                # convert to float32 for Parakeet
+                with wave.open(f.name, "rb") as wav_file:
+                    frames = wav_file.readframes(wav_file.getnframes())
+                    data.append(
+                        np.frombuffer(frames, dtype=np.int16).astype(np.float32)
+                    )
+
+        hypotheses = self.model.transcribe(data, timestamps=True)
+
+        for start, end in zip(starts, ends):
+            logger.info(
+                f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
+            )
+
+        # Add back offsets.
+        lst_segment_timestamps = []
+        for start, end, hypothesis in zip(starts, ends, hypotheses):
+            segment_timestamps = hypothesis.timestamp["segment"]
+            for stamp in segment_timestamps:
+                stamp["start"] += start
+                stamp["end"] += start
+            lst_segment_timestamps.append(segment_timestamps)
+
+        # Create result in Whisper-compatible format
+        results = [
+            {
+                "text": hypothesis.text,
+                "segments": [
+                    {
+                        "id": i,
+                        "start": stamp["start"],
+                        "end": stamp["end"],
+                        "text": stamp["segment"],
+                    }
+                    for i, stamp in enumerate(segment_timestamps)
+                ],
+            }
+            for start, end, hypothesis, segment_timestamps in zip(
+                starts, ends, hypotheses, lst_segment_timestamps
+            )
+        ]
+
+        return results
 
 
 @app.function(
@@ -328,14 +423,20 @@ def transcribe_segment(
 def transcribe_episode(
     audio_filepath: pathlib.Path,
     result_path: pathlib.Path,
-    model: config.ModelSpec,
+    model_name: str,
 ):
     segment_gen = split_silences(str(audio_filepath))
 
+    # Create an instance of ParakeetASR
+    parakeet = ParakeetASR(model_name=model_name)
+
     output_text = ""
     output_segments = []
-    for result in transcribe_segment.starmap(
-        segment_gen, kwargs=dict(audio_filepath=audio_filepath, model=model)
+    for result in parakeet.transcribe_segment.starmap(
+        segment_gen,
+        kwargs=dict(
+            audio_filepaths=audio_filepath
+        ),  # `audio_filepaths` instead of `audio_filepath` since `modal.batched` is used
     ):
         output_text += result["text"]
         output_segments += result["segments"]
@@ -346,7 +447,7 @@ def transcribe_episode(
         "language": "en",
     }
 
-    logger.info(f"Writing openai/whisper transcription to {result_path}")
+    logger.info(f"Writing Parakeet ASR transcription to {result_path}")
     with open(result_path, "w") as f:
         json.dump(result, f, indent=4)
 
@@ -360,13 +461,9 @@ def transcribe_episode(
 )
 def process_episode(podcast_id: str, episode_id: str):
     import dacite
-    import whisper
 
     try:
-        # pre-download the model to the cache path, because the _download fn is not
-        # thread-safe.
-        model = config.DEFAULT_MODEL
-        whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
+        model_spec = config.DEFAULT_MODEL
 
         config.RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
         config.TRANSCRIPTIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -385,7 +482,7 @@ def process_episode(podcast_id: str, episode_id: str):
         volume.commit()
 
         logger.info(
-            f"Using the {model.name} model which has {model.params} parameters."
+            f"Using the {model_spec.name} model which has {model_spec.params} parameters."
         )
         logger.info(f"Wrote episode metadata to {metadata_path}")
 
@@ -399,7 +496,7 @@ def process_episode(podcast_id: str, episode_id: str):
             transcribe_episode.remote(
                 audio_filepath=destination_path,
                 result_path=transcription_path,
-                model=model,
+                model_name=model_spec.name,
             )
     finally:
         del in_progress[episode_id]
