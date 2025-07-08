@@ -29,25 +29,27 @@ tag = f"{cuda_version}-{flavor}-{operating_sys}"
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .apt_install("git", "clang")
-    .pip_install( 
-        "ninja",
-        "packaging",
-        "wheel",
-        "vllm==0.8.5",
+    .pip_install(
+        "setuptools==80.9.0",
+        "wheel==0.45.1",
+        "ninja==1.11.1",
+        "packaging==25.0",
     )
-    .run_commands("pip install 'verifiers[all]'")
-    .run_commands("pip install flash-attn --no-build-isolation")
-    .env({
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",
-        "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
-    })
+    .run_commands("pip install 'verifiers[all]==0.1.1'")
+    .run_commands("pip install flash-attn==2.7.4.post1 --no-build-isolation")
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+        }
+    )
 )
 
 # ## Caching huggingface, vllm, and storing model weights
 # We create Modal Volumes to persist:
-# - Hugging Face downloads 
-# - VLLM cache 
-# - Model weights 
+# - Hugging Face downloads
+# - VLLM cache
+# - Model weights
 
 # We define the model name and the tool descriptions for prompting the model.
 
@@ -73,21 +75,24 @@ TOOL_DESCRIPTIONS = """
 # We use the `willcb/Qwen3-0.6B` model from huggingface setting up inference via a vllm server. Once, the model is served, we will launch the training script using `accelerate`.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
-@app.function(gpu="H100:4", image=image, volumes={
+
+@app.function(
+    gpu="H100:4",
+    image=image,
+    volumes={
         HF_CACHE_DIR: HF_CACHE_VOL,
         VLLM_CACHE_DIR: VLLM_CACHE_VOL,
         WEIGHTS_DIR: WEIGHTS_VOL,
     },
     timeout=3600,
     secrets=[modal.Secret.from_name("wandb-secret-rl")],
-    )
+)
 def math_group_verifier(trainer_script: str, config_file: str):
     import subprocess
     import time
     from verifiers.utils import load_example_dataset
-    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE  
+    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
     import wandb
-
 
     with open("/root/trainer_script.py", "w") as f:
         f.write(trainer_script)
@@ -103,10 +108,10 @@ def math_group_verifier(trainer_script: str, config_file: str):
         f"vf-vllm --model {MODEL_NAME} --port 8000 --enforce-eager",
         shell=True,
     )
-    
+
     # Wait a bit for VLLM to start
     time.sleep(30)
-    
+
     train_proc = subprocess.Popen(
         "export CUDA_VISIBLE_DEVICES=1,2,3 && "
         "export NCCL_DEBUG=INFO && "
@@ -118,19 +123,26 @@ def math_group_verifier(trainer_script: str, config_file: str):
     train_proc.wait()
     vllm_proc.terminate()
     vllm_proc.wait()
-    
+
     print("Training completed! Running a single inference from test set...")
-    
-    dataset = (
-        load_example_dataset("math", split="train")
-        .select(range(1))
-    ) # We use the first example from the training set for inference to test our training run.
+
+    dataset = load_example_dataset(
+        "math", split="train"
+    ).select(
+        range(1)
+    )  # We use the first example from the training set for inference to test our training run.
 
     example = dataset[0]
     question = example["question"]
-    prompt = DEFAULT_TOOL_PROMPT_TEMPLATE.format(tool_descriptions=TOOL_DESCRIPTIONS) + "\n\nProblem: " + question + "\n\n<think>\n\n<answer>"
+    prompt = (
+        DEFAULT_TOOL_PROMPT_TEMPLATE.format(tool_descriptions=TOOL_DESCRIPTIONS)
+        + "\n\nProblem: "
+        + question
+        + "\n\n<think>\n\n<answer>"
+    )
 
     inference.remote(prompt)
+
 
 # ## Inference
 # We define an `inference` Modal function that runs on a single GPU and mounts the weights volume.
@@ -139,38 +151,60 @@ def math_group_verifier(trainer_script: str, config_file: str):
 # Finally, we tokenize the prompt, generate a response with sampling (temperature, top-p, repetition penalty), then decode and return the answer.
 
 
-@app.function(gpu="H100", image=image, volumes={
+@app.function(
+    gpu="H100",
+    image=image,
+    volumes={
         HF_CACHE_DIR: HF_CACHE_VOL,
         WEIGHTS_DIR: WEIGHTS_VOL,
     },
     timeout=600,
-    )
+)
 def inference(prompt: str):
     """Test the trained model with the same format as training"""
     import torch
     from transformers import AutoTokenizer, AutoModelForCausalLM
-    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE  
+    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
 
-    prompt = DEFAULT_TOOL_PROMPT_TEMPLATE.format(tool_descriptions=TOOL_DESCRIPTIONS) + "\n\nProblem: " + prompt + "\n\n<think>\n\n<answer>"
+    prompt = (
+        DEFAULT_TOOL_PROMPT_TEMPLATE.format(tool_descriptions=TOOL_DESCRIPTIONS)
+        + "\n\nProblem: "
+        + prompt
+        + "\n\n<think>\n\n<answer>"
+    )
 
     print("Loading model from weights volume...")
     try:
-        tokenizer = AutoTokenizer.from_pretrained(f"{WEIGHTS_DIR}", trust_remote_code=True)
-        model = AutoModelForCausalLM.from_pretrained(f"{WEIGHTS_DIR}", torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            f"{WEIGHTS_DIR}", trust_remote_code=True
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            f"{WEIGHTS_DIR}",
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True,
+        )
         print("✓ Loaded trained model from weights volume")
     except Exception as e:
         print(f"Could not load trained model: {e}")
         print("Loading base model instead...")
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=HF_CACHE_DIR, trust_remote_code=True)
-        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto", cache_dir=HF_CACHE_DIR, trust_remote_code=True)
-    
+        tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_NAME, cache_dir=HF_CACHE_DIR, trust_remote_code=True
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            cache_dir=HF_CACHE_DIR,
+            trust_remote_code=True,
+        )
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-
     def generate_response(prompt_text):
         inputs = tokenizer(prompt_text, return_tensors="pt").to(model.device)
-        
+
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -179,15 +213,15 @@ def inference(prompt: str):
                 temperature=0.3,
                 top_p=0.9,
                 repetition_penalty=1.1,
-                pad_token_id=tokenizer.eos_token_id
+                pad_token_id=tokenizer.eos_token_id,
             )
-        
+
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return response[len(prompt_text):].strip()
-    
-    
+        return response[len(prompt_text) :].strip()
+
     model_response = generate_response(prompt + "\n\n<think>\n\n<answer>")
     return model_response
+
 
 # ## Usage
 # We create a main function that serves as the entrypoint for the app.
@@ -210,11 +244,17 @@ def inference(prompt: str):
 
 
 @app.local_entrypoint()
-def main(mode: str = "train", prompt: str = None, prompt_file: str = None, trainer_script: str = "trainer_script_grpo.py", config_file: str = "config_grpo.yaml"):
+def main(
+    mode: str = "train",
+    prompt: str = None,
+    prompt_file: str = None,
+    trainer_script: str = "trainer_script_grpo.py",
+    config_file: str = "config_grpo.yaml",
+):
     if mode == "inference":
         if prompt_file:
             try:
-                with open(prompt_file, 'r') as f:
+                with open(prompt_file, "r") as f:
                     prompt_text = f.read().strip()
                 print(f"Using prompt from file: {prompt_file}")
             except FileNotFoundError:
@@ -225,10 +265,10 @@ def main(mode: str = "train", prompt: str = None, prompt_file: str = None, train
             print("Using prompt from command line argument")
         else:
             prompt_text = "Find the value of x that satisfies the equation: 2x + 5 = 17"
-        
-        print("="*50)
+
+        print("=" * 50)
         print("Running inference...")
-        print("="*50)
+        print("=" * 50)
         print("PROMPT:")
         print(prompt_text)
         print("-" * 30)
@@ -238,7 +278,9 @@ def main(mode: str = "train", prompt: str = None, prompt_file: str = None, train
         print("-" * 30)
 
     elif mode == "train":
-        print(f"Training with trainer script: {trainer_script} and config file: {config_file}")
+        print(
+            f"Training with trainer script: {trainer_script} and config file: {config_file}"
+        )
         with open(trainer_script, "r") as f:
             trainer_content = f.read()
         with open(config_file, "r") as f:

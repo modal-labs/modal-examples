@@ -17,25 +17,27 @@ import modal
 app = modal.App.lookup("math-rl", create_if_missing=True)
 sb = modal.Sandbox.create(app=app)
 
+
 # We create a function that will execute the python code in a Modal Sandbox.
 def sandbox_exec(code):
     try:
-        process = sb.exec('python', '-c', code, timeout=10)
+        process = sb.exec("python", "-c", code, timeout=10)
         process.wait()
-        
+
         stdout = process.stdout.read()
         stderr = process.stderr.read()
         if stderr:
             return f"Error: {stderr.strip()}"
-        
+
         output = stdout.strip() if stdout else ""
         if len(output) > 1000:
             output = output[:1000] + "... (truncated to 1000 chars)"
-        
+
         return output
     except Exception as e:
         return f"Error: {str(e)}"
-    
+
+
 # We define the tool prompt for prompting the model. Then, we pass in our `sandbox_exec` function as a tool to the `ToolEnv` definition.
 
 TOOL_PROMPT = """
@@ -63,17 +65,14 @@ Always use tools to solve problems whenever possible, rather than using your own
 The <answer>...</answer> tags should contain only your final answer as a numeric expression.
 """
 
-dataset = (
-    load_example_dataset("math", split="train")
-    .select(range(512))
-)
+dataset = load_example_dataset("math", split="train").select(range(512))
 
 vf_env = vf.ToolEnv(
     dataset=dataset,
     system_prompt=TOOL_PROMPT,
     few_shot=[],
     tools=[sandbox_exec],
-    max_steps=3
+    max_steps=3,
 )
 
 model_name = "willcb/Qwen3-0.6B"
@@ -84,14 +83,14 @@ run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 # To learn more about the parameters, please refer to the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
 
 training_args = vf.grpo_defaults(run_name=run_name)
-training_args.num_iterations               = 50
-training_args.max_steps                     = 50
-training_args.per_device_train_batch_size  = 4
-training_args.gradient_accumulation_steps  = 4
-training_args.num_generations              = 12
-training_args.learning_rate                = 1e-3
-training_args.logging_steps                = 1
-training_args.report_to                     = "wandb"
+training_args.num_iterations = 50
+training_args.max_steps = 50
+training_args.per_device_train_batch_size = 4
+training_args.gradient_accumulation_steps = 4
+training_args.num_generations = 12
+training_args.learning_rate = 1e-3
+training_args.logging_steps = 1
+training_args.report_to = "wandb"
 
 trainer = vf.GRPOTrainer(
     model=model,
