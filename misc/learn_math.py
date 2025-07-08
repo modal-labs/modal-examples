@@ -90,9 +90,10 @@ TOOL_DESCRIPTIONS = """
 def math_group_verifier(trainer_script: str, config_file: str):
     import subprocess
     import time
-    from verifiers.utils import load_example_dataset
-    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
+
     import wandb
+    from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
+    from verifiers.utils import load_example_dataset
 
     with open("/root/trainer_script.py", "w") as f:
         f.write(trainer_script)
@@ -163,7 +164,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
 def inference(prompt: str):
     """Test the trained model with the same format as training"""
     import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from transformers import AutoModelForCausalLM, AutoTokenizer
     from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
 
     prompt = (
