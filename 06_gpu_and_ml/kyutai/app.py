@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import dataclasses
 import time
 from pathlib import Path
 
@@ -20,9 +21,10 @@ stt_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("uv")
     .run_commands(
-        "uv pip install --system --compile-bytecode moshi==0.2.6 fastapi==0.115.14 hf_transfer==0.1.9",
+        "uv pip install --system --compile-bytecode moshi==0.2.9 fastapi==0.115.14 hf_transfer==0.1.9 julius==0.2.7",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .add_local_file(Path(__file__).parent / "bria.mp3", "/root/bria.mp3")
 )
 
 MODEL_NAME = "kyutai/stt-1b-en_fr"
@@ -136,6 +138,15 @@ def web():
 MINUTES = 60
 
 
+@dataclasses.dataclass
+class TimestampedText:
+    text: str
+    timestamp: tuple[float, float]
+
+    def __str__(self):
+        return f"{self.text} ({self.timestamp[0]:.2f}:{self.timestamp[1]:.2f})"
+
+
 @app.cls(
     image=stt_image,
     gpu="l40s:1",
@@ -144,6 +155,8 @@ MINUTES = 60
     timeout=10 * MINUTES,
 )
 class STT:
+    BATCH_SIZE = 1
+
     @modal.enter()
     def enter(self):
         import torch
@@ -169,16 +182,25 @@ class STT:
             temp_text=0,
         )
 
-        self.batch_size = 1
-        self.mimi.streaming_forever(self.batch_size)
-        self.lm_gen.streaming_forever(self.batch_size)
+        self.mimi.streaming_forever(self.BATCH_SIZE)
+        self.lm_gen.streaming_forever(self.BATCH_SIZE)
 
         self.text_tokenizer = checkpoint_info.get_text_tokenizer()
+
+        self.audio_silence_prefix_seconds = checkpoint_info.stt_config.get(
+            "audio_silence_prefix_seconds", 1.0
+        )
+        self.audio_delay_seconds = checkpoint_info.stt_config.get(
+            "audio_delay_seconds", 5.0
+        )
+        self.padding_token_id = checkpoint_info.raw_config.get(
+            "text_padding_token_id", 3
+        )
 
         # warmup gpus
         for _ in range(4):
             codes = self.mimi.encode(
-                torch.zeros(self.batch_size, 1, self.frame_size).to(self.device)
+                torch.zeros(self.BATCH_SIZE, 1, self.frame_size).to(self.device)
             )
             for c in range(codes.shape[-1]):
                 tokens = self.lm_gen.step(codes[:, :, c : c + 1])
@@ -287,7 +309,7 @@ class STT:
                                 0
                             )  # (1, 1, frame_size)
                             chunk = chunk.expand(
-                                self.batch_size, -1, -1
+                                self.BATCH_SIZE, -1, -1
                             )  # (batch_size, 1, frame_size)
                             chunk = chunk.to(device=self.device)
 
@@ -361,7 +383,179 @@ class STT:
 
         return web_app
 
+    def tokens_to_timestamped_text(
+        self,
+        text_tokens,
+        end_of_padding_id,
+        offset_seconds,
+    ) -> list[TimestampedText]:
+        import torch
+
+        text_tokens = text_tokens.cpu().view(-1)
+
+        # Normally `end_of_padding` tokens indicate word boundaries.
+        # Everything between them should be a single word;
+        # the time offset of the those tokens correspond to word start and
+        # end timestamps (minus silence prefix and audio delay).
+        #
+        # However, in rare cases some complexities could arise. Firstly,
+        # for words that are said quickly but are represented with
+        # multiple tokens, the boundary might be omitted. Secondly,
+        # for the very last word the end boundary might not happen.
+        # Below is a code snippet that handles those situations a bit
+        # more carefully.
+
+        sequence_timestamps = []
+
+        def _tstmp(start_position, end_position):
+            return (
+                max(0, start_position / self.mimi.frame_rate - offset_seconds),
+                max(0, end_position / self.mimi.frame_rate - offset_seconds),
+            )
+
+        def _decode(t):
+            t = t[t > self.padding_token_id]
+            return self.text_tokenizer.decode(t.numpy().tolist())
+
+        def _decode_segment(start, end):
+            nonlocal text_tokens
+            nonlocal sequence_timestamps
+
+            text = _decode(text_tokens[start:end])
+            words_inside_segment = text.split()
+
+            if len(words_inside_segment) == 0:
+                return
+            if len(words_inside_segment) == 1:
+                # Single word within the boundaries, the general case
+                sequence_timestamps.append(
+                    TimestampedText(text=text, timestamp=_tstmp(start, end))
+                )
+            else:
+                # We're in a rare situation where multiple words are so close they are not separated by `end_of_padding`.
+                # We tokenize words one-by-one; each word is assigned with as many frames as much tokens it has.
+                for adjacent_word in words_inside_segment[:-1]:
+                    n_tokens = len(self.text_tokenizer.encode(adjacent_word))
+                    sequence_timestamps.append(
+                        TimestampedText(
+                            text=adjacent_word,
+                            timestamp=_tstmp(start, start + n_tokens),
+                        )
+                    )
+                    start += n_tokens
+
+                # The last word takes everything until the boundary
+                adjacent_word = words_inside_segment[-1]
+                sequence_timestamps.append(
+                    TimestampedText(text=adjacent_word, timestamp=_tstmp(start, end))
+                )
+
+        (segment_boundaries,) = torch.where(text_tokens == end_of_padding_id)
+
+        if not segment_boundaries.numel():
+            return []
+
+        for i in range(len(segment_boundaries) - 1):
+            segment_start = int(segment_boundaries[i]) + 1
+            segment_end = int(segment_boundaries[i + 1])
+
+            _decode_segment(segment_start, segment_end)
+
+        last_segment_start = segment_boundaries[-1] + 1
+
+        boundary_token = torch.tensor([self.text_tokenizer.eos_id()])
+        (end_of_last_segment,) = torch.where(
+            torch.isin(text_tokens[last_segment_start:], boundary_token)
+        )
+
+        if not end_of_last_segment.numel():
+            # upper-bound either end of the audio or 1 second duration, whicher is smaller
+            last_segment_end = min(
+                text_tokens.shape[-1], last_segment_start + self.mimi.frame_rate
+            )
+        else:
+            last_segment_end = last_segment_start + end_of_last_segment[0]
+        _decode_segment(int(last_segment_start), int(last_segment_end))
+
+        return sequence_timestamps
+
+    @modal.method()
+    def process_audio_file(self, audio_file: str):
+        import itertools
+        import math
+
+        import julius
+        import sphn
+        import torch
+
+        audio, input_sample_rate = sphn.read(audio_file)
+        audio = torch.from_numpy(audio).to(self.device)
+        audio = julius.resample_frac(audio, input_sample_rate, self.mimi.sample_rate)
+        if audio.shape[-1] % self.mimi.frame_size != 0:
+            to_pad = self.mimi.frame_size - audio.shape[-1] % self.mimi.frame_size
+            audio = torch.nn.functional.pad(audio, (0, to_pad))
+
+        text_tokens_accum = []
+
+        n_prefix_chunks = math.ceil(
+            self.audio_silence_prefix_seconds * self.mimi.frame_rate
+        )
+        n_suffix_chunks = math.ceil(self.audio_delay_seconds * self.mimi.frame_rate)
+        silence_chunk = torch.zeros(
+            (1, 1, self.mimi.frame_size), dtype=torch.float32, device=self.device
+        )
+
+        chunks = itertools.chain(
+            itertools.repeat(silence_chunk, n_prefix_chunks),
+            torch.split(audio[:, None], self.mimi.frame_size, dim=-1),
+            itertools.repeat(silence_chunk, n_suffix_chunks),
+        )
+
+        start_time = time.time()
+        nchunks = 0
+        last_print_was_vad = False
+        for audio_chunk in chunks:
+            nchunks += 1
+            audio_tokens = self.mimi.encode(audio_chunk)
+            text_tokens, vad_heads = self.lm_gen.step_with_extra_heads(audio_tokens)
+            if vad_heads:
+                pr_vad = vad_heads[2][0, 0, 0].cpu().item()
+                if pr_vad > 0.5 and not last_print_was_vad:
+                    print(" [end of turn detected]")
+                    last_print_was_vad = True
+            text_token = text_tokens[0, 0, 0].cpu().item()
+            if text_token not in (0, 3):
+                _text = self.text_tokenizer.id_to_piece(
+                    text_tokens[0, 0, 0].cpu().item()
+                )  # type: ignore
+                _text = _text.replace("▁", " ")
+                print(_text, end="", flush=True)
+                last_print_was_vad = False
+            text_tokens_accum.append(text_tokens)
+
+        utterance_tokens = torch.concat(text_tokens_accum, dim=-1)
+        dt = time.time() - start_time
+        print(
+            f"\nprocessed {nchunks} chunks in {dt:.2f} seconds, steps per second: {nchunks / dt:.2f}"
+        )
+        timed_text = self.tokens_to_timestamped_text(
+            utterance_tokens,
+            end_of_padding_id=0,
+            offset_seconds=int(n_prefix_chunks / self.mimi.frame_rate)
+            + self.audio_delay_seconds,
+        )
+
+        decoded = " ".join([str(t) for t in timed_text])
+        print(decoded)
+
 
 @app.local_entrypoint()
-def main():
-    return True
+def test(audio_file: str = None):
+    if audio_file is None:
+        audio_file = "/root/bria.mp3"
+        print(f"Using default test audio: {audio_file}")
+    else:
+        print(f"Using provided audio: {audio_file}")
+
+    stt = STT()
+    stt.process_audio_file.remote(audio_file)
