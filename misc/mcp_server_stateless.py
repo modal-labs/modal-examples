@@ -58,9 +58,14 @@ def make_mcp_server():
 
 
 # We then use FastMCP to create a Starlette app with `streamable-http` as transport
-# type, and set `stateless_http=True` to make it stateless. This will be mounted by
-# FastAPI.
-def make_fastapi_app():
+# type, and set `stateless_http=True` to make it stateless.
+#
+# This will be mounted by the FastAPI app, which we deploy as a Modal web endpoint using
+# [the `asgi_app` decorator](https://modal.com/docs/reference/modal.asgi_app):
+@app.function(image=image)
+@modal.asgi_app()
+def web_endpoint():
+    """ASGI web endpoint for the MCP server"""
     from fastapi import FastAPI
 
     mcp = make_mcp_server()
@@ -70,15 +75,6 @@ def make_fastapi_app():
     fastapi_app.mount("/", mcp_app, "mcp")
 
     return fastapi_app
-
-
-# Finally we deploy the FastAPI app as a Modal web endpoint, using [the `asgi_app`
-# decorator](https://modal.com/docs/reference/modal.asgi_app):
-@app.function(image=image)
-@modal.asgi_app()
-def web_endpoint():
-    """ASGI web endpoint for the MCP server"""
-    return make_fastapi_app()
 
 
 # And we're done!
