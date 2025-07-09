@@ -11,12 +11,12 @@
 # ## Setup
 
 # Import the necessary modules for Modal deployment.
-from typing import Literal, Optional
-from pathlib import Path
-
-import modal
 import re
 import subprocess
+from pathlib import Path
+from typing import Literal, Optional
+
+import modal
 
 # ## Defining the image and app.
 
@@ -67,6 +67,7 @@ def prep_dataset() -> None:
 # We can define this in a separate file, or in the same file in as in this case that we then pass as an argument to VERL.
 # We use a `default` reward function for GSM8K from the [VERL repo](https://github.com/volcengine/verl/blob/v0.1/verl/utils/reward_score/gsm8k.py), modified to return 1.0 if it's a correct answer and 0 otherwise.
 
+
 def extract_solution(
     solution_str: str, method: Literal["strict", "flexible"] = "strict"
 ) -> Optional[str]:
@@ -99,6 +100,7 @@ def extract_solution(
 
 # Reward functions need to follow a [predefined signature.](https://verl.readthedocs.io/en/latest/preparation/reward_function.html)
 
+
 def compute_reward(
     data_source: str, solution_str: str, ground_truth: str, extra_info: dict
 ) -> float:
@@ -125,12 +127,12 @@ MINUTES: int = 60
 HOURS: int = 60 * MINUTES
 DAY: int = 24 * HOURS
 
-# VERL uses Ray under the hood, and creates Ray workers, where each worker can be thought of as a python process, for each of the steps in the RL dataflow pipeline. 
-# Examples of steps here include rollouts, actor forward passes, critic forward passes, etc. VERL also keeps a separate control flow process that's independent of 
+# VERL uses Ray under the hood, and creates Ray workers, where each worker can be thought of as a python process, for each of the steps in the RL dataflow pipeline.
+# Examples of steps here include rollouts, actor forward passes, critic forward passes, etc. VERL also keeps a separate control flow process that's independent of
 # this, responsible for figuring out what step in the RL pipeline to execute. More details [here](https://verl.readthedocs.io/en/latest/hybrid_flow.html).
 
-# Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers 
-# if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration. 
+# Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers
+# if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration.
 # In this example we have chosen a configuration that allows for easy automated testing, but you may wish to use more GPUs or more powerful GPU types.
 
 GPU_TYPE: str = "H100!"
@@ -144,9 +146,10 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 # Now, we write a Modal Function for kicking off the training run.
 # If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [secret](https://modal.com/docs/guide/secrets#secrets)
 
+
 @app.function(
     image=image,
-    gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}", # h100! means exclusively h100
+    gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}",  # h100! means exclusively h100
     volumes={
         MODELS_PATH: checkpoints_volume,
         DATA_PATH: data_volume,
@@ -210,6 +213,7 @@ def train(*arglist) -> None:
 
     subprocess.run(cmd, check=True)
 
+
 # You can now run the training using `modal run --detach grpo-verl.py::train`, or `modal run --detach grpo.py::train -- trainer.total_epochs=20 data.train_batch_size=1024` as an example of passing in args from the CLI.
 
 # ## Performing inference on the trained model
@@ -218,13 +222,17 @@ def train(*arglist) -> None:
 
 VLLM_PORT: int = 8000
 
+
 # Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM.
 # The weights path is as follows: "global_step_{n}/actor/huggingface" where n is the checkpoint you want (eg "global_step_5/actor/huggingface").
 # The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
 def get_latest_checkpoint_file_path():
     with open(MODELS_PATH / "latest_checkpointed_iteration.txt") as f:
         latest_checkpoint_index = int(f.read())
-    return str(MODELS_PATH / f"global_step_{latest_checkpoint_index}" / "actor" / "huggingface")
+    return str(
+        MODELS_PATH / f"global_step_{latest_checkpoint_index}" / "actor" / "huggingface"
+    )
+
 
 # We provide the code for setting up an OpenAI compatible inference endpoint here. For more details re. serving models on vLLM, check out [this example.](https://modal.com/docs/examples/vllm_inference#deploy-the-server)
 
@@ -235,19 +243,22 @@ vllm_image = (
         "flashinfer-python==0.2.6.post1",
         extra_index_url="https://download.pytorch.org/whl/cu128",
     )
-    .env({ "VLLM_USE_V1": "1"})
+    .env({"VLLM_USE_V1": "1"})
 )
 
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
+
 @app.function(
     image=vllm_image,
     gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}",
-    scaledown_window=15 * MINUTES, # How long should we stay up with no requests?
-    timeout=10 * MINUTES, # How long should we wait for container start?
+    scaledown_window=15 * MINUTES,  # How long should we stay up with no requests?
+    timeout=10 * MINUTES,  # How long should we wait for container start?
     volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_PATH: checkpoints_volume},
 )
-@modal.concurrent(max_inputs=32) # How many requests can one replica handle? tune carefully!
+@modal.concurrent(
+    max_inputs=32
+)  # How many requests can one replica handle? tune carefully!
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
 def serve():
     import subprocess
@@ -263,7 +274,7 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
-        "--tensor-parallel-size", # Aassume multiple GPUs are for splitting up large matrix multiplications
+        "--tensor-parallel-size",  # Aassume multiple GPUs are for splitting up large matrix multiplications
         str(NUM_GPUS_PER_NODE),
     ]
     subprocess.Popen(" ".join(cmd), shell=True)
