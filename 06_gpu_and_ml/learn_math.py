@@ -2,16 +2,16 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/learn_math.py", "--mode=train", "--trainer-script=06_gpu_and_ml/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/config_grpo.yaml"]
 # ---
 
-# # Training a reasoning model using the verifiers library with sandboxed code execution
+# # Training a mathematical reasoning model using the verifiers library with sandboxed code execution
 
 # This example demonstrates how to train mathematical reasoning models on Modal using the [verifiers library](https://github.com/willccbb/verifiers) with [Modal Sandboxes](https://modal.com/docs/guide/sandbox) for executing generated code.
 # The [verifiers library](https://github.com/willccbb/verifiers) is a set of tools and abstractions for training LLMs with reinforcement learning in verifiable multi-turn environments via [GRPO](https://arxiv.org/abs/2402.03300).
 
 # This example demonstrates how to:
-# - Launch a distributed GRPO training job on Modal with 4× H100 GPUs
-# - Use VLLM for inference during training
-# - Cache Hugging Face, VLLM, and store the model weights in [Modal Volumes](https://modal.com/docs/guide/volumes)
-# - Run inference by loading the trained model from [Modal Volumes](https://modal.com/docs/guide/volumes)
+# - Launch a distributed GRPO training job on Modal with 4× H100 GPUs.
+# - Use vLLM for inference during training.
+# - Cache HuggingFace , vLLM, and store the model weights in [Volumes](https://modal.com/docs/guide/volumes).
+# - Run inference by loading the trained model from [Volumes](https://modal.com/docs/guide/volumes).
 
 # ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
@@ -49,13 +49,15 @@ image = (
     )
 )
 
-# ## Caching Hugging Face, VLLM, and storing model weights
+# ## Caching HuggingFace , vLLM, and storing model weights
 # We create Modal Volumes to persist:
-# - Hugging Face downloads
-# - VLLM cache
+# - HuggingFace  downloads
+# - vLLM cache
 # - Model weights
 
 # We define the model name and the tool descriptions for prompting the model.
+# Since, we are training the model to be better at mathematical reasoning, we define a tool to the model to execute python code that it generates.
+# See this [this training script](/docs/examples/trainer_script_grpo) for more details.
 
 HF_CACHE_DIR = "/root/.cache/huggingface"
 HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
@@ -76,7 +78,7 @@ TOOL_DESCRIPTIONS = """
 # For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
 
 # We create a function that uses 4 H100 GPUs and mounts the defined volumes. Then, we write the training script and the config file to the root directory.
-# We use the willcb/Qwen3-0.6B model from Hugging Face, setting up inference via a VLLM server. Once, the model is served, we will launch the training script using `accelerate`.
+# We use the willcb/Qwen3-0.6B model from HuggingFace , setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
 
@@ -92,8 +94,8 @@ TOOL_DESCRIPTIONS = """
     secrets=[modal.Secret.from_name("wandb-secret-rl")],
 )
 def math_group_verifier(trainer_script: str, config_file: str):
+    import os
     import subprocess
-    import time
 
     import wandb
     from verifiers.prompts import DEFAULT_TOOL_PROMPT_TEMPLATE
@@ -108,24 +110,23 @@ def math_group_verifier(trainer_script: str, config_file: str):
     wandb.config = {"epochs": 10}
 
     vllm_proc = subprocess.Popen(
-        "export CUDA_VISIBLE_DEVICES=0 && "
-        "export NCCL_CUMEM_ENABLE=0 && "
-        f"vf-vllm --model {MODEL_NAME} --port 8000 --enforce-eager",
-        shell=True,
+        ["vf-vllm", "--model", MODEL_NAME, "--port", "8000", "--enforce-eager"],
+        env={
+            **os.environ,
+            "CUDA_VISIBLE_DEVICES": "0",
+            "NCCL_CUMEM_ENABLE": "0"
+        }
     )
 
-    # Wait a bit for VLLM to start
-    time.sleep(30)
-
-    train_proc = subprocess.Popen(
-        "export CUDA_VISIBLE_DEVICES=1,2,3 && "
-        "export NCCL_DEBUG=INFO && "
-        "export NCCL_CUMEM_ENABLE=0 && "
-        "cd /root && accelerate launch --config-file config.yaml trainer_script.py ",
-        shell=True,
+    result = subprocess.run(
+        ["accelerate", "launch", "--config-file", "/root/config.yaml", "/root/trainer_script.py"],
+        env={
+            **os.environ,
+            "CUDA_VISIBLE_DEVICES": "1,2,3",
+            "NCCL_DEBUG": "INFO",
+            "NCCL_CUMEM_ENABLE": "0"
+        }
     )
-
-    train_proc.wait()
     vllm_proc.terminate()
     vllm_proc.wait()
 

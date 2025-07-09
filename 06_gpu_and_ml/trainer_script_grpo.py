@@ -65,7 +65,7 @@ Always use tools to solve problems whenever possible, rather than using your own
 The <answer>...</answer> tags should contain only your final answer as a numeric expression.
 """
 
-dataset = load_example_dataset("math", split="train").select(range(512))
+dataset = load_example_dataset("math", split="train").select(range(128))
 
 vf_env = vf.ToolEnv(
     dataset=dataset,
