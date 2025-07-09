@@ -79,7 +79,7 @@ model_name = "willcb/Qwen3-0.6B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 
-# These parameters are adapted to test the training script via an overfitting test. We will use 512 examples from the training set and overfit the model to them.
+# These parameters are adapted to test the training script via an overfitting test. We will use 128 examples from the training set and overfit the model to them.
 # To learn more about the parameters, please refer to the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
 
 training_args = vf.grpo_defaults(run_name=run_name)
