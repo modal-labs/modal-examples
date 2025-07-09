@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/learn_math.py", "--mode=train", "--trainer-script=06_gpu_and_ml/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/config_grpo.yaml"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/verifiers/learn_math.py", "--mode=train", "--trainer-script=06_gpu_and_ml/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/config_grpo.yaml"]
 # ---
 
 # # Training a mathematical reasoning model using the verifiers library with sandboxed code execution
