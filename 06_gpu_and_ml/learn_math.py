@@ -111,21 +111,23 @@ def math_group_verifier(trainer_script: str, config_file: str):
 
     vllm_proc = subprocess.Popen(
         ["vf-vllm", "--model", MODEL_NAME, "--port", "8000", "--enforce-eager"],
-        env={
-            **os.environ,
-            "CUDA_VISIBLE_DEVICES": "0",
-            "NCCL_CUMEM_ENABLE": "0"
-        }
+        env={**os.environ, "CUDA_VISIBLE_DEVICES": "0", "NCCL_CUMEM_ENABLE": "0"},
     )
 
     result = subprocess.run(
-        ["accelerate", "launch", "--config-file", "/root/config.yaml", "/root/trainer_script.py"],
+        [
+            "accelerate",
+            "launch",
+            "--config-file",
+            "/root/config.yaml",
+            "/root/trainer_script.py",
+        ],
         env={
             **os.environ,
             "CUDA_VISIBLE_DEVICES": "1,2,3",
             "NCCL_DEBUG": "INFO",
-            "NCCL_CUMEM_ENABLE": "0"
-        }
+            "NCCL_CUMEM_ENABLE": "0",
+        },
     )
     vllm_proc.terminate()
     vllm_proc.wait()
