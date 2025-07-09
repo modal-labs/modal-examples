@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "grpo-verl.py::train"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo-verl.py::train"]
 # ---
 
 # # Run GRPO on Modal using VERL
