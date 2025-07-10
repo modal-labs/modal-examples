@@ -101,7 +101,7 @@ def load_and_preprocess_data():
 @app.function(
     image=image,
     gpu="H100",
-    timeout=86400,
+    timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def train():
