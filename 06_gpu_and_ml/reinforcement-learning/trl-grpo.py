@@ -153,7 +153,7 @@ def train_vllm_server_mode():
 @app.function(
     image=image,
     gpu="H100",
-    timeout=86400,
+    timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def train_vllm_colocate_mode():
