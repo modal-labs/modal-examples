@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/embedding_racetrack.py::main"]
+# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/image_embeddings_infinity.py::main"]
 # ---
 
 # # Modal Cookbook: Recipe for Inference Throughput Maximization
@@ -66,7 +66,7 @@ image_cap: int = -1
 # includes reading a batch-worth of data and running inference on it. When `batch_size` is large (e.g. 5000)
 # and with a large value of `max_concurrent_inputs`, where a batch may sit in a queue for a while,
 # this could take several minutes.
-timeout_seconds: int = 5 * 60
+timeout_seconds: int = 10 * 60
 
 # ## Data and Model Specification
 # This model parameter should point to a model on HuggingFace that is supported by Infinity.
@@ -97,13 +97,14 @@ infinity_image = (
     modal.Image.debian_slim(python_version="3.10")
     .pip_install(
         [
-            "pillow",  # for Infinity input typehint
-            "datasets",  # for huggingface data download
-            "hf_transfer",  # for fast huggingface data download
-            "tqdm",  # progress bar for dataset download
+            "pillow==11.3.0",  # for Infinity input typehint
+            "datasets==4.0.0",  # for huggingface data download
+            "hf_transfer==0.1.9",  # for fast huggingface data download
+            "huggingface_hub[hf_xet]==0.33.2",
+            "tqdm==4.67.1",  # progress bar for dataset download
             "infinity_emb[all]==0.0.76",  # for Infinity inference lib
-            "sentencepiece",  # for this particular chosen model
-            "torchvision",  # for fast image loading
+            "sentencepiece==0.2.0",  # for this particular chosen model
+            "torchvision==0.22.1",  # for fast image loading
         ]
     )
     .env(
@@ -339,9 +340,7 @@ class InfinityEngine:
 
         try:
             # (1) Load batch of image data
-            st = perf_counter()
             images = self.read_batch(images)
-            batch_elapsed = perf_counter() - st
 
             # (2) Encode the batch
             st = perf_counter()
@@ -351,11 +350,7 @@ class InfinityEngine:
             # No matter what happens, return the engine to the queue
             await self.engine_queue.put(engine)
 
-        # (3) Housekeeping
-        print(f"Time to load batch: {batch_elapsed:.2f}s")
-        print(f"Time to embed batch: {embed_elapsed:.2f}s")
-
-        # (4) You may wish to return the embeddings themselves here
+        # (3) You may wish to return the embeddings themselves here
         return embed_elapsed, len(images)
 
     @modal.exit()
