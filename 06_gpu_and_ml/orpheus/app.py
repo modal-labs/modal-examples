@@ -213,7 +213,7 @@ MINUTES = 60
 
 @app.cls(
     image=tts_image,
-    gpu="l40s:1",
+    gpu="l40s",
     volumes=volumes,
     secrets=secrets,
     scaledown_window=15 * MINUTES,
