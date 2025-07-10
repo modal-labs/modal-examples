@@ -61,7 +61,7 @@ class ChunkResult:
     max_containers=30,
     scaledown_window=60,
 )
-class SimpleWhisperX:
+class WhisperX:
     device: str = modal.parameter(default="cuda")
         
     @modal.enter()
@@ -294,7 +294,7 @@ def main(
         print("Error: Provide --audio-file")
         return
     
-    transcriber = SimpleWhisperX()
+    transcriber = WhisperX()
     
     if stream:
         start_time = time.time()    
