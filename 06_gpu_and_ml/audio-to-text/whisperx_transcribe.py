@@ -319,14 +319,8 @@ def main(
                 language = result.language
         
         print(f"\nLanguage: {language}")
-        print("\nTranscription:")
-        print("-" * 40)
-        
-        for segment in all_segments:
-            start = segment.get('start', 0)
-            end = segment.get('end', 0)
-            text = segment.get('text', '').strip()
-            print(f"[{start:.2f}-{end:.2f}] {text}")
+        print(f"Duration: {len(all_segments) / 16000:.2f} seconds")
+        print(f"Time taken: {time_taken:.2f} seconds")
         
         transcription_data = {
             "language": language,
