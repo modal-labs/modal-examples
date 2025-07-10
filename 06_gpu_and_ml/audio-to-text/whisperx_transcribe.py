@@ -58,8 +58,8 @@ class ChunkResult:
     volumes={MODEL_CACHE_DIR: models_volume},
     timeout=1800,
     min_containers=0,
-    max_containers=30,
-    scaledown_window=60,
+    max_containers=60,
+    scaledown_window=30,
 )
 class WhisperX:
     device: str = modal.parameter(default="cuda")
@@ -295,6 +295,7 @@ def main(
         return
     
     transcriber = WhisperX()
+    time_taken = 0
     
     if stream:
         start_time = time.time()    
@@ -307,7 +308,7 @@ def main(
         
         results.sort(key=lambda r: r.chunk_index)
         
-        print(f"Time taken: {time.time() - start_time:.2f} seconds")
+        time_taken = time.time() - start_time
         
         all_segments = []
         language = "en"
@@ -349,14 +350,7 @@ def main(
         
         print(f"\nLanguage: {result['language']}")
         print(f"Duration: {result['duration']:.2f} seconds")
-        print("\nTranscription:")
-        print("-" * 40)
-        
-        for segment in result['segments']:
-            start = segment.get('start', 0)
-            end = segment.get('end', 0)
-            text = segment.get('text', '').strip()
-            print(f"[{start:.2f}-{end:.2f}] {text}")
+        print(f"Time taken: {time_taken:.2f} seconds")
         
         import json
         with open("transcription.json", "w") as f:
