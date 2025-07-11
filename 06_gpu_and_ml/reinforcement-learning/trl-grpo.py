@@ -1,5 +1,5 @@
 # ---
-# lambda-test:false
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/trl-grpo.py::train"]
 # ---
 
 # # Run GRPO on Modal using TRL
@@ -9,20 +9,31 @@
 # TRL is a reinforcement learning training library by Huggingface.
 
 # First we perform the imports and then define the app.
-
-import subprocess
+from __future__ import annotations
+from typing import Iterable, Sequence, Tuple
 
 import modal
+import os
+import subprocess
 
-app = modal.App("grpo-trl-example")
+app: modal.App = modal.App("grpo-trl-example")
 
 # We define an image where we install the TRL library.
-# We also install vLLM for the next part of this example. We also use WANDB for logging.
-image = modal.Image.debian_slim().pip_install(
+# We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
+image: modal.Image = modal.Image.debian_slim().pip_install(
     "trl[vllm]==0.19.0", "datasets==3.5.1", "wandb==0.17.6"
 )
 
-# We define some constants
+# We import the necessary libraries needed in the context of the image.
+with image.imports():
+    from datasets import Dataset, load_dataset
+    from trl import GRPOConfig, GRPOTrainer
+
+# We also a define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
+MODELS_DIR = "/models"
+checkpoints_volume: modal.Volume = modal.Volume.from_name(
+    "grpo-trl-example-checkpoints", create_if_missing=True
+)
 
 # ## Defining the reward function
 
@@ -33,90 +44,90 @@ image = modal.Image.debian_slim().pip_install(
 
 
 # For each completion from the model and a test case to test the completion, we define a simple reward function.
-# The function returns 1 if there are no errors, and 0 otherwise.
-@app.function()
-def compute_reward(completion, testcase):
-    sb = modal.Sandbox.create(app=app)
-    code_to_execute = get_generated_code_and_test_cases(
-        completion, testcase
-    )  # defined below
-    p = sb.exec("python", "-c", code_to_execute)
-    p.wait()
-    sb.terminate()
-    print("ASDSAD", p.returncode)
-    if p.returncode == 0:
-        return 1
-    else:
-        return 0
+# The function returns 1 if there are no errors, and 0 otherwise. You might want to adjust this reward function
+# as the model is unlikely to learn well with this function.
 
+@app.function()
+def compute_reward(completion: str, testcase: Sequence[str]) -> int:
+    sb, return_code = None, None
+    try:
+        sb: modal.Sandbox = modal.Sandbox.create(app=app)
+        code_to_execute: str = get_generated_code_and_test_cases(
+            completion, testcase
+        )
+        p: subprocess.Popen[str] = sb.exec("python", "-c", code_to_execute)
+        p.wait()
+        return_code = p.returncode
+    except:
+        raise Exception("Unable to create sandbox")
+    finally:
+        if sb:
+            sb.terminate()  
+        if return_code:
+            return return_code    
 
 # We write a function that constructs a program from the model completion. This is determined based on the format of the data
 # The completions are supposed to follow the format <TEXT>```python <CODE>```
 # The test cases are a list of assert statements.
 # More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2/viewer/educational_instruct/train?views%5B%5D=educational_instruct&row=0)
-def get_generated_code_and_test_cases(completion, testcase):
+def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) -> str:
     if "```python" in completion:
         # Find the start and end of the code block
-        start_idx = completion.find("```python") + len("```python")
-        end_idx = completion.find("```", start_idx)
+        start_idx: int = completion.find("```python") + len("```python")
+        end_idx: int = completion.find("```", start_idx)
         if end_idx != -1:
-            code = completion[start_idx:end_idx].strip()
+            code: str = completion[start_idx:end_idx].strip()
         else:
-            code = completion[start_idx:].strip()
+            code: str = completion[start_idx:].strip()
     else:
-        code = completion.strip()
+        code: str = completion.strip()
 
-    test_cases = "\n".join(testcase)
-    full_code = f"{code}\n\n{test_cases}"
+    test_cases: str = "\n".join(testcase)
+    full_code: str = f"{code}\n\n{test_cases}"
     return full_code
 
 
 # Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions
 # Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function)
-def reward_helper_function(prompts, completions, testcases, **kwargs):
+def reward_helper_function(
+    prompts: Sequence[str],
+    completions: Sequence[str],
+    testcases: Sequence[Sequence[str]],
+    **kwargs: object
+) -> Iterable[int]:
     return compute_reward.starmap(zip(completions, testcases))
 
 
 # ## Kicking off a training run
 
-# We import the necessary libraries
-with image.imports():
-    from datasets import load_dataset
-    from trl import GRPOConfig, GRPOTrainer
-
-
 # Preprocess the data, preparing the columns that `GRPOTrainer` expects
-def load_and_preprocess_data():
-    dataset = load_dataset(
+def start_grpo_trainer(use_vllm=False, vllm_mode=None):
+    dataset: Dataset = load_dataset(
         "OpenCoder-LLM/opc-sft-stage2", "educational_instruct", split="train"
     )
     dataset = dataset.rename_column(
         "instruction", "prompt"
     )  # needed for the GRPO trainer
     dataset = dataset.rename_column("testcase", "testcases")
-    return dataset
+    dataset = dataset.select(range(128)) # To simplify testing. Remove for production use cases.
+    training_args: GRPOConfig = GRPOConfig(
+        output_dir = MODELS_DIR, report_to = "wandb", use_vllm = use_vllm, vllm_mode = vllm_mode, max_steps = 5, save_steps = 1, # To simplify testing. Remove for production use cases. 
+    )
+    return dataset, training_args
 
 
-# We use WANDB for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
+# We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
 @app.function(
     image=image,
-    gpu="H100",
+    gpu="H100!",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
+    volumes = {
+        "/models": checkpoints_volume
+    }
 )
-def train():
-    dataset = load_and_preprocess_data()
-    training_args = GRPOConfig(
-        output_dir="Qwen2-0.5B-GRPO", report_to="wandb"
-    )  # comment if don't want to use wandb
-
-    trainer = GRPOTrainer(
-        model="Qwen/Qwen2-0.5B-Instruct",
-        reward_funcs=reward_helper_function,
-        args=training_args,
-        train_dataset=dataset,
-    )
-    trainer.train()
+def train() -> None:
+    start_grpo_trainer()    
 
 
 # To run: `modal run --detach trl-grpo.py::train``
@@ -124,49 +135,46 @@ def train():
 # ## Speeding up training with vLLM
 
 # vLLM can be used either in server mode (run vLLM server on separate gpu) or colocate mode (within the training process)
-
+# In server mode, vLLM runs in a separate process (and using separate GPUs) and communicates with the trainer via HTTP. 
+# This is ideal if you have dedicated GPUs for inference. More details [here.](https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-1-server-mode)
+# Here, we use 2 GPUs. We run the GRPOTrainer on 1 of them, and the vLLM process on another.
 @app.function(
     image=image,
-    gpu="H100:2",
+    gpu="H100!:2",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
+    volumes = {
+        MODELS_DIR: checkpoints_volume
+    }    
 )
-def train_vllm_server_mode():
-    dataset = load_and_preprocess_data()
-    subprocess.run(
+def train_vllm_server_mode() -> None:
+    env_copy = os.environ.copy()
+    env_copy["CUDA_VISIBLE_DEVICES"] = "0"
+
+    # Start vllm-serve in the background
+    subprocess.Popen(
         ["trl", "vllm-serve", "--model", "Qwen/Qwen2-0.5B-Instruct"],
-        env={"CUDA_VISIBLE_DEVICES": "0"}, # Run on separate GPU
+        env=env_copy,
     )
-    training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO")
-    trainer = GRPOTrainer(
-        model="Qwen/Qwen2-0.5B-Instruct",
-        reward_funcs=reward_helper_function,
-        args=training_args,
-        train_dataset=dataset,
-        use_vllm=True,
-        vllm_mode="server",
-    )
-    trainer.train()
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1" # Run on separate GPU
+    start_grpo_trainer(use_vllm=True, vllm_mode="serve")  
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_server_mode`
 
+# In colocate mode, vLLM runs inside the trainer process and shares GPU memory with the training model. 
+# This avoids launching a separate server and can improve GPU utilization, but may lead to memory contention on the training GPUs.
+# More details (here.)[https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-2-colocate-mode]
+
 @app.function(
     image=image,
-    gpu="H100",
+    gpu="H100!",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
+    volumes = {
+        "/models": checkpoints_volume
+    }    
 )
-def train_vllm_colocate_mode():
-    dataset = load_and_preprocess_data()
-    training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO")
-    trainer = GRPOTrainer(
-        model="Qwen/Qwen2-0.5B-Instruct",
-        reward_funcs=reward_helper_function,
-        args=training_args,
-        train_dataset=dataset,
-        use_vllm=True,
-        vllm_mode="colocate",
-    )
-    trainer.train()
+def train_vllm_colocate_mode() -> None:
+    start_grpo_trainer(use_vllm=True, vllm_mode="colocate")  
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
