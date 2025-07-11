@@ -22,7 +22,7 @@ import modal
 
 app = modal.App("grpo-verl-example")
 
-# We define an mage where we clone the VERL repo and install its dependencies. We use a base VERL image as a starting point.
+# We define an image where we clone the VERL repo and install its dependencies. We use a base VERL image as a starting point.
 
 VERL_REPO_PATH: str = Path("/root/verl")
 image = (
@@ -144,7 +144,7 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 )
 
 # Now, we write a Modal Function for kicking off the training run.
-# If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [secret](https://modal.com/docs/guide/secrets#secrets)
+# If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [secret.](https://modal.com/docs/guide/secrets#secrets)
 
 
 @app.function(
@@ -224,7 +224,7 @@ VLLM_PORT: int = 8000
 
 
 # Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM.
-# The weights path is as follows: "global_step_{n}/actor/huggingface" where n is the checkpoint you want (eg "global_step_5/actor/huggingface").
+# The weights path is as follows: `global_step_n/actor/huggingface` where n is the checkpoint you want (eg `global_step_5/actor/huggingface`).
 # The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
 def get_latest_checkpoint_file_path():
     with open(MODELS_PATH / "latest_checkpointed_iteration.txt") as f:
