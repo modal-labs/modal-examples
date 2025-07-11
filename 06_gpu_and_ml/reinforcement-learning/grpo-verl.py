@@ -18,7 +18,7 @@ from typing import Literal, Optional
 
 import modal
 
-# ## Defining the image and app.
+# ## Defining the image and app
 
 app = modal.App("grpo-verl-example")
 
