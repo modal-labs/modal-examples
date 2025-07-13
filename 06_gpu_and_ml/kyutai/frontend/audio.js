@@ -5,6 +5,12 @@ let warmupComplete = false;
 let completedSentences = [];
 let pendingSentence = '';
 
+let frameProcessingTime = null;
+let isFirstToken = true;
+let ttftMs = null;
+let latencies = [];
+let averageLatencyMs = null;
+
 const getBaseURL = () => {
     const currentURL = new URL(window.location.href);
     let hostname = currentURL.hostname;
@@ -22,14 +28,28 @@ const updateTextOutput = () => {
         allSentences.push(pendingSentence);
     }
 
+    let content = '';
+    
     if (warmupComplete) {
-        container.innerHTML = allSentences.map(sentence =>
+        if (ttftMs !== null || averageLatencyMs !== null) {
+            content += '<div class="text-xs text-gray-500 my-4 font-mono">';
+            if (ttftMs !== null) {
+                content += `TTFT: ${ttftMs.toFixed(1)}ms`;
+            }
+            if (averageLatencyMs !== null) {
+                content += `${ttftMs !== null ? ' | ' : ''}Avg Latency: ${averageLatencyMs.toFixed(1)}ms`;
+            }
+            content += '</div>';
+        }
+        
+        content += allSentences.map(sentence =>
             `<p class="text-gray-300 my-2">${sentence}</p>`
         ).reverse().join('');
     } else {
-        container.innerHTML = '<p class="text-gray-400 animate-pulse">Warming up model...</p>';
+        content = '<p class="text-gray-400 animate-pulse">Warming up model...</p>';
     }
-
+    
+    container.innerHTML = content;
     container.scrollTop = container.scrollHeight;
 };
 
@@ -89,10 +109,26 @@ const initApp = () => {
         const view = new Uint8Array(arrayBuffer);
         const tag = view[0];
         const payload = arrayBuffer.slice(1);
+        
         if (tag === 0) {
+            // speech detected
+            frameProcessingTime = performance.now();
+        }
+        else if (tag === 1) {
             // text data
             const decoder = new TextDecoder();
-            const text = decoder.decode(payload);
+            const text = decoder.decode(payload);            
+            if (isFirstToken && frameProcessingTime !== null) {
+                ttftMs = performance.now() - frameProcessingTime;
+                isFirstToken = false;
+            }
+            
+            if (frameProcessingTime !== null) {
+                const latencyMs = performance.now() - frameProcessingTime;
+                latencies.push(latencyMs);
+                averageLatencyMs = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+            }
+            
             pendingSentence += text;
         }
 
@@ -106,6 +142,11 @@ const initApp = () => {
 
     socket.onclose = () => {
         console.log("WebSocket connection closed");
+        frameProcessingTime = null;
+        isFirstToken = true;
+        ttftMs = null;
+        latencies = [];
+        averageLatencyMs = null;
     };
 
     updateTextOutput();
