@@ -4,17 +4,14 @@
 # # WhisperX transcription with word-level timestamps
 #
 # This example shows how to run [WhisperX](https://github.com/m-bain/whisperX) on
-# **Modal** for accurate, word-level timestamped transcription.
+# Modal for accurate, word-level timestamped transcription.
 #
-# Cold-start → first transcription of a ~3 min file on an H100 takes
-# ≈ 40 s (model download + load + inference).
-#
-# We’ll walk through
+# We’ll walk through the following steps:
 #
 # 1. Defining the container image with CUDA 12.8, cuDNN 8, FFmpeg and Python deps.
 # 2. Persisting model weights to a [Modal Volume](https://modal.com/docs/reference/modal.Volume).
 # 3. A [Modal Cls](https://modal.com/docs/reference/modal.App#cls) that loads WhisperX once per GPU instance.
-# 4. A [local CLI entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint) that uploads an audio file to the service.
+# 4. A [local entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint) that uploads an audio file to the service.
 #
 # ## Defining image
 #
