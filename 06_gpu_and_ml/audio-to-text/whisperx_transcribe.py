@@ -88,8 +88,9 @@ class WhisperX:
         Transcribe an audio file passed in as raw bytes.
         Returns language, per-word segments, and total duration.
         """
-        import whisperx
         import tempfile
+
+        import whisperx
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
             temp_audio.write(audio_data)
@@ -138,8 +139,8 @@ class WhisperX:
 def main(
     audio_file: str = None,
 ):
-    import time
     import json
+    import time
 
     if not audio_file:
         print("❌ Error: provide --audio-file")
