@@ -37,9 +37,9 @@ image = (
     .apt_install("libcudnn8-dev")  # cuDNN headers (needed by torch wheels)
     # ── Python deps ─────────────────────────────────────────────────────────────
     .pip_install(
-        "whisperx",  # our ASR library
-        "numpy",
-        "scipy",
+        "whisperx==3.4.0",  # our ASR library
+        "numpy==2.0.2",
+        "scipy==1.15.0",
     )
     # Tell HF & Torch to cache inside our Volume
     .env({"HF_HUB_CACHE": MODEL_CACHE_DIR})
@@ -73,7 +73,6 @@ class WhisperX:
 
         print("🔄 Loading WhisperX model …")
         import whisperx
-        import torch
 
         self.model = whisperx.load_model(
             "large-v2",
