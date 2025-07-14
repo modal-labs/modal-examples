@@ -89,7 +89,7 @@ driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
 
 app = modal.App.lookup("code-interpreter", create_if_missing=True)
 sb = modal.Sandbox.create(app=app)
-p = sb.exec("python", "-c", driver_program_command)
+p = sb.exec("python", "-c", driver_program_command, bufsize=1)
 
 # ## Running code in a Modal Sandbox
 

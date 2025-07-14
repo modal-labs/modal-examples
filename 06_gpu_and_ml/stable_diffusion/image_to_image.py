@@ -30,7 +30,7 @@ diffusers_commit_sha = "00f95b9755718aabb65456e791b8408526ae6e76"
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.8.1-devel-ubuntu22.04",
-        add_python="3.12",  # TRT-LLM requires Python 3.12
+        add_python="3.12",
     )
     .entrypoint([])  # remove verbose logging by base image on entry
     .apt_install("git")
@@ -62,11 +62,9 @@ app = modal.App("image-to-image")
 
 with image.imports():
     import torch
-    from diffusers import FluxKontextPipeline, FluxTransformer2DModel
+    from diffusers import FluxKontextPipeline
     from diffusers.utils import load_image
-    from optimum.quanto import freeze, qfloat8, quantize
     from PIL import Image
-    from transformers import T5EncoderModel
 
 
 # ## Setting up and running Flux Kontext
@@ -96,29 +94,9 @@ class Model:
         self.seed = 42
         self.device = "cuda"
 
-        transformer = FluxTransformer2DModel.from_single_file(
-            "https://huggingface.co/Comfy-Org/flux1-kontext-dev_ComfyUI/blob/main/split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
-            torch_dtype=dtype,
-            cache_dir=CACHE_DIR,
-        )
-        quantize(transformer, weights=qfloat8)
-        freeze(transformer)
-
-        text_encoder_2 = T5EncoderModel.from_pretrained(
-            MODEL_NAME,
-            revision=MODEL_REVISION,
-            subfolder="text_encoder_2",
-            torch_dtype=dtype,
-            cache_dir=CACHE_DIR,
-        )
-        quantize(text_encoder_2, weights=qfloat8)
-        freeze(text_encoder_2)
-
         self.pipe = FluxKontextPipeline.from_pretrained(
             MODEL_NAME,
             revision=MODEL_REVISION,
-            transformer=transformer.to(self.device),
-            text_encoder_2=text_encoder_2.to(self.device),
             torch_dtype=dtype,
             cache_dir=CACHE_DIR,
         ).to(self.device)
