@@ -130,25 +130,35 @@ class WhisperX:
 #
 # We expose a [local entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint)
 # so you can run:
+# - using a local audio file
+# - using a link to an audio file
 #
 # ```bash
 # modal run whisperx_transcribe.py --audio-file audio.wav
+# modal run whisperx_transcribe.py --audio-link https://example.com/audio.wav
+# modal run whisperx_transcribe.py
 # ```
 #
 @app.local_entrypoint()
 def main(
     audio_file: str = None,
+    audio_link: str = None,
 ):
     import json
+    import requests
     import time
 
-    if not audio_file:
-        print("❌ Error: provide --audio-file")
-        return
+    if not audio_file and not audio_link:
+        print("No audio file or link provided, using default link") 
+        audio_link = "https://modal-public-assets.s3.us-east-1.amazonaws.com/erik.wav"
 
-    print(f"🔊 Reading {audio_file} …")
-    with open(audio_file, "rb") as f:
-        audio_data = f.read()
+    if audio_file:
+        print(f"🔊 Reading {audio_file} …")
+        with open(audio_file, "rb") as f:
+            audio_data = f.read()
+    elif audio_link:
+        print(f"🔊 Reading {audio_link} …")
+        audio_data = requests.get(audio_link).content
 
     transcriber = WhisperX()
 
