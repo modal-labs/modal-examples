@@ -20,6 +20,7 @@
 #
 
 import os
+import tempfile
 from typing import Dict
 
 import modal
@@ -42,7 +43,8 @@ image = (
         "scipy==1.15.0",
     )
     # Tell HF & Torch to cache inside our Volume
-    .env({"HF_HUB_CACHE": MODEL_CACHE_DIR})
+    .env({"HF_HOME": MODEL_CACHE_DIR})
+    .env({"TORCH_HOME": MODEL_CACHE_DIR})
 )
 
 # ## Defining the app
@@ -65,19 +67,15 @@ models_volume = modal.Volume.from_name("whisperx-models", create_if_missing=True
 class WhisperX:
     """Serverless WhisperX service running on a single GPU."""
 
-    device: str = modal.parameter(default="cuda")
-
     @modal.enter()
     def setup(self):
-        os.environ["TORCH_HOME"] = MODEL_CACHE_DIR
-
         print("🔄 Loading WhisperX model …")
         import whisperx
 
         self.model = whisperx.load_model(
             "large-v2",
-            device=self.device,
-            compute_type="float16" if self.device == "cuda" else "int8",
+            device="cuda",
+            compute_type="float16",
             download_root=MODEL_CACHE_DIR,
         )
         print("✅ Model ready!")
@@ -88,7 +86,6 @@ class WhisperX:
         Transcribe an audio file passed in as raw bytes.
         Returns language, per-word segments, and total duration.
         """
-        import tempfile
 
         import whisperx
 
