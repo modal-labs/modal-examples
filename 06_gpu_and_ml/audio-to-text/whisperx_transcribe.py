@@ -134,9 +134,9 @@ class WhisperX:
 # - using a link to an audio file
 #
 # ```bash
-# modal run whisperx_transcribe.py --audio-file audio.wav
-# modal run whisperx_transcribe.py --audio-link https://example.com/audio.wav
-# modal run whisperx_transcribe.py
+# modal run whisperx_transcribe.py --audio-file audio.wav # uses a local audio file
+# modal run whisperx_transcribe.py --audio-link https://example.com/audio.wav # uses a link to an audio file
+# modal run whisperx_transcribe.py # uses a default public audio file
 # ```
 #
 @app.local_entrypoint()
