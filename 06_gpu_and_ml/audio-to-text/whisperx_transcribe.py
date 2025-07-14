@@ -145,11 +145,12 @@ def main(
     audio_link: str = None,
 ):
     import json
-    import requests
     import time
 
+    import requests
+
     if not audio_file and not audio_link:
-        print("No audio file or link provided, using default link") 
+        print("No audio file or link provided, using default link")
         audio_link = "https://modal-public-assets.s3.us-east-1.amazonaws.com/erik.wav"
 
     if audio_file:
