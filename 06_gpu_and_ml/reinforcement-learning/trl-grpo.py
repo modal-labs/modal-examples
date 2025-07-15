@@ -10,13 +10,14 @@
 
 # First we perform the imports and then define the app.
 from __future__ import annotations
-from typing import Iterable, Sequence
-from pathlib import Path
 
-import modal
 import os
 import re
 import subprocess
+from pathlib import Path
+from typing import Iterable, Sequence
+
+import modal
 
 app: modal.App = modal.App("grpo-trl-example")
 
@@ -49,17 +50,16 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 # The function returns 1 if there are no errors, and 0 otherwise. You might want to adjust this reward function
 # as the model is unlikely to learn well with this function.
 
+
 @app.function()
 def compute_reward(completion: str, testcase: Sequence[str]) -> int:
     sb, score = None, 0
     try:
         sb: modal.Sandbox = modal.Sandbox.create(app=app)
-    except:
+    except Exception:
         raise Exception("Unable to create sandbox")
-    
-    code_to_execute: str = get_generated_code_and_test_cases(
-        completion, testcase
-    )
+
+    code_to_execute: str = get_generated_code_and_test_cases(completion, testcase)
 
     try:
         p = sb.exec("python", "-c", code_to_execute, timeout=60)
@@ -67,13 +67,13 @@ def compute_reward(completion: str, testcase: Sequence[str]) -> int:
         return_code = p.returncode
         if return_code == 0:
             score = 1
-    except:
+    except Exception:
         print("Sandbox execution failed")
     finally:
         if sb:
             sb.terminate()
-        return score 
-        
+        return score
+
 
 # We write a function that constructs a program from the model completion. This is determined based on the format of the data
 # The completions are supposed to follow the format <TEXT>```python <CODE>```
@@ -99,13 +99,13 @@ def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) 
 # Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions
 # Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function)
 def reward_helper_function(
-    completions: Sequence[str],
-    testcases: Sequence[Sequence[str]],
-    **kwargs: object
+    completions: Sequence[str], testcases: Sequence[Sequence[str]], **kwargs: object
 ) -> Iterable[int]:
     return compute_reward.starmap(zip(completions, testcases))
 
+
 # ## Kicking off a training run
+
 
 # Preprocess the data, preparing the columns that `GRPOTrainer` expects
 def start_grpo_trainer(use_vllm=False, vllm_mode=None):
@@ -116,9 +116,16 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
         "instruction", "prompt"
     )  # needed for the GRPO trainer
     dataset = dataset.rename_column("testcase", "testcases")
-    dataset = dataset.select(range(128)) # To simplify testing. Remove for production use cases.
+    dataset = dataset.select(
+        range(128)
+    )  # To simplify testing. Remove for production use cases.
     training_args: GRPOConfig = GRPOConfig(
-        output_dir = str(MODELS_DIR), report_to = "wandb", use_vllm = use_vllm, vllm_mode = vllm_mode, max_steps = 5, save_steps = 1, # To simplify testing. Remove for production use cases. 
+        output_dir=str(MODELS_DIR),
+        report_to="wandb",
+        use_vllm=use_vllm,
+        vllm_mode=vllm_mode,
+        max_steps=5,
+        save_steps=1,  # To simplify testing. Remove for production use cases.
     )
     trainer = GRPOTrainer(
         model="Qwen/Qwen2-0.5B-Instruct",
@@ -126,7 +133,7 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
         args=training_args,
         train_dataset=dataset,
     )
-    trainer.train() 
+    trainer.train()
 
 
 # We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
@@ -135,20 +142,19 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     gpu="H100!",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
-    volumes = {
-        "/models": checkpoints_volume
-    }
+    volumes={"/models": checkpoints_volume},
 )
 def train() -> None:
-    start_grpo_trainer()    
+    start_grpo_trainer()
 
 
 # To run: `modal run --detach trl-grpo.py::train``
 
 # ## Speeding up training with vLLM
 
+
 # vLLM can be used either in server mode (run vLLM server on separate gpu) or colocate mode (within the training process)
-# In server mode, vLLM runs in a separate process (and using separate GPUs) and communicates with the trainer via HTTP. 
+# In server mode, vLLM runs in a separate process (and using separate GPUs) and communicates with the trainer via HTTP.
 # This is ideal if you have dedicated GPUs for inference. More details [here.](https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-1-server-mode)
 # Here, we use 2 GPUs. We run the GRPOTrainer on 1 of them, and the vLLM process on another.
 @app.function(
@@ -156,9 +162,7 @@ def train() -> None:
     gpu="H100!:2",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
-    volumes = {
-        str(MODELS_DIR): checkpoints_volume
-    }    
+    volumes={str(MODELS_DIR): checkpoints_volume},
 )
 def train_vllm_server_mode() -> None:
     env_copy = os.environ.copy()
@@ -169,23 +173,23 @@ def train_vllm_server_mode() -> None:
         ["trl", "vllm-serve", "--model", "Qwen/Qwen2-0.5B-Instruct"],
         env=env_copy,
     )
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1" # Run on separate GPU
-    start_grpo_trainer(use_vllm=True, vllm_mode="server")  
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Run on separate GPU
+    start_grpo_trainer(use_vllm=True, vllm_mode="server")
+
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_server_mode`
 
-# In colocate mode, vLLM runs inside the trainer process and shares GPU memory with the training model. 
+# In colocate mode, vLLM runs inside the trainer process and shares GPU memory with the training model.
 # This avoids launching a separate server and can improve GPU utilization, but may lead to memory contention on the training GPUs.
 # More details (here.)[https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-2-colocate-mode]
+
 
 @app.function(
     image=image,
     gpu="H100!",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
-    volumes = {
-        "/models": checkpoints_volume
-    }    
+    volumes={"/models": checkpoints_volume},
 )
 def train_vllm_colocate_mode() -> None:
     # Environment variables to set for colocate mode on single GPU.
@@ -194,7 +198,8 @@ def train_vllm_colocate_mode() -> None:
     os.environ["WORLD_SIZE"] = "1"
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
-    start_grpo_trainer(use_vllm=True, vllm_mode="colocate")  
+    start_grpo_trainer(use_vllm=True, vllm_mode="colocate")
+
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
 
@@ -210,7 +215,8 @@ VLLM_PORT: int = 8000
 # The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
 def get_latest_checkpoint_file_path():
     checkpoint_dirs = [
-        d.name for d in MODELS_DIR.iterdir()
+        d.name
+        for d in MODELS_DIR.iterdir()
         if d.is_dir() and re.match(r"^checkpoint-(\d+)$", d.name)
     ]
     if not checkpoint_dirs:
@@ -218,9 +224,7 @@ def get_latest_checkpoint_file_path():
     latest_checkpoint_index = max(
         int(re.match(r"^checkpoint-(\d+)$", d).group(1)) for d in checkpoint_dirs
     )
-    return str(
-        MODELS_DIR / f"checkpoint-{latest_checkpoint_index}"
-    )
+    return str(MODELS_DIR / f"checkpoint-{latest_checkpoint_index}")
 
 
 # We provide the code for setting up an OpenAI compatible inference endpoint here. For more details re. serving models on vLLM, check out [this example.](https://modal.com/docs/examples/vllm_inference#deploy-the-server)
@@ -262,7 +266,7 @@ def serve():
         "--host",
         "0.0.0.0",
         "--port",
-        str(VLLM_PORT)
+        str(VLLM_PORT),
     ]
     subprocess.Popen(" ".join(cmd), shell=True)
 
@@ -282,5 +286,3 @@ def serve():
 # ```
 
 # or in the [following ways](https://modal.com/docs/examples/vllm_inference#interact-with-the-server).
-
-
