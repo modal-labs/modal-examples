@@ -166,14 +166,14 @@ def train() -> None:
 )
 def train_vllm_server_mode() -> None:
     env_copy = os.environ.copy()
-    env_copy["CUDA_VISIBLE_DEVICES"] = "0"
+    env_copy["CUDA_VISIBLE_DEVICES"] = "0" # Run serve vLLM process on GPU 0
 
     # Start vllm-serve in the background
     subprocess.Popen(
         ["trl", "vllm-serve", "--model", "Qwen/Qwen2-0.5B-Instruct"],
         env=env_copy,
     )
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Run on separate GPU
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Run training process on GPU 1
     start_grpo_trainer(use_vllm=True, vllm_mode="server")
 
 
