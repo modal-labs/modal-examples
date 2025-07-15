@@ -21,7 +21,7 @@ app: modal.App = modal.App("grpo-trl-example")
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
 image: modal.Image = modal.Image.debian_slim().pip_install(
-    "trl[vllm]==0.19.0", "datasets==3.5.1", "wandb==0.17.6"
+    "trl[vllm]", "datasets==3.5.1", "wandb==0.17.6"
 )
 
 # We import the necessary libraries needed in the context of the image.
@@ -49,22 +49,29 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 
 @app.function()
 def compute_reward(completion: str, testcase: Sequence[str]) -> int:
-    sb, return_code = None, None
+    sb, score = None, 0
     try:
         sb: modal.Sandbox = modal.Sandbox.create(app=app)
-        code_to_execute: str = get_generated_code_and_test_cases(
-            completion, testcase
-        )
-        p: subprocess.Popen[str] = sb.exec("python", "-c", code_to_execute)
-        p.wait()
-        return_code = p.returncode
     except:
         raise Exception("Unable to create sandbox")
+    
+    code_to_execute: str = get_generated_code_and_test_cases(
+        completion, testcase
+    )
+
+    try:
+        p = sb.exec("python", "-c", code_to_execute, timeout=60)
+        p.wait()
+        return_code = p.returncode
+        if return_code == 0:
+            score = 1
+    except:
+        print("Sandbox execution failed")
     finally:
         if sb:
-            sb.terminate()  
-        if return_code:
-            return return_code    
+            sb.terminate()
+        return score 
+        
 
 # We write a function that constructs a program from the model completion. This is determined based on the format of the data
 # The completions are supposed to follow the format <TEXT>```python <CODE>```
@@ -90,13 +97,11 @@ def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) 
 # Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions
 # Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function)
 def reward_helper_function(
-    prompts: Sequence[str],
     completions: Sequence[str],
     testcases: Sequence[Sequence[str]],
     **kwargs: object
 ) -> Iterable[int]:
     return compute_reward.starmap(zip(completions, testcases))
-
 
 # ## Kicking off a training run
 
@@ -113,7 +118,13 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     training_args: GRPOConfig = GRPOConfig(
         output_dir = MODELS_DIR, report_to = "wandb", use_vllm = use_vllm, vllm_mode = vllm_mode, max_steps = 5, save_steps = 1, # To simplify testing. Remove for production use cases. 
     )
-    return dataset, training_args
+    trainer = GRPOTrainer(
+        model="Qwen/Qwen2-0.5B-Instruct",
+        reward_funcs=reward_helper_function,
+        args=training_args,
+        train_dataset=dataset,
+    )
+    trainer.train() 
 
 
 # We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
@@ -157,7 +168,7 @@ def train_vllm_server_mode() -> None:
         env=env_copy,
     )
     os.environ["CUDA_VISIBLE_DEVICES"] = "1" # Run on separate GPU
-    start_grpo_trainer(use_vllm=True, vllm_mode="serve")  
+    start_grpo_trainer(use_vllm=True, vllm_mode="server")  
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_server_mode`
 
@@ -175,6 +186,12 @@ def train_vllm_server_mode() -> None:
     }    
 )
 def train_vllm_colocate_mode() -> None:
+    # Environment variables to set for colocate mode on single GPU.
+    os.environ["RANK"] = "0"
+    os.environ["LOCAL_RANK"] = "0"
+    os.environ["WORLD_SIZE"] = "1"
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")  
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
