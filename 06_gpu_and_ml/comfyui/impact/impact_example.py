@@ -16,7 +16,7 @@ image = (
         "comfy --skip-prompt install --nvidia"
     )
     .run_commands(  # download the Impact pack
-        "comfy node install ComfyUI-Impact-Pack"
+        "comfy node install comfyui-impact-pack"
     )
     .pip_install("ultralytics==8.3.26")  # object detection models
     .apt_install(  # opengl dependencies

@@ -62,7 +62,7 @@ def create_sandbox(app) -> modal.Sandbox:
 
 
 # We also need a way to run our code in the sandbox. For this, we'll write a simple wrapper
-# around the Modal Sandox `exec` method. We use `exec` because it allows us to run code without spinning up a
+# around the Modal Sandbox `exec` method. We use `exec` because it allows us to run code without spinning up a
 # new container. And we can reuse the same container for multiple runs, preserving state.
 
 
