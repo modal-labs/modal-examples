@@ -78,7 +78,7 @@ def compute_reward(completion: str, testcase: Sequence[str]) -> int:
 # We write a function that constructs a program from the model completion. This is determined based on the format of the data
 # The completions are supposed to follow the format <TEXT>```python <CODE>```
 # The test cases are a list of assert statements.
-# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2/viewer/educational_instruct/train?views%5B%5D=educational_instruct&row=0)
+# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2)
 def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) -> str:
     if "```python" in completion:
         # Find the start and end of the code block
@@ -166,7 +166,7 @@ def train() -> None:
 )
 def train_vllm_server_mode() -> None:
     env_copy = os.environ.copy()
-    env_copy["CUDA_VISIBLE_DEVICES"] = "0" # Run serve vLLM process on GPU 0
+    env_copy["CUDA_VISIBLE_DEVICES"] = "0"  # Run serve vLLM process on GPU 0
 
     # Start vllm-serve in the background
     subprocess.Popen(
