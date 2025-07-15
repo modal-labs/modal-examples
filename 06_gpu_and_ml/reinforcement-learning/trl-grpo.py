@@ -10,10 +10,12 @@
 
 # First we perform the imports and then define the app.
 from __future__ import annotations
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, Sequence
+from pathlib import Path
 
 import modal
 import os
+import re
 import subprocess
 
 app: modal.App = modal.App("grpo-trl-example")
@@ -30,7 +32,7 @@ with image.imports():
     from trl import GRPOConfig, GRPOTrainer
 
 # We also a define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
-MODELS_DIR = "/models"
+MODELS_DIR = Path("/models")
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
     "grpo-trl-example-checkpoints", create_if_missing=True
 )
@@ -116,7 +118,7 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     dataset = dataset.rename_column("testcase", "testcases")
     dataset = dataset.select(range(128)) # To simplify testing. Remove for production use cases.
     training_args: GRPOConfig = GRPOConfig(
-        output_dir = MODELS_DIR, report_to = "wandb", use_vllm = use_vllm, vllm_mode = vllm_mode, max_steps = 5, save_steps = 1, # To simplify testing. Remove for production use cases. 
+        output_dir = str(MODELS_DIR), report_to = "wandb", use_vllm = use_vllm, vllm_mode = vllm_mode, max_steps = 5, save_steps = 1, # To simplify testing. Remove for production use cases. 
     )
     trainer = GRPOTrainer(
         model="Qwen/Qwen2-0.5B-Instruct",
@@ -155,7 +157,7 @@ def train() -> None:
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
     volumes = {
-        MODELS_DIR: checkpoints_volume
+        str(MODELS_DIR): checkpoints_volume
     }    
 )
 def train_vllm_server_mode() -> None:
@@ -195,3 +197,90 @@ def train_vllm_colocate_mode() -> None:
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")  
 
 # You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
+
+# ## Performing inference on the trained model
+
+# We use vLLM to perform inference on the trained model.
+
+VLLM_PORT: int = 8000
+
+
+# Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM.
+# The weights path is as follows: `global_step_n/actor/huggingface` where n is the checkpoint you want (eg `global_step_5/actor/huggingface`).
+# The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
+def get_latest_checkpoint_file_path():
+    checkpoint_dirs = [
+        d.name for d in MODELS_DIR.iterdir()
+        if d.is_dir() and re.match(r"^checkpoint-(\d+)$", d.name)
+    ]
+    if not checkpoint_dirs:
+        raise FileNotFoundError("No checkpoint directories found in models dir")
+    latest_checkpoint_index = max(
+        int(re.match(r"^checkpoint-(\d+)$", d).group(1)) for d in checkpoint_dirs
+    )
+    return str(
+        MODELS_DIR / f"checkpoint-{latest_checkpoint_index}"
+    )
+
+
+# We provide the code for setting up an OpenAI compatible inference endpoint here. For more details re. serving models on vLLM, check out [this example.](https://modal.com/docs/examples/vllm_inference#deploy-the-server)
+
+vllm_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .pip_install(
+        "vllm==0.9.1",
+        "flashinfer-python==0.2.6.post1",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
+    )
+    .env({"VLLM_USE_V1": "1"})
+)
+
+vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+
+
+@app.function(
+    image=vllm_image,
+    gpu="H100!",
+    scaledown_window=15 * 60,  # How long should we stay up with no requests?
+    timeout=10 * 60,  # How long should we wait for container start?
+    volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_DIR: checkpoints_volume},
+)
+@modal.concurrent(
+    max_inputs=32
+)  # How many requests can one replica handle? tune carefully!
+@modal.web_server(port=VLLM_PORT, startup_timeout=10 * 60)
+def serve():
+    import subprocess
+
+    latest_checkpoint_file_path = get_latest_checkpoint_file_path()
+
+    cmd = [
+        "vllm",
+        "serve",
+        "--uvicorn-log-level=info",
+        latest_checkpoint_file_path,
+        "--host",
+        "0.0.0.0",
+        "--port",
+        str(VLLM_PORT)
+    ]
+    subprocess.Popen(" ".join(cmd), shell=True)
+
+
+# You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
+
+# ```bash
+# curl -X POST <url>/v1/chat/completions \
+#   -H 'Content-Type: application/json' \
+#   -d '{
+#     "messages": [
+#       {"role": "system", "content": "You are a helpful assistant for solving math problems."},
+#       {"role": "user", "content": "James had 4 apples. Mary gave him 2 and he ate 1. How many does he have left?"}
+#     ],
+#     "temperature": 0.7
+#   }'
+# ```
+
+# or in the [following ways](https://modal.com/docs/examples/vllm_inference#interact-with-the-server).
+
+
