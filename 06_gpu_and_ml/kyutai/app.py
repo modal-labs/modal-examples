@@ -113,8 +113,6 @@ class STT:
 
         # infer on each frame
         while all_pcm_data.shape[-1] >= self.frame_size:
-            yield b"\x00"  # let frontend know that speech is detected
-
             chunk = all_pcm_data[: self.frame_size]
             all_pcm_data = all_pcm_data[self.frame_size :]
 
@@ -205,7 +203,7 @@ class STT:
 
                     pcm = opus_stream_inbound.read_pcm()
                     async for msg in self.transcribe(pcm, all_pcm_data):
-                        if isinstance(msg, (bytes, str)):
+                        if isinstance(msg, str):
                             transcription_queue.put_nowait(msg)
                         else:
                             all_pcm_data = msg
@@ -221,13 +219,10 @@ class STT:
                     if data is None:
                         continue
 
-                    if isinstance(data, bytes):
-                        await ws.send_bytes(data)
-                    else:
-                        msg = b"\x01" + bytes(
-                            data, encoding="utf8"
-                        )  # prepend "\x01" as a tag to indicate text
-                        await ws.send_bytes(msg)
+                    msg = b"\x01" + bytes(
+                        data, encoding="utf8"
+                    )  # prepend "\x01" as a tag to indicate text
+                    await ws.send_bytes(msg)
 
             # run all loops concurrently
             try:
