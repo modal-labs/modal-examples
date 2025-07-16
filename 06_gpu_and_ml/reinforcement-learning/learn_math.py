@@ -10,7 +10,7 @@
 # This example demonstrates how to:
 # - Launch a distributed GRPO training job on Modal with 4× H100 GPUs.
 # - Use vLLM for inference during training.
-# - Cache HuggingFace , vLLM, and store the model weights in [Volumes](https://modal.com/docs/guide/volumes).
+# - Cache HuggingFace, vLLM, and store the model weights in [Volumes](https://modal.com/docs/guide/volumes).
 # - Run inference by loading the trained model from [Volumes](https://modal.com/docs/guide/volumes).
 
 # ## Setup
