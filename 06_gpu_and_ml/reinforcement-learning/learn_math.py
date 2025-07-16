@@ -11,7 +11,7 @@
 # - Launch a distributed GRPO training job on Modal with 4× H100 GPUs.
 # - Use vLLM for inference during training.
 # - Cache HuggingFace, vLLM, and store the model weights in [Volumes](https://modal.com/docs/guide/volumes).
-# - Run inference by loading the trained model from [Volumes](https://modal.com/docs/guide/volumes).
+# - Run inference by loading the trained model from Volumes.
 
 # ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
@@ -25,10 +25,11 @@ flavor = "devel"
 operating_sys = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
+
 flash_attn_release = (
     "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.1.post1/"
     "flash_attn-2.7.1.post1+cu12torch2.6cxx11abiTRUE-cp311-cp311-linux_x86_64.whl"
-)
+)  # We use a pre-built binary for flash-attn to install it in the image.
 
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
@@ -45,18 +46,19 @@ image = (
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
             "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
+            "HF_HOME": "/root/.cache/huggingface",
         }
     )
 )
 
-# ## Caching HuggingFace , vLLM, and storing model weights
+# ## Caching HuggingFace, vLLM, and storing model weights
 # We create Modal Volumes to persist:
 # - HuggingFace  downloads
 # - vLLM cache
 # - Model weights
 
 # We define the model name and the tool descriptions for prompting the model.
-# Since, we are training the model to be better at mathematical reasoning, we define a tool to the model to execute python code that it generates.
+# Since we are training the model to be better at mathematical reasoning, we define a tool to the model to execute Python code that it generates.
 # See this [this training script](/docs/examples/trainer_script_grpo) for more details.
 
 HF_CACHE_DIR = "/root/.cache/huggingface"
@@ -77,8 +79,8 @@ TOOL_DESCRIPTIONS = """
 # Following the [verifiers example](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py), we will need a training script and a config file.
 # For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
 
-# We create a function that uses 4 H100 GPUs and mounts the defined volumes. Then, we write the training script and the config file to the root directory.
-# We use the willcb/Qwen3-0.6B model from HuggingFace , setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
+# We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the root directory.
+# We use the `willcb/Qwen3-0.6B` model from HuggingFace , setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
 
@@ -167,7 +169,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
         HF_CACHE_DIR: HF_CACHE_VOL,
         WEIGHTS_DIR: WEIGHTS_VOL,
     },
-    timeout=600,
+    timeout=60 * 10,
 )
 def inference(prompt: str):
     """Test the trained model with the same format as training"""
@@ -204,7 +206,6 @@ def inference(prompt: str):
             MODEL_NAME,
             torch_dtype=torch.bfloat16,
             device_map="auto",
-            cache_dir=HF_CACHE_DIR,
             trust_remote_code=True,
         )
 
