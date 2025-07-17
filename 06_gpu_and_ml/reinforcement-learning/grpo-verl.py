@@ -140,11 +140,12 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 
 
 # verl uses Ray under the hood. It creates Ray workers for each step where each Ray worker is a python process and each step is a step in the RL dataflow pipeline.
-# verl also keeps a separate control flow process that's independent of this, responsible for figuring out what step in the RL pipeline to execute. 
+# verl also keeps a separate control flow process that's independent of this, responsible for figuring out what step in the RL pipeline to execute.
 # Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers
 # if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration.
 # In this example we have chosen a configuration that allows for easy automated testing, but you may wish to use more GPUs or more powerful GPU types.
 # More details [here](https://verl.readthedocs.io/en/latest/hybrid_flow.html).
+
 
 @app.function(
     image=image,
@@ -173,7 +174,7 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.optim.lr=1e-6",
         "actor_rollout_ref.model.use_remove_padding=False",
         "actor_rollout_ref.actor.ppo_mini_batch_size=128",
-        f"actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16",
+        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.actor.checkpoint.save_contents='model,optimizer,extra,hf_model'",
         "actor_rollout_ref.actor.use_kl_loss=True",
         "actor_rollout_ref.actor.entropy_coeff=0",
@@ -183,18 +184,18 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.fsdp_config.param_offload=False",
         "actor_rollout_ref.actor.fsdp_config.optimizer_offload=False",
         "actor_rollout_ref.rollout.tensor_model_parallel_size=2",
-        f"actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16",
+        "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.rollout.name=vllm",
         "actor_rollout_ref.rollout.gpu_memory_utilization=0.4",
         "actor_rollout_ref.rollout.n=5",
-        f"actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16",
+        "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.ref.fsdp_config.param_offload=True",
         "algorithm.use_kl_in_reward=False",
         "trainer.critic_warmup=0",
         "trainer.logger=['console', 'wandb']",
         "trainer.project_name=verl_grpo_example_qwen2-0.5b",
         "trainer.experiment_name=qwen2-0.5b_example",
-        f"trainer.n_gpus_per_node=2",
+        "trainer.n_gpus_per_node=2",
         "trainer.nnodes=1",
         "trainer.test_freq=5",
         f"trainer.default_local_dir={MODELS_PATH}",
@@ -250,7 +251,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 @app.function(
     image=vllm_image,
-    gpu=f"H100:2",
+    gpu="H100:2",
     scaledown_window=15 * MINUTES,  # How long should we stay up with no requests?
     timeout=10 * MINUTES,  # How long should we wait for container start?
     volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_PATH: checkpoints_volume},
