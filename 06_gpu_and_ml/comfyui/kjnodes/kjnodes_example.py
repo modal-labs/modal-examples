@@ -16,7 +16,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         "comfy --skip-prompt install --nvidia"
     )
     .run_commands(  # download the ComfyUI Essentials custom node pack
-        "comfy node install ComfyUI-KJNodes"
+        "comfy node install comfyui-kjnodes"
     )
     .run_commands(
         "comfy --skip-prompt model download --url https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned.safetensors --relative-path models/checkpoints"
