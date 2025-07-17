@@ -144,7 +144,7 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 )
 
 # Now, we write a Modal Function for kicking off the training run.
-# If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [secret.](https://modal.com/docs/guide/secrets#secrets)
+# If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [Secret.](https://modal.com/docs/guide/secrets#secrets)
 
 
 @app.function(
