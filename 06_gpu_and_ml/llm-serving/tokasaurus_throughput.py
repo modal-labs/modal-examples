@@ -46,7 +46,7 @@ toka_image = (
 # [GPU SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
 # we are targeting, Hopper. This isn't strictly necessary, but it silences some paranoid logs.
 
-GPU_CONFIG = "H100"
+GPU_CONFIG = "H100!"  # ! means "strictly", no upgrades to H200
 TORCH_CUDA_ARCH_LIST = "9.0 9.0a"  # Hopper, aka H100/H200
 
 # From there, Tokasaurus can be installed like any normal Python package,
@@ -112,7 +112,7 @@ STOP_STRING_NUM_TOKEN_LOOKBACK = 5
 
 # We could apply the Torch compiler to the model to make it faster and, via kernel fusion, reduce the amount of used activation memory,
 # leaving space for a larger KV cache. However, it dramatically increases the startup time of the server,
-# and we only see modest improvements to throughput, so we don't use it here.
+# and we only see modest (20%, not 2x) improvements to throughput, so we don't use it here.
 
 TORCH_COMPILE = "F"
 
