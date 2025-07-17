@@ -2,11 +2,17 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo-verl.py::train"]
 # ---
 
-# # Run GRPO on Modal using VERL
+# # Run GRPO on Modal using verl
 
-# This example demonstrates how to run [GRPO](https://arxiv.org/pdf/2402.03300) on Modal using the [VERL](https://github.com/volcengine/verl) framework.
+# This example demonstrates how to train with [GRPO](https://arxiv.org/pdf/2402.03300) on Modal using the [verl](https://github.com/volcengine/verl) framework.
 # GRPO is a reinforcement learning algorithm introduced by DeepSeek, and was used to train DeepSeek R1.
-# VERL is a reinforcement learning training library that is an implementation of [HybridFlow](https://arxiv.org/abs/2409.19256v2), an RLHF framework.
+# verl is a reinforcement learning training library that is an implementation of [HybridFlow](https://arxiv.org/abs/2409.19256v2), an RLHF framework.
+
+# The training process works as follows:
+# - Each example in the dataset corresponds to a math problem.
+# - In each training step, the model attempts to solve the math problems showing its steps.
+# - We then compute a reward for the the model's solution using the reward function defined below.
+# - That reward value is then used to update the model's paramaters according to the GRPO training algorithm.
 
 # ## Setup
 
@@ -22,7 +28,7 @@ import modal
 
 app = modal.App("grpo-verl-example")
 
-# We define an image where we clone the VERL repo and install its dependencies. We use a base VERL image as a starting point.
+# We define an image where we clone the verl repo and install its dependencies. We use a base verl image as a starting point.
 
 VERL_REPO_PATH: str = Path("/root/verl")
 image = (
@@ -35,8 +41,7 @@ image = (
 # ## Defining the dataset
 
 # In this example, we'll use reinforcement learning to train a model to solve math problems.
-# We use the [GSM8K](https://huggingface.co/datasets/openai/gsm8k) dataset of math problems.
-# We use a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) to store the data.
+# We use the [GSM8K](https://huggingface.co/datasets/openai/gsm8k) dataset of math problems and a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) to store the data.
 
 DATA_PATH: Path = Path("/data")
 data_volume: modal.Volume = modal.Volume.from_name(
@@ -44,7 +49,7 @@ data_volume: modal.Volume = modal.Volume.from_name(
 )
 
 
-# We write a modal Function to populate the Volume with the data.
+# We write a Modal Function to populate the Volume with the data.
 @app.function(image=image, volumes={DATA_PATH: data_volume})
 def prep_dataset() -> None:
     subprocess.run(
@@ -64,8 +69,8 @@ def prep_dataset() -> None:
 # ## Defining a reward function
 
 # In reinforcement learning, we define a reward function for the model.
-# We can define this in a separate file, or in the same file in as in this case that we then pass as an argument to VERL.
-# We use a `default` reward function for GSM8K from the [VERL repo](https://github.com/volcengine/verl/blob/v0.1/verl/utils/reward_score/gsm8k.py), modified to return 1.0 if it's a correct answer and 0 otherwise.
+# We can define this in a separate file, or in the same file in as in this case that we then pass as an argument to verl.
+# We use a `default` reward function for GSM8K from the [verl repo](https://github.com/volcengine/verl/blob/v0.1/verl/utils/reward_score/gsm8k.py), modified to return 1.0 if it's a correct answer and 0 otherwise.
 
 
 def extract_solution(
@@ -114,29 +119,23 @@ def compute_reward(
             return 0.0
 
 
-# We then define constants to pass into VERL during the training run.
-PATH_TO_REWARD_FUNCTION: str = "/root/grpo-verl.py"
+# We then define constants to pass into verl during the training run.
+PATH_TO_REWARD_FUNCTION: str = Path("/root/grpo-verl.py")
 REWARD_FUNCTION_NAME: str = "compute_reward"
 
 # ## Kicking off a training run
 
 # We define some more constants for the training run.
 MODELS_PATH: Path = Path("/models")
-MICROBATCH_SIZE_PER_GPU: int = 16
 MINUTES: int = 60
-HOURS: int = 60 * MINUTES
-DAY: int = 24 * HOURS
 
-# VERL uses Ray under the hood, and creates Ray workers, where each worker can be thought of as a python process, for each of the steps in the RL dataflow pipeline.
-# Examples of steps here include rollouts, actor forward passes, critic forward passes, etc. VERL also keeps a separate control flow process that's independent of
+# verl uses Ray under the hood. It creates Ray workers for each step. Each Ray worker is a python process. Each step here is a step in the RL dataflow pipeline.
+# Examples of steps here include rollouts, actor forward passes, critic forward passes, etc. verl also keeps a separate control flow process that's independent of
 # this, responsible for figuring out what step in the RL pipeline to execute. More details [here](https://verl.readthedocs.io/en/latest/hybrid_flow.html).
-
 # Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers
 # if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration.
 # In this example we have chosen a configuration that allows for easy automated testing, but you may wish to use more GPUs or more powerful GPU types.
 
-GPU_TYPE: str = "H100!"
-NUM_GPUS_PER_NODE: int = 2
 
 # We also a define a Volume for storing model checkpoints.
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
@@ -149,13 +148,13 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 
 @app.function(
     image=image,
-    gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}",  # h100! means exclusively h100
+    gpu="H100:2",
     volumes={
         MODELS_PATH: checkpoints_volume,
         DATA_PATH: data_volume,
     },
     secrets=[modal.Secret.from_name("wandb-secret")],
-    timeout=DAY,
+    timeout=24 * 60 * MINUTES,
 )
 def train(*arglist) -> None:
     cmd: list[str] = [
@@ -174,7 +173,7 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.optim.lr=1e-6",
         "actor_rollout_ref.model.use_remove_padding=False",
         "actor_rollout_ref.actor.ppo_mini_batch_size=128",
-        f"actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu={MICROBATCH_SIZE_PER_GPU}",
+        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.actor.checkpoint.save_contents='model,optimizer,extra,hf_model'",
         "actor_rollout_ref.actor.use_kl_loss=True",
         "actor_rollout_ref.actor.entropy_coeff=0",
@@ -184,18 +183,18 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.fsdp_config.param_offload=False",
         "actor_rollout_ref.actor.fsdp_config.optimizer_offload=False",
         "actor_rollout_ref.rollout.tensor_model_parallel_size=2",
-        f"actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu={MICROBATCH_SIZE_PER_GPU}",
+        "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.rollout.name=vllm",
         "actor_rollout_ref.rollout.gpu_memory_utilization=0.4",
         "actor_rollout_ref.rollout.n=5",
-        f"actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu={MICROBATCH_SIZE_PER_GPU}",
+        "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.ref.fsdp_config.param_offload=True",
         "algorithm.use_kl_in_reward=False",
         "trainer.critic_warmup=0",
         "trainer.logger=['console', 'wandb']",
         "trainer.project_name=verl_grpo_example_qwen2-0.5b",
         "trainer.experiment_name=qwen2-0.5b_example",
-        f"trainer.n_gpus_per_node={NUM_GPUS_PER_NODE}",
+        "trainer.n_gpus_per_node=2",
         "trainer.nnodes=1",
         "trainer.test_freq=5",
         f"trainer.default_local_dir={MODELS_PATH}",
@@ -205,7 +204,7 @@ def train(*arglist) -> None:
         "trainer.total_training_steps=1",
         "trainer.total_epochs=1",
         # For the custom reward function.
-        f"custom_reward_function.path={PATH_TO_REWARD_FUNCTION}",
+        f"custom_reward_function.path={str(PATH_TO_REWARD_FUNCTION)}",
         f"custom_reward_function.name={REWARD_FUNCTION_NAME}",
     ]
     if arglist:
@@ -214,7 +213,7 @@ def train(*arglist) -> None:
     subprocess.run(cmd, check=True)
 
 
-# You can now run the training using `modal run --detach grpo-verl.py::train`, or `modal run --detach grpo.py::train -- trainer.total_epochs=20 data.train_batch_size=1024` as an example of passing in args from the CLI.
+# You can now run the training using `modal run --detach grpo-verl.py::train`, or pass in any [additional args from the CLI](https://modal.com/docs/guide/apps#argument-parsing) like this `modal run --detach grpo.py::train -- trainer.total_epochs=20 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16`.
 
 # ## Performing inference on the trained model
 
@@ -251,7 +250,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 @app.function(
     image=vllm_image,
-    gpu=f"{GPU_TYPE}:{NUM_GPUS_PER_NODE}",
+    gpu="H100:2",
     scaledown_window=15 * MINUTES,  # How long should we stay up with no requests?
     timeout=10 * MINUTES,  # How long should we wait for container start?
     volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_PATH: checkpoints_volume},
@@ -274,8 +273,8 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
-        "--tensor-parallel-size",  # Aassume multiple GPUs are for splitting up large matrix multiplications
-        str(NUM_GPUS_PER_NODE),
+        "--tensor-parallel-size",
+        "2",
     ]
     subprocess.Popen(" ".join(cmd), shell=True)
 
