@@ -129,13 +129,6 @@ REWARD_FUNCTION_NAME: str = "compute_reward"
 MODELS_PATH: Path = Path("/models")
 MINUTES: int = 60
 
-# verl uses Ray under the hood. It creates Ray workers for each step. Each Ray worker is a python process. Each step here is a step in the RL dataflow pipeline.
-# Examples of steps here include rollouts, actor forward passes, critic forward passes, etc. verl also keeps a separate control flow process that's independent of
-# this, responsible for figuring out what step in the RL pipeline to execute. More details [here](https://verl.readthedocs.io/en/latest/hybrid_flow.html).
-# Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers
-# if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration.
-# In this example we have chosen a configuration that allows for easy automated testing, but you may wish to use more GPUs or more powerful GPU types.
-
 
 # We also a define a Volume for storing model checkpoints.
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
@@ -145,6 +138,13 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 # Now, we write a Modal Function for kicking off the training run.
 # If you wish to use Weights & Biases, as we do in this code, you'll need to create a Weights & Biases [Secret.](https://modal.com/docs/guide/secrets#secrets)
 
+
+# verl uses Ray under the hood. It creates Ray workers for each step where each Ray worker is a python process and each step is a step in the RL dataflow pipeline.
+# verl also keeps a separate control flow process that's independent of this, responsible for figuring out what step in the RL pipeline to execute. 
+# Each Ray worker gets mapped onto 1 or more GPUs. Depending on the number of GPUs available, Ray will decide what workers go where, or to hold off scheduling workers
+# if there are no available GPUs. Generally, more VRAM = less hot-swapping of Ray workers, which means less waiting around for memory copying each iteration.
+# In this example we have chosen a configuration that allows for easy automated testing, but you may wish to use more GPUs or more powerful GPU types.
+# More details [here](https://verl.readthedocs.io/en/latest/hybrid_flow.html).
 
 @app.function(
     image=image,
@@ -173,7 +173,7 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.optim.lr=1e-6",
         "actor_rollout_ref.model.use_remove_padding=False",
         "actor_rollout_ref.actor.ppo_mini_batch_size=128",
-        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16",
+        f"actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.actor.checkpoint.save_contents='model,optimizer,extra,hf_model'",
         "actor_rollout_ref.actor.use_kl_loss=True",
         "actor_rollout_ref.actor.entropy_coeff=0",
@@ -183,18 +183,18 @@ def train(*arglist) -> None:
         "actor_rollout_ref.actor.fsdp_config.param_offload=False",
         "actor_rollout_ref.actor.fsdp_config.optimizer_offload=False",
         "actor_rollout_ref.rollout.tensor_model_parallel_size=2",
-        "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16",
+        f"actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.rollout.name=vllm",
         "actor_rollout_ref.rollout.gpu_memory_utilization=0.4",
         "actor_rollout_ref.rollout.n=5",
-        "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16",
+        f"actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16",
         "actor_rollout_ref.ref.fsdp_config.param_offload=True",
         "algorithm.use_kl_in_reward=False",
         "trainer.critic_warmup=0",
         "trainer.logger=['console', 'wandb']",
         "trainer.project_name=verl_grpo_example_qwen2-0.5b",
         "trainer.experiment_name=qwen2-0.5b_example",
-        "trainer.n_gpus_per_node=2",
+        f"trainer.n_gpus_per_node=2",
         "trainer.nnodes=1",
         "trainer.test_freq=5",
         f"trainer.default_local_dir={MODELS_PATH}",
@@ -250,7 +250,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 @app.function(
     image=vllm_image,
-    gpu="H100:2",
+    gpu=f"H100:2",
     scaledown_window=15 * MINUTES,  # How long should we stay up with no requests?
     timeout=10 * MINUTES,  # How long should we wait for container start?
     volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_PATH: checkpoints_volume},
