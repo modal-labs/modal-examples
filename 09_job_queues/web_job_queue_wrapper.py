@@ -97,50 +97,52 @@ def web_endpoint():
 def test_polling():
     """Test the polling job queue by submitting a request and polling for results."""
     import json
-    import urllib.request
     import urllib.parse
-    
+    import urllib.request
+
     # Get the deployed URL
     url = web_endpoint.get_web_url()
     print(f"URL: {url}")
-    
+
     # Submit request
     print("submitting request")
-    data = json.dumps({"input_val": "Hello, world!"}).encode('utf-8')
-    headers = {'Content-Type': 'application/json'}
-    req = urllib.request.Request(f"{url}/run", data=data, headers=headers, method='POST')
-    
+    data = json.dumps({"input_val": "Hello, world!"}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    req = urllib.request.Request(
+        f"{url}/run", data=data, headers=headers, method="POST"
+    )
+
     try:
         with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            request_id = result['request_id']
+            result = json.loads(response.read().decode("utf-8"))
+            request_id = result["request_id"]
             print(f"got request id: {request_id}, polling status")
     except Exception as e:
         print(f"Failed to submit request: {e}")
         return
-    
+
     # Poll for status
     while True:
         try:
-            with urllib.request.urlopen(f"{url}/requests/{request_id}/status") as response:
-                data = json.loads(response.read().decode('utf-8'))
-                if data['status'] == 'SUCCESS':
+            with urllib.request.urlopen(
+                f"{url}/requests/{request_id}/status"
+            ) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data["status"] == "SUCCESS":
                     print("request completed successfully")
                     break
                 else:
                     print(f"request result is {data['status']}")
         except Exception as e:
-            print(f'poll failed: {e}')
+            print(f"poll failed: {e}")
         time.sleep(1)
-    
+
     # Retrieve result
     print("retrieving result")
     try:
         with urllib.request.urlopen(f"{url}/requests/{request_id}") as response:
-            result = json.loads(response.read().decode('utf-8'))
+            result = json.loads(response.read().decode("utf-8"))
             print(f"result is {result}")
             print("done")
     except Exception as e:
         print(f"Failed to retrieve result: {e}")
-
-
