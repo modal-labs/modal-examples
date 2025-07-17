@@ -11,6 +11,8 @@
 # the response quality of a system using a small model is improved to match or exceed a system using a large model
 # by running many requests in parallel.
 # Here, it's applied to the Grade School Math (GSM8K) dataset.
+# We reproduce their finding that Tokasaurus can substantially exceed the reported performance of SGLang and vLLM,
+# engines not specialized to this type of inference.
 
 # For more on this LLM inference pattern
 # (and an explainer on why it's such a natural fit for current parallel computing systems)
@@ -29,6 +31,7 @@
 
 import json
 import random
+import time
 
 import aiohttp
 import modal
@@ -107,9 +110,9 @@ MAX_SEQS_PER_FORWARD = 8192
 PAGE_SIZE = 16
 STOP_STRING_NUM_TOKEN_LOOKBACK = 5
 
-# We could torch compile the model to make it faster and, via kernel fusion, reduce the amount of used activation memory,
+# We could apply the Torch compiler to the model to make it faster and, via kernel fusion, reduce the amount of used activation memory,
 # leaving space for a larger KV cache. However, it dramatically increases the startup time of the server,
-# so we don't use it here.
+# and we only see modest improvements to throughput, so we don't use it here.
 
 TORCH_COMPILE = "F"
 
@@ -195,7 +198,8 @@ def serve():
 # Because the API responses don't include token counts, we need a quick helper function to
 # calculate token counts from a prompt or completion.
 # We add [automatic dynamic batching](https://modal.com/docs/guide/dynamic-batching)
-# with `modal.batched`.
+# with `modal.batched`, so that we can send single strings but still take advantage
+# of batched encoding.
 
 
 @app.function(image=toka_image, volumes=volumes)
@@ -205,6 +209,17 @@ def count_tokens(texts: list[str]) -> list[int]:
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     return [len(ids) for ids in tokenizer(texts)["input_ids"]]
+
+
+# And then we're ready to go!
+
+# You can run the benchmark with
+
+# ```bash
+# modal run tokasaurus_throughput.py
+# ```
+
+# or pass the `--help` flag to see options.
 
 
 @app.local_entrypoint()
@@ -224,46 +239,38 @@ async def benchmark(seed: int = 42, limit: int = 2, num_few_shot: int = 4):
         print(f"Running health check for server at {url}")
 
         async with session.get("/v1/models", timeout=20 * MINUTES) as resp:
-            up = (
-                resp.status
-                < 500  # expect 404, /v1/models not implemented in toka 0.0.2
+            up = (  # expect 404, /v1/models not implemented in toka 0.0.2
+                resp.status < 500
             )
 
         assert up, f"Failed health check for server at {url}"
         print(f"Successful health check for server at {url}")
 
         print("Beginning throughput test")
+        start = time.time()
 
         reqs, resps = [], []
         reqs = [_send_request(session, _make_prompt(item)) for item in dataset]
         resps = await asyncio.gather(*reqs)
 
-        print("Finished throughput test")
+        end = time.time()
+        total_time = end - start
+        print(f"Finished throughput test in {int(total_time)}s")
 
-        # sniff test results -- non-negative times, all requested completions present
+        # sniff test the results
         _integrity_check(resps)
 
         # calculate throughput from total elapsed time and total token counts
         print("Counting tokens")
-        total_time = sum(resp["elapsed"] for resp in resps)
 
-        total_input_tokens = sum(  # this was a one-liner before the linter got to it
-            [
-                count
-                async for count in count_tokens.map.aio(
-                    [resp["prompt"] for resp in resps]
-                )
-            ]
-        )
-
-        all_outputs = [  # flatten completions from list inside a list down to a single list
+        input_text = [resp["prompt"] for resp in resps]
+        output_text = [  # flatten completions from list inside a list down to a single list
             completion for resp in resps for completion in resp["completions"]
         ]
-        total_output_tokens = sum(
-            [count async for count in count_tokens.map.aio(all_outputs)]
+        total_tokens = sum(
+            [count async for count in count_tokens.map.aio(input_text + output_text)]
         )
 
-        total_tokens = total_input_tokens + total_output_tokens
         total_throughput = total_tokens // total_time
 
         print(f"Total throughput: {total_throughput} tokens/second")
@@ -310,20 +317,13 @@ def _make_prompt(item: dict) -> str:
 
 def _integrity_check(responses):
     for ii, resp in enumerate(responses):
-        n_completions, elapsed = len(resp["completions"]), resp["elapsed"]
+        n_completions = len(resp["completions"])
         assert n_completions == N, (
             f"Expected {N} completions, got {n_completions} for request {ii}"
         )
-        assert elapsed > 0, (
-            f"Elapsed time for request {ii} is non-positive: {elapsed} seconds"
-        )
 
 
-async def _send_request(
-    session: aiohttp.ClientSession, prompt: str
-) -> tuple[list[str], float]:
-    import time
-
+async def _send_request(session: aiohttp.ClientSession, prompt: str):
     payload: dict[str, object] = {
         "model": "llm",
         "prompt": prompt,
@@ -336,15 +336,12 @@ async def _send_request(
     }
     headers = {"Content-Type": "application/json"}
 
-    start = time.time()
     async with session.post(
         "/v1/completions", json=payload, headers=headers, timeout=10 * MINUTES
     ) as resp:
-        end = time.time()
         resp.raise_for_status()
         resp_json = await resp.json()
         return {
-            "completions": [choice["text"] for choice in resp_json["choices"]],
             "prompt": prompt,
-            "elapsed": end - start,
+            "completions": [choice["text"] for choice in resp_json["choices"]],
         }
