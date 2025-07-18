@@ -80,6 +80,7 @@ tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 vlm_image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
+    .entrypoint([])  # removes chatty prints on entry
     .apt_install("libnuma-dev")  # Add NUMA library for sgl_kernel
     .pip_install(  # add sglang and some Python dependencies
         "transformers==4.52.3",
@@ -90,7 +91,7 @@ vlm_image = (
         "starlette==0.41.2",
         "torch==2.7.1",
         "sglang[all]==0.4.8",
-        "sgl-kernel==0.1.9;",
+        "sgl-kernel==0.1.9",
         "hf-xet==1.1.5",
     )
     .env(
