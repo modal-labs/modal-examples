@@ -53,7 +53,7 @@ image = (
 
 # ## Caching HuggingFace, vLLM, and storing model weights
 # We create Modal Volumes to persist:
-# - HuggingFace  downloads
+# - HuggingFace downloads
 # - vLLM cache
 # - Model weights
 
