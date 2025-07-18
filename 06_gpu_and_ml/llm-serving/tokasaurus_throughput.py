@@ -1,18 +1,21 @@
-# # High-throughput LLM inference with Tokasaurus (LLama-3.2-1B-Instruct)
+# ---
+# args: ["--limit", "2"]
+# ---
 
-# In this example, we demonstrate how to use the Tokasaurus framework to serve the Llama 3.2 1B Instruct model at high throughput:
-# running this code, we see peak throughputs of up to 75,000 tokens per second per H100 GPU for a challenging decode-heavy workload.
+# # High-throughput LLM inference with Tokasaurus (LLama 3.2 1B Instruct)
+
+# In this example, we demonstrate how to use Tokasaurus, an LLM inference framework designed for maximum throughput.
 
 # It maps the [Large Language Monkeys GSM8K demo](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py)
-# from the [Tokasaurus release blog post](https://scalingintelligence.stanford.edu/blogs/tokasaurus/) onto Modal.
+# from the [Tokasaurus release blog post](https://scalingintelligence.stanford.edu/blogs/tokasaurus/) onto Modal
+# and replicates the core result: sustained inference at >80k tok/s throughput,
+# exceeding their reported numbers for vLLM and SGLang by ~3x.
 
 # In the "Large Language Monkeys" inference-time compute scaling paradigm,
 # [also introduced by the same Stanford labs](https://arxiv.org/abs/2407.21787),
 # the response quality of a system using a small model is improved to match or exceed a system using a large model
 # by running many requests in parallel.
 # Here, it's applied to the Grade School Math (GSM8K) dataset.
-# We reproduce their finding that Tokasaurus can substantially exceed the reported performance of SGLang and vLLM,
-# engines not specialized to this type of inference.
 
 # For more on this LLM inference pattern
 # (and an explainer on why it's such a natural fit for current parallel computing systems)
@@ -29,7 +32,6 @@
 # This requires, for instance, picking a base Image that includes the right version of the
 # [CUDA toolkit](https://modal.com/gpu-glossary/host-software/cuda-software-platform).
 
-import json
 import random
 import time
 
@@ -102,9 +104,12 @@ HYDRAGEN_MIN_GROUP_SIZE = 129  # sic
 
 # We also set a few other parameters with less obvious impacts -- the KV cache page size and the stop token behavior.
 # All values are derived from
-# [this version of the official benchmarking script](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py).
+# [this version of the official benchmarking script](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py),
+# except the `KV_CACHE_NUM_TOKENS`, which we increase to the maximum the GPU can handle.
+# The value in the script is set to the maximum that the other engines can handle, not just Tokasaurus.
 
-KV_CACHE_NUM_TOKENS = (1024 + 512) * 1024  # tuned for H100, 80 GB RAM
+KV_CACHE_NUM_TOKENS = (1024 + 768) * 1024  # tuned for H100, 80 GB RAM
+# KV_CACHE_NUM_TOKENS = (1024 + 512) * 1024  # value in benchmark script
 MAX_TOKENS_PER_FORWARD = 32768
 MAX_SEQS_PER_FORWARD = 8192
 PAGE_SIZE = 16
@@ -122,7 +127,7 @@ TORCH_COMPILE = "F"
 MAX_TOKENS = 1024
 TEMPERATURE = 0.6
 TOP_P = 1.0
-STOP_STRING = json.dumps(["Question:"])
+STOP_STRING = "Question:"
 N = 1024
 
 # ## Serve Tokasaurus with an OpenAI-compatible API
@@ -146,7 +151,8 @@ PORT = 10210
     image=toka_image,
     gpu=GPU_CONFIG,
     scaledown_window=60 * MINUTES,  # how long should we stay up with no requests?
-    timeout=60 * MINUTES,  # how long should we wait for container start?
+    timeout=60 * MINUTES,  # how long should we allow requests to take?
+    # long, because we're doing batched inference
     volumes=volumes,
     secrets=secrets,
 )
@@ -211,8 +217,6 @@ def count_tokens(texts: list[str]) -> list[int]:
     return [len(ids) for ids in tokenizer(texts)["input_ids"]]
 
 
-# And then we're ready to go!
-
 # You can run the benchmark with
 
 # ```bash
@@ -223,7 +227,7 @@ def count_tokens(texts: list[str]) -> list[int]:
 
 
 @app.local_entrypoint()
-async def benchmark(seed: int = 42, limit: int = 2, num_few_shot: int = 4):
+async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
     import asyncio
 
     print("Loading dataset")
@@ -284,7 +288,7 @@ async def benchmark(seed: int = 42, limit: int = 2, num_few_shot: int = 4):
 
 
 @app.function(image=toka_image, volumes=volumes)
-def load_dataset(seed, num_few_shot, limit=None):
+def load_dataset(seed: int, num_few_shot: int, limit: int = None):
     from datasets import load_dataset
 
     test_dataset = list(load_dataset("gsm8k", "main", split="test"))
