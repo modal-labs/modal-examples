@@ -56,7 +56,7 @@ toka_image = (
         {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
     )
     .run_commands(
-        "uv pip install --system --compile-bytecode tokasaurus==0.0.3 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0"
+        "uv pip install --system --compile-bytecode tokasaurus==0.0.2 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0"
     )
 )
 
@@ -239,7 +239,9 @@ async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
         print(f"Running health check for server at {url}")
 
         async with session.get("/v1/models", timeout=20 * MINUTES) as resp:
-            up = resp.status == 200
+            up = (  # expect 404, /v1/models not implemented in toka 0.0.2
+                resp.status < 500
+            )
 
         assert up, f"Failed health check for server at {url}"
         print(f"Successful health check for server at {url}")
