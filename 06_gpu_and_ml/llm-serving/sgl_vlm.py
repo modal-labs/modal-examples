@@ -80,19 +80,18 @@ tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 vlm_image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
+    .apt_install("libnuma-dev")  # Add NUMA library for sgl_kernel
     .pip_install(  # add sglang and some Python dependencies
-        "transformers==4.47.1",
+        "transformers==4.52.3",
         "numpy<2",
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.2",
         "requests==2.32.3",
         "starlette==0.41.2",
-        "torch==2.4.0",
-        "sglang[all]==0.4.1",
-        "sgl-kernel==0.1.0",
+        "torch==2.7.1",
+        "sglang[all]==0.4.8",
+        "sgl-kernel==0.1.9;",
         "hf-xet==1.1.5",
-        # as per sglang website: https://sgl-project.github.io/start/install.html
-        extra_options="--find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/",
     )
     .env(
         {
