@@ -1,5 +1,5 @@
 # ---
-# args: ["--limit", "8"]
+# args: ["--limit", "2"]
 # ---
 
 # # High-throughput LLM inference with Tokasaurus (LLama 3.2 1B Instruct)
