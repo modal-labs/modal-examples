@@ -1,3 +1,7 @@
+# ---
+# args: ["--limit", "8"]
+# ---
+
 # # High-throughput LLM inference with Tokasaurus (LLama 3.2 1B Instruct)
 
 # In this example, we demonstrate how to use Tokasaurus, an LLM inference framework designed for maximum throughput.
