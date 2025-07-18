@@ -57,8 +57,7 @@ image = (
 # - vLLM cache
 # - Model weights
 
-# We define the model name and the tool descriptions for prompting the model.
-# Since we are training the model to be better at mathematical reasoning, we define a tool to the model to execute Python code that it generates.
+# We define the model name and a tool that the model can use to execute Python code that it generates.
 # See this [this training script](/docs/examples/trainer_script_grpo) for more details.
 
 HF_CACHE_DIR = "/root/.cache/huggingface"
