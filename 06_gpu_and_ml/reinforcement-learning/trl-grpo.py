@@ -76,7 +76,7 @@ def compute_reward(completion: str, testcase: Sequence[str]) -> int:
 
 
 # We write a function that constructs a program from the model completion. This is determined based on the format of the data
-# The completions are supposed to follow the format <TEXT>```python <CODE>```
+# The completions are supposed to follow the format ``python ...```
 # The test cases are a list of assert statements.
 # More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2)
 def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) -> str:
@@ -108,6 +108,8 @@ def reward_helper_function(
 
 
 # Preprocess the data, preparing the columns that `GRPOTrainer` expects
+# We use the OpenCoder-LLM educational instruct dataset, which has (instruction, code, test case) triples valudated through a Python compiler
+# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2)
 def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     dataset: Dataset = load_dataset(
         "OpenCoder-LLM/opc-sft-stage2", "educational_instruct", split="train"
@@ -139,7 +141,7 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
 # We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
 @app.function(
     image=image,
-    gpu="H100!",
+    gpu="H100",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
     volumes={"/models": checkpoints_volume},
@@ -159,7 +161,7 @@ def train() -> None:
 # Here, we use 2 GPUs. We run the GRPOTrainer on 1 of them, and the vLLM process on another.
 @app.function(
     image=image,
-    gpu="H100!:2",
+    gpu="H100:2",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
     volumes={str(MODELS_DIR): checkpoints_volume},
@@ -186,7 +188,7 @@ def train_vllm_server_mode() -> None:
 
 @app.function(
     image=image,
-    gpu="H100!",
+    gpu="H100",
     timeout=60 * 60 * 24,  # 24 hours
     secrets=[modal.Secret.from_name("wandb-secret")],
     volumes={"/models": checkpoints_volume},
@@ -244,7 +246,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 @app.function(
     image=vllm_image,
-    gpu="H100!",
+    gpu="H100",
     scaledown_window=15 * 60,  # How long should we stay up with no requests?
     timeout=10 * 60,  # How long should we wait for container start?
     volumes={"/root/.cache/vllm": vllm_cache_vol, MODELS_DIR: checkpoints_volume},
