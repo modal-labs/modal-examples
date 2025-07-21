@@ -30,7 +30,7 @@ app = modal.App("grpo-verl-example")
 
 # We define an image where we clone the verl repo and install its dependencies. We use a base verl image as a starting point.
 
-VERL_REPO_PATH: str = Path("/root/verl")
+VERL_REPO_PATH: Path = Path("/root/verl")
 image = (
     modal.Image.from_registry("verlai/verl:app-verl0.4-vllm0.8.5-mcore0.12.1")
     .apt_install("git")
