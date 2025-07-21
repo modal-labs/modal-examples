@@ -145,6 +145,7 @@ def boltz_inference(boltz_input_yaml: str, input_msa: str, args: str = "") -> by
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
         ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
+        check=True,
     )
 
     print("🧬 packaging up outputs")
