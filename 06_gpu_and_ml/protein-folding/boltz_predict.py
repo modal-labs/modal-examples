@@ -55,7 +55,10 @@ app = modal.App(name="example-boltz-predict")
 
 @app.local_entrypoint()
 def main(
-    force_download: bool = False, input_yaml_path: Optional[str] = None, args: str = ""
+    force_download: bool = False,
+    input_yaml_path: Optional[str] = None,
+    input_msa_path: Optional[str] = None,
+    args: str = "",
 ):
     print("🧬 loading model remotely")
     download_model.remote(force_download)
@@ -64,8 +67,14 @@ def main(
         input_yaml_path = here / "data" / "boltz_affinity.yaml"
     input_yaml = input_yaml_path.read_text()
 
-    print(f"🧬 running boltz with input from {input_yaml_path}")
-    output = boltz_inference.remote(input_yaml)
+    if input_msa_path is None:
+        input_msa_path = here / "data" / "seq1.a3m"
+    input_msa = input_msa_path.read_text()
+
+    print(
+        f"🧬 running boltz with input from {input_yaml_path} and msa from {input_msa_path}"
+    )
+    output = boltz_inference.remote(input_yaml, input_msa, args)
 
     output_path = Path("/tmp") / "boltz" / "boltz_result.tar.gz"
     output_path.parent.mkdir(exist_ok=True, parents=True)
@@ -121,20 +130,21 @@ models_dir = Path("/models/boltz")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz_inference(boltz_input_yaml: str, args="") -> bytes:
+def boltz_inference(boltz_input_yaml: str, input_msa: str, args: str = "") -> bytes:
     import shlex
     import subprocess
 
     input_path = Path("input.yaml")
     input_path.write_text(boltz_input_yaml)
 
+    msa_path = Path("seq1.a3m")
+    msa_path.write_text(input_msa)
+
     args = shlex.split(args)
 
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
-        ["boltz", "predict", input_path, "--use_msa_server", "--cache", str(models_dir)]
-        + args,
-        check=True,
+        ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
     )
 
     print("🧬 packaging up outputs")
