@@ -56,25 +56,14 @@ app = modal.App(name="example-boltz-predict")
 @app.local_entrypoint()
 def main(
     force_download: bool = False,
-    input_yaml_path: Optional[str] = None,
-    input_msa_path: Optional[str] = None,
+    input_yaml_file_name: Optional[str] = "boltz_affinity.yaml",
     args: str = "",
 ):
     print("🧬 loading model remotely")
     download_model.remote(force_download)
 
-    if input_yaml_path is None:
-        input_yaml_path = here / "data" / "boltz_affinity.yaml"
-    input_yaml = input_yaml_path.read_text()
-
-    if input_msa_path is None:
-        input_msa_path = here / "data" / "seq1.a3m"
-    input_msa = input_msa_path.read_text()
-
-    print(
-        f"🧬 running boltz with input from {input_yaml_path} and msa from {input_msa_path}"
-    )
-    output = boltz_inference.remote(input_yaml, input_msa, args)
+    print(f"🧬 running boltz with input from {input_yaml_file_name}")
+    output = boltz_inference.remote(input_yaml_file_name, args)
 
     output_path = Path("/tmp") / "boltz" / "boltz_result.tar.gz"
     output_path.parent.mkdir(exist_ok=True, parents=True)
@@ -90,10 +79,18 @@ def main(
 # Because Modal images include [GPU drivers](https://modal.com/docs/guide/cuda) by default,
 # installation of higher-level packages like `boltz` that require GPUs is painless.
 
+# Since protein folding requires an input yaml file and an input msa file, we add the "data" directory in our local directory to the image.
+
 # Here, we do it in a few lines, using the `uv` package manager for extra speed.
 
-image = modal.Image.debian_slim(python_version="3.12").run_commands(
-    "uv pip install --system --compile-bytecode boltz==2.1.1"
+data_dir = (
+    here / "data"
+)  # Use the 'here' variable which is defined as Path(__file__).parent
+
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .run_commands("uv pip install --system --compile-bytecode boltz==2.1.1")
+    .add_local_dir(data_dir, remote_path="/data")
 )
 
 # ## Storing Boltz-2 model weights on Modal with Volumes
@@ -130,26 +127,22 @@ models_dir = Path("/models/boltz")
     timeout=10 * MINUTES,
     gpu="H100",
 )
-def boltz_inference(boltz_input_yaml: str, input_msa: str, args: str = "") -> bytes:
+def boltz_inference(boltz_input_yaml: str, args: str = "") -> bytes:
     import shlex
     import subprocess
 
-    input_path = Path("input.yaml")
-    input_path.write_text(boltz_input_yaml)
-
-    msa_path = Path("seq1.a3m")
-    msa_path.write_text(input_msa)
-
+    boltz_input_yaml_path = Path("/data") / boltz_input_yaml
     args = shlex.split(args)
 
     print(f"🧬 predicting structure using boltz model from {models_dir}")
     subprocess.run(
-        ["boltz", "predict", input_path, "--cache", str(models_dir)] + args,
+        ["boltz", "predict", str(boltz_input_yaml_path), "--cache", str(models_dir)]
+        + args,
         check=True,
     )
 
     print("🧬 packaging up outputs")
-    output_bytes = package_outputs(f"boltz_results_{input_path.with_suffix('').name}")
+    output_bytes = package_outputs(f"boltz_results_{Path(boltz_input_yaml).stem}")
 
     return output_bytes
 
