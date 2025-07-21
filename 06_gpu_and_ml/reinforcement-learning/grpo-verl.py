@@ -49,7 +49,8 @@ data_volume: modal.Volume = modal.Volume.from_name(
 )
 
 
-# We write a Modal Function to populate the Volume with the data.
+# We write a Modal Function to populate the Volume with the data. This downloads the dataset and stores it in the Volume.
+# You will need to run this step if you don't already have data you'd like to use for this example.
 @app.function(image=image, volumes={DATA_PATH: data_volume})
 def prep_dataset() -> None:
     subprocess.run(
@@ -92,7 +93,7 @@ def extract_solution(
         answer = re.findall("(\\-?[0-9\\.\\,]+)", solution_str)
         final_answer: Optional[str] = None
         if len(answer) == 0:
-            # No reward is there is no answer.
+            # No reward if there is no answer.
             pass
         else:
             invalid_str: list[str] = ["", "."]
@@ -120,7 +121,7 @@ def compute_reward(
 
 
 # We then define constants to pass into verl during the training run.
-PATH_TO_REWARD_FUNCTION: str = Path("/root/grpo-verl.py")
+PATH_TO_REWARD_FUNCTION: Path = Path("/root/grpo-verl.py")
 REWARD_FUNCTION_NAME: str = "compute_reward"
 
 # ## Kicking off a training run
