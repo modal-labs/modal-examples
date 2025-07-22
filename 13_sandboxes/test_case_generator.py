@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
+# args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-test-dir-path", "tests", "--gh-branch", "main"]
 # ---
 import modal
 
@@ -32,10 +33,10 @@ with model_image.imports() as imports:
 
 
 # GH Repo Configs
-GH_OWNER = "modal-labs"
-GH_REPO_NAME = "password-analyzer"
-GH_MODULE_NAME = "password_strength"
-GH_BRANCH = "main"
+# GH_OWNER = "modal-labs"
+# GH_REPO_NAME = "password-analyzer"
+# GH_MODULE_NAME = "password_strength"
+# GH_BRANCH = "main"
 
 
 @app.cls(
@@ -46,7 +47,7 @@ GH_BRANCH = "main"
     },
     gpu="L40S",
 )
-class Deepseek:
+class TestFileGenerator:
     @modal.enter()
     def load_model(self):
         MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
@@ -111,7 +112,12 @@ class Deepseek:
     ),
     volumes={"/data": files_volume},
 )
-def download_files_to_volume(folder_paths: list[str]) -> list[str]:
+def download_files_to_volume(
+    folder_paths: list[str],
+    gh_owner: str,
+    gh_repo_name: str,
+    gh_branch: str,
+) -> list[str]:
     import os
 
     import requests
@@ -120,7 +126,7 @@ def download_files_to_volume(folder_paths: list[str]) -> list[str]:
     all_files = []
     for folder_path in folder_paths:
         response = requests.get(
-            f"https://api.github.com/repos/{GH_OWNER}/{GH_REPO_NAME}/contents/{folder_path}?ref={GH_BRANCH}"
+            f"https://api.github.com/repos/{gh_owner}/{gh_repo_name}/contents/{folder_path}?ref={gh_branch}"
         )
         files = response.json()
         all_files.extend(files)
@@ -146,24 +152,27 @@ def download_files_to_volume(folder_paths: list[str]) -> list[str]:
     return [name for name in file_to_text.keys() if not name.startswith("test_")]
 
 
-ALLURE_VERSION = "2.34.1"
-MODULE_URL = "https://github.com/modal-labs/password-analyzer"
+def get_sandbox_image(gh_owner: str, gh_repo_name: str):
+    ALLURE_VERSION = "2.34.1"
+    MODULE_URL = f"https://github.com/{gh_owner}/{gh_repo_name}"
 
-sb_image = (
-    modal.Image.debian_slim()
-    .apt_install("git", "curl", "tar", "default-jre")
-    .pip_install("webdiff")
-    .run_commands(
-        f"git clone {MODULE_URL}",
-        "curl -sSL https://install.python-poetry.org | python3 -",
-        "mkdir -p /opt/allure",
-        f"curl -sL https://github.com/allure-framework/allure2/releases/download/{ALLURE_VERSION}/allure-{ALLURE_VERSION}.tgz | tar xz -C /opt/allure --strip-components=1",
+    image = (
+        modal.Image.debian_slim()
+        .apt_install("git", "curl", "tar", "default-jre")
+        .pip_install("webdiff")
+        .run_commands(
+            f"git clone {MODULE_URL}",
+            "curl -sSL https://install.python-poetry.org | python3 -",
+            "mkdir -p /opt/allure",
+            f"curl -sL https://github.com/allure-framework/allure2/releases/download/{ALLURE_VERSION}/allure-{ALLURE_VERSION}.tgz | tar xz -C /opt/allure --strip-components=1",
+        )
+        .env({"PATH": "$PATH:/root/.local/bin:/opt/allure/bin"})
     )
-    .env({"PATH": "$PATH:/root/.local/bin:/opt/allure/bin"})
-)
+
+    return image
 
 
-def run_sandbox(file_name: str):
+def run_sandbox(image: modal.Image, file_name: str):
     new_file_name = file_name.replace(".py", "_llm.py")
 
     cmd = (
@@ -182,7 +191,7 @@ def run_sandbox(file_name: str):
         "-c",
         cmd,
         app=app,
-        image=sb_image,
+        image=image,
         volumes={
             "/data": files_volume,
         },
@@ -192,39 +201,52 @@ def run_sandbox(file_name: str):
 
 
 @app.local_entrypoint()
-def main():
-    deepseek = Deepseek()
+def main(
+    gh_owner: str,  # = "modal-labs",
+    gh_repo_name: str,  # = "password-analyzer",
+    gh_module_path: str,  # = "src/password_strength",
+    gh_test_dir_path: str,  # = "tests",
+    gh_branch: str,  # = "main",
+):
+    deepseek = TestFileGenerator()
     input_files = download_files_to_volume.remote(
-        folder_paths=["src/password_strength", "tests"]
+        folder_paths=[gh_module_path, gh_test_dir_path],
+        gh_owner=gh_owner,
+        gh_repo_name=gh_repo_name,
+        gh_branch=gh_branch,
     )
     output_files = list(deepseek.generate.map(input_files))
-    sandboxes = create_sandboxes(output_files)
+    sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
     poll_sandboxes(sandboxes)
 
 
 # # Addenda
 # The below functions are utility functions.
-def create_sandboxes(files: list[str]):
+def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
     import time
 
-    file_to_sandbox = {}
-    for file in files:
-        print(f"Running sandbox for {file}")
-        sb = run_sandbox(file)
-        file_to_sandbox[file].append(sb)
+    file_to_sandbox: dict[str, modal.Sandbox] = {}
+    for filename in filenames:
+        print(f"Running sandbox for {filename}")
+        image = get_sandbox_image(gh_owner, gh_repo_name)
+        sb = run_sandbox(image, filename)
+        file_to_sandbox[filename] = sb
     time.sleep(20)
 
-    for file, sb in file_to_sandbox.items():
+    for filename, sb in file_to_sandbox.items():
         tunnel1 = sb.tunnels()[8000]
         tunnel2 = sb.tunnels()[8001]
-        print(f"Sandbox created and run for generated test file: {file}")
-        print(f"✨ View test results at {tunnel1.url}")
-        print(f"✨ View diff at {tunnel2.url}\n")
+        print(f"Sandbox created and run for generated test file: {filename}")
+        print(f"✨ View diff: {tunnel2.url}")
+        print(f"✨ View test results: {tunnel1.url}\n")
 
     return file_to_sandbox.values()
 
 
 def poll_sandboxes(sandboxes: list[modal.Sandbox]):
+    """
+    Poll sandboxes every 10 seconds until all are completed.
+    """
     import time
 
     completed_sandbox_ids = set()
@@ -235,12 +257,10 @@ def poll_sandboxes(sandboxes: list[modal.Sandbox]):
                 completed_sandbox_ids.add(sb.object_id)
         time.sleep(10)
 
-    print(f"All sandboxes completed: {completed_sandbox_ids}")
-
 
 def get_user_prompt(file_text: str, test_file_text: str) -> str:
     return f"""
-    You are an expert Python test engineer. Your task is to improve an existing test file using `pytest`.
+    Your task is to improve an existing test file using `pytest`.
 
     Step-by-step:
     1. Carefully read the existing test file (below) and understand the current test cases.
