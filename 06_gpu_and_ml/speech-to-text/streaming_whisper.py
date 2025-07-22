@@ -1,31 +1,30 @@
-# ---
-# runtimes: ["runc", "gvisor"]
-# ---
 import asyncio
-import io
-import logging
 import pathlib
 import re
 import tempfile
 import time
+import urllib
 from typing import Iterator
 
 import modal
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
-    .pip_install(
+    .uv_pip_install(
+        "fastapi==0.116.1",
+        "ffmpeg-python==0.2.0",
         "https://github.com/openai/whisper/archive/v20230314.tar.gz",
-        "ffmpeg-python",
-        "pytube @ git+https://github.com/felipeucelli/pytube",
+        "numpy<2",
     )
 )
-app = modal.App(name="example-whisper-streaming", image=image)
-web_app = FastAPI()
-CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL = "https://www.youtube.com/watch?v=J7GY1Xg6X20"
+app = modal.App(name="example-streaming-whisper", image=image)
+SAMPLE_URL = (
+    "https://modal-cdn.com/history-of-rome-podcast-duncan-001-in-the-beginning.mp3"
+)
+
+CACHE_DIR = "/root/.cache/whisper"
+whisper_cache = modal.Volume.from_name("whisper-cache", create_if_missing=True)
 
 
 def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
@@ -43,9 +42,7 @@ def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
                 ffmpeg.input(fp.name, threads=0)
                 .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
                 .run(
-                    cmd=["ffmpeg", "-nostdin"],
-                    capture_stdout=True,
-                    capture_stderr=True,
+                    cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True
                 )
             )
         else:
@@ -54,9 +51,7 @@ def load_audio(data: bytes, start=None, end=None, sr: int = 16000):
                 .filter("atrim", start=start, end=end)
                 .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
                 .run(
-                    cmd=["ffmpeg", "-nostdin"],
-                    capture_stdout=True,
-                    capture_stderr=True,
+                    cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True
                 )
             )
     except ffmpeg.Error as e:
@@ -79,8 +74,7 @@ def split_silences(
     min_segment_length : float
         The minimum acceptable length for an audio segment in seconds. Lower values
         allow for more splitting and increased parallelizing, but decrease transcription
-        accuracy. Whisper models expect to transcribe in 30 second segments, so this is the
-        default minimum.
+        accuracy. Whisper models expect to transcribe in 30 second segments.
     min_silence_length : float
         Minimum silence to detect and split on, in seconds. Lower values are more likely to split
         audio in middle of phrases and degrade transcription accuracy.
@@ -128,26 +122,8 @@ def split_silences(
     print(f"Split {path} into {num_segments} segments")
 
 
-@app.function()
-def download_mp3_from_youtube(youtube_url: str) -> bytes:
-    from pytube import YouTube
-
-    logging.getLogger("pytube").setLevel(logging.INFO)
-    yt = YouTube(youtube_url)
-    video = yt.streams.filter(only_audio=True).first()
-    buffer = io.BytesIO()
-    video.stream_to_buffer(buffer)
-    buffer.seek(0)
-    return buffer.read()
-
-
-@app.function(cpu=2)
-def transcribe_segment(
-    start: float,
-    end: float,
-    audio_data: bytes,
-    model: str,
-):
+@app.function(gpu="a10", volumes={CACHE_DIR: whisper_cache})
+def transcribe_segment(start: float, end: float, audio_data: bytes, model: str):
     import torch
     import whisper
 
@@ -188,37 +164,38 @@ async def stream_whisper(audio_data: bytes):
         yield result["text"]
 
 
-@web_app.get("/transcribe")
-async def transcribe(url: str):
-    """
-    Usage:
-
-    ```sh
-    curl --no-buffer \
-        https://modal-labs--example-whisper-streaming-web.modal.run/transcribe?url=https://www.youtube.com/watch?v=s_LncVnecLA"
-    ```
-
-    This endpoint will stream back the Youtube's audio transcription as it makes progress.
-
-    Some example Youtube videos for inspiration:
-
-    1. Churchill's 'We shall never surrender' speech - https://www.youtube.com/watch?v=s_LncVnecLA
-    2. Charlie Chaplin's final speech from The Great Dictator - https://www.youtube.com/watch?v=J7GY1Xg6X20
-    """
-    import pytube.exceptions
-
-    print(f"downloading {url}")
-    try:
-        audio_data = download_mp3_from_youtube.remote(url)
-    except pytube.exceptions.RegexMatchError:
-        raise HTTPException(status_code=422, detail=f"Could not process url {url}")
-    print(f"streaming transcription of {url} audio to client...")
-    return StreamingResponse(stream_whisper(audio_data), media_type="text/event-stream")
-
-
 @app.function()
 @modal.asgi_app()
-def web():
+def api():
+    from fastapi import FastAPI, HTTPException
+    from fastapi.responses import StreamingResponse
+
+    web_app = FastAPI()
+
+    @web_app.get("/transcribe")
+    async def transcribe(url: str):
+        """
+        Usage:
+
+        ```sh
+        curl --no-buffer \
+            https://modal-labs-examples--example-streaming-whisper-api.modal.run/transcribe?url=https://modal-cdn.com/history-of-rome-podcast-duncan-001-in-the-beginning.mp3
+        ```
+
+        This endpoint will stream back the audio transcription as it makes progress.
+        """
+        print(f"downloading {url}")
+        try:
+            with urllib.request.urlopen(url) as response:
+                assert response.getcode() == 200, response.getcode()
+                audio_data = response.read()
+        except AssertionError:
+            raise HTTPException(status_code=422, detail=f"Could not process url {url}")
+        print(f"streaming transcription of {url} audio to client...")
+        return StreamingResponse(
+            stream_whisper(audio_data), media_type="text/event-stream"
+        )
+
     return web_app
 
 
@@ -229,15 +206,14 @@ async def transcribe_cli(data: bytes, suffix: str):
 
 
 @app.local_entrypoint()
-def main(path: str = CHARLIE_CHAPLIN_DICTATOR_SPEECH_URL):
-    if path.startswith("https"):
-        data = download_mp3_from_youtube.remote(path)
-        suffix = ".mp3"
+def main(path: str = SAMPLE_URL):
+    if path.startswith("http"):
+        with urllib.request.urlopen(path) as response:
+            assert response.getcode() == 200, response.getcode()
+            data = response.read()
+        suffix = path.rsplit(".")[-1]
     else:
         filepath = pathlib.Path(path)
         data = filepath.read_bytes()
         suffix = filepath.suffix
-    transcribe_cli.remote(
-        data,
-        suffix=suffix,
-    )
+    transcribe_cli.remote(data, suffix=suffix)

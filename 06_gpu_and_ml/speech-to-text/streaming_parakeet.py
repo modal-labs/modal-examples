@@ -1,10 +1,10 @@
-# # Real-time audio transcription using Parakeet
+# # Streaming audio transcription using Parakeet
 
-# This examples demonstrates the use of Parakeet ASR models for real-time speech-to-text on Modal.
+# This examples demonstrates the use of Parakeet ASR models for streaming speech-to-text on Modal.
 
 # [Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/models.html#parakeet)
 # is the name of a family of ASR models built using [NVIDIA's NeMo Framework](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html).
-# We'll show you how to use Parakeet for real-time audio transcription on Modal GPUs,
+# We'll show you how to use Parakeet for streaming audio transcription on Modal GPUs,
 # with simple Python and browser clients.
 
 # This example uses the `nvidia/parakeet-tdt-0.6b-v2` model which, as of June 2025, sits at the
@@ -35,7 +35,7 @@
 
 # and go to the link printed in your terminal.
 
-# The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/parakeet/frontend).
+# The full frontend code can be found [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/parakeet-frontend/).
 
 # ## Setup
 
@@ -46,7 +46,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App("example-parakeet")
+app = modal.App("example-streaming-parakeet")
 
 # ## Volume for caching model weights
 
@@ -94,12 +94,12 @@ image = (
     )
     .entrypoint([])  # silence chatty logs by container on start
     .add_local_dir(  # changes fastest, so make this the last layer
-        Path(__file__).parent / "frontend",
+        Path(__file__).parent / "streaming-parakeet-frontend",
         remote_path="/frontend",
     )
 )
 
-# ## Implementing real-time audio transcription on Modal
+# ## Implementing streaming audio transcription on Modal
 
 # Now we're ready to implement transcription. We wrap inference in a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions) that
 # ensures models are loaded and then moved to the GPU once when a new container starts.
@@ -107,7 +107,7 @@ image = (
 # A couples of notes about this code:
 # - The `transcribe` method takes bytes of audio data and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
-# [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for real-time audio transcription and a browser frontend for transcribing audio from your microphone.
+# [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for streaming audio transcription and a browser frontend for transcribing audio from your microphone.
 # - The `run_with_queue` method takes a [`modal.Queue`](https://modal.com/docs/reference/modal.Queue) and passes audio data and transcriptions between our local machine and the GPU container.
 
 # Parakeet tries really hard to transcribe everything to English!

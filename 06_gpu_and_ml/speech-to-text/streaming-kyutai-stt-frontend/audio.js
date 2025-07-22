@@ -8,7 +8,7 @@ let pendingSentence = '';
 const getBaseURL = () => {
     const currentURL = new URL(window.location.href);
     let hostname = currentURL.hostname;
-    hostname = hostname.replace('-web', '-stt-web');
+    hostname = hostname.replace('-ui', '-stt-api');
     const wsProtocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsProtocol}//${hostname}/ws`;
 }
@@ -23,7 +23,7 @@ const updateTextOutput = () => {
     }
 
     let content = '';
-    
+
     if (warmupComplete) {
         content += allSentences.map(sentence =>
             `<p class="text-gray-300 my-2">${sentence}</p>`
@@ -31,7 +31,7 @@ const updateTextOutput = () => {
     } else {
         content = '<p class="text-gray-400 animate-pulse">Warming up model...</p>';
     }
-    
+
     container.innerHTML = content;
     container.scrollTop = container.scrollHeight;
 };
@@ -92,11 +92,11 @@ const initApp = () => {
         const view = new Uint8Array(arrayBuffer);
         const tag = view[0];
         const payload = arrayBuffer.slice(1);
-        
+
         if (tag === 1) {
             // text data
             const decoder = new TextDecoder();
-            const text = decoder.decode(payload);            
+            const text = decoder.decode(payload);
             pendingSentence += text;
         }
 

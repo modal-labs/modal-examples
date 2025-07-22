@@ -5,7 +5,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App(name="kyutai-streaming-stt")
+app = modal.App(name="example-streaming-kyutai-stt")
 
 stt_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -25,12 +25,7 @@ volumes = {hf_cache_vol_path: hf_cache_vol}
 MINUTES = 60
 
 
-@app.cls(
-    image=stt_image,
-    gpu="l40s:1",
-    volumes=volumes,
-    timeout=10 * MINUTES,
-)
+@app.cls(image=stt_image, gpu="l40s", volumes=volumes, timeout=10 * MINUTES)
 class STT:
     BATCH_SIZE = 1
 
@@ -154,7 +149,7 @@ class STT:
         yield all_pcm_data
 
     @modal.asgi_app()
-    def web(self):
+    def api(self):
         import sphn
         from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 
@@ -326,7 +321,9 @@ web_image = (
     .run_commands(
         "uv pip install --system --compile-bytecode python-fasthtml==0.12.20",
     )
-    .add_local_dir(Path(__file__).parent / "frontend", "/root/frontend")
+    .add_local_dir(
+        Path(__file__).parent / "streaming-kyutai-stt-frontend", "/root/frontend"
+    )
 )
 
 
@@ -336,7 +333,7 @@ web_image = (
 )
 @modal.concurrent(max_inputs=100)
 @modal.asgi_app()
-def web():
+def ui():
     import fasthtml.common as fh
 
     modal_logo_svg = open("/root/frontend/modal-logo.svg").read()
