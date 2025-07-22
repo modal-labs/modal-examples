@@ -1,9 +1,11 @@
 # ---
-# cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator::main"]
+# cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
 # ---
 import modal
 
-app = modal.App(name="sandbox-test-case-generator")
+app = modal.App(
+    name="sandbox-test-case-generator",
+)
 model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
 files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
@@ -74,7 +76,6 @@ class Deepseek:
         os.makedirs("/data/outputs", exist_ok=True)
         with open(f"/data/outputs/{output_file_name}", "w") as f:
             f.write(output_contents)
-        print(f"Output written to {output_file_name}")
         return output_file_name
 
     @modal.method()
@@ -88,18 +89,15 @@ class Deepseek:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        print("Applying chat template...")
         inputs = self.tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_tensors="pt"
         ).to("cuda")
-        print("Generating...")
         outputs = self.model.generate(
             inputs,
             max_new_tokens=1024,
             do_sample=False,
             num_return_sequences=1,
         )
-        print("Decoding...")
         model_output = self.tokenizer.decode(
             outputs[0][len(inputs[0]) :], skip_special_tokens=True
         )
@@ -145,70 +143,99 @@ def download_files_to_volume(folder_paths: list[str]) -> list[str]:
         with open(f"/data/inputs/{name}", "w") as f:
             f.write(text)
 
-    print("Files downloaded to volume.")
     return [name for name in file_to_text.keys() if not name.startswith("test_")]
 
 
+ALLURE_VERSION = "2.34.1"
+MODULE_URL = "https://github.com/modal-labs/password-analyzer"
+
 sb_image = (
     modal.Image.debian_slim()
-    .apt_install("git", "curl")
-    .pip_install("modal")
+    .apt_install("git", "curl", "tar", "default-jre")
+    .pip_install("webdiff")
     .run_commands(
+        f"git clone {MODULE_URL}",
         "curl -sSL https://install.python-poetry.org | python3 -",
+        "mkdir -p /opt/allure",
+        f"curl -sL https://github.com/allure-framework/allure2/releases/download/{ALLURE_VERSION}/allure-{ALLURE_VERSION}.tgz | tar xz -C /opt/allure --strip-components=1",
     )
-    .env({"PATH": "$PATH:/root/.local/bin"})
+    .env({"PATH": "$PATH:/root/.local/bin:/opt/allure/bin"})
 )
 
 
 def run_sandbox(file_name: str):
+    new_file_name = file_name.replace(".py", "_llm.py")
+
+    cmd = (
+        "mkdir -p allure-results &&"
+        + f"webdiff password-analyzer/tests/{file_name} /data/outputs/{file_name}  --host 0.0.0.0 --port 8001 &&"
+        + "cd password-analyzer && "
+        + "poetry install --no-root && "
+        + "poetry run pytest --alluredir allure-results || true && "
+        + f"cp /data/outputs/{file_name} tests/{new_file_name} && "
+        + "poetry run pytest --alluredir allure-results || true && "
+        + "allure serve allure-results --host 0.0.0.0 --port 8000"
+    )
+
     sb = modal.Sandbox.create(
+        "sh",
+        "-c",
+        cmd,
         app=app,
         image=sb_image,
-        volumes={"/data": files_volume},
+        volumes={
+            "/data": files_volume,
+        },
+        encrypted_ports=[8000, 8001],
     )
-    print(f"Sandbox created with object ID: {sb.object_id}")
-
-    p = sb.exec("git", "clone", f"https://github.com/{GH_OWNER}/{GH_REPO_NAME}")
-    print(p.stdout.read())
-    print(p.stderr.read())
-
-    # Verify that tests initially pass
-    p = sb.exec(
-        "bash",
-        "-c",
-        "cd password-analyzer && poetry install --no-root && poetry run pytest",
-    )
-    print(p.stdout.read())
-    print(p.stderr.read())
-
-    # Run the generated test file
-    p = sb.exec(
-        "bash",
-        "-c",
-        f"cp /data/outputs/{file_name} password-analyzer/tests/ && cd password-analyzer && poetry run pytest",
-    )
-    print(p.stdout.read())
-    print(p.stderr.read())
-
-    sb.terminate()
+    return sb
 
 
-@app.function(volumes={"/data": files_volume})
+@app.local_entrypoint()
 def main():
     deepseek = Deepseek()
     input_files = download_files_to_volume.remote(
         folder_paths=["src/password_strength", "tests"]
     )
-
-    print("Generating tests for: ", input_files)
-    output_files = deepseek.generate.map(input_files)
-    for output_file in output_files:
-        print(output_file)
-        run_sandbox(output_file)
+    output_files = list(deepseek.generate.map(input_files))
+    sandboxes = create_sandboxes(output_files)
+    poll_sandboxes(sandboxes)
 
 
 # # Addenda
 # The below functions are utility functions.
+def create_sandboxes(files: list[str]):
+    import time
+
+    file_to_sandbox = {}
+    for file in files:
+        print(f"Running sandbox for {file}")
+        sb = run_sandbox(file)
+        file_to_sandbox[file].append(sb)
+    time.sleep(20)
+
+    for file, sb in file_to_sandbox.items():
+        tunnel1 = sb.tunnels()[8000]
+        tunnel2 = sb.tunnels()[8001]
+        print(f"Sandbox created and run for generated test file: {file}")
+        print(f"✨ View test results at {tunnel1.url}")
+        print(f"✨ View diff at {tunnel2.url}\n")
+
+    return file_to_sandbox.values()
+
+
+def poll_sandboxes(sandboxes: list[modal.Sandbox]):
+    import time
+
+    completed_sandbox_ids = set()
+    while len(completed_sandbox_ids) < len(sandboxes):
+        for sb in sandboxes:
+            if sb.poll() is not None:
+                print(f"Sandbox {sb.object_id} completed")
+                completed_sandbox_ids.add(sb.object_id)
+        time.sleep(10)
+
+    print(f"All sandboxes completed: {completed_sandbox_ids}")
 
 
 def get_user_prompt(file_text: str, test_file_text: str) -> str:
