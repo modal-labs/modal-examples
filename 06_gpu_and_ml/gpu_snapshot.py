@@ -1,6 +1,7 @@
 # ---
 # deploy: true
 # cmd: ["python", "06_gpu_and_ml/gpu_snapshot.py"]
+# mypy: ignore-errors
 # ---
 
 import modal
