@@ -1,7 +1,10 @@
 # ---
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
-# args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-test-dir-path", "tests", "--gh-branch", "main"]
+# args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
+import subprocess
+import time
+
 import modal
 
 app = modal.App(
@@ -10,14 +13,19 @@ app = modal.App(
 model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
 files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
+MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
+MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
+
 
 model_image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.12")
-    .pip_install(
+    modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
+    .uv_pip_install(
+        "sglang[all]==0.4.9.post3",
         "transformers==4.53.2",
         "torch==2.7.1",
         "accelerate==1.8.1",
         "hf_transfer==0.1.9",
+        "numpy<2",
     )
     .env(
         {
@@ -28,16 +36,6 @@ model_image = (
     .entrypoint([])  # silence noisy logs
 )
 
-with model_image.imports() as imports:
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
-
-# GH Repo Configs
-# GH_OWNER = "modal-labs"
-# GH_REPO_NAME = "password-analyzer"
-# GH_MODULE_NAME = "password_strength"
-# GH_BRANCH = "main"
-
 
 @app.cls(
     image=model_image,
@@ -47,14 +45,59 @@ with model_image.imports() as imports:
     },
     gpu="L40S",
 )
-class TestFileGenerator:
+@modal.concurrent(max_inputs=3)  # Each container runs up to 3 requests at once.
+class TestCaseServer:
     @modal.enter()
-    def load_model(self):
-        MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
-        REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, revision=REVISION)
-        self.model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, revision=REVISION)
-        self.model.to("cuda")
+    def download_model(self):
+        from huggingface_hub import snapshot_download
+
+        snapshot_download(
+            MODEL_NAME,
+            local_dir=f"/cache/{MODEL_NAME}",
+            revision=MODEL_REVISION,
+            ignore_patterns=["*.pt", "*.bin"],
+        )
+
+    @modal.enter()
+    def start_model_server(self):
+        import subprocess
+
+        serve_params = {
+            "host": "0.0.0.0",
+            "port": 8000,
+            "model": f"/cache/{MODEL_NAME}",
+            "log-level": "error",
+        }
+        serve_cmd = "python -m sglang.launch_server " + " ".join(
+            [f"--{k} {v}" for k, v in serve_params.items()]
+        )
+
+        self.serve_process = subprocess.Popen(serve_cmd, shell=True)
+        wait_for_port(self.serve_process, 8000)
+
+        print("SGLang server is ready!")
+
+    @modal.web_server(port=8000, startup_timeout=240)
+    def serve(self):
+        return
+
+    @modal.method()
+    def healthcheck(self):
+        import requests
+
+        return requests.get(f"{self.serve.get_web_url()}/health").status_code == 200
+
+
+@app.cls(
+    image=modal.Image.debian_slim(python_version="3.12").uv_pip_install(
+        "openai==1.97.1"
+    ),
+    volumes={
+        "/data": files_volume,
+    },
+)
+class TestCaseClient:
+    url: str = modal.parameter()
 
     def load_inputs(self, file_name: str) -> tuple[str, str]:
         import os
@@ -81,6 +124,10 @@ class TestFileGenerator:
 
     @modal.method()
     def generate(self, file_name: str) -> str:
+        import json
+
+        import openai
+
         file_contents, test_file_contents = self.load_inputs(file_name)
 
         system_prompt = get_system_prompt()
@@ -90,24 +137,39 @@ class TestFileGenerator:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        inputs = self.tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt"
-        ).to("cuda")
-        outputs = self.model.generate(
-            inputs,
-            max_new_tokens=1024,
-            do_sample=False,
-            num_return_sequences=1,
+
+        client = openai.Client(base_url=f"{self.url}/v1", api_key="EMPTY")
+
+        json_schema = {
+            "type": "object",
+            "properties": {"file_contents": {"type": "string"}},
+            "required": ["file_contents"],
+        }
+
+        response = client.chat.completions.create(
+            model="default",
+            messages=messages,
+            temperature=0,
+            max_tokens=1024,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "test_file",
+                    "schema": json_schema,
+                },
+            },
         )
-        model_output = self.tokenizer.decode(
-            outputs[0][len(inputs[0]) :], skip_special_tokens=True
-        )
-        output_contents = post_process(model_output)
-        return self.write_outputs(f"test_{file_name}", output_contents)
+        output = response.choices[0].message.content
+        try:
+            output_contents = json.loads(output)["file_contents"]
+            return self.write_outputs(f"test_{file_name}", output_contents)
+        except Exception as e:
+            print(f"Error generating test file {file_name}: {e}")
+            return None
 
 
 @app.function(
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
+    image=modal.Image.debian_slim(python_version="3.12").uv_pip_install(
         "requests==2.32.3"
     ),
     volumes={"/data": files_volume},
@@ -148,7 +210,7 @@ def download_files_to_volume(
     for name, text in file_to_text.items():
         with open(f"/data/inputs/{name}", "w") as f:
             f.write(text)
-
+    print("Files downloaded to volume!")
     return [name for name in file_to_text.keys() if not name.startswith("test_")]
 
 
@@ -176,8 +238,7 @@ def run_sandbox(image: modal.Image, file_name: str):
     new_file_name = file_name.replace(".py", "_llm.py")
 
     cmd = (
-        "mkdir -p allure-results &&"
-        + f"webdiff password-analyzer/tests/{file_name} /data/outputs/{file_name}  --host 0.0.0.0 --port 8001 &&"
+        f"webdiff password-analyzer/tests/{file_name} /data/outputs/{file_name}  --host 0.0.0.0 --port 8001 &&"
         + "cd password-analyzer && "
         + "poetry install --no-root && "
         + "poetry run pytest --alluredir allure-results || true && "
@@ -202,20 +263,30 @@ def run_sandbox(image: modal.Image, file_name: str):
 
 @app.local_entrypoint()
 def main(
-    gh_owner: str,  # = "modal-labs",
-    gh_repo_name: str,  # = "password-analyzer",
-    gh_module_path: str,  # = "src/password_strength",
-    gh_test_dir_path: str,  # = "tests",
-    gh_branch: str,  # = "main",
+    gh_owner: str,
+    gh_repo_name: str,
+    gh_module_path: str,
+    gh_tests_path: str,
+    gh_branch: str,
 ):
-    deepseek = TestFileGenerator()
+    # Start server
+    sg_lang_server = TestCaseServer()
+
+    # Download files to volume
     input_files = download_files_to_volume.remote(
-        folder_paths=[gh_module_path, gh_test_dir_path],
+        folder_paths=[gh_module_path, gh_tests_path],
         gh_owner=gh_owner,
         gh_repo_name=gh_repo_name,
         gh_branch=gh_branch,
     )
-    output_files = list(deepseek.generate.map(input_files))
+
+    # Initialize client and generate test files
+    generator = TestCaseClient(url=sg_lang_server.serve.get_web_url())  # type: ignore
+    output_files = list(generator.generate.map(input_files))
+    output_files = [f for f in output_files if f is not None]
+    print("Test case files generated successfully! Creating sandboxes...")
+
+    # Create sandboxes to run the generated test files
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
     poll_sandboxes(sandboxes)
 
@@ -223,8 +294,6 @@ def main(
 # # Addenda
 # The below functions are utility functions.
 def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
-    import time
-
     file_to_sandbox: dict[str, modal.Sandbox] = {}
     for filename in filenames:
         print(f"Running sandbox for {filename}")
@@ -247,9 +316,8 @@ def poll_sandboxes(sandboxes: list[modal.Sandbox]):
     """
     Poll sandboxes every 10 seconds until all are completed.
     """
-    import time
 
-    completed_sandbox_ids = set()
+    completed_sandbox_ids: set[str] = set()
     while len(completed_sandbox_ids) < len(sandboxes):
         for sb in sandboxes:
             if sb.poll() is not None:
@@ -273,7 +341,9 @@ def get_user_prompt(file_text: str, test_file_text: str) -> str:
     - Your output must be a valid, complete Python file with the added test cases.
     - Do not modify existing test logic unless necessary to support your new test cases.
     - Do not import any additional modules.
-    - This file will be run directly using `pytest`, so it must be immediately runnable.
+    - Limit each line to a maximum of 100 characters to avoid output truncation or formatting errors.
+    - Limit your output to around 25 lines. Make sure to complete any functions or blocks you start.
+
 
     --- BEGIN TEST FILE ---
     {test_file_text}
@@ -288,34 +358,23 @@ def get_user_prompt(file_text: str, test_file_text: str) -> str:
 def get_system_prompt():
     return (
         "You are a senior software engineer with expertise in test-driven development and Python unit testing. "
-        "You write clean, idiomatic unit tests using the `pytest` framework, based on source code with functions or classes. "
-        "Your task is to enhance an existing test file by adding more test cases. Focus on edge cases, input validation, and untested behavior, especially as inferred from docstrings and type hints. "
+        "Your task is to enhance an existing test file by adding more test cases. "
         "Do not change or add import statements. Do not explain your reasoning. Output only a complete, valid Python file. "
+        "Do not change existing code and only add new test cases that follow the same formatting as the existing test cases. "
         "Limit each line to a maximum of 100 characters to avoid output truncation or formatting errors."
+        "Limit your output to around 25 lines. Make sure to complete any functions or blocks you start."
     )
 
 
-def post_process(output: str) -> str:
-    """
-    Remove LLM code block formatting (e.g., ```python ... ```).
-    Specifically:
-    - Removes everything before and including the first ```python
-    - Removes everything after and including the last ```
-    - If neither tag exists, return the output unchanged
-    """
-    lines = output.splitlines()
+def wait_for_port(process: subprocess.Popen, port: int):
+    import socket
 
-    # Locate ```python and ``` tags
-    start_idx = next(
-        (i + 1 for i, line in enumerate(lines) if line.strip().startswith("```python")),
-        None,
-    )
-    end_idx = next(
-        (i for i in reversed(range(len(lines))) if lines[i].strip() == "```"), None
-    )
-
-    # If either tag is missing, return original output
-    if start_idx is None or end_idx is None or start_idx >= end_idx:
-        return output
-
-    return "\n".join(lines[start_idx:end_idx])
+    while True:
+        try:
+            with socket.create_connection(("0.0.0.0", port), timeout=1):
+                break
+        except (ConnectionRefusedError, OSError):
+            if process.poll() is not None:
+                raise Exception(
+                    f"Process {process.pid} exited with code {process.returncode}"
+                )
