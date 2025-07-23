@@ -1,3 +1,8 @@
+# ---
+# mypy: ignore-errors
+# deploy: true
+# ---
+
 # # Stream transcriptions with Kyutai STT
 
 # This example demonstrates the deployment of a streaming audio transcription service with Kyutai STT on Modal.
