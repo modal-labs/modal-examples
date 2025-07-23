@@ -1,7 +1,10 @@
 # ---
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
-# args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-test-dir-path", "tests", "--gh-branch", "main"]
+# args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
+import subprocess
+import time
+
 import modal
 
 app = modal.App(
@@ -10,14 +13,22 @@ app = modal.App(
 model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
 files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
+MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
+MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
+TOKENIZER_PATH = "deepseek-ai/deepseek-coder-6.7b-instruct"
+MODEL_CHAT_TEMPLATE = "qwen2-vl"
+
 
 model_image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.12")
-    .pip_install(
+    modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
+    .uv_pip_install(
+        "sglang[all]==0.4.9.post3",
         "transformers==4.53.2",
         "torch==2.7.1",
         "accelerate==1.8.1",
         "hf_transfer==0.1.9",
+        "numpy<2",
+        "openai==1.97.1",
     )
     .env(
         {
@@ -27,16 +38,6 @@ model_image = (
     )
     .entrypoint([])  # silence noisy logs
 )
-
-with model_image.imports() as imports:
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
-
-# GH Repo Configs
-# GH_OWNER = "modal-labs"
-# GH_REPO_NAME = "password-analyzer"
-# GH_MODULE_NAME = "password_strength"
-# GH_BRANCH = "main"
 
 
 @app.cls(
@@ -49,12 +50,41 @@ with model_image.imports() as imports:
 )
 class TestFileGenerator:
     @modal.enter()
-    def load_model(self):
-        MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
-        REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, revision=REVISION)
-        self.model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, revision=REVISION)
-        self.model.to("cuda")
+    def download_model(self):
+        from huggingface_hub import snapshot_download
+
+        snapshot_download(
+            MODEL_NAME,
+            local_dir=f"/cache/{MODEL_NAME}",
+            revision=MODEL_REVISION,
+            ignore_patterns=["*.pt", "*.bin"],
+        )
+
+    @modal.enter()
+    def start_model_server(self):
+        import subprocess
+
+        serve_params = {
+            "host": "0.0.0.0",
+            "port": 8000,
+            "model": f"/cache/{MODEL_NAME}",
+            # "mem-fraction": 0.7,
+            # "cuda-graph-max-bs": 32,
+            # "tp": 4,
+            # "log-level": "error",  # try "debug" or "info" if you have issues
+        }
+        serve_cmd = "python -m sglang.launch_server " + " ".join(
+            [f"--{k} {v}" for k, v in serve_params.items()]
+        )
+
+        self.serve_process = subprocess.Popen(serve_cmd, shell=True)
+        wait_for_port(self.serve_process, 8000)
+
+        print("SGLang server is ready!")
+
+    @modal.web_server(port=8000, startup_timeout=240)
+    def serve(self):
+        return
 
     def load_inputs(self, file_name: str) -> tuple[str, str]:
         import os
@@ -81,6 +111,10 @@ class TestFileGenerator:
 
     @modal.method()
     def generate(self, file_name: str) -> str:
+        import json
+
+        import openai
+
         file_contents, test_file_contents = self.load_inputs(file_name)
 
         system_prompt = get_system_prompt()
@@ -90,19 +124,33 @@ class TestFileGenerator:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        inputs = self.tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, return_tensors="pt"
-        ).to("cuda")
-        outputs = self.model.generate(
-            inputs,
-            max_new_tokens=1024,
-            do_sample=False,
-            num_return_sequences=1,
+
+        client = openai.Client(
+            base_url=f"{self.serve.get_web_url()}/v1", api_key="EMPTY"
         )
-        model_output = self.tokenizer.decode(
-            outputs[0][len(inputs[0]) :], skip_special_tokens=True
+
+        json_schema = {
+            "type": "object",
+            "properties": {"file_contents": {"type": "string"}},
+            "required": ["file_contents"],
+        }
+
+        # Chat completion
+        response = client.chat.completions.create(
+            model="default",
+            messages=messages,
+            temperature=0,
+            max_tokens=1024,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "test_file",
+                    "schema": json_schema,
+                },
+            },
         )
-        output_contents = post_process(model_output)
+        output = response.choices[0].message.content
+        output_contents = json.loads(output)["file_contents"]
         return self.write_outputs(f"test_{file_name}", output_contents)
 
 
@@ -202,20 +250,22 @@ def run_sandbox(image: modal.Image, file_name: str):
 
 @app.local_entrypoint()
 def main(
-    gh_owner: str,  # = "modal-labs",
-    gh_repo_name: str,  # = "password-analyzer",
-    gh_module_path: str,  # = "src/password_strength",
-    gh_test_dir_path: str,  # = "tests",
-    gh_branch: str,  # = "main",
+    gh_owner: str,
+    gh_repo_name: str,
+    gh_module_path: str,
+    gh_tests_path: str,
+    gh_branch: str,
 ):
     deepseek = TestFileGenerator()
+    # print("WEB_URL", deepseek.serve.get_web_url())
+
     input_files = download_files_to_volume.remote(
-        folder_paths=[gh_module_path, gh_test_dir_path],
+        folder_paths=[gh_module_path, gh_tests_path],
         gh_owner=gh_owner,
         gh_repo_name=gh_repo_name,
         gh_branch=gh_branch,
     )
-    output_files = list(deepseek.generate.map(input_files))
+    output_files = list(deepseek.generate.map(input_files[:1]))
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
     poll_sandboxes(sandboxes)
 
@@ -223,8 +273,6 @@ def main(
 # # Addenda
 # The below functions are utility functions.
 def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
-    import time
-
     file_to_sandbox: dict[str, modal.Sandbox] = {}
     for filename in filenames:
         print(f"Running sandbox for {filename}")
@@ -247,7 +295,6 @@ def poll_sandboxes(sandboxes: list[modal.Sandbox]):
     """
     Poll sandboxes every 10 seconds until all are completed.
     """
-    import time
 
     completed_sandbox_ids = set()
     while len(completed_sandbox_ids) < len(sandboxes):
@@ -319,3 +366,17 @@ def post_process(output: str) -> str:
         return output
 
     return "\n".join(lines[start_idx:end_idx])
+
+
+def wait_for_port(process: subprocess.Popen, port: int):
+    import socket
+
+    while True:
+        try:
+            with socket.create_connection(("0.0.0.0", port), timeout=1):
+                break
+        except (ConnectionRefusedError, OSError):
+            if process.poll() is not None:
+                raise Exception(
+                    f"Process {process.pid} exited with code {process.returncode}"
+                )
