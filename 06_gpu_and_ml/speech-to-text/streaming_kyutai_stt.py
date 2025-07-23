@@ -1,3 +1,15 @@
+# # Stream transcriptions with Kyutai STT
+
+# This example demonstrates the deployment of a streaming audio transcription service with Kyutai STT on Modal.
+
+# [Kyutai STT](https://kyutai.org/next/stt) is an automated speech recognition/transcription model
+# that is designed to operate on streams of audio, rather than on complete audio files.
+# See the linked blog post for details on their "delayed streams" architecture.
+
+# ## Setup
+
+# We start by importing some basic packages and the Modal SDK.
+
 import asyncio
 import base64
 import time
@@ -5,22 +17,53 @@ from pathlib import Path
 
 import modal
 
+# Then we define a Modal App and an
+# [Image](https://modal.com/docs/guide/images)
+# with the dependencies of our speech-to-text system.
+
 app = modal.App(name="example-streaming-kyutai-stt")
 
 stt_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("uv")
-    .run_commands(
-        "uv pip install --system --compile-bytecode moshi==0.2.9 fastapi==0.115.14 hf_transfer==0.1.9 julius==0.2.7",
+    .uv_pip_install(
+        "moshi==0.2.9", "fastapi==0.116.1", "hf_transfer==0.1.9", "julius==0.2.7"
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
+
+# One dependency is missing: the model weights.
+
+# Instead of including them in the Image or loading them every time the Function starts,
+# we add them to a Modal [Volume](https://modal.com/docs/guide/volumes).
+# Volumes are like a shared disk that all Modal Functions can access.
+
+# For more details on patterns for handling model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 MODEL_NAME = "kyutai/stt-1b-en_fr"
 
 hf_cache_vol = modal.Volume.from_name(f"{app.name}-hf-cache", create_if_missing=True)
 hf_cache_vol_path = Path("/root/.cache/huggingface")
 volumes = {hf_cache_vol_path: hf_cache_vol}
+
+# ## Run Kyutai STT inference on Modal
+
+# Now we're ready to add the code that runs the speech-to-text model.
+
+# We use a Modal [Cls](https://modal.com/docs/guide/lifecycle-functions)
+# so that we can separate out the model loading and setup code from the inference.
+
+# For more on lifecycle management with Clses and cold start penalty reduction on Modal, see
+# [this guide](https://modal.com/docs/guide/cold-start).
+
+# We also define multiple ways to access the underlying streaming STT service --
+# via a [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API),
+# for Web clients like browsers,
+# and via a Modal [Queue](https://modal.com/docs/guide/queues)
+# for Python clients.
+
+# That plus the code for manipulating the streams of audio bytes and output text
+# leads to a pretty big class! But there's not anything too complex here.
 
 MINUTES = 60
 
@@ -37,7 +80,7 @@ class STT:
 
         start_time = time.monotonic_ns()
 
-        print("Downloading model if necessary...")
+        print("Loading model...")
         snapshot_download(MODEL_NAME)
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -47,12 +90,7 @@ class STT:
         self.frame_size = int(self.mimi.sample_rate / self.mimi.frame_rate)
 
         self.moshi = checkpoint_info.get_moshi(device=self.device)
-        self.lm_gen = LMGen(
-            self.moshi,
-            # sampling params
-            temp=0,
-            temp_text=0,
-        )
+        self.lm_gen = LMGen(self.moshi, temp=0, temp_text=0)
 
         self.mimi.streaming_forever(self.BATCH_SIZE)
         self.lm_gen.streaming_forever(self.BATCH_SIZE)
@@ -91,16 +129,10 @@ class STT:
         import numpy as np
         import torch
 
-        if pcm is None:
-            yield all_pcm_data
-            return
-        if len(pcm) == 0:
+        if pcm is None or len(pcm) == 0 or pcm.shape[-1] == 0:
             yield all_pcm_data
             return
 
-        if pcm.shape[-1] == 0:
-            yield all_pcm_data
-            return
         if all_pcm_data is None:
             all_pcm_data = pcm
         else:
@@ -160,7 +192,7 @@ class STT:
             return Response(status_code=200)
 
         @web_app.websocket("/ws")
-        async def websocket_endpoint(ws: WebSocket):
+        async def transcribe_websocket(ws: WebSocket):
             await ws.accept()
 
             opus_stream_inbound = sphn.OpusStreamReader(self.mimi.sample_rate)
@@ -244,7 +276,7 @@ class STT:
         return web_app
 
     @modal.method()
-    async def local_transcribe(self, q: modal.Queue):
+    async def transcribe_queue(self, q: modal.Queue):
         import tempfile
 
         import sphn
@@ -271,11 +303,64 @@ class STT:
                     all_pcm_data = msg
 
 
+# ## Run a local Python client to test streaming STT
+
+# We can test this code on the same production Modal infra
+# that we'll be deploying it on by writing a quick `local_entrypoint` for testing.
+
+# We just need a few helper functions to control the streaming of audio bytes
+# and transcribed text from local Python.
+
+# These communicate asynchronously with the deployed Function using a Modal Queue.
+
+
+async def chunk_audio(data: bytes, chunk_size: int):
+    for i in range(0, len(data), chunk_size):
+        yield data[i : i + chunk_size]
+
+
+async def send_audio(audio_bytes: bytes, q: modal.Queue, chunk_size: int):
+    async for chunk in chunk_audio(audio_bytes, chunk_size):
+        await q.put.aio(chunk, partition="audio")
+    await q.put.aio(None, partition="audio")
+
+
+async def receive_text(q: modal.Queue):
+    break_counter, break_every = 0, 20
+    while True:
+        data = await q.get.aio(partition="transcription")
+        if data is None:
+            break
+        print(data, end="")
+        break_counter += 1
+        if break_counter >= break_every:
+            print()
+            break_counter = 0
+
+
+# Now we write our quick test, which loads in audio from a URL
+# and then passes it to the remote Function via a
+
+# If you run this example with
+
+# ```bash
+# modal run streaming_kyutai_stt.py
+# ```
+
+# you will
+
+# 1. deploy the latest version of the code on Modal
+# 2. spin up a new GPU to handle transcription
+# 3. load the model from Hugging Face or the Modal Volume cache
+# 4. send the audio out to the new GPU container, transcribe it, and receive it locally to be printed.
+
+# Not bad for a single Python file with no dependencies except Modal!
+
+
 @app.local_entrypoint()
 async def test(
+    chunk_size: int = 10 * 1024,  # bytes
     audio_url: str = "https://github.com/kyutai-labs/delayed-streams-modeling/raw/refs/heads/main/audio/bria.mp3",
-    chunk_size: int = 24000,
-    rtf: int = 1000,
 ):
     from urllib.request import urlopen
 
@@ -286,8 +371,8 @@ async def test(
     print("Starting transcription")
     start_time = time.monotonic_ns()
     with modal.Queue.ephemeral() as q:
-        STT().local_transcribe.spawn(q)
-        send = asyncio.create_task(send_audio(audio_bytes, q, chunk_size, rtf))
+        STT().transcribe_queue.spawn(q)
+        send = asyncio.create_task(send_audio(audio_bytes, q, chunk_size))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)
     print(
@@ -295,43 +380,38 @@ async def test(
     )
 
 
-async def chunk_audio(data: bytes, chunk_size: int):
-    for i in range(0, len(data), chunk_size):
-        yield data[i : i + chunk_size]
+# ## Deploy a streaming STT service on the Web
 
+# We've already written a Web backend for our streaming STT service --
+# that's the FastAPI API with the WebSocket in the Modal Cls above.
 
-async def send_audio(audio_bytes, q, chunk_size, rtf):
-    async for chunk in chunk_audio(audio_bytes, chunk_size):
-        await q.put.aio(chunk, partition="audio")
-        await asyncio.sleep(chunk_size / chunk_size / rtf)
-    await q.put.aio(None, partition="audio")
+# We can also deploy a Web frontend. To keep things almost entirely "pure Python",
+# we here use the [FastHTML](https://www.fastht.ml/) library,
+# but you can also deploy a JavaScript frontend with a FastAPI or Node backend.
 
-
-async def receive_text(q):
-    while True:
-        data = await q.get.aio(partition="transcription")
-        if data is None:
-            break
-        print(data, end="")
-
+# We do use a bit of JS for the audio processing in the browser.
+# We add it to the Modal Image using `add_local_dir`.
+# You can find the frontend files [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/speech-to-text/streaming-kyutai-stt-frontend).
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("uv")
-    .run_commands(
-        "uv pip install --system --compile-bytecode python-fasthtml==0.12.20",
-    )
+    .pip_install("python-fasthtml==0.12.20")
     .add_local_dir(
         Path(__file__).parent / "streaming-kyutai-stt-frontend", "/root/frontend"
     )
 )
 
+# You can deploy this frontend with
 
-@app.function(
-    image=web_image,
-    timeout=10 * MINUTES,
-)
-@modal.concurrent(max_inputs=100)
+# ```bash
+# modal deploy streaming_kyutai_stt.py
+# ```
+
+# and then interact with it at the printed `ui` URL.
+
+
+@app.function(image=web_image, timeout=10 * MINUTES)
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def ui():
     import fasthtml.common as fh
@@ -342,7 +422,7 @@ def ui():
 
     fast_app, rt = fh.fast_app(
         hdrs=[
-            # Audio recording libraries
+            # audio recording libraries
             fh.Script(
                 src="https://cdn.jsdelivr.net/npm/opus-recorder@latest/dist/recorder.min.js"
             ),
@@ -352,7 +432,7 @@ def ui():
             fh.Script(
                 src="https://cdn.jsdelivr.net/npm/ogg-opus-decoder/dist/ogg-opus-decoder.min.js"
             ),
-            # Styling
+            # styling
             fh.Link(
                 href="https://fonts.googleapis.com/css?family=Inter:300,400,600",
                 rel="stylesheet",
@@ -378,9 +458,7 @@ def ui():
     @rt("/")
     def get():
         return (
-            fh.Title(
-                "Kyutai Streaming STT",
-            ),
+            fh.Title("Kyutai Streaming STT"),
             fh.Body(
                 fh.Div(
                     fh.Div(
