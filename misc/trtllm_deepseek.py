@@ -58,7 +58,7 @@ tensorrt_image = (
         "uv pip install --system --compile-bytecode mpi4py tensorrt_llm==1.0.0rc0"
     )
     .run_commands(
-        "uv pip install --system --compile-bytecode torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
+        "uv pip install --system --compile-bytecode torch==2.7.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
     )
 )
 
