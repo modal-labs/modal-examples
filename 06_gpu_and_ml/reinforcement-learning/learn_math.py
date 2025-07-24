@@ -35,13 +35,14 @@ image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .apt_install("git", "clang")
     .pip_install(
+        "huggingface_hub[hf_transfer]==0.33.5",
         "setuptools==69.0.3",
         "wheel==0.45.1",
         "ninja==1.11.1.4",
         "packaging==25.0",
+        "verifiers[all]==0.1.1",
         flash_attn_release,
     )
-    .run_commands("pip install 'verifiers[all]==0.1.1'")
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
