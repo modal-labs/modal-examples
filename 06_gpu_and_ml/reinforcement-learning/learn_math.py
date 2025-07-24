@@ -79,7 +79,7 @@ TOOL_DESCRIPTIONS = """
 # Following the [verifiers example](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py), we will need a training script and a config file.
 # For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
 
-# We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the root directory.
+# We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the `/root/` directory.
 # We use the `willcb/Qwen3-0.6B` model from HuggingFace, setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
 # We can use the App ID as a unique identifier for saving and loading the model weights.
 # When the training is complete, we will run a single inference from the training set to test our training run.
