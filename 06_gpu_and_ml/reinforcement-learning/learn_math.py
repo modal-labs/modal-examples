@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/learn_math.py", "--mode=train", "--trainer-script=06_gpu_and_ml/reinforcement-learning/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/reinforcement-learning/config_grpo.yaml"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/learn_math.py", "--mode=train", "--run-id=test_run", "--trainer-script=06_gpu_and_ml/reinforcement-learning/trainer_script_grpo.py", "--config-file=06_gpu_and_ml/reinforcement-learning/config_grpo.yaml"]
 # ---
 
 # # Training a mathematical reasoning model using the verifiers library with sandboxed code execution
@@ -16,8 +16,6 @@
 # ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
 # We install the dependencies for the `verifiers` and `flash-attn` libraries, following the verifiers [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started).
-
-import uuid
 
 import modal
 
@@ -82,7 +80,7 @@ TOOL_DESCRIPTIONS = """
 
 # We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the root directory.
 # We use the `willcb/Qwen3-0.6B` model from HuggingFace, setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
-# We also pass a uuid to the training script to ensure that when we save the weights, they are not overwritten.
+# We can use the App ID as a unique identifier for saving and loading the model weights.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
 
@@ -97,7 +95,7 @@ TOOL_DESCRIPTIONS = """
     timeout=3600,
     secrets=[modal.Secret.from_name("wandb-secret-rl")],
 )
-def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
+def math_group_verifier(trainer_script: str, config_file: str, run_id: str = None):
     import os
     import subprocess
 
@@ -118,7 +116,7 @@ def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
         env={**os.environ, "CUDA_VISIBLE_DEVICES": "0", "NCCL_CUMEM_ENABLE": "0"},
     )
 
-    model_save_path = f"{str(uuid.uuid4())}" if not model_path else f"{model_path}"
+    run_id = app.app_id if run_id is None else run_id
 
     result = subprocess.run(
         [
@@ -127,8 +125,8 @@ def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
             "--config-file",
             "/root/config.yaml",
             "/root/trainer_script.py",
-            "--save-path",
-            model_save_path,
+            "--run-id",
+            run_id,
         ],
         env={
             **os.environ,
@@ -157,7 +155,7 @@ def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
         + "\n\n<think>\n\n<answer>"
     )
 
-    result = inference.remote(prompt, model_save_path)
+    result = inference.remote(prompt, run_id)
     print(result)
 
 
@@ -177,7 +175,7 @@ def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
     },
     timeout=60 * 10,
 )
-def inference(prompt: str, model_path: str):
+def inference(prompt: str, run_id: str = None):
     """Test the trained model with the same format as training"""
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -190,18 +188,17 @@ def inference(prompt: str, model_path: str):
         + "\n\n<think>\n\n<answer>"
     )
 
-    print("Loading model from weights volume...")
+    model_path = f"{WEIGHTS_DIR}/{app.app_id if run_id is None else run_id}"
+    print(f"Loading model from {model_path}")
     try:
-        tokenizer = AutoTokenizer.from_pretrained(
-            f"{WEIGHTS_DIR}/{model_path}", trust_remote_code=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         model = AutoModelForCausalLM.from_pretrained(
-            f"{WEIGHTS_DIR}/{model_path}",
+            model_path,
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
         )
-        print("✓ Loaded trained model from weights volume")
+        print(f"✓ Loaded trained model from {model_path}")
     except Exception as e:
         print(f"Could not load trained model: {e}")
         print("Loading base model instead...")
@@ -264,7 +261,7 @@ def main(
     mode: str = "train",
     prompt: str = None,
     prompt_file: str = None,
-    model_path: str = "test_run",
+    run_id: str = None,
     trainer_script: str = "trainer_script_grpo.py",
     config_file: str = "config_grpo.yaml",
 ):
@@ -289,18 +286,18 @@ def main(
         print("PROMPT:")
         print(prompt_text)
         print("-" * 30)
-        model_response = inference.remote(prompt_text, model_path)
+        model_response = inference.remote(prompt_text, run_id)
         print("MODEL RESPONSE:")
         print(model_response)
         print("-" * 30)
 
     elif mode == "train":
         print(
-            f"Training with trainer script: {trainer_script} and config file: {config_file}"
+            f"Training with trainer script:\n{trainer_script}\nand config file:\n{config_file}"
         )
         with open(trainer_script, "r") as f:
             trainer_content = f.read()
         with open(config_file, "r") as f:
             config_content = f.read()
 
-        math_group_verifier.remote(trainer_content, config_content, model_path)
+        math_group_verifier.remote(trainer_content, config_content, run_id)
