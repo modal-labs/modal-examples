@@ -54,24 +54,19 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
 @app.function()
 def compute_reward(completion: str, testcase: Sequence[str]) -> int:
     sb, score = None, 0
-    try:
-        sb: modal.Sandbox = modal.Sandbox.create(app=app)
-    except Exception:
-        raise Exception("Unable to create sandbox")
-
+    sb: modal.Sandbox = modal.Sandbox.create(app=app)
     code_to_execute: str = get_generated_code_and_test_cases(completion, testcase)
 
     try:
-        p = sb.exec("python", "-c", code_to_execute, timeout=60)
+        p = sb.exec("python", "-c", code_to_execute, timeout=30)
         p.wait()
         return_code = p.returncode
         if return_code == 0:
             score = 1
-    except Exception:
-        print("Sandbox execution failed")
+    except Exception as e:
+        print(e)
     finally:
-        if sb:
-            sb.terminate()
+        sb.terminate()
         return score
 
 
@@ -273,7 +268,7 @@ def serve():
     subprocess.Popen(" ".join(cmd), shell=True)
 
 
-# You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
+# You can then deploy the server using `modal deploy trl-grpo.py`, which gives you a custom url. You can then query it using the following curl command:
 
 # ```bash
 # curl -X POST <url>/v1/chat/completions \
