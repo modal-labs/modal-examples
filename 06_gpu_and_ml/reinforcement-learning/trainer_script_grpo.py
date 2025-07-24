@@ -77,7 +77,7 @@ vf_env = vf.ToolEnv(
     max_steps=3,
 )
 
-model_save_path = sys.argv[2]
+run_id = sys.argv[2]
 model_name = "willcb/Qwen3-0.6B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
@@ -104,7 +104,7 @@ trainer = vf.GRPOTrainer(
 trainer.train()
 
 sb.terminate()
-save_path = f"/root/math_weights/{model_save_path}"
+save_path = f"/root/math_weights/{run_id}"
 trainer.save_model(save_path)
 tokenizer.save_pretrained(save_path)
 print(f"Model and tokenizer saved to {save_path}")
