@@ -9,10 +9,11 @@
 # Here, we use a Modal Sandbox to execute python code during training. Modal Sandboxes offer an easy way to execute untrusted code in a completely isolated environment.
 # This is a more secure way to execute python code during training.
 
+import sys
+
 import modal
 import verifiers as vf
 from verifiers.utils import load_example_dataset
-import sys
 
 # We create a Modal app and a Modal sandbox.
 app = modal.App.lookup("math-rl", create_if_missing=True)
