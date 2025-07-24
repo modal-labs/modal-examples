@@ -18,6 +18,7 @@
 # We install the dependencies for the `verifiers` and `flash-attn` libraries, following the verifiers [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started).
 
 import modal
+import uuid
 
 app = modal.App(name="learn-math")
 cuda_version = "12.8.0"
@@ -80,6 +81,7 @@ TOOL_DESCRIPTIONS = """
 
 # We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the root directory.
 # We use the `willcb/Qwen3-0.6B` model from HuggingFace, setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.
+# We also pass a uuid to the training script to ensure that when we save the weights, they are not overwritten.
 # When the training is complete, we will run a single inference from the training set to test our training run.
 
 
@@ -115,6 +117,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
         env={**os.environ, "CUDA_VISIBLE_DEVICES": "0", "NCCL_CUMEM_ENABLE": "0"},
     )
 
+    uuid_string = str(uuid.uuid4())
     result = subprocess.run(
         [
             "accelerate",
@@ -122,6 +125,8 @@ def math_group_verifier(trainer_script: str, config_file: str):
             "--config-file",
             "/root/config.yaml",
             "/root/trainer_script.py",
+            "--uuid",
+            uuid_string,
         ],
         env={
             **os.environ,
@@ -150,7 +155,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
         + "\n\n<think>\n\n<answer>"
     )
 
-    result = inference.remote(prompt)
+    result = inference.remote(prompt, uuid_string)
     print(result)
 
 
@@ -170,7 +175,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
     },
     timeout=60 * 10,
 )
-def inference(prompt: str):
+def inference(prompt: str, uuid: str):
     """Test the trained model with the same format as training"""
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -186,10 +191,10 @@ def inference(prompt: str):
     print("Loading model from weights volume...")
     try:
         tokenizer = AutoTokenizer.from_pretrained(
-            f"{WEIGHTS_DIR}", trust_remote_code=True
+            f"{WEIGHTS_DIR}/trained_model_{uuid}", trust_remote_code=True
         )
         model = AutoModelForCausalLM.from_pretrained(
-            f"{WEIGHTS_DIR}",
+            f"{WEIGHTS_DIR}/trained_model_{uuid}",
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,

@@ -12,6 +12,7 @@
 import modal
 import verifiers as vf
 from verifiers.utils import load_example_dataset
+import sys
 
 # We create a Modal app and a Modal sandbox.
 app = modal.App.lookup("math-rl", create_if_missing=True)
@@ -75,6 +76,7 @@ vf_env = vf.ToolEnv(
     max_steps=3,
 )
 
+uuid = sys.argv[2]
 model_name = "willcb/Qwen3-0.6B"
 model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
@@ -101,7 +103,7 @@ trainer = vf.GRPOTrainer(
 trainer.train()
 
 sb.terminate()
-save_path = "/root/math_weights"
+save_path = f"/root/math_weights/trained_model_{uuid}"
 trainer.save_model(save_path)
 tokenizer.save_pretrained(save_path)
 print(f"Model and tokenizer saved to {save_path}")
