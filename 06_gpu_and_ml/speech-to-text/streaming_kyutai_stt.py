@@ -134,7 +134,14 @@ class STT:
         import numpy as np
         import torch
 
-        if pcm is None or len(pcm) == 0 or pcm.shape[-1] == 0:
+        if pcm is None:
+            yield all_pcm_data
+            return
+        if len(pcm) == 0:
+            yield all_pcm_data
+            return
+
+        if pcm.shape[-1] == 0:
             yield all_pcm_data
             return
 
@@ -324,9 +331,10 @@ async def chunk_audio(data: bytes, chunk_size: int):
         yield data[i : i + chunk_size]
 
 
-async def send_audio(audio_bytes: bytes, q: modal.Queue, chunk_size: int):
+async def send_audio(audio_bytes: bytes, q: modal.Queue, chunk_size: int, rtf: int):
     async for chunk in chunk_audio(audio_bytes, chunk_size):
         await q.put.aio(chunk, partition="audio")
+        await asyncio.sleep(chunk_size / chunk_size / rtf)
     await q.put.aio(None, partition="audio")
 
 
@@ -364,7 +372,8 @@ async def receive_text(q: modal.Queue):
 
 @app.local_entrypoint()
 async def test(
-    chunk_size: int = 10 * 1024,  # bytes
+    chunk_size: int = 24_000,  # bytes
+    rtf: int = 1000,
     audio_url: str = "https://github.com/kyutai-labs/delayed-streams-modeling/raw/refs/heads/main/audio/bria.mp3",
 ):
     from urllib.request import urlopen
@@ -377,7 +386,7 @@ async def test(
     start_time = time.monotonic_ns()
     with modal.Queue.ephemeral() as q:
         STT().transcribe_queue.spawn(q)
-        send = asyncio.create_task(send_audio(audio_bytes, q, chunk_size))
+        send = asyncio.create_task(send_audio(audio_bytes, q, chunk_size, rtf))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)
     print(
