@@ -118,7 +118,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
         env={**os.environ, "CUDA_VISIBLE_DEVICES": "0", "NCCL_CUMEM_ENABLE": "0"},
     )
 
-    uuid_string = str(uuid.uuid4())
+    model_save_path = f"trained_model_{str(uuid.uuid4())}"
     result = subprocess.run(
         [
             "accelerate",
@@ -126,8 +126,8 @@ def math_group_verifier(trainer_script: str, config_file: str):
             "--config-file",
             "/root/config.yaml",
             "/root/trainer_script.py",
-            "--uuid",
-            uuid_string,
+            "--save-path",
+            model_save_path,
         ],
         env={
             **os.environ,
@@ -156,7 +156,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
         + "\n\n<think>\n\n<answer>"
     )
 
-    result = inference.remote(prompt, uuid_string)
+    result = inference.remote(prompt, model_save_path)
     print(result)
 
 
@@ -176,7 +176,7 @@ def math_group_verifier(trainer_script: str, config_file: str):
     },
     timeout=60 * 10,
 )
-def inference(prompt: str, uuid: str):
+def inference(prompt: str, model_path: str):
     """Test the trained model with the same format as training"""
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -192,10 +192,10 @@ def inference(prompt: str, uuid: str):
     print("Loading model from weights volume...")
     try:
         tokenizer = AutoTokenizer.from_pretrained(
-            f"{WEIGHTS_DIR}/trained_model_{uuid}", trust_remote_code=True
+            f"{WEIGHTS_DIR}/{model_path}", trust_remote_code=True
         )
         model = AutoModelForCausalLM.from_pretrained(
-            f"{WEIGHTS_DIR}/trained_model_{uuid}",
+            f"{WEIGHTS_DIR}/{model_path}",
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
@@ -248,9 +248,9 @@ def inference(prompt: str, uuid: str):
 # ```bash
 # modal run learn_math.py --mode=train --trainer-script=trainer_script_grpo.py --config-file=config_grpo.yaml
 # ```
-# To run the inference with a custom prompt, we can use the following command:
+# To run the inference with a custom prompt, we can use the following command after setting the model path inside our volume:
 # ```bash
-# modal run learn_math.py --mode=inference --prompt "Find the value of x that satisfies the equation: 2x + 5 = 17"
+# modal run learn_math.py --mode=inference --prompt "Find the value of x that satisfies the equation: 2x + 5 = 17" --model-path "trained_model_635e19ec-4774-498e-b337-bfffd5b0d5da"
 # ```
 # To run the inference with a custom prompt from a file, we can use the following command:
 # ```bash
@@ -263,6 +263,7 @@ def main(
     mode: str = "train",
     prompt: str = None,
     prompt_file: str = None,
+    model_path: str = None,
     trainer_script: str = "trainer_script_grpo.py",
     config_file: str = "config_grpo.yaml",
 ):
@@ -287,7 +288,7 @@ def main(
         print("PROMPT:")
         print(prompt_text)
         print("-" * 30)
-        model_response = inference.remote(prompt_text)
+        model_response = inference.remote(prompt_text, model_path)
         print("MODEL RESPONSE:")
         print(model_response)
         print("-" * 30)
