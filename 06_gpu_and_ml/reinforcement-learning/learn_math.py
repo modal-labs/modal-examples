@@ -97,7 +97,7 @@ TOOL_DESCRIPTIONS = """
     timeout=3600,
     secrets=[modal.Secret.from_name("wandb-secret-rl")],
 )
-def math_group_verifier(trainer_script: str, config_file: str):
+def math_group_verifier(trainer_script: str, config_file: str, model_path: str):
     import os
     import subprocess
 
@@ -118,7 +118,8 @@ def math_group_verifier(trainer_script: str, config_file: str):
         env={**os.environ, "CUDA_VISIBLE_DEVICES": "0", "NCCL_CUMEM_ENABLE": "0"},
     )
 
-    model_save_path = f"trained_model_{str(uuid.uuid4())}"
+    model_save_path = f"{str(uuid.uuid4())}" if not model_path else f"{model_path}"
+
     result = subprocess.run(
         [
             "accelerate",
@@ -250,7 +251,7 @@ def inference(prompt: str, model_path: str):
 # ```
 # To run the inference with a custom prompt, we can use the following command after setting the model path inside our volume:
 # ```bash
-# modal run learn_math.py --mode=inference --prompt "Find the value of x that satisfies the equation: 2x + 5 = 17" --model-path "trained_model_635e19ec-4774-498e-b337-bfffd5b0d5da"
+# modal run learn_math.py --mode=inference --prompt "Find the value of x that satisfies the equation: 2x + 5 = 17" --model-path "test_run"
 # ```
 # To run the inference with a custom prompt from a file, we can use the following command:
 # ```bash
@@ -263,7 +264,7 @@ def main(
     mode: str = "train",
     prompt: str = None,
     prompt_file: str = None,
-    model_path: str = None,
+    model_path: str = "test_run",
     trainer_script: str = "trainer_script_grpo.py",
     config_file: str = "config_grpo.yaml",
 ):
@@ -302,4 +303,4 @@ def main(
         with open(config_file, "r") as f:
             config_content = f.read()
 
-        math_group_verifier.remote(trainer_content, config_content)
+        math_group_verifier.remote(trainer_content, config_content, model_path)
