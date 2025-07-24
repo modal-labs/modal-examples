@@ -45,7 +45,7 @@ image = (
 
 model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 app = modal.App(
-    "example-whisper-batched-inference",
+    "example-batched-whisper",
     image=image,
     volumes={MODEL_DIR: model_cache},
 )

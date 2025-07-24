@@ -1,4 +1,4 @@
-name: Build and run example
+name: Build and run random example
 
 on:
   workflow_dispatch:
