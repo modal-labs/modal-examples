@@ -24,7 +24,7 @@ app: modal.App = modal.App("grpo-trl-example")
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
 image: modal.Image = modal.Image.debian_slim().pip_install(
-    "trl[vllm]", "datasets==3.5.1", "wandb==0.17.6"
+    "trl[vllm]==0.19.1", "datasets==3.5.1", "wandb==0.17.6"
 )
 
 # We import the necessary libraries needed in the context of the image.
@@ -189,12 +189,19 @@ def train_vllm_server_mode() -> None:
     volumes={"/models": checkpoints_volume},
 )
 def train_vllm_colocate_mode() -> None:
-    # Environment variables to set for colocate mode on single GPU.
-    os.environ["RANK"] = "0"
-    os.environ["LOCAL_RANK"] = "0"
-    os.environ["WORLD_SIZE"] = "1"
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    os.environ["RANK"] = (
+        "0"  # Rank of the current process (0 for single-process training)
+    )
+    os.environ["LOCAL_RANK"] = (
+        "0"  # Local rank of the process on the node (0 for single-process training)
+    )
+    os.environ["WORLD_SIZE"] = (
+        "1"  # Total number of processes (1 for single-process training)
+    )
+    os.environ["MASTER_ADDR"] = (
+        "localhost"  # Address of the master node (localhost for single node)
+    )
+    os.environ["MASTER_PORT"] = "12355"  # Port for communication between processes
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")
 
 
@@ -251,8 +258,6 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 )  # How many requests can one replica handle? tune carefully!
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * 60)
 def serve():
-    import subprocess
-
     latest_checkpoint_file_path = get_latest_checkpoint_file_path()
 
     cmd = [
