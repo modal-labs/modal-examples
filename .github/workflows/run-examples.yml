@@ -1,4 +1,4 @@
-name: Run
+name: Run changed examples
 
 on:
   pull_request:
@@ -44,8 +44,7 @@ jobs:
   run-changed:
     name: Run changed example
     needs: [diff-matrix]
-    if:
-      ${{ needs.diff-matrix.outputs.matrix != '[]' &&
+    if: ${{ needs.diff-matrix.outputs.matrix != '[]' &&
       needs.diff-matrix.outputs.matrix != '' }}
     runs-on: ubuntu-24.04
     strategy:
