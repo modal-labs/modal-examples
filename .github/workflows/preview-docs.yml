@@ -40,7 +40,7 @@ jobs:
 
       - name: Install client
         run: |
-          uv pip install --system --force-reinstall --pre modal
+          uv pip install --system modal --force-reinstall --pre modal
 
       - name: Install node
         uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
