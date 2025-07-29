@@ -121,7 +121,7 @@ def compute_reward(
 
 
 # We then define constants to pass into verl during the training run.
-PATH_TO_REWARD_FUNCTION: Path = Path("/root/grpo-verl.py")
+PATH_TO_REWARD_FUNCTION: Path = Path("/root/grpo_verl.py")
 REWARD_FUNCTION_NAME: str = "compute_reward"
 
 # ## Kicking off a training run
