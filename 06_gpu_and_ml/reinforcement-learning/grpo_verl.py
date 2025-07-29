@@ -1,8 +1,8 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo-verl.py::train"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo_verl.py::train"]
 # ---
 
-# # Run GRPO on Modal using verl
+# # Train a model to solve math problems using GRPO and verl
 
 # This example demonstrates how to train with [GRPO](https://arxiv.org/pdf/2402.03300) on Modal using the [verl](https://github.com/volcengine/verl) framework.
 # GRPO is a reinforcement learning algorithm introduced by DeepSeek, and was used to train DeepSeek R1.
@@ -281,7 +281,7 @@ def serve():
     subprocess.Popen(" ".join(cmd), shell=True)
 
 
-# You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
+# You can then deploy the server using `modal deploy grpo_verl.py`, which gives you a custom url. You can then query it using the following curl command:
 
 # ```bash
 # curl -X POST <url>/v1/chat/completions \
