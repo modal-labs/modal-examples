@@ -194,35 +194,14 @@ def load_or_cache_dataset(config: "TrainingConfig", paths: dict, tokenizer):
 
 
 def load_or_cache_model(config: "TrainingConfig", paths: dict):
-    model_cache_path = paths["model_cache"]
-
-    if model_cache_path.exists():
-        print(f"Loading cached model from {model_cache_path}")
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=str(model_cache_path),
-            max_seq_length=config.max_seq_length,
-            dtype=None,
-            load_in_4bit=config.load_in_4bit,
-            load_in_8bit=config.load_in_8bit,
-        )
-    else:
-        print(f"Downloading and caching model: {config.model_name}")
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=config.model_name,
-            max_seq_length=config.max_seq_length,
-            dtype=None,
-            load_in_4bit=config.load_in_4bit,
-            load_in_8bit=config.load_in_8bit,
-        )
-
-        # Cache the model and tokenizer for future use
-        print(f"Saving model to cache: {model_cache_path}")
-        model_cache_path.mkdir(parents=True, exist_ok=True)
-        model.save_pretrained(model_cache_path)
-        tokenizer.save_pretrained(model_cache_path)
-
-        # Commit changes to the volume to persist across function calls
-        model_cache_volume.commit()
+    print(f"Downloading and caching model: {config.model_name}")
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=config.model_name,
+        max_seq_length=config.max_seq_length,
+        dtype=None,
+        load_in_4bit=config.load_in_4bit,
+        load_in_8bit=config.load_in_8bit,
+    )
 
     return model, tokenizer
 
@@ -491,9 +470,6 @@ def get_structured_paths(config: TrainingConfig):
     multiple models, datasets, and experiments to coexist without conflicts.
     """
     # Replace forward slashes in names to create valid directory names
-    model_cache_path = (
-        pathlib.Path("/model_cache") / "models" / config.model_name.replace("/", "--")
-    )
     dataset_cache_path = (
         pathlib.Path("/dataset_cache")
         / "datasets"
@@ -504,7 +480,6 @@ def get_structured_paths(config: TrainingConfig):
     )
 
     return {
-        "model_cache": model_cache_path,
         "dataset_cache": dataset_cache_path,
         "checkpoints": checkpoint_path,
     }
