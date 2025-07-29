@@ -1,7 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "06_gpu_and_ml/09_job_queues/web_job_queue_wrapper.py"]
-# deploy: false
-# lambda-test: false
+# cmd: ["modal", "run", "09_job_queues/web_job_queue_wrapper.py::test_polling"]
 # mypy: ignore-errors
 # ---
 
@@ -89,39 +87,62 @@ def web_endpoint():
 # modal serve web_job_queue_wrapper.py
 # ```
 
-# And then do `python hit.py` where hit.py is:
+# Or run the test locally:
 # ```bash
-# import modal
-# import requests
-# import time
-#
-# workspace = modal.config._profile
-# environment = modal.config.config.get("environment") or ""
-# prefix = workspace + (f"-{environment}" if environment else "")
-# url = f"https://{prefix}--web-job-queue-wrapper-web-endpoint-dev.modal.run"
-# print(f"Built URL: {url}")
-#
-# print("submitting request")
-# result = requests.post(f"{url}/run", json={"input_val": "Hello, world!"})
-# assert result.status_code == 200
-# request_id = result.json()['request_id']
-#
-# print(f"got request id: {request_id}, polling status")
-# while True:
-# status = requests.get(f"{url}/requests/{request_id}/status")
-# if status.status_code == 200:
-# data = status.json()
-# if data['status'] == 'SUCCESS':
-# print("request completed successfully")
-# break
-# else:
-# print(f"request result is {data['status']}")
-# else:
-# print('poll failed:', status)
-# time.sleep(1)
-#
-# print("retrieving result")
-# result = requests.get(f"{url}/requests/{request_id}")
-# print(f"result is {result.json()}")
-# print("done")
+# modal run web_job_queue_wrapper.py::test_polling
 # ```
+
+
+@app.local_entrypoint()
+def test_polling():
+    """Test the polling job queue by submitting a request and polling for results."""
+    import json
+    import urllib.parse
+    import urllib.request
+
+    # Get the deployed URL
+    url = web_endpoint.get_web_url()
+    print(f"URL: {url}")
+
+    # Submit request
+    print("submitting request")
+    data = json.dumps({"input_val": "Hello, world!"}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    req = urllib.request.Request(
+        f"{url}/run", data=data, headers=headers, method="POST"
+    )
+
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            request_id = result["request_id"]
+            print(f"got request id: {request_id}, polling status")
+    except Exception as e:
+        print(f"Failed to submit request: {e}")
+        return
+
+    # Poll for status
+    while True:
+        try:
+            with urllib.request.urlopen(
+                f"{url}/requests/{request_id}/status"
+            ) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data["status"] == "SUCCESS":
+                    print("request completed successfully")
+                    break
+                else:
+                    print(f"request result is {data['status']}")
+        except Exception as e:
+            print(f"poll failed: {e}")
+        time.sleep(1)
+
+    # Retrieve result
+    print("retrieving result")
+    try:
+        with urllib.request.urlopen(f"{url}/requests/{request_id}") as response:
+            result = json.loads(response.read().decode("utf-8"))
+            print(f"result is {result}")
+            print("done")
+    except Exception as e:
+        print(f"Failed to retrieve result: {e}")
