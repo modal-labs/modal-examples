@@ -357,9 +357,6 @@ def finetune(config: TrainingConfig):
     model.save_pretrained(final_model_path)
     tokenizer.save_pretrained(final_model_path)
 
-    # Commit all changes to persistent storage
-    checkpoint_volume.commit()
-
     # Clean up experiment tracking
     if config.enable_wandb:
         wandb.finish()
