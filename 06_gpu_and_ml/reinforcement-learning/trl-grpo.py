@@ -189,19 +189,16 @@ def train_vllm_server_mode() -> None:
     volumes={"/models": checkpoints_volume},
 )
 def train_vllm_colocate_mode() -> None:
-    os.environ["RANK"] = (
-        "0"  # Rank of the current process (0 for single-process training)
-    )
-    os.environ["LOCAL_RANK"] = (
-        "0"  # Local rank of the process on the node (0 for single-process training)
-    )
-    os.environ["WORLD_SIZE"] = (
-        "1"  # Total number of processes (1 for single-process training)
-    )
-    os.environ["MASTER_ADDR"] = (
-        "localhost"  # Address of the master node (localhost for single node)
-    )
-    os.environ["MASTER_PORT"] = "12355"  # Port for communication between processes
+    # Rank of the current process (0 for single-process training)
+    os.environ["RANK"] = "0"
+    # Local rank of the process on the node (0 for single-process training)
+    os.environ["LOCAL_RANK"] = "0"
+    # Total number of processes (1 for single-process training)
+    os.environ["WORLD_SIZE"] = "1"
+    # Address of the master node (localhost for single node)
+    os.environ["MASTER_ADDR"] = "localhost"
+    # Port for communication between processes
+    os.environ["MASTER_PORT"] = "12355"
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")
 
 
