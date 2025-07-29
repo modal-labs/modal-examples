@@ -33,4 +33,4 @@ runs:
 
     - name: Install the modal client
       shell: bash
-      run: uv pip install --system modal
+      run: uv pip install --system  --force-reinstall --pre modal
