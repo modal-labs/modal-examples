@@ -88,7 +88,7 @@ with flux_image.imports():
 
 # Next, we map the model's setup and inference code onto Modal.
 
-# 1. We the model setun in the method decorated with `@modal.enter()`. This includes  loading the
+# 1. We run the model setup in the method decorated with `@modal.enter()`. This includes loading the
 # weights and moving them to the GPU, along with an optional `torch.compile` step (see details below).
 # The `@modal.enter()` decorator ensures that this method runs only once, when a new container starts,
 # instead of in the path of every call.
