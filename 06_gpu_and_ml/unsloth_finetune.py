@@ -53,12 +53,17 @@ app = modal.App("unsloth-finetune")
 
 train_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .run_commands(
-        "uv pip install --system "
-        "transformers==4.54.0 datasets==3.6.0 huggingface_hub==0.34.2 "
-        "wandb==0.21.0 hf-transfer==0.1.9 "
-        "accelerate==1.9.0 trl==0.19.1 peft==0.16.0 "
-        "'unsloth[cu128-torch270]==2025.7.8' unsloth_zoo==2025.7.10",
+    .uv_pip_install(
+        "accelerate==1.9.0",
+        "datasets==3.6.0",
+        "hf-transfer==0.1.9",
+        "huggingface_hub==0.34.2",
+        "peft==0.16.0",
+        "transformers==4.54.0",
+        "trl==0.19.1",
+        "unsloth[cu128-torch270]==2025.7.8",
+        "unsloth_zoo==2025.7.10",
+        "wandb==0.21.0",
     )
     .env({"HF_HOME": "/model_cache"})
 )
@@ -96,21 +101,25 @@ checkpoint_volume = modal.Volume.from_name(
 )
 
 # ### Picking a GPU
+
 # We use L40S for its healthy balance of VRAM, CUDA cores, and clock speed.
 # The timeout provides an upper bound on our training time; if our training run
 # finishes faster, we won't end up using the full 6 hours may not use the whole
 # timeout if it finishes earlier . We also specify 3 retries, which will be useful
 # in case our training function gets
 # [preempted](https://modal.com/docs/guide/preemption#preemption).
+
 GPU_TYPE = "L40S"
 TIMEOUT_HOURS = 6
 MAX_RETRIES = 3
 
 # ## Data Processing
+
 # We'll be finetuning our model on the FineTome-100k dataset, which is
 # subset of [The Tome](https://huggingface.co/datasets/arcee-ai/The-Tome)
 # curated with [fineweb-edu-classifier](https://huggingface.co/HuggingFaceFW/fineweb-edu-classifier)
 # Below we define some helpers for processing this dataset.
+
 CONVERSATION_COLUMN = "conversations"  # ShareGPT format column name
 TEXT_COLUMN = "text"  # Output column for formatted text
 TRAIN_SPLIT_RATIO = 0.9  # 90% train, 10% eval split
@@ -177,10 +186,13 @@ def load_or_cache_dataset(config: "TrainingConfig", paths: dict, tokenizer):
 
 
 # ## Loading the pretrained model
+
 # We can't finetune without a pretarined model! Since these models are
 # fairly large, we don't want to download them from scratch for each training run.
 # We solve this by caching the weights in a Volume on download, and then loading
 # from the Volume on subsequent runs.
+
+
 def load_or_cache_model(config: "TrainingConfig", paths: dict):
     model_cache_path = paths["model_cache"]
 
@@ -331,13 +343,6 @@ def finetune(config: TrainingConfig):
 
     # Initialize the supervised finetuning trainer
     print("Initializing SFTTrainer...")
-    print("MAX_STEPS", training_args.max_steps)
-    print(
-        "DO_EVAL EVAL_STEPS EVAL_STRATEGY",
-        training_args.do_eval,
-        training_args.eval_steps,
-        training_args.eval_strategy,
-    )
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
