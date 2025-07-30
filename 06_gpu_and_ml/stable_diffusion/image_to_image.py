@@ -141,17 +141,19 @@ class Model:
 @app.local_entrypoint()
 def main(
     image_path=Path(__file__).parent / "demo_images/dog.png",
-    prompt="A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style",
-    strength=0.9,  # increase to favor the prompt over the baseline image
+    output_path=Path("/tmp/stable-diffusion/output.png"),
+    prompt: str = "A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style",
 ):
     print(f"🎨 reading input image from {image_path}")
     input_image_bytes = Path(image_path).read_bytes()
-    print(f"🎨 editing image with prompt {prompt}")
+    print(f"🎨 editing image with prompt '{prompt}'")
     output_image_bytes = Model().inference.remote(input_image_bytes, prompt)
 
-    dir = Path("/tmp/stable-diffusion")
+    if isinstance(output_path, str):
+        output_path = Path(output_path)
+
+    dir = output_path.parent
     dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = dir / "output.png"
     print(f"🎨 saving output image to {output_path}")
     output_path.write_bytes(output_image_bytes)
