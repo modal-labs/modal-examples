@@ -17,6 +17,7 @@
 # values from the `SandboxExecutor`.
 
 import json
+import secrets
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -65,6 +66,8 @@ class SandboxExecutor:
         )
         self.app = modal.App.lookup(self.app_name, create_if_missing=True)
         jupyter_port = 8888
+        token = secrets.token_urlsafe(13)
+        token_secret = modal.Secret.from_dict({"KG_AUTH_TOKEN": token})
 
         entrypoint = [
             "jupyter",
@@ -78,15 +81,18 @@ class SandboxExecutor:
                 *entrypoint,
                 app=self.app,
                 image=image,
+                secrets=[token_secret],
                 encrypted_ports=[jupyter_port],
                 timeout=60 * 60,
             )
 
         tunnel = self.sandbox.tunnels()[jupyter_port]
-        self._wait_for_server(tunnel.host)
+        self._wait_for_server(tunnel.host, token)
 
-        kernel_id = self._start_kernel(tunnel.host)
-        self.ws_url = f"wss://{tunnel.host}/api/kernels/{kernel_id}/channels"
+        kernel_id = self._start_kernel(tunnel.host, token)
+        self.ws_url = (
+            f"wss://{tunnel.host}/api/kernels/{kernel_id}/channels?token={token}"
+        )
 
     def run_code(self, code: str) -> ExecutionResults:
         with connect(self.ws_url) as ws:
@@ -156,10 +162,10 @@ class SandboxExecutor:
         return ExecutionResults(result=result, logs=logs)
 
     @classmethod
-    def _wait_for_server(cls, host: str):
+    def _wait_for_server(cls, host: str, token: str):
         """Wait for server to start up."""
         counter = 0
-        req = Request(f"https://{host}/api/kernelspecs", method="GET")
+        req = Request(f"https://{host}/api/kernelspecs?token={token}", method="GET")
         while True:
             try:
                 with urlopen(req):
@@ -172,9 +178,9 @@ class SandboxExecutor:
             sleep(1.0)
 
     @classmethod
-    def _start_kernel(cls, host: str) -> str:
+    def _start_kernel(cls, host: str, token: str) -> str:
         """Start kernel."""
-        kernels_url = f"https://{host}/api/kernels"
+        kernels_url = f"https://{host}/api/kernels?token={token}"
         req = Request(kernels_url, method="POST")
         with urlopen(req) as response:
             body = response.read()
