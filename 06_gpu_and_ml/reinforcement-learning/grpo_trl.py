@@ -32,7 +32,7 @@ with image.imports():
     from datasets import Dataset, load_dataset
     from trl import GRPOConfig, GRPOTrainer
 
-# We also a define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
+# We also define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
 MODELS_DIR = Path("/models")
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
     "grpo-trl-example-checkpoints", create_if_missing=True
@@ -70,10 +70,10 @@ def compute_reward(completion: str, testcase: Sequence[str]) -> int:
         return score
 
 
-# We write a function that constructs a program from the model completion. This is determined based on the format of the data
-# The completions are supposed to follow the format ``python ...```
+# We write a function that constructs a program from the model completion. This is determined based on the format of the data.
+# The completions are supposed to follow the format "```python ...".
 # The test cases are a list of assert statements.
-# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2)
+# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2).
 def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) -> str:
     if "```python" in completion:
         # Find the start and end of the code block
@@ -91,8 +91,8 @@ def get_generated_code_and_test_cases(completion: str, testcase: Sequence[str]) 
     return full_code
 
 
-# Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions
-# Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function)
+# Finally, we define the function that is passed into the GRPOTrainer, which takes in a list of completions.
+# Custom reward functions must conform to a [specific signature](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function).
 def reward_helper_function(
     completions: Sequence[str], testcases: Sequence[Sequence[str]], **kwargs: object
 ) -> Iterable[int]:
@@ -102,27 +102,25 @@ def reward_helper_function(
 # ## Kicking off a training run
 
 
-# Preprocess the data, preparing the columns that `GRPOTrainer` expects
-# We use the OpenCoder-LLM educational instruct dataset, which has (instruction, code, test case) triples valudated through a Python compiler
-# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2)
+# Preprocess the data, preparing the columns that `GRPOTrainer` expects.
+# We use the OpenCoder-LLM educational instruct dataset, which has (instruction, code, test case) triples validated through a Python compiler.
+# More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2).
 def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     dataset: Dataset = load_dataset(
         "OpenCoder-LLM/opc-sft-stage2", "educational_instruct", split="train"
     )
     dataset = dataset.rename_column(
         "instruction", "prompt"
-    )  # needed for the GRPO trainer
+    )  # Needed for the GRPO trainer
     dataset = dataset.rename_column("testcase", "testcases")
-    dataset = dataset.select(
-        range(128)
-    )  # To simplify testing. Remove for production use cases.
+    dataset = dataset.select(range(128))  # To simplify testing.
     training_args: GRPOConfig = GRPOConfig(
         output_dir=str(MODELS_DIR),
         report_to="wandb",
         use_vllm=use_vllm,
         vllm_mode=vllm_mode,
-        max_steps=5,
-        save_steps=1,  # To simplify testing. Remove for production use cases.
+        save_steps=1,
+        max_steps=5,  # To simplify testing. Remove for production use cases.
     )
     trainer = GRPOTrainer(
         model="Qwen/Qwen2-0.5B-Instruct",
@@ -133,7 +131,7 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     trainer.train()
 
 
-# We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials
+# We use Weights & Biases for logging, hence we use a [Modal Secret](https://modal.com/docs/guide/secrets#secrets) with wandb credentials.
 @app.function(
     image=image,
     gpu="H100",
@@ -145,14 +143,14 @@ def train() -> None:
     start_grpo_trainer()
 
 
-# To run: `modal run --detach grpo_trl.py::train``
+# To run: `modal run --detach grpo_trl.py::train`.
 
 # ## Speeding up training with vLLM
 
 
-# vLLM can be used either in server mode (run vLLM server on separate gpu) or colocate mode (within the training process)
+# vLLM can be used either in server mode (run vLLM server on separate gpu) or colocate mode (within the training process).
 # In server mode, vLLM runs in a separate process (and using separate GPUs) and communicates with the trainer via HTTP.
-# This is ideal if you have dedicated GPUs for inference. More details [here.](https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-1-server-mode)
+# This is ideal if you have dedicated GPUs for inference. More details [here](https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-1-server-mode).
 # Here, we use 2 GPUs. We run the GRPOTrainer on 1 of them, and the vLLM process on another.
 @app.function(
     image=image,
@@ -174,11 +172,11 @@ def train_vllm_server_mode() -> None:
     start_grpo_trainer(use_vllm=True, vllm_mode="server")
 
 
-# You can execute this using `modal run --detach grpo_trl.py::train_vllm_server_mode`
+# You can execute this using `modal run --detach grpo_trl.py::train_vllm_server_mode`.
 
 # In colocate mode, vLLM runs inside the trainer process and shares GPU memory with the training model.
 # This avoids launching a separate server and can improve GPU utilization, but may lead to memory contention on the training GPUs.
-# More details (here.)[https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-2-colocate-mode]
+# More details [here](https://huggingface.co/docs/trl/main/en/grpo_trainer#-option-2-colocate-mode).
 
 
 @app.function(
@@ -202,7 +200,7 @@ def train_vllm_colocate_mode() -> None:
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")
 
 
-# You can execute this using `modal run --detach grpo_trl.py::train_vllm_colocate_mode`
+# You can execute this using `modal run --detach grpo_trl.py::train_vllm_colocate_mode`.
 
 # ## Performing inference on the trained model
 
