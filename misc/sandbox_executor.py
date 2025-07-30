@@ -17,8 +17,8 @@
 # values from the `SandboxExecutor`.
 
 import json
-import secrets
 import re
+import secrets
 import uuid
 from dataclasses import dataclass, field
 from http.client import RemoteDisconnected
