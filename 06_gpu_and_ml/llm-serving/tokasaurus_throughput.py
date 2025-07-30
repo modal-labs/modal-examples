@@ -106,7 +106,7 @@ HYDRAGEN_MIN_GROUP_SIZE = 129  # sic
 # All values are derived from
 # [this version of the official benchmarking script](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py),
 # except the `KV_CACHE_NUM_TOKENS`, which we increase to the maximum the GPU can handle.
-# The value in the script is set to (1024 + 512) * 1024 which is the maximum that the other engines can handle, not just Tokasaurus.
+# The value in the script is set to `(1024 + 512) * 1024`, which is the maximum that the other engines can handle, lower than that of Tokasaurus.
 
 KV_CACHE_NUM_TOKENS = (1024 + 768) * 1024  # tuned for H100, 80 GB RAM
 MAX_TOKENS_PER_FORWARD = 32768
