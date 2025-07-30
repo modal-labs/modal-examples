@@ -1,8 +1,8 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/trl-grpo.py::train"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo_trl.py::train"]
 # ---
 
-# # Run GRPO on Modal using TRL
+# # Train a model to solve coding problems using GRPO and TRL
 
 # This example demonstrates how to run [GRPO](https://arxiv.org/pdf/2402.03300) on Modal using the TRL [GRPO trainer](https://huggingface.co/docs/trl/main/en/grpo_trainer)
 # GRPO is a reinforcement learning algorithm introduced by DeepSeek, and was used to train DeepSeek R1.
@@ -145,7 +145,7 @@ def train() -> None:
     start_grpo_trainer()
 
 
-# To run: `modal run --detach trl-grpo.py::train``
+# To run: `modal run --detach grpo_trl.py::train``
 
 # ## Speeding up training with vLLM
 
@@ -174,7 +174,7 @@ def train_vllm_server_mode() -> None:
     start_grpo_trainer(use_vllm=True, vllm_mode="server")
 
 
-# You can execute this using `modal run --detach trl-grpo.py::train_vllm_server_mode`
+# You can execute this using `modal run --detach grpo_trl.py::train_vllm_server_mode`
 
 # In colocate mode, vLLM runs inside the trainer process and shares GPU memory with the training model.
 # This avoids launching a separate server and can improve GPU utilization, but may lead to memory contention on the training GPUs.
@@ -202,7 +202,7 @@ def train_vllm_colocate_mode() -> None:
     start_grpo_trainer(use_vllm=True, vllm_mode="colocate")
 
 
-# You can execute this using `modal run --detach trl-grpo.py::train_vllm_colocate_mode`
+# You can execute this using `modal run --detach grpo_trl.py::train_vllm_colocate_mode`
 
 # ## Performing inference on the trained model
 
@@ -270,7 +270,7 @@ def serve():
     subprocess.Popen(" ".join(cmd), shell=True)
 
 
-# You can then deploy the server using `modal deploy trl-grpo.py`, which gives you a custom url. You can then query it using the following curl command:
+# You can then deploy the server using `modal deploy grpo_trl.py`, which gives you a custom url. You can then query it using the following curl command:
 
 # ```bash
 # curl -X POST <url>/v1/chat/completions \
