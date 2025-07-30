@@ -32,7 +32,7 @@ with image.imports():
     from datasets import Dataset, load_dataset
     from trl import GRPOConfig, GRPOTrainer
 
-# We also a define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
+# We also define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
 MODELS_DIR = Path("/models")
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
     "grpo-trl-example-checkpoints", create_if_missing=True
@@ -103,7 +103,7 @@ def reward_helper_function(
 
 
 # Preprocess the data, preparing the columns that `GRPOTrainer` expects.
-# We use the OpenCoder-LLM educational instruct dataset, which has (instruction, code, test case) triples valudated through a Python compiler.
+# We use the OpenCoder-LLM educational instruct dataset, which has (instruction, code, test case) triples validated through a Python compiler.
 # More details [here](https://huggingface.co/datasets/OpenCoder-LLM/opc-sft-stage2).
 def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     dataset: Dataset = load_dataset(
