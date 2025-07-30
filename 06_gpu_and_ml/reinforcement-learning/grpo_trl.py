@@ -109,16 +109,18 @@ def start_grpo_trainer(use_vllm=False, vllm_mode=None):
     dataset: Dataset = load_dataset(
         "OpenCoder-LLM/opc-sft-stage2", "educational_instruct", split="train"
     )
-    dataset = dataset.rename_column("instruction", "prompt")  # Needed for the GRPO trainer
+    dataset = dataset.rename_column(
+        "instruction", "prompt"
+    )  # Needed for the GRPO trainer
     dataset = dataset.rename_column("testcase", "testcases")
-    dataset = dataset.select(range(128)) # To simplify testing. Remove for production use cases.
+    dataset = dataset.select(range(128))  # To simplify testing.
     training_args: GRPOConfig = GRPOConfig(
         output_dir=str(MODELS_DIR),
         report_to="wandb",
         use_vllm=use_vllm,
         vllm_mode=vllm_mode,
         save_steps=1,
-        max_steps=5, # To simplify testing. Remove for production use cases.
+        max_steps=5,  # To simplify testing. Remove for production use cases.
     )
     trainer = GRPOTrainer(
         model="Qwen/Qwen2-0.5B-Instruct",
