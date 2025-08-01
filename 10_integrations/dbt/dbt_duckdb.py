@@ -28,7 +28,7 @@ from pathlib import Path
 
 import modal
 
-BUCKET_NAME = "modal-example-dbt-duckdb"
+BUCKET_NAME = "modal-example-dbt-duckdb-s3"
 LOCAL_DBT_PROJECT = (  # local path
     Path(__file__).parent / "sample_proj_duckdb_s3"
 )
@@ -98,8 +98,8 @@ s3_secret = modal.Secret.from_name(
 #             "Action": "s3:*",
 #             "Effect": "Allow",
 #             "Resource": [
-#                 "arn:aws:s3:::modal-example-dbt-duckdb/*",
-#                 "arn:aws:s3:::modal-example-dbt-duckdb"
+#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3/*",
+#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3"
 #             ],
 #             "Sid": "duckdbs3access"
 #         }
