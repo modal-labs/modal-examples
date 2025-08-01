@@ -35,7 +35,7 @@ cuda_dev_image = modal.Image.from_registry(
 # For Hugging Face's [Diffusers](https://github.com/huggingface/diffusers) library
 # we install from GitHub source and so pin to a specific commit.
 
-# PyTorch added [faster attention kernels for Hopper GPUs in version 2.5
+# PyTorch added faster attention kernels for Hopper GPUs in version 2.5.
 
 diffusers_commit_sha = "81cf3b2f155f1de322079af28f625349ee21ec6b"
 
@@ -65,7 +65,7 @@ flux_image = (
 
 # Later, we'll also use `torch.compile` to increase the speed further.
 # Torch compilation needs to be re-executed when each new container starts,
-# So we turn on some extra caching to reduce compile times for later containers.
+# so we turn on some extra caching to reduce compile times for later containers.
 
 flux_image = flux_image.env(
     {
