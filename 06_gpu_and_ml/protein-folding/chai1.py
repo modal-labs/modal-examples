@@ -36,7 +36,7 @@ here = Path(__file__).parent  # the directory of this file
 
 MINUTES = 60  # seconds
 
-app = modal.App(name="example-chai1-inference")
+app = modal.App(name="example-chai1")
 
 # ## Fold a protein from the command line
 

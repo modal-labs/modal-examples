@@ -67,7 +67,7 @@ ollama_image = (
 )
 
 # Create a Modal App, which groups our functions together
-app = modal.App("ollama-server", image=ollama_image)
+app = modal.App("example-ollama", image=ollama_image)
 
 # ## Persistent Storage for Models
 

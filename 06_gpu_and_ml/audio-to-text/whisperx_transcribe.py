@@ -50,9 +50,7 @@ image = (
 # ## Defining the app
 #
 # Downloaded weights live in a [Modal Volume](https://modal.com/docs/reference/modal.Volume) so subsequent runs reuse them.
-# For more on storing model weights on Modal, see
-# [this guide](https://modal.com/docs/guide/model-weights).
-app = modal.App("whisperx-example", image=image)
+app = modal.App("example-whisperx-transcribe", image=image)
 models_volume = modal.Volume.from_name("whisperx-models", create_if_missing=True)
 
 

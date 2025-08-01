@@ -6,7 +6,7 @@ import os
 
 import modal
 
-app = modal.App("example-linkscraper")
+app = modal.App("example-webscraper")
 
 
 playwright_image = modal.Image.debian_slim(

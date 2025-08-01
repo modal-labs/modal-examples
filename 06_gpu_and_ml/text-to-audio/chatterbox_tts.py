@@ -28,7 +28,7 @@ import modal
 image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "chatterbox-tts==0.1.1", "fastapi[standard]"
 )
-app = modal.App("chatterbox-api-example", image=image)
+app = modal.App("example-chatterbox-tts", image=image)
 
 # Import the required libraries within the image context to ensure they're available
 # when the container runs. This includes audio processing and the TTS model itself.

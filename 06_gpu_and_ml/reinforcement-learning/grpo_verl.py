@@ -26,7 +26,7 @@ import modal
 
 # ## Defining the image and app
 
-app = modal.App("grpo-verl-example")
+app = modal.App("example-grpo-verl")
 
 # We define an image where we clone the verl repo and install its dependencies. We use a base verl image as a starting point.
 
@@ -159,6 +159,8 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
     timeout=24 * 60 * MINUTES,
 )
 def train(*arglist) -> None:
+    data_volume.reload()
+
     cmd: list[str] = [
         "python",
         "-m",

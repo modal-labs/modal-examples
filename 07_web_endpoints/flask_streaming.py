@@ -9,7 +9,7 @@
 import modal
 
 app = modal.App(
-    "example-web-flask-stream",
+    "example-flask-streaming",
     image=modal.Image.debian_slim().pip_install("flask"),
 )
 

@@ -49,7 +49,7 @@ image = (
         f"git+https://github.com/facebookresearch/sam2.git@{SAM2_GIT_SHA}",
     )
 )
-app = modal.App("sam2-app", image=image)
+app = modal.App("example-segment-anything", image=image)
 
 
 # ## Wrapping the SAM 2 model in a Modal class

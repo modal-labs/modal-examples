@@ -66,5 +66,5 @@ final as (
 
 )
 
-{{ config(materialized='external', format='parquet', location='s3://modal-example-dbt-duckdb-s3/out/customers.parquet') }}
+{{ config(materialized='external', format='parquet', location='s3://modal-example-dbt-duckdb/out/customers.parquet') }}
 select * from final

@@ -60,7 +60,7 @@ dbt_image = (  # start from a slim Linux image
     )
 )
 
-app = modal.App("duckdb-dbt-inference", image=dbt_image)
+app = modal.App("example-dbt-modal-inference", image=dbt_image)
 
 
 # Create a modal.Volume so that we can persist our data

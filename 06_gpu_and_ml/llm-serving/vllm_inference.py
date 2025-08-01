@@ -119,7 +119,7 @@ FAST_BOOT = True
 # once the model is spun up and the `serve` function returns.
 
 
-app = modal.App("example-vllm-openai-compatible")
+app = modal.App("example-vllm-inference")
 
 N_GPU = 1
 MINUTES = 60  # seconds
@@ -184,10 +184,10 @@ def serve():
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run`.
+# something like `https://your-workspace-name--example-vllm-inference-serve.modal.run`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-inference-serve.modal.run/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 

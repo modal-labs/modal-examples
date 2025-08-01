@@ -66,7 +66,7 @@ def main():
     parser.add_argument(
         "--app-name",
         type=str,
-        default="example-vllm-openai-compatible",
+        default="example-vllm-inference",
         help="A Modal App serving an OpenAI-compatible API",
     )
     parser.add_argument(
