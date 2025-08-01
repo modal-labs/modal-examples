@@ -34,9 +34,18 @@ image = (
     )
     .entrypoint([])  # remove verbose logging by base image on entry
     .apt_install("git")
-    .pip_install("uv")
-    .run_commands(
-        f"uv pip install --system --compile-bytecode --index-strategy unsafe-best-match accelerate~=1.8.1 git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha} huggingface-hub[hf-transfer]~=0.33.1 Pillow~=11.2.1 safetensors~=0.5.3 transformers~=4.53.0 sentencepiece~=0.2.0 torch==2.7.1 optimum-quanto==0.2.7 --extra-index-url https://download.pytorch.org/whl/cu128"
+    .uv_pip_install(
+        "accelerate~=1.8.1",
+        f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
+        "huggingface-hub[hf-transfer]~=0.33.1",
+        "Pillow~=11.2.1",
+        "safetensors~=0.5.3",
+        "transformers~=4.53.0",
+        "sentencepiece~=0.2.0",
+        "torch==2.7.1",
+        "optimum-quanto==0.2.7",
+        extra_options="--index-strategy unsafe-best-match",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
     )
 )
 
