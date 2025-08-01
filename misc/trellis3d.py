@@ -104,7 +104,7 @@ trellis_image = (
     .run_function(clone_repository)
 )
 
-app = modal.App(name="example-trellis3d")
+app = modal.App(name="example-trellis-3d")
 
 cache_dir = "/cache"
 cache_vol = modal.Volume.from_name("hf-hub-cache")

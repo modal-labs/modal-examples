@@ -531,7 +531,7 @@ if __name__ == "__main__":
     import sys
 
     try:
-        Model = modal.Cls.from_name("trtllm-latency", "Model")
+        Model = modal.Cls.from_name("example-trtllm-latency", "Model")
         print("🏎️  connecting to model")
         model = Model(mode=sys.argv[1] if len(sys.argv) > 1 else "fast")
         model.boot.remote()

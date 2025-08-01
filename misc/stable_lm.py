@@ -70,7 +70,7 @@ image = (
 )
 
 app = modal.App(
-    name="example-stable-lm",
+    name="example-stability-lm",
     image=image,
     secrets=[
         modal.Secret.from_dict({"REPO_ID": "stabilityai/stablelm-tuned-alpha-7b"})

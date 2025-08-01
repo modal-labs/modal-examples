@@ -22,9 +22,9 @@
 # a Sandbox with enough time left.
 #
 # It's structured into two Apps:
-# - `sandbox-pool` is the main App that contains all the control logic for maintaining
+# - `example-sandbox-pool` is the main App that contains all the control logic for maintaining
 #   the pool, exposing ways to claim Sandboxes, etc.
-# - `sandbox-pool-sandboxes` houses all the actual Sandboxes, and nothing else.
+# - `example-sandbox-pool-sandboxes` houses all the actual Sandboxes, and nothing else.
 #
 # The implementation borrows from [pawalt](https://github.com/pawalt)'s [Sandbox pool
 # example gist](https://gist.github.com/pawalt/7a505c38bba75cafae0780a5dd40e8b8). 🙏
@@ -67,7 +67,9 @@ POOL_MAINTENANCE_SCHEDULE = modal.Period(minutes=2)
 # ## Main implementation
 
 # We keep track of all warm Sandboxes in a Modal Queue of `SandboxReference` objects.
-pool_queue = modal.Queue.from_name("sandbox-pool-sandboxes", create_if_missing=True)
+pool_queue = modal.Queue.from_name(
+    "example-sandbox-pool-sandboxes", create_if_missing=True
+)
 
 
 @dataclass
@@ -130,7 +132,7 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
 # This function creates and adds a new Sandbox to the pool. It runs a health check on
 # the Sandbox before adding it.
 #
-# We deploy the Sandboxes in a separate Modal App called `sandbox-pool-sandboxes`,
+# We deploy the Sandboxes in a separate Modal App called `example-sandbox-pool-sandboxes`,
 # to separate the control app (logs, etc.) from the Sandboxes.
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
@@ -313,7 +315,9 @@ def check():
 #
 # Run it with `python 13_sandboxes/sandbox_pool.py claim`.
 def claim() -> None:
-    deployed_claim_sandbox = modal.Function.from_name("sandbox-pool", "claim_sandbox")
+    deployed_claim_sandbox = modal.Function.from_name(
+        "example-sandbox-pool", "claim_sandbox"
+    )
     print(deployed_claim_sandbox.remote())
 
 
@@ -331,7 +335,9 @@ def demo():
     check()
 
     print("\nClaiming a Sandbox using the `claim_sandbox` Function...")
-    deployed_claim_sandbox = modal.Function.from_name("sandbox-pool", "claim_sandbox")
+    deployed_claim_sandbox = modal.Function.from_name(
+        "example-sandbox-pool", "claim_sandbox"
+    )
     sandbox_url = deployed_claim_sandbox.remote()
     print(f"Claimed Sandbox URL: {sandbox_url}")
 
@@ -344,7 +350,7 @@ def demo():
     check()
 
     deployed_web_endpoint = modal.Function.from_name(
-        "sandbox-pool", "claim_sandbox_web_endpoint"
+        "example-sandbox-pool", "claim_sandbox_web_endpoint"
     )
     web_endpoint_url = deployed_web_endpoint.get_web_url()
     print(f"\nClaiming a Sandbox using the web endpoint at '{web_endpoint_url}'...")

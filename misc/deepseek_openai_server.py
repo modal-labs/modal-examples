@@ -77,7 +77,7 @@ import modal
 # Any Python code can call Modal Functions remotely,
 # but local entrypoints get a command-line interface for free.
 
-app = modal.App("example-deepseek-openai-server")
+app = modal.App("deepseek-openai-server")
 
 MINUTES = 60
 

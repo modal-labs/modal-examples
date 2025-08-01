@@ -35,7 +35,7 @@ with image.imports():
 # We also define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
 MODELS_DIR = Path("/models")
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
-    "grpo-trl-example-checkpoints", create_if_missing=True
+    "example-grpo-trl-checkpoints", create_if_missing=True
 )
 
 # ## Defining the reward function

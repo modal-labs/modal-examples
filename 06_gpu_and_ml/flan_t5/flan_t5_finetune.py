@@ -260,7 +260,7 @@ def main():
 
 # ```bash
 # modal run --detach flan_t5_finetune.py::finetune --num-train-epochs=1 --size-percentage=10
-# View the tensorboard logs at https://<username>--example-news-summarizer-monitor-dev.modal.run
+# View the tensorboard logs at https://<username>--example-flan-t5-finetune-monitor-dev.modal.run
 # ```
 
 # Then, you can invoke inference via the `local_entrypoint` with this command:

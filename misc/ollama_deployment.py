@@ -53,7 +53,7 @@ image = (
 volume = modal.Volume.from_name("ollama-model-weights", create_if_missing=True)
 
 # Create the Modal application
-app = modal.App(name="example-ollama-deployment", image=image)
+app = modal.App(name="ollama-service", image=image)
 
 
 def wait_for_ollama(timeout: int = 30, interval: int = 2) -> None:

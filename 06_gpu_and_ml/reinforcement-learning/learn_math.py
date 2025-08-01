@@ -68,7 +68,9 @@ VLLM_CACHE_DIR = "/root/.cache/vllm"
 VLLM_CACHE_VOL = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 WEIGHTS_DIR = "/root/math_weights"
-WEIGHTS_VOL = modal.Volume.from_name("math-rl-weights", create_if_missing=True)
+WEIGHTS_VOL = modal.Volume.from_name(
+    "example-trainer-script-grpo-weights", create_if_missing=True
+)
 
 MODEL_NAME = "willcb/Qwen3-0.6B"
 TOOL_DESCRIPTIONS = """
@@ -109,7 +111,7 @@ def math_group_verifier(trainer_script: str, config_file: str, run_id: str = Non
     with open("/root/config.yaml", "w") as f:
         f.write(config_file)
 
-    wandb.init(project="math-rl")
+    wandb.init(project="example-trainer-script-grpo")
     wandb.config = {"epochs": 10}
 
     vllm_proc = subprocess.Popen(

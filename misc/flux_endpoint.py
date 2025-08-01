@@ -81,7 +81,7 @@ flux_endpoint_image = nvidia_cuda_image.pip_install(
 # We create a Modal App using the defined image and import necessary dependencies
 # within the container's runtime environment.
 
-app = modal.App("example-flux-endpoint", image=flux_endpoint_image)
+app = modal.App("flux_endpoint", image=flux_endpoint_image)
 
 with flux_endpoint_image.imports():
     import concurrent.futures

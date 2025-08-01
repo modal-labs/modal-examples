@@ -48,7 +48,7 @@ image = (
 
 # We also create a persistent [Volume](https://modal.com/docs/guide/volumes) for storing datasets, trained weights, and inference outputs.
 
-volume = modal.Volume.from_name("yolo-finetune", create_if_missing=True)
+volume = modal.Volume.from_name("example-yolo-finetune", create_if_missing=True)
 volume_path = (  # the path to the volume from within the container
     Path("/root") / "data"
 )

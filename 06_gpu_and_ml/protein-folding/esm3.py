@@ -36,7 +36,7 @@ app = modal.App("example-esm3")
 # [this guide](https://modal.com/docs/guide/model-weights).
 # We'll use this same distributed storage primitive to store sequence data.
 
-volume = modal.Volume.from_name("example-esm3-dashboard", create_if_missing=True)
+volume = modal.Volume.from_name("example-esm3", create_if_missing=True)
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
 DATA_PATH = VOLUME_PATH / "data"

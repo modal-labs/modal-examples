@@ -28,7 +28,7 @@ from pathlib import Path
 
 import modal
 
-BUCKET_NAME = "modal-example-dbt-duckdb-s3"
+BUCKET_NAME = "modal-example-dbt-duckdb"
 LOCAL_DBT_PROJECT = (  # local path
     Path(__file__).parent / "sample_proj_duckdb_s3"
 )
@@ -98,8 +98,8 @@ s3_secret = modal.Secret.from_name(
 #             "Action": "s3:*",
 #             "Effect": "Allow",
 #             "Resource": [
-#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3/*",
-#                 "arn:aws:s3:::modal-example-dbt-duckdb-s3"
+#                 "arn:aws:s3:::modal-example-dbt-duckdb/*",
+#                 "arn:aws:s3:::modal-example-dbt-duckdb"
 #             ],
 #             "Sid": "duckdbs3access"
 #         }
@@ -252,9 +252,9 @@ def serve_dbt_docs():
 # ```
 
 # If you navigate to the output URL, you should see something like
-# [![example dbt docs](./dbt_docs.png)](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run)
+# [![example dbt docs](./dbt_docs.png)](https://modal-labs-examples--example-dbt-duckdb-serve-dbt-docs.modal.run)
 
-# You can also check out our instance of the docs [here](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run).
+# You can also check out our instance of the docs [here](https://modal-labs-examples--example-dbt-duckdb-serve-dbt-docs.modal.run).
 # The app will be served "serverlessly" -- it will automatically scale up or down
 # during periods of increased or decreased usage, and you won't be charged at all
 # when it has scaled to zero.

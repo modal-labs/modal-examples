@@ -45,7 +45,7 @@ image = (
 
 DATA_PATH: Path = Path("/data")
 data_volume: modal.Volume = modal.Volume.from_name(
-    "grpo-verl-example-data", create_if_missing=True
+    "example-grpo-verl-data", create_if_missing=True
 )
 
 
@@ -133,7 +133,7 @@ MINUTES: int = 60
 
 # We also define a Volume for storing model checkpoints.
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
-    "grpo-verl-example-checkpoints", create_if_missing=True
+    "example-grpo-verl-checkpoints", create_if_missing=True
 )
 
 # Now, we write a Modal Function for kicking off the training run.

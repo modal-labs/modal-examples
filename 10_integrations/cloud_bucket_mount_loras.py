@@ -16,7 +16,7 @@
 
 # By the end of this example, we've deployed a "playground" app where anyone with a browser can try
 # out these custom models. That's the power of Modal: custom, autoscaling AI applications, deployed in seconds.
-# You can try out our deployment [here](https://modal-labs-examples--loras-galore-ui.modal.run).
+# You can try out our deployment [here](https://modal-labs-examples--example-cloud-bucket-mount-loras-ui.modal.run).
 
 # ## Basic setup
 
