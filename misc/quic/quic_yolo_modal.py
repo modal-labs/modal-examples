@@ -8,7 +8,7 @@ YOLO model code from:
 https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc
 Usage:
 # Start server (rendezvous + YOLO on GPU)
-> uvx modal serve quic_yolo_modal.py
+> modal serve quic_yolo_modal.py
 # Run client locally
 > uv run client.py --url <rendezvous_url> [--fake]  # --fake if no webcam available
 """
