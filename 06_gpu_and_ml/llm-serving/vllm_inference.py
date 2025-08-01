@@ -65,7 +65,9 @@ MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surpr
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
 # We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) for our cache.
-# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk.
+# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 

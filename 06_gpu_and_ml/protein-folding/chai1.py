@@ -104,8 +104,16 @@ def main(
 
 # Here, we do it with one line, using the `uv` package manager for extra speed.
 
-image = modal.Image.debian_slim(python_version="3.12").run_commands(
-    "uv pip install --system --compile-bytecode chai_lab==0.5.0 hf_transfer==0.1.8"
+image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .uv_pip_install(
+        "chai_lab==0.5.0",
+        "hf_transfer==0.1.8",
+    )
+    .uv_pip_install(
+        "torch==2.7.1",
+        index_url="https://download.pytorch.org/whl/cu128",
+    )
 )
 
 # ## Storing Chai-1 model weights on Modal with Volumes

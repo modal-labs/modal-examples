@@ -119,7 +119,8 @@ class SharedConfig:
 # A persisted [`modal.Volume`](https://modal.com/docs/guide/volumes) can store and share data across Modal Apps and Functions.
 
 # We'll use one to store both the original and fine-tuned weights we create during training
-# and then load them back in for inference.
+# and then load them back in for inference. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 volume = modal.Volume.from_name(
     "dreambooth-finetuning-volume-flux", create_if_missing=True

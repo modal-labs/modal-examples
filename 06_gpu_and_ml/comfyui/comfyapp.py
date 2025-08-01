@@ -78,6 +78,8 @@ image = (
 # 2. Mounting the cache directory to a [Volume](https://modal.com/docs/guide/volumes)
 
 # By persisting the cache to a Volume, you avoid re-downloading the models every time you rebuild your image.
+# For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 def hf_download():
