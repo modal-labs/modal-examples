@@ -140,7 +140,7 @@ vllm_image = (
 # Modal is serverless, so disks are by default ephemeral.
 # To make sure our weights don't disappear between runs
 # and require a long download step, we store them in a
-# Modal [Volume](https://modal.com/docs/guide/volumes). 
+# Modal [Volume](https://modal.com/docs/guide/volumes).
 model_cache = modal.Volume.from_name("deepseek", create_if_missing=True)
 cache_dir = "/root/.cache/deepseek"
 
