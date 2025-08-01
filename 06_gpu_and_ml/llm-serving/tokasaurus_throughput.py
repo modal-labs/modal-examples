@@ -54,14 +54,12 @@ TORCH_CUDA_ARCH_LIST = "9.0 9.0a"  # Hopper, aka H100/H200
 # From there, Tokasaurus can be installed like any normal Python package,
 # since Modal [provides the host CUDA drivers](https://modal.com/docs/guide/cuda).
 
-toka_image = (
-    toka_image.pip_install("uv")
-    .env(
-        {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
-    )
-    .run_commands(
-        "uv pip install --system --compile-bytecode tokasaurus==0.0.2 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0"
-    )
+toka_image = toka_image.env(
+    {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
+).uv_pip_install(
+    "tokasaurus==0.0.2",
+    "huggingface_hub[hf_transfer]==0.33.0",
+    "datasets==3.6.0",
 )
 
 # ## Download the model weights
