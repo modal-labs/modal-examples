@@ -52,11 +52,13 @@ image = (
     )
 )
 
-# ## Caching HuggingFace, vLLM, and storing model weights
+# ## Caching HuggingFace, vLLM, and storing model weights. # For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 # We create Modal Volumes to persist:
 # - HuggingFace downloads
 # - vLLM cache
 # - Model weights
+
 
 # We define the model name and a tool that the model can use to execute Python code that it generates.
 # See this [this training script](/docs/examples/trainer_script_grpo) for more details.

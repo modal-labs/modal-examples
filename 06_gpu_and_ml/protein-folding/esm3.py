@@ -46,7 +46,7 @@ DATA_PATH = VOLUME_PATH / "data"
 # The container image for structure inference is based on Modal's default slim Debian
 # Linux image with `esm` for loading and running the model, `gemmi` for
 # managing protein structure file conversions, and `hf_transfer`
-# for faster downloading of the model weights from Hugging Face.
+# for faster downloading of the model weights from Hugging Face. 
 
 esm3_image = (
     modal.Image.debian_slim(python_version="3.11")

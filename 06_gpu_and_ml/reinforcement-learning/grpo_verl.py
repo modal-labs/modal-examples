@@ -224,7 +224,8 @@ def train(*arglist) -> None:
 VLLM_PORT: int = 8000
 
 
-# Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM.
+# Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM. # For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 # The weights path is as follows: `global_step_n/actor/huggingface` where n is the checkpoint you want (e.g. `global_step_5/actor/huggingface`).
 # The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
 def get_latest_checkpoint_file_path():

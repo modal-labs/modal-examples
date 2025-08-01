@@ -78,7 +78,9 @@ model_input_shape = (224, 224)
 
 # We will use a high-performance [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
 # both to cache model weights and to store images we want to encode. The details of
-# setting this volume up are below. Here, we just need to name it so that we can instantiate
+# setting this volume up are below. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+# Here, we just need to name it so that we can instantiate
 # the Modal application.
 # You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
 hf_secret = modal.Secret.from_name("huggingface-secret")

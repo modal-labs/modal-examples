@@ -79,7 +79,9 @@ MODEL_REVISION = "4e20de362430cd3b72f300e6b0f18e50e7166e08"  # avoid nasty surpr
 
 # Although Tokasaurus will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
-# We'll use a [Modal Volume](https://modal.com/docs/guide/volumes) for our cache.
+# We'll use a [Modal Volume](https://modal.com/docs/guide/volumes) for our cache. # For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 app_name = "example-tokasaurus-throughput"
 hf_cache_vol = modal.Volume.from_name(f"{app_name}-hf-cache", create_if_missing=True)

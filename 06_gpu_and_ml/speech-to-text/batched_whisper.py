@@ -75,7 +75,8 @@ def download_model():
 
 # We define a `@modal.enter` method to load the model when the container starts, before it picks up any inputs.
 # The weights will be loaded from the Hugging Face cache volume so that we don't need to download them when
-# we start a new container.
+# we start a new container. # For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 # We also define a `transcribe` method that uses the `@modal.batched` decorator to enable dynamic batching.
 # This allows us to invoke the function with individual audio samples, and the function will automatically batch them

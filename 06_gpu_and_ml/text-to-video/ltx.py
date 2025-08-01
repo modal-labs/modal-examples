@@ -77,7 +77,7 @@ model = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=True)
 MODEL_PATH = Path("/models")
 image = image.env({"HF_HOME": str(MODEL_PATH)})
 
-# For more on storing Modal weights on Modal, see
+# For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 

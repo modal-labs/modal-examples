@@ -49,7 +49,8 @@ image = (
     )
 )
 
-# Create a persistent volume to store model weights
+# Create a persistent volume to store model weights. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 volume = modal.Volume.from_name("ollama-model-weights", create_if_missing=True)
 
 # Create the Modal application
