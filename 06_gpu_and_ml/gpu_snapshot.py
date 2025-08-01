@@ -19,7 +19,7 @@ with image.imports():  # import in the global scope so imports can be snapshot
 @app.cls(
     gpu="a10",
     enable_memory_snapshot=True,
-    _experimental_enable_gpu_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
 )
 class SnapshotEmbedder:
     @modal.enter(snap=True)
