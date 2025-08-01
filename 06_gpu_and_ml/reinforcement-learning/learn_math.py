@@ -52,7 +52,7 @@ image = (
     )
 )
 
-# ## Caching HuggingFace, vLLM, and storing model weights. # For more on storing model weights on Modal, see
+# ## Caching HuggingFace, vLLM, and storing model weights. For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 # We create Modal Volumes to persist:
 # - HuggingFace downloads

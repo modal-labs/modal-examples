@@ -144,7 +144,7 @@ video_processing_image = (
 
 # We also need to create a Modal [Volume](https://modal.com/docs/guide/volumes) to store things we need across replicas --
 # primarily the model weights and ONNX inference graph, but also a few other artifacts like a video file where
-# we'll write out the processed video stream for testing. # For more on storing model weights on Modal, see
+# we'll write out the processed video stream for testing. For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 # The very first time we run the app, downloading the model and building the ONNX inference graph will take a few minutes.

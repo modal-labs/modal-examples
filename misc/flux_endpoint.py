@@ -15,7 +15,7 @@
 
 # We start by importing the necessary libraries and defining our storage paths.
 # We use Modal Volumes for caching model artifacts and Modal CloudBucketMounts for
-# storing generated images. # For more on storing model weights on Modal, see
+# storing generated images. For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 from __future__ import annotations

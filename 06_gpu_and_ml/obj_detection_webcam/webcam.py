@@ -88,7 +88,7 @@ with image.imports():
 # We'll store the model weights in a Volume and provide a function that you can
 # `modal run` against to download the model weights prior to deploying the App.
 # Otherwise, the model weights will be downloaded for the first inference
-# and cached to the Volume when the first container exits. # For more on storing model weights on Modal, see
+# and cached to the Volume when the first container exits. For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 

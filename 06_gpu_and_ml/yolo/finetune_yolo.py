@@ -46,7 +46,7 @@ image = (
     )
 )
 
-# We also create a persistent [Volume](https://modal.com/docs/guide/volumes) for storing datasets, trained weights, and inference outputs. # For more on storing model weights on Modal, see
+# We also create a persistent [Volume](https://modal.com/docs/guide/volumes) for storing datasets, trained weights, and inference outputs. For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 volume = modal.Volume.from_name("yolo-finetune", create_if_missing=True)
