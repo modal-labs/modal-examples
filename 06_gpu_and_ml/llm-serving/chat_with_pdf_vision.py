@@ -130,7 +130,6 @@ cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 
-
 @app.function(
     image=model_image, volumes={CACHE_DIR: cache_volume}, timeout=20 * MINUTES
 )

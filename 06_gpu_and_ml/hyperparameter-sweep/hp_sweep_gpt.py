@@ -70,7 +70,7 @@ gpu = "A10G"
 
 # Since we'll be coordinating training across multiple machines we'll use a
 # distributed [Volume](https://modal.com/docs/guide/volumes)
-# to store the data, checkpointed models, and TensorBoard logs. 
+# to store the data, checkpointed models, and TensorBoard logs.
 
 volume = modal.Volume.from_name("example-hp-sweep-gpt-volume", create_if_missing=True)
 volume_path = PosixPath("/vol/data")
