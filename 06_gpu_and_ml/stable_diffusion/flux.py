@@ -64,7 +64,7 @@ flux_image = (
 )
 
 # Later, we'll also use `torch.compile` to increase the speed further.
-# Torch compilation needs to be re-executed when each new container starts
+# Torch compilation needs to be re-executed when each new container starts,
 # so we turn on some extra caching to reduce compile times for later containers.
 
 flux_image = flux_image.env(
