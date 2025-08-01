@@ -77,7 +77,9 @@ MODEL_REVISION_ID = "a6d59ee37c13c58261aa79027d3e41cd41960925"
 # which means the weights would get re-downloaded every time we spin up a new instance.
 
 # We can fix this -- without any modifications to Hugging Face's model loading code! --
-# by pointing the Hugging Face cache at a [Modal Volume](https://modal.com/docs/guide/volumes).
+# by pointing the Hugging Face cache at a [Modal Volume](https://modal.com/docs/guide/volumes). For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 model_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 

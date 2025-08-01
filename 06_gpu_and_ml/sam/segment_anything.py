@@ -59,7 +59,8 @@ app = modal.App("sam2-app", image=image)
 # We use the `@modal.enter()` decorators here for optimization: it makes sure the initialization
 # method runs only once, when a new container starts, instead of in the path of every call.
 # We'll also use a modal Volume to cache the model weights so that they don't need to be downloaded
-# repeatedly when we start new containers.
+# repeatedly when we start new containers. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 video_vol = modal.Volume.from_name("sam2-inputs", create_if_missing=True)
