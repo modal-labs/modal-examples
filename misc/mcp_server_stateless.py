@@ -17,7 +17,7 @@
 
 import modal
 
-app = modal.App("datetime-mcp-server")
+app = modal.App("example-mcp-server-stateless")
 
 image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "fastapi==0.115.14",

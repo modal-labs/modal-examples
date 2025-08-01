@@ -54,7 +54,7 @@ volume_path = (  # the path to the volume from within the container
 )
 
 # We attach both of these to a Modal [App](https://modal.com/docs/guide/apps).
-app = modal.App("yolo-finetune", image=image, volumes={volume_path: volume})
+app = modal.App("example-yolo-finetune", image=image, volumes={volume_path: volume})
 
 
 # ## Download a dataset

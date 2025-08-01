@@ -117,7 +117,7 @@ infinity_image = (
 
 # Initialize the app
 app = modal.App(
-    "example-infinity-embedder",
+    "example-image-embeddings-infinity",
     image=infinity_image,
     volumes={vol_mnt: data_volume},
     secrets=[hf_secret],

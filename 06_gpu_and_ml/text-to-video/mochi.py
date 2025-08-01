@@ -37,7 +37,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App()
+app = modal.App("example-mochi")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

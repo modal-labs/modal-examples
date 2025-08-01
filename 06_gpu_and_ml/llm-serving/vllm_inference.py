@@ -117,7 +117,7 @@ FAST_BOOT = True
 # once the model is spun up and the `serve` function returns.
 
 
-app = modal.App("example-vllm-openai-compatible")
+app = modal.App("example-vllm-inference")
 
 N_GPU = 1
 MINUTES = 60  # seconds

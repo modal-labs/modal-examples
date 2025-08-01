@@ -71,7 +71,7 @@ dbt_image = (  # start from a slim Linux image
     )
 )
 
-app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
+app = modal.App(name="example-dbt-duckdb", image=dbt_image)
 
 dbt_target = modal.Volume.from_name("dbt-target-vol", create_if_missing=True)
 

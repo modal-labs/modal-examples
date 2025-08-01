@@ -309,7 +309,7 @@ def get_build_config():
 
 # We start by creating an `App`.
 
-app = modal.App("trtllm-latency")
+app = modal.App("example-trtllm-latency")
 
 # Thanks to our [custom container runtime system](https://modal.com/blog/jono-containers-talk),
 # even this large container boots in seconds.

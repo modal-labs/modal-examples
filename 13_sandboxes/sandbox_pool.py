@@ -37,7 +37,7 @@ from datetime import datetime
 
 import modal
 
-app = modal.App("sandbox-pool")
+app = modal.App("example-sandbox-pool")
 
 server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "fastapi[standard]~=0.115.14",
@@ -135,7 +135,9 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
 @app.function(image=server_image, retries=3)
 @modal.concurrent(max_inputs=100)
 def add_sandbox_to_queue() -> None:
-    sandbox_app = modal.App.lookup("sandbox-pool-sandboxes", create_if_missing=True)
+    sandbox_app = modal.App.lookup(
+        "example-sandbox-pool-sandboxes", create_if_missing=True
+    )
 
     sandbox_cmd = ["python", "-m", "http.server", "8080"]
     sb = modal.Sandbox.create(

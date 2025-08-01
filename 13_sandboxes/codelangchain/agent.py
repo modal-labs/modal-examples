@@ -28,7 +28,7 @@ from .src.common import COLOR, PYTHON_VERSION, image
 # and use the provided templates for OpenAI and LangSmith.
 
 app = modal.App(
-    "example-code-langchain",
+    "example-agent",
     image=image,
     secrets=[
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),

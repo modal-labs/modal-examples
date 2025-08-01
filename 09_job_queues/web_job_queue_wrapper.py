@@ -14,7 +14,7 @@ import time
 
 import modal
 
-app = modal.App("web_job_queue_wrapper")
+app = modal.App("example-web-job-queue-wrapper")
 
 # Next, we'll create a dummy backend service, in reality you may plug an a LLM or Diffusion model here.
 # We'll add artificial delays to simulate a cold boot and a long-running tasks.

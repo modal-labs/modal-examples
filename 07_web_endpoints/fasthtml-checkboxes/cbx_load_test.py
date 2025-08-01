@@ -29,7 +29,7 @@ volume = modal.Volume.from_name("loadtest-checkboxes-results", create_if_missing
 remote_path = Path("/root") / "loadtests"
 OUT_DIRECTORY = remote_path / datetime.utcnow().replace(microsecond=0).isoformat()
 
-app = modal.App("loadtest-checkbox", image=image, volumes={remote_path: volume})
+app = modal.App("example-cbx-load-test", image=image, volumes={remote_path: volume})
 
 workers = 8
 host = f"https://{workspace}{'-' + environment if environment else ''}--example-checkboxes-web.modal.run"

@@ -34,7 +34,7 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 # Then, we set that as the default Image on our Modal [App](https://modal.com/docs/guide/apps).
 
-app = modal.App("fastrtc-flip-webcam", image=web_image)
+app = modal.App("example-fastrtc-flip-webcam", image=web_image)
 
 # ### Configure WebRTC streaming on Modal
 

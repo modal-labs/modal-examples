@@ -248,7 +248,7 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image)
+app = modal.App("example-trtllm-throughput", image=tensorrt_image)
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 

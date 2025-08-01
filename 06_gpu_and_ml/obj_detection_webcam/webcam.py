@@ -47,7 +47,7 @@ MODEL_REPO_ID = "facebook/detr-resnet-50"
 MODEL_DIR = "/cache"
 
 
-app = modal.App("example-webcam-object-detection")
+app = modal.App("example-webcam")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(

@@ -74,7 +74,7 @@ with image.imports():
 # (almost) as if it were a local directory.
 
 app = modal.App(
-    "loras-galore",
+    "example-cloud-bucket-mount-loras",
     image=image,
     volumes={
         MOUNT_PATH: modal.CloudBucketMount(

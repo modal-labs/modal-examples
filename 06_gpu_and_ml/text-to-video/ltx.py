@@ -29,7 +29,7 @@ from typing import Optional
 
 import modal
 
-app = modal.App("example-ltx-video")
+app = modal.App("example-ltx")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")

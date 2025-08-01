@@ -23,7 +23,7 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "xgboost==3.0.0",
     "optuna-dashboard==0.18.0",
 )
-app = modal.App("xgboost-optuna-prune", image=image)
+app = modal.App("example-xgboost-optuna-search", image=image)
 
 # We create a Modal Volume to hold Optuna's
 # [JournalStorage](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.storages.JournalStorage.html)

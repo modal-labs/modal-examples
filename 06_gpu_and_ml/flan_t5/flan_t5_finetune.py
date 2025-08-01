@@ -31,7 +31,7 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "tensorboard",
 )
 
-app = modal.App(name="example-news-summarizer", image=image)
+app = modal.App(name="example-flan-t5-finetune", image=image)
 output_vol = modal.Volume.from_name("finetune-volume", create_if_missing=True)
 
 # ### Handling preemption

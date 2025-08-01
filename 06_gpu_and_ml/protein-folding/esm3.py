@@ -26,7 +26,7 @@ import modal
 
 MINUTES = 60  # seconds
 
-app = modal.App("example-esm3-dashboard")
+app = modal.App("example-esm3")
 
 # ### Create a Volume to store ESM3 model weights and Entrez sequence data
 

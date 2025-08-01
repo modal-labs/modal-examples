@@ -19,7 +19,7 @@
 
 import modal
 
-app = modal.App(name="learn-math")
+app = modal.App(name="example-learn-math")
 cuda_version = "12.8.0"
 flavor = "devel"
 operating_sys = "ubuntu22.04"

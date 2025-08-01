@@ -89,7 +89,7 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "lightning~=2.4.0", "torch~=2.4.0", "torchvision==0.19.0"
 )
 
-app = modal.App("example-long-training-lightning", image=image)
+app = modal.App("example-long-training", image=image)
 
 # Next, we attach our training function to this app with `app.function`.
 

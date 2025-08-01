@@ -22,7 +22,7 @@ import modal
 
 MINUTES = 60  # seconds
 
-app = modal.App("chat-with-pdf")
+app = modal.App("example-chat-with-pdf-vision")
 
 # ## Setting up dependenices
 

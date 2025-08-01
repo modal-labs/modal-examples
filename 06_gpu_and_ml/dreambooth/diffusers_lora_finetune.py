@@ -48,7 +48,7 @@ import modal
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our Modal App runs.
 
-app = modal.App(name="example-lora-flux")
+app = modal.App(name="example-diffusers-lora-finetune")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",

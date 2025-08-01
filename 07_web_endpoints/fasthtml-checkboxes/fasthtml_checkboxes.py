@@ -26,7 +26,7 @@ import modal
 
 from .constants import N_CHECKBOXES
 
-app = modal.App("example-checkboxes")
+app = modal.App("example-fasthtml-checkboxes")
 db = modal.Dict.from_name("example-checkboxes-db", create_if_missing=True)
 
 css_path_local = Path(__file__).parent / "styles.css"

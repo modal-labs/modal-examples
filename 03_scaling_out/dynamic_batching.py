@@ -14,7 +14,7 @@
 import modal
 
 app = modal.App(
-    "example-dynamic-batching-ascii-conversion",
+    "example-dynamic-batching",
     image=modal.Image.debian_slim(python_version="3.11"),
 )
 

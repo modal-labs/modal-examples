@@ -58,7 +58,7 @@ image = (
     .run_function(download_falcon_40b)
 )
 
-app = modal.App(image=image, name="example-falcon-bnb")
+app = modal.App(image=image, name="example-falcon-bitsandbytes")
 
 
 # ## The model class

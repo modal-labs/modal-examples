@@ -121,7 +121,7 @@ image = image.add_local_file(
 # Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function
 # and serving it as a [web server](https://modal.com/docs/guide/webhooks#non-asgi-web-servers).
 
-app = modal.App(name="example-comfyui", image=image)
+app = modal.App(name="example-comfyapp", image=image)
 
 
 @app.function(

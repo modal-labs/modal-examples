@@ -25,7 +25,7 @@ import modal
 server_id = str(uuid.uuid4())
 
 # Modal setup
-app_name = "modal-quic-yolo"
+app_name = "example-quic-yolo-modal"
 py_version = "3.12"
 tensorrt_ld_path = f"/usr/local/lib/python{py_version}/site-packages/tensorrt_libs"
 

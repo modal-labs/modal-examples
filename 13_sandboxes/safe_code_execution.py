@@ -18,7 +18,7 @@ import modal
 image = modal.Image.debian_slim(python_version="3.11").apt_install(
     "nodejs", "ruby", "php"
 )
-app = modal.App.lookup("safe-code-execution", create_if_missing=True)
+app = modal.App.lookup("example-safe-code-execution", create_if_missing=True)
 
 # We'll now create a Sandbox with this image. We'll also enable output so we can see the image build
 # logs. Note that we don't pass any commands to the Sandbox, so it will stay alive, waiting for us

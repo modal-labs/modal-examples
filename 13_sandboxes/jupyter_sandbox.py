@@ -21,7 +21,7 @@ import urllib.request
 
 import modal
 
-app = modal.App.lookup("example-jupyter", create_if_missing=True)
+app = modal.App.lookup("example-jupyter-sandbox", create_if_missing=True)
 
 # We define a custom Docker image that has Jupyter and some other dependencies installed.
 # Using a pre-defined image allows us to avoid re-installing packages on every Sandbox startup.

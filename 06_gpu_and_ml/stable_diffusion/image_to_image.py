@@ -58,7 +58,7 @@ image = image.env(
 )
 
 
-app = modal.App("image-to-image")
+app = modal.App("example-image-to-image")
 
 with image.imports():
     import torch

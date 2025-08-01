@@ -7,7 +7,7 @@ import time
 import modal
 
 app = modal.App(
-    "example-tqdm",
+    "example-tqdm-progress-bar",
     image=modal.Image.debian_slim().pip_install("tqdm"),
 )
 

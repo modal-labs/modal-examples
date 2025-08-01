@@ -7,7 +7,7 @@ import sys
 
 import modal
 
-app = modal.App("example-hello-world")
+app = modal.App("example-hello-shebang")
 
 
 @app.function()

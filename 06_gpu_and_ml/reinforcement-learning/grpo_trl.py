@@ -19,7 +19,7 @@ from typing import Iterable, Sequence
 
 import modal
 
-app: modal.App = modal.App("grpo-trl-example")
+app: modal.App = modal.App("example-grpo-trl")
 
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.

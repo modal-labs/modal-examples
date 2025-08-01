@@ -25,7 +25,7 @@ image = (
     .run_commands("chmod a+x /root/entrypoint.sh")
     .entrypoint(["/root/entrypoint.sh"])
 )
-app = modal.App(image=image)
+app = modal.App("example-modal-tailscale", image=image)
 
 # Packages might not be installed locally. This catches import errors and
 # only attempts imports in the container.

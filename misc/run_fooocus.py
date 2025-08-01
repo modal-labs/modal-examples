@@ -68,7 +68,7 @@ image = image.run_function(init_Fooocus, gpu=GPU_CONFIG)
 # The `web_server` decorator indicates that this function will serve a web application on the specified port.
 # We increase the startup timeout to three minutes to account for the time it takes to load the model and start the server.
 
-app = modal.App("Fooocus", image=image)
+app = modal.App("example-run-fooocus", image=image)
 
 PORT = 8000
 MINUTES = 60

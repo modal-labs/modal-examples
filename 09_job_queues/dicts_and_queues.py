@@ -25,9 +25,10 @@ from datetime import datetime
 import modal
 
 app = modal.App(
+    "example-dicts-and-queues",
     image=modal.Image.debian_slim().pip_install(
         "requests~=2.32.4", "beautifulsoup4~=4.13.4"
-    )
+    ),
 )
 
 
