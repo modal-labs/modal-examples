@@ -1,9 +1,0 @@
-version: 2
-
-sources:
-  - name: external_source
-    meta:
-      external_location: "{{ env_var('DBT_PROJECT_DIR') }}/seeds/{name}.csv"
-    tables:
-      - name: raw_reviews
-      - name: raw_products
