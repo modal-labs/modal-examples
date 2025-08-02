@@ -8,7 +8,7 @@ import time
 
 import modal
 
-app = modal.App("example-parallel")
+app = modal.App("example-parallel-execution")
 
 
 @app.function()

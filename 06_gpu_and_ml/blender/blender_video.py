@@ -29,7 +29,7 @@ import modal
 # Modal runs your Python functions for you in the cloud.
 # You organize your code into apps, collections of functions that work together.
 
-app = modal.App("examples-blender-video")
+app = modal.App("example-blender-video")
 
 # We need to define the environment each function runs in --  its container image.
 # The block below defines a container image, starting from a basic Debian Linux image

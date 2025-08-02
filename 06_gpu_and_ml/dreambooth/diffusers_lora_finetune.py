@@ -48,7 +48,7 @@ import modal
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our Modal App runs.
 
-app = modal.App(name="example-lora-flux")
+app = modal.App(name="example-diffusers-lora-finetune")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
@@ -533,7 +533,7 @@ def fastapi_app():
 # Remember, once you've trained your own fine-tuned model, you can deploy it permanently -- for no cost when it is not being used! --
 # using `modal deploy diffusers_lora_finetune.py`.
 
-# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-lora-flux-fastapi-app.modal.run).
+# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-diffusers-lora-finetune-fastapi-app.modal.run).
 
 
 @app.local_entrypoint()

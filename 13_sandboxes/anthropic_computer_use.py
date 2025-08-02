@@ -20,7 +20,7 @@ import urllib.request
 import modal
 import modal.experimental
 
-app = modal.App.lookup("example-computer-use", create_if_missing=True)
+app = modal.App.lookup("example-anthropic-computer-use", create_if_missing=True)
 
 # The Computer Use [quickstart](https://github.com/anthropics/anthropic-quickstarts/tree/main/computer-use-demo)
 # provides a prebuilt Docker image. We use this hosted image to create our sandbox environment.

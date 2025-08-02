@@ -20,7 +20,7 @@ import modal
 from .agent import construct_graph, create_sandbox
 from .src.common import image
 
-app = modal.App("example-langserve")
+app = modal.App("example-codelangchain-langserve")
 
 image = image.pip_install("langserve[all]==0.3.0")
 

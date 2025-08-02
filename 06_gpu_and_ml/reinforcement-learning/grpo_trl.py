@@ -19,7 +19,7 @@ from typing import Iterable, Sequence
 
 import modal
 
-app: modal.App = modal.App("grpo-trl-example")
+app: modal.App = modal.App("example-grpo-trl")
 
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
@@ -35,7 +35,7 @@ with image.imports():
 # We also define a [Modal Volume](https://modal.com/docs/guide/volumes#volumes) for storing model checkpoints.
 MODELS_DIR = Path("/models")
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
-    "grpo-trl-example-checkpoints", create_if_missing=True
+    "example-grpo-trl-checkpoints", create_if_missing=True
 )
 
 # ## Defining the reward function

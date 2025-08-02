@@ -42,6 +42,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 # called `my-anthropic-secret` to hold share it with your Modal Functions.
 
 app = modal.App(
+    "example-instructor-generate",
     image=image,
     secrets=[
         modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"])

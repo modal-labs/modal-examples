@@ -31,7 +31,7 @@ image = (
     .run_function(download_model)
 )
 
-app = modal.App("gpu-packing", image=image)
+app = modal.App("example-gpu-packing", image=image)
 
 
 # ModelPool holds multiple instances of the model, using a queue

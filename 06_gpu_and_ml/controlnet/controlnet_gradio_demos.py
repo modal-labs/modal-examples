@@ -243,7 +243,7 @@ image = (
         secrets=[modal.Secret.from_dict({"DEMO_NAME": DEMO_NAME})],
     )
 )
-app = modal.App(name="example-controlnet", image=image)
+app = modal.App(name="example-controlnet-gradio-demos", image=image)
 
 web_app = FastAPI()
 

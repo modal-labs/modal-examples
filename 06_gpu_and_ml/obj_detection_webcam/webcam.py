@@ -16,7 +16,7 @@
 
 # ## Live demo
 
-# [Take a look at the deployed app](https://modal-labs-examples--example-webcam-object-detection.modal.run/).
+# [Take a look at the deployed app](https://modal-labs-examples--example-webcam.modal.run/).
 
 # A couple of caveats:
 # * This is not optimized for latency: every prediction takes about 1s, and
@@ -47,7 +47,7 @@ MODEL_REPO_ID = "facebook/detr-resnet-50"
 MODEL_DIR = "/cache"
 
 
-app = modal.App("example-webcam-object-detection")
+app = modal.App("example-webcam")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -172,7 +172,7 @@ static_path = Path(__file__).with_name("webcam").resolve()
     .pip_install("fastapi[standard]==0.115.4")
     .add_local_dir(static_path, remote_path="/assets")
 )
-@modal.asgi_app(label="example-webcam-object-detection")
+@modal.asgi_app(label="example-webcam")
 def fastapi_app():
     from fastapi import FastAPI, Request, Response
     from fastapi.staticfiles import StaticFiles

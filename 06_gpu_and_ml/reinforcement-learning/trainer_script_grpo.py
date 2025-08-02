@@ -16,7 +16,7 @@ import verifiers as vf
 from verifiers.utils import load_example_dataset
 
 # We create a Modal app and a Modal sandbox.
-app = modal.App.lookup("math-rl", create_if_missing=True)
+app = modal.App.lookup("example-trainer-script-grpo", create_if_missing=True)
 sb = modal.Sandbox.create(app=app)
 
 

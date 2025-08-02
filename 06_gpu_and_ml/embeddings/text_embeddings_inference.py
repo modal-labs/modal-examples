@@ -58,7 +58,7 @@ def download_model():
 
 volume = modal.Volume.from_name("tei-hn-data", create_if_missing=True)
 
-app = modal.App("example-tei")
+app = modal.App("example-text-embeddings-inference")
 
 
 tei_image = (

@@ -2,7 +2,7 @@ from typing import Optional
 
 import modal
 
-app = modal.App("example-qdrant-in-memory")
+app = modal.App("example-qdrant")
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "qdrant-client[fastembed-gpu]==1.13.3"

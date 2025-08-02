@@ -14,7 +14,7 @@ import modal
 from modal.functions import FunctionCall
 from starlette.responses import HTMLResponse, RedirectResponse
 
-app = modal.App("example-poll")
+app = modal.App("example-poll-delayed-result")
 
 web_app = fastapi.FastAPI()
 
