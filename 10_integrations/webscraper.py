@@ -1,3 +1,7 @@
+# ---
+# cmd: ["modal", "deploy", "10/integrations/webscraper.py"]
+# ---
+
 # # Web Scraping on Modal
 #
 # In this guide we'll introduce you to Modal by writing a simple web scraper.
