@@ -36,7 +36,9 @@ model_image = (
     .apt_install("git")
     .pip_install(
         [
-            "git+https://github.com/illuin-tech/colpali.git@782edcd50108d1842d154730ad3ce72476a2d17d",  # we pin the commit id
+            "colpali-engine==0.3.5",  # Use the stable PyPI version instead of git
+            "transformers>=4.45.0",   # Ensure compatible transformers version
+            "torch>=2.0.0",          # Ensure compatible torch version
             "hf_transfer==0.1.8",
             "qwen-vl-utils==0.0.8",
             "torchvision==0.19.1",
