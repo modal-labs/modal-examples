@@ -4,13 +4,10 @@
 
 # # Fine-tune Whisper to Improve Domain-Specific Transcription
 
-# This example demonstrates how to fine-tune an OpenAI Whisper model to improve the
-# model's abillity to transcribe domain-specific vocabulary.
-
+import functools
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional
 from pathlib import Path
 from typing import Any, Union
 
@@ -53,10 +50,7 @@ with image.imports():
     import evaluate
     import torch
     import transformers
-    from transformers.models.whisper.english_normalizer import (
-        EnglishTextNormalizer,
-    )
-    from transformers.trainer_utils import get_last_checkpoint, is_main_process
+    from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 
     from english_spelling_mapping import english_spelling_mapping
 
