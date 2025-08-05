@@ -4,26 +4,31 @@
 
 # # Run OpenAI's first OSS model with vLLM
 
-# It's hard to remember now but OpenAI was founded with the mission of ensuring
-# that the most powerful AI models wouldn't be controlled exclusively by
-# for-profit corporations. But the compute-demands of AI couldn't be ignored and
-# they partnered with Microsoft and surprised the world with ChatGPT in December
-# 2022, a bot that made us all question if the Turing test was on the verge of
-# being solved—hitting 100 million users in just two months. But the open source
-# community pushed back hard, people wanted modifiable models they could actually
-# control, and LLaMA, Qwen, and DeepSeek all became serious rivals that trailed
-# closed-source performance by only 6-12 months year after year. Now OpenAI is
-# teetering back to its roots, releasing their very first open source model.
+# Run OpenAI's first open source model with vLLM. 
 
-# The cracked engineers at vLLM have brought 0-day support for it and we're supplying
-# the infrastructure so anyone can run it.
+# ## Background
+# ### Overview
+# GPT-OSS is a reasoning model that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both 
+# Mixture of Experts (MoE) models that allow for a low number of active parameters, 5.1B and 3.6B respectively.
+
+# ### MXFP4
+# OpenAI's GPT-OSS models use [`mxfp4`](https://arxiv.org/abs/2310.10537) precision for the MoE layers
+# during training, this is a block floating point format that allow for more efficient training and inference.
+
+# ### Attention Sinks
+# Attention sink models allow for longer context lengths without sacrificing output quality. The vLLM team
+# added [attention sink support](https://huggingface.co/kernels-community/vllm-flash-attn3) 
+# for Flash Attention 3 (FA3) in prep for this release.
+
+# ### Response Format
+# GPT-OSS is trained with the [harmony response format](https://github.com/openai/harmony) which enables models
+# to output to multipe channels for chain-of-thought (CoT), and input tool calling preambles along with regular responses.
 
 # ## Set up the container image
 
 # We'll start by defining a [custom container `Image`](https://modal.com/docs/guide/custom-container) that
-# install all the necessary dependencies to run vLLM and the model. This will include `amd-quark` which is
-# AMD's quantization library that support [`mxfp4`](https://en.wikipedia.org/wiki/Block_floating_point#Microscaling_(MX)_Formats)
-# quantization. OpenAI has provided the model is `mxfp4` format.
+# installs all the necessary dependencies to run vLLM and the model. This includes a custom vllm version
+# and a nightly pytorch install so that we can run gpt-oss running.
 
 import json
 from typing import Any
@@ -42,7 +47,7 @@ vllm_image = (
         pre=True,
         extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
     )
-    .pip_install(
+    .uv_pip_install(
         "huggingface_hub[hf_transfer]==0.34",
     )
     .env({
@@ -54,15 +59,15 @@ vllm_image = (
 
 # ## Download the model weights
 
-# We'll be downloading OpenAI's model straight from huggingface. We're running the 20B parameter 
-# model by default but you can easily switch to the 20B model too.
+# We'll be downloading OpenAI's model from Hugging Face. We're running
+# the 20B parameter model by default but you can easily switch to [the 120B model](https://huggingface.co/openai/gpt-oss-120b).
 MODEL_NAME = "openai/gpt-oss-20b"
 
-# Although vLLM will download weights from Hugging Face on-demand,
-# we want to cache them so we don't do it every time our server starts.
-# We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) for our cache.
-# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk. For more on storing model weights on Modal, see
-# [this guide](https://modal.com/docs/guide/model-weights).
+# Although vLLM will download weights from Hugging Face on-demand, we want to
+# cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) 
+# for our cache. Modal Volumes are essentially a "shared disk" that all Modal
+# Functions can access like it's a regular disk. For more on storing model
+# weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
@@ -79,7 +84,7 @@ FAST_BOOT = True
     image=vllm_image,
     gpu=f"H200:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
-    timeout=10 * MINUTES,  # how long should we wait for container start?
+    timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
@@ -122,19 +127,27 @@ def serve():
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, content=None, twice=True):
+async def test(test_timeout=30 * MINUTES, user_content=None):
     url = serve.get_web_url()
-
+    system_prompt_content: str = """
+You are ChatGPT, a large language model trained by OpenAI.
+Knowledge cutoff: 2024-06
+Current date: 2025-08-05
+Reasoning: low
+# Valid channels: analysis, commentary, final. Channel must be included for every message.
+Calls to these tools must go to the commentary channel: 'functions'.
+"""
     system_prompt = {
         "role": "system",
-        "content": "You are a pirate who can't help but drop sly reminders that he went to Harvard.",
+        "content": system_prompt_content,
     }
-    if content is None:
-        content = "Explain the singular value decomposition."
+
+    if user_content is None:
+        user_content = "Explain what MXFP4 quantization is."
 
     messages = [  # OpenAI chat format
         system_prompt,
-        {"role": "user", "content": content},
+        {"role": "user", "content": user_content},
     ]
 
     async with aiohttp.ClientSession(base_url=url) as session:
@@ -146,10 +159,6 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
 
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await _send_request(session, "llm", messages)
-        if twice:
-            messages[0]["content"] = "You are Jar Jar Binks."
-            print(f"Sending messages to {url}:", *messages, sep="\n\t")
-            await _send_request(session, "llm", messages)
 
 
 async def _send_request(
@@ -162,7 +171,7 @@ async def _send_request(
 
     t = time.perf_counter()
     async with session.post(
-        "/v1/chat/completions", json=payload, headers=headers, timeout=1 * MINUTES
+        "/v1/chat/completions", json=payload, headers=headers, timeout=10 * MINUTES
     ) as resp:
         async for raw in resp.content:
             resp.raise_for_status()
@@ -177,8 +186,15 @@ async def _send_request(
             assert (
                 chunk["object"] == "chat.completion.chunk"
             )  # or something went horribly wrong
-            print(chunk["choices"][0]["delta"]["content"], end="")
-    print(f"TTLT_s: {time.perf_counter() - t:.2f} seconds")
-    print()
+            delta = chunk["choices"][0]["delta"]
+
+            if "content" in delta:
+                print(delta["content"], end="") # print the content as it comes in
+            elif "reasoning_content" in delta:
+                print(delta["reasoning_content"], end="")
+            else:
+                raise ValueError(f"Unsupported response delta: {delta}")
+    print("")
+    print(f"Time to Last Token: {time.perf_counter() - t:.2f} seconds")
 
 
