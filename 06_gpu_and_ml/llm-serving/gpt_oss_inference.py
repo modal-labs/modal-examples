@@ -59,7 +59,6 @@ vllm_image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
-            "VLLM_USER_V1": "1",  # latest engine
         }
     )
 )
