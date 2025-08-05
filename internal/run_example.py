@@ -7,7 +7,7 @@ import time
 from . import utils
 
 MINUTES = 60
-TIMEOUT = 12 * MINUTES
+TIMEOUT = 30 * MINUTES
 
 
 def run_script(example):
