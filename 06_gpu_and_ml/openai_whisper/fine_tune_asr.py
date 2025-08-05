@@ -174,33 +174,14 @@ def train(
     min_input_length = config.min_duration_in_seconds * feature_extractor.sampling_rate
     model_input_name = feature_extractor.model_input_names[0]
 
-    def prepare_dataset(batch):
-        # process audio
-        sample = batch["audio"]
-        inputs = feature_extractor(
-            sample["array"],
-            sampling_rate=sample["sampling_rate"],
-        )
-        batch[model_input_name] = inputs.get(model_input_name)[0]
-        batch["input_length"] = len(sample["array"])
-
-        # Normalize text
-        normalized = (
-            batch["text"]
-            .replace(" <COMMA>", ",")
-            .replace(" <PERIOD>", ".")
-            .replace(" <QUESTIONMARK>", "?")
-            .replace(" <EXCLAMATIONPOINT>", "!")
-            .lower()
-            .strip()
-        )
-
-        batch["labels"] = tokenizer(normalized).input_ids
-
-        return batch
-
+    # Apply preprocessing to all samples in parallel
     vectorized_datasets = raw_datasets.map(
-        prepare_dataset,
+        functools.partial(
+            prepare_dataset,
+            feature_extractor=feature_extractor,
+            tokenizer=tokenizer,
+            model_input_name=model_input_name,
+        ),
         remove_columns=next(iter(raw_datasets.values())).column_names,
         num_proc=os.cpu_count(),
         desc="Preprocessing dataset",
@@ -216,20 +197,7 @@ def train(
     normalizer = EnglishTextNormalizer(english_spelling_mapping)
     metric = evaluate.load("wer")
 
-    def compute_metrics(pred):
-        pred_ids = pred.predictions
-
-        pred.label_ids[pred.label_ids == -100] = tokenizer.pad_token_id
-
-        pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
-        norm_pred_str = [normalizer(s).strip() for s in pred_str]
-
-        label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
-        norm_label_str = [normalizer(s).strip() for s in label_str]
-
-        wer = metric.compute(predictions=norm_pred_str, references=norm_label_str)
-        return {"wer": wer}
-
+    # Create a processor that combines the feature extractor and tokenizer
     processor = transformers.WhisperProcessor(
         feature_extractor=feature_extractor,
         tokenizer=tokenizer,
@@ -249,7 +217,12 @@ def train(
         eval_dataset=vectorized_datasets["test"],
         processing_class=feature_extractor,
         data_collator=data_collator,
-        compute_metrics=compute_metrics,
+        compute_metrics=functools.partial(
+            compute_metrics,
+            tokenizer=tokenizer,
+            normalizer=normalizer,
+            metric=metric,
+        ),
     )
 
     print("Running evals before training to establish a baseline")
@@ -289,6 +262,51 @@ def train(
     print("Training complete!")
 
 
+def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
+    """Convert audio to features and text to tokens."""
+    sample = batch["audio"]
+    inputs = feature_extractor(
+        sample["array"],
+        sampling_rate=sample["sampling_rate"],
+    )
+    batch[model_input_name] = inputs.get(model_input_name)[0]
+    batch["input_length"] = len(sample["array"])
+
+    # Normalize text: replace punctuation tags with normal punctuation, lowercase
+    normalized = (
+        batch["text"]
+        .replace(" <COMMA>", ",")
+        .replace(" <PERIOD>", ".")
+        .replace(" <QUESTIONMARK>", "?")
+        .replace(" <EXCLAMATIONPOINT>", "!")
+        .lower()
+        .strip()
+    )
+
+    batch["labels"] = tokenizer(normalized).input_ids
+
+    return batch
+
+
+def compute_metrics(pred, tokenizer, normalizer, metric):
+    """Compute Word Error Rate between predictions and ground truth."""
+    pred_ids = pred.predictions
+
+    # Replace padding tokens with proper pad token ID
+    pred.label_ids[pred.label_ids == -100] = tokenizer.pad_token_id
+
+    # Decode predictions and labels back to text
+    pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
+    norm_pred_str = [normalizer(s).strip() for s in pred_str]
+
+    label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
+    norm_label_str = [normalizer(s).strip() for s in label_str]
+
+    # Calculate Word Error Rate
+    wer = metric.compute(predictions=norm_pred_str, references=norm_label_str)
+    return {"wer": wer}
+
+
 @dataclass
 class DataCollatorSpeechSeq2SeqWithPadding:
     """
@@ -326,8 +344,8 @@ class DataCollatorSpeechSeq2SeqWithPadding:
             labels_batch.attention_mask.ne(1), -100
         )
 
-        # if bos token is appended in previous tokenization step,
-        # cut bos token here as it's appended later anyways
+        # Remove decoder start token if it was added during tokenization
+        # since the model will add it automatically during training
         # TODO: Is this necessary?
         if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
             labels = labels[:, 1:]
