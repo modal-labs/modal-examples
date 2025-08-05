@@ -4,6 +4,42 @@
 
 # # Fine-tune Whisper to Improve Domain-Specific Transcription
 
+# This example demonstrates how to fine-tune an asr model
+# ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
+# to improve transcription accuracy for domain-specific vocabulary.
+
+# Speech recognition foundation models work well out-of-the-box for general speech
+# transcription, but can struggle with text that is not well represented in the training
+# data. Fine-tuning with custom data can improve the model's ability to transcribe
+# domain-specific language.
+
+# For example, here is a sample transcription from the baseline model with no
+# fine-tuning:
+
+# ```json
+# {
+#   "word_error_rate": 0.6666666666666666,
+#   "ground_truth": "make as much deuterium and tritium as you like",
+#   "prediction": "because much material and teach them what you like"
+# }
+# ```
+
+# After just 2 hours of training on a small dataset (7k samples), the model has already
+# improved:
+
+# ```json
+# {
+#   "word_error_rate": 0.2222222222222222,
+#   "ground_truth": "make as much deuterium and tritium as you like",
+#   "prediction": "because much deuterium and tritium as you like"
+# }
+# ```
+
+
+# ## Defining the environment for our Modal function
+
+# We start by importing our standard library dependencies and `modal`.
+
 import functools
 import os
 import time
