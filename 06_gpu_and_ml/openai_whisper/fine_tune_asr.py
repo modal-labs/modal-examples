@@ -170,14 +170,15 @@ def train(
     )
 
     print("Preparing data")
-    # Remove all rows that aren't in our category
+    # Filter to only include samples from our target category (Science and Technology)
     ds = ds.select(
         [i for i, c in enumerate(ds["category"]) if c == config.dataset_category]
     )
 
-    # Remove all columns except for the audio and text transcription
+    # Keep only the columns we need: audio data and text transcription
     ds = ds.select_columns(["text", "audio"])
 
+    # Split the filtered dataset into train/validation sets
     raw_datasets = ds.train_test_split(test_size=0.1, shuffle=True, seed=42)
 
     # We need to read the audio files as arrays and tokenize the targets.
@@ -245,11 +246,13 @@ def train(
         tokenizer=tokenizer,
     )
 
+    # Custom data collator handles batching of variable-length audio sequences
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(
         processor=processor,
         decoder_start_token_id=model.config.decoder_start_token_id,
     )
 
+    # Set up the Hugging Face trainer with all of our components
     trainer = transformers.Seq2SeqTrainer(
         model=model,
         args=training_args,
@@ -260,7 +263,7 @@ def train(
         compute_metrics=compute_metrics,
     )
 
-    print("Run evals before training")
+    print("Running evals before training to establish a baseline")
     metrics = trainer.evaluate(
         metric_key_prefix="test",
         max_length=training_args.generation_max_length,
@@ -276,6 +279,7 @@ def train(
     trainer.save_model()  # Saves the feature extractor too for easy upload
     print(f"Model saved in '{training_args.output_dir}'")
 
+    # Log training metrics
     metrics = train_result.metrics
     metrics["train_samples"] = len(vectorized_datasets["train"])
     trainer.log_metrics("train", metrics)
@@ -283,6 +287,7 @@ def train(
     trainer.save_state()
     output_volume.commit()
 
+    # Final evaluation to see how much we improved
     print("Running final evals")
     metrics = trainer.evaluate(
         metric_key_prefix="test",
@@ -300,12 +305,11 @@ def train(
 @dataclass
 class DataCollatorSpeechSeq2SeqWithPadding:
     """
-    Data collator that will dynamically pad the inputs received.
+    Data collator that pads audio features and text labels for batch training.
+
     Args:
-        processor ([`WhisperProcessor`])
-            The processor used for processing the data.
-        decoder_start_token_id (`int`)
-            The begin-of-sentence of the decoder.
+        processor: WhisperProcessor combining feature extractor and tokenizer
+        decoder_start_token_id: The BOS token ID for the decoder
     """
 
     processor: Any
@@ -314,8 +318,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
     def __call__(
         self, features: list[dict[str, Union[list[int], torch.Tensor]]]
     ) -> dict[str, torch.Tensor]:
-        # split inputs and labels since they have to be of different lengths and need
-        # different padding methods
+        # Separate audio features and text labels since they need different padding
         model_input_name = self.processor.model_input_names[0]
         input_features = [
             {model_input_name: feature[model_input_name]} for feature in features
@@ -331,7 +334,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
 
-        # replace padding with -100 to ignore loss correctly
+        # Replace padding tokens with -100 so they're ignored in loss calculation
         labels = labels_batch["input_ids"].masked_fill(
             labels_batch.attention_mask.ne(1), -100
         )
