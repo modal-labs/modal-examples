@@ -7,7 +7,7 @@
 # Run OpenAI's first open source model with vLLM.
 
 # ## Background
-### Overview
+# ### Overview
 # [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) is a reasoning model
 # that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both Mixture
 # of Experts (MoE) models that allow for a low number of active parameters,
