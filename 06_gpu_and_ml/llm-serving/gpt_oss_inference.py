@@ -156,7 +156,7 @@ def serve():
 # the [harmony api](https://cookbook.openai.com/articles/openai-harmony#example-system-message),
 # which can be installed with `pip install openai-harmony`.
 
-# We also print the reasoning content returned for full visibility 
+# We also print the reasoning content returned for full visibility
 # into the models behaviour but that can be removed easily for deployments.
 
 @app.local_entrypoint()
