@@ -28,24 +28,24 @@ output_volume = modal.Volume.from_name(
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
-        "accelerate",
+        "accelerate==1.8.1",
         "datasets==3.6.0",
-        "evaluate",
-        "huggingface_hub[hf_transfer]",
-        "jiwer",
-        "librosa",
-        "torch",
-        "torchaudio",
-        "transformers",
+        "evaluate==0.4.5",
+        "huggingface_hub[hf_transfer]==0.33.4",
+        "jiwer==4.0.0",
+        "librosa==0.11.0",
+        "torch==2.7.1",
+        "torchaudio==2.7.1",
+        "transformers==4.53.2",
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Faster downloads from Hugging Face
             "HF_HUB_CACHE": CACHE_DIR,
         }
     )
     .pip_install("ipdb", "IPython")  # TODO: REMOVE
-    .add_local_python_source("english_spelling_mapping")
+    .add_local_python_source("english_spelling_mapping")  # For text normalization
 )
 
 with image.imports():
