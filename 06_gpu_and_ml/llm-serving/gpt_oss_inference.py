@@ -6,7 +6,7 @@
 
 # Run OpenAI's first open source model with vLLM.
 
-# ## Background 
+# ## Background
 ### Overview
 # [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) is a reasoning model
 # that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both Mixture
@@ -173,7 +173,7 @@ You are ChatGPT, a large language model trained by OpenAI.
 Knowledge cutoff: 2024-06
 Current date: 2025-08-05
 Reasoning: low
-\# Valid channels: analysis, commentary, final. Channel must be included for every message.
+\\# Valid channels: analysis, commentary, final. Channel must be included for every message.
 Calls to these tools must go to the commentary channel: 'functions'.
 """
     system_prompt = {
