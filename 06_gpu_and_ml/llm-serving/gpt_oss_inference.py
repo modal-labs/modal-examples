@@ -2,35 +2,41 @@
 # pytest: false
 # ---
 
-# # Run OpenAI's first OSS model with vLLM
-
-# Run OpenAI's first open source model with vLLM.
+# # Run OpenAI's gpt-oss model with vLLM
 
 # ## Background
-# ### Overview
-# [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) is a reasoning model
-# that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both Mixture
-# of Experts (MoE) models that allow for a low number of active parameters,
-# 5.1B and 3.6B respectively.
+
+# [gpt-oss](https://openai.com/index/introducing-gpt-oss/) is a reasoning model
+# that comes in two flavors: `gpt-oss-120B` and `gpt-oss-20B`. They are both Mixture
+# of Experts (MoE) models with a low number of active parameters, ensuring they
+# combine good world knowledge and capabilities with fast inference.
+
+# We describe a few of its notable features below.
 
 # ### MXFP4
-# OpenAI's GPT-OSS models use [`mxfp4`](https://arxiv.org/abs/2310.10537) precision for the MoE layers
-# during training, this is a block floating point format that allow for more efficient training and inference.
+
+# OpenAI's gpt-oss models use a fairly uncommon 4bit [`mxfp4`](https://arxiv.org/abs/2310.10537) floating point
+# format for the MoE layers. This "block" quantization format combines `e2m1` floating point numbers
+# with blockwise scaling factors. The attention operations are not quantized.
 
 # ### Attention Sinks
+
 # Attention sink models allow for longer context lengths without sacrificing output quality. The vLLM team
 # added [attention sink support](https://huggingface.co/kernels-community/vllm-flash-attn3)
-# for Flash Attention 3 (FA3) in prep for this release.
+# for Flash Attention 3 (FA3) in preparation for this release.
 
 # ### Response Format
+
 # GPT-OSS is trained with the [harmony response format](https://github.com/openai/harmony) which enables models
-# to output to multiple channels for chain-of-thought (CoT), and input tool calling preambles along with regular responses.
+# to output to multiple channels for chain-of-thought (CoT) and input tool-calling preambles along with regular text responses.
+# We'll stick to a simpler format here, but see [this cookbook](https://cookbook.openai.com/articles/openai-harmony)
+# for details on the new format.
 
 # ## Set up the container image
 
 # We'll start by defining a [custom container `Image`](https://modal.com/docs/guide/custom-container) that
-# installs all the necessary dependencies to run vLLM and the model. This includes a custom vllm version
-# and a nightly pytorch install so that we can run gpt-oss.
+# installs all the necessary dependencies to run vLLM and the model. This includes a special-purpose vLLM prerelease
+# and a nightly PyTorch install for Triton support.
 
 import json
 import time
@@ -62,13 +68,15 @@ vllm_image = (
 # ## Download the model weights
 
 # We'll be downloading OpenAI's model from Hugging Face. We're running
-# the 20B parameter model by default but you can easily switch to [the 120B model](https://huggingface.co/openai/gpt-oss-120b).
+# the 20B parameter model by default but you can easily switch to [the 120B model](https://huggingface.co/openai/gpt-oss-120b),
+# which also fits in a single H100 or H200 GPU.
+
 MODEL_NAME = "openai/gpt-oss-20b"
 MODEL_REVISION = "f47b95650b3ce7836072fb6457b362a795993484"
 
 # Although vLLM will download weights from Hugging Face on-demand, we want to
 # cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes)
-#  for our cache. Modal Volumes are essentially a "shared disk" that all Modal
+# for our cache. Modal Volumes are essentially a "shared disk" that all Modal
 # Functions can access like it's a regular disk. For more on storing model
 # weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
@@ -135,6 +143,7 @@ def serve():
 # ## Deploy the server
 
 # To deploy the API on Modal, just run
+
 # ```bash
 # modal deploy gpt_oss_inference.py
 # ```
@@ -142,7 +151,7 @@ def serve():
 # This will create a new app on Modal, build the container image for it if it hasn't been built yet,
 # and deploy the app.
 
-# ## Testing the server
+# ## Test the server
 
 # To make it easier to test the server setup, we also include a `local_entrypoint`
 # that does a healthcheck and then hits the server.
@@ -158,18 +167,15 @@ def serve():
 
 # We set up the system prompt with low reasoning effort to run
 # inference a bit faster. For the best ergonomics we recommend using
-# the [harmony api](https://cookbook.openai.com/articles/openai-harmony#example-system-message),
+# the [harmony API](https://cookbook.openai.com/articles/openai-harmony#example-system-message),
 # which can be installed with `pip install openai-harmony`.
-
-# We also print the reasoning content returned for full visibility
-# into the models behaviour but that can be removed easily for deployments.
 
 
 @app.local_entrypoint()
 async def test(test_timeout=30 * MINUTES, user_content=None):
     url = serve.get_web_url()
     system_prompt_content: str = """
-You are ChatGPT, a large language model trained by OpenAI.
+You are ChatModal, a large language model trained by Modal.
 Knowledge cutoff: 2024-06
 Current date: 2025-08-05
 Reasoning: low
@@ -182,7 +188,7 @@ Calls to these tools must go to the commentary channel: 'functions'.
     }
 
     if user_content is None:
-        user_content = "Explain what MXFP4 quantization is."
+        user_content = "Explain what the Singular Value Decomposition is."
 
     messages = [  # OpenAI chat format
         system_prompt,
