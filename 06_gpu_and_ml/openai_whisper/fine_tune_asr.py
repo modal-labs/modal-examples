@@ -71,14 +71,14 @@ app.set_description(os.environ.get("APP_NAME", app.name))
 
 @dataclass
 class Config:
-    """Configuration for the fine-tuning run."""
+    """Training configuration."""
 
     # Model config
     model_name: str = "openai/whisper-tiny.en"
 
     # Dataset config
     dataset_name: str = "speechcolab/gigaspeech"
-    dataset_subset: str = "s"  # "small"
+    dataset_subset: str = "s"  # "xs" for testing, "m", "l", "xl" for more data
     dataset_category: int = 15  # "Science and Technology"
     max_duration_in_seconds: float = 20.0
     min_duration_in_seconds: float = 0.0
@@ -212,6 +212,7 @@ def train(
         desc="Preprocessing dataset",
     )
 
+    # Filter out audio clips that are too short or too long
     vectorized_datasets = vectorized_datasets.filter(
         lambda length: length > min_input_length and length < max_input_length,
         num_proc=os.cpu_count(),
