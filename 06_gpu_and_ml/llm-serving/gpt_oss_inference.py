@@ -4,11 +4,11 @@
 
 # # Run OpenAI's first OSS model with vLLM
 
-# Run OpenAI's first open source model with vLLM. 
+# Run OpenAI's first open source model with vLLM.
 
 # ## Background
 # ### Overview
-# GPT-OSS is a reasoning model that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both 
+# GPT-OSS is a reasoning model that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both
 # Mixture of Experts (MoE) models that allow for a low number of active parameters, 5.1B and 3.6B respectively.
 
 # ### MXFP4
@@ -17,7 +17,7 @@
 
 # ### Attention Sinks
 # Attention sink models allow for longer context lengths without sacrificing output quality. The vLLM team
-# added [attention sink support](https://huggingface.co/kernels-community/vllm-flash-attn3) 
+# added [attention sink support](https://huggingface.co/kernels-community/vllm-flash-attn3)
 # for Flash Attention 3 (FA3) in prep for this release.
 
 # ### Response Format
@@ -31,16 +31,16 @@
 # and a nightly pytorch install so that we can run gpt-oss running.
 
 import json
+import time
 from typing import Any
 
 import aiohttp
 import modal
-import time
 
 vllm_image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.8.1-devel-ubuntu22.04",
-        add_python="3.12",  
+        add_python="3.12",
     )
     .uv_pip_install(
         "vllm==0.10.1+gptoss",
@@ -50,10 +50,12 @@ vllm_image = (
     .uv_pip_install(
         "huggingface_hub[hf_transfer]==0.34",
     )
-    .env({
-        "HF_HUB_ENABLE_HF_TRANSFER": "1", # faster model transfers
-        "VLLM_USER_V1": "1", # latest engine
-    })  
+    .env(
+        {
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
+            "VLLM_USER_V1": "1",  # latest engine
+        }
+    )
 )
 
 
@@ -64,8 +66,8 @@ vllm_image = (
 MODEL_NAME = "openai/gpt-oss-20b"
 
 # Although vLLM will download weights from Hugging Face on-demand, we want to
-# cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) 
-# for our cache. Modal Volumes are essentially a "shared disk" that all Modal
+# cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes)
+#  for our cache. Modal Volumes are essentially a "shared disk" that all Modal
 # Functions can access like it's a regular disk. For more on storing model
 # weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
@@ -123,7 +125,6 @@ def serve():
     print(cmd)
 
     subprocess.Popen(" ".join(cmd), shell=True)
-
 
 
 @app.local_entrypoint()
@@ -189,12 +190,10 @@ async def _send_request(
             delta = chunk["choices"][0]["delta"]
 
             if "content" in delta:
-                print(delta["content"], end="") # print the content as it comes in
+                print(delta["content"], end="")  # print the content as it comes in
             elif "reasoning_content" in delta:
                 print(delta["reasoning_content"], end="")
             else:
                 raise ValueError(f"Unsupported response delta: {delta}")
     print("")
     print(f"Time to Last Token: {time.perf_counter() - t:.2f} seconds")
-
-
