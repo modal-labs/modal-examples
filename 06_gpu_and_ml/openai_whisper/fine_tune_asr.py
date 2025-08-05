@@ -260,14 +260,12 @@ def train(
 
     print("Running evals before training to establish a baseline")
     metrics = trainer.evaluate(
-        metric_key_prefix="test",
+        metric_key_prefix="baseline",
         max_length=training_args.generation_max_length,
         num_beams=training_args.generation_num_beams,
     )
-    metrics["eval_samples"] = len(vectorized_datasets["test"])
-
-    trainer.log_metrics("test", metrics)
-    trainer.save_metrics("test", metrics)
+    trainer.log_metrics("baseline", metrics)
+    trainer.save_metrics("baseline", metrics)
 
     print("Starting training loop")
     train_result = trainer.train()
