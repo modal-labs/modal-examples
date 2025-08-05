@@ -147,17 +147,11 @@ def train(
     tokenizer = transformers.WhisperTokenizer.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         cache_dir=CACHE_DIR,
-        # language="en",
-        # task="transcribe",
     )
     model = transformers.WhisperForConditionalGeneration.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         cache_dir=CACHE_DIR,
     )
-    # TODO: API has changed, still bw compatible, but throws warnings
-    # model.generation_config.language = "en"
-    # model.generation_config.task = "transcribe"
-    # model.generation_config.forced_decoder_ids = None
 
     print("Loading dataset")
     ds = datasets.load_dataset(
