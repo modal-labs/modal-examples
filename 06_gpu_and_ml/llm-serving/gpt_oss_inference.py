@@ -42,6 +42,9 @@ vllm_image = (
         pre=True,
         extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
     )
+    .pip_install(
+        "huggingface_hub[hf_transfer]==0.34",
+    )
     .env({
         "HF_HUB_ENABLE_HF_TRANSFER": "1", # faster model transfers
         "VLLM_USER_V1": "1", # latest engine
