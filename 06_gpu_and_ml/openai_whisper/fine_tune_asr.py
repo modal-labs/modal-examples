@@ -271,8 +271,8 @@ def train(
 
     print("Starting training loop")
     train_result = trainer.train()
-    trainer.save_model()  # Saves the feature extractor too for easy upload
-    print(f"Model saved in '{training_args.output_dir}'")
+    trainer.save_model()  # Saves the model, feature extractor, and tokenizer
+    print(f"Model saved to '{training_args.output_dir}'")
 
     # Log training metrics
     metrics = train_result.metrics
@@ -280,7 +280,6 @@ def train(
     trainer.log_metrics("train", metrics)
     trainer.save_metrics("train", metrics)
     trainer.save_state()
-    output_volume.commit()
 
     # Final evaluation to see how much we improved
     print("Running final evals")
@@ -293,6 +292,7 @@ def train(
 
     trainer.log_metrics("test", metrics)
     trainer.save_metrics("test", metrics)
+    output_volume.commit()  # Ensure the model and metrics are saved to the Volume
 
     print("Training complete!")
 
