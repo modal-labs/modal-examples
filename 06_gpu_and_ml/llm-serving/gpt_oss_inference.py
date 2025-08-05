@@ -49,10 +49,12 @@ vllm_image = (
         pre=True,
         extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
     )
-    .env({
+    .env(
+        {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
             "VLLM_USER_V1": "1",  # latest engine
-    })
+        }
+    )
 )
 
 
@@ -82,6 +84,7 @@ FAST_BOOT = True
 # ## Build a vLLM engine and serve it
 
 # The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
+
 
 @app.function(
     image=vllm_image,
@@ -127,6 +130,7 @@ def serve():
 
     subprocess.Popen(" ".join(cmd), shell=True)
 
+
 # ## Deploy the server
 
 # To deploy the API on Modal, just run
@@ -158,6 +162,7 @@ def serve():
 
 # We also print the reasoning content returned for full visibility
 # into the models behaviour but that can be removed easily for deployments.
+
 
 @app.local_entrypoint()
 async def test(test_timeout=30 * MINUTES, user_content=None):
