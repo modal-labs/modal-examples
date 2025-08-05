@@ -6,10 +6,11 @@
 
 # Run OpenAI's first open source model with vLLM.
 
-# ## Background
-# ### Overview
-# GPT-OSS is a reasoning model that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both
-# Mixture of Experts (MoE) models that allow for a low number of active parameters, 5.1B and 3.6B respectively.
+# ## Background ### Overview
+# [GPT-OSS](https://openai.com/index/introducing-gpt-oss/) is a reasoning model
+# that comes in two flavors gpt-oss-120B and gpt-oss-20B. They are both Mixture
+# of Experts (MoE) models that allow for a low number of active parameters,
+# 5.1B and 3.6B respectively.
 
 # ### MXFP4
 # OpenAI's GPT-OSS models use [`mxfp4`](https://arxiv.org/abs/2310.10537) precision for the MoE layers
@@ -22,7 +23,7 @@
 
 # ### Response Format
 # GPT-OSS is trained with the [harmony response format](https://github.com/openai/harmony) which enables models
-# to output to multipe channels for chain-of-thought (CoT), and input tool calling preambles along with regular responses.
+# to output to multiple channels for chain-of-thought (CoT), and input tool calling preambles along with regular responses.
 
 # ## Set up the container image
 
@@ -44,18 +45,14 @@ vllm_image = (
     )
     .uv_pip_install(
         "vllm==0.10.1+gptoss",
+        "huggingface_hub[hf_transfer]==0.34",
         pre=True,
         extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
     )
-    .uv_pip_install(
-        "huggingface_hub[hf_transfer]==0.34",
-    )
-    .env(
-        {
+    .env({
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
             "VLLM_USER_V1": "1",  # latest engine
-        }
-    )
+    })
 )
 
 
@@ -64,6 +61,7 @@ vllm_image = (
 # We'll be downloading OpenAI's model from Hugging Face. We're running
 # the 20B parameter model by default but you can easily switch to [the 120B model](https://huggingface.co/openai/gpt-oss-120b).
 MODEL_NAME = "openai/gpt-oss-20b"
+MODEL_REVISION = "f47b95650b3ce7836072fb6457b362a795993484"
 
 # Although vLLM will download weights from Hugging Face on-demand, we want to
 # cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes)
@@ -81,6 +79,9 @@ MINUTES = 60  # seconds
 VLLM_PORT = 8000
 FAST_BOOT = True
 
+# ## Build a vLLM engine and serve it
+
+# The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
 
 @app.function(
     image=vllm_image,
@@ -104,8 +105,8 @@ def serve():
         "serve",
         "--uvicorn-log-level=info",
         MODEL_NAME,
-        # "--revision",
-        # MODEL_REVISION,
+        "--revision",
+        MODEL_REVISION,
         "--served-model-name",
         MODEL_NAME,
         "llm",
@@ -126,6 +127,37 @@ def serve():
 
     subprocess.Popen(" ".join(cmd), shell=True)
 
+# ## Deploy the server
+
+# To deploy the API on Modal, just run
+# ```bash
+# modal deploy gpt_oss_inference.py
+# ```
+
+# This will create a new app on Modal, build the container image for it if it hasn't been built yet,
+# and deploy the app.
+
+# ## Testing the server
+
+# To make it easier to test the server setup, we also include a `local_entrypoint`
+# that does a healthcheck and then hits the server.
+
+# If you execute the command
+
+# ```bash
+# modal run gpt_oss_inference.py
+# ```
+
+# a fresh replica of the server will be spun up on Modal while
+# the code below executes on your local machine.
+
+# We set up the system prompt with low reasoning effort to run
+# inference a bit faster. For the best ergonomics we recommend using
+# the [harmony api](https://cookbook.openai.com/articles/openai-harmony#example-system-message),
+# which can be installed with `pip install openai-harmony`.
+
+# We also print the reasoning content returned for full visibility 
+# into the models behaviour but that can be removed easily for deployments.
 
 @app.local_entrypoint()
 async def test(test_timeout=30 * MINUTES, user_content=None):
