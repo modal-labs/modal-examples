@@ -1,6 +1,8 @@
-import time
-import modal
 import os
+import time
+
+import modal
+
 GPU = "h100"
 CPU = 8
 MOUNT_ROOT_DIR = "/workspace_sgl"
@@ -18,17 +20,12 @@ image = (
         "torchvision",
         "torchaudio",
         extra_options="--index-url https://download.pytorch.org/whl/test/cu128",
-    ).pip_install(
+    )
+    .pip_install(
         "transformers",
         extra_options="-U",
     )
-    .apt_install(
-        "git",
-        "git-lfs",
-        "wget",
-        "curl",
-        "libnuma-dev"
-    )
+    .apt_install("git", "git-lfs", "wget", "curl", "libnuma-dev")
     .run_commands(
         "git clone https://github.com/sgl-project/sglang && cd sglang && pip3 install pip --upgrade && pip3 install -e 'python[all]'",
         gpu=GPU,
@@ -36,20 +33,21 @@ image = (
     .pip_install(
         "sgl-kernel==0.3.2",
     )
-    .env({
-        "HF_HUB_ENABLE_HF_TRANSFER": "1", 
-        "HF_HOME": "/workspace_sgl/hf_home"
-    }
-    )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/workspace_sgl/hf_home"})
 )
 with image.imports():
     import torch
-    from sglang.srt.server_args import ServerArgs
-    from sglang.srt.entrypoints.http_server import app as sglang_app, set_global_state, _GlobalState
     from sglang.srt.entrypoints.engine import _launch_subprocesses
-    from sglang.srt.utils import add_api_key_middleware, add_prometheus_middleware
+    from sglang.srt.entrypoints.http_server import (
+        _GlobalState,
+        app as sglang_app,
+        set_global_state,
+    )
     from sglang.srt.metrics.func_timer import enable_func_timer
-    
+    from sglang.srt.server_args import ServerArgs
+    from sglang.srt.utils import add_api_key_middleware, add_prometheus_middleware
+
+
 @app.cls(
     image=image,
     gpu=GPU,
@@ -62,31 +60,37 @@ with image.imports():
 )
 class SGLangServer:
     model_path = "lmsys/gpt-oss-20b-bf16"
-    
+
     @modal.enter(snap=True)
     def load_model(self):
         """Load model into CPU memory for memory snapshot."""
         start_time = time.time()
-        
+
         self.server_args = ServerArgs(
             model_path=self.model_path,
             host="0.0.0.0",
             port=8000,
         )
-        print(f"SGLang model loaded into CPU memory in {time.time() - start_time} seconds")
-        
+        print(
+            f"SGLang model loaded into CPU memory in {time.time() - start_time} seconds"
+        )
+
         # Verify CUDA availability and device
         print(f"CUDA available: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
             print(f"CUDA device count: {torch.cuda.device_count()}")
             print(f"Current CUDA device: {torch.cuda.current_device()}")
             print(f"CUDA device name: {torch.cuda.get_device_name()}")
-        
-        print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'not set')}")
-        
+
+        print(
+            f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'not set')}"
+        )
+
         try:
-            self.tokenizer_manager, self.template_manager, self.scheduler_info = _launch_subprocesses(server_args=self.server_args)
-            
+            self.tokenizer_manager, self.template_manager, self.scheduler_info = (
+                _launch_subprocesses(server_args=self.server_args)
+            )
+
             set_global_state(
                 _GlobalState(
                     tokenizer_manager=self.tokenizer_manager,
@@ -94,25 +98,27 @@ class SGLangServer:
                     scheduler_info=self.scheduler_info,
                 )
             )
-            
+
             self.sglang_app = sglang_app
-            
+
             if self.server_args.api_key:
                 add_api_key_middleware(self.sglang_app, self.server_args.api_key)
-                
+
             if self.server_args.enable_metrics:
                 add_prometheus_middleware(self.sglang_app)
                 enable_func_timer()
-            
+
             self.sglang_app.server_args = self.server_args
-            
-            print(f"SGLang server initialized on GPU in {time.time() - start_time} seconds")
+
+            print(
+                f"SGLang server initialized on GPU in {time.time() - start_time} seconds"
+            )
             print(f"SGLang server ready with model: {self.server_args.model_path}")
-            
+
         except Exception as e:
             print(f"Error initializing SGLang server: {e}")
             raise
-    
+
     @modal.asgi_app()
     def asgi_app(self):
         return self.sglang_app
