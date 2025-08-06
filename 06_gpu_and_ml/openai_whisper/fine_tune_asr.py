@@ -49,6 +49,17 @@ from typing import Any, Union
 
 import modal
 
+# We also need an [`App`](https://modal.com/docs/guide/apps) object, which we will use
+# to define how our training application will run on Modal's cloud infrastructure.
+
+app = modal.App(name="example-whisper-fine-tune")
+
+# ## Defining the Modal infrastructure
+
+# We use Modal Volumes to persist data across function calls:
+# - Cache volume stores the Hugging Face model downloads to avoid re-downloading
+# - Output volume stores our fine-tuned model weights and training metrics
+
 OUTPUT_DIR = "/outputs"
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
@@ -81,6 +92,9 @@ image = (
     .add_local_python_source("english_spelling_mapping")  # For text normalization
 )
 
+# The `image.imports()` context manager ensures these imports are available
+# when our Modal functions run, but are not required locally.
+
 with image.imports():
     import datasets
     import evaluate
@@ -90,13 +104,38 @@ with image.imports():
 
     from english_spelling_mapping import english_spelling_mapping
 
+# ## Calling a Modal function from the command line
 
-app = modal.App(
-    name="example-whisper-fine-tune",
-)
+# First, we define a `local_entrypoint` -- our `main` function that runs locally and
+# provides a command-line interface to trigger training on Modal's cloud infrastructure.
 
-# TODO: REMOVE
-app.set_description(os.environ.get("APP_NAME", app.name))
+# This will allow us to run this example with:
+
+# ```bash
+# modal run fine_tune_asr.py
+# ```
+
+
+@app.local_entrypoint()
+def main(test: bool = False):
+    """Run Whisper fine-tuning on Modal."""
+    if test:
+        # Quick test configuration with minimal data and training steps
+        config = Config(
+            dataset_subset="xs",
+            num_train_epochs=1.0,
+            warmup_steps=0,
+            max_steps=1,
+        )
+    else:
+        config = Config()
+
+    start = time.perf_counter()
+    train.remote(config)
+    print(f"Training took {time.perf_counter() - start:.6f} seconds")
+
+
+# ## Configuration with dataclasses
 
 
 @dataclass
@@ -341,6 +380,14 @@ def compute_metrics(pred, tokenizer, normalizer, metric):
     # Calculate Word Error Rate
     wer = metric.compute(predictions=norm_pred_str, references=norm_label_str)
     return {"wer": wer}
+
+
+# ## Custom Data Collator for Speech-to-Text
+
+# This custom data collator handles the unique requirements of speech-to-text training:
+# - Audio features and text labels have different lengths and need different padding strategies
+# - We need to mask padded tokens in the loss calculation
+# - Handle the decoder start token properly for sequence-to-sequence training
 
 
 @dataclass
