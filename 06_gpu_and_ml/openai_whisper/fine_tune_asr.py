@@ -300,8 +300,10 @@ def train(
 
     print("Starting training loop")
     train_result = trainer.train()
-    trainer.save_model()  # Saves the model, feature extractor, and tokenizer
-    print(f"Model saved to '{training_args.output_dir}'")
+    # Save the model weights, tokenizer, and feature extractor
+    trainer.save_model()
+    tokenizer.save_pretrained(training_args.output_dir)
+    feature_extractor.save_pretrained(training_args.output_dir)
 
     # Log training metrics
     metrics = train_result.metrics
@@ -323,7 +325,8 @@ def train(
     trainer.save_metrics("test", metrics)
     output_volume.commit()  # Ensure the model and metrics are saved to the Volume
 
-    print("Training complete!")
+    print("\nTraining complete!")
+    print(f"Model saved to '{training_args.output_dir}'\n")
 
 
 def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
@@ -376,7 +379,6 @@ def compute_metrics(pred, tokenizer, normalizer, metric):
 # This custom data collator handles the unique requirements of speech-to-text training:
 # - Audio features and text labels have different lengths and need different padding strategies
 # - We need to mask padded tokens in the loss calculation
-# - Handle the decoder start token properly for sequence-to-sequence training
 
 
 @dataclass
