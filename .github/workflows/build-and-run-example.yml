@@ -26,4 +26,4 @@ jobs:
 
       - name: Run a random example with MODAL_IGNORE_CACHE set
         run: |
-          MODAL_IGNORE_CACHE=1 python3 -m internal.run_example
+          MODAL_IGNORE_CACHE=1 python3 -m internal.run_example --timeout 1800

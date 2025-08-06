@@ -104,9 +104,10 @@ infinity_image = (
             "hf_transfer==0.1.9",  # for fast huggingface data download
             "huggingface_hub[hf_xet]==0.33.2",
             "tqdm==4.67.1",  # progress bar for dataset download
-            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "sentencepiece==0.2.0",  # for this particular chosen model
             "torchvision==0.22.1",  # for fast image loading
+            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
+            "optimum==1.26.1",  # need to pin this because newer version requires
         ]
     )
     .env(
