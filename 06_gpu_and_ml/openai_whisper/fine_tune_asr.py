@@ -49,7 +49,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Annotated, Any, Union
 
 import modal
 
@@ -66,6 +66,7 @@ image = (
         "accelerate==1.8.1",
         "datasets==3.6.0",
         "evaluate==0.4.5",
+        "fastapi[standard]",
         "huggingface_hub[hf_transfer]==0.33.4",
         "jiwer==4.0.0",
         "librosa==0.11.0",
@@ -423,3 +424,84 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         batch["labels"] = labels
 
         return batch
+
+
+@app.cls(
+    image=image,
+    gpu="H100",
+    timeout=10 * MINUTES,
+    # scaledown_window=10 * MINUTES,
+    volumes={"/root/.cache": cache_volume, OUTPUT_DIR: output_volume},
+)
+class Inference:
+    model_app_id: str = modal.parameter(default=Config().model_name)
+
+    @modal.enter()
+    def load_model(self):
+        from transformers import WhisperForConditionalGeneration, WhisperProcessor
+
+        # load model and processor
+        model = (
+            f"{OUTPUT_DIR}/{self.model_app_id}"
+            if "/" not in self.model_app_id
+            else self.model_app_id
+        )
+        print(f"Loading model from {model}")
+        self.processor = WhisperProcessor.from_pretrained(model)
+        self.model = WhisperForConditionalGeneration.from_pretrained(model)
+        self.model.config.forced_decoder_ids = None
+
+    @modal.method()
+    def run(
+        self,
+        audio_bytes: bytes,
+    ) -> str:
+        import io
+
+        import librosa
+        from datasets import Audio, Dataset
+
+        print(f"Called with {self.model_app_id}")
+        print(f"input type: {type(audio_bytes)}")
+
+        # Resample audio to match the model's sample rate
+        model_sample_rate = self.processor.feature_extractor.sampling_rate
+        audio_data, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=None)
+
+        audio_dataset = Dataset.from_dict(
+            {"audio": [{"array": audio_data, "sampling_rate": sample_rate}]}
+        ).cast_column("audio", Audio(sampling_rate=model_sample_rate))
+
+        # Audio -> features (log-mel spectrogram)
+        row = next(iter(audio_dataset))
+        input_features = self.processor(
+            row["audio"]["array"],
+            sampling_rate=row["audio"]["sampling_rate"],
+            return_tensors="pt",
+        ).input_features
+
+        # generate tokens -> decode to text
+        predicted_ids = self.model.generate(input_features)
+        transcription = self.processor.batch_decode(
+            predicted_ids, skip_special_tokens=True
+        )[0]
+
+        return transcription
+
+    @modal.fastapi_endpoint(method="POST", docs=True)
+    def web(
+        self,
+        audio_file: Annotated[bytes, fastapi.File()],
+    ) -> dict[str, str]:
+        transcription = self.run.local(  # run in the same container
+            audio_bytes=audio_file,
+        )
+        return {"transcription": transcription}
+
+
+# ```bash
+# 'https://your--labs--example-whisper-fine-tune-inference-web.modal.run/?model_app_id=ap-ufQBc89de5ZgCb0OjNXGJK' \
+#   -H 'accept: application/json' \
+#   -H 'Content-Type: multipart/form-data' \
+#   -F 'audio_file=@erik.wav;type=audio/wav'
+# ```
