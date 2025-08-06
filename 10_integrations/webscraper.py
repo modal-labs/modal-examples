@@ -9,12 +9,12 @@
 
 # ## Set up your first Modal app
 
-# Modal Apps are orchestrated as Python scripts, but can theoretically run
+# Modal Apps are orchestrated as Python scripts but can theoretically run
 # anything you can run in a container. To get you started, make sure to install
-# the latest `modal` Python package and set up an API token (the first two steps of
-# the [Getting started](https://modal.com/docs/guide) page).
+# the latest `modal` Python package and set up an API token (the first two steps
+# [here](https://modal.com/docs/guide)).
 
-# ## Finding links
+# ## Scrape links locally
 
 # First, we create an empty Python file `webscraper.py`. This file will contain our
 # application code. Let's write some basic Python code to fetch the contents of a
@@ -43,12 +43,12 @@
 # Now obviously this is just pure standard library Python code, and you can run it
 # on your machine:
 
-# ```
+# ```bash
 # $ python webscraper.py http://example.com
 # ['https://www.iana.org/domains/example']
 # ```
 
-# ## Running it in Modal
+# ## Run it on Modal
 
 # To make the `get_links` function run on Modal instead of your local machine, all
 # you need to do is
@@ -88,7 +88,7 @@
 # This time, you'll see additional progress indicators while the script is
 # running, something like:
 
-# ```
+# ```bash
 # $ modal run webscraper.py --url http://example.com
 # ✓ Initialized.
 # ✓ Created objects.
@@ -96,7 +96,7 @@
 # ✓ App completed.
 # ```
 
-# ## Custom containers
+# ## Add dependencies
 
 # In the code above we make use of the Python standard library `urllib` library.
 # This works great for static web pages, but many pages these days use javascript
@@ -154,7 +154,7 @@ async def get_links(cur_url: str) -> set[str]:
 # subsequent runs of the function it will not be rebuilt as long as the image
 # definition is the same.
 
-# ## Scaling out
+# ## Scale out
 
 # So far, our script only fetches the links for a single page. What if we want to
 # scrape a large list of links in parallel?
@@ -176,7 +176,7 @@ async def get_links(cur_url: str) -> set[str]:
 #             print(link)
 # ```
 
-# ## Schedules and deployments
+# ## Deploy it and run it on a schedule
 
 # Let's say we want to log the scraped links daily. We move the print loop into
 # its own Modal function and annotate it with a `modal.Period(days=1)` schedule -
@@ -206,7 +206,7 @@ async def get_links(cur_url: str) -> set[str]:
 # the code with any changes you have made - overwriting an existing deploy with
 # the same name ("example-webscraper" in this case).
 
-# ## Integrations and Secrets
+# ## Add Secrets and integrate with other systems
 
 # Instead of looking at the links in the run logs of our deployments, let's say we
 # wanted to post them to a `#scraped-links` Slack channel. To do this, we can
