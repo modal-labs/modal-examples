@@ -183,7 +183,7 @@ def main(test: bool = False):
     secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     gpu="H100!",
     volumes={CACHE_DIR: cache_volume, OUTPUT_DIR: output_volume},
-    timeout=24 * 60 * 60,  # TODO: Tighten up
+    timeout=3 * HOURS,
 )
 def train(
     config: Config,
