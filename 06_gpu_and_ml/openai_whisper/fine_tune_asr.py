@@ -393,8 +393,8 @@ class DataCollatorSpeechSeq2SeqWithPadding:
     decoder_start_token_id: int
 
     def __call__(
-        self, features: list[dict[str, Union[list[int], torch.Tensor]]]
-    ) -> dict[str, torch.Tensor]:
+        self, features: list[dict[str, Union[list[int], "torch.Tensor"]]]
+    ) -> dict[str, "torch.Tensor"]:
         # Separate audio features and text labels since they need different padding
         model_input_name = self.processor.model_input_names[0]
         input_features = [
