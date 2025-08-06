@@ -40,6 +40,7 @@
 
 import json
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
@@ -50,16 +51,12 @@ vllm_image = (
         "nvidia/cuda:12.8.1-devel-ubuntu22.04",
         add_python="3.12",
     )
+    .entrypoint([])
     .uv_pip_install(
         "vllm==0.10.1+gptoss",
         "huggingface_hub[hf_transfer]==0.34",
         pre=True,
         extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
-    )
-    .env(
-        {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster model transfers
-        }
     )
 )
 
@@ -80,18 +77,37 @@ MODEL_REVISION = "f47b95650b3ce7836072fb6457b362a795993484"
 # weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+
+# The first time you run a new model or configuration with vLLM on a fresh machine,
+# a number of artifacts are created. We also cache these artifacts.
+
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+
+# There are a number of compilation settings for vLLM. Compilation improves inference performance
+# but incur extra latency at engine start time. We offer a high-level variable for controlling this trade-off.
+
+FAST_BOOT = False  # slower boots but faster inference
+
+# Among the artifacts that are created at startup are CUDA graphs,
+# which allow the replay of several kernel launches for the price of one,
+# reducing CPU overhead. We over-ride the defaults with a smaller number of sizes
+# that we think better balances latency from future JIT CUDA graph generation
+# and startup latency.
+
+MAX_INPUTS = 32  # how many requests can one replica handle? tune carefully!
+CUDA_GRAPH_CAPTURE_SIZES = [  # 1, 2, 4, ... MAX_INPUTS
+    1 << i for i in range((MAX_INPUTS).bit_length())
+]
+
+# ## Build a vLLM engine and serve it
+
+# The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
 
 app = modal.App("example-gpt-oss-inference")
 
 N_GPU = 1
 MINUTES = 60  # seconds
 VLLM_PORT = 8000
-FAST_BOOT = True
-
-# ## Build a vLLM engine and serve it
-
-# The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
 
 
 @app.function(
@@ -104,10 +120,8 @@ FAST_BOOT = True
         "/root/.cache/vllm": vllm_cache_vol,
     },
 )
-@modal.concurrent(  # how many requests can one replica handle? tune carefully!
-    max_inputs=32
-)
-@modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
+@modal.concurrent(max_inputs=MAX_INPUTS)
+@modal.web_server(port=VLLM_PORT, startup_timeout=30 * MINUTES)
 def serve():
     import subprocess
 
@@ -130,6 +144,12 @@ def serve():
     # enforce-eager disables both Torch compilation and CUDA graph capture
     # default is no-enforce-eager. see the --compilation-config flag for tighter control
     cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
+
+    if not FAST_BOOT:  # CUDA graph capture is only used with `--enforce-eager`
+        cmd += [
+            "-O.cudagraph_capture_sizes="
+            + str(CUDA_GRAPH_CAPTURE_SIZES).replace(" ", "")
+        ]
 
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
@@ -171,19 +191,16 @@ def serve():
 
 
 @app.local_entrypoint()
-async def test(test_timeout=30 * MINUTES, user_content=None):
+async def test(test_timeout=30 * MINUTES, user_content=None, twice=True):
     url = serve.get_web_url()
-    system_prompt_content: str = """
-You are ChatModal, a large language model trained by Modal.
-Knowledge cutoff: 2024-06
-Current date: 2025-08-05
-Reasoning: low
-\\# Valid channels: analysis, commentary, final. Channel must be included for every message.
-Calls to these tools must go to the commentary channel: 'functions'.
-"""
     system_prompt = {
         "role": "system",
-        "content": system_prompt_content,
+        "content": f"""You are ChatModal, a large language model trained by Modal.
+        Knowledge cutoff: 2024-06
+        Current date: {datetime.now(timezone.utc).date()}
+        Reasoning: low
+        \\# Valid channels: analysis, commentary, final. Channel must be included for every message.
+        Calls to these tools must go to the commentary channel: 'functions'.""",
     }
 
     if user_content is None:
@@ -203,6 +220,11 @@ Calls to these tools must go to the commentary channel: 'functions'.
 
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await _send_request(session, "llm", messages)
+
+        if twice:
+            messages[0]["content"] += "\nTalk like a pirate, matey."
+            print(f"Re-sending messages to {url}:", *messages, sep="\n\t")
+            await _send_request(session, "llm", messages)
 
 
 async def _send_request(
