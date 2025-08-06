@@ -161,21 +161,7 @@ class Config:
     max_steps: int = -1
 
 
-@app.local_entrypoint()
-def main(test: bool = False):
-    if test:
-        config = Config(
-            dataset_subset="xs",
-            num_train_epochs=1.0,
-            warmup_steps=0,
-            max_steps=1,
-        )
-    else:
-        config = Config()
-
-    start = time.perf_counter()
-    train.remote(config)
-    print(f"Training took {time.perf_counter() - start:.6f} seconds")
+# ## Define our training function
 
 
 @app.function(
