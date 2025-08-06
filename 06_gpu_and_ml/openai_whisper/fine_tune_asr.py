@@ -40,6 +40,10 @@
 
 # We start by importing our standard library dependencies and `modal`.
 
+# We also need an [`App`](https://modal.com/docs/guide/apps) object, which we will use
+# to define how our training application will run on Modal's cloud infrastructure.
+
+import fastapi
 import functools
 import os
 import time
@@ -52,26 +56,10 @@ import modal
 MINUTES = 60
 HOURS = 60 * MINUTES
 
-# We also need an [`App`](https://modal.com/docs/guide/apps) object, which we will use
-# to define how our training application will run on Modal's cloud infrastructure.
-
 app = modal.App(name="example-whisper-fine-tune")
 
-# ## Defining the Modal infrastructure
-
-# We use Modal Volumes to persist data across function calls:
-# - Cache volume stores the Hugging Face model downloads to avoid re-downloading
-# - Output volume stores our fine-tuned model weights and training metrics
-
-OUTPUT_DIR = "/outputs"
-cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
-
-CACHE_DIR = "/cache"
-output_volume = modal.Volume.from_name(
-    "fine-tune-asr-example",  # TODO: rename to match examples repo
-    create_if_missing=True,
-)
-
+# # Set up the container image
+#
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -88,7 +76,6 @@ image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Faster downloads from Hugging Face
-            "HF_HUB_CACHE": CACHE_DIR,
         }
     )
     .pip_install("ipdb", "IPython")  # TODO: REMOVE
@@ -107,6 +94,18 @@ with image.imports():
 
     from english_spelling_mapping import english_spelling_mapping
 
+# We use Modal Volumes to persist data across function calls:
+# - Cache volume stores the Hugging Face model downloads to avoid re-downloading
+# - Output volume stores our fine-tuned model weights and training metrics
+
+cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
+
+OUTPUT_DIR = "/outputs"
+output_volume = modal.Volume.from_name(
+    "fine-tune-asr-example",  # TODO: rename to match examples repo
+    create_if_missing=True,
+)
+
 # ## Calling a Modal function from the command line
 
 # First, we define a `local_entrypoint` -- our `main` function that runs locally and
@@ -122,8 +121,7 @@ with image.imports():
 @app.local_entrypoint()
 def main(test: bool = False):
     """Run Whisper fine-tuning on Modal."""
-    if test:
-        # Quick test configuration with minimal data and training steps
+    if test:  # for quick e2e test
         config = Config(
             dataset_subset="xs",
             num_train_epochs=1.0,
@@ -163,12 +161,14 @@ class Config:
 
 # ## Define our training function
 
+# We run evals before and after training to establish a baseline and see how much we improved.
+
 
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     gpu="H100!",
-    volumes={CACHE_DIR: cache_volume, OUTPUT_DIR: output_volume},
+    volumes={"/root/.cache": cache_volume, OUTPUT_DIR: output_volume},
     timeout=3 * HOURS,
 )
 def train(
@@ -200,15 +200,12 @@ def train(
 
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
-        cache_dir=CACHE_DIR,
     )
     tokenizer = transformers.WhisperTokenizer.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
-        cache_dir=CACHE_DIR,
     )
     model = transformers.WhisperForConditionalGeneration.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
-        cache_dir=CACHE_DIR,
     )
 
     print("Loading dataset")
@@ -216,7 +213,6 @@ def train(
         config.dataset_name,
         config.dataset_subset,
         split="train",  # The test and val splits
-        cache_dir=CACHE_DIR,
         num_proc=os.cpu_count(),
         trust_remote_code=True,
     )
