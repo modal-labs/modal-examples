@@ -24,7 +24,7 @@
 # }
 # ```
 
-# After just 2 hours of training on a small dataset (7k samples), the model has already
+# After just 2 hours of training on a small dataset (~7k samples), the model has already
 # improved:
 
 # ```json
@@ -46,7 +46,6 @@
 import fastapi
 import functools
 import os
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Union
@@ -59,7 +58,13 @@ HOURS = 60 * MINUTES
 app = modal.App(name="example-whisper-fine-tune")
 
 # # Set up the container image
-#
+
+# We define the environment where our functions will run by building up a base
+# [container `Image`](https://modal.com/docs/guide/custom-container)
+# with our dependencies using `Image.pip_install`. We also set environment variables
+# here using `Image.env`, and include a local Python module we'll want available at
+# runtime using `Image.add_local_python_source`.
+
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -95,9 +100,11 @@ with image.imports():
 
     from english_spelling_mapping import english_spelling_mapping
 
-# We use Modal Volumes to persist data across function calls:
-# - Cache volume stores the Hugging Face model downloads to avoid re-downloading
-# - Output volume stores our fine-tuned model weights and training metrics
+# We use
+# [Modal Volumes](https://modal.com/docs/guide/volumes)
+# for anything we want to persist across function calls. In this case, we'll create
+# a cache volume for storing Hugging Face downloads for faster subsequent loads,
+# and an output Volume for saving our model and metrics after training.
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
@@ -132,9 +139,7 @@ def main(test: bool = False):
     else:
         config = Config()
 
-    start = time.perf_counter()
     train.remote(config)
-    print(f"Training took {time.perf_counter() - start:.6f} seconds")
 
 
 # ## Configuration with dataclasses
