@@ -49,6 +49,9 @@ from typing import Any, Union
 
 import modal
 
+MINUTES = 60
+HOURS = 60 * MINUTES
+
 # We also need an [`App`](https://modal.com/docs/guide/apps) object, which we will use
 # to define how our training application will run on Modal's cloud infrastructure.
 
