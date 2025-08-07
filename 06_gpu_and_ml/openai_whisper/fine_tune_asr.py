@@ -136,6 +136,7 @@ output_volume = modal.Volume.from_name(
 # modal run fine_tune_asr.py --test
 # ```
 
+
 @app.local_entrypoint()
 def main(test: bool = False):
     """Run Whisper fine-tuning on Modal."""
@@ -167,6 +168,7 @@ def main(test: bool = False):
 # [dataset card](https://huggingface.co/datasets/speechcolab/gigaspeech)
 # and create a [Hugging Face Secret](https://modal.com/secrets/) to download it.
 
+
 @dataclass
 class Config:
     """Training configuration."""
@@ -188,12 +190,14 @@ class Config:
     batch_size: int = 64
     learning_rate: float = 1e-5
 
+
 # We run evals before and after training to establish a baseline and see how much we
 # improved.
 
 # The `@app.function` decorator is where we attach infrastructure and define how our
 # Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
 # attach the Volumes we created earlier, add our access token, and set a timeout.
+
 
 @app.function(
     image=image,
@@ -353,106 +357,6 @@ def train(
     print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
 
-def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
-    """Convert audio to features and text to tokens."""
-    sample = batch["audio"]
-    inputs = feature_extractor(
-        sample["array"],
-        sampling_rate=sample["sampling_rate"],
-    )
-    batch[model_input_name] = inputs.get(model_input_name)[0]
-    batch["input_length"] = len(sample["array"])
-
-    # Normalize text: replace punctuation tags with normal punctuation, lowercase
-    normalized = (
-        batch["text"]
-        .replace(" <COMMA>", ",")
-        .replace(" <PERIOD>", ".")
-        .replace(" <QUESTIONMARK>", "?")
-        .replace(" <EXCLAMATIONPOINT>", "!")
-        .lower()
-        .strip()
-    )
-
-    batch["labels"] = tokenizer(normalized).input_ids
-
-    return batch
-
-
-def compute_metrics(pred, tokenizer, normalizer, metric):
-    """Compute Word Error Rate between predictions and ground truth."""
-    pred_ids = pred.predictions
-
-    # Replace padding tokens with proper pad token ID
-    pred.label_ids[pred.label_ids == -100] = tokenizer.pad_token_id
-
-    # Decode predictions and labels back to text
-    pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
-    norm_pred_str = [normalizer(s).strip() for s in pred_str]
-
-    label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
-    norm_label_str = [normalizer(s).strip() for s in label_str]
-
-    # Calculate Word Error Rate
-    wer = metric.compute(predictions=norm_pred_str, references=norm_label_str)
-    return {"wer": wer}
-
-
-# ## Custom Data Collator for Speech-to-Text
-
-# This custom data collator handles the unique requirements of speech-to-text training:
-# - Audio features and text labels have different lengths and need different padding strategies
-# - We need to mask padded tokens in the loss calculation
-
-
-@dataclass
-class DataCollatorSpeechSeq2SeqWithPadding:
-    """
-    Data collator that pads audio features and text labels for batch training.
-
-    Args:
-        processor: WhisperProcessor combining feature extractor and tokenizer
-        decoder_start_token_id: The BOS token ID for the decoder
-    """
-
-    processor: Any
-    decoder_start_token_id: int
-
-    def __call__(
-        self, features: list[dict[str, Union[list[int], "torch.Tensor"]]]
-    ) -> dict[str, "torch.Tensor"]:
-        # Separate audio features and text labels since they need different padding
-        model_input_name = self.processor.model_input_names[0]
-        input_features = [
-            {model_input_name: feature[model_input_name]} for feature in features
-        ]
-        label_features = [{"input_ids": feature["labels"]} for feature in features]
-
-        batch = self.processor.feature_extractor.pad(
-            input_features,
-            return_tensors="pt",
-            return_attention_mask=True,
-            padding=True,
-        )
-
-        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
-
-        # Replace padding tokens with -100 so they're ignored in loss calculation
-        labels = labels_batch["input_ids"].masked_fill(
-            labels_batch.attention_mask.ne(1), -100
-        )
-
-        # Remove decoder start token if it was added during tokenization
-        # since the model will add it automatically during training
-        # TODO: Is this necessary?
-        if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
-            labels = labels[:, 1:]
-
-        batch["labels"] = labels
-
-        return batch
-
-
 @app.cls(
     image=image,
     gpu="H100",
@@ -537,3 +441,96 @@ class Inference:
 
 # The remainder of this code is support code, unrelated to running this example on
 # Modal.
+
+
+def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
+    """Convert audio to features and text to tokens."""
+    sample = batch["audio"]
+    inputs = feature_extractor(
+        sample["array"],
+        sampling_rate=sample["sampling_rate"],
+    )
+    batch[model_input_name] = inputs.get(model_input_name)[0]
+    batch["input_length"] = len(sample["array"])
+
+    # Normalize text: replace punctuation tags with normal punctuation, lowercase
+    normalized = (
+        batch["text"]
+        .replace(" <COMMA>", ",")
+        .replace(" <PERIOD>", ".")
+        .replace(" <QUESTIONMARK>", "?")
+        .replace(" <EXCLAMATIONPOINT>", "!")
+        .lower()
+        .strip()
+    )
+
+    batch["labels"] = tokenizer(normalized).input_ids
+
+    return batch
+
+
+def compute_metrics(pred, tokenizer, normalizer, metric):
+    """Compute Word Error Rate between predictions and ground truth."""
+    pred_ids = pred.predictions
+
+    # Replace padding tokens with proper pad token ID
+    pred.label_ids[pred.label_ids == -100] = tokenizer.pad_token_id
+
+    # Decode predictions and labels back to text
+    pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
+    norm_pred_str = [normalizer(s).strip() for s in pred_str]
+
+    label_str = tokenizer.batch_decode(pred.label_ids, skip_special_tokens=True)
+    norm_label_str = [normalizer(s).strip() for s in label_str]
+
+    # Calculate Word Error Rate
+    wer = metric.compute(predictions=norm_pred_str, references=norm_label_str)
+    return {"wer": wer}
+
+
+@dataclass
+class DataCollatorSpeechSeq2SeqWithPadding:
+    """
+    Data collator that pads audio features and text labels for batch training.
+
+    Args:
+        processor: WhisperProcessor combining feature extractor and tokenizer
+        decoder_start_token_id: The BOS token ID for the decoder
+    """
+
+    processor: Any
+    decoder_start_token_id: int
+
+    def __call__(
+        self, features: list[dict[str, Union[list[int], "torch.Tensor"]]]
+    ) -> dict[str, "torch.Tensor"]:
+        # Separate audio features and text labels since they need different padding
+        model_input_name = self.processor.model_input_names[0]
+        input_features = [
+            {model_input_name: feature[model_input_name]} for feature in features
+        ]
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
+
+        batch = self.processor.feature_extractor.pad(
+            input_features,
+            return_tensors="pt",
+            return_attention_mask=True,
+            padding=True,
+        )
+
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+
+        # Replace padding tokens with -100 so they're ignored in loss calculation
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch.attention_mask.ne(1), -100
+        )
+
+        # Remove decoder start token if it was added during tokenization
+        # since the model will add it automatically during training
+        # TODO: Is this necessary?
+        if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
+            labels = labels[:, 1:]
+
+        batch["labels"] = labels
+
+        return batch
