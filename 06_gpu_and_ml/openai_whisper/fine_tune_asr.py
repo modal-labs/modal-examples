@@ -36,12 +36,12 @@
 # ```
 
 
-# ## Defining the environment for our Modal function
+# ## Defining the environment for our Modal Functions
 
 # We start by importing our standard library dependencies and `modal`.
 
-# We also need an [`App`](https://modal.com/docs/guide/apps) object, which we will use
-# to define how our training application will run on Modal's cloud infrastructure.
+# We also need an [`App`](https://modal.com/docs/guide/apps) object, which we'll use to
+# define how our training application will run on Modal's cloud infrastructure.
 
 import fastapi
 import functools
@@ -57,10 +57,10 @@ HOURS = 60 * MINUTES
 
 app = modal.App(name="example-whisper-fine-tune")
 
-# # Set up the container image
+# ### Set up the container image
 
 # We define the environment where our functions will run by building up a base
-# [container `Image`](https://modal.com/docs/guide/custom-container)
+# [container `Image`](https://modal.com/docs/guide/images)
 # with our dependencies using `Image.pip_install`. We also set environment variables
 # here using `Image.env`, and include a local Python module we'll want available at
 # runtime using `Image.add_local_python_source`.
@@ -84,12 +84,13 @@ image = (
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Faster downloads from Hugging Face
         }
     )
-    .pip_install("ipdb", "IPython")  # TODO: REMOVE
     .add_local_python_source("english_spelling_mapping")  # For text normalization
 )
 
+# Next we'll import the dependencies we need for the code that will run on Modal.
+
 # The `image.imports()` context manager ensures these imports are available
-# when our Modal functions run, but are not required locally.
+# when our Modal functions run, but don't need to be installed locally.
 
 with image.imports():
     import datasets
@@ -99,6 +100,8 @@ with image.imports():
     from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 
     from english_spelling_mapping import english_spelling_mapping
+
+# ### Storing data on Modal
 
 # We use
 # [Modal Volumes](https://modal.com/docs/guide/volumes)
@@ -116,8 +119,9 @@ output_volume = modal.Volume.from_name(
 
 # ## Calling a Modal function from the command line
 
-# First, we define a `local_entrypoint` -- our `main` function that runs locally and
-# provides a command-line interface to trigger training on Modal's cloud infrastructure.
+# The easiest way to invoke our training Function is by creating a `local_entrypoint` --
+# our `main` function that runs locally and provides a command-line interface to trigger
+# training on Modal's cloud infrastructure.
 
 # This will allow us to run this example with:
 
@@ -125,6 +129,12 @@ output_volume = modal.Volume.from_name(
 # modal run fine_tune_asr.py
 # ```
 
+# Arguments passed to this function are turned in to CLI arguments automagically. For
+# example, adding `--test` will run a single step of training for end-to-end testing.
+
+# ```bash
+# modal run fine_tune_asr.py --test
+# ```
 
 @app.local_entrypoint()
 def main(test: bool = False):
@@ -142,8 +152,20 @@ def main(test: bool = False):
     train.remote(config)
 
 
-# ## Configuration with dataclasses
+# ## Defining our training Function
 
+# Training ML models often requires a lot of configuration. We'll use a `dataclass` to
+# collect some of these parameters in one place.
+
+# For this example, we'll use the "Science and Technology" subset of the
+# [GigaSpeech (small)](https://huggingface.co/datasets/speechcolab/gigaspeech)
+# dataset. This is enough data to see the model improve on scientific terms in just a
+# few epochs.
+
+# GigaSpeech is a [gated model](https://huggingface.co/docs/hub/en/models-gated), so
+# you'll need to accept the terms on the
+# [dataset card](https://huggingface.co/datasets/speechcolab/gigaspeech)
+# and create a [Hugging Face Secret](https://modal.com/secrets/) to download it.
 
 @dataclass
 class Config:
@@ -163,18 +185,21 @@ class Config:
     num_train_epochs: int = 5
     warmup_steps: int = 400
     max_steps: int = -1
+    batch_size: int = 64
+    learning_rate: float = 1e-5
 
+# We run evals before and after training to establish a baseline and see how much we
+# improved.
 
-# ## Define our training function
-
-# We run evals before and after training to establish a baseline and see how much we improved.
-
+# The `@app.function` decorator is where we attach infrastructure and define how our
+# Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
+# attach the Volumes we created earlier, add our access token, and set a timeout.
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     gpu="H100!",
     volumes={"/root/.cache": cache_volume, OUTPUT_DIR: output_volume},
+    secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     timeout=3 * HOURS,
 )
 def train(
@@ -184,10 +209,10 @@ def train(
         length_column_name="input_length",
         output_dir=Path(OUTPUT_DIR) / app.app_id,
         num_train_epochs=config.num_train_epochs,
-        per_device_train_batch_size=64,
-        per_device_eval_batch_size=64,
+        per_device_train_batch_size=config.batch_size,
+        per_device_eval_batch_size=config.batch_size,
         gradient_accumulation_steps=1,
-        learning_rate=1e-5,
+        learning_rate=config.learning_rate,
         warmup_steps=config.warmup_steps,
         max_steps=config.max_steps,
         eval_strategy="steps",
@@ -198,12 +223,9 @@ def train(
         generation_max_length=40,
         generation_num_beams=1,
     )
-
-    print("Starting training run")
     print(f"Starting training. Weights will be saved to '{training_args.output_dir}'")
 
-    print("Loading models")
-
+    print(f"Loading model: {config.model_name}")
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
     )
@@ -214,47 +236,47 @@ def train(
         pretrained_model_name_or_path=config.model_name,
     )
 
-    print("Loading dataset")
-    ds = datasets.load_dataset(
+    print(f"Loading dataset: {config.dataset_name} {config.dataset_subset}")
+    dataset = datasets.load_dataset(
         config.dataset_name,
         config.dataset_subset,
-        split="train",  # The test and val splits
+        split="train",  # The test and val splits don't have category labels
         num_proc=os.cpu_count(),
         trust_remote_code=True,
     )
 
     print("Preparing data")
     # Filter to only include samples from our target category (Science and Technology)
-    ds = ds.select(
-        [i for i, c in enumerate(ds["category"]) if c == config.dataset_category]
+    dataset = dataset.select(
+        [i for i, c in enumerate(dataset["category"]) if c == config.dataset_category]
     )
 
     # Keep only the columns we need: audio data and text transcription
-    ds = ds.select_columns(["text", "audio"])
+    dataset = dataset.select_columns(["text", "audio"])
 
     # Split the filtered dataset into train/validation sets
-    raw_datasets = ds.train_test_split(test_size=0.1, shuffle=True, seed=42)
+    dataset = dataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
 
     # We need to read the audio files as arrays and tokenize the targets.
     max_input_length = config.max_duration_in_seconds * feature_extractor.sampling_rate
     min_input_length = config.min_duration_in_seconds * feature_extractor.sampling_rate
     model_input_name = feature_extractor.model_input_names[0]
 
-    # Apply preprocessing to all samples in parallel
-    vectorized_datasets = raw_datasets.map(
+    # Apply preprocessing in parallel
+    dataset = dataset.map(
         functools.partial(
             prepare_dataset,
             feature_extractor=feature_extractor,
             tokenizer=tokenizer,
             model_input_name=model_input_name,
         ),
-        remove_columns=next(iter(raw_datasets.values())).column_names,
+        remove_columns=next(iter(dataset.values())).column_names,
         num_proc=os.cpu_count(),
         desc="Preprocessing dataset",
     )
 
     # Filter out audio clips that are too short or too long
-    vectorized_datasets = vectorized_datasets.filter(
+    dataset = dataset.filter(
         lambda length: length > min_input_length and length < max_input_length,
         num_proc=os.cpu_count(),
         input_columns=["input_length"],
@@ -279,8 +301,8 @@ def train(
     trainer = transformers.Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=vectorized_datasets["train"],
-        eval_dataset=vectorized_datasets["test"],
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["test"],
         processing_class=feature_extractor,
         data_collator=data_collator,
         compute_metrics=functools.partial(
@@ -300,8 +322,9 @@ def train(
     trainer.log_metrics("baseline", metrics)
     trainer.save_metrics("baseline", metrics)
 
-    print("Starting training loop")
+    print("Starting training loop!")
     train_result = trainer.train()
+
     # Save the model weights, tokenizer, and feature extractor
     trainer.save_model()
     tokenizer.save_pretrained(training_args.output_dir)
@@ -309,7 +332,7 @@ def train(
 
     # Log training metrics
     metrics = train_result.metrics
-    metrics["train_samples"] = len(vectorized_datasets["train"])
+    metrics["train_samples"] = len(dataset["train"])
     trainer.log_metrics("train", metrics)
     trainer.save_metrics("train", metrics)
     trainer.save_state()
@@ -321,14 +344,13 @@ def train(
         max_length=training_args.generation_max_length,
         num_beams=training_args.generation_num_beams,
     )
-    metrics["eval_samples"] = len(vectorized_datasets["test"])
+    metrics["eval_samples"] = len(dataset["test"])
 
     trainer.log_metrics("test", metrics)
     trainer.save_metrics("test", metrics)
-    output_volume.commit()  # Ensure the model and metrics are saved to the Volume
+    output_volume.commit()  # Ensure everything is saved to the Volume
 
-    print("\nTraining complete!")
-    print(f"Model saved to '{training_args.output_dir}'\n")
+    print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
 
 def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
@@ -457,7 +479,7 @@ class Inference:
         self.model.config.forced_decoder_ids = None
 
     @modal.method()
-    def run(
+    def transcribe(
         self,
         audio_bytes: bytes,
     ) -> str:
@@ -498,7 +520,7 @@ class Inference:
         self,
         audio_file: Annotated[bytes, fastapi.File()],
     ) -> dict[str, str]:
-        transcription = self.run.local(  # run in the same container
+        transcription = self.transcribe.local(  # run in the same container
             audio_bytes=audio_file,
         )
         return {"transcription": transcription}
@@ -510,3 +532,8 @@ class Inference:
 #   -H 'Content-Type: multipart/form-data' \
 #   -F 'audio_file=@erik.wav;type=audio/wav'
 # ```
+
+# ## Addenda
+
+# The remainder of this code is support code, unrelated to running this example on
+# Modal.
