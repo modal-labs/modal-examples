@@ -65,6 +65,7 @@ app = modal.App(name="example-whisper-fine-tune")
 # here using `Image.env`, and include a local Python module we'll want available at
 # runtime using `Image.add_local_python_source`.
 
+CACHE_DIR = "/cache"
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install(
@@ -82,6 +83,7 @@ image = (
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Faster downloads from Hugging Face
+            "HF_HOME": CACHE_DIR,
         }
     )
     .add_local_python_source("english_spelling_mapping")  # For text normalization
@@ -116,6 +118,7 @@ output_volume = modal.Volume.from_name(
     "fine-tune-asr-example",  # TODO: rename to match examples repo
     create_if_missing=True,
 )
+volumes = {CACHE_DIR: cache_volume, OUTPUT_DIR: output_volume}
 
 # ## Calling a Modal function from the command line
 
@@ -202,7 +205,7 @@ class Config:
 @app.function(
     image=image,
     gpu="H100!",
-    volumes={"/root/.cache": cache_volume, OUTPUT_DIR: output_volume},
+    volumes=volumes,
     secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     timeout=3 * HOURS,
 )
@@ -362,7 +365,7 @@ def train(
     gpu="H100",
     timeout=10 * MINUTES,
     # scaledown_window=10 * MINUTES,
-    volumes={"/root/.cache": cache_volume, OUTPUT_DIR: output_volume},
+    volumes=volumes,
 )
 class Inference:
     model_app_id: str = modal.parameter(default=Config().model_name)
