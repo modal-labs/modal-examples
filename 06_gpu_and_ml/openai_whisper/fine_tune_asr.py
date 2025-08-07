@@ -431,10 +431,11 @@ class Inference:
 
 
 # ```bash
+# curl -X 'POST' \
 # 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?model_app_id=ap-YourTrainingAppId' \
-#   -H 'accept: application/json' \
-#   -H 'Content-Type: multipart/form-data' \
-#   -F 'audio_file=@erik.wav;type=audio/wav'
+# -H 'accept: application/json' \
+# -H 'Content-Type: multipart/form-data' \
+# -F 'audio_file=@erik.wav;type=audio/wav'
 # ```
 
 # ## Addenda
