@@ -73,7 +73,7 @@ image = (
         "accelerate==1.8.1",
         "datasets==3.6.0",
         "evaluate==0.4.5",
-        "fastapi[standard]",
+        "fastapi[standard]==0.116.1",
         "huggingface_hub[hf_transfer]==0.33.4",
         "jiwer==4.0.0",
         "librosa==0.11.0",
