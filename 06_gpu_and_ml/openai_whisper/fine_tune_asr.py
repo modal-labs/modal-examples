@@ -197,8 +197,21 @@ class Config:
     learning_rate: float = 1e-5
 
 
+# The training function does the following:
+# 1. Load the pre-trained Whisper model, along with the feature extractor and tokenizer
+# 2. Load the dataset -> select our training category -> extract features for training
+# 3. Run baseline evals
+# 4. 🚂 Train! 🚂
+# 5. Save the improved model and metrics to the Volume
+# 6. Run final evals
+
 # We run evals before and after training to establish a baseline and see how much we
-# improved.
+# improved. The most common way to measure the performance of speech recognition models
+# is "word error rate" (WER), which you see in most
+# [leaderboards](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+
+# `WER = (substitutions + deletions + insertions) / total words`.
+
 
 # The `@app.function` decorator is where we attach infrastructure and define how our
 # Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
@@ -292,9 +305,6 @@ def train(
         input_columns=["input_length"],
     )
 
-    normalizer = EnglishTextNormalizer(english_spelling_mapping)
-    metric = evaluate.load("wer")
-
     # Create a processor that combines the feature extractor and tokenizer
     processor = transformers.WhisperProcessor(
         feature_extractor=feature_extractor,
@@ -308,6 +318,9 @@ def train(
     )
 
     # Set up the Hugging Face trainer with all of our components
+    normalizer = EnglishTextNormalizer(english_spelling_mapping)
+    metric = evaluate.load("wer")
+
     trainer = transformers.Seq2SeqTrainer(
         model=model,
         args=training_args,
