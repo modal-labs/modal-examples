@@ -2,7 +2,7 @@
 # args: ["--test"]
 # ---
 
-# # Fine-tune Whisper to Improve Domain-Specific Transcription
+# # Fine-tune Whisper to Improve Transcription on Domain-Specific Vocab
 
 # This example demonstrates how to fine-tune an asr model
 # ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
