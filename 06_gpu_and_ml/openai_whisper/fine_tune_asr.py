@@ -213,10 +213,14 @@ class Config:
 
 # We run evals before and after training to establish a baseline and see how much the
 # model improved. The most common way to measure the performance of speech recognition
-# models is "word error rate" (WER). You can see the average WER of top performing modelscommon in asr
-# [leaderboards](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+# models is "word error rate" (WER).
 
 # `WER = (substitutions + deletions + insertions) / total words`.
+
+# You can see the WER of the top performing models on popular benchmarking datasets on
+# the
+# [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+
 
 
 @app.function(
