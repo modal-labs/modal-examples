@@ -43,7 +43,6 @@
 # We also need an [`App`](https://modal.com/docs/guide/apps) object, which we'll use to
 # define how our training application will run on Modal's cloud infrastructure.
 
-import fastapi
 import functools
 import io
 import os
@@ -51,6 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Union
 
+import fastapi
 import modal
 
 MINUTES = 60
