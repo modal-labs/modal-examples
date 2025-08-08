@@ -115,7 +115,7 @@ with image.imports():
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 output_volume = modal.Volume.from_name(
-    "fine-tune-asr-example",  # TODO: rename to match examples repo
+    "fine-tune-asr-example-volume",
     create_if_missing=True,
 )
 OUTPUT_DIR = "/outputs"
@@ -220,7 +220,6 @@ class Config:
 # You can see the WER of the top performing models on popular benchmarking datasets on
 # the
 # [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
-
 
 
 @app.function(
