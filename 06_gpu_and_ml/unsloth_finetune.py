@@ -1,5 +1,4 @@
 # ---
-# cmd: ["modal", "run", "-m", "06_gpu_and_ml.unsloth_finetune"]
 # args: ["--max-steps", "1", "--save-steps", "1", "--skip-eval"]
 # ---
 
@@ -40,7 +39,7 @@ import modal
 # We create a Modal [App](https://modal.com/docs/guide/apps) to organize our functions
 # and shared infrastructure like container images and volumes.
 
-app = modal.App("unsloth-finetune")
+app = modal.App("example-unsloth-finetune")
 
 # ### Container Image Configuration
 
@@ -107,7 +106,7 @@ checkpoint_volume = modal.Volume.from_name(
 # finishes faster, we won't end up using the full 6 hours may not use the whole
 # timeout if it finishes earlier . We also specify 3 retries, which will be useful
 # in case our training function gets
-# [preempted](https://modal.com/docs/guide/preemption#preemption).
+# [preempted](https://modal.com/docs/guide/preemption).
 
 GPU_TYPE = "L40S"
 TIMEOUT_HOURS = 6
@@ -365,10 +364,10 @@ def finetune(config: TrainingConfig):
     return config.experiment_name
 
 
-# Finally, we invoke our training function from our
+# Finally, we invoke our training function from an
 # [`App.local_entrypoint`](https://modal.com/docs/reference/modal.App#local_entrypoint).
 # Arguments to this function automatically get converted into CLI flags that
-# can be specified when we [run](https://modal.com/docs/reference/cli/run#modal-run)
+# can be specified when we [`modal run`](https://modal.com/docs/reference/cli/run#modal-run)
 # our code. This allows us to do things like tweak hyperparameters directly
 # from the command line without modifying our source code.
 
