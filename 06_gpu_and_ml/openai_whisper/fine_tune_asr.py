@@ -18,7 +18,7 @@
 
 # ```json
 # {
-#   "word_error_rate": 0.6666666666666666,
+#   "word_error_rate": 0.67,
 #   "ground_truth": "make as much deuterium and tritium as you like",
 #   "prediction": "because much material and teach them what you like"
 # }
@@ -29,7 +29,7 @@
 
 # ```json
 # {
-#   "word_error_rate": 0.2222222222222222,
+#   "word_error_rate": 0.22,
 #   "ground_truth": "make as much deuterium and tritium as you like",
 #   "prediction": "because much deuterium and tritium as you like"
 # }
@@ -45,6 +45,7 @@
 
 import fastapi
 import functools
+import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -97,6 +98,7 @@ image = (
 with image.imports():
     import datasets
     import evaluate
+    import librosa
     import torch
     import transformers
     from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
@@ -112,12 +114,11 @@ with image.imports():
 # and an output Volume for saving our model and metrics after training.
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
-
-OUTPUT_DIR = "/outputs"
 output_volume = modal.Volume.from_name(
     "fine-tune-asr-example",  # TODO: rename to match examples repo
     create_if_missing=True,
 )
+OUTPUT_DIR = "/outputs"
 volumes = {CACHE_DIR: cache_volume, OUTPUT_DIR: output_volume}
 
 # ## Calling a Modal function from the command line
@@ -176,6 +177,8 @@ def main(test: bool = False):
 class Config:
     """Training configuration."""
 
+    run_id: str = "whisper-fine-tune"  # Name used for saving and loading
+
     # Model config
     model_name: str = "openai/whisper-tiny.en"
 
@@ -214,7 +217,7 @@ def train(
 ):
     training_args = transformers.Seq2SeqTrainingArguments(
         length_column_name="input_length",
-        output_dir=Path(OUTPUT_DIR) / app.app_id,
+        output_dir=Path(OUTPUT_DIR) / config.run_id,
         num_train_epochs=config.num_train_epochs,
         per_device_train_batch_size=config.batch_size,
         per_device_eval_batch_size=config.batch_size,
@@ -360,6 +363,39 @@ def train(
     print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
 
+# ## Serving our new model
+
+# Once fine-tuning is complete, Modal makes it incredibly easy to create an API for our
+# new model. We can define both our inference function and our endpoint using a Modal
+# [Cls](https://modal.com/docs/reference/modal.Cls).
+# This will allow us to take advantage of
+# [lifecycle hooks](https://modal.com/docs/guide/lifecycle-functions)
+# to load the model just once on container startup using the `@modal.enter` decorator.
+# We can use
+# [modal.fastapi_endpoint](https://modal.com/docs/reference/modal.fastapi_endpoint)
+# to expose our inference function as a web endpoint.
+
+# You can deploy this endpoint with:
+
+# ```bash
+# modal deploy fine_tune_asr.py
+# ```
+
+# Note: you can specify which model to load by passing the `run_id` as a query
+# parameter when calling the endpoint. We set `run_id` in our `Config` above, and it's
+# the name of the output directory where the model was saved.
+
+# Here's an example of how to use this endpoint to transcribe an audio file:
+
+# ```bash
+# curl -X 'POST' \
+# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?run_id=whisper-fine-tune' \
+# -H 'accept: application/json' \
+# -H 'Content-Type: multipart/form-data' \
+# -F 'audio_file=@your-audio-file.wav;type=audio/wav'
+# ```
+
+
 @app.cls(
     image=image,
     gpu="H100",
@@ -368,21 +404,16 @@ def train(
     volumes=volumes,
 )
 class Inference:
-    model_app_id: str = modal.parameter(default=Config().model_name)
+    run_id: str = modal.parameter(default=Config().run_id)
 
     @modal.enter()
     def load_model(self):
-        from transformers import WhisperForConditionalGeneration, WhisperProcessor
+        """Load the model and processor on container startup."""
 
-        # load model and processor
-        model = (
-            f"{OUTPUT_DIR}/{self.model_app_id}"
-            if "/" not in self.model_app_id
-            else self.model_app_id
-        )
+        model = f"{OUTPUT_DIR}/{self.run_id}" if "/" not in self.run_id else self.run_id
         print(f"Loading model from {model}")
-        self.processor = WhisperProcessor.from_pretrained(model)
-        self.model = WhisperForConditionalGeneration.from_pretrained(model)
+        self.processor = transformers.WhisperProcessor.from_pretrained(model)
+        self.model = transformers.WhisperForConditionalGeneration.from_pretrained(model)
         self.model.config.forced_decoder_ids = None
 
     @modal.method()
@@ -390,21 +421,13 @@ class Inference:
         self,
         audio_bytes: bytes,
     ) -> str:
-        import io
-
-        import librosa
-        from datasets import Audio, Dataset
-
-        print(f"Called with {self.model_app_id}")
-        print(f"input type: {type(audio_bytes)}")
-
         # Resample audio to match the model's sample rate
         model_sample_rate = self.processor.feature_extractor.sampling_rate
         audio_data, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=None)
 
-        audio_dataset = Dataset.from_dict(
+        audio_dataset = datasets.Dataset.from_dict(
             {"audio": [{"array": audio_data, "sampling_rate": sample_rate}]}
-        ).cast_column("audio", Audio(sampling_rate=model_sample_rate))
+        ).cast_column("audio", datasets.Audio(sampling_rate=model_sample_rate))
 
         # Audio -> features (log-mel spectrogram)
         row = next(iter(audio_dataset))
@@ -427,19 +450,13 @@ class Inference:
         self,
         audio_file: Annotated[bytes, fastapi.File()],
     ) -> dict[str, str]:
+        """Defines an endpoint for calling inference."""
+
         transcription = self.transcribe.local(  # run in the same container
             audio_bytes=audio_file,
         )
         return {"transcription": transcription}
 
-
-# ```bash
-# curl -X 'POST' \
-# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?model_app_id=ap-YourTrainingAppId' \
-# -H 'accept: application/json' \
-# -H 'Content-Type: multipart/form-data' \
-# -F 'audio_file=@erik.wav;type=audio/wav'
-# ```
 
 # ## Addenda
 
@@ -529,9 +546,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
             labels_batch.attention_mask.ne(1), -100
         )
 
-        # Remove decoder start token if it was added during tokenization
-        # since the model will add it automatically during training
-        # TODO: Is this necessary?
+        # Remove start token if tokenizer added it - model will add it during training
         if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
             labels = labels[:, 1:]
 
