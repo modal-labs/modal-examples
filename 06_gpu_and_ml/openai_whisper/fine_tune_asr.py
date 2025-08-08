@@ -157,7 +157,7 @@ def main(test: bool = False):
     train.remote(config)
 
 
-# ## Defining our training Function
+# ## Training
 
 # Training ML models often requires a lot of configuration. We'll use a `dataclass` to
 # collect some of these parameters in one place.
@@ -197,25 +197,26 @@ class Config:
     learning_rate: float = 1e-5
 
 
-# The training function does the following:
-# 1. Load the pre-trained Whisper model, along with the feature extractor and tokenizer
-# 2. Load the dataset -> select our training category -> extract features for training
-# 3. Run baseline evals
-# 4. 🚂 Train! 🚂
-# 5. Save the improved model and metrics to the Volume
-# 6. Run final evals
-
-# We run evals before and after training to establish a baseline and see how much we
-# improved. The most common way to measure the performance of speech recognition models
-# is "word error rate" (WER), which you see in most
-# [leaderboards](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
-
-# `WER = (substitutions + deletions + insertions) / total words`.
-
+# ### Defining our training Function
 
 # The `@app.function` decorator is where we attach infrastructure and define how our
 # Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
 # attach the Volumes we created earlier, add our access token, and set a timeout.
+
+# The training Function does the following:
+# 1. Load the pre-trained model, along with the feature extractor and tokenizer
+# 2. Load the dataset -> select our training category -> extract features for training
+# 3. Run baseline evals
+# 4. 🚂 Train!
+# 5. Save the fine-tuned model to the Volume
+# 6. Run final evals
+
+# We run evals before and after training to establish a baseline and see how much the
+# model improved. The most common way to measure the performance of speech recognition
+# models is "word error rate" (WER). You can see the average WER of top performing modelscommon in asr
+# [leaderboards](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
+
+# `WER = (substitutions + deletions + insertions) / total words`.
 
 
 @app.function(
@@ -378,8 +379,8 @@ def train(
 
 # ## Serving our new model
 
-# Once fine-tuning is complete, Modal makes it incredibly easy to create an API for our
-# new model. We can define both our inference function and our endpoint using a Modal
+# Once fine-tuning is complete, Modal makes it incredibly easy to deploy our new model.
+# We can define both our inference function and an endpoint using a Modal
 # [Cls](https://modal.com/docs/reference/modal.Cls).
 # This will allow us to take advantage of
 # [lifecycle hooks](https://modal.com/docs/guide/lifecycle-functions)
@@ -387,26 +388,6 @@ def train(
 # We can use
 # [modal.fastapi_endpoint](https://modal.com/docs/reference/modal.fastapi_endpoint)
 # to expose our inference function as a web endpoint.
-
-# You can deploy this endpoint with:
-
-# ```bash
-# modal deploy fine_tune_asr.py
-# ```
-
-# Note: you can specify which model to load by passing the `run_id` as a query
-# parameter when calling the endpoint. We set `run_id` in our `Config` above, and it's
-# the name of the output directory where the model was saved.
-
-# Here's an example of how to use this endpoint to transcribe an audio file:
-
-# ```bash
-# curl -X 'POST' \
-# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?run_id=whisper-fine-tune' \
-# -H 'accept: application/json' \
-# -H 'Content-Type: multipart/form-data' \
-# -F 'audio_file=@your-audio-file.wav;type=audio/wav'
-# ```
 
 
 @app.cls(
@@ -471,10 +452,29 @@ class Inference:
         return {"transcription": transcription}
 
 
+# Deploy it with:
+
+# ```bash
+# modal deploy fine_tune_asr.py
+# ```
+
+# Note: you can specify which model to load by passing the `run_id` as a query
+# parameter when calling the endpoint. We set `run_id` in our `Config` above, and it's
+# the name of the output directory where the model was saved.
+
+# Here's an example of how to use this endpoint to transcribe an audio file:
+
+# ```bash
+# curl -X 'POST' \
+# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?run_id=whisper-fine-tune' \
+# -H 'accept: application/json' \
+# -H 'Content-Type: multipart/form-data' \
+# -F 'audio_file=@your-audio-file.wav;type=audio/wav'
+# ```
+
 # ## Addenda
 
-# The remainder of this code is support code, unrelated to running this example on
-# Modal.
+# The remainder of this code is support code
 
 
 def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
