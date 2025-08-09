@@ -272,41 +272,39 @@ def train(
         if config.dataset_name is not None
         else get_test_dataset(config)
     )
-    # Filter to only include samples from our target category (Science and Technology)
-    dataset = dataset.select(
-        [i for i, c in enumerate(dataset["category"]) if c == config.dataset_category]
-    )
 
-    # Keep only the columns we need: audio data and text transcription
-    dataset = dataset.select_columns(["text", "audio"])
-
-    # Split the filtered dataset into train/validation sets
-    dataset = dataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
-
-    # We need to read the audio files as arrays and tokenize the targets.
     max_input_length = config.max_duration_in_seconds * feature_extractor.sampling_rate
     min_input_length = config.min_duration_in_seconds * feature_extractor.sampling_rate
-    model_input_name = feature_extractor.model_input_names[0]
 
-    # Apply preprocessing in parallel
+    # Remove samples that are not from our target category (Science and Technology)
+    # Remove audio clips that are too short or too long
+    dataset = dataset.filter(
+        functools.partial(
+            filter_dataset,
+            dataset_category=config.dataset_category,
+            max_input_length=max_input_length,
+            min_input_length=min_input_length,
+        ),
+        input_columns=["category", "audio"],
+        num_proc=os.cpu_count(),
+    )
+
+    # Extract audio features and tokenize labels
     dataset = dataset.map(
         functools.partial(
             prepare_dataset,
             feature_extractor=feature_extractor,
             tokenizer=tokenizer,
-            model_input_name=model_input_name,
+            model_input_name=feature_extractor.model_input_names[0],
         ),
-        remove_columns=next(iter(dataset.values())).column_names,
+        batched=True,
+        remove_columns=dataset.column_names,
         num_proc=os.cpu_count(),
-        desc="Preprocessing dataset",
+        desc="Feature extract + tokenize",
     )
 
-    # Filter out audio clips that are too short or too long
-    dataset = dataset.filter(
-        lambda length: length > min_input_length and length < max_input_length,
-        num_proc=os.cpu_count(),
-        input_columns=["input_length"],
-    )
+    # Split the filtered dataset into train/validation sets
+    dataset = dataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
 
     # Create a processor that combines the feature extractor and tokenizer
     processor = transformers.WhisperProcessor(
@@ -489,27 +487,34 @@ def get_test_dataset(config, length=5):
     )
 
 
-def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
-    """Convert audio to features and text to tokens."""
-    sample = batch["audio"]
-    inputs = feature_extractor(
-        sample["array"],
-        sampling_rate=sample["sampling_rate"],
+def filter_dataset(
+    category, audio, dataset_category, max_input_length, min_input_length
+):
+    return (
+        category == dataset_category
+        and len(audio["array"]) > min_input_length
+        and len(audio["array"]) < max_input_length
     )
-    batch[model_input_name] = inputs.get(model_input_name)[0]
-    batch["input_length"] = len(sample["array"])
 
-    # Normalize text: replace punctuation tags with normal punctuation, lowercase
-    normalized = (
-        batch["text"]
-        .replace(" <COMMA>", ",")
+
+def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
+    """Batched: convert audio to features and text to token IDs."""
+    audio_arrays = [s["array"] for s in batch["audio"]]
+    inputs = feature_extractor(
+        audio_arrays,
+        sampling_rate=feature_extractor.sampling_rate,
+    )
+    batch[model_input_name] = inputs.get(model_input_name)
+
+    normalized = [
+        t.replace(" <COMMA>", ",")
         .replace(" <PERIOD>", ".")
         .replace(" <QUESTIONMARK>", "?")
         .replace(" <EXCLAMATIONPOINT>", "!")
         .lower()
         .strip()
-    )
-
+        for t in batch["text"]
+    ]
     batch["labels"] = tokenizer(normalized).input_ids
 
     return batch
