@@ -63,8 +63,7 @@ app = modal.App(name="example-whisper-fine-tune")
 # We define the environment where our functions will run by building up a base
 # [container `Image`](https://modal.com/docs/guide/images)
 # with our dependencies using `Image.pip_install`. We also set environment variables
-# here using `Image.env`, and include a local Python module we'll want available at
-# runtime using `Image.add_local_python_source`.
+# here using `Image.env`, like the HuggingFace cache directory.
 
 CACHE_DIR = "/cache"
 image = (
@@ -80,6 +79,7 @@ image = (
         "torch==2.7.1",
         "torchaudio==2.7.1",
         "transformers==4.53.2",
+        "whisper_normalizer==0.1.12",
     )
     .env(
         {
@@ -87,7 +87,6 @@ image = (
             "HF_HOME": CACHE_DIR,
         }
     )
-    .add_local_python_source("english_spelling_mapping")  # For text normalization
 )
 
 # Next we'll import the dependencies we need for the code that will run on Modal.
@@ -101,9 +100,7 @@ with image.imports():
     import librosa
     import torch
     import transformers
-    from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
-
-    from english_spelling_mapping import english_spelling_mapping
+    from whisper_normalizer.english import EnglishTextNormalizer
 
 # ### Storing data on Modal
 
@@ -322,7 +319,7 @@ def train(
     )
 
     # Set up the Hugging Face trainer with all of our components
-    normalizer = EnglishTextNormalizer(english_spelling_mapping)
+    normalizer = EnglishTextNormalizer()
     metric = evaluate.load("wer")
 
     trainer = transformers.Seq2SeqTrainer(
