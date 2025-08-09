@@ -17,7 +17,6 @@
 
 # ```json
 # {
-#   "word_error_rate": 0.67,
 #   "ground_truth": "make as much deuterium and tritium as you like",
 #   "prediction": "because much material and teach them what you like"
 # }
@@ -28,7 +27,6 @@
 
 # ```json
 # {
-#   "word_error_rate": 0.22,
 #   "ground_truth": "make as much deuterium and tritium as you like",
 #   "prediction": "because much deuterium and tritium as you like"
 # }
