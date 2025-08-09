@@ -4,7 +4,7 @@
 
 # # Fine-tune Whisper to Improve Transcription on Domain-Specific Vocab
 
-# This example demonstrates how to fine-tune an asr model
+# This example demonstrates how to fine-tune an ASR model
 # ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
 # to improve transcription accuracy for domain-specific vocabulary.
 
