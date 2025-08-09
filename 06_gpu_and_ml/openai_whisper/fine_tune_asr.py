@@ -370,7 +370,7 @@ def train(
     print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
 
-# ## Serving our new model
+# ## Deploying our fine-tuned model for inference
 
 # Once fine-tuning is complete, Modal makes it incredibly easy to deploy our new model.
 # We can define both our inference function and an endpoint using a Modal
