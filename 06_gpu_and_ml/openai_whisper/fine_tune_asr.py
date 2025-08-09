@@ -247,7 +247,6 @@ def train(
         generation_max_length=40,
         generation_num_beams=1,
     )
-    print(f"Starting training. Weights will be saved to '{training_args.output_dir}'")
 
     print(f"Loading model: {config.model_name}")
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(
@@ -273,6 +272,7 @@ def train(
         else get_test_dataset(config)
     )
 
+    print("Preparing data")
     max_input_length = config.max_duration_in_seconds * feature_extractor.sampling_rate
     min_input_length = config.min_duration_in_seconds * feature_extractor.sampling_rate
 
@@ -346,7 +346,7 @@ def train(
     trainer.log_metrics("baseline", metrics)
     trainer.save_metrics("baseline", metrics)
 
-    print("Starting training loop!")
+    print(f"Starting training! Weights will be saved to '{training_args.output_dir}'")
     train_result = trainer.train()
 
     # Save the model weights, tokenizer, and feature extractor
