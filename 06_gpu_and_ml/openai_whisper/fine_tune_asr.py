@@ -143,7 +143,7 @@ def main(test: bool = False):
     """Run Whisper fine-tuning on Modal."""
     if test:  # for quick e2e test
         config = Config(
-            dataset_subset="xs",
+            dataset_name=None,
             num_train_epochs=1.0,
             warmup_steps=0,
             max_steps=1,
@@ -261,15 +261,17 @@ def train(
     )
 
     print(f"Loading dataset: {config.dataset_name} {config.dataset_subset}")
-    dataset = datasets.load_dataset(
-        config.dataset_name,
-        config.dataset_subset,
-        split="train",  # The test and val splits don't have category labels
-        num_proc=os.cpu_count(),
-        trust_remote_code=True,
+    dataset = (
+        datasets.load_dataset(
+            config.dataset_name,
+            config.dataset_subset,
+            split="train",  # The test and val splits don't have category labels
+            num_proc=os.cpu_count(),
+            trust_remote_code=True,
+        )
+        if config.dataset_name is not None
+        else get_test_dataset(config)
     )
-
-    print("Preparing data")
     # Filter to only include samples from our target category (Science and Technology)
     dataset = dataset.select(
         [i for i, c in enumerate(dataset["category"]) if c == config.dataset_category]
@@ -475,6 +477,16 @@ class Inference:
 # ## Addenda
 
 # The remainder of this code is support code
+
+
+def get_test_dataset(config, length=5):
+    return datasets.Dataset.from_dict(
+        {
+            "text": ["Modal"] * length,
+            "audio": [{"array": [1.0] * 16000, "sampling_rate": 16000}] * length,
+            "category": [config.dataset_category] * length,
+        }
+    )
 
 
 def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
