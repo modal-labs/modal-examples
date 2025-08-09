@@ -59,13 +59,13 @@ app = modal.App(name="example-whisper-fine-tune")
 
 # We define the environment where our functions will run by building up a base
 # [container `Image`](https://modal.com/docs/guide/images)
-# with our dependencies using `Image.pip_install`. We also set environment variables
+# with our dependencies using `Image.uv_pip_install`. We also set environment variables
 # here using `Image.env`, like the HuggingFace cache directory.
 
 CACHE_DIR = "/cache"
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
+    .uv_pip_install(
         "accelerate==1.8.1",
         "datasets==3.6.0",
         "evaluate==0.4.5",
