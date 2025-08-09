@@ -6,11 +6,12 @@
 
 # This example demonstrates how to fine-tune an ASR model
 # ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
-# to improve transcription accuracy for domain-specific vocabulary.
+# on Modal.
 
 # Speech recognition models work well out-of-the-box for general speech transcription,
-# but can struggle with text that is not well represented in the training data - like
-# proper nouns, technical jargon, and industry-specific terms.
+# but can struggle with examples that are not well represented in the training data -
+# like proper nouns, technical jargon, and industry-specific terms. Fine-tuning with
+# examples of domain-specific vocabulary can improve transcription of these terms.
 
 # For example, here is a sample transcription from the baseline model with no
 # fine-tuning:
