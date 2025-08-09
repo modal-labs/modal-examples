@@ -8,10 +8,9 @@
 # ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
 # to improve transcription accuracy for domain-specific vocabulary.
 
-# Speech recognition foundation models work well out-of-the-box for general speech
-# transcription, but can struggle with text that is not well represented in the training
-# data. Fine-tuning with custom data can improve the model's ability to transcribe
-# domain-specific language.
+# Speech recognition models work well out-of-the-box for general speech transcription,
+# but can struggle with text that is not well represented in the training data - like
+# proper nouns, technical jargon, and industry-specific terms.
 
 # For example, here is a sample transcription from the baseline model with no
 # fine-tuning:
@@ -91,8 +90,8 @@ image = (
 
 # Next we'll import the dependencies we need for the code that will run on Modal.
 
-# The `image.imports()` context manager ensures these imports are available
-# when our Modal functions run, but don't need to be installed locally.
+# The `image.imports()` context manager ensures these imports are available when our
+# Functions run in the cloud, without the need to install the dependencies locally.
 
 with image.imports():
     import datasets
@@ -106,9 +105,9 @@ with image.imports():
 
 # We use
 # [Modal Volumes](https://modal.com/docs/guide/volumes)
-# for anything we want to persist across function calls. In this case, we'll create
-# a cache volume for storing Hugging Face downloads for faster subsequent loads,
-# and an output Volume for saving our model and metrics after training.
+# for data we want to persist across function calls. In this case, we'll create a cache
+# Volume for storing Hugging Face downloads for faster subsequent loads, and an output
+# Volume for saving our model and metrics after training.
 
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 output_volume = modal.Volume.from_name(
@@ -213,10 +212,6 @@ class Config:
 # models is "word error rate" (WER).
 
 # `WER = (substitutions + deletions + insertions) / total words`.
-
-# You can see the WER of the top performing models on popular benchmarking datasets on
-# the
-# [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard).
 
 
 @app.function(
@@ -472,9 +467,7 @@ class Inference:
 # -F 'audio_file=@your-audio-file.wav;type=audio/wav'
 # ```
 
-# ## Addenda
-
-# The remainder of this code is support code
+# ## Support code
 
 
 def get_test_dataset(config, length=5):
