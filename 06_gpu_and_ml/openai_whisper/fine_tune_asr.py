@@ -16,22 +16,18 @@
 # For example, here is a sample transcription from the baseline model with no
 # fine-tuning:
 
-# ```json
-# {
-#   "ground_truth": "make as much deuterium and tritium as you like",
-#   "prediction": "because much material and teach them what you like"
-# }
-# ```
+# |                  | **Transcription**                                             |
+# |------------------|---------------------------------------------------------------|
+# | **Ground Truth** | "deuterium you put into one element you make a new element"   |
+# | **Prediction**   | "the theorem you put into one element you make a new element" |
 
 # After just 2 hours of training on a small dataset (~7k samples), the model has already
 # improved:
 
-# ```json
-# {
-#   "ground_truth": "make as much deuterium and tritium as you like",
-#   "prediction": "because much deuterium and tritium as you like"
-# }
-# ```
+# |                  | **Transcription**                                           |
+# |------------------|-------------------------------------------------------------|
+# | **Ground Truth** | "deuterium you put into one element you make a new element" |
+# | **Prediction**   | "deuterium you put into one element you make a new element" |
 
 
 # ## Defining the environment for our Modal Functions
@@ -370,6 +366,17 @@ def train(
 
     print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
+
+# Here are a few more examples of terms the model predicted correctly after fine-tuning:
+
+# | Base Model     | Fine-tuned  |
+# |----------------|-------------|
+# | and pm package | npm package |
+# | teach them     | tritium     |
+# | chromebox      | chromevox   |
+# | purposes       | porpoises   |
+# | difsoup        | div soup    |
+# | would you      | widget      |
 
 # ## Deploying our fine-tuned model for inference
 
