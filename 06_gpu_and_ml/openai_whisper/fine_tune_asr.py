@@ -21,8 +21,8 @@
 # | **Ground Truth** | "deuterium you put into one element you make a new element"   |
 # | **Prediction**   | "the theorem you put into one element you make a new element" |
 
-# After just 2 hours of training on a small dataset (~7k samples), the model has already
-# improved:
+# After just 1.5 hours of training on a small dataset (~7k samples), the model has
+# already improved:
 
 # |                  | Transcription                                               |
 # |------------------|-------------------------------------------------------------|
@@ -69,7 +69,7 @@ app = modal.App(name="example-whisper-fine-tune")
 # We define the environment where our functions will run by building up a base
 # [container `Image`](https://modal.com/docs/guide/images)
 # with our dependencies using `Image.uv_pip_install`. We also set environment variables
-# here using `Image.env`, like the HuggingFace cache directory.
+# here using `Image.env`, like the Hugging Face cache directory.
 
 CACHE_DIR = "/cache"
 image = (
@@ -180,7 +180,7 @@ class Config:
 
 @app.function(
     image=image,
-    gpu="H100!",
+    gpu="H100",
     volumes=volumes,
     secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
     timeout=3 * HOURS,
@@ -372,6 +372,9 @@ def main(test: bool = False):
 # ```bash
 # modal run fine_tune_asr.py --test
 # ```
+
+# Training will take ~1.5 hours, and will log WER and other metrics throughout the
+# run.
 
 # Here are a few more examples of terms the model predicted correctly after fine-tuning:
 
