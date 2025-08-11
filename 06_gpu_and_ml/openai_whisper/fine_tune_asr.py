@@ -16,7 +16,7 @@
 # For example, here is a sample transcription from the baseline model with no
 # fine-tuning:
 
-# |                  | **Transcription**                                             |
+# |                  | Transcription                                                 |
 # |------------------|---------------------------------------------------------------|
 # | **Ground Truth** | "deuterium you put into one element you make a new element"   |
 # | **Prediction**   | "the theorem you put into one element you make a new element" |
@@ -24,7 +24,7 @@
 # After just 2 hours of training on a small dataset (~7k samples), the model has already
 # improved:
 
-# |                  | **Transcription**                                           |
+# |                  | Transcription                                               |
 # |------------------|-------------------------------------------------------------|
 # | **Ground Truth** | "deuterium you put into one element you make a new element" |
 # | **Prediction**   | "deuterium you put into one element you make a new element" |
@@ -375,14 +375,14 @@ def main(test: bool = False):
 
 # Here are a few more examples of terms the model predicted correctly after fine-tuning:
 
-# | Base Model     | Fine-tuned  |
-# |----------------|-------------|
-# | and pm package | npm package |
-# | teach them     | tritium     |
-# | chromebox      | chromevox   |
-# | purposes       | porpoises   |
-# | difsoup        | div soup    |
-# | would you      | widget      |
+# | **Base Model** | **Fine-tuned**  |
+# |----------------|-----------------|
+# | and pm package | npm package     |
+# | teach them     | tritium         |
+# | chromebox      | chromevox       |
+# | purposes       | porpoises       |
+# | difsoup        | div soup        |
+# | would you      | widget          |
 
 # ## Deploying our fine-tuned model for inference
 
