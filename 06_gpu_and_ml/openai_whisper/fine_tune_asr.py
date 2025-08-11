@@ -175,6 +175,7 @@ class Config:
     # Dataset config
     dataset_name: str = "speechcolab/gigaspeech"
     dataset_subset: str = "s"  # "xs" for testing, "m", "l", "xl" for more data
+    dataset_split: str = "train"  # The test and val splits don't have category labels
     dataset_category: int = 15  # "Science and Technology"
     max_duration_in_seconds: float = 20.0
     min_duration_in_seconds: float = 0.0
@@ -185,6 +186,7 @@ class Config:
     max_steps: int = -1
     batch_size: int = 64
     learning_rate: float = 1e-5
+    eval_strategy: str = "epoch"
 
 
 # ### Defining our training Function
@@ -222,19 +224,17 @@ def train(
 
     # Setting args for the Hugging Face trainer
     training_args = transformers.Seq2SeqTrainingArguments(
-        length_column_name="input_length",
         output_dir=Path(OUTPUT_DIR) / config.run_id,
         num_train_epochs=config.num_train_epochs,
         per_device_train_batch_size=config.batch_size,
         per_device_eval_batch_size=config.batch_size,
-        gradient_accumulation_steps=1,
         learning_rate=config.learning_rate,
         warmup_steps=config.warmup_steps,
         max_steps=config.max_steps,
-        eval_strategy="steps",
-        save_total_limit=3,
+        eval_strategy=config.eval_strategy,
         fp16=True,
         group_by_length=True,
+        length_column_name="input_length",
         predict_with_generate=True,
         generation_max_length=40,
         generation_num_beams=1,
@@ -256,7 +256,7 @@ def train(
         datasets.load_dataset(
             config.dataset_name,
             config.dataset_subset,
-            split="train",  # The test and val splits don't have category labels
+            split=config.dataset_split,
             num_proc=os.cpu_count(),
             trust_remote_code=True,
         )
@@ -506,6 +506,7 @@ def prepare_dataset(batch, feature_extractor, tokenizer, model_input_name):
         sampling_rate=feature_extractor.sampling_rate,
     )
     batch[model_input_name] = inputs.get(model_input_name)
+    batch["input_length"] = [len(s["array"]) for s in batch["audio"]]
 
     normalized = [
         t.replace(" <COMMA>", ",")
