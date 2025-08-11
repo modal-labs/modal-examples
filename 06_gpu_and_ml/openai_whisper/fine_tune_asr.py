@@ -4,10 +4,6 @@
 
 # # Fine-tune Whisper to Improve Transcription on Domain-Specific Vocab
 
-# This example demonstrates how to fine-tune an ASR model
-# ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
-# on Modal.
-
 # Speech recognition models work well out-of-the-box for general speech transcription,
 # but can struggle with examples that are not well represented in the training data -
 # like proper nouns, technical jargon, and industry-specific terms. Fine-tuning with
@@ -29,10 +25,13 @@
 # | **Ground Truth** | "deuterium you put into one element you make a new element" |
 # | **Prediction**   | "deuterium you put into one element you make a new element" |
 
+# This example will walk through how to fine-tune an ASR model
+# ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
+# and deploy the new model for inference using Modal.
 
-# ## Defining the environment for our Modal Functions
+# ## Setup
 
-# We start by importing our standard library dependencies and `modal`.
+# We start by importing our standard library dependencies, `fastapi`, and `modal`.
 
 # We also need an [`App`](https://modal.com/docs/guide/apps) object, which we'll use to
 # define how our training application will run on Modal's cloud infrastructure.
@@ -219,6 +218,9 @@ class Config:
 def train(
     config: Config,
 ):
+    """Loads data and trains the model."""
+
+    # Setting args for the Hugging Face trainer
     training_args = transformers.Seq2SeqTrainingArguments(
         length_column_name="input_length",
         output_dir=Path(OUTPUT_DIR) / config.run_id,
