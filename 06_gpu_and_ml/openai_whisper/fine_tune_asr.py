@@ -4,6 +4,10 @@
 
 # # Fine-tune Whisper to Improve Transcription on Domain-Specific Vocab
 
+# This example demonstrates how to fine-tune an ASR model
+# ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
+# and deploy it for inference using Modal.
+
 # Speech recognition models work well out-of-the-box for general speech transcription,
 # but can struggle with examples that are not well represented in the training data -
 # like proper nouns, technical jargon, and industry-specific terms. Fine-tuning with
@@ -25,9 +29,18 @@
 # | **Ground Truth** | "deuterium you put into one element you make a new element" |
 # | **Prediction**   | "deuterium you put into one element you make a new element" |
 
-# This example will walk through how to fine-tune an ASR model
-# ([whisper-tiny.en](https://huggingface.co/openai/whisper-tiny.en))
-# and deploy the new model for inference using Modal.
+# We'll use the "small" subset of "Science and Technology" from the
+# [GigaSpeech](https://huggingface.co/datasets/speechcolab/gigaspeech)
+# dataset, which is enough data to see the model improve on scientific terms in just a
+# few epochs.
+
+# Note: GigaSpeech is a
+# [gated model](https://huggingface.co/docs/hub/en/models-gated),
+# so you'll need to accept the terms on the
+# [dataset card](https://huggingface.co/datasets/speechcolab/gigaspeech)
+# and create a
+# [Hugging Face Secret](https://modal.com/secrets/)
+# to download it.
 
 # ## Setup
 
@@ -111,63 +124,18 @@ output_volume = modal.Volume.from_name(
 OUTPUT_DIR = "/outputs"
 volumes = {CACHE_DIR: cache_volume, OUTPUT_DIR: output_volume}
 
-# ## Calling a Modal function from the command line
-
-# The easiest way to invoke our training Function is by creating a `local_entrypoint` --
-# our `main` function that runs locally and provides a command-line interface to trigger
-# training on Modal's cloud infrastructure.
-
-# This will allow us to run this example with:
-
-# ```bash
-# modal run fine_tune_asr.py
-# ```
-
-# Arguments passed to this function are turned in to CLI arguments automagically. For
-# example, adding `--test` will run a single step of training for end-to-end testing.
-
-# ```bash
-# modal run fine_tune_asr.py --test
-# ```
-
-
-@app.local_entrypoint()
-def main(test: bool = False):
-    """Run Whisper fine-tuning on Modal."""
-    if test:  # for quick e2e test
-        config = Config(
-            dataset_name=None,
-            num_train_epochs=1.0,
-            warmup_steps=0,
-            max_steps=1,
-        )
-    else:
-        config = Config()
-
-    train.remote(config)
-
-
 # ## Training
 
-# Training ML models often requires a lot of configuration. We'll use a `dataclass` to
-# collect some of these parameters in one place.
-
-# For this example, we'll use the "Science and Technology" subset of the
-# [GigaSpeech (small)](https://huggingface.co/datasets/speechcolab/gigaspeech)
-# dataset. This is enough data to see the model improve on scientific terms in just a
-# few epochs.
-
-# GigaSpeech is a [gated model](https://huggingface.co/docs/hub/en/models-gated), so
-# you'll need to accept the terms on the
-# [dataset card](https://huggingface.co/datasets/speechcolab/gigaspeech)
-# and create a [Hugging Face Secret](https://modal.com/secrets/) to download it.
+# We use a `dataclass` to collect some of the training parameters in one place. Here we
+# set `model_output_name` which is the directory on the Volume where our model will be
+# saved, and where we'll load it from when deploying the model for inference.
 
 
 @dataclass
 class Config:
     """Training configuration."""
 
-    run_id: str = "whisper-fine-tune"  # Name used for saving and loading
+    model_output_name: str = "whisper-fine-tune"  # Name used for saving and loading
 
     # Model config
     model_name: str = "openai/whisper-tiny.en"
@@ -191,10 +159,6 @@ class Config:
 
 # ### Defining our training Function
 
-# The `@app.function` decorator is where we attach infrastructure and define how our
-# Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
-# attach the Volumes we created earlier, add our access token, and set a timeout.
-
 # The training Function does the following:
 # 1. Load the pre-trained model, along with the feature extractor and tokenizer
 # 2. Load the dataset -> select our training category -> extract features for training
@@ -205,9 +169,13 @@ class Config:
 
 # We run evals before and after training to establish a baseline and see how much the
 # model improved. The most common way to measure the performance of speech recognition
-# models is "word error rate" (WER).
+# models is "word error rate" (WER):
 
 # `WER = (substitutions + deletions + insertions) / total words`.
+
+# The `@app.function` decorator is where we attach infrastructure and define how our
+# Function runs on Modal. Here we tell the Function to use our `Image`, specify the GPU,
+# attach the Volumes we created earlier, add our access token, and set a timeout.
 
 
 @app.function(
@@ -224,7 +192,7 @@ def train(
 
     # Setting args for the Hugging Face trainer
     training_args = transformers.Seq2SeqTrainingArguments(
-        output_dir=Path(OUTPUT_DIR) / config.run_id,
+        output_dir=Path(OUTPUT_DIR) / config.model_output_name,
         num_train_epochs=config.num_train_epochs,
         per_device_train_batch_size=config.batch_size,
         per_device_eval_batch_size=config.batch_size,
@@ -369,6 +337,42 @@ def train(
     print(f"\nTraining complete! Model saved to '{training_args.output_dir}'")
 
 
+# ## Calling a Modal function from the command line
+
+# The easiest way to invoke our training Function is by creating a `local_entrypoint` --
+# our `main` function that runs locally and provides a command-line interface to trigger
+# training on Modal's cloud infrastructure.
+
+
+@app.local_entrypoint()
+def main(test: bool = False):
+    """Run Whisper fine-tuning on Modal."""
+    if test:  # for quick e2e test
+        config = Config(
+            dataset_name=None,
+            num_train_epochs=1.0,
+            warmup_steps=0,
+            max_steps=1,
+        )
+    else:
+        config = Config()
+
+    train.remote(config)
+
+
+# This will allow us to run this example with:
+
+# ```bash
+# modal run fine_tune_asr.py
+# ```
+
+# Arguments passed to this function are turned in to CLI arguments automagically. For
+# example, adding `--test` will run a single step of training for end-to-end testing.
+
+# ```bash
+# modal run fine_tune_asr.py --test
+# ```
+
 # Here are a few more examples of terms the model predicted correctly after fine-tuning:
 
 # | Base Model     | Fine-tuned  |
@@ -401,13 +405,13 @@ def train(
     volumes=volumes,
 )
 class Inference:
-    run_id: str = modal.parameter(default=Config().run_id)
+    model_name: str = modal.parameter(default=Config().model_output_name)
 
     @modal.enter()
     def load_model(self):
         """Load the model and processor on container startup."""
 
-        model = f"{OUTPUT_DIR}/{self.run_id}" if "/" not in self.run_id else self.run_id
+        model = f"{OUTPUT_DIR}/{self.model_name}"
         print(f"Loading model from {model}")
         self.processor = transformers.WhisperProcessor.from_pretrained(model)
         self.model = transformers.WhisperForConditionalGeneration.from_pretrained(model)
@@ -461,15 +465,16 @@ class Inference:
 # modal deploy fine_tune_asr.py
 # ```
 
-# Note: you can specify which model to load by passing the `run_id` as a query
-# parameter when calling the endpoint. We set `run_id` in our `Config` above, and it's
-# the name of the output directory where the model was saved.
+# Note: you can specify which model to load by passing the `model_name` as a
+# query parameter when calling the endpoint. This defaults to `model_output_name`, which
+# we set in our `Config` above, and is the name of the directory where our model
+# was saved.
 
 # Here's an example of how to use this endpoint to transcribe an audio file:
 
 # ```bash
 # curl -X 'POST' \
-# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?run_id=whisper-fine-tune' \
+# 'https://your-workspace-name--example-whisper-fine-tune-inference-web.modal.run/?model_name=whisper-fine-tune' \
 # -H 'accept: application/json' \
 # -H 'Content-Type: multipart/form-data' \
 # -F 'audio_file=@your-audio-file.wav;type=audio/wav'
