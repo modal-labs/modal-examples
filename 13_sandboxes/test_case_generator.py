@@ -21,11 +21,8 @@ model_image = (
     modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
     .uv_pip_install(
         "sglang[all]==0.4.9.post3",
-        "transformers==4.53.2",
-        "torch==2.7.1",
         "accelerate==1.8.1",
         "hf_transfer==0.1.9",
-        "numpy<2",
     )
     .env(
         {
@@ -80,12 +77,6 @@ class TestCaseServer:
     @modal.web_server(port=8000, startup_timeout=240)
     def serve(self):
         return
-
-    @modal.method()
-    def healthcheck(self):
-        import requests
-
-        return requests.get(f"{self.serve.get_web_url()}/health").status_code == 200
 
 
 @app.cls(
@@ -257,6 +248,7 @@ def run_sandbox(image: modal.Image, file_name: str):
             "/data": files_volume,
         },
         encrypted_ports=[8000, 8001],
+        timeout=300,  # 5 minutes
     )
     return sb
 
