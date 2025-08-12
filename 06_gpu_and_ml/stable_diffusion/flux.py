@@ -35,7 +35,7 @@ cuda_dev_image = modal.Image.from_registry(
 # For Hugging Face's [Diffusers](https://github.com/huggingface/diffusers) library
 # we install from GitHub source and so pin to a specific commit.
 
-# PyTorch added [faster attention kernels for Hopper GPUs in version 2.5
+# PyTorch added faster attention kernels for Hopper GPUs in version 2.5.
 
 diffusers_commit_sha = "81cf3b2f155f1de322079af28f625349ee21ec6b"
 
@@ -65,7 +65,7 @@ flux_image = (
 
 # Later, we'll also use `torch.compile` to increase the speed further.
 # Torch compilation needs to be re-executed when each new container starts,
-# So we turn on some extra caching to reduce compile times for later containers.
+# so we turn on some extra caching to reduce compile times for later containers.
 
 flux_image = flux_image.env(
     {
@@ -88,20 +88,28 @@ with flux_image.imports():
 
 # Next, we map the model's setup and inference code onto Modal.
 
-# 1. We the model setun in the method decorated with `@modal.enter()`. This includes  loading the
+# 1. We run the model setup in the method decorated with `@modal.enter()`. This includes loading the
 # weights and moving them to the GPU, along with an optional `torch.compile` step (see details below).
 # The `@modal.enter()` decorator ensures that this method runs only once, when a new container starts,
 # instead of in the path of every call.
 
 # 2. We run the actual inference in methods decorated with `@modal.method()`.
 
+# *Note: Access to the Flux.1-schnell model on Hugging Face is
+# [gated by a license agreement](https://huggingface.co/docs/hub/en/models-gated)
+# which you must agree to
+# [here](https://huggingface.co/black-forest-labs/FLUX.1-schnell).
+# After you have accepted the license,
+# [create a Modal Secret](https://modal.com/secrets)
+# with the name `huggingface-secret` following the instructions in the template.*
+
 MINUTES = 60  # seconds
-VARIANT = "schnell"  # or "dev", but note [dev] requires you to accept terms and conditions on HF
+VARIANT = "schnell"  # or "dev"
 NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 
 
 @app.cls(
-    gpu="H100",  # fastest GPU on Modal
+    gpu="H100",  # fast GPU with strong software support
     scaledown_window=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
@@ -112,6 +120,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
             "inductor-cache", create_if_missing=True
         ),
     },
+    secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class Model:
     compile: bool = (  # see section on torch.compile below for details

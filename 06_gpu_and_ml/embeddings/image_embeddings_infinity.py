@@ -78,7 +78,9 @@ model_input_shape = (224, 224)
 
 # We will use a high-performance [Modal Volume](https://modal.com/docs/guide/volumes#volumes "Modal.Volume")
 # both to cache model weights and to store images we want to encode. The details of
-# setting this volume up are below. Here, we just need to name it so that we can instantiate
+# setting this volume up are below. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+# Here, we just need to name it so that we can instantiate
 # the Modal application.
 # You may need to [set up a secret](https://modal.com/secrets/) to access HuggingFace datasets
 hf_secret = modal.Secret.from_name("huggingface-secret")
@@ -102,9 +104,10 @@ infinity_image = (
             "hf_transfer==0.1.9",  # for fast huggingface data download
             "huggingface_hub[hf_xet]==0.33.2",
             "tqdm==4.67.1",  # progress bar for dataset download
-            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "sentencepiece==0.2.0",  # for this particular chosen model
             "torchvision==0.22.1",  # for fast image loading
+            "infinity_emb[all]==0.0.76",  # for Infinity inference lib
+            "optimum==1.26.1",  # need to pin this because newer version requires
         ]
     )
     .env(
@@ -117,7 +120,7 @@ infinity_image = (
 
 # Initialize the app
 app = modal.App(
-    "example-infinity-embedder",
+    "example-image-embeddings-infinity",
     image=infinity_image,
     volumes={vol_mnt: data_volume},
     secrets=[hf_secret],

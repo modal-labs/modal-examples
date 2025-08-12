@@ -1,8 +1,8 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo-verl.py::train"]
+# cmd: ["modal", "run", "06_gpu_and_ml/reinforcement-learning/grpo_verl.py::train"]
 # ---
 
-# # Run GRPO on Modal using verl
+# # Train a model to solve math problems using GRPO and verl
 
 # This example demonstrates how to train with [GRPO](https://arxiv.org/pdf/2402.03300) on Modal using the [verl](https://github.com/volcengine/verl) framework.
 # GRPO is a reinforcement learning algorithm introduced by DeepSeek, and was used to train DeepSeek R1.
@@ -11,8 +11,8 @@
 # The training process works as follows:
 # - Each example in the dataset corresponds to a math problem.
 # - In each training step, the model attempts to solve the math problems showing its steps.
-# - We then compute a reward for the the model's solution using the reward function defined below.
-# - That reward value is then used to update the model's paramaters according to the GRPO training algorithm.
+# - We then compute a reward for the model's solution using the reward function defined below.
+# - That reward value is then used to update the model's parameters according to the GRPO training algorithm.
 
 # ## Setup
 
@@ -26,7 +26,7 @@ import modal
 
 # ## Defining the image and app
 
-app = modal.App("grpo-verl-example")
+app = modal.App("example-grpo-verl")
 
 # We define an image where we clone the verl repo and install its dependencies. We use a base verl image as a starting point.
 
@@ -64,13 +64,13 @@ def prep_dataset() -> None:
     )
 
 
-# You can kickoff the dataset download with
+# You can kick off the dataset download with
 # `modal run <filename.py>::prep_dataset`
 
 # ## Defining a reward function
 
 # In reinforcement learning, we define a reward function for the model.
-# We can define this in a separate file, or in the same file in as in this case that we then pass as an argument to verl.
+# We can define this in a separate file, or in the same file as in this case that we then pass as an argument to verl.
 # We use a `default` reward function for GSM8K from the [verl repo](https://github.com/volcengine/verl/blob/v0.1/verl/utils/reward_score/gsm8k.py), modified to return 1.0 if it's a correct answer and 0 otherwise.
 
 
@@ -121,7 +121,7 @@ def compute_reward(
 
 
 # We then define constants to pass into verl during the training run.
-PATH_TO_REWARD_FUNCTION: Path = Path("/root/grpo-verl.py")
+PATH_TO_REWARD_FUNCTION: Path = Path("/root/grpo_verl.py")
 REWARD_FUNCTION_NAME: str = "compute_reward"
 
 # ## Kicking off a training run
@@ -131,7 +131,7 @@ MODELS_PATH: Path = Path("/models")
 MINUTES: int = 60
 
 
-# We also a define a Volume for storing model checkpoints.
+# We also define a Volume for storing model checkpoints.
 checkpoints_volume: modal.Volume = modal.Volume.from_name(
     "grpo-verl-example-checkpoints", create_if_missing=True
 )
@@ -159,6 +159,8 @@ checkpoints_volume: modal.Volume = modal.Volume.from_name(
     timeout=24 * 60 * MINUTES,
 )
 def train(*arglist) -> None:
+    data_volume.reload()
+
     cmd: list[str] = [
         "python",
         "-m",
@@ -215,7 +217,7 @@ def train(*arglist) -> None:
     subprocess.run(cmd, check=True)
 
 
-# You can now run the training using `modal run --detach grpo-verl.py::train`, or pass in any [additional args from the CLI](https://modal.com/docs/guide/apps#argument-parsing) like this `modal run --detach grpo.py::train -- trainer.total_epochs=20 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16`.
+# You can now run the training using `modal run --detach grpo_verl.py::train`, or pass in any [additional args from the CLI](https://modal.com/docs/guide/apps#argument-parsing) like this `modal run --detach grpo.py::train -- trainer.total_epochs=20 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16`.
 
 # ## Performing inference on the trained model
 
@@ -224,8 +226,9 @@ def train(*arglist) -> None:
 VLLM_PORT: int = 8000
 
 
-# Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM.
-# The weights path is as follows: `global_step_n/actor/huggingface` where n is the checkpoint you want (eg `global_step_5/actor/huggingface`).
+# Once you have the model checkpoints in your Modal Volume, you can load the weights and perform inference using vLLM. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+# The weights path is as follows: `global_step_n/actor/huggingface` where n is the checkpoint you want (e.g. `global_step_5/actor/huggingface`).
 # The `latest_checkpointed_iteration.txt` file stores the most recent checkpoint index.
 def get_latest_checkpoint_file_path():
     with open(MODELS_PATH / "latest_checkpointed_iteration.txt") as f:
@@ -259,7 +262,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 )
 @modal.concurrent(
     max_inputs=32
-)  # How many requests can one replica handle? tune carefully!
+)  # How many requests can one replica handle? Tune carefully!
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
 def serve():
     import subprocess
@@ -281,7 +284,7 @@ def serve():
     subprocess.Popen(" ".join(cmd), shell=True)
 
 
-# You can then deploy the server using `modal deploy grpo-verl.py`, which gives you a custom url. You can then query it using the following curl command:
+# You can then deploy the server using `modal deploy grpo_verl.py`, which gives you a custom URL. You can then query it using the following curl command:
 
 # ```bash
 # curl -X POST <url>/v1/chat/completions \

@@ -54,14 +54,12 @@ TORCH_CUDA_ARCH_LIST = "9.0 9.0a"  # Hopper, aka H100/H200
 # From there, Tokasaurus can be installed like any normal Python package,
 # since Modal [provides the host CUDA drivers](https://modal.com/docs/guide/cuda).
 
-toka_image = (
-    toka_image.pip_install("uv")
-    .env(
-        {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
-    )
-    .run_commands(
-        "uv pip install --system --compile-bytecode tokasaurus==0.0.2 huggingface_hub[hf_transfer]==0.33.0 datasets==3.6.0"
-    )
+toka_image = toka_image.env(
+    {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
+).uv_pip_install(
+    "tokasaurus==0.0.2",
+    "huggingface_hub[hf_transfer]==0.33.0",
+    "datasets==3.6.0",
 )
 
 # ## Download the model weights
@@ -79,7 +77,9 @@ MODEL_REVISION = "4e20de362430cd3b72f300e6b0f18e50e7166e08"  # avoid nasty surpr
 
 # Although Tokasaurus will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
-# We'll use a [Modal Volume](https://modal.com/docs/guide/volumes) for our cache.
+# We'll use a [Modal Volume](https://modal.com/docs/guide/volumes) for our cache. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 app_name = "example-tokasaurus-throughput"
 hf_cache_vol = modal.Volume.from_name(f"{app_name}-hf-cache", create_if_missing=True)
@@ -106,10 +106,9 @@ HYDRAGEN_MIN_GROUP_SIZE = 129  # sic
 # All values are derived from
 # [this version of the official benchmarking script](https://github.com/ScalingIntelligence/tokasaurus/blob/a0155181f09c0cf40783e01a625b041985667a92/tokasaurus/benchmarks/standalone_monkeys_gsm8k.py),
 # except the `KV_CACHE_NUM_TOKENS`, which we increase to the maximum the GPU can handle.
-# The value in the script is set to the maximum that the other engines can handle, not just Tokasaurus.
+# The value in the script is set to `(1024 + 512) * 1024`, which is the maximum that the other engines can handle, lower than that of Tokasaurus.
 
 KV_CACHE_NUM_TOKENS = (1024 + 768) * 1024  # tuned for H100, 80 GB RAM
-# KV_CACHE_NUM_TOKENS = (1024 + 512) * 1024  # value in benchmark script
 MAX_TOKENS_PER_FORWARD = 32768
 MAX_SEQS_PER_FORWARD = 8192
 PAGE_SIZE = 16

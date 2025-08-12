@@ -31,7 +31,7 @@ volume = modal.CloudBucketMount(
     secret=bucket_creds,
 )
 image = modal.Image.debian_slim().apt_install("wget")
-app = modal.App("example-rosettafold-dataset-import", image=image)
+app = modal.App("example-rosettafold", image=image)
 
 
 def start_monitoring_disk_space(interval: int = 30) -> None:

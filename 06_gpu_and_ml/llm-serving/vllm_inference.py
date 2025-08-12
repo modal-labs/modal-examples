@@ -65,7 +65,9 @@ MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surpr
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
 # We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) for our cache.
-# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk.
+# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 
@@ -117,7 +119,7 @@ FAST_BOOT = True
 # once the model is spun up and the `serve` function returns.
 
 
-app = modal.App("example-vllm-openai-compatible")
+app = modal.App("example-vllm-inference")
 
 N_GPU = 1
 MINUTES = 60  # seconds
@@ -182,10 +184,10 @@ def serve():
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run`.
+# something like `https://your-workspace-name--example-vllm-inference-serve.modal.run`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-inference-serve.modal.run/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 

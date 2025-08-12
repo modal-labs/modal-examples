@@ -53,12 +53,15 @@ tensorrt_image = (
         "openmpi-bin",
         "libopenmpi-dev",
     )
-    .pip_install("uv")
-    .run_commands(
-        "uv pip install --system --compile-bytecode torch==2.7.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128"
+    .uv_pip_install(
+        "torch==2.7.1",
+        "torchvision",
+        "torchaudio",
+        index_url="https://download.pytorch.org/whl/cu128",
     )
-    .run_commands(
-        "uv pip install --system --compile-bytecode mpi4py tensorrt_llm==1.0.0rc0"
+    .uv_pip_install(
+        "mpi4py",
+        "tensorrt_llm==1.0.0rc0",
     )
 )
 

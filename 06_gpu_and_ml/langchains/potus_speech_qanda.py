@@ -44,7 +44,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
 )
 
 app = modal.App(
-    name="example-langchain-qanda",
+    name="example-potus-speech-qanda",
     image=image,
     secrets=[modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"])],
 )
@@ -227,7 +227,7 @@ def cli(query: str, show_sources: bool = False):
 # ```bash
 # curl --get \
 #   --data-urlencode "query=What did the president say about Justice Breyer" \
-#   https://modal-labs--example-langchain-qanda-web.modal.run # your URL here
+#   https://modal-labs--example-potus-speech-qanda-web.modal.run # your URL here
 # ```
 
 # ```json

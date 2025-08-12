@@ -34,9 +34,18 @@ image = (
     )
     .entrypoint([])  # remove verbose logging by base image on entry
     .apt_install("git")
-    .pip_install("uv")
-    .run_commands(
-        f"uv pip install --system --compile-bytecode --index-strategy unsafe-best-match accelerate~=1.8.1 git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha} huggingface-hub[hf-transfer]~=0.33.1 Pillow~=11.2.1 safetensors~=0.5.3 transformers~=4.53.0 sentencepiece~=0.2.0 torch==2.7.1 optimum-quanto==0.2.7 --extra-index-url https://download.pytorch.org/whl/cu128"
+    .uv_pip_install(
+        "accelerate~=1.8.1",
+        f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
+        "huggingface-hub[hf-transfer]~=0.33.1",
+        "Pillow~=11.2.1",
+        "safetensors~=0.5.3",
+        "transformers~=4.53.0",
+        "sentencepiece~=0.2.0",
+        "torch==2.7.1",
+        "optimum-quanto==0.2.7",
+        extra_options="--index-strategy unsafe-best-match",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
     )
 )
 
@@ -58,7 +67,7 @@ image = image.env(
 )
 
 
-app = modal.App("image-to-image")
+app = modal.App("example-image-to-image")
 
 with image.imports():
     import torch
@@ -141,17 +150,19 @@ class Model:
 @app.local_entrypoint()
 def main(
     image_path=Path(__file__).parent / "demo_images/dog.png",
-    prompt="A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style",
-    strength=0.9,  # increase to favor the prompt over the baseline image
+    output_path=Path("/tmp/stable-diffusion/output.png"),
+    prompt: str = "A cute dog wizard inspired by Gandalf from Lord of the Rings, featuring detailed fantasy elements in Studio Ghibli style",
 ):
     print(f"🎨 reading input image from {image_path}")
     input_image_bytes = Path(image_path).read_bytes()
-    print(f"🎨 editing image with prompt {prompt}")
+    print(f"🎨 editing image with prompt '{prompt}'")
     output_image_bytes = Model().inference.remote(input_image_bytes, prompt)
 
-    dir = Path("/tmp/stable-diffusion")
+    if isinstance(output_path, str):
+        output_path = Path(output_path)
+
+    dir = output_path.parent
     dir.mkdir(exist_ok=True, parents=True)
 
-    output_path = dir / "output.png"
     print(f"🎨 saving output image to {output_path}")
     output_path.write_bytes(output_image_bytes)

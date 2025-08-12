@@ -104,7 +104,7 @@ image = (
 # Now we're ready to implement transcription. We wrap inference in a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions) that
 # ensures models are loaded and then moved to the GPU once when a new container starts.
 
-# A couples of notes about this code:
+# A couple of notes about this code:
 # - The `transcribe` method takes bytes of audio data and returns the transcribed text.
 # - The `web` method creates a FastAPI app using [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app#modalasgi_app) that serves a
 # [WebSocket](https://modal.com/docs/guide/webhooks#websockets) endpoint for streaming audio transcription and a browser frontend for transcribing audio from your microphone.

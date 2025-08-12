@@ -62,7 +62,8 @@ def load_model(and_return=False):
 # we need to store the weights somewhere besides our local filesystem.
 
 # So we add a Modal [Volume](https://modal.com/docs/guide/volumes)
-# to store the weights in the cloud.
+# to store the weights in the cloud. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 cache_dir = "/cache"
 model_cache = modal.Volume.from_name("audiocraft-model-cache", create_if_missing=True)

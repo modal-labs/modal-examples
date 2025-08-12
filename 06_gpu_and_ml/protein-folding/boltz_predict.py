@@ -83,9 +83,7 @@ def main(
 
 # Here, we do it in a few lines, using the `uv` package manager for extra speed.
 
-image = modal.Image.debian_slim(python_version="3.12").run_commands(
-    "uv pip install --system --compile-bytecode boltz==2.1.1"
-)
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("boltz==2.1.1")
 
 # ## Storing Boltz-2 model weights on Modal with Volumes
 

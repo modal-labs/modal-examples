@@ -42,7 +42,7 @@ volume = modal.CloudBucketMount(
 
 image = modal.Image.debian_slim().apt_install("wget").pip_install("img2dataset~=1.45.0")
 
-app = modal.App("example-laion400-dataset-import", image=image)
+app = modal.App("example-laion400", image=image)
 
 
 def start_monitoring_disk_space(interval: int = 30) -> None:

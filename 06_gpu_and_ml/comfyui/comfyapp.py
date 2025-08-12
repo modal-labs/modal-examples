@@ -78,6 +78,8 @@ image = (
 # 2. Mounting the cache directory to a [Volume](https://modal.com/docs/guide/volumes)
 
 # By persisting the cache to a Volume, you avoid re-downloading the models every time you rebuild your image.
+# For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 def hf_download():
@@ -121,7 +123,7 @@ image = image.add_local_file(
 # Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function
 # and serving it as a [web server](https://modal.com/docs/guide/webhooks#non-asgi-web-servers).
 
-app = modal.App(name="example-comfyui", image=image)
+app = modal.App(name="example-comfyapp", image=image)
 
 
 @app.function(

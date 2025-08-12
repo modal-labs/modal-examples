@@ -14,7 +14,7 @@
 
 import modal
 
-app = modal.App("example-fasthtml")
+app = modal.App("example-fasthtml-app")
 
 
 @app.function(

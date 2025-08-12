@@ -22,7 +22,7 @@ import modal
 
 MINUTES = 60  # seconds
 
-app = modal.App("chat-with-pdf")
+app = modal.App("example-chat-with-pdf-vision")
 
 # ## Setting up dependenices
 
@@ -126,7 +126,8 @@ cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 
 # Running this function will download the model weights to the cache volume.
-# Otherwise, the model weights will be downloaded on the first query.
+# Otherwise, the model weights will be downloaded on the first query. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 @app.function(
