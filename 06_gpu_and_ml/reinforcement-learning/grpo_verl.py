@@ -32,10 +32,10 @@ app = modal.App("example-grpo-verl")
 
 VERL_REPO_PATH: Path = Path("/root/verl")
 image = (
-    modal.Image.from_registry("verlai/verl:app-verl0.4-vllm0.8.5-mcore0.12.1")
+    modal.Image.from_registry("verlai/verl:app-verl0.5-vllm0.10.0-mcore0.13.0-te2.2")
     .apt_install("git")
-    .run_commands(f"git clone https://github.com/volcengine/verl {VERL_REPO_PATH}")
-    .pip_install("verl[vllm]==0.4.1")
+    .run_commands(f"git clone https://github.com/volcengine/verl --branch v0.5.0 {VERL_REPO_PATH}")
+    .pip_install(f"{VERL_REPO_PATH}[vllm]", extra_options="--no-deps")
 )
 
 # ## Defining the dataset
