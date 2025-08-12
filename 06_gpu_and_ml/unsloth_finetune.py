@@ -22,11 +22,6 @@
 # This example demonstrates using Unsloth to finetune a version of Qwen3-14B with the
 # FineTome-100k dataset on Modal using only a single GPU!
 
-# To run this example, checkout the examples repo, install the Modal client, and run
-# `modal run -m 06_gpu_and_ml.unsloth_finetune`. You can also customize the training
-# process by tweaking hyperparameters with command line flags, e.g.
-# `modal run -m 06_gpu_and_ml.unsloth_finetune --max-steps 10000'.
-
 # ## Modal Infrastructure Setup
 
 import pathlib
@@ -80,33 +75,30 @@ with train_image.imports():
 
 # ### Volume Configuration
 
-# Modal [Volumes](https://modal.com/docs/guide/volumes) provide persistent storage
-# that persists between function invocations. We use separate volumes for different
-# types of data to enable efficient caching and sharing.
+# Modal [Volumes](https://modal.com/docs/guide/volumes) provide storage that persists
+# between function invocations. We use separate volumes for different types of data to
+# enable efficient caching and sharing:
+# - A cache for [pretrained model weights](https://modal.com/docs/guide/model-weights) - reused across all experiments
+# - A cache for processed datasets - reused when using the same dataset
+# - Storage for training checkpoints and final models
 
-# Cache for downloaded model weights - shared across all experiments
 model_cache_volume = modal.Volume.from_name(
     "unsloth-model-cache", create_if_missing=True
 )
-
-# Cache for processed datasets - shared when using the same dataset
 dataset_cache_volume = modal.Volume.from_name(
     "unsloth-dataset-cache", create_if_missing=True
 )
-
-# Storage for training checkpoints and final models
 checkpoint_volume = modal.Volume.from_name(
     "unsloth-checkpoints", create_if_missing=True
 )
 
 # ### Picking a GPU
 
-# We use L40S for its healthy balance of VRAM, CUDA cores, and clock speed.
-# The timeout provides an upper bound on our training time; if our training run
-# finishes faster, we won't end up using the full 6 hours may not use the whole
-# timeout if it finishes earlier . We also specify 3 retries, which will be useful
-# in case our training function gets
-# [preempted](https://modal.com/docs/guide/preemption).
+# We use L40S for its healthy balance of [VRAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
+# [CUDA cores](https://modal.com/gpu-glossary/device-hardware/cuda-core), and clock speed.
+# The timeout provides an upper bound on our training time; if our training run finishes faster,
+# we won't end up using the full 6 hours. We also specify 3 retries, which will be useful
+# in case our training function gets [preempted](https://modal.com/docs/guide/preemption).
 
 GPU_TYPE = "L40S"
 TIMEOUT_HOURS = 6
@@ -209,6 +201,7 @@ def load_or_cache_model(config: "TrainingConfig", paths: dict):
 # First we'll define what layers our LoRA modules should target.
 # Generally, it's advisable to LoRA finetune every linear layer in the model,
 # so we target every projection matrix of each attention layer.
+
 LORA_TARGET_MODULES = [
     "q_proj",
     "k_proj",
@@ -223,6 +216,8 @@ LORA_TARGET_MODULES = [
 # We want to expose the different hyperparameters and optimizations that
 # Unsloth supports, so we wrap them into a `TrainingConfig` class. Later,
 # we'll populate this config with arguments from the command line.
+
+
 @dataclass
 class TrainingConfig:
     # Model and dataset selection
@@ -371,6 +366,17 @@ def finetune(config: TrainingConfig):
 # our code. This allows us to do things like tweak hyperparameters directly
 # from the command line without modifying our source code.
 
+# To try this example, checkout the examples repo, install the Modal client, and run
+# ```bash
+# modal run 06_gpu_and_ml/unsloth_finetune.py
+# ```
+
+# You can also customize the training process by tweaking hyperparameters with command line
+# flags, e.g.
+# ```bash
+# modal run 06_gpu_and_ml/unsloth_finetune.py --max-steps 10000
+# ```
+
 
 @app.local_entrypoint()
 def main(
@@ -455,7 +461,7 @@ def main(
 # ## Utility Functions
 
 # These functions handle the core logic for model loading, dataset processing,
-# and training setup. They're designed to be modular and easy to customize.
+# and training setup. They're designed to be hackable for new use cases.
 
 
 def get_structured_paths(config: TrainingConfig):
