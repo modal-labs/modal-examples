@@ -24,7 +24,7 @@ MINUTES = 60  # seconds
 
 app = modal.App("example-chat-with-pdf-vision")
 
-# ## Setting up dependenices
+# ## Setting up dependencies
 
 # In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # We install the packages required for our application in those images.
