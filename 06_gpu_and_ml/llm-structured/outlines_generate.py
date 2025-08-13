@@ -28,7 +28,7 @@ import modal
 app = modal.App(name="example-outlines-generate")
 
 outlines_image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "outlines==0.0.44",
+    "outlines==1.2.3",
     "transformers==4.41.2",
     "sentencepiece==0.2.0",
     "datasets==2.18.0",
