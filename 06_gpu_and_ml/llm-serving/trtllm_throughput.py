@@ -64,6 +64,7 @@ tensorrt_image = tensorrt_image.apt_install(
 ).pip_install(
     "tensorrt_llm==0.14.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
+    "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )

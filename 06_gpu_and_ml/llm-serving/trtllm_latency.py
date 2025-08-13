@@ -89,6 +89,7 @@ tensorrt_image = tensorrt_image.apt_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     "flashinfer-python==0.2.5",
+    "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -129,6 +130,7 @@ tensorrt_image = tensorrt_image.pip_install(
     {
         "HF_HUB_ENABLE_HF_TRANSFER": "1",
         "HF_HOME": str(MODELS_PATH),
+        "TORCH_CUDA_ARCH_LIST": "9.0 9.0a",  # H100, silence noisy logs
     }
 )
 
