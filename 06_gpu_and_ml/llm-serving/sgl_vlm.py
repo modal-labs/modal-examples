@@ -83,15 +83,15 @@ vlm_image = (
     .entrypoint([])  # removes chatty prints on entry
     .apt_install("libnuma-dev")  # Add NUMA library for sgl_kernel
     .pip_install(  # add sglang and some Python dependencies
-        "transformers==4.52.3",
+        "transformers==4.54.1",
         "numpy<2",
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.2",
         "requests==2.32.3",
         "starlette==0.41.2",
         "torch==2.7.1",
-        "sglang[all]==0.4.8",
-        "sgl-kernel==0.1.9",
+        "sglang[all]==0.4.10.post2",
+        "sgl-kernel==0.2.8",
         "hf-xet==1.1.5",
     )
     .env(
