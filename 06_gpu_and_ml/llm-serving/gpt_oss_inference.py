@@ -68,7 +68,7 @@ vllm_image = (
 # which also fits in a single H100 or H200 GPU.
 
 MODEL_NAME = "openai/gpt-oss-20b"
-MODEL_REVISION = "f47b95650b3ce7836072fb6457b362a795993484"
+MODEL_REVISION = "d666cf3b67006cf8227666739edf25164aaffdeb"
 
 # Although vLLM will download weights from Hugging Face on-demand, we want to
 # cache them so we don't do it every time our server starts. We'll use [Modal Volumes](https://modal.com/docs/guide/volumes)
