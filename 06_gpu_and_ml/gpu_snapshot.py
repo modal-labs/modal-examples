@@ -4,6 +4,23 @@
 # mypy: ignore-errors
 # ---
 
+# # GPU Snapshot Example
+
+# This example demonstrates how to use GPU snapshots to speed up model loading.
+# GPU snapshots can only be used with deployed Functions, so first deploy the App:
+
+# ```bash
+# modal deploy -m 06_gpu_and_ml.gpu_snapshot
+# ```
+
+# Next, invoke the Function:
+
+# ```bash
+# python -m 06_gpu_and_ml.gpu_snapshot
+# ```
+
+# The full code is below:
+
 import modal
 
 image = modal.Image.debian_slim().uv_pip_install("sentence-transformers<6")
