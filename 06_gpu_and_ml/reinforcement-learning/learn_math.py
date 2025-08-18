@@ -34,7 +34,7 @@ flash_attn_release = (
 image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .apt_install("git", "clang")
-    .pip_install(
+    .uv_pip_install(
         "huggingface_hub[hf_transfer]==0.33.5",
         "setuptools==69.0.3",
         "wheel==0.45.1",
