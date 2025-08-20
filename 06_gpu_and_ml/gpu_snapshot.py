@@ -4,9 +4,14 @@
 # mypy: ignore-errors
 # ---
 
-# # GPU Snapshot Example
+# # Snapshot GPU memory to speed up cold starts
 
-# This example demonstrates how to use GPU snapshots to speed up model loading.
+# This example demonstrates how to use GPU memory snapshots to speed up model loading.
+# Note that GPU memory snapshotting is an experimental feature,
+# so test carefully before using in production!
+# You can read more about GPU memory snapshotting, and its caveats,
+# [here](https://modal.com/docs/guide/memory-snapshot).
+
 # GPU snapshots can only be used with deployed Functions, so first deploy the App:
 
 # ```bash
