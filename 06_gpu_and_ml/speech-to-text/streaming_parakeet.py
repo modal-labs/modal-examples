@@ -122,7 +122,7 @@ END_OF_STREAM = (
 
 @app.cls(volumes={"/cache": model_cache}, gpu="a10g", image=image)
 @modal.concurrent(max_inputs=14, target_inputs=10)
-class Parakeet:
+class ParakeetModel:
     @modal.enter()
     def load(self):
         import logging
@@ -146,81 +146,7 @@ class Parakeet:
 
         return output[0].text
 
-    @modal.asgi_app()
-    def web(self):
-        from fastapi import FastAPI, Response, WebSocket
-        from fastapi.responses import HTMLResponse
-        from fastapi.staticfiles import StaticFiles
-
-        web_app = FastAPI()
-        web_app.mount("/static", StaticFiles(directory="/frontend"))
-
-        @web_app.get("/status")
-        async def status():
-            return Response(status_code=200)
-
-        # serve frontend
-        @web_app.get("/")
-        async def index():
-            return HTMLResponse(content=open("/frontend/index.html").read())
-
-        @web_app.websocket("/ws")
-        async def run_with_websocket(ws: WebSocket):
-            from fastapi import WebSocketDisconnect
-            from pydub import AudioSegment
-
-            await ws.accept()
-
-            # initialize an empty audio segment
-            audio_segment = AudioSegment.empty()
-
-            try:
-                while True:
-                    # receive a chunk of audio data and convert it to an audio segment
-                    chunk = await ws.receive_bytes()
-                    if chunk == END_OF_STREAM:
-                        await ws.send_bytes(END_OF_STREAM)
-                        break
-                    audio_segment, text = await self.handle_audio_chunk(
-                        chunk, audio_segment
-                    )
-                    if text:
-                        await ws.send_text(text)
-            except Exception as e:
-                if not isinstance(e, WebSocketDisconnect):
-                    print(f"Error handling websocket: {type(e)}: {e}")
-                try:
-                    await ws.close(code=1011, reason="Internal server error")
-                except Exception as e:
-                    print(f"Error closing websocket: {type(e)}: {e}")
-
-        return web_app
-
     @modal.method()
-    async def run_with_queue(self, q: modal.Queue):
-        from pydub import AudioSegment
-
-        # initialize an empty audio segment
-        audio_segment = AudioSegment.empty()
-
-        try:
-            while True:
-                # receive a chunk of audio data and convert it to an audio segment
-                chunk = await q.get.aio(partition="audio")
-
-                if chunk == END_OF_STREAM:
-                    await q.put.aio(END_OF_STREAM, partition="transcription")
-                    break
-
-                audio_segment, text = await self.handle_audio_chunk(
-                    chunk, audio_segment
-                )
-                if text:
-                    await q.put.aio(text, partition="transcription")
-        except Exception as e:
-            print(f"Error handling queue: {type(e)}: {e}")
-            return
-
     async def handle_audio_chunk(
         self,
         chunk: bytes,
@@ -272,6 +198,89 @@ class Parakeet:
             print("❌ Transcription error:", e)
             raise e
 
+    @modal.method()
+    async def run_with_queue(self, q: modal.Queue):
+        from pydub import AudioSegment
+
+        # initialize an empty audio segment
+        audio_segment = AudioSegment.empty()
+
+        try:
+            while True:
+                # receive a chunk of audio data and convert it to an audio segment
+                chunk = await q.get.aio(partition="audio")
+
+                if chunk == END_OF_STREAM:
+                    await q.put.aio(END_OF_STREAM, partition="transcription")
+                    break
+
+                audio_segment, text = await self.handle_audio_chunk.remote.aio(
+                    chunk, audio_segment
+                )
+                if text:
+                    await q.put.aio(text, partition="transcription")
+        except Exception as e:
+            print(f"Error handling queue: {type(e)}: {e}")
+            return
+
+
+@app.cls(image=image)
+@modal.concurrent(max_inputs=1000)
+class WebServer:
+    @modal.asgi_app()
+    def web(self):
+        from fastapi import FastAPI, Response, WebSocket
+        from fastapi.responses import HTMLResponse
+        from fastapi.staticfiles import StaticFiles
+
+        web_app = FastAPI()
+        web_app.mount("/static", StaticFiles(directory="/frontend"))
+
+        @web_app.get("/status")
+        async def status():
+            return Response(status_code=200)
+
+        # serve frontend
+        @web_app.get("/")
+        async def index():
+            return HTMLResponse(content=open("/frontend/index.html").read())
+
+        @web_app.websocket("/ws")
+        async def run_with_websocket(ws: WebSocket):
+            from fastapi import WebSocketDisconnect
+
+            await ws.accept()
+
+            from pydub import AudioSegment
+
+            model = ParakeetModel()
+
+            # initialize an empty audio segment
+            audio_segment = AudioSegment.empty()
+
+            try:
+                while True:
+                    # receive a chunk of audio data and convert it to an audio segment
+                    chunk = await ws.receive_bytes()
+                    if chunk == END_OF_STREAM:
+                        await ws.send_bytes(END_OF_STREAM)
+                        break
+                    (
+                        audio_segment,
+                        text,
+                    ) = await model.handle_audio_chunk.remote.aio(chunk, audio_segment)
+                    if text:
+                        await ws.send_text(text)
+            except Exception as e:
+                if not isinstance(e, WebSocketDisconnect):
+                    print(f"Error handling websocket: {type(e)}: {e}")
+                try:
+                    await ws.close(code=1011, reason="Internal server error")
+                except Exception as e:
+                    print(f"Error closing websocket: {type(e)}: {e}")
+
+        return web_app
+
 
 # ## Running transcription from a local Python client
 
@@ -299,7 +308,7 @@ async def main(audio_url: str = AUDIO_URL):
 
     print("🎤 Starting Transcription")
     with modal.Queue.ephemeral() as q:
-        Parakeet().run_with_queue.spawn(q)
+        ParakeetModel().run_with_queue.spawn(q)
         send = asyncio.create_task(send_audio(q, audio_data))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)
