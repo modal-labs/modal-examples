@@ -125,15 +125,15 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     gpu="H100",  # fast GPU with strong software support
     scaledown_window=30,  # 20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
-    enable_memory_snapshot=True,
-    experimental_options={"enable_gpu_snapshot": True},
+    # enable_memory_snapshot=True,
+    # experimental_options={"enable_gpu_snapshot": True},
 )
 class Model:
     compile: bool = (  # see section on torch.compile below for details
         modal.parameter(default=False)
     )
 
-    @modal.enter(snap=True)
+    @modal.enter(snap=False)
     def enter(self):
         pipe = FluxPipeline.from_pretrained(
             f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
