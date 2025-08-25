@@ -2,6 +2,18 @@
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
 # args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
+
+# # Deploy a sandboxed agent to generate test cases for your codebase
+
+# This example shows how to build a coding agent that will generate, verify, and measure test coverage
+# of your codebase.
+
+# LLM-generated code can be unsafe, so we'll use a Modal Sandbox to run the code securely.
+
+# # ApplicationSetup
+
+# First, we'll import some backages that we need and create a Modal App.
+
 import subprocess
 import time
 
@@ -10,6 +22,9 @@ import modal
 app = modal.App(
     name="sandbox-test-case-generator",
 )
+
+# TODO: Make the files volume ephemeral
+
 model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
 files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
@@ -282,7 +297,7 @@ async def main(
 
     # Create sandboxes to run the generated test files
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
-    await asyncio.gather(*[sb.wait.aio() for sb in sandboxes])
+    await asyncio.gather(*[sb.wait.aio(raise_on_termination=False) for sb in sandboxes])
 
 
 # # Addenda
