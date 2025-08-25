@@ -41,7 +41,7 @@ model_image = (
         "/data": files_volume,
     },
     gpu="L40S",
-    timeout=600,
+    timeout=900,  # 15 minutes
 )
 @modal.concurrent(max_inputs=3)  # Each container runs up to 3 requests at once.
 class TestCaseServer:
