@@ -2,6 +2,18 @@
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
 # args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
+
+# # Deploy a sandboxed agent to generate test cases for your codebase
+
+# This example shows how to build a coding agent that will generate, verify, and measure test coverage
+# of your codebase.
+
+# LLM-generated code can be unsafe, so we'll use a Modal Sandbox to run the code securely.
+
+# # Setup
+
+# First, we'll import some backages that we need and create a Modal App.
+
 import subprocess
 import time
 
@@ -10,12 +22,8 @@ import modal
 app = modal.App(
     name="sandbox-test-case-generator",
 )
-model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
-files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
-MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
-MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
-
+# Next we'll set up our container [Image]() and dependencies. We'll use
 
 model_image = (
     modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
@@ -32,6 +40,15 @@ model_image = (
     )
     .entrypoint([])  # silence noisy logs
 )
+
+# TODO: Make the files volume ephemeral
+
+
+model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
+files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
+
+MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
+MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
 
 
 @app.cls(
@@ -282,7 +299,10 @@ async def main(
 
     # Create sandboxes to run the generated test files
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
-    await asyncio.gather(*[sb.wait.aio(raise_on_termination=False) for sb in sandboxes])
+    await asyncio.gather(
+        *[sb.wait.aio() for sb in sandboxes],
+        return_exceptions=True,
+    )
 
 
 # # Addenda
