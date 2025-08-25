@@ -41,6 +41,7 @@ model_image = (
         "/data": files_volume,
     },
     gpu="L40S",
+    timeout=600,
 )
 @modal.concurrent(max_inputs=3)  # Each container runs up to 3 requests at once.
 class TestCaseServer:
@@ -50,7 +51,7 @@ class TestCaseServer:
 
         snapshot_download(
             MODEL_NAME,
-            local_dir=f"/cache/{MODEL_NAME}",
+            local_dir=f"/cache/{MODEL_NAME}",  # similar to cache_dir, but with less unused metadata
             revision=MODEL_REVISION,
             ignore_patterns=["*.pt", "*.bin"],
         )
@@ -151,12 +152,8 @@ class TestCaseClient:
             },
         )
         output = response.choices[0].message.content
-        try:
-            output_contents = json.loads(output)["file_contents"]
-            return self.write_outputs(f"test_{file_name}", output_contents)
-        except Exception as e:
-            print(f"Error generating test file {file_name}: {e}")
-            return None
+        output_contents = json.loads(output)["file_contents"]
+        return self.write_outputs(f"test_{file_name}", output_contents)
 
 
 @app.function(
@@ -254,13 +251,15 @@ def run_sandbox(image: modal.Image, file_name: str):
 
 
 @app.local_entrypoint()
-def main(
+async def main(
     gh_owner: str,
     gh_repo_name: str,
     gh_module_path: str,
     gh_tests_path: str,
     gh_branch: str,
 ):
+    import asyncio
+
     # Start server
     sg_lang_server = TestCaseServer()
 
@@ -274,13 +273,16 @@ def main(
 
     # Initialize client and generate test files
     generator = TestCaseClient(url=sg_lang_server.serve.get_web_url())  # type: ignore
-    output_files = list(generator.generate.map(input_files))
-    output_files = [f for f in output_files if f is not None]
+    output_generator = generator.generate.map.aio(input_files)
+    output_files = []
+    async for f in output_generator:
+        if f is not None:
+            output_files.append(f)
     print("Test case files generated successfully! Creating sandboxes...")
 
     # Create sandboxes to run the generated test files
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
-    poll_sandboxes(sandboxes)
+    await asyncio.gather(*[sb.wait.aio(raise_on_termination=False) for sb in sandboxes])
 
 
 # # Addenda
@@ -292,7 +294,7 @@ def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
         image = get_sandbox_image(gh_owner, gh_repo_name)
         sb = run_sandbox(image, filename)
         file_to_sandbox[filename] = sb
-    time.sleep(20)
+    time.sleep(20)  # Hack to make sure URLs show up at the very end
 
     for filename, sb in file_to_sandbox.items():
         tunnel1 = sb.tunnels()[8000]
@@ -302,20 +304,6 @@ def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
         print(f"✨ View test results: {tunnel1.url}\n")
 
     return file_to_sandbox.values()
-
-
-def poll_sandboxes(sandboxes: list[modal.Sandbox]):
-    """
-    Poll sandboxes every 10 seconds until all are completed.
-    """
-
-    completed_sandbox_ids: set[str] = set()
-    while len(completed_sandbox_ids) < len(sandboxes):
-        for sb in sandboxes:
-            if sb.poll() is not None:
-                print(f"Sandbox {sb.object_id} completed")
-                completed_sandbox_ids.add(sb.object_id)
-        time.sleep(10)
 
 
 def get_user_prompt(file_text: str, test_file_text: str) -> str:
