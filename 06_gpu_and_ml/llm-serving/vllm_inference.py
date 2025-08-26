@@ -33,12 +33,15 @@ import aiohttp
 import modal
 
 vllm_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
-        "vllm==0.9.1",
-        "huggingface_hub[hf_transfer]==0.32.0",
-        "flashinfer-python==0.2.6.post1",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
+    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    .uv_pip_install(
+        "torch==2.8.0+cu128",
+        index_url="https://download.pytorch.org/whl/cu128",
+    )
+    .uv_pip_install(
+        "vllm>=0.10.1.1",
+        "huggingface_hub[hf_transfer]>=0.32.0",
+        "flashinfer-python==0.2.8",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
@@ -56,10 +59,11 @@ vllm_image = (
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
-# A single B200 GPUs has enough VRAM to store a 70,000,000,000 parameter model,
+# A single H100 GPU has enough VRAM to store a 70,000,000,000 parameter model,
 # like Llama 3.3, in eight bit precision, along with a very large KV cache.
 
 MODEL_NAME = "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8"
+
 MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
@@ -128,7 +132,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"B200:{N_GPU}",
+    gpu=f"H100:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
