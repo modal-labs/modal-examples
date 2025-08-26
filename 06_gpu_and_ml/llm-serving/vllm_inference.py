@@ -35,13 +35,10 @@ import modal
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
     .uv_pip_install(
-        "torch==2.8.0+cu128",
-        index_url="https://download.pytorch.org/whl/cu128",
-    )
-    .uv_pip_install(
-        "vllm>=0.10.1.1",
-        "huggingface_hub[hf_transfer]>=0.32.0",
+        "vllm==0.10.1.1",
+        "huggingface_hub[hf_transfer]==0.34.4",
         "flashinfer-python==0.2.8",
+        "torch==2.7.1",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
