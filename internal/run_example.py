@@ -18,6 +18,8 @@ def run_script(example, timeout=DEFAULT_TIMEOUT):
 
     try:
         print(f"cli args: {example.cli_args}")
+        if "runc" in example.runtimes:
+            example.env |= {"MODAL_FUNCTION_RUNTIME": "runc"}
         process = subprocess.run(
             [str(x) for x in example.cli_args],
             env=os.environ | example.env | {"MODAL_SERVE_TIMEOUT": "5.0"},
