@@ -2,7 +2,7 @@
 # runtimes: ["runc"]
 # ---
 
-# Trace and profile GPU-accelerated applications with NSight Systems
+# # Trace and profile GPU-accelerated applications with NSight Systems
 
 # This example demonstrates how to use
 # NVIDIA's [NSight Systems](https://developer.nvidia.com/nsight-systems)
