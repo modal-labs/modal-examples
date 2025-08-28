@@ -282,7 +282,10 @@ async def main(
 
     # Create sandboxes to run the generated test files
     sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
-    await asyncio.gather(*[sb.wait.aio(raise_on_termination=False) for sb in sandboxes])
+    await asyncio.gather(
+        *[sb.wait.aio(raise_on_termination=False) for sb in sandboxes],
+        return_exceptions=True,
+    )
 
 
 # # Addenda
