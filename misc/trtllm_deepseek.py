@@ -118,10 +118,7 @@ def download_model():
 
 MINUTES = 60  # seconds
 tensorrt_image = (
-    tensorrt_image.uv_pip_install(
-        "hf-transfer==0.1.9",
-        "huggingface_hub==0.33.0"
-    )
+    tensorrt_image.uv_pip_install("hf-transfer==0.1.9", "huggingface_hub==0.33.0")
     .env(
         {
             "HF_HUB_ENABLE_HF_TRANSFER": "1",
