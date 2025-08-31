@@ -57,7 +57,7 @@ tensorrt_image = (
         "torch==2.7.1",
         "torchvision",
         "torchaudio",
-        index_url="https://download.pytorch.org/whl/cu128"
+        index_url="https://download.pytorch.org/whl/cu128",
     )
     .uv_pip_install(
         "mpi4py",
@@ -92,7 +92,7 @@ HF_CACHE_PATH = Path("/hf_cache")
 volumes = {HF_CACHE_PATH: hf_cache_vol}
 
 MODEL_NAME = "nvidia/DeepSeek-R1-0528-FP4-v2"
-# MODEL_REVISION = "91cfc7c35acd8ecfc769205989310208b8b81c9c"  # in case repo updates!
+MODEL_REVISION = "d12ff8db9876124d533b26bc24523c27907ce386"  # in case repo updates!
 MODELS_PATH = HF_CACHE_PATH / "models"
 MODEL_PATH = MODELS_PATH / MODEL_NAME
 
@@ -108,7 +108,7 @@ def download_model():
         MODEL_NAME,
         local_dir=MODEL_PATH,
         ignore_patterns=["*.pt", "*.bin"],  # using safetensors
-        # revision=MODEL_REVISION,
+        revision=MODEL_REVISION,
     )
 
 
