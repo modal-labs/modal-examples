@@ -19,7 +19,7 @@ app = modal.App("example-poll-delayed-result")
 web_app = fastapi.FastAPI()
 
 
-@app.function(image=modal.Image.debian_slim().pip_install("primefac"))
+@app.function(image=modal.Image.debian_slim().uv_pip_install("primefac"))
 def factor_number(number):
     import primefac
 

@@ -33,14 +33,14 @@ def download_model():
 
 
 # Now, we define our image. We'll use the `debian-slim` base image, and install the dependencies we need
-# using [`pip_install`](https://modal.com/docs/reference/modal.Image#pip_install). At the end, we'll use
+# using [`uv_pip_install`](https://modal.com/docs/reference/modal.Image#uv_pip_install). At the end, we'll use
 # [`run_function`](https://modal.com/docs/guide/custom-container#run-a-modal-function-during-your-build-with-run_function-beta) to run the
 # function defined above as part of the image build.
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git")
-    .pip_install(
+    .uv_pip_install(
         "auto-gptq==0.7.0",
         "einops==0.6.1",
         "hf-transfer==0.1.5",

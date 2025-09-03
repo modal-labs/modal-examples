@@ -46,7 +46,7 @@ TARGET_PATH = "/root/target"
 
 dbt_image = (  # start from a slim Linux image
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(  # install python packages
+    .uv_pip_install(  # install python packages
         "boto3~=1.34",  # aws client sdk
         "dbt-duckdb~=1.8.1",  # dbt and duckdb and a connector
         "pandas~=2.2.2",  # dataframes

@@ -34,7 +34,7 @@ app = modal.App("example-doc-ocr-jobs")
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
 
-inference_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+inference_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "accelerate==0.28.0",
     "huggingface_hub[hf_transfer]==0.27.1",
     "numpy<2",

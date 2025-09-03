@@ -13,7 +13,7 @@ import modal
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
-image = modal.Image.debian_slim().pip_install("fastapi[standard]")
+image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]")
 app = modal.App("example-streaming", image=image)
 
 web_app = FastAPI()

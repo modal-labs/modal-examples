@@ -19,7 +19,7 @@ import modal
 
 app = modal.App(
     "example-jupyter-inside-modal",
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
+    image=modal.Image.debian_slim(python_version="3.12").uv_pip_install(
         "jupyter", "bing-image-downloader~=1.1.2"
     ),
 )

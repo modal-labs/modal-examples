@@ -9,7 +9,7 @@ PYTHON_VERSION = "3.11"
 
 image = (
     modal.Image.debian_slim(python_version=PYTHON_VERSION)
-    .pip_install(
+    .uv_pip_install(
         "beautifulsoup4~=4.12.3",
         "langchain==0.3.4",
         "langchain-core==0.3.12",

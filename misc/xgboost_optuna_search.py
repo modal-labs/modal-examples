@@ -16,7 +16,7 @@ from pathlib import Path
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "optuna==4.3.0",
     "scikit-learn==1.6.1",
     "numpy==2.2.5",

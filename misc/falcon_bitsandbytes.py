@@ -40,7 +40,7 @@ image = (
         channels=["conda-forge", "nvidia"],
     )
     .apt_install("git")
-    .pip_install(
+    .uv_pip_install(
         "bitsandbytes==0.39.0",
         "bitsandbytes-cuda117==0.26.0.post2",
         "peft==0.6.2",

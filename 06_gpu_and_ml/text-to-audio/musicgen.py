@@ -22,7 +22,7 @@ import modal
 # This environment is captured by a
 # [container image](https://modal.com/docs/guide/custom-container),
 # which we build step-by-step by calling methods to add dependencies,
-# like `apt_install` to add system packages and `pip_install` to add
+# like `apt_install` to add system packages and `uv_pip_install` to add
 # Python packages.
 
 # Note that we don't have to install anything with "CUDA"
@@ -34,7 +34,7 @@ import modal
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "huggingface_hub[hf_transfer]==0.27.1",  # speed up model downloads
         "torch==2.1.0",  # version pinned by audiocraft
         "numpy<2",  # defensively cap the numpy version
@@ -82,7 +82,7 @@ image = image.env(
 # While we're at it, let's also define the environment for our UI.
 # We'll stick with Python and so use FastAPI and Gradio.
 
-web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+web_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "fastapi[standard]==0.115.4", "gradio==4.44.1"
 )
 

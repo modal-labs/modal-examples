@@ -15,13 +15,13 @@ image = (
         "nvidia/cuda:12.8.1-devel-ubuntu22.04",
         add_python="3.12",
     )
-    .pip_install(
+    .uv_pip_install(
         "torch==2.8.0",
         "torchvision",
         "torchaudio",
         extra_options="--index-url https://download.pytorch.org/whl/test/cu128",
     )
-    .pip_install(
+    .uv_pip_install(
         "transformers",
         extra_options="-U",
     )
@@ -30,7 +30,7 @@ image = (
         "git clone https://github.com/sgl-project/sglang && cd sglang && pip3 install pip --upgrade && pip3 install -e 'python[all]'",
         gpu=GPU,
     )
-    .pip_install(
+    .uv_pip_install(
         "sgl-kernel==0.3.2",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/workspace_sgl/hf_home"})

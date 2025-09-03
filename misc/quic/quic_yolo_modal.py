@@ -42,7 +42,7 @@ image = (
     # install system dependencies
     .apt_install("python3-opencv", "ffmpeg")
     # install Python dependencies
-    .pip_install(
+    .uv_pip_install(
         "aioquic==1.2.0",
         "cryptography==45.0.4",
         "huggingface-hub[hf_xet]==0.33.0",

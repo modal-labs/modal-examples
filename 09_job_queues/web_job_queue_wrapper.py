@@ -47,7 +47,9 @@ class BackendService:
 # of the `FunctionCall` object.
 
 
-@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]==0.116.0"))
+@app.function(
+    image=modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.116.0")
+)
 @modal.asgi_app()
 @modal.concurrent(max_inputs=100)
 def web_endpoint():

@@ -33,7 +33,7 @@ app = modal.App("example-ltx")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
+    .uv_pip_install(
         "accelerate==1.6.0",
         "diffusers==0.33.1",
         "hf_transfer==0.1.9",

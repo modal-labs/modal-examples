@@ -46,7 +46,7 @@ CACHE_DIR = "/cache"
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
+    .uv_pip_install(
         "accelerate==0.33.0",
         "diffusers==0.31.0",
         "fastapi[standard]==0.115.4",
@@ -229,7 +229,7 @@ frontend_path = Path(__file__).parent / "frontend"
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("jinja2==3.1.4", "fastapi[standard]==0.115.4")
+    .uv_pip_install("jinja2==3.1.4", "fastapi[standard]==0.115.4")
     .add_local_dir(frontend_path, remote_path="/assets")
 )
 

@@ -89,7 +89,7 @@ pg_secret = modal.Secret.from_name(
 pg_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libpq-dev")
-    .pip_install("psycopg2~=2.9.9")
+    .uv_pip_install("psycopg2~=2.9.9")
 )
 
 # Since the default keynames for a **Postgres compatible** secret correspond to the environment
@@ -132,7 +132,7 @@ def get_db_rows(verbose=True):
 # another Modal Secret. We'll use a custom secret called "weather-secret" with the key
 # `OPENWEATHER_API_KEY` containing our API key for OpenWeatherMap.
 
-requests_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+requests_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "requests~=2.31.0"
 )
 
@@ -213,7 +213,7 @@ def main():
 # We'll make use of the `pygsheets` python package to authenticate with
 # Google Sheets and then update the spreadsheet with information from the report we just created:
 
-pygsheets_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+pygsheets_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "pygsheets~=2.0.6"
 )
 

@@ -151,7 +151,7 @@ def boltz_inference(boltz_input_yaml: str, args="") -> bytes:
 
 download_image = (
     modal.Image.debian_slim()
-    .pip_install("huggingface_hub[hf_transfer]==0.26.3")
+    .uv_pip_install("huggingface_hub[hf_transfer]==0.26.3")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # and enable it
 )
 

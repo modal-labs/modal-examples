@@ -39,7 +39,7 @@ import modal
 
 app = modal.App("example-sandbox-pool")
 
-server_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+server_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "fastapi[standard]~=0.115.14",
     "requests~=2.32.4",
 )

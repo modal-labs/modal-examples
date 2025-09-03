@@ -14,7 +14,7 @@ else:
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("locust~=2.36.2", "openai~=1.37.1")
+    .uv_pip_install("locust~=2.36.2", "openai~=1.37.1")
     .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .add_local_file(
         Path(__file__).parent / "locustfile.py",

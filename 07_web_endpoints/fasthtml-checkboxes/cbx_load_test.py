@@ -14,7 +14,7 @@ else:
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("locust~=2.29.1", "beautifulsoup4~=4.12.3", "lxml~=5.3.0")
+    .uv_pip_install("locust~=2.29.1", "beautifulsoup4~=4.12.3", "lxml~=5.3.0")
     .env({"MODAL_WORKSPACE": workspace, "MODAL_ENVIRONMENT": environment})
     .add_local_file(
         Path(__file__).parent / "cbx_locustfile.py",

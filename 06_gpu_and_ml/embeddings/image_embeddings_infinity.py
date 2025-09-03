@@ -97,7 +97,7 @@ data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
 # ## Define the image
 infinity_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
+    .uv_pip_install(
         [
             "pillow==11.3.0",  # for Infinity input typehint
             "datasets==4.0.0",  # for huggingface data download

@@ -9,7 +9,7 @@ import modal
 image = (
     modal.Image.debian_slim(python_version="3.11")  # start from basic Linux with Python
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli==1.2.7")  # install comfy-cli
+    .uv_pip_install("comfy-cli==1.2.7")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )

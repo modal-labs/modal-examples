@@ -49,7 +49,7 @@ trellis_image = (
         "libxext6",
         "ninja-build",
     )
-    .pip_install("packaging", "ninja", "torch==2.4.0", "wheel", "setuptools")
+    .uv_pip_install("packaging", "ninja", "torch==2.4.0", "wheel", "setuptools")
     .env(
         {
             # "MAX_JOBS": "16", # in case flash attention takes more time to build
@@ -67,8 +67,8 @@ trellis_image = (
             "SPCONV_ALGO": "native",  # or 'auto'
         }
     )
-    .pip_install("flash-attn==2.6.3", extra_options="--no-build-isolation")
-    .pip_install(
+    .uv_pip_install("flash-attn==2.6.3", extra_options="--no-build-isolation")
+    .uv_pip_install(
         "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
         "numpy",
         "pillow",
@@ -99,7 +99,7 @@ trellis_image = (
         "https://github.com/camenduru/wheels/releases/download/3090/diso-0.1.4-cp310-cp310-linux_x86_64.whl",
         "https://huggingface.co/spaces/JeffreyXiang/TRELLIS/resolve/main/wheels/diff_gaussian_rasterization-0.0.0-cp310-cp310-linux_x86_64.whl",
     )
-    .pip_install("fastapi[standard]==0.115.6")
+    .uv_pip_install("fastapi[standard]==0.115.6")
     .entrypoint([])
     .run_function(clone_repository)
 )

@@ -46,7 +46,7 @@ OLLAMA_PORT = 11434
 ollama_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl", "ca-certificates")
-    .pip_install(
+    .uv_pip_install(
         "fastapi==0.115.8",
         "uvicorn[standard]==0.34.0",
         "openai~=1.30",  # Pin OpenAI version for compatibility

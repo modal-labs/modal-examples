@@ -53,7 +53,7 @@ lmdeploy_image = (
     Image.from_registry(
         "openmmlab/lmdeploy:v0.4.2",
     )
-    .pip_install(["lmdeploy[all]", "huggingface_hub", "hf-transfer"])
+    .uv_pip_install(["lmdeploy[all]", "huggingface_hub", "hf-transfer"])
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_hf_model,

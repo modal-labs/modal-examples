@@ -36,7 +36,7 @@ AUDIO_URL: str = (
 image: modal.Image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
-    .pip_install("openai==1.91.0")
+    .uv_pip_install("openai==1.91.0")
     .run_commands(
         "pip install git+https://github.com/playht/PlayDiffusion.git@d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255"
     )

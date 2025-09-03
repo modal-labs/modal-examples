@@ -27,7 +27,7 @@ import modal
 
 app = modal.App(
     "example-batch-inference-using-huggingface",
-    image=modal.Image.debian_slim().pip_install(
+    image=modal.Image.debian_slim().uv_pip_install(
         "datasets",
         "matplotlib",
         "scikit-learn",

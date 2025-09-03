@@ -52,7 +52,7 @@ nvidia_cuda_image = modal.Image.from_registry(
 
 # We then install all the Python dependencies needed for FLUX.1 inference.
 
-flux_endpoint_image = nvidia_cuda_image.pip_install(
+flux_endpoint_image = nvidia_cuda_image.uv_pip_install(
     "accelerate==1.6.0",
     "boto3==1.37.35",
     "diffusers==0.33.1",

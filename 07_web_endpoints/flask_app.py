@@ -11,7 +11,7 @@ import modal
 
 app = modal.App(
     "example-flask-app",
-    image=modal.Image.debian_slim().pip_install("flask"),
+    image=modal.Image.debian_slim().uv_pip_install("flask"),
 )
 
 

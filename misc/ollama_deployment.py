@@ -40,7 +40,7 @@ image = (
     .run_commands(
         "curl -fsSL https://ollama.com/install.sh | sh",
     )
-    .pip_install("httpx", "loguru")
+    .uv_pip_install("httpx", "loguru")
     .env(
         {
             "OLLAMA_HOST": "0.0.0.0:11434",  # Configure Ollama to listen on all interfaces

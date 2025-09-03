@@ -35,7 +35,7 @@
 
 import modal
 
-image = modal.Image.debian_slim().pip_install("fastapi[standard]")
+image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]")
 app = modal.App(name="example-basic-web", image=image)
 
 

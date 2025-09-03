@@ -77,7 +77,7 @@ async def poll_results(call_id: str):
 # First, we specify our dependencies -- here, a basic Debian Linux
 # environment with FastAPI installed.
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "fastapi[standard]==0.115.4"
 )
 

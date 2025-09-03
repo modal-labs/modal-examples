@@ -38,10 +38,10 @@ image = (
     .apt_install(  # install system libraries for graphics handling
         ["libgl1-mesa-glx", "libglib2.0-0"]
     )
-    .pip_install(  # install python libraries for computer vision
+    .uv_pip_install(  # install python libraries for computer vision
         ["ultralytics~=8.2.68", "roboflow~=1.1.37", "opencv-python~=4.10.0"]
     )
-    .pip_install(  # add an optional extra that renders images in the terminal
+    .uv_pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
     )
 )

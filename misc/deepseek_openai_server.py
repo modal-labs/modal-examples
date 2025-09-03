@@ -112,7 +112,7 @@ vllm_image = (
         "cp llama.cpp/build/bin/llama-* llama.cpp",
     )
     # Install all Python dependencies at once
-    .pip_install(
+    .uv_pip_install(
         [
             "fastapi==0.115.8",
             "sse_starlette==2.2.1",
@@ -146,7 +146,7 @@ cache_dir = "/root/.cache/deepseek"
 
 download_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("huggingface_hub[hf_transfer]==0.26.2")
+    .uv_pip_install("huggingface_hub[hf_transfer]==0.26.2")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
 )
 

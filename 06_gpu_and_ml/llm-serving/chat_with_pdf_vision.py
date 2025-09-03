@@ -34,7 +34,7 @@ CACHE_DIR = "/hf-cache"
 model_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("git")
-    .pip_install(
+    .uv_pip_install(
         [
             "colpali-engine==0.3.5",
             "transformers>=4.45.0",
@@ -316,7 +316,7 @@ class Model:
 pdf_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("poppler-utils")
-    .pip_install("pdf2image==1.17.0", "pillow==10.4.0")
+    .uv_pip_install("pdf2image==1.17.0", "pillow==10.4.0")
 )
 
 
@@ -392,7 +392,7 @@ def main(
 # If you’re editing the code, use `modal serve` instead to see changes hot-reload.
 
 
-web_image = pdf_image.pip_install(
+web_image = pdf_image.uv_pip_install(
     "fastapi[standard]==0.115.4",
     "pydantic==2.9.2",
     "starlette==0.41.2",

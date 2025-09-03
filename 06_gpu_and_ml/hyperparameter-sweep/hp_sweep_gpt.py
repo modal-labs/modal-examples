@@ -83,11 +83,11 @@ model_save_path = volume_path / "models"
 
 # The container image for training  is based on Modal's default slim Debian Linux image with `torch`
 # for defining and running our neural network and `tensorboard` for monitoring training.
-base_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+base_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "pydantic==2.9.1"
 )
 
-torch_image = base_image.pip_install(
+torch_image = base_image.uv_pip_install(
     "torch==2.1.2",
     "tensorboard==2.17.1",
     "numpy<2",
@@ -101,11 +101,11 @@ torch_image = torch_image.add_local_dir(
 )
 
 # We'll serve a simple web endpoint:
-web_image = base_image.pip_install("fastapi[standard]==0.115.4", "starlette==0.41.2")
+web_image = base_image.uv_pip_install("fastapi[standard]==0.115.4", "starlette==0.41.2")
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
 assets_path = Path(__file__).parent / "assets"
-ui_image = web_image.pip_install("gradio~=4.44.0").add_local_dir(
+ui_image = web_image.uv_pip_install("gradio~=4.44.0").add_local_dir(
     assets_path, remote_path="/assets"
 )
 

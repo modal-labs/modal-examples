@@ -227,7 +227,7 @@ async def get_links(cur_url: str) -> list[str]:
 
 import os
 
-slack_sdk_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+slack_sdk_image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "slack-sdk"
 )
 

@@ -47,7 +47,7 @@ app = modal.App("example-image-to-video")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv")
-    .pip_install(
+    .uv_pip_install(
         "accelerate==1.4.0",
         "diffusers==0.32.2",
         "fastapi[standard]==0.115.8",
@@ -301,7 +301,7 @@ frontend_path = Path(__file__).parent / "frontend"
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("jinja2==3.1.5", "fastapi[standard]==0.115.8")
+    .uv_pip_install("jinja2==3.1.5", "fastapi[standard]==0.115.8")
     .add_local_dir(frontend_path, remote_path="/assets")  # mount frontend/client code
 )
 

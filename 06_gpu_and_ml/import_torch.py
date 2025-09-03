@@ -3,7 +3,7 @@ import modal
 app = modal.App("example-import-torch")
 
 
-torch_image = modal.Image.debian_slim().pip_install(
+torch_image = modal.Image.debian_slim().uv_pip_install(
     "torch==2.7",
     extra_index_url="https://download.pytorch.org/whl/cu128",
     force_build=True,  # trigger a build every time, just for demonstration purposes

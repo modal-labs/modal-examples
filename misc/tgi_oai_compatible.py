@@ -51,7 +51,7 @@ tgi_image = (
         "ghcr.io/huggingface/text-generation-inference", add_python="3.10"
     )
     .dockerfile_commands("ENTRYPOINT []")
-    .pip_install(["huggingface_hub", "hf-transfer"])
+    .uv_pip_install(["huggingface_hub", "hf-transfer"])
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_hf_model,

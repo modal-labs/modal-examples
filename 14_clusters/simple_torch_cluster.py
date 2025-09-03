@@ -19,7 +19,7 @@ import modal.experimental
 # Communicating between nodes in a cluster requires communication libraries.
 # We'll use `torch`, so we add it to our container's [Image](https://modal.com/docs/guide/images) here.
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "torch~=2.5.1", "numpy~=2.2.1"
 )
 

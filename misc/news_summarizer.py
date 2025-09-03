@@ -46,13 +46,13 @@ def fetch_model(local_files_only: bool = False):
 
 deep_learning_image = (
     modal.Image.debian_slim()
-    .pip_install("transformers==4.16.2", "torch", "sentencepiece")
+    .uv_pip_install("transformers==4.16.2", "torch", "sentencepiece")
     .run_function(fetch_model)
 )
 
 # Defining the scraping image is very similar. This image only contains the packages required
 # to scrape the New York Times website, though; so it's much smaller.
-scraping_image = modal.Image.debian_slim().pip_install(
+scraping_image = modal.Image.debian_slim().uv_pip_install(
     "requests", "beautifulsoup4", "lxml"
 )
 

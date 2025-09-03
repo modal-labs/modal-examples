@@ -43,8 +43,8 @@ import modal.experimental
 image = (  # build up a Modal Image to run ComfyUI, step by step
     modal.Image.debian_slim(python_version="3.11")  # start from basic Linux with Python
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
-    .pip_install("comfy-cli==1.4.1")  # install comfy-cli
+    .uv_pip_install("fastapi[standard]==0.115.4")  # install web dependencies
+    .uv_pip_install("comfy-cli==1.4.1")  # install comfy-cli
     .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
         "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.41"
     )
@@ -101,7 +101,7 @@ vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 image = (
     # install huggingface_hub with hf_transfer support to speed up downloads
-    image.pip_install("huggingface_hub[hf_transfer]==0.34.4")
+    image.uv_pip_install("huggingface_hub[hf_transfer]==0.34.4")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         hf_download,

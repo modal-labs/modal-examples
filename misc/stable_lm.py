@@ -52,7 +52,7 @@ image = (
             "PIP_NO_CACHE_DIR": "1",
         }
     )
-    .pip_install(
+    .uv_pip_install(
         "transformers~=4.28.1",
         "safetensors==0.3.0",
         "accelerate==0.18.0",

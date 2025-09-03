@@ -9,12 +9,12 @@ import modal
 image = (
     modal.Image.debian_slim(python_version="3.11")  # start from basic Linux with Python
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("comfy-cli==1.2.7")  # install comfy-cli
+    .uv_pip_install("comfy-cli==1.2.7")  # install comfy-cli
     .run_commands(  # use comfy-cli to install the ComfyUI repo and its dependencies
         "comfy --skip-prompt install --nvidia"
     )
     .run_commands("comfy node install comfyui-impact-pack")  # download the Impact pack
-    .pip_install("ultralytics==8.3.26")  # object detection models
+    .uv_pip_install("ultralytics==8.3.26")  # object detection models
     .apt_install("libgl1-mesa-glx", "libglib2.0-0")  # opengl dependencies
     .run_commands(
         "comfy --skip-prompt model download --url https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned.safetensors --relative-path models/checkpoints",

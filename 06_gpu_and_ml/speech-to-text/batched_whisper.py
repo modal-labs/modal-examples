@@ -28,7 +28,7 @@ MODEL_REVISION = "afda370583db9c5359511ed5d989400a6199dfe1"
 # We’ll start with Modal's baseline `debian_slim` image and install the relevant libraries.
 
 image = (
-    modal.Image.debian_slim(python_version="3.11").pip_install(
+    modal.Image.debian_slim(python_version="3.11").uv_pip_install(
         "torch==2.5.1",
         "transformers==4.47.1",
         "hf-transfer==0.1.8",
