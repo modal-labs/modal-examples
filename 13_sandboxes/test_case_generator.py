@@ -152,8 +152,12 @@ class TestCaseClient:
             },
         )
         output = response.choices[0].message.content
-        output_contents = json.loads(output)["file_contents"]
-        return self.write_outputs(f"test_{file_name}", output_contents)
+        try:
+            output_contents = json.loads(output)["file_contents"]
+            return self.write_outputs(f"test_{file_name}", output_contents)
+        except Exception as e:
+            print(f"Error generating test file: {e}")
+            return None
 
 
 @app.function(
