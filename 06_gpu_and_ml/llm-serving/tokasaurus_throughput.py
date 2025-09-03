@@ -38,11 +38,11 @@ import time
 import aiohttp
 import modal
 
-toka_image = (
-    modal.Image.from_registry(
-        "nvidia/cuda:12.4.1-devel-ubuntu22.04", add_python="3.12"
-    ).entrypoint([])  # silence chatty logs on container start
-)
+toka_image = modal.Image.from_registry(
+    "nvidia/cuda:12.4.1-devel-ubuntu22.04", add_python="3.12"
+).entrypoint(
+    []
+)  # silence chatty logs on container start
 
 # We also set an environment variable that directs Torch-based libraries to only compile kernels for the
 # [GPU SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
@@ -267,9 +267,11 @@ async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
         print("Counting tokens")
 
         input_text = [resp["prompt"] for resp in resps]
-        output_text = [  # flatten completions from list inside a list down to a single list
-            completion for resp in resps for completion in resp["completions"]
-        ]
+        output_text = (
+            [  # flatten completions from list inside a list down to a single list
+                completion for resp in resps for completion in resp["completions"]
+            ]
+        )
         total_tokens = sum(
             [count async for count in count_tokens.map.aio(input_text + output_text)]
         )
@@ -321,9 +323,9 @@ def _make_prompt(item: dict) -> str:
 def _integrity_check(responses):
     for ii, resp in enumerate(responses):
         n_completions = len(resp["completions"])
-        assert n_completions == N, (
-            f"Expected {N} completions, got {n_completions} for request {ii}"
-        )
+        assert (
+            n_completions == N
+        ), f"Expected {N} completions, got {n_completions} for request {ii}"
 
 
 async def _send_request(session: aiohttp.ClientSession, prompt: str):

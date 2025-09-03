@@ -26,9 +26,9 @@ from .webrtc_yolo import (
 def test():
     input_frames, output_frames = TestPeer().run_video_processing_test.remote()
     # allow a few dropped frames from the connection starting up
-    assert input_frames - output_frames < 5, (
-        f"Streaming failed. Frame difference: {input_frames} - {output_frames} = {input_frames - output_frames}"
-    )
+    assert (
+        input_frames - output_frames < 5
+    ), f"Streaming failed. Frame difference: {input_frames} - {output_frames} = {input_frames - output_frames}"
 
 
 # Because our test will require Python dependencies outside the standard library, we'll run the test itself in a container on Modal.

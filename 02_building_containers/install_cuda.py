@@ -39,7 +39,9 @@ def torch_cuda():
 
 ctk_image = modal.Image.from_registry(
     "nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11"
-).entrypoint([])  # removes chatty prints on entry
+).entrypoint(
+    []
+)  # removes chatty prints on entry
 
 
 @app.function(gpu="T4", image=ctk_image)

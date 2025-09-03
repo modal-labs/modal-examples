@@ -29,9 +29,7 @@ from pathlib import Path
 import modal
 
 BUCKET_NAME = "modal-example-dbt-duckdb-s3"
-LOCAL_DBT_PROJECT = (  # local path
-    Path(__file__).parent / "sample_proj_duckdb_s3"
-)
+LOCAL_DBT_PROJECT = Path(__file__).parent / "sample_proj_duckdb_s3"  # local path
 PROJ_PATH = "/root/dbt"  # remote paths
 PROFILES_PATH = "/root/dbt_profile"
 TARGET_PATH = "/root/target"

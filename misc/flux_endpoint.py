@@ -126,6 +126,7 @@ with flux_endpoint_image.imports():
         output_format: OutputFormat = Field(default=OutputFormat.PNG)
         output_quality: int = Field(default=90, ge=1, le=100)
 
+
 # ## The FluxService class
 
 # This class handles model loading, optimization, and inference. We use Modal's

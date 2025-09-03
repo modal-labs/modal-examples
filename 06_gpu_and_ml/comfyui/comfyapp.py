@@ -41,9 +41,7 @@ import modal
 import modal.experimental
 
 image = (  # build up a Modal Image to run ComfyUI, step by step
-    modal.Image.debian_slim(  # start from basic Linux with Python
-        python_version="3.11"
-    )
+    modal.Image.debian_slim(python_version="3.11")  # start from basic Linux with Python
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
     .pip_install("comfy-cli==1.4.1")  # install comfy-cli

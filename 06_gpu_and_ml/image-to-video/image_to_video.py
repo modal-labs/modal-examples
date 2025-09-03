@@ -302,9 +302,7 @@ frontend_path = Path(__file__).parent / "frontend"
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("jinja2==3.1.5", "fastapi[standard]==0.115.8")
-    .add_local_dir(  # mount frontend/client code
-        frontend_path, remote_path="/assets"
-    )
+    .add_local_dir(frontend_path, remote_path="/assets")  # mount frontend/client code
 )
 
 

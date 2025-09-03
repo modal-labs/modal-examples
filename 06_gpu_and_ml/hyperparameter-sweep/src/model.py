@@ -109,9 +109,9 @@ class AttentionModel(nn.Module):
         self.context_size = hparams.context_size
         self.device = device
         # Sanity check parameters
-        assert hparams.n_embed % hparams.n_heads == 0, (
-            "n_embed must be divisible by n_heads"
-        )
+        assert (
+            hparams.n_embed % hparams.n_heads == 0
+        ), "n_embed must be divisible by n_heads"
 
         self.token_embedding_table = nn.Embedding(
             vocab_size, hparams.n_embed, device=device

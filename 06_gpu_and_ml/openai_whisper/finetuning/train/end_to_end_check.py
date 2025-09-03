@@ -65,9 +65,9 @@ def test_download_and_tryout_model(run_id: str):
         f"{expected_transcription=}\n{predicted_transcription=}\n"
         f"Word Error Rate (WER): {wer_score}"
     )
-    assert wer_score < 1.0, (
-        f"Even without finetuning, a WER score of {wer_score} is far too high."
-    )
+    assert (
+        wer_score < 1.0
+    ), f"Even without finetuning, a WER score of {wer_score} is far too high."
 
 
 # This simple entrypoint function just starts an ephemeral app run and calls

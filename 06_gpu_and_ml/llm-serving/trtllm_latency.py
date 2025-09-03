@@ -77,7 +77,9 @@ import modal
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.8.1-devel-ubuntu22.04",
     add_python="3.12",  # TRT-LLM requires Python 3.12
-).entrypoint([])  # remove verbose logging by base image on entry
+).entrypoint(
+    []
+)  # remove verbose logging by base image on entry
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,

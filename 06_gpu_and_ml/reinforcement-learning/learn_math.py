@@ -145,9 +145,7 @@ def math_group_verifier(trainer_script: str, config_file: str, run_id: str = Non
 
     print("Training completed! Running a single inference from test set...")
 
-    dataset = load_example_dataset(
-        "math", split="train"
-    ).select(
+    dataset = load_example_dataset("math", split="train").select(
         range(1)
     )  # We use the first example from the training set for inference to test our training run.
 

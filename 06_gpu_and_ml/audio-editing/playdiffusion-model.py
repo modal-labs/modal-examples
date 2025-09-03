@@ -28,7 +28,9 @@ import modal
 
 # We start with Modal's baseline `debian_slim` image and install the required packages.
 # - `openai`: PlayDiffusion requires a transcript as input. You can either provide the transcript yourself as input, or use a transcription model to transcribe the audio on the fly. In this case we use openai's whisper api, but you can use any model of your choice.
-AUDIO_URL: str = "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+AUDIO_URL: str = (
+    "https://github.com/voxserv/audio_quality_testing_samples/raw/refs/heads/master/mono_44100/156550__acclivity__a-dream-within-a-dream.wav"
+)
 
 # The python version [needs to be](https://github.com/playht/PlayDiffusion/blob/d3995b9e2cd8a80b88be6aeeb4e35fd282b2d255/pyproject.toml) `3.11`
 image: modal.Image = (

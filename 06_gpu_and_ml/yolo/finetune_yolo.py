@@ -50,9 +50,7 @@ image = (
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 volume = modal.Volume.from_name("example-yolo-finetune", create_if_missing=True)
-volume_path = (  # the path to the volume from within the container
-    Path("/root") / "data"
-)
+volume_path = Path("/root") / "data"  # the path to the volume from within the container
 
 # We attach both of these to a Modal [App](https://modal.com/docs/guide/apps).
 app = modal.App("example-yolo-finetune", image=image, volumes={volume_path: volume})
@@ -144,9 +142,9 @@ def train(
     model.train(
         # dataset config
         data=data_path,
-        fraction=0.4
-        if not quick_check
-        else 0.04,  # fraction of dataset to use for training/validation
+        fraction=(
+            0.4 if not quick_check else 0.04
+        ),  # fraction of dataset to use for training/validation
         # optimization config
         device=list(range(TRAIN_GPU_COUNT)),  # use the GPU(s)
         epochs=8 if not quick_check else 1,  # pass over entire dataset this many times
@@ -321,9 +319,7 @@ def main(quick_check: bool = True, inference_only: bool = False):
             inference.predict.remote(
                 model_id=model_id,
                 image_path=f"{volume_path}/{image.path}",
-                display=(
-                    ii == 0  # display inference results only on first image
-                ),
+                display=(ii == 0),  # display inference results only on first image
             )
             if ii >= 4:
                 break

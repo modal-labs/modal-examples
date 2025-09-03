@@ -135,7 +135,9 @@ class Model:
             print(f"frame_idx: {frame_idx}, object_ids: {object_ids}, masks: {masks}")
 
             # run propagation throughout the video and collect the results in a dict
-            video_segments = {}  # video_segments contains the per-frame segmentation results
+            video_segments = (
+                {}
+            )  # video_segments contains the per-frame segmentation results
             for (
                 out_frame_idx,
                 out_obj_ids,
@@ -166,7 +168,9 @@ class Model:
             "scale",
             "trunc(iw/2)*2",
             "trunc(ih/2)*2",  # round to even dimensions to encode for "dumb players", https://trac.ffmpeg.org/wiki/Encode/H.264#Encodingfordumbplayers
-        ).output(str(out_dir / "out.mp4"), format="mp4", pix_fmt="yuv420p").run()
+        ).output(
+            str(out_dir / "out.mp4"), format="mp4", pix_fmt="yuv420p"
+        ).run()
 
         return (out_dir / "out.mp4").read_bytes()
 

@@ -32,8 +32,7 @@ app = modal.App("example-nsys")
 here = Path(__file__).parent  # directory of this script
 
 image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .run_commands(
+    modal.Image.debian_slim(python_version="3.12").run_commands(
         # install system packages required to install NSight Systems
         "apt update",
         "apt install -y --no-install-recommends gnupg wget software-properties-common",

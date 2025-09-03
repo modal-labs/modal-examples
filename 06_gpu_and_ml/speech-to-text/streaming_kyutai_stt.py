@@ -452,7 +452,8 @@ def ui():
                 rel="stylesheet",
             ),
             fh.Script(src="https://cdn.tailwindcss.com"),
-            fh.Script("""
+            fh.Script(
+                """
                 tailwind.config = {
                     theme: {
                         extend: {
@@ -465,7 +466,8 @@ def ui():
                         },
                     },
                 };
-            """),
+            """
+            ),
         ],
     )
 

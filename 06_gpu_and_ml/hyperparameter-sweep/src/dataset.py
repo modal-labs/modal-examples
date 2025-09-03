@@ -19,9 +19,9 @@ class Dataset:
         self.device = device
         self.batch_size = batch_size
         self.context_size = context_size
-        assert (train_percent > 0.0) and (train_percent < 1.0), (
-            "train_percent must be in (0,1)"
-        )
+        assert (train_percent > 0.0) and (
+            train_percent < 1.0
+        ), "train_percent must be in (0,1)"
 
         # Train/Validation split.
         data = torch.tensor(encoded_text, dtype=torch.long)

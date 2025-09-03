@@ -123,15 +123,17 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class Model:
-    compile: bool = (  # see section on torch.compile below for details
-        modal.parameter(default=False)
+    compile: bool = modal.parameter(  # see section on torch.compile below for details
+        default=False
     )
 
     @modal.enter()
     def enter(self):
         pipe = FluxPipeline.from_pretrained(
             f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
-        ).to("cuda")  # move model to GPU
+        ).to(
+            "cuda"
+        )  # move model to GPU
         self.pipe = optimize(pipe, compile=self.compile)
 
     @modal.method()

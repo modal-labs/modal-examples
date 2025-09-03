@@ -53,7 +53,9 @@ import pydantic  # for typing, used later
 tensorrt_image = modal.Image.from_registry(
     "nvidia/cuda:12.4.1-devel-ubuntu22.04",
     add_python="3.10",  # TRT-LLM requires Python 3.10
-).entrypoint([])  # remove verbose logging by base image on entry
+).entrypoint(
+    []
+)  # remove verbose logging by base image on entry
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
@@ -117,9 +119,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
         "huggingface_hub==0.26.2",
         "requests~=2.32.2",
     )
-    .env(  # hf-transfer for faster downloads
-        {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
-    )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # hf-transfer for faster downloads
     .run_function(  # download the model
         download_model,
         timeout=20 * MINUTES,
@@ -225,18 +225,16 @@ PLUGIN_ARGS = "--use_fp8_context_fmha enable"
 
 # We put all of this together with another invocation of `.run_commands`.
 
-tensorrt_image = (  # update the image by building the TensorRT engine
-    tensorrt_image.run_commands(  # takes ~5 minutes
-        [
-            f"trtllm-build --checkpoint_dir {CKPT_DIR} --output_dir {ENGINE_DIR}"
-            + f" --workers={N_GPUS}"
-            + f" {SIZE_ARGS}"
-            + f" {PLUGIN_ARGS}"
-        ],
-        gpu=GPU_CONFIG,  # TRT-LLM compilation is GPU-specific, so make sure this matches production!
-    ).env(  # show more log information from the inference engine
-        {"TLLM_LOG_LEVEL": "INFO"}
-    )
+tensorrt_image = tensorrt_image.run_commands(  # update the image by building the TensorRT engine  # takes ~5 minutes
+    [
+        f"trtllm-build --checkpoint_dir {CKPT_DIR} --output_dir {ENGINE_DIR}"
+        + f" --workers={N_GPUS}"
+        + f" {SIZE_ARGS}"
+        + f" {PLUGIN_ARGS}"
+    ],
+    gpu=GPU_CONFIG,  # TRT-LLM compilation is GPU-specific, so make sure this matches production!
+).env(  # show more log information from the inference engine
+    {"TLLM_LOG_LEVEL": "INFO"}
 )
 
 # ## Serving inference at tens of thousands of tokens per second
@@ -266,7 +264,8 @@ class Model:
     def load(self):
         """Loads the TRT-LLM engine and configures our tokenizer.
 
-        The @enter decorator ensures that it runs only once per container, when it starts."""
+        The @enter decorator ensures that it runs only once per container, when it starts.
+        """
         import time
 
         print(
@@ -637,7 +636,8 @@ COLOR = {
 def extract_assistant_response(output_text):
     """Model-specific code to extract model responses.
 
-    See this doc for LLaMA 3: https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/."""
+    See this doc for LLaMA 3: https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/.
+    """
     # Split the output text by the assistant header token
     parts = output_text.split("<|start_header_id|>assistant<|end_header_id|>")
 
