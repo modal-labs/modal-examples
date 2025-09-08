@@ -19,6 +19,8 @@ from pathlib import Path
 
 import modal
 
+from modal import web_endpoint # <--- 添加这一行
+from fastapi.responses import Response # <--- 添加这一行
 # We'll make use of the full [CUDA toolkit](https://modal.com/docs/guide/cuda)
 # in this example, so we'll build our container image off of the `nvidia/cuda` base.
 
@@ -50,6 +52,7 @@ flux_image = (
         "libgl1",
     )
     .pip_install(
+        "fastapi[standard]", # <--- 添加这一行
         "invisible_watermark==0.2.0",
         "transformers==4.44.0",
         "huggingface_hub[hf_transfer]==0.26.2",
@@ -119,8 +122,13 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
         "/root/.inductor-cache": modal.Volume.from_name(
             "inductor-cache", create_if_missing=True
         ),
+    
     },
+<<<<<<< Updated upstream
     secrets=[modal.Secret.from_name("huggingface-secret")],
+=======
+    secrets=[modal.Secret.from_name("huggingface-secret")], 
+>>>>>>> Stashed changes
 )
 class Model:
     compile: bool = (  # see section on torch.compile below for details
@@ -166,12 +174,24 @@ class Model:
 # the inference is after cold start. In our tests, clients received images in about 1.2 seconds.
 # We save the output bytes to a temporary file.
 
+    # =============================================================
+    # vvvvvvvv       请在这里添加下面的API方法       vvvvvvvv
+    # =============================================================
+    @web_endpoint(method="GET")
+    def web(self, prompt: str = "A cinematic photo of a baby penguin"):
+        """
+        这个函数被暴露为公共API。
+        它调用内部的 inference 方法来完成实际工作。
+        """
+        image_bytes = self.inference.remote(prompt)
+        return Response(content=image_bytes, media_type="image/jpeg")
+    # =============================================================
+    # ^^^^^^^^       添加完毕       ^^^^^^^^
+    # =============================================================
 
 @app.local_entrypoint()
 def main(
-    prompt: str = "a computer screen showing ASCII terminal art of the"
-    " word 'Modal' in neon green. two programmers are pointing excitedly"
-    " at the screen.",
+    prompt: str = "An isometric illustration of a glowing command line interface, showing Google Gemini AI processing code and data.",
     twice: bool = True,
     compile: bool = False,
 ):
