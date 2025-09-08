@@ -29,7 +29,7 @@ from typing import Optional
 
 import modal
 
-app = modal.App("example-ltx-video")
+app = modal.App("example-ltx")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -77,7 +77,7 @@ model = modal.Volume.from_name(MODEL_VOLUME_NAME, create_if_missing=True)
 MODEL_PATH = Path("/models")
 image = image.env({"HF_HOME": str(MODEL_PATH)})
 
-# For more on storing Modal weights on Modal, see
+# For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 

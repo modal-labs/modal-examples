@@ -28,6 +28,24 @@ def determine_diff_range(event, event_name):
     elif event_name == "push":
         base = event.get("before")
         head = event.get("after")
+
+    elif event_name == "workflow_dispatch":
+        try:
+            subprocess.run(["git", "fetch", "origin", "main"], check=True)
+
+            base = (
+                subprocess.check_output(["git", "rev-parse", "origin/main"])
+                .decode()
+                .strip()
+            )
+
+            head = (
+                subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"Git error while determining diff range: {e}", file=sys.stderr)
+            sys.exit(1)
+
     else:
         print(f"Unsupported event type: {event_name}", file=sys.stderr)
         sys.exit(1)

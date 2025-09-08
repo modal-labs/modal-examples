@@ -4,7 +4,7 @@
 
 # # Run large and small language models with llama.cpp (DeepSeek-R1, Phi-4)
 
-# This example demonstrate how to run small (Phi-4) and large (DeepSeek-R1)
+# This example demonstrates how to run small (Phi-4) and large (DeepSeek-R1)
 # language models on Modal with [`llama.cpp`](https://github.com/ggerganov/llama.cpp).
 
 # By default, this example uses DeepSeek-R1 to produce a "Flappy Bird" game in Python --
@@ -14,7 +14,7 @@
 # our jobs are still safe, for now.
 
 # <center>
-# <a href="https://gist.github.com/charlesfrye/a3788c61019c32cb7947f4f5b1c04818"> <video controls autoplay loop muted> <source src="https://modal-cdn.com/example-flap-py.mp4" type="video/mp4"> </video> </a>
+# <a href="https://gist.github.com/charlesfrye/a3788c61019c32cb7947f4f5b1c04818" aria-label="View the generated code"> <video controls autoplay loop muted> <source src="https://modal-cdn.com/example-flap-py.mp4" type="video/mp4"> </video> </a>
 # </center>
 
 from pathlib import Path
@@ -69,7 +69,7 @@ def main(
     import shlex
 
     org_name = "unsloth"
-    # two sample models: the diminuitive phi-4 and the chonky deepseek r1
+    # two sample models: the diminutive phi-4 and the chonky deepseek r1
     if model.lower() == "phi-4":
         model_name = "phi-4-GGUF"
         quant = "Q2_K"
@@ -348,7 +348,7 @@ def llama_cpp_inference(
         str(n_predict),
     ] + args
 
-    print("🦙 running commmand:", command, sep="\n\t")
+    print("🦙 running command:", command, sep="\n\t")
     p = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False
     )

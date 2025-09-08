@@ -71,7 +71,7 @@ dbt_image = (  # start from a slim Linux image
     )
 )
 
-app = modal.App(name="example-dbt-duckdb-s3", image=dbt_image)
+app = modal.App(name="example-dbt-duckdb", image=dbt_image)
 
 dbt_target = modal.Volume.from_name("dbt-target-vol", create_if_missing=True)
 
@@ -252,9 +252,9 @@ def serve_dbt_docs():
 # ```
 
 # If you navigate to the output URL, you should see something like
-# [![example dbt docs](./dbt_docs.png)](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run)
+# [![example dbt docs](./dbt_docs.png)](https://modal-labs-examples--example-dbt-duckdb-serve-dbt-docs.modal.run)
 
-# You can also check out our instance of the docs [here](https://modal-labs-examples--example-dbt-duckdb-s3-serve-dbt-docs.modal.run).
+# You can also check out our instance of the docs [here](https://modal-labs-examples--example-dbt-duckdb-serve-dbt-docs.modal.run).
 # The app will be served "serverlessly" -- it will automatically scale up or down
 # during periods of increased or decreased usage, and you won't be charged at all
 # when it has scaled to zero.

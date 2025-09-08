@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: external_source
     meta:
-      external_location: "s3://modal-example-dbt-duckdb-s3/sources/{name}.parquet"
+      external_location: "s3://modal-example-dbt-duckdb/sources/{name}.parquet"
     tables:
       - name: raw_customers
       - name: raw_orders

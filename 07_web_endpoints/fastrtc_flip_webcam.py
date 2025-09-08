@@ -14,7 +14,7 @@
 
 # In this example, we stream webcam video from a browser to a container on Modal,
 # where the video is flipped, annotated, and sent back with under 100ms of delay.
-# You can try it out [here](https://modal-labs-examples--fastrtc-flip-webcam-ui.modal.run/)
+# You can try it out [here](https://modal-labs-examples--example-fastrtc-flip-webcam-ui.modal.run/)
 # or just dive straight into the code to run it yourself.
 
 # ## Set up FastRTC on Modal
@@ -34,7 +34,7 @@ web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 
 # Then, we set that as the default Image on our Modal [App](https://modal.com/docs/guide/apps).
 
-app = modal.App("fastrtc-flip-webcam", image=web_image)
+app = modal.App("example-fastrtc-flip-webcam", image=web_image)
 
 # ### Configure WebRTC streaming on Modal
 

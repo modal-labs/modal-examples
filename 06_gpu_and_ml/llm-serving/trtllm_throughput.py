@@ -1,17 +1,11 @@
-# ---
-# deploy: true
-# ---
-
 # # Serverless TensorRT-LLM (LLaMA 3 8B)
 
 # In this example, we demonstrate how to use the TensorRT-LLM framework to serve Meta's LLaMA 3 8B model
 # at very high throughput.
 
 # We achieve a total throughput of over 25,000 output tokens per second on a single NVIDIA H100 GPU.
-# At [Modal's on-demand rate](https://modal.com/pricing) of ~$4.50/hr, that's under $0.05 per million tokens --
+# At [Modal's on-demand rate](https://modal.com/pricing) of ~$4/hr, that's under $0.05 per million tokens --
 # on auto-scaling infrastructure and served via a customizable API.
-
-# Additional optimizations like speculative sampling can further improve throughput.
 
 # ## Overview
 
@@ -70,6 +64,7 @@ tensorrt_image = tensorrt_image.apt_install(
 ).pip_install(
     "tensorrt_llm==0.14.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
+    "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -120,7 +115,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
     tensorrt_image.pip_install(  # add utilities for downloading the model
         "hf-transfer==0.1.8",
         "huggingface_hub==0.26.2",
-        "requests~=2.31.0",
+        "requests~=2.32.2",
     )
     .env(  # hf-transfer for faster downloads
         {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
@@ -248,7 +243,7 @@ tensorrt_image = (  # update the image by building the TensorRT engine
 
 # Now that we have the engine compiled, we can serve it with Modal by creating an `App`.
 
-app = modal.App(f"example-trtllm-{MODEL_ID.split('/')[-1]}", image=tensorrt_image)
+app = modal.App("example-trtllm-throughput", image=tensorrt_image)
 
 # Thanks to our custom container runtime system even this large, many gigabyte container boots in seconds.
 

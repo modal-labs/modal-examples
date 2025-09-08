@@ -421,7 +421,9 @@ def monitor_training():
 
 # Because our weights are stored in a distributed Volume,
 # we can deploy an inference endpoint based off of them without any extra work --
-# and we can even check in on models while we're still training them!
+# and we can even check in on models while we're still training them! # For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 # ### Remote inference with Modal `Cls`es
 

@@ -28,7 +28,7 @@ import modal
 image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "chatterbox-tts==0.1.1", "fastapi[standard]"
 )
-app = modal.App("chatterbox-api-example", image=image)
+app = modal.App("example-chatterbox-tts", image=image)
 
 # Import the required libraries within the image context to ensure they're available
 # when the container runs. This includes audio processing and the TTS model itself.
@@ -42,7 +42,7 @@ with image.imports():
 
 # The TTS service is implemented using Modal's class syntax with GPU acceleration.
 # We configure the class to use an A10G GPU with additional parameters:
-# #
+
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
 # - `enable_memory_snapshot=True`: Enable [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to optimize cold boot times
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container

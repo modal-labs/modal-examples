@@ -33,12 +33,12 @@ import aiohttp
 import modal
 
 vllm_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
-        "vllm==0.9.1",
-        "huggingface_hub[hf_transfer]==0.32.0",
-        "flashinfer-python==0.2.6.post1",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
+    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    .uv_pip_install(
+        "vllm==0.10.1.1",
+        "huggingface_hub[hf_transfer]==0.34.4",
+        "flashinfer-python==0.2.8",
+        "torch==2.7.1",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
@@ -56,8 +56,8 @@ vllm_image = (
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
-# A single B200 GPUs has enough VRAM to store a 70,000,000,000 parameter model,
-# like Llama 3.3, in eight bit precision, along with a very large KV cache.
+# A single H100 GPU has enough VRAM to store a 8,000,000 parameter model,
+# like Llama 3.1, in eight bit precision, along with a very large KV cache.
 
 MODEL_NAME = "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8"
 MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surprises when repos update!
@@ -65,7 +65,9 @@ MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surpr
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
 # We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) for our cache.
-# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk.
+# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
+
 
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 
@@ -117,7 +119,7 @@ FAST_BOOT = True
 # once the model is spun up and the `serve` function returns.
 
 
-app = modal.App("example-vllm-openai-compatible")
+app = modal.App("example-vllm-inference")
 
 N_GPU = 1
 MINUTES = 60  # seconds
@@ -126,7 +128,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"B200:{N_GPU}",
+    gpu=f"H100:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
@@ -182,10 +184,10 @@ def serve():
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run`.
+# something like `https://your-workspace-name--example-vllm-inference-serve.modal.run`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-inference-serve.modal.run/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 

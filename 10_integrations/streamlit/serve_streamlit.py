@@ -39,7 +39,7 @@ image = (
     )
 )
 
-app = modal.App(name="example-modal-streamlit", image=image)
+app = modal.App(name="example-serve-streamlit", image=image)
 
 if not streamlit_script_local_path.exists():
     raise RuntimeError(

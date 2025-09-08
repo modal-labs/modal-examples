@@ -48,7 +48,7 @@ import modal
 # Note that these dependencies are not installed locally
 # -- they are only installed in the remote environment where our Modal App runs.
 
-app = modal.App(name="example-lora-flux")
+app = modal.App(name="example-diffusers-lora-finetune")
 
 image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "accelerate==0.31.0",
@@ -119,7 +119,8 @@ class SharedConfig:
 # A persisted [`modal.Volume`](https://modal.com/docs/guide/volumes) can store and share data across Modal Apps and Functions.
 
 # We'll use one to store both the original and fine-tuned weights we create during training
-# and then load them back in for inference.
+# and then load them back in for inference. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 volume = modal.Volume.from_name(
     "dreambooth-finetuning-volume-flux", create_if_missing=True
@@ -532,7 +533,7 @@ def fastapi_app():
 # Remember, once you've trained your own fine-tuned model, you can deploy it permanently -- for no cost when it is not being used! --
 # using `modal deploy diffusers_lora_finetune.py`.
 
-# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-lora-flux-fastapi-app.modal.run).
+# If you just want to try the app out, you can find our deployment [here](https://modal-labs--example-diffusers-lora-finetune-fastapi-app.modal.run).
 
 
 @app.local_entrypoint()

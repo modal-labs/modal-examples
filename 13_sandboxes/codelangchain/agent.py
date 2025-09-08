@@ -28,7 +28,7 @@ from .src.common import COLOR, PYTHON_VERSION, image
 # and use the provided templates for OpenAI and LangSmith.
 
 app = modal.App(
-    "example-code-langchain",
+    "example-agent",
     image=image,
     secrets=[
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
@@ -62,7 +62,7 @@ def create_sandbox(app) -> modal.Sandbox:
 
 
 # We also need a way to run our code in the sandbox. For this, we'll write a simple wrapper
-# around the Modal Sandox `exec` method. We use `exec` because it allows us to run code without spinning up a
+# around the Modal Sandbox `exec` method. We use `exec` because it allows us to run code without spinning up a
 # new container. And we can reuse the same container for multiple runs, preserving state.
 
 

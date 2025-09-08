@@ -98,6 +98,8 @@ image = image.add_local_dir(
 # 2. Mounting the cache directory to a [Volume](https://modal.com/docs/guide/volumes)
 
 # By persisting the cache to a Volume, you avoid re-downloading the models every time you rebuild your image.
+# For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 def hf_download():
@@ -192,7 +194,7 @@ workflow_vol = modal.Volume.from_name("comfy-workflows", create_if_missing=True)
 
 image = (
     # install huggingface_hub with hf_transfer support to speed up downloads
-    image.pip_install("huggingface_hub[hf_transfer]==0.30.0")
+    image.pip_install("huggingface_hub[hf_transfer]==0.34.4")
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         hf_download,
@@ -211,7 +213,7 @@ image = image.add_local_file(
 # Spin up an interactive ComfyUI server by wrapping the `comfy launch` command in a Modal Function
 # and serving it as a [web server](https://modal.com/docs/guide/webhooks#non-asgi-web-servers).
 
-app = modal.App(name="example-comfyui", image=image)
+app = modal.App(name="example-comfyapp", image=image)
 
 
 @app.function(

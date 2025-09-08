@@ -33,7 +33,7 @@ app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 workers = 8
 
 prefix = workspace + (f"-{environment}" if environment else "")
-host = f"https://{prefix}--example-vllm-openai-compatible-serve.modal.run"
+host = f"https://{prefix}--example-vllm-inference-serve.modal.run"
 
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [

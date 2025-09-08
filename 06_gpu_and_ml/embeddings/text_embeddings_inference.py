@@ -18,10 +18,11 @@ GPU_CONFIG = "A10G"
 MODEL_ID = "BAAI/bge-base-en-v1.5"
 BATCH_SIZE = 32
 DOCKER_IMAGE = (
-    "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0"  # Ampere 86 for A10s.
-    # "ghcr.io/huggingface/text-embeddings-inference:0.4.0" # Ampere 80 for A100s.
-    # "ghcr.io/huggingface/text-embeddings-inference:0.3.0"  # Turing for T4s.
+    "ghcr.io/huggingface/text-embeddings-inference:86-1.7"  # Ampere 86 for A10s.
+    # "ghcr.io/huggingface/text-embeddings-inference:1.7" # Ampere 80 for A100s.
+    # "ghcr.io/huggingface/text-embeddings-inference:turing-1.7"  # Turing for T4s.
 )
+PORT = 8000
 
 DATA_PATH = Path("/data/dataset.jsonl")
 
@@ -39,7 +40,7 @@ def spawn_server() -> subprocess.Popen:
     # Poll until webserver at 127.0.0.1:8000 accepts connections before running inputs.
     while True:
         try:
-            socket.create_connection(("127.0.0.1", 8000), timeout=1).close()
+            socket.create_connection(("127.0.0.1", PORT), timeout=1).close()
             print("Webserver ready!")
             return process
         except (socket.timeout, ConnectionRefusedError):
@@ -57,7 +58,7 @@ def download_model():
 
 volume = modal.Volume.from_name("tei-hn-data", create_if_missing=True)
 
-app = modal.App("example-tei")
+app = modal.App("example-text-embeddings-inference")
 
 
 tei_image = (

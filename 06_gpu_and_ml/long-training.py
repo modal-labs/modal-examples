@@ -89,7 +89,7 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "lightning~=2.4.0", "torch~=2.4.0", "torchvision==0.19.0"
 )
 
-app = modal.App("example-long-training-lightning", image=image)
+app = modal.App("example-long-training", image=image)
 
 # Next, we attach our training function to this app with `app.function`.
 
@@ -122,10 +122,13 @@ retries = modal.Retries(initial_delay=0.0, max_retries=10)
 timeout = 30  # seconds
 
 # Now, we put all of this together by wrapping `train` and decorating it
-# with `app.function` to add all the infrastructure.
+# with `app.function` to add all the infrastructure. We add `max_inputs=1` to ensure that our retries
+# will always kickoff in a fresh container.
 
 
-@app.function(volumes=volumes, gpu="a10g", timeout=timeout, retries=retries)
+@app.function(
+    volumes=volumes, gpu="a10g", timeout=timeout, retries=retries, max_inputs=1
+)
 def train_interruptible(*args, **kwargs):
     train(*args, **kwargs)
 
@@ -143,8 +146,11 @@ def main(experiment: Optional[str] = None):
 
         experiment = uuid4().hex[:8]
     print(f"⚡️ starting interruptible training experiment {experiment}")
-    train_interruptible.remote(experiment)
+    train_interruptible.spawn(experiment).get()
 
+
+# It's important to use `.spawn(...).get()` because `.remote` created Function Calls
+# expire after 24 hours.
 
 # You can run this with
 # ```bash

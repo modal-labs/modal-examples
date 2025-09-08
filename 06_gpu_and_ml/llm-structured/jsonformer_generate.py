@@ -48,7 +48,7 @@ image = (
     )
     .run_function(download_model)
 )
-app = modal.App("example-jsonformer")
+app = modal.App("example-jsonformer-generate")
 
 
 # ## Generate examples

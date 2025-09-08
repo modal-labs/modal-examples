@@ -37,7 +37,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App()
+app = modal.App("example-mochi")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -80,7 +80,8 @@ HOURS = 60 * MINUTES
 
 # ## Downloading the model
 
-# We download the model weights into Volume cache to speed up cold starts.
+# We download the model weights into Volume cache to speed up cold starts. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 # This download takes five minutes or more, depending on traffic
 # and network speed.

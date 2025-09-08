@@ -35,6 +35,7 @@ class Example(BaseModel):
     stem: Optional[str] = None  # stem of path
     tags: Optional[list[str]] = None  # metadata tags for the example
     env: Optional[dict[str, str]] = None  # environment variables for the example
+    runtimes: Optional[list[str]] = None  # list of Modal Function runtimes
 
 
 _RE_NEWLINE = re.compile(r"\r?\n")
@@ -119,6 +120,7 @@ def gather_example_files(
                 args = metadata.get("args", [])
                 tags = metadata.get("tags", [])
                 env = metadata.get("env", dict())
+                runtimes = metadata.get("runtimes", ["gvisor"])
                 yield Example(
                     type=ExampleType.MODULE,
                     filename=filename_abs,
@@ -129,6 +131,7 @@ def gather_example_files(
                     stem=Path(filename_abs).stem,
                     tags=tags,
                     env=env,
+                    runtimes=runtimes,
                 )
             elif ext in [".png", ".jpeg", ".jpg", ".gif", ".mp4"]:
                 yield Example(

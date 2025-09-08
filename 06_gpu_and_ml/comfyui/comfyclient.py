@@ -15,7 +15,7 @@ OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 
 def main(args: argparse.Namespace):
-    url = f"https://{args.modal_workspace}--example-comfyui-comfyui-api{'-dev' if args.dev else ''}.modal.run/"
+    url = f"https://{args.modal_workspace}--example-comfyapp-comfyui-api{'-dev' if args.dev else ''}.modal.run/"
     data = json.dumps({"prompt": args.prompt}).encode("utf-8")
     print(f"Sending request to {url} with prompt: {args.prompt}")
     print("Waiting for response...")

@@ -22,9 +22,9 @@ import modal
 
 MINUTES = 60  # seconds
 
-app = modal.App("chat-with-pdf")
+app = modal.App("example-chat-with-pdf-vision")
 
-# ## Setting up dependenices
+# ## Setting up dependencies
 
 # In Modal, we define [container images](https://modal.com/docs/guide/custom-container) that run our serverless workloads.
 # We install the packages required for our application in those images.
@@ -36,7 +36,9 @@ model_image = (
     .apt_install("git")
     .pip_install(
         [
-            "git+https://github.com/illuin-tech/colpali.git@782edcd50108d1842d154730ad3ce72476a2d17d",  # we pin the commit id
+            "colpali-engine==0.3.5",
+            "transformers>=4.45.0",
+            "torch>=2.0.0",
             "hf_transfer==0.1.8",
             "qwen-vl-utils==0.0.8",
             "torchvision==0.19.1",
@@ -126,7 +128,8 @@ cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 
 # Running this function will download the model weights to the cache volume.
-# Otherwise, the model weights will be downloaded on the first query.
+# Otherwise, the model weights will be downloaded on the first query. For more on storing model weights on Modal, see
+# [this guide](https://modal.com/docs/guide/model-weights).
 
 
 @app.function(

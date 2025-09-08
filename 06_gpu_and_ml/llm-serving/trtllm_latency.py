@@ -88,6 +88,8 @@ tensorrt_image = tensorrt_image.apt_install(
 ).pip_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
+    "flashinfer-python==0.2.5",
+    "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -128,6 +130,7 @@ tensorrt_image = tensorrt_image.pip_install(
     {
         "HF_HUB_ENABLE_HF_TRANSFER": "1",
         "HF_HOME": str(MODELS_PATH),
+        "TORCH_CUDA_ARCH_LIST": "9.0 9.0a",  # H100, silence noisy logs
     }
 )
 
@@ -308,7 +311,7 @@ def get_build_config():
 
 # We start by creating an `App`.
 
-app = modal.App("trtllm-latency")
+app = modal.App("example-trtllm-latency")
 
 # Thanks to our [custom container runtime system](https://modal.com/blog/jono-containers-talk),
 # even this large container boots in seconds.
@@ -530,7 +533,7 @@ if __name__ == "__main__":
     import sys
 
     try:
-        Model = modal.Cls.from_name("trtllm-latency", "Model")
+        Model = modal.Cls.from_name("example-trtllm-latency", "Model")
         print("🏎️  connecting to model")
         model = Model(mode=sys.argv[1] if len(sys.argv) > 1 else "fast")
         model.boot.remote()

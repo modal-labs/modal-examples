@@ -29,7 +29,7 @@ volume = modal.CloudBucketMount(
 )
 image = modal.Image.debian_slim().apt_install("wget").pip_install("tqdm")
 app = modal.App(
-    "example-coco-dataset-import",
+    "example-coco",
     image=image,
     secrets=[],
 )
