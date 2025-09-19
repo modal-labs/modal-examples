@@ -10,7 +10,7 @@
 # Note that GPU memory snapshotting is an experimental feature,
 # so test carefully before using in production!
 # You can read more about GPU memory snapshotting, and its caveats,
-# [here](https://modal.com/docs/guide/memory-snapshot).
+# [here](https://modal.com/docs/guide/gpu-memory-snapshot).
 
 # GPU snapshots can only be used with deployed Functions, so first deploy the App:
 
