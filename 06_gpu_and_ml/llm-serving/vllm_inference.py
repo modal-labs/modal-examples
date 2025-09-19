@@ -35,10 +35,10 @@ import modal
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
     .uv_pip_install(
-        "vllm==0.10.1.1",
-        "huggingface_hub[hf_transfer]==0.34.4",
+        "vllm==0.10.2",
+        "huggingface_hub[hf_transfer]==0.35.0",
         "flashinfer-python==0.2.8",
-        "torch==2.7.1",
+        "torch==2.8.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
@@ -59,8 +59,8 @@ vllm_image = (
 # A single H100 GPU has enough VRAM to store a 8,000,000 parameter model,
 # like Llama 3.1, in eight bit precision, along with a very large KV cache.
 
-MODEL_NAME = "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8"
-MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surprises when repos update!
+MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507-FP8"
+MODEL_REVISION = "953532f942706930ec4bb870569932ef63038fdf"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -128,7 +128,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"H100:{N_GPU}",
+    gpu=f"L40S:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
@@ -157,6 +157,8 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
+        "--gpu_memory_utilization",
+        "0.95",
     ]
 
     # enforce-eager disables both Torch compilation and CUDA graph capture
