@@ -71,3 +71,8 @@ Here's an example snippet of a response on an analysis of airline safety perform
 
 
 In the Modal Repl, Claude was able to execute a series of complex steps leveraging both the `pandas` and `requests` libraries to analyze airline incident rates.
+
+
+Here is another example of a response of Claude using the REPL environment with `pandas` and `requests` to do a keyword analysis on shopping sites.
+
+![Example Response 2](./README_utils/shopping_keyword.png).
