@@ -65,7 +65,13 @@ Go ahead and try prompting Claude with the activated tool! You can check your Mo
 
 Here's an example snippet of a response on an analysis of airline safety performance on a public dataset:
 
-![Example Response](./README_utils/example_response.png).
+![Example Responses](./README_utils/airline_example.png).
 
 
 In the Modal Repl, Claude was able to execute a series of complex steps leveraging both the `pandas` and `requests` libraries to analyze airline incident rates.
+
+Here's another snippet of the calls to the Modal REPL Claude used to analyze keyword trends in major shopping sites:
+
+
+![Example Response 2](./README_utils/shopping_keyword_example.png)
+
