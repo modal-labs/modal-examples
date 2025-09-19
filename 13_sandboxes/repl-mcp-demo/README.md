@@ -29,7 +29,6 @@ Add the following MCP server to the `claude_desktop_config.json` file:
 
 
 ```json
-...
 "modalPythonREPL": {
       "command": "uv",
       "args": [
@@ -39,7 +38,6 @@ Add the following MCP server to the `claude_desktop_config.json` file:
         "main.py"
       ]
     }
-...
 
 ```
 
