@@ -25,7 +25,7 @@ class WebsiteUser(locust.HttpUser):
     @locust.task
     def chat_completion(self):
         payload = {
-            "model": "Qwen/Qwen3-8B",
+            "model": "Qwen/Qwen3-8B-FP8",
             "messages": messages,
         }
 

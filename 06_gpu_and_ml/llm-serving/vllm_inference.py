@@ -49,9 +49,20 @@ vllm_image = (
 # it is trained with thinking capabilities. This means the model will
 # use its reasoning abilities to enhance the quality of generated responses.
 
+# Model parameters are often quantized to a lower precision during training
+# than they are run at during inference.
+# We'll use an eight bit floating point quantization.
+# Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
+# is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
+# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
-MODEL_NAME = "Qwen/Qwen3-8B"
-MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"  # avoid nasty surprises when repos update!
+# You can swap this model out for another by changing the strings below.
+# A single H100 GPU has enough VRAM to store a 8,000,000 parameter model,
+# like Qwen3-8B, in eight bit precision, along with a very large KV cache.
+
+
+MODEL_NAME = "Qwen/Qwen3-8B-FP8"
+MODEL_REVISION = "220b46e3b2180893580a4454f21f22d3ebb187d3"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -101,7 +112,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"A100:{N_GPU}",
+    gpu=f"H100:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
