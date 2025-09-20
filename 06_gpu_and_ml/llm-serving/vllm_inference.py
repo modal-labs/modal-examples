@@ -2,7 +2,7 @@
 # pytest: false
 # ---
 
-# # Run OpenAI-compatible LLM inference with LLaMA 3.1-8B and vLLM
+# # Run OpenAI-compatible LLM inference with Qwen3-8B and vLLM
 
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
 # This has complicated their interface far beyond "text-in, text-out".
@@ -37,7 +37,7 @@ vllm_image = (
     .uv_pip_install(
         "vllm==0.10.2",
         "huggingface_hub[hf_transfer]==0.35.0",
-        "flashinfer-python==0.2.8",
+        "flashinfer-python==0.3.1",
         "torch==2.8.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
@@ -45,22 +45,23 @@ vllm_image = (
 
 # ## Download the model weights
 
-# We'll be running a pretrained foundation model -- Meta's LLaMA 3.1 8B
-# in the Instruct variant that's trained to chat and follow instructions.
+# We'll be running a pretrained foundation model -- Qwen's Qwen3-8B,
+# it is trained with thinking capabilities. This means the model will
+# use its reasoning abilities to enhance the quality of generated responses.
 
 # Model parameters are often quantized to a lower precision during training
 # than they are run at during inference.
-# We'll use an eight bit floating point quantization from Neural Magic/Red Hat.
+# We'll use an eight bit floating point quantization.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
 # A single H100 GPU has enough VRAM to store a 8,000,000 parameter model,
-# like Llama 3.1, in eight bit precision, along with a very large KV cache.
+# like Qwen3-8B, in eight bit precision, along with a very large KV cache.
 
-MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507-FP8"
-MODEL_REVISION = "953532f942706930ec4bb870569932ef63038fdf"  # avoid nasty surprises when repos update!
+MODEL_NAME = "Qwen/Qwen3-8B-FP8"
+MODEL_REVISION = "220b46e3b2180893580a4454f21f22d3ebb187d3"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -90,24 +91,6 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 
-# ### Trading off fast boots and token generation performance
-
-# vLLM has embraced dynamic and just-in-time compilation to eke out additional performance without having to write too many custom kernels,
-# e.g. via the Torch compiler and CUDA graph capture.
-# These compilation features incur latency at startup in exchange for lowered latency and higher throughput during generation.
-# We make this trade-off controllable with the `FAST_BOOT` variable below.
-
-FAST_BOOT = True
-
-# If you're running an LLM service that frequently scales from 0 (frequent ["cold starts"](https://modal.com/docs/guide/cold-start))
-# then you'll want to set this to `True`.
-
-# If you're running an LLM service that usually has multiple replicas running, then set this to `False` for improved performance.
-
-# See the code below for details on the parameters that `FAST_BOOT` controls.
-
-# For more on the performance you can expect when serving your own LLMs, see
-# [our LLM engine performance benchmarks](https://modal.com/llm-almanac).
 
 # ## Build a vLLM engine and serve it
 
@@ -128,7 +111,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"L40S:{N_GPU}",
+    gpu=f"A100:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
@@ -157,13 +140,7 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
-        "--gpu_memory_utilization",
-        "0.95",
     ]
-
-    # enforce-eager disables both Torch compilation and CUDA graph capture
-    # default is no-enforce-eager. see the --compilation-config flag for tighter control
-    cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
