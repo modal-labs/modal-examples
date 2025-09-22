@@ -21,6 +21,7 @@ snapshot_id_store_file = os.path.expanduser(os.getenv("SNAPSHOT_ID_FILE_PATH"))
 
 mcp = FastMCP("modalrepl")
 
+
 # This tool creates a new repl with the specified timeout and packages.
 @mcp.tool()
 async def create_repl(timeout: int = 600, packages: List[str] = []) -> None:
@@ -37,6 +38,7 @@ async def create_repl(timeout: int = 600, packages: List[str] = []) -> None:
     except Exception as exc:
         raise RuntimeError(f"Error creating REPL. {exc}")
 
+
 # This tool executes a command in the current repl.
 @mcp.tool()
 async def exec_cmd(command: str) -> CommandResponse:
@@ -48,6 +50,7 @@ async def exec_cmd(command: str) -> CommandResponse:
         return res
     except Exception as exc:
         raise RuntimeError(f"Error executing command: {exc}")
+
 
 # This tool restores a repl from a snapshot.
 @mcp.tool()
