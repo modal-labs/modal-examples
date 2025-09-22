@@ -1,0 +1,14 @@
+[project]
+name = "repl-http-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncio>=4.0.0",
+    "fastapi>=0.116.2",
+    "mcp[cli]>=1.14.1",
+    "modal>=1.1.4",
+    "pydantic>=2.11.9",
+    "uvicorn>=0.35.0",
+]
