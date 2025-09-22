@@ -10,8 +10,6 @@ from pydantic import BaseModel
 app = FastAPI(title="REPL Server")
 
 
-
-
 _exec_context: Dict[str, Any] = {"__builtins__": __builtins__}
 
 
@@ -43,10 +41,11 @@ def run_exec(body: ReplCommand) -> ReplCommandResponse:
                     res = eval(command[0], _exec_context, _exec_context)
                 stdout = stdout_redir_buffer.getvalue()
                 return ReplCommandResponse(result=str(res), stdout=stdout)
-        return ReplCommandResponse(result="", stdout = stdout_redir_buffer.getvalue()) # just send back blank str if all commands are exec'd
+        return ReplCommandResponse(
+            result="", stdout=stdout_redir_buffer.getvalue()
+        )  # just send back blank str if all commands are exec'd
     except Exception as exc:
         raise HTTPException(status_code=500, detail=repr(exc))
-
 
 
 if __name__ == "__main__":

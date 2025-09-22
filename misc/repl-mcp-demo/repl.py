@@ -19,7 +19,6 @@ class CommandResponse(BaseModel):
 
 
 class Repl:
-
     def __init__(self, sandbox: Sandbox, sb_url: str, id: Optional[str] = None):
         self.sb = sandbox
         self.sb_url = sb_url
@@ -29,7 +28,9 @@ class Repl:
     def parse_command(code: str) -> List[Tuple[str, Literal["exec", "eval"]]]:
         try:
             tree = ast.parse(code, mode="exec")
-            if tree.body and len(tree.body) > 0 and isinstance(tree.body[-1], ast.Expr):  # ast.Expr should be eval()'d
+            if (
+                tree.body and len(tree.body) > 0 and isinstance(tree.body[-1], ast.Expr)
+            ):  # ast.Expr should be eval()'d
                 last_expr = tree.body[-1]
                 lines = code.splitlines(keepends=True)
                 start_line = getattr(last_expr, "lineno", None)
@@ -37,7 +38,12 @@ class Repl:
                 end_line = getattr(last_expr, "end_lineno", None)
                 end_col = getattr(last_expr, "end_col_offset", None)
                 # print(start_line, start_col, end_line, end_col)
-                if end_line is None or end_col is None or start_line is None or start_col is None:
+                if (
+                    end_line is None
+                    or end_col is None
+                    or start_line is None
+                    or start_col is None
+                ):
                     return [(code, "exec")]
                 start_line -= 1
                 end_line -= 1  # ast parser returns 1-indexed lines.our list of strings is 0-indexed
@@ -53,7 +59,9 @@ class Repl:
                 else:
                     last_expr_parts.append(lines[start_line][start_col:])
                     if end_line - start_line > 1:
-                        last_expr_parts.append("\n".join(lines[start_line + 1 : end_line]))
+                        last_expr_parts.append(
+                            "\n".join(lines[start_line + 1 : end_line])
+                        )
                     last_expr_parts.append(lines[end_line][:end_col])
                 last_expr_code = "".join(last_expr_parts)
 
@@ -73,17 +81,29 @@ class Repl:
             return []
 
     @staticmethod
-    async def create(python_version: str = "3.13", port: int = 8000, packages: List[str] = [], timeout: int = 600) -> "Repl":
+    async def create(
+        python_version: str = "3.13",
+        port: int = 8000,
+        packages: List[str] = [],
+        timeout: int = 600,
+    ) -> "Repl":
         try:
             image = Image.debian_slim(python_version=python_version)
             image = image.pip_install(*packages)
             repl_server_path = os.path.join(os.path.dirname(__file__), "repl_server.py")
-            image = image.add_local_file(local_path=repl_server_path, remote_path="/root/repl_server.py")
+            image = image.add_local_file(
+                local_path=repl_server_path, remote_path="/root/repl_server.py"
+            )
             app = App.lookup(name="repl", create_if_missing=True)
             with enable_output():
                 start_cmd = ["bash", "-c", "cd /root && python repl_server.py"]
                 sb = await Sandbox.create.aio(
-                    *start_cmd, app=app, image=image, encrypted_ports=[port], _experimental_enable_snapshot=True, timeout=timeout
+                    *start_cmd,
+                    app=app,
+                    image=image,
+                    encrypted_ports=[port],
+                    _experimental_enable_snapshot=True,
+                    timeout=timeout,
                 )
                 sb_url = (await sb.tunnels.aio())[port].url
             return Repl(sb, sb_url)
@@ -100,18 +120,25 @@ class Repl:
         except Exception as e:
             raise Exception(f"Error getting REPL from snapshot: {e}")
 
-    async def run(self, commands: List[Tuple[str, Literal["exec", "eval"]]]) -> CommandResponse:
+    async def run(
+        self, commands: List[Tuple[str, Literal["exec", "eval"]]]
+    ) -> CommandResponse:
         try:
             async with httpx.AsyncClient() as client:
                 repl_output = await client.post(self.sb_url, json={"code": commands})
                 if repl_output.status_code != 200:
-                    return CommandResponse(output=None, stdout=None, error=repl_output.json()["detail"])
+                    return CommandResponse(
+                        output=None, stdout=None, error=repl_output.json()["detail"]
+                    )
                 output = repl_output.json()["result"]
                 stdout = repl_output.json()["stdout"]
                 stdout_lines = stdout.splitlines()
-                stdout_lines = [line for line in stdout_lines if not line.startswith("INFO:")] # bad sol to ignore uvicorn logs
-                return CommandResponse(output=output, stdout="\n".join(stdout_lines), error=None)
-
+                stdout_lines = [
+                    line for line in stdout_lines if not line.startswith("INFO:")
+                ]  # bad sol to ignore uvicorn logs
+                return CommandResponse(
+                    output=output, stdout="\n".join(stdout_lines), error=None
+                )
 
         except Exception as e:
             raise Exception(f"Error running commands: {e}")
@@ -122,4 +149,3 @@ class Repl:
             self.sb.terminate()
             return snapshot.object_id
         raise ValueError("repl not found")
-

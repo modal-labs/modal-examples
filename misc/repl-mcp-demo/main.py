@@ -12,7 +12,6 @@ sessionRepl: Optional[Repl] = None
 snapshot_id_store_file = os.path.expanduser(os.getenv("SNAPSHOT_ID_FILE_PATH"))
 
 
-
 mcp = FastMCP("modalrepl")
 
 
@@ -21,12 +20,16 @@ async def create_repl(timeout: int = 600, packages: List[str] = []) -> None:
     # default timeout is 10 minute
     try:
         packages.extend(["fastapi", "uvicorn", "pydantic"])
-        with contextlib.redirect_stdout(open(os.devnull, "w")), contextlib.redirect_stderr(open(os.devnull, "w")):
+        with (
+            contextlib.redirect_stdout(open(os.devnull, "w")),
+            contextlib.redirect_stderr(open(os.devnull, "w")),
+        ):
             repl = await Repl.create(packages=packages, timeout=timeout)
         global sessionRepl
         sessionRepl = repl
     except Exception as exc:
         raise RuntimeError(f"Error creating REPL. {exc}")
+
 
 @mcp.tool()
 async def exec_cmd(command: str) -> CommandResponse:
@@ -51,7 +54,8 @@ async def get_repl_from_snapshot() -> None:
     except Exception as exc:
         raise RuntimeError(f"Error getting REPL from snapshot: {exc}")
 
-@mcp.tool() #save snapshot id to a file
+
+@mcp.tool()  # save snapshot id to a file
 def end_repl_and_save_snapshot():
     try:
         if sessionRepl:
@@ -64,4 +68,3 @@ def end_repl_and_save_snapshot():
 
 if __name__ == "__main__":
     mcp.run()
-
