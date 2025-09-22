@@ -1,7 +1,8 @@
 # Copyright Modal Labs 2025
+import io
 from contextlib import redirect_stdout
 from typing import Any, Dict, List, Literal, Tuple
-import io 
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel

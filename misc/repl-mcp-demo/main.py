@@ -1,11 +1,10 @@
-from mcp.server.fastmcp import FastMCP
-from repl import Repl
-from typing import Optional, List
-import dotenv
-import os
-import sys
 import contextlib
-from repl import CommandResponse
+import os
+from typing import List, Optional
+
+import dotenv
+from mcp.server.fastmcp import FastMCP
+from repl import CommandResponse, Repl
 
 dotenv.load_dotenv()
 
@@ -41,8 +40,8 @@ async def exec_cmd(command: str) -> CommandResponse:
         raise RuntimeError(f"Error executing command: {exc}")
 
 
-@mcp.tool() 
-async def get_repl_from_snapshot() -> None: 
+@mcp.tool()
+async def get_repl_from_snapshot() -> None:
     try:
         with open(snapshot_id_store_file, "r") as f:
             snapshot_id = f.read()
@@ -53,9 +52,9 @@ async def get_repl_from_snapshot() -> None:
         raise RuntimeError(f"Error getting REPL from snapshot: {exc}")
 
 @mcp.tool() #save snapshot id to a file
-def end_repl_and_save_snapshot(): 
+def end_repl_and_save_snapshot():
     try:
-        if sessionRepl: 
+        if sessionRepl:
             snapshot_id = sessionRepl.kill()
             with open(snapshot_id_store_file, "w") as f:
                 f.write(snapshot_id)

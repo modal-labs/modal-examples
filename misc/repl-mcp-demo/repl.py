@@ -1,16 +1,15 @@
 import ast
-import asyncio
 import os
 import uuid
 from typing import List, Literal, Optional, Tuple
-from pydantic import BaseModel
-import httpx
 
+import httpx
 from modal.app import App
 from modal.image import Image
 from modal.output import enable_output
 from modal.sandbox import Sandbox
 from modal.snapshot import SandboxSnapshot
+from pydantic import BaseModel
 
 
 class CommandResponse(BaseModel):
@@ -93,7 +92,7 @@ class Repl:
 
     @staticmethod
     async def from_snapshot(snapshot_id: str, id: Optional[str] = None) -> "Repl":
-        try: 
+        try:
             snapshot = await SandboxSnapshot.from_id.aio(snapshot_id)
             sb = await Sandbox._experimental_from_snapshot.aio(snapshot)
             sb_url = (await sb.tunnels.aio())[8000].url
