@@ -11,6 +11,9 @@ from modal.sandbox import Sandbox
 from modal.snapshot import SandboxSnapshot
 from pydantic import BaseModel
 
+"""
+This file specifies the Repl class and it's interface with sandboxes via HTTP requests.
+"""
 
 class CommandResponse(BaseModel):
     output: Optional[str]
@@ -24,7 +27,7 @@ class Repl:
         self.sb_url = sb_url
         self.id = id or str(uuid.uuid4())
 
-    @staticmethod
+    @staticmethod # Uses AST parsing to distinguish between exec and eval commands
     def parse_command(code: str) -> List[Tuple[str, Literal["exec", "eval"]]]:
         try:
             tree = ast.parse(code, mode="exec")
@@ -80,7 +83,7 @@ class Repl:
             print(str(e))
             return []
 
-    @staticmethod
+    @staticmethod # Creates a new sandbox and starts the repl server
     async def create(
         python_version: str = "3.13",
         port: int = 8000,
@@ -110,7 +113,7 @@ class Repl:
         except Exception as e:
             raise Exception(f"Error creating REPL: {e}")
 
-    @staticmethod
+    @staticmethod # Restores a repl from a snapshot
     async def from_snapshot(snapshot_id: str, id: Optional[str] = None) -> "Repl":
         try:
             snapshot = await SandboxSnapshot.from_id.aio(snapshot_id)
@@ -120,7 +123,7 @@ class Repl:
         except Exception as e:
             raise Exception(f"Error getting REPL from snapshot: {e}")
 
-    async def run(
+    async def run( # Runs a list of commands in the repl
         self, commands: List[Tuple[str, Literal["exec", "eval"]]]
     ) -> CommandResponse:
         try:
@@ -143,7 +146,7 @@ class Repl:
         except Exception as e:
             raise Exception(f"Error running commands: {e}")
 
-    def kill(self) -> str:
+    def kill(self) -> str: # Kills the repl and returns the snapshot id
         if self.sb:
             snapshot = self.sb._experimental_snapshot()
             self.sb.terminate()

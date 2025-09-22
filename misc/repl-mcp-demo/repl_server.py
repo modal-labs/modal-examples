@@ -7,6 +7,12 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
+"""
+This file specifies the HTTP server that is running inside of the sandbox.
+It is used to execute commands in the repl.
+
+"""
+
 app = FastAPI(title="REPL Server")
 
 
@@ -21,12 +27,6 @@ class ReplCommandResponse(BaseModel):
     result: str
     stdout: str
 
-
-# loggers = ["uvicorn.access", "uvicorn.error", "uvicorn.server", "uvicorn.lifespan", "uvicorn", "fastapi", "starlette"]
-# for logger in loggers:
-#     uvicorn_logger = logging.getLogger(logger)
-#     uvicorn_logger.setLevel(logging.CRITICAL)
-#     uvicorn_logger.propagate = False
 @app.post("/", status_code=status.HTTP_200_OK)
 def run_exec(body: ReplCommand) -> ReplCommandResponse:
     commands = body.code
@@ -34,7 +34,7 @@ def run_exec(body: ReplCommand) -> ReplCommandResponse:
     try:
         for command in commands:
             if command[1] == "exec":
-                with redirect_stdout(stdout_redir_buffer):
+                with redirect_stdout(stdout_redir_buffer): # redirects stdout to a string buffer
                     exec(command[0], _exec_context, _exec_context)
             else:
                 with redirect_stdout(stdout_redir_buffer):
