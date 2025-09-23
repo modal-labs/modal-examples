@@ -12,8 +12,8 @@
 # application (for example, a regular Django app running on Kubernetes).
 
 # Our job queue will handle a single task: running OCR transcription for images of receipts.
-# We'll make use of a pre-trained model:
-# the [General OCR Theory (GOT) 2.0 model](https://huggingface.co/stepfun-ai/GOT-OCR2_0).
+# We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to)
+# which can convert documents to markdown, JSON and HTML.
 
 # Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
@@ -40,11 +40,8 @@ inference_image = (
     .env({"TORCH_DEVICE": "cuda"})
     .pip_install(
         [
-            "marker-pdf[full]",
-            "fastapi==0.104.1",
-            "uvicorn==0.24.0",
-            "python-multipart==0.0.6",
-            "torch>=2.2.2,<3.0.0",
+            "marker-pdf[full]==1.9.3",
+            "torch==2.8.0",
         ]
     )
 )
@@ -54,9 +51,14 @@ inference_image = (
 # The logic for loading the model based on this information
 # is encapsulated in the `setup` function below.
 
+def setup():
+    from marker.models import create_model_dict
 
-# The `.from_pretrained` methods from Hugging Face are smart enough
-# to only download models if they haven't been downloaded before.
+    return create_model_dict()
+
+
+# The `create_model_dict` function downloads the model weights from Datalab's
+# cloud storage (S3 bucket) if it hasn't been downloaded before.
 # But in Modal's serverless environment, filesystems are ephemeral,
 # and so using this code alone would mean that models need to get downloaded
 # on every request.
@@ -64,21 +66,10 @@ inference_image = (
 # So instead, we create a Modal [Volume](https://modal.com/docs/guide/volumes)
 # to store the model -- a durable filesystem that any Modal Function can access.
 
-model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 MODEL_PATH_PREFIX = "/root/.cache/datalab/models"
 markers_cache = modal.Volume.from_name(
     "marker-models-modal-demo", create_if_missing=True
 )
-
-# We also update the environment variables for our Function
-# to include this new path for the model cache --
-# and to enable fast downloads with the `hf_transfer` library.
-
-MODEL_CACHE_PATH = "/root/models"
-inference_image = inference_image.env(
-    {"HF_HUB_CACHE": MODEL_CACHE_PATH, "HF_HUB_ENABLE_HF_TRANSFER": "1"}
-)
-
 
 # ## Run OCR inference on Modal by wrapping with `app.function`
 
@@ -94,9 +85,20 @@ inference_image = inference_image.env(
 # and have access to our [shared model cache](https://modal.com/docs/guide/volumes).
 
 
-with inference_image.imports():
-    import base64
-    import io
+@app.function(
+    gpu="l40s",
+    retries=3,
+    volumes={MODEL_PATH_PREFIX: markers_cache},
+    image=inference_image,
+)
+def parse_receipt(
+    image: bytes,
+    page_range: Optional[str] = None,
+    force_ocr: Optional[bool] = False,
+    paginate_output: bool = False,
+    output_format: str = "markdown",
+    use_llm: Optional[bool] = False,
+) -> dict:
     from tempfile import NamedTemporaryFile
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
@@ -104,92 +106,62 @@ with inference_image.imports():
     from marker.output import text_from_rendered
     from marker.models import create_model_dict
 
-@app.cls(
-    gpu="l40s",
-    retries=3,
-    # volumes={MODEL_CACHE_PATH: model_cache, MODEL_PATH_PREFIX: markers_cache},
-    image=inference_image,
-    enable_memory_snapshot=True,
-    experimental_options={"enable_gpu_snapshot": True},
-)
-class MarkerModelCls:
-    @modal.enter(snap=True)
-    def load(self):
+    models = setup()
 
-        self.models = create_model_dict()
+    with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
+        temp_path.write(image)
+        # Configure conversion parameters
+        config = {
+            "filepath": temp_path,
+            "page_range": page_range,
+            "force_ocr": force_ocr,
+            "paginate_output": paginate_output,
+            "output_format": output_format,
+            "use_llm": use_llm,
+        }
 
-    @modal.method()
-    def parse_receipt(
-            self,
-            image: bytes,
-            page_range: Optional[str] = None,
-            force_ocr: Optional[bool] = False,
-            paginate_output: bool = False,
-            output_format: str = "markdown",
-            use_llm: Optional[bool] = False,
-    ) -> dict:
-        with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
-            temp_path.write(image)
-            # Configure conversion parameters
-            config = {
-                "filepath": temp_path,
-                "page_range": page_range,
-                "force_ocr": force_ocr,
-                "paginate_output": paginate_output,
-                "output_format": output_format,
-                "use_llm": use_llm,
-            }
+        # Create converter
+        config_parser = ConfigParser(config)
+        config_dict = config_parser.generate_config_dict()
+        config_dict["pdftext_workers"] = 1
 
-            # Create converter
-            config_parser = ConfigParser(config)
-            config_dict = config_parser.generate_config_dict()
-            config_dict["pdftext_workers"] = 1
+        converter = PdfConverter(
+            config=config_dict,
+            artifact_dict=models,
+            processor_list=config_parser.get_processors(),
+            renderer=config_parser.get_renderer(),
+            llm_service=config_parser.get_llm_service() if use_llm else None,
+        )
+        rendered_output = converter(temp_path.name)
+        # Extract content based on output format
+        json_content = None
+        html_content = None
+        markdown_content = None
+        encoded_images = {}
 
-            converter = PdfConverter(
-                config=config_dict,
-                artifact_dict=self.models,
-                processor_list=config_parser.get_processors(),
-                renderer=config_parser.get_renderer(),
-                llm_service=config_parser.get_llm_service() if use_llm else None,
-            )
-            rendered_output = converter(temp_path.name)
-            # Extract content based on output format
-            json_content = None
-            html_content = None
-            markdown_content = None
-            encoded_images = {}
+        if output_format == "json":
+            # For JSON, return the structured data directly
+            json_content = rendered_output.model_dump()
+        else:
+            text, _, images = text_from_rendered(rendered_output)
 
-            if output_format == "json":
-                # For JSON, return the structured data directly
-                json_content = rendered_output.model_dump()
+            # Assign to appropriate content field
+            if output_format == "html":
+                html_content = text
             else:
-                text, _, images = text_from_rendered(rendered_output)
+                markdown_content = text
 
-                # Assign to appropriate content field
-                if output_format == "html":
-                    html_content = text
-                else:
-                    markdown_content = text
+            metadata = rendered_output.metadata
 
-                # Encode images as base64
-                for img_name, img_obj in images.items():
-                    byte_stream = io.BytesIO()
-                    img_obj.save(byte_stream, format=settings.OUTPUT_IMAGE_FORMAT)
-                    encoded_images[img_name] = base64.b64encode(
-                        byte_stream.getvalue()
-                    ).decode("utf-8")
-
-                metadata = rendered_output.metadata
-
-            return {
-                "success": True,
-                "output_format": output_format,
-                "json": json_content,
-                "html": html_content,
-                "markdown": markdown_content,
-                "metadata": metadata,
-                "page_count": len(metadata.get("page_stats", [])),
-            }
+        return {
+            "success": True,
+            "output_format": output_format,
+            "json": json_content,
+            "html": html_content,
+            "markdown": markdown_content,
+            "metadata": metadata,
+            "page_count": len(metadata.get("page_stats", [])),
+        }
 
 
 # ## Deploy
@@ -253,21 +225,4 @@ def _get_image(
 @app.local_entrypoint()
 def main(receipt_filename: Optional[str] = None):
     image_data = _get_image(receipt_filename)
-    MarkerModelCls = modal.Cls.from_name(app_name, "MarkerModelCls")
-    marker_model = MarkerModelCls()
-    print(marker_model.parse_receipt.remote(image_data))
-
-
-if __name__ == "__main__":
-    from rich import print
-
-    image_data = _get_image()
-    MarkerModelCls = modal.Cls.from_name(app_name, "MarkerModelCls")
-    marker_model = MarkerModelCls()
-    try:
-        result = marker_model.parse_receipt.remote(image_data, paginate_output=True, output_format="html", use_llm=False)
-        print(result)
-    except modal.exception.NotFoundError:
-        raise Exception(
-            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
-        )
+    print(parse_receipt.remote(image_data))
