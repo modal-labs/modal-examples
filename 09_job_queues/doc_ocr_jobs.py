@@ -2,8 +2,7 @@
 # deploy: true
 # mypy: ignore-errors
 # ---
-
-# # Run a job queue for GOT-OCR
+# # Run a job queue for Datalab's Document Information Extraction
 
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
@@ -34,15 +33,19 @@ app = modal.App("example-doc-ocr-jobs")
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
 
-inference_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "accelerate==0.28.0",
-    "huggingface_hub[hf_transfer]==0.27.1",
-    "numpy<2",
-    "tiktoken==0.6.0",
-    "torch==2.5.1",
-    "torchvision==0.20.1",
-    "transformers==4.48.0",
-    "verovio==4.3.1",
+inference_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install(["git", "wget"])
+    .env({"TORCH_DEVICE": "cuda"})
+    .pip_install([
+        "marker-pdf[full]",
+        "fastapi==0.104.1",
+        "uvicorn==0.24.0",
+        "python-multipart==0.0.6",
+        "torch>=2.2.2,<3.0.0",
+        "torchvision>=0.17.0",
+        "torchaudio>=2.2.0",
+    ])
 )
 
 # ## Cache the pre-trained model on a Modal Volume
@@ -53,31 +56,15 @@ inference_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 MODEL_NAME = "ucaslcl/GOT-OCR2_0"
 MODEL_REVISION = "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
 
+
 # The logic for loading the model based on this information
 # is encapsulated in the `setup` function below.
 
-
 def setup():
-    import warnings
+    from marker.models import create_model_dict
 
-    from transformers import AutoModel, AutoTokenizer
-
-    with warnings.catch_warnings():  # filter noisy warnings from GOT modeling code
-        warnings.simplefilter("ignore")
-        tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
-        )
-
-        model = AutoModel.from_pretrained(
-            MODEL_NAME,
-            revision=MODEL_REVISION,
-            trust_remote_code=True,
-            device_map="cuda",
-            use_safetensors=True,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    return tokenizer, model
+    model = create_model_dict()
+    return model
 
 
 # The `.from_pretrained` methods from Hugging Face are smart enough
@@ -121,18 +108,80 @@ inference_image = inference_image.env(
     volumes={MODEL_CACHE_PATH: model_cache},
     image=inference_image,
 )
-def parse_receipt(image: bytes) -> str:
+def parse_receipt(image: bytes, page_range: Optional[str] = None,
+                  force_ocr: Optional[bool] = False, paginate_output: bool = False, output_format: str = "markdown",
+                  use_llm: Optional[bool] = False) -> dict:
+    import base64
+    import io, json
     from tempfile import NamedTemporaryFile
+    from marker.converters.pdf import PdfConverter
+    from marker.config.parser import ConfigParser
+    from marker.settings import settings
+    from marker.output import text_from_rendered
 
-    tokenizer, model = setup()
+    models = setup()
 
-    with NamedTemporaryFile(delete=False, mode="wb+") as temp_img_file:
-        temp_img_file.write(image)
-        output = model.chat(tokenizer, temp_img_file.name, ocr_type="format")
+    with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
+        temp_path.write(image)
+        # Configure conversion parameters
+        config = {
+            "filepath": temp_path,
+            "page_range": page_range,
+            "force_ocr": force_ocr,
+            "paginate_output": paginate_output,
+            "output_format": output_format,
+            "use_llm": use_llm,
+        }
 
-    print("Result: ", output)
+        # Create converter
+        config_parser = ConfigParser(config)
+        config_dict = config_parser.generate_config_dict()
+        config_dict["pdftext_workers"] = 1
 
-    return output
+        converter = PdfConverter(
+            config=config_dict,
+            artifact_dict=models,
+            processor_list=config_parser.get_processors(),
+            renderer=config_parser.get_renderer(),
+            llm_service=config_parser.get_llm_service() if use_llm else None,
+        )
+        rendered_output = converter(temp_path)
+        # Extract content based on output format
+        json_content = None
+        html_content = None
+        markdown_content = None
+        encoded_images = {}
+
+        if output_format == "json":
+            # For JSON, return the structured data directly
+            json_content = rendered_output.model_dump()
+        else:
+            text, _, images = text_from_rendered(rendered_output)
+
+            # Assign to appropriate content field
+            if output_format == "html":
+                html_content = text
+            else:
+                markdown_content = text
+
+            # Encode images as base64
+            for img_name, img_obj in images.items():
+                byte_stream = io.BytesIO()
+                img_obj.save(byte_stream, format=settings.OUTPUT_IMAGE_FORMAT)
+                encoded_images[img_name] = base64.b64encode(byte_stream.getvalue()).decode('utf-8')
+
+            metadata = rendered_output.metadata
+
+        return json.dumps({
+            "success": True,
+            "output_format": output_format,
+            "json": json_content,
+            "html": html_content,
+            "markdown": markdown_content,
+            "images": encoded_images,
+            "metadata": metadata,
+            "page_count": len(metadata.get("page_stats", [])),
+        })
 
 
 # ## Deploy
