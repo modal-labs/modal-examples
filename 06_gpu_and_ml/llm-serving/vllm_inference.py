@@ -34,6 +34,7 @@ import modal
 
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    .entrypoint([])
     .uv_pip_install(
         "vllm==0.10.2",
         "huggingface_hub[hf_transfer]==0.35.0",
@@ -45,13 +46,13 @@ vllm_image = (
 
 # ## Download the model weights
 
-# We'll be running a pretrained foundation model -- Qwen's Qwen3-8B,
-# it is trained with thinking capabilities. This means the model will
-# use its reasoning abilities to enhance the quality of generated responses.
+# We'll be running a pretrained foundation model -- Qwen's Qwen3-8B.
+# It is trained with reasoning capabilities, meaning it can use those abilities
+# to enhance the quality of its generated responses.
 
 # Model parameters are often quantized to a lower precision during training
 # than they are run at during inference.
-# We'll use an eight bit floating point quantization.
+# We'll use an eight bit floating point quantization from Qwen/Qwen3-8B-FP8.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Ada Lovelace L40S, Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
@@ -126,6 +127,8 @@ VLLM_PORT = 8000
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
 def serve():
     import subprocess
+
+    # add back enforce-eager
 
     cmd = [
         "vllm",
