@@ -137,7 +137,6 @@ def parse_receipt(
         json_content = None
         html_content = None
         markdown_content = None
-        encoded_images = {}
 
         if output_format == "json":
             # For JSON, return the structured data directly
