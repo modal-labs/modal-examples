@@ -263,7 +263,7 @@ def _get_image(
 
 @app.local_entrypoint()
 def main(receipt_filename: Optional[str] = None):
-    image_data = _get_image()
+    image_data = _get_image(receipt_filename)
     MarkerModelCls = modal.Cls.from_name(app_name, "MarkerModelCls")
     marker_model = MarkerModelCls()
     print(marker_model.parse_receipt.remote(image_data))
