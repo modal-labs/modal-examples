@@ -93,6 +93,25 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 
+# ### Trading off fast boots and token generation performance
+
+# vLLM has embraced dynamic and just-in-time compilation to eke out additional performance without having to write too many custom kernels,
+# e.g. via the Torch compiler and CUDA graph capture.
+# These compilation features incur latency at startup in exchange for lowered latency and higher throughput during generation.
+# We make this trade-off controllable with the `FAST_BOOT` variable below.
+
+FAST_BOOT = True
+
+# If you're running an LLM service that frequently scales from 0 (frequent ["cold starts"](https://modal.com/docs/guide/cold-start))
+# then you'll want to set this to `True`.
+
+# If you're running an LLM service that usually has multiple replicas running, then set this to `False` for improved performance.
+
+# See the code below for details on the parameters that `FAST_BOOT` controls.
+
+# For more on the performance you can expect when serving your own LLMs, see
+# [our LLM engine performance benchmarks](https://modal.com/llm-almanac).
+
 
 # ## Build a vLLM engine and serve it
 
@@ -145,6 +164,10 @@ def serve():
         "--port",
         str(VLLM_PORT),
     ]
+
+    # enforce-eager disables both Torch compilation and CUDA graph capture
+    # default is no-enforce-eager. see the --compilation-config flag for tighter control
+    cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
