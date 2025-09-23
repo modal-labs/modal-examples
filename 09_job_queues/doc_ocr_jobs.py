@@ -103,6 +103,7 @@ def parse_receipt(
     use_llm: Optional[bool] = False,
 ) -> dict:
     from tempfile import NamedTemporaryFile
+    import warnings
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
     from marker.settings import settings
@@ -110,7 +111,6 @@ def parse_receipt(
     from marker.models import create_model_dict
 
     models = setup()
-
     with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
         temp_path.write(image)
         # Configure conversion parameters
@@ -199,9 +199,8 @@ def parse_receipt(
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
 
-def _get_image(
-        receipt_filename: Optional[str] = None, receipt_url: Optional[str] = None
-) -> bytes:
+@app.local_entrypoint()
+def main(receipt_filename: Optional[str] = None):
     import urllib.request
     from pathlib import Path
 
@@ -214,17 +213,9 @@ def _get_image(
         image = receipt_filename.read_bytes()
         print(f"running OCR on {receipt_filename}")
     else:
-        if receipt_url is None:
-            receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
+        receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
         request = urllib.request.Request(receipt_url)
         with urllib.request.urlopen(request) as response:
             image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
-
-    return image
-
-
-@app.local_entrypoint()
-def main(receipt_filename: Optional[str] = None):
-    image_data = _get_image(receipt_filename)
-    print(parse_receipt.remote(image_data))
+    print(parse_receipt.remote(image))
