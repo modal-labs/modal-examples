@@ -112,7 +112,6 @@ FAST_BOOT = True
 # For more on the performance you can expect when serving your own LLMs, see
 # [our LLM engine performance benchmarks](https://modal.com/llm-almanac).
 
-
 # ## Build a vLLM engine and serve it
 
 # The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
@@ -147,7 +146,6 @@ VLLM_PORT = 8000
 def serve():
     import subprocess
 
-    # add back enforce-eager
 
     cmd = [
         "vllm",
