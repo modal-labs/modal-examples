@@ -53,7 +53,7 @@ vllm_image = (
 # We'll use an FP8 (eight-bit floating-point) post-training-quantized variant: Qwen/Qwen3-8B-FP8.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
-# like those of Modal's [Ada Lovelace L40S, Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
+# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
 # A single H100 GPU has enough VRAM to store an 8,000,000 parameter model,
