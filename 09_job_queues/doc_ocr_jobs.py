@@ -108,6 +108,15 @@ inference_image = inference_image.env(
 # and have access to our [shared model cache](https://modal.com/docs/guide/volumes).
 
 
+with inference_image.imports():
+    import base64
+    import io
+    from tempfile import NamedTemporaryFile
+    from marker.converters.pdf import PdfConverter
+    from marker.config.parser import ConfigParser
+    from marker.settings import settings
+    from marker.output import text_from_rendered
+
 @app.cls(
     gpu="l40s",
     retries=3,
@@ -131,14 +140,6 @@ class MarkerModelCls:
             output_format: str = "markdown",
             use_llm: Optional[bool] = False,
     ) -> dict:
-        import base64
-        import io, json
-        from tempfile import NamedTemporaryFile
-        from marker.converters.pdf import PdfConverter
-        from marker.config.parser import ConfigParser
-        from marker.settings import settings
-        from marker.output import text_from_rendered
-
         with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
             temp_path.write(image)
             # Configure conversion parameters
