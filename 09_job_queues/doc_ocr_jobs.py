@@ -28,7 +28,8 @@ from typing import Optional
 
 import modal
 
-app = modal.App("example-doc-ocr-jobs")
+app_name = "example-doc-ocr-jobs"
+app = modal.App(app_name)
 
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
@@ -118,16 +119,17 @@ inference_image = inference_image.env(
 class MarkerModelCls:
     @modal.enter(snap=True)
     def load(self):
-        self.model = setup()
+        self.models = setup()
 
     @modal.method()
     def parse_receipt(
-        image: bytes,
-        page_range: Optional[str] = None,
-        force_ocr: Optional[bool] = False,
-        paginate_output: bool = False,
-        output_format: str = "markdown",
-        use_llm: Optional[bool] = False,
+            self,
+            image: bytes,
+            page_range: Optional[str] = None,
+            force_ocr: Optional[bool] = False,
+            paginate_output: bool = False,
+            output_format: str = "markdown",
+            use_llm: Optional[bool] = False,
     ) -> dict:
         import base64
         import io, json
@@ -136,8 +138,6 @@ class MarkerModelCls:
         from marker.config.parser import ConfigParser
         from marker.settings import settings
         from marker.output import text_from_rendered
-
-        models = setup()
 
         with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
             temp_path.write(image)
@@ -158,7 +158,7 @@ class MarkerModelCls:
 
             converter = PdfConverter(
                 config=config_dict,
-                artifact_dict=models,
+                artifact_dict=self.models,
                 processor_list=config_parser.get_processors(),
                 renderer=config_parser.get_renderer(),
                 llm_service=config_parser.get_llm_service() if use_llm else None,
@@ -237,7 +237,7 @@ class MarkerModelCls:
 
 
 def _get_image(
-    receipt_filename: Optional[str] = None, receipt_url: Optional[str] = None
+        receipt_filename: Optional[str] = None, receipt_url: Optional[str] = None
 ) -> bytes:
     import urllib.request
     from pathlib import Path
@@ -263,15 +263,22 @@ def _get_image(
 
 @app.local_entrypoint()
 def main(receipt_filename: Optional[str] = None):
-    image = _get_image()
-    print(MarkerModelCls.remote(image))
+    image_data = _get_image()
+    MarkerModelCls = modal.Cls.from_name(app_name, "MarkerModelCls")
+    marker_model = MarkerModelCls()
+    print(marker_model.parse_receipt.remote(image_data))
 
 
 if __name__ == "__main__":
     from rich import print
-    from rich.markdown import Markdown
 
-    fn = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
-    image = _get_image()
-    result = fn.remote(image, paginate_output=True, output_format="html", use_llm=True)
-    print(result)
+    image_data = _get_image()
+    MarkerModelCls = modal.Cls.from_name(app_name, "MarkerModelCls")
+    marker_model = MarkerModelCls()
+    try:
+        result = marker_model.parse_receipt.remote(image_data, paginate_output=True, output_format="html", use_llm=False)
+        print(result)
+    except modal.exception.NotFoundError:
+        raise Exception(
+            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
+        )
