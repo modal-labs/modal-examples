@@ -146,7 +146,6 @@ VLLM_PORT = 8000
 def serve():
     import subprocess
 
-
     cmd = [
         "vllm",
         "serve",
