@@ -107,6 +107,8 @@ inference_image = inference_image.env(
     retries=3,
     volumes={MODEL_CACHE_PATH: model_cache},
     image=inference_image,
+    enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
 )
 def parse_receipt(image: bytes, page_range: Optional[str] = None,
                   force_ocr: Optional[bool] = False, paginate_output: bool = False, output_format: str = "markdown",
@@ -145,7 +147,7 @@ def parse_receipt(image: bytes, page_range: Optional[str] = None,
             renderer=config_parser.get_renderer(),
             llm_service=config_parser.get_llm_service() if use_llm else None,
         )
-        rendered_output = converter(temp_path)
+        rendered_output = converter(temp_path.name)
         # Extract content based on output format
         json_content = None
         html_content = None
@@ -172,16 +174,15 @@ def parse_receipt(image: bytes, page_range: Optional[str] = None,
 
             metadata = rendered_output.metadata
 
-        return json.dumps({
+        return {
             "success": True,
             "output_format": output_format,
             "json": json_content,
             "html": html_content,
             "markdown": markdown_content,
-            "images": encoded_images,
             "metadata": metadata,
             "page_count": len(metadata.get("page_stats", [])),
-        })
+        }
 
 
 # ## Deploy
@@ -216,9 +217,7 @@ def parse_receipt(image: bytes, page_range: Optional[str] = None,
 # To try it out, you can find some
 # example receipts [here](https://drive.google.com/drive/folders/1S2D1gXd4YIft4a5wDtW99jfl38e85ouW).
 
-
-@app.local_entrypoint()
-def main(receipt_filename: Optional[str] = None):
+def _get_image(receipt_filename: Optional[str]=None, receipt_url: Optional[str]=None) -> bytes:
     import urllib.request
     from pathlib import Path
 
@@ -231,9 +230,23 @@ def main(receipt_filename: Optional[str] = None):
         image = receipt_filename.read_bytes()
         print(f"running OCR on {receipt_filename}")
     else:
-        receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
+        if receipt_url is None:
+            receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
         request = urllib.request.Request(receipt_url)
         with urllib.request.urlopen(request) as response:
             image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
+
+    return image
+
+@app.local_entrypoint()
+def main(receipt_filename: Optional[str] = None):
+    image = _get_image()
     print(parse_receipt.remote(image))
+
+
+if __name__ == "__main__":
+    fn = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
+    image = _get_image()
+    result = fn.remote(image)
+    print(result["markdown"])
