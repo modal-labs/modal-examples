@@ -47,12 +47,10 @@ vllm_image = (
 # ## Download the model weights
 
 # We'll be running a pretrained foundation model -- Qwen's Qwen3-8B.
-# It is trained with reasoning capabilities, meaning it can use those abilities
-# to enhance the quality of its generated responses.
+# It is trained with reasoning capabilities, which allow it to
+# enhance the quality of its generated responses.
 
-# Model parameters are often quantized to a lower precision during training
-# than they are run at during inference.
-# We'll use an eight bit floating point quantization from Qwen/Qwen3-8B-FP8.
+# We'll use an FP8 (eight-bit floating-point) post-training–quantized variant: Qwen/Qwen3-8B-FP8.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Ada Lovelace L40S, Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
