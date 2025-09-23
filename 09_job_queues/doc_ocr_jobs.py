@@ -13,7 +13,7 @@
 
 # Our job queue will handle a single task: running OCR transcription for images of receipts.
 # We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to)
-# which can convert documents to markdown, JSON and HTML.
+# which can convert documents to Markdown, JSON and HTML.
 
 # Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
@@ -48,8 +48,11 @@ inference_image = (
 
 # ## Cache the pre-trained model on a Modal Volume
 
+# We can obtain the pre-trained model we want to run from Datalab
+# using the Marker library.
+
 # The logic for loading the model based on this information
-# is encapsulated in the `setup` function below.
+# is defined in the `setup` function below.
 
 def setup():
     from marker.models import create_model_dict
@@ -133,6 +136,8 @@ def parse_receipt(
             llm_service=config_parser.get_llm_service() if use_llm else None,
         )
         rendered_output = converter(temp_path.name)
+        metadata = rendered_output.metadata
+
         # Extract content based on output format
         json_content = None
         html_content = None
@@ -149,8 +154,6 @@ def parse_receipt(
                 html_content = text
             else:
                 markdown_content = text
-
-            metadata = rendered_output.metadata
 
         return {
             "success": True,
