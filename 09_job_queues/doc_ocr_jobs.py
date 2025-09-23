@@ -51,22 +51,8 @@ inference_image = (
 
 # ## Cache the pre-trained model on a Modal Volume
 
-# We can obtain the pre-trained model we want to run from Hugging Face
-# using its name and a revision identifier.
-
-MODEL_NAME = "ucaslcl/GOT-OCR2_0"
-MODEL_REVISION = "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
-
-
 # The logic for loading the model based on this information
 # is encapsulated in the `setup` function below.
-
-
-def setup():
-    from marker.models import create_model_dict
-
-    model = create_model_dict()
-    return model
 
 
 # The `.from_pretrained` methods from Hugging Face are smart enough
@@ -116,11 +102,12 @@ with inference_image.imports():
     from marker.config.parser import ConfigParser
     from marker.settings import settings
     from marker.output import text_from_rendered
+    from marker.models import create_model_dict
 
 @app.cls(
     gpu="l40s",
     retries=3,
-    volumes={MODEL_CACHE_PATH: model_cache, MODEL_PATH_PREFIX: markers_cache},
+    # volumes={MODEL_CACHE_PATH: model_cache, MODEL_PATH_PREFIX: markers_cache},
     image=inference_image,
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
@@ -128,7 +115,8 @@ with inference_image.imports():
 class MarkerModelCls:
     @modal.enter(snap=True)
     def load(self):
-        self.models = setup()
+
+        self.models = create_model_dict()
 
     @modal.method()
     def parse_receipt(
