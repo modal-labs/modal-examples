@@ -1,7 +1,8 @@
 # Copyright Modal Labs 2025
+import io
 from contextlib import redirect_stdout
 from typing import Any, Dict, List, Literal, Tuple
-import io 
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
@@ -23,12 +24,6 @@ class ReplCommandResponse(BaseModel):
     stdout: str
 
 
-
-# loggers = ["uvicorn.access", "uvicorn.error", "uvicorn.server", "uvicorn.lifespan", "uvicorn", "fastapi", "starlette"]
-# for logger in loggers:
-#     uvicorn_logger = logging.getLogger(logger)
-#     uvicorn_logger.setLevel(logging.CRITICAL)
-#     uvicorn_logger.propagate = False
 @app.post("/", status_code=status.HTTP_200_OK)
 async def run_exec(body: ReplCommand) -> ReplCommandResponse: #mark func as async because the command may require async func
     commands = body.code
@@ -42,7 +37,7 @@ async def run_exec(body: ReplCommand) -> ReplCommandResponse: #mark func as asyn
                 with redirect_stdout(stdout_redir_buffer):
                     res = eval(command[0], _exec_context, _exec_context)
                 stdout = stdout_redir_buffer.getvalue()
-                print(stdout) 
+                print(stdout)
                 print(res)
                 return ReplCommandResponse(result=str(res), stdout=stdout)
         return ReplCommandResponse(result="", stdout = stdout_redir_buffer.getvalue()) # just send back blank str if all commands are exec'd

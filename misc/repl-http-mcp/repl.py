@@ -2,15 +2,14 @@ import ast
 import os
 import uuid
 from typing import List, Literal, Optional, Tuple
-from pydantic import BaseModel
-import httpx
 
+import httpx
 from modal.app import App
 from modal.image import Image
 from modal.output import enable_output
 from modal.sandbox import Sandbox
 from modal.snapshot import SandboxSnapshot
-
+from pydantic import BaseModel
 
 
 class ReplMCPExecResponse(BaseModel):
@@ -94,14 +93,13 @@ class Repl:
 
     @staticmethod
     async def from_snapshot(snapshot_id: str, id: Optional[str] = None) -> "Repl":
-        try: 
+        try:
             snapshot = await SandboxSnapshot.from_id.aio(snapshot_id)
             sb = await Sandbox._experimental_from_snapshot.aio(snapshot)
             sb_url = (await sb.tunnels.aio())[8000].url
             return Repl(sb, sb_url, id)
         except Exception as e:
             raise Exception(f"Error getting repl from snapshot: {repr(e)}")
-            
 
     async def run(self, commands: List[Tuple[str, Literal["exec", "eval"]]]) -> ReplMCPExecResponse:
         try:
@@ -119,9 +117,9 @@ class Repl:
             raise Exception(f"Error running commands: {repr(e)}")
 
     def kill(self) -> str:
-        try: 
+        try:
             if self.sb:
-                snapshot = self.sb._experimental_snapshot
+                snapshot = self.sb._experimental_snapshot()
                 self.sb.terminate()
                 return snapshot.object_id
         except Exception as e:
