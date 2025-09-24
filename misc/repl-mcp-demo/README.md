@@ -9,7 +9,7 @@ This example shows how to set up a Python REPL built off Modal sandboxes that ca
 In your root directory, run
 ```bash
 git clone https://github.com/modal-labs/modal-examples.git
-cd modal-examples/13_sandboxes/repl-mcp-demo
+cd modal-examples/misc/repl-mcp-demo
 uv sync
 touch .env
 ```
@@ -34,7 +34,7 @@ Add the following MCP server to the `claude_desktop_config.json` file:
       "command": "uv",
       "args": [
         "--directory",
-        "{YourUserRootDirectory}/modal-examples/`13_sandboxes/repl-mcp",
+        "{YourUserRootDirectory}/modal-examples/misc/repl-mcp-demo",
         "run",
         "main.py"
       ]
