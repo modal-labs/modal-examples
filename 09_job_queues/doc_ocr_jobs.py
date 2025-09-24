@@ -103,7 +103,6 @@ def parse_receipt(
     use_llm: Optional[bool] = False,
 ) -> dict:
     from tempfile import NamedTemporaryFile
-    import warnings
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
     from marker.settings import settings
@@ -219,3 +218,15 @@ def main(receipt_filename: Optional[str] = None):
             image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
     print(parse_receipt.remote(image))
+
+if __name__ == "__main__":
+    import urllib.request
+    from pathlib import Path
+
+    fn = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
+    receipt_url = "https://modal-cdn.com/cdnbot/Brandys-walmart-receipt-8g68_a_hk_f9c25fce.webp"
+    request = urllib.request.Request(receipt_url)
+    with urllib.request.urlopen(request) as response:
+        image = response.read()
+
+    print(fn.remote(image))
