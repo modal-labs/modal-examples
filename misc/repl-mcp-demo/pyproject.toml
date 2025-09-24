@@ -1,0 +1,14 @@
+[project]
+name = "repl-mcp-demo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncio>=4.0.0",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.14.0",
+    "modal>=1.1.4",
+    "requests>=2.32.5",
+    "typing>=3.10.0.0",
+]
