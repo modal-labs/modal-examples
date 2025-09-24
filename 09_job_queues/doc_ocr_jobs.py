@@ -103,19 +103,12 @@ def parse_receipt(
     use_llm: Optional[bool] = False,
 ) -> dict:
     from tempfile import NamedTemporaryFile
-    import warnings
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
     from marker.settings import settings
     from marker.output import text_from_rendered
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="`torch_dtype` is deprecated! Use `dtype` instead!",
-            category=UserWarning,
-        )
-        models = setup()
+    models = setup()
     with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
         temp_path.write(image)
         # Configure conversion parameters
