@@ -9,7 +9,7 @@ This example shows how to set up a Python REPL built off Modal sandboxes that ca
 In your root directory, run
 ```bash
 git clone https://github.com/modal-labs/modal-examples.git
-cd modal-examples/13_sandboxes/repl-mcp
+cd modal-examples/13_sandboxes/repl-mcp-demo
 uv sync
 touch .env
 ```
