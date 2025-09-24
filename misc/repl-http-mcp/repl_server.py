@@ -10,8 +10,6 @@ from pydantic import BaseModel
 app = FastAPI(title="REPL Server")
 
 
-
-
 _exec_context: Dict[str, Any] = {"__builtins__": __builtins__}
 
 
@@ -25,9 +23,13 @@ class ReplCommandResponse(BaseModel):
 
 
 @app.post("/", status_code=status.HTTP_200_OK)
-async def run_exec(body: ReplCommand) -> ReplCommandResponse: #mark func as async because the command may require async func
+async def run_exec(
+    body: ReplCommand,
+) -> (
+    ReplCommandResponse
+):  # mark func as async because the command may require async func
     commands = body.code
-    stdout_redir_buffer = io.StringIO()
+    stdout_redir_buffer = io.StringIO()  # use stdout redirection to capture stdout
     try:
         for command in commands:
             if command[1] == "exec":
@@ -40,10 +42,11 @@ async def run_exec(body: ReplCommand) -> ReplCommandResponse: #mark func as asyn
                 print(stdout)
                 print(res)
                 return ReplCommandResponse(result=str(res), stdout=stdout)
-        return ReplCommandResponse(result="", stdout = stdout_redir_buffer.getvalue()) # just send back blank str if all commands are exec'd
+        return ReplCommandResponse(
+            result="", stdout=stdout_redir_buffer.getvalue()
+        )  # just send back blank str if all commands are exec'd
     except Exception as exc:
         raise HTTPException(status_code=500, detail=repr(exc))
-
 
 
 if __name__ == "__main__":
