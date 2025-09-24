@@ -2,6 +2,7 @@
 # deploy: true
 # mypy: ignore-errors
 # ---
+
 # # Run a job queue for Datalab's Document Information Extraction
 
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
@@ -12,8 +13,8 @@
 # application (for example, a regular Django app running on Kubernetes).
 
 # Our job queue will handle a single task: running OCR transcription for images of receipts.
-# We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to)
-# which can convert documents to Markdown, JSON and HTML.
+# We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to),
+# which can convert documents to Markdown, JSON, and HTML.
 
 # Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
@@ -28,8 +29,7 @@ from typing import Optional
 
 import modal
 
-app_name = "example-doc-ocr-jobs"
-app = modal.App(app_name)
+app = modal.App("example-doc-ocr-jobs")
 
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
@@ -49,9 +49,9 @@ inference_image = (
 # ## Cache the pre-trained model on a Modal Volume
 
 # We can obtain the pre-trained model we want to run from Datalab
-# using the Marker library.
+# by using the Marker library.
 
-# The logic for loading the model based on this information
+# The logic for loading the model with this information
 # is defined in the `setup` function below.
 
 def setup():
@@ -61,9 +61,9 @@ def setup():
 
 
 # The `create_model_dict` function downloads the model weights from Datalab's
-# cloud storage (S3 bucket) if it hasn't been downloaded before.
-# But in Modal's serverless environment, filesystems are ephemeral,
-# and so using this code alone would mean that models need to get downloaded
+# cloud storage (S3 bucket) if they haven't been downloaded before.
+# However, in Modal's serverless environment, filesystems are ephemeral,
+# so using this code alone would mean that models need to get downloaded
 # on every request.
 
 # So instead, we create a Modal [Volume](https://modal.com/docs/guide/volumes)
@@ -103,13 +103,19 @@ def parse_receipt(
     use_llm: Optional[bool] = False,
 ) -> dict:
     from tempfile import NamedTemporaryFile
+    import warnings
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
     from marker.settings import settings
     from marker.output import text_from_rendered
-    from marker.models import create_model_dict
 
-    models = setup()
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="`torch_dtype` is deprecated! Use `dtype` instead!",
+            category=UserWarning,
+        )
+        models = setup()
     with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
         temp_path.write(image)
         # Configure conversion parameters
