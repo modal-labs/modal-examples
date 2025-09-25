@@ -5,8 +5,8 @@
 # along with a Gradio UI for playing around with the model.
 
 # We use [ACE-Step-v1-3.5B](https://github.com/ace-step/ACE-Step),
-# the inference library released by ACE Studio and StepFun
-# for MusicGen and its kin, like AudioGen.
+# an inference library released by ACE Studio and StepFun
+# for MusicGen and related models, such as AudioGen.
 
 # ## Setting up dependencies
 
