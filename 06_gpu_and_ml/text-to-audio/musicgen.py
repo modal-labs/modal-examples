@@ -4,8 +4,8 @@
 # In this example, we show you how you can run MusicGen models on Modal GPUs,
 # along with a Gradio UI for playing around with the model.
 
-# We use [Audiocraft](https://github.com/facebookresearch/audiocraft),
-# the inference library released by Meta
+# We use [ACE-Step-v1-3.5B](https://github.com/ace-step/ACE-Step),
+# the inference library released by ACE Studio and StepFun
 # for MusicGen and its kin, like AudioGen.
 
 # ## Setting up dependencies
@@ -43,9 +43,13 @@ image = (
 
 # In addition to source code, we'll also need the model weights.
 
-# Audiocraft integrates with the Hugging Face ecosystem, so setting up the models
+# ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
 # is straightforward -- the same `get_pretrained` method we use to load the weights for execution
 # will also download them if they aren't present.
+
+# ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
+# is straightforward. ACEStepPipeline internally uses the Hugging Face model hub
+# to download the weights if not already present.
 
 # .cache/ace-step/checkpoints
 def load_model(and_return=False):
@@ -65,7 +69,7 @@ def load_model(and_return=False):
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 cache_dir = "/root/.cache/ace-step/checkpoints"
-model_cache = modal.Volume.from_name("step-fun-model-cache", create_if_missing=True)
+model_cache = modal.Volume.from_name("ACE-Step-model-cache", create_if_missing=True)
 
 # We don't need to change any of the model loading code --
 # we just need to make sure the model gets stored in the right directory.
@@ -75,7 +79,7 @@ model_cache = modal.Volume.from_name("step-fun-model-cache", create_if_missing=T
 # and then run the `load_model` Python function.
 
 image = image.env(
-    {"HF_HUB_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
+    {"ACE_STEP_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
 ).run_function(load_model, volumes={cache_dir: model_cache})
 
 # While we're at it, let's also define the environment for our UI.
