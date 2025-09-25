@@ -51,7 +51,7 @@ image = (
 def load_model(and_return=False):
     from acestep.pipeline_ace_step import ACEStepPipeline
 
-    model_demo = ACEStepPipeline(dtype="bfloat16")
+    model_demo = ACEStepPipeline(dtype="bfloat16", cpu_offload=False)
     if and_return:
         return model_demo
 
@@ -124,8 +124,10 @@ class MusicGen:
     ) -> bytes:
         import uuid
 
-        output_path = f"output_{uuid.uuid4().hex}.{format}"
-        output_paths = self.model(
+        output_path = f"/root/output_{uuid.uuid4().hex}.{format}"
+        print("Generating music...")
+        print("Will save as '%s'" % output_path)
+        self.model(
             audio_duration=duration,
             prompt=prompt,
             lyrics=lyrics,
@@ -140,7 +142,6 @@ class MusicGen:
             use_erg_tag=True,
             use_erg_lyric=True,
             use_erg_diffusion=True,
-            oss_steps=None,
             save_path=output_path,
         )
         return output_path
