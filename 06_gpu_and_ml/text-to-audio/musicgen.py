@@ -40,7 +40,7 @@ image = (
 # In addition to source code, we'll also need the model weights.
 
 # ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
-# is straightforward. ACEStepPipeline internally uses the Hugging Face model hub
+# is straightforward. `ACEStepPipeline` internally uses the Hugging Face model hub
 # to download the weights if not already present.
 
 
