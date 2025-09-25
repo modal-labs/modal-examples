@@ -115,9 +115,8 @@ class MusicGen:
     ) -> bytes:
         import uuid
 
-        output_path = f"/root/output_{uuid.uuid4().hex}.{format}"
+        output_path = f"/dev/shm/output_{uuid.uuid4().hex}.{format}"
         print("Generating music...")
-        print("Will save as '%s'" % output_path)
         self.model(
             audio_duration=duration,
             prompt=prompt,
@@ -243,22 +242,6 @@ def ui():
 
 # The remainder of the code here is not directly related to Modal
 # or to music generation, but is used in the example above.
-
-
-def to_audio_bytes(wav, sample_rate: int, **kwargs) -> bytes:
-    from audiocraft.data.audio import audio_write
-
-    # audiocraft provides a nice utility for converting waveform tensors to audio,
-    # but it saves to a file path. here, we create a file path that is actually
-    # just backed by memory, instead of disk, to save on some latency
-
-    shm = Path("/dev/shm")  # /dev/shm is a memory-backed filesystem
-    stem_name = shm / str(uuid4())
-
-    output_path = audio_write(stem_name, wav, sample_rate, **kwargs)
-
-    return output_path.read_bytes()
-
 
 def slugify(string):
     return (
