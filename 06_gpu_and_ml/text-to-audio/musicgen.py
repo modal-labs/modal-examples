@@ -32,9 +32,9 @@ import modal
 # in our docs.
 
 image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "torch==2.8.0",
         "torchaudio==2.8.0",
         "git+https://github.com/ace-step/ACE-Step.git@6ae0852b1388de6dc0cca26b31a86d711f723cb3",  # we can install directly from GitHub!
@@ -136,9 +136,7 @@ class MusicGen:
             use_erg_diffusion=True,
             save_path=output_path,
         )
-        # open the audio file and return the bytes
-        with open(output_path, "rb") as f:
-            return f.read()
+        return Path(output_path).read_bytes()
 
 
 # We can then generate music from anywhere by running code like what we have in the `local_entrypoint` below.
