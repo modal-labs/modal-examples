@@ -42,7 +42,7 @@ default_args = [
     "--processes",
     str(workers),
     "--csv",
-    csv_file,
+    str(csv_file),
 ]
 
 MINUTES = 60  # seconds
