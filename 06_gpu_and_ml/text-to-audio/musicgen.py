@@ -1,12 +1,8 @@
-# # Create your own music samples with MusicGen
+# # Create music with ACE-Step
 
-# MusicGen is a popular open-source music-generation model family from Meta.
-# In this example, we show you how you can run MusicGen models on Modal GPUs,
-# along with a Gradio UI for playing around with the model.
-
-# We use [ACE-Step-v1-3.5B](https://github.com/ace-step/ACE-Step),
-# an inference library released by ACE Studio and StepFun
-# for MusicGen and related models, such as AudioGen.
+# In this example, we show you how you can run [Ace Studio](https://acestudio.ai/)'s
+# [ACE-Step](https://github.com/ace-step/ACE-Step) music generation model
+# on Modal.
 
 # ## Setting up dependencies
 
