@@ -44,14 +44,9 @@ image = (
 # In addition to source code, we'll also need the model weights.
 
 # ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
-# is straightforward -- the same `get_pretrained` method we use to load the weights for execution
-# will also download them if they aren't present.
-
-# ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
 # is straightforward. ACEStepPipeline internally uses the Hugging Face model hub
 # to download the weights if not already present.
 
-# .cache/ace-step/checkpoints
 def load_model(and_return=False):
     from acestep.pipeline_ace_step import ACEStepPipeline
 
@@ -79,7 +74,7 @@ model_cache = modal.Volume.from_name("ACE-Step-model-cache", create_if_missing=T
 # and then run the `load_model` Python function.
 
 image = image.env(
-    {"ACE_STEP_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
+    {"HF_HUB_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
 ).run_function(load_model, volumes={cache_dir: model_cache})
 
 # While we're at it, let's also define the environment for our UI.
@@ -95,12 +90,6 @@ web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 # ## Running music generation on Modal
 
 # Now, we write our music generation logic.
-# This is bit complicated because we want to support generating long samples,
-# but the model has a maximum context length of thirty seconds.
-# We can get longer clips by feeding the model's output back as input,
-# auto-regressively, but we have to write that ourselves.
-
-# There are also a few bits to make this work well with Modal:
 
 # - We make an [App](https://modal.com/docs/guide/apps) to organize our deployment.
 # - We load the model at start, instead of during inference, with `modal.enter`,
@@ -109,8 +98,6 @@ web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 # We also pick a GPU to run on -- here, an NVIDIA L40S.
 
 app = modal.App("example-musicgen")
-MAX_SEGMENT_DURATION = 30  # maximum context window size
-
 
 @app.cls(gpu="l40s", image=image, volumes={cache_dir: model_cache})
 class MusicGen:
