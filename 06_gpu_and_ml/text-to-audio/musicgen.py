@@ -32,7 +32,7 @@ import modal
 # in our docs.
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.12")
     .apt_install("git", "ffmpeg")
     .uv_pip_install(
         "torch==2.8.0",
@@ -81,7 +81,7 @@ image = image.env(
 # While we're at it, let's also define the environment for our UI.
 # We'll stick with Python and so use FastAPI and Gradio.
 
-web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "fastapi[standard]==0.115.4", "gradio==4.44.1"
 )
 
