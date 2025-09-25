@@ -144,7 +144,9 @@ class MusicGen:
             use_erg_diffusion=True,
             save_path=output_path,
         )
-        return output_path
+        # open the audio file and return the bytes
+        with open(output_path, "rb") as f:
+            return f.read()
 
 # We can then generate music from anywhere by running code like what we have in the `local_entrypoint` below.
 
@@ -153,7 +155,6 @@ class MusicGen:
 def main(
     prompt: Optional[str] = None,
     duration: int = 10,
-    overlap: int = 15,
     format: str = "wav",  # or mp3
 ):
     if prompt is None:
