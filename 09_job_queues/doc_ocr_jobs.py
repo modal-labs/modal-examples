@@ -3,7 +3,7 @@
 # mypy: ignore-errors
 # ---
 
-# # Run a job queue for GOT-OCR
+# # Run a job queue for Datalab's Document Information Extraction
 
 # This tutorial shows you how to use Modal as an infinitely scalable job queue
 # that can service async tasks from a web app. For the purpose of this tutorial,
@@ -13,8 +13,8 @@
 # application (for example, a regular Django app running on Kubernetes).
 
 # Our job queue will handle a single task: running OCR transcription for images of receipts.
-# We'll make use of a pre-trained model:
-# the [General OCR Theory (GOT) 2.0 model](https://huggingface.co/stepfun-ai/GOT-OCR2_0).
+# We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to),
+# which can convert documents to Markdown, JSON, and HTML.
 
 # Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
@@ -25,81 +25,55 @@
 # Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
 # Later, we'll use the name provided for our `App` to find it from our web app and submit tasks to it.
 
-from typing import Optional
+from typing import Optional, Union
 
 import modal
+from typing_extensions import Literal
 
 app = modal.App("example-doc-ocr-jobs")
 
 # We also define the dependencies for our Function by specifying an
 # [Image](https://modal.com/docs/guide/images).
 
-inference_image = modal.Image.debian_slim(python_version="3.12").pip_install(
-    "accelerate==0.28.0",
-    "huggingface_hub[hf_transfer]==0.27.1",
-    "numpy<2",
-    "tiktoken==0.6.0",
-    "torch==2.5.1",
-    "torchvision==0.20.1",
-    "transformers==4.48.0",
-    "verovio==4.3.1",
+inference_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install(["git", "wget"])
+    .env({"TORCH_DEVICE": "cuda"})
+    .pip_install(
+        [
+            "marker-pdf[full]==1.9.3",
+            "torch==2.8.0",
+        ]
+    )
 )
 
 # ## Cache the pre-trained model on a Modal Volume
 
-# We can obtain the pre-trained model we want to run from Hugging Face
-# using its name and a revision identifier.
+# We can obtain the pre-trained model we want to run from Datalab
+# by using the Marker library.
 
-MODEL_NAME = "ucaslcl/GOT-OCR2_0"
-MODEL_REVISION = "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
-
-# The logic for loading the model based on this information
-# is encapsulated in the `setup` function below.
-
+# The logic for loading the model with this information
+# is defined in the `setup` function below.
 
 def setup():
-    import warnings
+    from marker.models import create_model_dict
 
-    from transformers import AutoModel, AutoTokenizer
-
-    with warnings.catch_warnings():  # filter noisy warnings from GOT modeling code
-        warnings.simplefilter("ignore")
-        tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_NAME, revision=MODEL_REVISION, trust_remote_code=True
-        )
-
-        model = AutoModel.from_pretrained(
-            MODEL_NAME,
-            revision=MODEL_REVISION,
-            trust_remote_code=True,
-            device_map="cuda",
-            use_safetensors=True,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    return tokenizer, model
+    return create_model_dict()
 
 
-# The `.from_pretrained` methods from Hugging Face are smart enough
-# to only download models if they haven't been downloaded before.
-# But in Modal's serverless environment, filesystems are ephemeral,
-# and so using this code alone would mean that models need to get downloaded
+# The `create_model_dict` function downloads the model weights from Datalab's
+# cloud storage (S3 bucket) if they haven't been downloaded before.
+# However, in Modal's serverless environment, filesystems are ephemeral,
+# so using this code alone would mean that models need to get downloaded
 # on every request.
 
 # So instead, we create a Modal [Volume](https://modal.com/docs/guide/volumes)
 # to store the model -- a durable filesystem that any Modal Function can access.
 
-model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
-
-# We also update the environment variables for our Function
-# to include this new path for the model cache --
-# and to enable fast downloads with the `hf_transfer` library.
-
-MODEL_CACHE_PATH = "/root/models"
-inference_image = inference_image.env(
-    {"HF_HUB_CACHE": MODEL_CACHE_PATH, "HF_HUB_ENABLE_HF_TRANSFER": "1"}
+MODEL_PATH_PREFIX = "/root/.cache/datalab/models"
+markers_cache = modal.Volume.from_name(
+    "marker-models-modal-demo", create_if_missing=True
 )
-
 
 # ## Run OCR inference on Modal by wrapping with `app.function`
 
@@ -118,21 +92,71 @@ inference_image = inference_image.env(
 @app.function(
     gpu="l40s",
     retries=3,
-    volumes={MODEL_CACHE_PATH: model_cache},
+    volumes={MODEL_PATH_PREFIX: markers_cache},
     image=inference_image,
 )
-def parse_receipt(image: bytes) -> str:
+def parse_receipt(
+    image: bytes,
+    page_range: Optional[str] = None,
+    force_ocr: Optional[bool] = False,
+    paginate_output: bool = False,
+    output_format: Literal["markdown", "html", "chunks", "json"] = "markdown",
+    use_llm: Optional[bool] = False,
+) -> Union[str, dict]:
+    """
+    Args:
+        image: Image data as bytes.
+        page_range: Specify which pages to process. Accepts comma-separated page numbers and ranges.
+        force_ocr: Force OCR processing on the entire document, even for pages that might contain extractable text.
+                    This will also format inline math properly.
+        paginate_output: Paginates the output, using \n\n{PAGE_NUMBER} followed by - * 48, then \n\n
+        output_format: Output format. Can be markdown, JSON, HTML, or chunks.
+        use_llm: use an llm to improve the marker results.
+    """
     from tempfile import NamedTemporaryFile
+    from marker.converters.pdf import PdfConverter
+    from marker.config.parser import ConfigParser
+    from marker.settings import settings
+    from marker.output import text_from_rendered
 
-    tokenizer, model = setup()
+    models = setup()
+    with NamedTemporaryFile(delete=False, mode="wb+") as temp_path:
+        temp_path.write(image)
+        # Configure conversion parameters
+        config = {
+            "filepath": temp_path,
+            "page_range": page_range,
+            "force_ocr": force_ocr,
+            "paginate_output": paginate_output,
+            "output_format": output_format,
+            "use_llm": use_llm,
+        }
 
-    with NamedTemporaryFile(delete=False, mode="wb+") as temp_img_file:
-        temp_img_file.write(image)
-        output = model.chat(tokenizer, temp_img_file.name, ocr_type="format")
+        # Create converter
+        config_parser = ConfigParser(config)
+        config_dict = config_parser.generate_config_dict()
+        config_dict["pdftext_workers"] = 1
 
-    print("Result: ", output)
+        converter = PdfConverter(
+            config=config_dict,
+            artifact_dict=models,
+            processor_list=config_parser.get_processors(),
+            renderer=config_parser.get_renderer(),
+            llm_service=config_parser.get_llm_service() if use_llm else None,
+        )
+        rendered_output = converter(temp_path.name)
+        if output_format == "json":
+            # For JSON, return the structured data directly
+            result = rendered_output.model_dump()
+        else:
+            text, _, images = text_from_rendered(rendered_output)
 
-    return output
+            # Assign to appropriate content field
+            if output_format == "html":
+                result = text
+            else:
+                result = text
+        return result
 
 
 # ## Deploy
@@ -187,4 +211,4 @@ def main(receipt_filename: Optional[str] = None):
         with urllib.request.urlopen(request) as response:
             image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
-    print(parse_receipt.remote(image))
+    print(parse_receipt.remote(image, output_format="html"))
