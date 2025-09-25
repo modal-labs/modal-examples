@@ -25,9 +25,10 @@
 # Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
 # Later, we'll use the name provided for our `App` to find it from our web app and submit tasks to it.
 
-from typing import Optional
+from typing import Optional, Union
 
 import modal
+from typing_extensions import Literal
 
 app = modal.App("example-doc-ocr-jobs")
 
@@ -99,9 +100,19 @@ def parse_receipt(
     page_range: Optional[str] = None,
     force_ocr: Optional[bool] = False,
     paginate_output: bool = False,
-    output_format: str = "markdown",
+    output_format: Literal["markdown", "html", "chunks", "json"] = "markdown",
     use_llm: Optional[bool] = False,
-) -> dict:
+) -> Union[str, dict]:
+    """
+    Args:
+        image: Image data as bytes.
+        page_range: Specify which pages to process. Accepts comma-separated page numbers and ranges.
+        force_ocr: Force OCR processing on the entire document, even for pages that might contain extractable text.
+                    This will also format inline math properly.
+        paginate_output: Paginates the output, using \n\n{PAGE_NUMBER} followed by - * 48, then \n\n
+        output_format: Output format. Can be markdown, JSON, HTML, or chunks.
+        use_llm: use an llm to improve the marker results.
+    """
     from tempfile import NamedTemporaryFile
     from marker.converters.pdf import PdfConverter
     from marker.config.parser import ConfigParser
@@ -134,34 +145,18 @@ def parse_receipt(
             llm_service=config_parser.get_llm_service() if use_llm else None,
         )
         rendered_output = converter(temp_path.name)
-        metadata = rendered_output.metadata
-
-        # Extract content based on output format
-        json_content = None
-        html_content = None
-        markdown_content = None
-
         if output_format == "json":
             # For JSON, return the structured data directly
-            json_content = rendered_output.model_dump()
+            result = rendered_output.model_dump()
         else:
             text, _, images = text_from_rendered(rendered_output)
 
             # Assign to appropriate content field
             if output_format == "html":
-                html_content = text
+                result = text
             else:
-                markdown_content = text
-
-        return {
-            "success": True,
-            "output_format": output_format,
-            "json": json_content,
-            "html": html_content,
-            "markdown": markdown_content,
-            "metadata": metadata,
-            "page_count": len(metadata.get("page_stats", [])),
-        }
+                result = text
+        return result
 
 
 # ## Deploy
@@ -216,4 +211,4 @@ def main(receipt_filename: Optional[str] = None):
         with urllib.request.urlopen(request) as response:
             image = response.read()
         print(f"running OCR on sample from URL {receipt_url}")
-    print(parse_receipt.remote(image))
+    print(parse_receipt.remote(image, output_format="html"))
