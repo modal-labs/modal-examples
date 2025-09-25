@@ -47,6 +47,7 @@ image = (
 # is straightforward. ACEStepPipeline internally uses the Hugging Face model hub
 # to download the weights if not already present.
 
+
 def load_model(and_return=False):
     from acestep.pipeline_ace_step import ACEStepPipeline
 
@@ -99,6 +100,7 @@ web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
 
 app = modal.App("example-musicgen")
 
+
 @app.cls(gpu="l40s", image=image, volumes={cache_dir: model_cache})
 class MusicGen:
     @modal.enter()
@@ -109,7 +111,7 @@ class MusicGen:
     def generate(
         self,
         prompt: str,
-        lyrics:str="[inst]",
+        lyrics: str = "[inst]",
         duration: int = 10,
         format: str = "wav",  # or mp3
     ) -> bytes:
@@ -138,23 +140,28 @@ class MusicGen:
         with open(output_path, "rb") as f:
             return f.read()
 
+
 # We can then generate music from anywhere by running code like what we have in the `local_entrypoint` below.
 
 
 @app.local_entrypoint()
 def main(
     prompt: Optional[str] = None,
+    lyrics: Optional[str] = None,
     duration: int = 10,
     format: str = "wav",  # or mp3
 ):
     if prompt is None:
         prompt = "Amapiano polka, klezmers, log drum bassline, 112 BPM"
+    if lyrics is None:
+        lyrics = "[inst]"
     print(
-        f"🎼 generating {duration} seconds of music from prompt '{prompt[:64] + ('...' if len(prompt) > 64 else '')}'"
+        f"🎼 generating {duration} seconds of music from prompt '{prompt[:32] + ('...' if len(prompt) > 32 else '')}'"
+        f"and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
     )
 
     musicgen = MusicGen()
-    clip = musicgen.generate.remote(prompt, duration=duration, format=format)
+    clip = musicgen.generate.remote(prompt, lyrics, duration=duration, format=format)
 
     dir = Path("/tmp/musicgen")
     dir.mkdir(exist_ok=True, parents=True)
@@ -242,6 +249,7 @@ def ui():
 
 # The remainder of the code here is not directly related to Modal
 # or to music generation, but is used in the example above.
+
 
 def slugify(string):
     return (
