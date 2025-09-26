@@ -101,13 +101,15 @@ app = modal.App("example-musicgen")
 class MusicGen:
     @modal.enter()
     def init(self):
-        self.model = load_model(and_return=True)
+        from acestep.pipeline_ace_step import ACEStepPipeline
+
+        self.model: ACEStepPipeline = load_model(and_return=True)
 
     @modal.method()
     def generate(
         self,
         prompt: str,
-        lyrics: str = "[inst]",
+        lyrics: str = None,
         duration: int = 10,
         format: str = "wav",  # or mp3
     ) -> bytes:
@@ -131,6 +133,7 @@ class MusicGen:
             use_erg_lyric=True,
             use_erg_diffusion=True,
             save_path=output_path,
+            manual_seeds=[401640]
         )
         return Path(output_path).read_bytes()
 
