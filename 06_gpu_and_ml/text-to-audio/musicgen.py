@@ -110,7 +110,7 @@ class MusicGen:
         self,
         prompt: str,
         lyrics: str,
-        duration: int = 10,
+        duration: Optional[float] = None,
         format: str = "wav",  # or mp3
         manual_seeds: Optional[int] = 508630535
     ) -> bytes:
@@ -146,47 +146,13 @@ class MusicGen:
 def main(
     prompt: Optional[str] = None,
     lyrics: Optional[str] = None,
-    duration: float = 10,
+    duration: Optional[float] = -1,  # random assignment
     format: str = "wav",  # or mp3
 ):
     if prompt is None:
-        prompt = "aggressive, Heavy Riffs, Blast Beats, Satanic Black Metal"
+        prompt = "volin, solo, fast tempo"
     if lyrics is None:
-        lyrics = """[verse]
-Floating through the galaxy on a midnight ride
-Stars are dancing all around in cosmic tides
-Feel the pulse of space and time beneath our feet
-Every beat a heartbeat in this endless suite
-
-[chorus]
-Galactic dreams under neon lights
-Sailing through the velvet nights
-We are echoes in a cosmic sea
-In a universe where we are free
-
-[verse]
-Planetary whispers in the sky tonight
-Every constellation's got a secret sight
-Distant worlds and moons we have yet to see
-In the void of space where we can just be
-
-[bridge]
-Asteroids and comets in a ballet they spin
-Lost in the rhythm of where our dreams begin
-Close your eyes and let the synths take flight
-We're voyagers on an electric night
-
-[verse]
-Let the piano keys unlock the stars above
-Every chord a memory every note is love
-In this synth symphony we find our grace
-Drifting forever in this boundless space
-
-[chorus]
-Galactic dreams under neon lights
-Sailing through the velvet nights
-We are echoes in a cosmic sea
-In a universe where we are free"""
+        lyrics = "[inst]"
     print(
         f"🎼 generating {duration} seconds of music from prompt '{prompt[:32] + ('...' if len(prompt) > 32 else '')}'"
         f"and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
