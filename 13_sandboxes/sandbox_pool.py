@@ -135,7 +135,7 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
 # We deploy the Sandboxes in a separate Modal App called `example-sandbox-pool-sandboxes`,
 # to separate the control app (logs, etc.) from the Sandboxes.
 @app.function(image=server_image, retries=3)
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=20)
 def add_sandbox_to_queue() -> None:
     sandbox_app = modal.App.lookup(
         "example-sandbox-pool-sandboxes", create_if_missing=True
@@ -192,7 +192,7 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 # [3]: https://modal.com/docs/guide/webhook-urls
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
-@modal.concurrent(max_inputs=100)
+@modal.concurrent(max_inputs=20)
 def claim_sandbox_web_endpoint(check_health: bool = True) -> str:
     return claim_sandbox.local(check_health=check_health)
 
