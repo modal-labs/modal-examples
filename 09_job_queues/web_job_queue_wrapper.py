@@ -10,6 +10,7 @@
 
 # Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
 
+import random
 import time
 
 import modal
@@ -24,14 +25,15 @@ app = modal.App("example-web-job-queue-wrapper")
 class BackendService:
     @modal.enter()
     def enter(self):
+        import random
         print("begin cold booting")
-        time.sleep(10)
+        time.sleep(10 + 3 * random.random())
         print("end cold booting")
 
     @modal.method()
     def run(self, input_val: str):
         print(f"begin run with {input_val}")
-        time.sleep(5)
+        time.sleep(5 + 2 * random.random())
         print(f"end run with {input_val}")
         return input_val[::-1]  # reverse the string
 
@@ -61,23 +63,32 @@ def web_endpoint():
     async def submit(request: Request):
         """Asynchronously submit a request to the backend service."""
         input_val = (await request.json())["input_val"]
-        fc = service.run.spawn(input_val)
-        while len(fc.get_call_graph()) == 0:
-            time.sleep(0.1)
+        fc = await service.run.spawn.aio(input_val)
         return {"request_id": fc.object_id}
 
     @web_app.get("/requests/{request_id}/status")
     async def status(request_id: str):
         """Get the status of the request from the call graph."""
         fc = modal.FunctionCall.from_id(request_id)
-        fc_input_info = fc.get_call_graph()[0].children[0]
-        assert fc_input_info.function_call_id == fc.object_id, "unexpected graph"
-        return {"status": fc_input_info.status.name}
+        try:
+            result = await fc.get.aio(timeout=0)
+            content = {"status": "SUCCESS"}
+            return fastapi.responses.JSONResponse(content=content, status_code=200)
+        except TimeoutError:
+            content = {"status": "PENDING"}
+            return fastapi.responses.JSONResponse(content=content, status_code=202)
+        except modal.exception.OutputExpiredError:
+            content = {"status": "EXPIRED"}
+            return fastapi.responses.JSONResponse(content=content, status_code=404)
+        except Exception as e:
+            content = {"status": "ERROR", "error": str(e)}
+            return fastapi.responses.JSONResponse(content=content, status_code=500)
 
     @web_app.get("/requests/{request_id}")
     async def result(request_id: str):
         fc = modal.FunctionCall.from_id(request_id)
-        return {"response": fc.get()}
+        result = await fc.get.aio()
+        return {"response": result}
 
     return web_app
 
@@ -91,6 +102,15 @@ def web_endpoint():
 # ```bash
 # modal run web_job_queue_wrapper.py::test_polling
 # ```
+
+async def submit(client, url, i):
+    resp = await client.post(f"{url}/run", json={"input_val": f"job-{i}"}, timeout=30.0)
+    requests_made += 1
+    resp.raise_for_status()
+    request_id = resp.json()["request_id"]
+    print(f"submitted request {i} with id {request_id}")
+    return request_id
+
 
 
 @app.local_entrypoint()
