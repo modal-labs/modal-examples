@@ -25,7 +25,7 @@ class WebsiteUser(locust.HttpUser):
     @locust.task
     def chat_completion(self):
         payload = {
-            "model": "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16",
+            "model": "Qwen/Qwen3-8B-FP8",
             "messages": messages,
         }
 
