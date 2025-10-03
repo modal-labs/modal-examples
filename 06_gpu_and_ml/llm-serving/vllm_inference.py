@@ -23,9 +23,6 @@
 # the [container `Image`](https://modal.com/docs/guide/custom-container).
 # vLLM can be installed with `pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
 
-# To take advantage of optimized kernels for CUDA 12.8, we install PyTorch, flashinfer, and their dependencies
-# via an `extra` Python package index.
-
 import json
 from typing import Any
 
@@ -77,19 +74,6 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 # ## Configuring vLLM
-
-# ### The V1 engine
-
-# In its 0.7 release, in early 2025, vLLM added a new version of its backend infrastructure,
-# the [V1 Engine](https://blog.vllm.ai/2025/01/27/v1-alpha-release.html).
-# Using this new engine can lead to some [impressive speedups](https://github.com/modal-labs/modal-examples/pull/1064).
-# It was made the default in version 0.8 and is [slated for complete removal by 0.11](https://github.com/vllm-project/vllm/issues/18571),
-# in late summer of 2025.
-
-# A small number of features, described in the RFC above, may still require the V0 engine prior to removal.
-# Until deprecation, you can use it by setting the below environment variable to `0`.
-
-vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 
 # ### Trading off fast boots and token generation performance
 
