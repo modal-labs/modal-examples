@@ -3,15 +3,18 @@
 # cmd: ["modal", "serve", "09_job_queues/doc_ocr_webapp.py"]
 # ---
 
-# # Serve a document OCR web app
+# # Serve a receipt parsing web app
 
 # This tutorial shows you how to use Modal to deploy a fully serverless
 # [React](https://reactjs.org/) + [FastAPI](https://fastapi.tiangolo.com/) application.
-# We're going to build a simple "Receipt Parser" web app that submits OCR transcription
+
+# We're going to build a simple "Receipt Parser" web app that submits document parsing
 # tasks to a separate Modal app defined in [another example](https://modal.com/docs/examples/doc_ocr_jobs),
 # polls until the task is completed, and displays
 # the results. Try it out for yourself
 # [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
+
+# It should look something like this:
 
 # [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
 
@@ -37,19 +40,19 @@ web_app = fastapi.FastAPI()
 # We need two endpoints: one to accept an image and submit it to the Modal job queue,
 # and another to poll for the results of the job.
 
-# In `parse`, we're going to submit tasks to the function defined in the [Job
+# In `parse`, we're going to submit tasks to the Function defined in the [Job
 # Queue tutorial](https://modal.com/docs/examples/doc_ocr_jobs), so we import it first using
 # [`Function.lookup`](https://modal.com/docs/reference/modal.Function#lookup).
 
-# We call [`.spawn()`](https://modal.com/docs/reference/modal.Function#spawn) on the function handle
-# we imported above to kick off our function without blocking on the results. `spawn` returns
+# We call [`.spawn()`](https://modal.com/docs/reference/modal.Function#spawn) on the Function handle
+# we imported above to kick off our Function without blocking on the results. `spawn` returns
 # a unique ID for the function call, which we then use
 # to poll for its result.
 
 
 @web_app.post("/parse")
 async def parse(request: fastapi.Request):
-    parse_receipt = modal.Function.from_name("example-doc-ocr-jobs", "parse_receipt")
+    parse_receipt = modal.Function.from_name("example-doc-ocr-jobs", "parse_document")
 
     form = await request.form()
     receipt = await form["receipt"].read()  # type: ignore
@@ -77,7 +80,7 @@ async def poll_results(call_id: str):
 # First, we specify our dependencies -- here, a basic Debian Linux
 # environment with FastAPI installed.
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "fastapi[standard]==0.115.4"
 )
 
@@ -91,8 +94,22 @@ image = modal.Image.debian_slim(python_version="3.12").pip_install(
 local_assets_path = Path(__file__).parent / "doc_ocr_frontend"
 image = image.add_local_dir(local_assets_path, remote_path="/assets")
 
+# We serve them from our FastAPI app as `StaticFiles`.
+
+# To put our FastAPI app on Modal, we need to return it from a Python function
+# that is wrapped with some extra decorators:
+
+# - [`modal.asgi_app`](https://modal.com/docs/reference/modal.asgi_app)
+# to ensure the Modal system knows to route web traffic to it (and in what format)
+# - [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent)
+# to allow more than one request (e.g. for stylesheet and for HTML) to be served concurrently
+# - [`app.function`](https://modal.com/docs/reference/modal.App#function)
+# to turn our Python function into a Modal Function and define the infrastructure it needs
+# (here, just the dependencies).
+
 
 @app.function(image=image)
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def wrapper():
     web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
@@ -107,6 +124,13 @@ def wrapper():
 # modal serve doc_ocr_webapp.py
 # ```
 
+# If successful, this will print a URL for your app that you can navigate to in
+# your browser 🎉 .
+
+# The result should look something like this:
+
+# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
+
 # Modal watches all the mounted files and updates the app if anything changes.
 # See [these docs](https://modal.com/docs/guide/webhooks#developing-with-modal-serve)
 # for more details.
@@ -120,8 +144,3 @@ def wrapper():
 # ```
 
 # That's all!
-
-# If successful, this will print a URL for your app that you can navigate to in
-# your browser 🎉 .
-
-# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
