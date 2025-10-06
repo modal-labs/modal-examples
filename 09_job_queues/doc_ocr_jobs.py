@@ -19,8 +19,6 @@
 
 # Try it out for yourself [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
-# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
-
 # ## Define an App
 
 # Let's first import `modal` and define an [`App`](https://modal.com/docs/reference/modal.App).
