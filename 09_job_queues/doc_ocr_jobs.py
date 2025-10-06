@@ -10,7 +10,7 @@
 
 # Our job queue will handle a single task: converting images/PDFs into structured data.
 # We'll use [Marker](https://github.com/datalab-to/marker) from [Datalab](https://www.datalab.to),
-# which can convert images of documents or PDFs to Markdown, JSON, and HTML. Marker is an open-weights model; 
+# which can convert images of documents or PDFs to Markdown, JSON, and HTML. Marker is an open-weights model;
 # to learn more about commercial usage, see [here](https://github.com/datalab-to/marker?tab=readme-ov-file#commercial-usage).
 
 # For the purpose of this tutorial, we've also built a [React + FastAPI web app on Modal](https://modal.com/docs/examples/doc_ocr_webapp)
