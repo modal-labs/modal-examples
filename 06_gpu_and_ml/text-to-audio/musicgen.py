@@ -47,7 +47,9 @@ image = (
 def load_model(and_return=False):
     from acestep.pipeline_ace_step import ACEStepPipeline
 
-    model_demo = ACEStepPipeline(dtype="bfloat16", cpu_offload=False, overlapped_decode=True)
+    model_demo = ACEStepPipeline(
+        dtype="bfloat16", cpu_offload=False, overlapped_decode=True
+    )
     if and_return:
         return model_demo
 
@@ -110,9 +112,9 @@ class MusicGen:
         self,
         prompt: str,
         lyrics: str,
-        duration: Optional[float] = None,
+        duration: float = 60.0,
         format: str = "wav",  # or mp3
-        manual_seeds: Optional[int] = 508630535
+        manual_seeds: Optional[int] = 508630535,
     ) -> bytes:
         import uuid
 
@@ -146,13 +148,15 @@ class MusicGen:
 def main(
     prompt: Optional[str] = None,
     lyrics: Optional[str] = None,
-    duration: Optional[float] = -1,  # random assignment
+    duration: Optional[float] = None,
     format: str = "wav",  # or mp3
 ):
     if prompt is None:
         prompt = "volin, solo, fast tempo"
     if lyrics is None:
         lyrics = "[inst]"
+    if duration is None:
+        duration = 60.0  # seconds
     print(
         f"🎼 generating {duration} seconds of music from prompt '{prompt[:32] + ('...' if len(prompt) > 32 else '')}'"
         f"and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
