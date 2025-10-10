@@ -57,6 +57,7 @@ TORCH_CUDA_ARCH_LIST = "9.0 9.0a"  # Hopper, aka H100/H200
 toka_image = toka_image.env(
     {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
 ).uv_pip_install(
+    "aiohttp==3.13.0",
     "tokasaurus==0.0.2",
     "huggingface_hub[hf_transfer]==0.33.0",
     "datasets==3.6.0",
@@ -238,7 +239,9 @@ async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
     )
 
     url = serve.get_web_url()
-    async with aiohttp.ClientSession(base_url=url) as session:
+    async with aiohttp.ClientSession(
+        base_url=url, headers={"Accept-Encoding": "gzip, deflate, br"}
+    ) as session:
         print(f"Running health check for server at {url}")
 
         async with session.get("/v1/models", timeout=20 * MINUTES) as resp:
