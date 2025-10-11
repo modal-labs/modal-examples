@@ -5,8 +5,12 @@
 # # 使用 Modal 部署 Wan2.2-TI2V-5B 视频生成模型
 
 # 在这个例子中，我们将在云端GPU上运行阿里的 Wan2.2-TI2V-5B 模型。
-# 这是一个支持文本生成视频(T2V)和图片生成视频(I2V)的混合模型，
-# 可以生成 720P@24fps 的高质量视频。
+# 
+# ⚠️  重要说明：
+# - TI2V-5B 理论上支持文本生成视频(T2V)和图片生成视频(I2V)
+# - 但目前 diffusers 版本的实现仅支持 T2V 功能
+# - 如需 I2V 功能，请使用专门的 Wan2.2-I2V-A14B 模型
+# - 可以生成 720P@24fps 的高质量视频
 
 # 模型主页: https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B
 # GitHub: https://github.com/Wan-Video/Wan2.2
@@ -119,9 +123,12 @@ class Model:
         """
         核心的视频生成函数。
         
+        注意：TI2V-5B 在 diffusers 中目前仅支持 T2V（文本生成视频）。
+        I2V（图片生成视频）功能需要使用专门的 I2V-A14B 模型。
+        
         参数:
         - prompt: 文本提示词
-        - image_bytes: 可选的输入图片（如果提供则为 I2V，否则为 T2V）
+        - image_bytes: 输入图片（当前版本不支持，将被忽略）
         - height: 视频高度（默认 704）
         - width: 视频宽度（默认 1280）
         - num_frames: 帧数（默认 121，约5秒@24fps）
@@ -133,12 +140,18 @@ class Model:
         - 生成的视频文件（MP4格式）的字节流
         """
         import torch
-        from PIL import Image
         from diffusers.utils import export_to_video
 
         print(f"收到新的视频生成任务")
         print(f"提示词: '{prompt}'")
-        print(f"模式: {'图片生成视频 (I2V)' if image_bytes else '文本生成视频 (T2V)'}")
+        
+        # 检查是否提供了图片
+        if image_bytes:
+            print("⚠️  警告：TI2V-5B 的 diffusers 版本目前不支持 I2V 功能")
+            print("⚠️  如需 I2V，请使用 Wan2.2-I2V-A14B 模型")
+            print("⚠️  当前将仅使用文本提示词生成视频（T2V 模式）")
+
+        print(f"模式: 文本生成视频 (T2V)")
         print(f"分辨率: {width}x{height}, 帧数: {num_frames}")
 
         # 负向提示词（中文 + 英文）
@@ -149,51 +162,21 @@ class Model:
             "手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
         )
 
-        # 如果提供了图片，则进行 I2V 生成
-        image = None
-        if image_bytes:
-            image = Image.open(BytesIO(image_bytes)).convert("RGB")
-            print(f"输入图片尺寸: {image.size}")
-
         # 设置生成器
         generator = torch.Generator(device=self.device).manual_seed(seed)
 
-        # 生成视频
+        # 生成视频（仅 T2V）
         print("开始生成视频...")
-# 替换你原来的 output = self.pipe(...) 部分
-
-        if image_bytes:
-            # 如果提供图片，则加载 I2V 模型
-            from diffusers import WanI2VPipeline
-            i2v_pipe = WanI2VPipeline.from_pretrained(
-                MODEL_NAME.replace("TI2V", "I2V"),  # 通常 I2V 模型有独立权重
-                torch_dtype=self.dtype,
-                cache_dir=CACHE_DIR,
-            ).to(self.device)
-
-            output = i2v_pipe(
-                image=image,
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                height=height,
-                width=width,
-                num_frames=num_frames,
-                guidance_scale=guidance_scale,
-                num_inference_steps=num_inference_steps,
-                generator=generator,
-            ).frames[0]
-        else:
-            # 否则使用 T2V pipeline
-            output = self.pipe(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                height=height,
-                width=width,
-                num_frames=num_frames,
-                guidance_scale=guidance_scale,
-                num_inference_steps=num_inference_steps,
-                generator=generator,
-            ).frames[0]
+        output = self.pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            height=height,
+            width=width,
+            num_frames=num_frames,
+            guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps,
+            generator=generator,
+        ).frames[0]
 
         print(f"视频生成完成！帧数: {len(output)}")
 
