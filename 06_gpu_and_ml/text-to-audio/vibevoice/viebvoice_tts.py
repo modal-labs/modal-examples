@@ -105,88 +105,256 @@ class VibeVoiceModel:
         top_p: float = 0.9,
     ) -> bytes:
         """
-        根据输入文本生成语音的核心函数 (最终修复版)。
-        此版本严格遵循社区仓库 Gradio 示例的逻辑，以确保稳定性。
+        根据输入文本生成语音的核心函数。
+        基于 VibeVoice 官方 Gradio demo 的实现方式。
         """
         import torch
-        import torchaudio
         import tempfile
         import soundfile as sf
         import os
+        import numpy as np
 
         if not self.model or not self.processor:
             raise RuntimeError("模型或处理器未初始化，请检查 load_model_and_processor 方法。")
 
         try:
-            # ========== 核心修正：严格遵循官方 Gradio 示例的调用方式 ==========
+            # 确保输入文本不为空
+            if not text or not text.strip():
+                raise ValueError("输入文本不能为空。")
             
+            print(f"收到输入文本: {repr(text)}")
+            
+            # 解析对话文本并转换为 VibeVoice 格式
             lines = text.strip().split('\n')
-            if not any(':' in line for line in lines):
-                 raise ValueError("输入文本格式不正确。请使用 '说话人: 内容' 的格式。")
-
-            # Step 1: 为所有唯一说话人加载一次音频样本，存入字典方便查找
-            speaker_waveforms = {}
-            sample_rate = 24000
+            print(f"解析到的行数: {len(lines)}")
             
-            # 先遍历一次，找出所有唯一的说话人
-            unique_speakers = sorted(list(set(line.split(':', 1)[0].strip() for line in lines if ':' in line)))
+            # 检查是否有有效的对话格式
+            valid_lines = [line for line in lines if ':' in line and line.strip()]
+            if not valid_lines:
+                raise ValueError("输入文本格式不正确。请使用 '说话人: 内容' 的格式，每句话占一行。")
+
+            # 转换为 VibeVoice 格式：Speaker 0:, Speaker 1: 等
+            formatted_script_lines = []
+            speaker_mapping = {}  # 记录说话人名称到数字的映射
+            speaker_counter = 0
             
-            for speaker_name in unique_speakers:
-                audio_path = f"demo/voices/{speaker_name.lower()}.wav"
-                if os.path.exists(audio_path):
-                    waveform, sr = torchaudio.load(audio_path)
-                    if sr != sample_rate:
-                         from torchaudio.transforms import Resample
-                         resampler = Resample(sr, sample_rate)
-                         waveform = resampler(waveform)
-                    speaker_waveforms[speaker_name] = waveform
-                else:
-                    print(f"Warning: 未找到 {speaker_name} 的音频文件。正在内存中创建默认静音张量。")
-                    speaker_waveforms[speaker_name] = torch.zeros((1, sample_rate), dtype=torch.float32)
-
-            # Step 2: 构建两个长度完全相同的列表: texts 和 voice_samples_list
-            texts_for_processor = []
-            voice_samples_for_processor = []
-
-            for line in lines:
-                if ':' in line:
-                    try:
-                        speaker_name, content = line.split(':', 1)
-                        speaker_name = speaker_name.strip()
-                        content = content.strip()
+            for line in valid_lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                try:
+                    speaker_name, content = line.split(':', 1)
+                    speaker_name = speaker_name.strip()
+                    content = content.strip()
+                    
+                    if content:  # 确保内容不为空
+                        # 为每个新的说话人分配数字ID
+                        if speaker_name not in speaker_mapping:
+                            speaker_mapping[speaker_name] = speaker_counter
+                            speaker_counter += 1
                         
-                        if content: # 确保内容不为空
-                            texts_for_processor.append(content)
-                            voice_samples_for_processor.append(speaker_waveforms[speaker_name])
-                    except (ValueError, KeyError) as e:
-                        print(f"跳过格式不正确的行: '{line}' - 错误: {e}")
-                        continue
+                        speaker_id = speaker_mapping[speaker_name]
+                        formatted_line = f"Speaker {speaker_id}: {content}"
+                        formatted_script_lines.append(formatted_line)
+                        print(f"转换: {line} -> {formatted_line}")
+                except ValueError as e:
+                    print(f"跳过格式不正确的行: '{line}' - 错误: {e}")
+                    continue
             
-            if not texts_for_processor:
+            if not formatted_script_lines:
                 raise ValueError("无法从输入中解析出任何有效的对话行。")
 
-            print(f"准备好的文本行数: {len(texts_for_processor)}")
-            print(f"准备好的音频片段数: {len(voice_samples_for_processor)}")
-
-            # Step 3: 使用 "texts" 和 "voice_samples_list" 参数调用 processor
-            inputs = self.processor(
-                texts=texts_for_processor, 
-                voice_samples_list=voice_samples_for_processor,
-                return_tensors="pt"
-            )
-            # ======================= 修正结束 =======================
+            formatted_script = '\n'.join(formatted_script_lines)
+            print(f"格式化后的脚本: {formatted_script}")
             
-            inputs = {key: val.to(self.model.device) for key, val in inputs.items()}
+            # 准备音频样本 - 完全按照官方代码的 read_audio 函数
+            sample_rate = 24000
+            voice_samples = []
+            
+            def read_audio(audio_path: str, target_sr: int = 24000):
+                """按照官方代码的 read_audio 函数实现"""
+                try:
+                    import soundfile as sf
+                    import librosa
+                    wav, sr = sf.read(audio_path)
+                    if len(wav.shape) > 1:
+                        wav = np.mean(wav, axis=1)  # 转换为单声道
+                    if sr != target_sr:
+                        wav = librosa.resample(wav, orig_sr=sr, target_sr=target_sr)
+                    return wav
+                except Exception as e:
+                    print(f"Error reading audio {audio_path}: {e}")
+                    return np.array([])
+            
+            # 定义可用的音频文件映射
+            available_voices = {
+                'Alice': 'en-Alice_woman.wav',
+                'alice': 'en-Alice_woman.wav',
+                'Carter': 'en-Carter_man.wav',
+                'carter': 'en-Carter_man.wav',
+                'Frank': 'en-Frank_man.wav',
+                'frank': 'en-Frank_man.wav',
+                'Maya': 'en-Maya_woman.wav',
+                'maya': 'en-Maya_woman.wav',
+                'Samuel': 'in-Samuel_man.wav',
+                'samuel': 'in-Samuel_man.wav',
+                'Anchen': 'zh-Anchen_man_bgm.wav',
+                'anchen': 'zh-Anchen_man_bgm.wav',
+                'Bowen': 'zh-Bowen_man.wav',
+                'bowen': 'zh-Bowen_man.wav',
+                'Xinran': 'zh-Xinran_woman.wav',
+                'xinran': 'zh-Xinran_woman.wav',
+            }
+            
+            for speaker_name in speaker_mapping.keys():
+                # 首先尝试直接映射到可用的音频文件
+                mapped_filename = available_voices.get(speaker_name)
+                
+                if mapped_filename:
+                    # 使用映射的文件名
+                    possible_paths = [
+                        f"/app/demo/voices/{mapped_filename}",
+                        f"demo/voices/{mapped_filename}",
+                    ]
+                    print(f"为说话人 '{speaker_name}' 使用映射文件: {mapped_filename}")
+                else:
+                    # 如果没有映射，尝试多种可能的音频文件路径格式
+                    possible_paths = [
+                        f"/app/demo/voices/{speaker_name}.wav",  # 原始格式
+                        f"/app/demo/voices/{speaker_name.lower()}.wav",  # 小写格式
+                        f"/app/demo/voices/{speaker_name.replace('_', '-')}.wav",  # 下划线转横线
+                        f"/app/demo/voices/{speaker_name.lower().replace('_', '-')}.wav",  # 小写+下划线转横线
+                        f"demo/voices/{speaker_name}.wav",  # 相对路径格式
+                        f"demo/voices/{speaker_name.lower()}.wav",  # 相对路径小写格式
+                    ]
+                    print(f"为说话人 '{speaker_name}' 尝试通用路径匹配")
+                
+                audio_path = None
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        audio_path = path
+                        break
+                
+                if audio_path:
+                    audio_data = read_audio(audio_path)
+                    if len(audio_data) == 0:
+                        print(f"Warning: 无法读取 {speaker_name} 的音频文件。使用默认静音。")
+                        # 创建1秒的静音
+                        audio_data = np.zeros(sample_rate, dtype=np.float32)
+                    voice_samples.append(audio_data)
+                    print(f"加载了 {speaker_name} 的音频文件 ({audio_path})，长度: {len(audio_data)}")
+                else:
+                    print(f"Warning: 未找到 {speaker_name} 的音频文件。尝试的路径: {possible_paths}")
+                    # 创建1秒的静音
+                    audio_data = np.zeros(sample_rate, dtype=np.float32)
+                    voice_samples.append(audio_data)
+            
+            print(f"准备了 {len(voice_samples)} 个音频样本")
+            
+            # 添加调试信息：检查音频样本是否为空
+            for i, sample in enumerate(voice_samples):
+                if len(sample) == 0:
+                    print(f"警告: 音频样本 {i} 为空")
+                elif np.all(sample == 0):
+                    print(f"警告: 音频样本 {i} 全为零（静音）")
+                else:
+                    print(f"音频样本 {i} 正常，长度: {len(sample)}, 非零值数量: {np.count_nonzero(sample)}")
+            
+            # 使用官方格式调用 processor
+            print("使用官方格式调用 processor...")
+            inputs = self.processor(
+                text=[formatted_script],  # 注意：这里是列表
+                voice_samples=[voice_samples],  # 注意：这里也是列表
+                padding=True,
+                return_tensors="pt",
+                return_attention_mask=True,
+            )
+            
             print("文本已成功处理为输入张量。")
+            print(f"Processor 输出键: {list(inputs.keys())}")
+            
+            # 将输入移动到模型设备 - 不修改形状，让 processor 自己处理
+            processed_inputs = {}
+            for key, val in inputs.items():
+                if torch.is_tensor(val):
+                    processed_inputs[key] = val.to(self.model.device)
+                    print(f"移动张量到设备: {key} -> {val.shape}")
+                else:
+                    processed_inputs[key] = val  # 保持非张量值不变
+                    print(f"保持非张量值: {key} = {type(val)}")
+            
+            # 检查是否有 input_ids
+            if 'input_ids' not in processed_inputs:
+                print("警告: 没有找到 input_ids，检查 processor 输出...")
+                for key, val in processed_inputs.items():
+                    print(f"  {key}: {type(val)} - {val if not torch.is_tensor(val) else val.shape}")
+                # 尝试使用其他可能的键
+                if 'input_token_ids' in processed_inputs:
+                    processed_inputs['input_ids'] = processed_inputs['input_token_ids']
+                    print("使用 input_token_ids 作为 input_ids")
+                elif 'token_ids' in processed_inputs:
+                    processed_inputs['input_ids'] = processed_inputs['token_ids']
+                    print("使用 token_ids 作为 input_ids")
+                else:
+                    raise ValueError("无法找到 input_ids 或等效的输入键")
 
+            # 生成音频 - 使用官方参数并添加更多控制
             with torch.no_grad():
                 print("调用 model.generate 开始生成音频...")
-                audio_output = self.model.generate(**inputs, max_new_tokens=4096, do_sample=True, temperature=temperature, top_p=top_p)
+                print(f"传递给模型的键: {list(processed_inputs.keys())}")
+                
+                # 计算合适的 max_new_tokens
+                input_length = processed_inputs['input_ids'].shape[1]
+                max_length = min(2048, input_length + 1000)  # 限制最大长度
+                print(f"输入长度: {input_length}, 最大生成长度: {max_length}")
+                
+                audio_output = self.model.generate(
+                    **processed_inputs,
+                    max_new_tokens=max_length - input_length,  # 明确设置生成长度
+                    cfg_scale=1.3,  # 使用官方默认值
+                    tokenizer=self.processor.tokenizer,
+                    generation_config={
+                        'do_sample': False,  # 使用官方设置
+                        'max_length': max_length,
+                        'min_length': input_length + 100,  # 确保生成足够的长度
+                    },
+                    verbose=True,  # 开启详细输出
+                    refresh_negative=True,
+                )
             
             print("音频生成完毕。")
             
-            waveform_np = audio_output[0].cpu().to(torch.float32).numpy()
+            # 处理 VibeVoiceGenerationOutput 对象
+            if hasattr(audio_output, 'audio_values'):
+                # 如果输出有 audio_values 属性
+                waveform_tensor = audio_output.audio_values
+            elif hasattr(audio_output, 'sequences'):
+                # 如果输出有 sequences 属性
+                waveform_tensor = audio_output.sequences
+            elif isinstance(audio_output, tuple):
+                # 如果是元组，取第一个元素
+                waveform_tensor = audio_output[0]
+            else:
+                # 直接使用输出
+                waveform_tensor = audio_output
+            
+            # 确保是张量并转换为 numpy
+            if torch.is_tensor(waveform_tensor):
+                waveform_np = waveform_tensor.cpu().to(torch.float32).numpy()
+            else:
+                # 如果不是张量，尝试直接转换
+                waveform_np = np.array(waveform_tensor, dtype=np.float32)
+            
+            print(f"音频数据形状: {waveform_np.shape}")
+            
+            # 确保是2D数组
+            if len(waveform_np.shape) == 1:
+                waveform_np = waveform_np.reshape(1, -1)
+            elif len(waveform_np.shape) > 2:
+                waveform_np = waveform_np.reshape(1, -1)
 
+            # 保存为临时文件并返回字节
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 sf.write(tmp_file.name, waveform_np, samplerate=sample_rate)
                 tmp_file.seek(0)
@@ -207,11 +375,10 @@ class VibeVoiceModel:
 @modal.fastapi_endpoint(method="POST")
 def api(text_data: dict):
     """一个简单的 POST API 入口点，用于程序化调用。"""
-    from fastapi import status
-    from fastapi.responses import JSONResponse, Response
-    
     text = text_data.get("text")
     if not text:
+        from fastapi import status
+        from fastapi.responses import JSONResponse
         return JSONResponse(
             content={"error": "缺少 'text' 字段"},
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -220,17 +387,13 @@ def api(text_data: dict):
     model = VibeVoiceModel()
     try:
         audio_bytes = model.generate_speech.remote(text)
+        from fastapi.responses import Response
         return Response(content=audio_bytes, media_type="audio/wav")
     except Exception as e:
-        # --- 核心修复 ---
-        # 1. 将复杂的异常对象 e 转换为一个简单的字符串。
-        error_message = f"在生成语音时发生错误: {e}"
-        print(error_message) # 在服务器日志中打印详细错误，方便调试
-
-        # 2. 将这个纯净的字符串放入响应体中。
-        #    这样可以确保 jsonable_encoder 不会接触到原始的 e 对象。
+        from fastapi import status
+        from fastapi.responses import JSONResponse
         return JSONResponse(
-            content={"error": error_message},
+            content={"error": str(e)},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -250,6 +413,9 @@ def run_gradio_app():
             return None
             
         print("收到 Gradio 请求...")
+        print(f"输入文本: {repr(text)}")
+        print(f"Temperature: {temperature}, Top-p: {top_p}")
+        
         try:
             audio_bytes = model_instance.generate_speech.remote(
                 text=text,
@@ -257,6 +423,10 @@ def run_gradio_app():
                 top_p=top_p,
             )
             
+            if audio_bytes is None:
+                gr.Error("生成的音频为空")
+                return None
+                
             import tempfile
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 tmp_file.write(audio_bytes)
@@ -275,9 +445,9 @@ def run_gradio_app():
             with gr.Column(scale=2):
                 text_input = gr.Textbox(
                     label="输入文本 (支持对话格式)",
-                    placeholder="Alice: Hello, how are you?\nBob: I'm doing great, thanks for asking!",
+                    placeholder="Alice: Hello, how are you?\nCarter: I'm doing great, thanks for asking!",
                     lines=15,
-                    value="Alice: Welcome to our podcast!\nBob: Thanks for having me, Alice.\nAlice: So tell us about your research."
+                    value="Alice: Welcome to our podcast!\nCarter: Thanks for having me, Alice.\nAlice: So tell us about your research."
                 )
                 with gr.Accordion("高级设置", open=False):
                      with gr.Row():
@@ -292,13 +462,14 @@ def run_gradio_app():
                     gr.Markdown("""
                     ### 使用说明:
                     1. **格式**: 使用 `说话人姓名: 对话内容` 的格式，每句话占一行。
-                    2. **语音文件**: 您无需准备任何文件。如果 `demo/voices/` 目录下有对应说话人名称的小写 `.wav` 文件 (例如 `alice.wav`)，程序会使用它。如果文件不存在，程序会自动创建一段静音作为替代。
-                    3. **耐心**: 生成可能需要一些时间，特别是对于长文本。
+                    2. **可用说话人**: Alice, Carter, Frank, Maya, Samuel, Anchen, Bowen, Xinran
+                    3. **语音文件**: 程序会自动使用预置的音频文件，无需额外准备。
+                    4. **耐心**: 生成可能需要一些时间，特别是对于长文本。
                     
                     ### 示例:
                     ```
                     Alice: Welcome to our podcast!
-                    Bob: Thanks for having me, Alice.
+                    Carter: Thanks for having me, Alice.
                     ```
                     """)
         
@@ -315,4 +486,47 @@ def run_gradio_app():
 def main():
     print("正在启动 Gradio Web 界面... 这可能需要几分钟来构建镜像和下载模型。")
     run_gradio_app.remote()
+
+
+# 测试函数 - 可以在本地运行来验证文本解析逻辑
+def test_text_parsing():
+    """测试文本解析逻辑"""
+    test_text = """Alice: Welcome to our podcast!
+Bob: Thanks for having me, Alice.
+Alice: So tell us about your research."""
+    
+    lines = test_text.strip().split('\n')
+    print(f"解析到的行数: {len(lines)}")
+    
+    valid_lines = [line for line in lines if ':' in line and line.strip()]
+    print(f"有效行数: {len(valid_lines)}")
+    
+    # 提取说话人和文本
+    speaker_names = []
+    texts = []
+    
+    for line in valid_lines:
+        try:
+            speaker_name, content = line.split(':', 1)
+            speaker_name = speaker_name.strip()
+            content = content.strip()
+            
+            if content:  # 确保内容不为空
+                speaker_names.append(speaker_name)
+                texts.append(content)
+                print(f"添加对话: {speaker_name} -> {content}")
+        except ValueError as e:
+            print(f"跳过格式不正确的行: '{line}' - 错误: {e}")
+            continue
+    
+    print(f"说话人列表: {speaker_names}")
+    print(f"最终文本列表: {texts}")
+    print(f"文本列表长度: {len(texts)}")
+    print(f"说话人列表长度: {len(speaker_names)}")
+    print("测试完成！")
+
+
+if __name__ == "__main__":
+    # 如果直接运行此文件，先测试文本解析
+    test_text_parsing()
 

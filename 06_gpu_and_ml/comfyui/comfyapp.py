@@ -49,7 +49,6 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     .apt_install("git")  # install git to clone ComfyUI
     .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
     .pip_install("comfy-cli==1.4.1")  # install comfy-cli
-    .pip_install("comfy-cli==1.4.1")  # install comfy-cli
     .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
         "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.41"
         "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.40"
@@ -81,7 +80,7 @@ image = (
 
 # We'll also add our own custom node that patches core ComfyUI so that we can use Modal's [memory snapshot](https://modal.com/docs/guide/memory-snapshot) feature to speed up cold starts (more on that on [running as an API](https://modal.com/docs/examples/comfyapp#running-comfyui-as-an-api)).
 image = image.add_local_dir(
-    local_path=Path(__file__).parent / "memory_snapshot_helper",
+    local_path=Path(__file__).parent / "memory_snapshot" / "memory_snapshot_helper",
     remote_path="/root/comfy/ComfyUI/custom_nodes/memory_snapshot_helper",
     copy=True,
 )

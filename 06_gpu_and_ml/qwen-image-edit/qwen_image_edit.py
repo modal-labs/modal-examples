@@ -8,12 +8,17 @@
 # 我们将使用 Hugging Face 官方推荐的 diffusers 库中的 QwenImageEditPipeline，
 # 这种方法更稳定、代码也更简洁。
 
+# **新增功能**: 我们还添加了一个 Web API 端点，以便通过 HTTP POST 请求调用此功能。
+
 # 模型主页: https://huggingface.co/Qwen/Qwen-Image-Edit
 
 from io import BytesIO
 from pathlib import Path
 
 import modal
+from fastapi import File, Form, UploadFile
+from fastapi.responses import Response
+
 
 # 1. 定义容器镜像：安装所有必要的库
 image = (
@@ -23,7 +28,7 @@ image = (
     )
     .apt_install("git")
     .pip_install(
-        # **最终修复**: 修正 PyTorch Nightly 的包名为官方名称 'torch' 和 'torchvision'
+        # 使用 PyTorch Nightly 版本以支持 diffusers 的最新功能
         "torch",
         "torchvision",
         "transformers>=4.52.0",
@@ -31,6 +36,8 @@ image = (
         "Pillow>=10.2.0",
         "huggingface-hub>=0.22.0",
         "accelerate>=0.29.0",
+        "fastapi",             # **新增**: 添加 FastAPI 用于构建 Web 端点
+        "python-multipart",    # **新增**: 用于处理文件上传
         # PyTorch 的 Nightly index URL 不同，需要指定
         extra_index_url="https://download.pytorch.org/whl/nightly/cu121",
     )
@@ -52,7 +59,7 @@ app = modal.App("example-qwen-image-edit-diffusers")
 
 @app.cls(
     image=image,
-    gpu="H100",
+    gpu="A100-80GB",
     volumes=volumes,
     secrets=secrets,
     scaledown_window=240,
@@ -69,6 +76,7 @@ class Model:
         print(f"正在加载模型: {MODEL_NAME}")
         self.device = "cuda"
 
+        # 使用 Diffusers Pipeline 以高精度加载模型
         self.pipe = QwenImageEditPipeline.from_pretrained(
             MODEL_NAME,
             torch_dtype=torch.bfloat16,
@@ -87,11 +95,20 @@ class Model:
 
         print(f"收到新的推理任务，指令: '{prompt}'")
         init_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        
+                # --- 新增：定义负向提示词 ---
+        negative_prompt = (
+            "blurry text, distorted text, artifacts, watermark, signature, "
+            "模糊的文字, 变形的文字, 乱码, 错误的笔画, low quality, "
+            "乱序文字, 不自然的字符, 错误的字体"
+        )
 
         edited_image = self.pipe(
             image=init_image,
             prompt=prompt,
-            num_inference_steps=20,
+            negative_prompt=negative_prompt,
+            num_inference_steps=50,
+            guidance_scale=8.0,
             generator=torch.Generator(device=self.device).manual_seed(42),
         ).images[0]
         
@@ -102,6 +119,26 @@ class Model:
         output_image_bytes = byte_stream.getvalue()
 
         return output_image_bytes
+
+
+# 修复：添加 @app.function() 装饰器
+@app.function(image=image)  # ✅ 关键修复：关联到 app
+@modal.fastapi_endpoint(method="POST")
+async def edit_image(image: UploadFile = File(...), prompt: str = Form(...)):
+    """
+    一个用于编辑图片的 Web API 端点，使用 multipart/form-data 进行 POST 请求。
+    - 'image': 需要编辑的图片文件。
+    - 'prompt': 用于编辑的文本指令。
+    """
+    print(f"收到来自 Web 的请求，指令: '{prompt}'")
+    # 读取上传的图片文件为字节流
+    image_bytes = await image.read()
+
+    # 远程调用我们的核心推理函数
+    output_image_bytes = Model().inference.remote(image_bytes, prompt)
+
+    # 将生成的图片以 PNG 格式返回
+    return Response(content=output_image_bytes, media_type="image/png")
 
 
 @app.local_entrypoint()
@@ -125,9 +162,8 @@ def main(
     input_image_bytes = input_image_path.read_bytes()
 
     print(f"🎨 正在使用指令 '{prompt}' 编辑图片...")
-    output_image_bytes = Model().inference.remote(input_image_bytes, prompt)
+    output_image_bytes = Model().inference.remote(image_bytes, prompt)
 
     output_image_path.parent.mkdir(exist_ok=True, parents=True)
     print(f"🎨 正在保存输出图片到: {output_image_path}")
     output_image_path.write_bytes(output_image_bytes)
-
