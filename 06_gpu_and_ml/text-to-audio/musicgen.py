@@ -80,7 +80,7 @@ image = image.env(
 # We'll stick with Python and so use FastAPI and Gradio.
 
 web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
-    "fastapi[standard]==0.115.4", "gradio==4.44.1"
+    "fastapi[standard]==0.115.4", "gradio==4.44.1", "pydantic==2.10.1"
 )
 
 # This is a totally different environment from the one we run our model in.
@@ -96,11 +96,11 @@ web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
 # - In the `app.cls` decorator, we specify the Image we built and attach the Volume.
 # We also pick a GPU to run on -- here, an NVIDIA L40S.
 
-app = modal.App("example-musicgen")
+app = modal.App("example-generate-music")
 
 
 @app.cls(gpu="l40s", image=image, volumes={cache_dir: model_cache})
-class MusicGen:
+class MusicGenerator:
     @modal.enter()
     def init(self):
         from acestep.pipeline_ace_step import ACEStepPipeline
@@ -114,7 +114,7 @@ class MusicGen:
         lyrics: str,
         duration: float = 60.0,
         format: str = "wav",  # or mp3
-        manual_seeds: Optional[int] = 508630535,
+        manual_seeds: Optional[int] = 1,
     ) -> bytes:
         import uuid
 
@@ -124,6 +124,10 @@ class MusicGen:
             audio_duration=duration,
             prompt=prompt,
             lyrics=lyrics,
+            save_path=output_path,
+            manual_seeds=manual_seeds,
+            # for samples, see https://github.com/ace-step/ACE-Step/tree/6ae0852b1388de6dc0cca26b31a86d711f723cb3/examples/
+            # note that the parameters below are fixed in all of the samples in the default folder
             infer_step=60,
             guidance_scale=15,
             scheduler_type="euler",
@@ -135,8 +139,6 @@ class MusicGen:
             use_erg_tag=True,
             use_erg_lyric=True,
             use_erg_diffusion=True,
-            save_path=output_path,
-            manual_seeds=manual_seeds,
         )
         return Path(output_path).read_bytes()
 
@@ -150,20 +152,31 @@ def main(
     lyrics: Optional[str] = None,
     duration: Optional[float] = None,
     format: str = "wav",  # or mp3
+    manual_seeds: Optional[int] = 1,
 ):
-    if prompt is None:
-        prompt = "volin, solo, fast tempo"
     if lyrics is None:
         lyrics = "[inst]"
+    if prompt is None:
+        prompt = "Korean pop music, bright energetic electronic music, catchy melody, female vocals"
+        lyrics = """[intro][intro]
+            [chorus]
+            We're goin' up, up, up, it's our moment
+            You know together we're glowing
+            Gonna be, gonna be golden
+            Oh, up, up, up with our voices
+            영원히 깨질 수 없는
+            Gonna be, gonna be golden"""
     if duration is None:
-        duration = 60.0  # seconds
+        duration = 30.0  # seconds
     print(
         f"🎼 generating {duration} seconds of music from prompt '{prompt[:32] + ('...' if len(prompt) > 32 else '')}'"
-        f"and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
+        f" and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
     )
 
-    musicgen = MusicGen()
-    clip = musicgen.generate.remote(prompt, lyrics, duration=duration, format=format)
+    music_generator = MusicGenerator()
+    clip = music_generator.generate.remote(
+        prompt, lyrics, duration=duration, format=format, manual_seeds=manual_seeds
+    )
 
     dir = Path("/tmp/musicgen")
     dir.mkdir(exist_ok=True, parents=True)
@@ -176,8 +189,10 @@ def main(
 # You can execute it with a command like:
 
 # ``` shell
-# modal run musicgen.py --prompt="Baroque boy band, Bachstreet Boys, basso continuo, Top 40 pop music" --duration=60
+# modal run musicgen.py
 # ```
+
+# Pass in `--help` to see options and how to use them.
 
 # ## Hosting a web UI for the music generator
 
@@ -212,13 +227,17 @@ def ui():
 
     # Since this Gradio app is running from its own container,
     # we make a `.remote` call to the music generator
-    model = MusicGen()
-    generate = model.generate.remote
+    music_generator = MusicGenerator()
+    generate = music_generator.generate.remote
 
     temp_dir = Path("/dev/shm")
 
-    async def generate_music(prompt: str, duration: int = 10, format: str = "wav"):
-        audio_bytes = await generate.aio(prompt, duration=duration, format=format)
+    async def generate_music(
+        prompt: str, lyrics: str, duration: float = 30.0, format: str = "wav"
+    ):
+        audio_bytes = await generate.aio(
+            prompt, lyrics, duration=duration, format=format
+        )
 
         audio_path = temp_dir / f"{uuid4()}.{format}"
         audio_path.write_bytes(audio_bytes)
@@ -226,12 +245,13 @@ def ui():
         return audio_path
 
     with gr.Blocks(theme="soft") as demo:
-        gr.Markdown("# MusicGen")
+        gr.Markdown("# Generate Music")
         with gr.Row():
             with gr.Column():
                 prompt = gr.Textbox(label="Prompt")
+                lyrics = gr.Textbox(label="Lyrics")
                 duration = gr.Number(
-                    label="Duration (seconds)", value=10, minimum=1, maximum=300
+                    label="Duration (seconds)", value=10.0, minimum=1.0, maximum=300.0
                 )
                 format = gr.Radio(["wav", "mp3"], label="Format", value="wav")
                 btn = gr.Button("Generate")
@@ -240,7 +260,7 @@ def ui():
 
         btn.click(
             generate_music,
-            inputs=[prompt, duration, format],
+            inputs=[prompt, lyrics, duration, format],
             outputs=[clip_output],
         )
 
