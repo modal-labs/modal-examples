@@ -1,4 +1,4 @@
-# # Create music with ACE-Step
+# # Make music with ACE-Step
 
 # In this example, we show you how you can run [ACE Studio](https://acestudio.ai/)'s
 # [ACE-Step](https://github.com/ace-step/ACE-Step) music generation model
