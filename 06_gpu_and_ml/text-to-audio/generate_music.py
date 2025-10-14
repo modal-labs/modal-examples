@@ -125,6 +125,7 @@ class MusicGenerator:
             audio_duration=duration,
             prompt=prompt,
             lyrics=lyrics,
+            format=format,
             save_path=output_path,
             manual_seeds=manual_seeds,
             # for samples, see https://github.com/ace-step/ACE-Step/tree/6ae0852b1388de6dc0cca26b31a86d711f723cb3/examples/
