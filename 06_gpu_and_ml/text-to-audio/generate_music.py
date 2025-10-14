@@ -1,8 +1,11 @@
 # # Create music with ACE-Step
 
-# In this example, we show you how you can run [Ace Studio](https://acestudio.ai/)'s
+# In this example, we show you how you can run [ACE Studio](https://acestudio.ai/)'s
 # [ACE-Step](https://github.com/ace-step/ACE-Step) music generation model
 # on Modal.
+
+# We'll set up both a serverless music generation service
+# and a web user interface.
 
 # ## Setting up dependencies
 
@@ -16,7 +19,7 @@ import modal
 # This takes some explaining since, like most cutting-edge ML environments, it is a bit fiddly.
 
 # This environment is captured by a
-# [container image](https://modal.com/docs/guide/custom-container),
+# [container image](https://modal.com/docs/guide/images),
 # which we build step-by-step by calling methods to add dependencies,
 # like `apt_install` to add system packages and `pip_install` to add
 # Python packages.
@@ -106,7 +109,7 @@ class MusicGenerator:
         self.model: ACEStepPipeline = load_model(and_return=True)
 
     @modal.method()
-    def generate(
+    def run(
         self,
         prompt: str,
         lyrics: str,
@@ -171,12 +174,12 @@ def main(
         f" and lyrics '{lyrics[:32] + ('...' if len(lyrics) > 32 else '')}'"
     )
 
-    music_generator = MusicGenerator()
-    clip = music_generator.generate.remote(
+    music_generator = MusicGenerator()  # outside of this file, use modal.Cls.from_name
+    clip = music_generator.run.remote(
         prompt, lyrics, duration=duration, format=format, manual_seeds=manual_seeds
     )
 
-    dir = Path("/tmp/musicgen")
+    dir = Path("/tmp/generate-music")
     dir.mkdir(exist_ok=True, parents=True)
 
     output_path = dir / f"{slugify(prompt)[:64]}.{format}"
@@ -184,10 +187,20 @@ def main(
     output_path.write_bytes(clip)
 
 
+def slugify(string):
+    return (
+        string.lower()
+        .replace(" ", "-")
+        .replace("/", "-")
+        .replace("\\", "-")
+        .replace(":", "-")
+    )
+
+
 # You can execute it with a command like:
 
 # ``` shell
-# modal run musicgen.py
+# modal run generate_music.py
 # ```
 
 # Pass in `--help` to see options and how to use them.
@@ -201,10 +214,8 @@ def main(
 # To deploy both the music generator and the UI, run
 
 # ``` shell
-# modal deploy musicgen.py
+# modal deploy generate_music.py
 # ```
-
-# Share the URL with your friends and they can generate their own songs!
 
 
 @app.function(
@@ -226,7 +237,7 @@ def ui():
     # Since this Gradio app is running from its own container,
     # we make a `.remote` call to the music generator
     music_generator = MusicGenerator()
-    generate = music_generator.generate.remote
+    generate = music_generator.run.remote
 
     temp_dir = Path("/dev/shm")
 
@@ -263,19 +274,3 @@ def ui():
         )
 
     return mount_gradio_app(app=api, blocks=demo, path="/")
-
-
-# ## Addenda
-
-# The remainder of the code here is not directly related to Modal
-# or to music generation, but is used in the example above.
-
-
-def slugify(string):
-    return (
-        string.lower()
-        .replace(" ", "-")
-        .replace("/", "-")
-        .replace("\\", "-")
-        .replace(":", "-")
-    )
