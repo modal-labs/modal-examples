@@ -1,14 +1,9 @@
 const { useState, useEffect } = React;
 
-function TextWithLineBreaks(props) {
-  const textWithBreaks = props.text.split("\n").map((text, index) => (
-    <React.Fragment key={index}>
-      <span className="text-black">{text}</span>
-      <br />
-    </React.Fragment>
-  ));
 
-  return <div>{textWithBreaks}</div>;
+function ReceiptMarkdown({ text }) {
+  const safeHtml = DOMPurify.sanitize(marked.parse(text));
+  return <div className="text-black" dangerouslySetInnerHTML={{ __html: safeHtml }} />;
 }
 
 function App() {
@@ -23,6 +18,7 @@ function App() {
     if (file) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
+      setResult("");
     }
   };
 
@@ -95,6 +91,22 @@ function App() {
     return () => clearInterval(pollInterval);
   }, [callId]);
 
+  const handlePrimaryClick = () => {
+    if (isLoading) return;
+
+    const fileInput = document.getElementById("file-upload");
+
+    if (result && !callId) {
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setResult("");
+      if (fileInput) fileInput.value = "";
+      if (fileInput) fileInput.click();
+    } else {
+      handleExtractText();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-inter">
       <div className="pt-8 px-4">
@@ -107,7 +119,7 @@ function App() {
                 className="w-13 h-12"
               />
               <span className="text-[#80ee64] font-light text-[20px]">
-                Receipt Parsing with GOT OCR 2.0
+                Receipt Parsing
               </span>
             </div>
           </div>
@@ -120,6 +132,13 @@ function App() {
                 <div className="absolute top-0 left-0 bg-gray-100 text-gray-500 text-sm px-3 py-1 rounded-full border border-gray-200">
                   Upload a receipt
                 </div>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="file-upload"
+                  accept="image/*"
+                />
                 <div className="text-center">
                   {!previewUrl ? (
                     <>
@@ -137,13 +156,6 @@ function App() {
                         />
                       </svg>
 
-                      <input
-                        type="file"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        id="file-upload"
-                        accept="image/*"
-                      />
                       <label
                         htmlFor="file-upload"
                         className="cursor-pointer bg-[#80ee64] text-black px-4 py-2 rounded-full hover:opacity-90 transition-opacity font-arial inline-block font-bold"
@@ -163,7 +175,7 @@ function App() {
 
               <div className="bg-[#deffdc] rounded-lg p-6 min-h-[400px] relative">
                 <div className="absolute top-0 left-0 bg-[#f0f0f0] text-gray-600 text-sm px-3 py-1.5 rounded-full border border-gray-200">
-                  <span>GOT-OCR Output</span>
+                  <span>Receipt Text</span>
                 </div>
                 <div className="bg-[#f0f0f0] rounded-lg p-4 h-full transform scale-90 overflow-auto">
                   {isLoading ? (
@@ -171,7 +183,7 @@ function App() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#80ee64]"></div>
                     </div>
                   ) : result ? (
-                    <TextWithLineBreaks text={result} />
+                    <ReceiptMarkdown text={result} />
                   ) : null}
                 </div>
               </div>
@@ -179,11 +191,15 @@ function App() {
 
             <div className="flex flex-col items-center space-y-2">
               <button
-                onClick={handleExtractText}
-                disabled={!selectedFile || isLoading}
+                onClick={handlePrimaryClick}
+                disabled={isLoading}
                 className="bg-[#80ee64] text-black px-6 py-2 rounded-full hover:opacity-90 transition-opacity font-arial font-bold disabled:opacity-50"
               >
-                {isLoading ? "Processing..." : "Extract Text"}
+                {isLoading
+                  ? "Processing..."
+                  : result && !callId
+                  ? "Upload Another"
+                  : "Extract Text"}
               </button>
             </div>
           </div>
@@ -197,9 +213,9 @@ function App() {
         >
           <span>Powered by</span>
           <img
-            src="images/modal_logo.png"
-            alt="Modal Logo"
-            className="h-12 w-auto mx-2"
+            src="images/modal_wordmark.svg"
+            alt="Modal Wordmark"
+            className="h-6 w-auto mx-2"
           />
         </a>
       </footer>

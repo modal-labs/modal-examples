@@ -12,7 +12,7 @@
 
 # We will:
 
-# - Download two custom datasets from the [Roboflow](https://roboflow.com/) computer vision platform: a dataset of birds and a dataset of bees
+# - Download two custom datasets from the [Roboflow](https://roboflow.com/) computer vision platform: a dataset of cats and a dataset of dogs
 
 # - Fine-tune the model on those datasets, in parallel, using the [Ultralytics package](https://docs.ultralytics.com/)
 
@@ -278,21 +278,21 @@ def main(quick_check: bool = True, inference_only: bool = False):
         inference_only: skip fine-tuning and only run inference
     """
 
-    birds = DatasetConfig(
-        workspace_id="birds-s35xe",
-        project_id="birds-u8mti",
-        version=2,
+    dogs = DatasetConfig(
+        workspace_id="cv-project-v2",
+        project_id="6-dog-breeds",
+        version=1,
         format="yolov9",
-        target_class="🐥",
+        target_class="🐶",
     )
-    bees = DatasetConfig(
-        workspace_id="bees-tbdsg",
-        project_id="bee-counting",
-        version=11,
+    cats = DatasetConfig(
+        workspace_id="jus-workspace",
+        project_id="cats-w7ohy",
+        version=3,
         format="yolov9",
-        target_class="🐝",
+        target_class="🐱",
     )
-    datasets = [birds, bees]
+    datasets = [dogs, cats]
 
     # .for_each runs a function once on each element of the input iterators
     # here, that means download each dataset, in parallel

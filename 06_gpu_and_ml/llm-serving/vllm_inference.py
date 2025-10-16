@@ -2,7 +2,7 @@
 # pytest: false
 # ---
 
-# # Run OpenAI-compatible LLM inference with LLaMA 3.1-8B and vLLM
+# # Run OpenAI-compatible LLM inference with Qwen3-8B and vLLM
 
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
 # This has complicated their interface far beyond "text-in, text-out".
@@ -23,9 +23,6 @@
 # the [container `Image`](https://modal.com/docs/guide/custom-container).
 # vLLM can be installed with `pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
 
-# To take advantage of optimized kernels for CUDA 12.8, we install PyTorch, flashinfer, and their dependencies
-# via an `extra` Python package index.
-
 import json
 from typing import Any
 
@@ -34,33 +31,34 @@ import modal
 
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    .entrypoint([])
     .uv_pip_install(
-        "vllm==0.10.1.1",
-        "huggingface_hub[hf_transfer]==0.34.4",
-        "flashinfer-python==0.2.8",
-        "torch==2.7.1",
+        "vllm==0.10.2",
+        "huggingface_hub[hf_transfer]==0.35.0",
+        "flashinfer-python==0.3.1",
+        "torch==2.8.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
 
 # ## Download the model weights
 
-# We'll be running a pretrained foundation model -- Meta's LLaMA 3.1 8B
-# in the Instruct variant that's trained to chat and follow instructions.
+# We'll be running a pretrained foundation model -- Qwen's Qwen3-8B.
+# It is trained with reasoning capabilities, which allow it to
+# enhance the quality of its generated responses.
 
-# Model parameters are often quantized to a lower precision during training
-# than they are run at during inference.
-# We'll use an eight bit floating point quantization from Neural Magic/Red Hat.
+# We'll use an FP8 (eight-bit floating-point) post-training-quantized variant: Qwen/Qwen3-8B-FP8.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
-# A single H100 GPU has enough VRAM to store a 8,000,000 parameter model,
-# like Llama 3.1, in eight bit precision, along with a very large KV cache.
+# A single H100 GPU has enough VRAM to store an 8,000,000 parameter model,
+# like Qwen3-8B, in eight bit precision, along with a very large KV cache.
 
-MODEL_NAME = "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8"
-MODEL_REVISION = "12fd6884d2585dd4d020373e7f39f74507b31866"  # avoid nasty surprises when repos update!
+
+MODEL_NAME = "Qwen/Qwen3-8B-FP8"
+MODEL_REVISION = "220b46e3b2180893580a4454f21f22d3ebb187d3"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -76,19 +74,6 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 # ## Configuring vLLM
-
-# ### The V1 engine
-
-# In its 0.7 release, in early 2025, vLLM added a new version of its backend infrastructure,
-# the [V1 Engine](https://blog.vllm.ai/2025/01/27/v1-alpha-release.html).
-# Using this new engine can lead to some [impressive speedups](https://github.com/modal-labs/modal-examples/pull/1064).
-# It was made the default in version 0.8 and is [slated for complete removal by 0.11](https://github.com/vllm-project/vllm/issues/18571),
-# in late summer of 2025.
-
-# A small number of features, described in the RFC above, may still require the V0 engine prior to removal.
-# Until deprecation, you can use it by setting the below environment variable to `0`.
-
-vllm_image = vllm_image.env({"VLLM_USE_V1": "1"})
 
 # ### Trading off fast boots and token generation performance
 

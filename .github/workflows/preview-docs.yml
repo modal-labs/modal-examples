@@ -36,7 +36,8 @@ jobs:
 
       - name: Install modal development packages
         run: |
-          uv pip install --system -r modal/requirements.dev.txt
+          uv pip install --system -r requirements.dev.txt
+        working-directory: modal
 
       - name: Install client
         run: |
