@@ -21,12 +21,7 @@ image = (
     .run_commands(
         "curl -fsSL https://claude.ai/install.sh | bash",
     )
-    .env(
-        {
-            "PATH": "/root/.local/bin:$PATH",
-            "USE_BUILTIN_RIPGREP": "0",
-        }
-    )
+    .env({"PATH": "/root/.local/bin:$PATH"})  # add claude to path
 )
 
 with modal.enable_output():
@@ -40,17 +35,13 @@ git_ps.wait()
 print(f"Cloned '{repo_url}' into /repo.")
 
 # Finally we'll run Claude Code to analyze the repository.
-claude_cmd = [
-    "claude",
-    "-p",
-    "Summarize what this repository is about. Don't modify any files.",
-]
+claude_cmd = ["claude", "-p", "What is in this repository?"]
 
 print("\nRunning command:", claude_cmd)
 
 claude_ps = sandbox.exec(
     *claude_cmd,
-    pty=True,  # Adding a PTY is important, since Claude requires it!
+    pty=True,  # Adding a PTY is important, since Claude requires it
     secrets=[
         modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"])
     ],
