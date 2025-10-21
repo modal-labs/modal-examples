@@ -53,7 +53,7 @@ vllm_image = (
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
-# A single H100 GPU has enough VRAM to store an 8,000,000 parameter model,
+# A single H100 GPU has enough VRAM to store an 8,000,000,000 parameter model,
 # like Qwen3-8B, in eight bit precision, along with a very large KV cache.
 
 
