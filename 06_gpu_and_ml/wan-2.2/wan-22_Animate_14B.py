@@ -1,306 +1,349 @@
 # ---
-# output-directory: "/tmp/wan22-video"
+# output-directory: "/tmp/wan22-animate"
 # ---
 
-# # 使用 Modal 部署 Wan2.2-Animate-14B 视频生成模型
+# # 使用 Modal 部署 Wan2.2-Animate-14B 角色动画和替换模型
 
-# 在这个例子中，我们将在云端GPU上运行阿里的 Wan2.2-Animate-14B 模型。
-# 这是一个文本生成视频 (T2V) 动画模型，
-# 可以生成 720P@24fps 的高质量视频。
+# Wan2.2-Animate-14B 是一个统一的角色动画和替换模型。
+# 
+# 功能：
+# 1. Animation 模式：让静态角色图片按照参考视频的动作动起来
+# 2. Replacement 模式：将视频中的角色替换成指定角色
+#
+# ⚠️  注意：此模型需要使用 GitHub 原始代码，不支持 Diffusers
 
 # 模型主页: https://huggingface.co/Wan-AI/Wan2.2-Animate-14B
 # GitHub: https://github.com/Wan-Video/Wan2.2
+# 项目页面: https://humanaigc.github.io/wan-animate
 
-from io import BytesIO
 from pathlib import Path
-from typing import Optional
-
+from typing import Optional, Literal
 import modal
-from fastapi import File, Form, UploadFile
-from fastapi.responses import Response
 
-
-# 1. 定义容器镜像：安装所有必要的库
+# 1. 定义容器镜像：克隆 GitHub 仓库并安装依赖
 image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.1.1-devel-ubuntu22.04",
         add_python="3.11",
     )
-    .apt_install("git", "ffmpeg")  # ffmpeg 用于视频处理
+    .apt_install("git", "ffmpeg", "libgl1-mesa-glx", "libglib2.0-0")
+    .pip_install("pip==24.0")
+    # 先安装 PyTorch（flash_attn 编译需要）
     .pip_install(
         "torch>=2.4.0",
         "torchvision",
-        "Pillow>=10.2.0",
-        "huggingface-hub>=0.22.0",
-        "accelerate>=0.29.0",
-        "sentencepiece",  # T5 模型需要
-        "protobuf",
-        "ftfy",  # WanPipeline 文本处理需要
-        "fastapi",
-        "python-multipart",
-        "numpy",
-        "decord",
-        "opencv-python",
-        "imageio[ffmpeg]",  # 视频导出
         extra_index_url="https://download.pytorch.org/whl/cu121",
     )
     .run_commands(
-        "git clone https://github.com/Wan-Video/Wan2.2.git /opt/Wan2.2",
-        "cd /opt/Wan2.2 && pip install -r requirements.txt"
+        # 克隆 Wan2.2 GitHub 仓库
+        "cd /root && git clone https://github.com/Wan-Video/Wan2.2.git",
     )
+    # 单独安装除了 flash_attn 之外的依赖（flash_attn 编译太慢且容易失败）
+    .pip_install(
+        "transformers>=4.44.0",
+        "diffusers>=0.30.0",
+        "accelerate>=0.29.0",
+        "sentencepiece",
+        "protobuf",
+        "ftfy",
+        "Pillow>=10.2.0",
+        "numpy",
+        "opencv-python",
+        "imageio[ffmpeg]",
+        "einops",
+        "omegaconf",
+        "safetensors",
+        "huggingface-hub",
+        # 预处理需要的库
+        "mediapipe",
+        "insightface",
+        "onnxruntime-gpu",
+    )
+    # 跳过 flash_attn，它编译太慢且不是必需的
+    # 如果真的需要，可以用预编译版本或在运行时使用 scaled_dot_product_attention
 )
 
-# 定义 Wan2.2 仓库路径
-WAN_PATH = Path("/opt/Wan2.2")
+# 定义模型路径和缓存
+MODEL_NAME = "Wan-AI/Wan2.2-Animate-14B"
+CACHE_DIR = Path("/cache")
+REPO_DIR = Path("/root/Wan2.2")
 
-# 创建一个持久化的存储卷来缓存模型
-cache_volume = modal.Volume.from_name("hf-hub-cache-wan22", create_if_missing=True)
-volumes = {Path("/cache"): cache_volume}
+# 创建持久化存储卷
+cache_volume = modal.Volume.from_name("hf-hub-cache-wan22-animate", create_if_missing=True)
+volumes = {CACHE_DIR: cache_volume}
 
-# 从Modal平台安全地获取HuggingFace的API密钥
+# HuggingFace API 密钥
 secrets = [modal.Secret.from_name("huggingface-secret")]
 
-app = modal.App("example-wan22-animate")
+app = modal.App("example-wan22-animate-character-animation")
+
 
 @app.cls(
     image=image,
-    gpu="H100",  # Wan2.2-Animate-14B 建议使用 80GB H100 GPU
+    gpu="H100",  # Animate 需要大显存
     volumes=volumes,
     secrets=secrets,
-    timeout=3600,  # 60分钟超时，视频生成需要较长时间
-    scaledown_window=300,  # 修复：使用新的参数名
+    timeout=3600,  # 1小时超时（预处理 + 推理需要较长时间）
+    scaledown_window=300,
 )
 class Model:
     @modal.enter()
     def enter(self):
         """
-        容器启动时运行一次:下载并加载模型到GPU。
+        容器启动时运行一次：下载模型权重
         """
-        import torch
-        import sys
-        sys.path.append(str(WAN_PATH))
-        from wan2_2.models import WanModel
-        from wan2_2.pipeline import WanAnimatePipeline
-
-        print("加载 Wan2.2 Animate 14B 模型...")
-        torch.backends.cuda.matmul.allow_tf32 = True
-        self.device = "cuda"
-        self.dtype = torch.bfloat16
-
-        self.pipe = WanAnimatePipeline.from_pretrained(
-            WAN_PATH / "models/Wan2.2-Animate-14B",
-            torch_dtype=self.dtype,
-            device=self.device
-        )
-        self.pipe.to(self.device)
-        print("模型加载完成！")
+        import os
+        import subprocess
+        
+        print(f"正在下载模型: {MODEL_NAME}")
+        
+        # 设置工作目录
+        os.chdir(REPO_DIR)
+        
+        # 下载模型权重到缓存目录
+        model_path = CACHE_DIR / "Wan2.2-Animate-14B"
+        if not model_path.exists():
+            print("首次运行，正在下载模型权重...")
+            subprocess.run([
+                "huggingface-cli", "download",
+                MODEL_NAME,
+                "--local-dir", str(model_path)
+            ], check=True)
+        else:
+            print("模型已缓存，跳过下载")
+        
+        self.model_path = model_path
+        print("模型准备完成！")
 
     @modal.method()
-    def generate_video(
+    def preprocess(
         self,
-        prompt: str,
-        image_bytes: Optional[bytes] = None,
-        height: int = 704,
-        width: int = 1280,
-        num_frames: int = 121,
-        num_inference_steps: int = 50,
-        guidance_scale: float = 5.0,
-        seed: int = 42,
+        video_bytes: bytes,
+        image_bytes: bytes,
+        mode: Literal["animation", "replacement"] = "animation",
+        resolution_width: int = 1280,
+        resolution_height: int = 720,
     ) -> bytes:
         """
-        核心的视频生成函数。
+        预处理步骤：处理输入视频和参考图片
         
         参数:
-        - prompt: 文本提示词
-        - image_bytes: 可选的输入图片（如果提供则为 I2V，否则为 T2V）
-        - height: 视频高度（默认 704）
-        - width: 视频宽度（默认 1280）
-        - num_frames: 帧数（默认 121，约5秒@24fps）
-        - num_inference_steps: 推理步数（默认 50）
-        - guidance_scale: 引导强度（默认 5.0）
-        - seed: 随机种子
+        - video_bytes: 输入视频的字节流
+        - image_bytes: 参考角色图片的字节流
+        - mode: "animation" 或 "replacement"
+        - resolution_width: 视频宽度（默认 1280）
+        - resolution_height: 视频高度（默认 720）
         
         返回:
-        - 生成的视频文件（MP4格式）的字节流
+        - 预处理结果的打包字节流
         """
-        import torch
-        from PIL import Image
-        from diffusers.utils import export_to_video
-        import numpy as np
+        import os
+        import subprocess
+        import tarfile
+        from io import BytesIO
+        
+        print(f"开始预处理 - 模式: {mode}")
+        
+        # 创建临时目录
+        temp_dir = Path("/tmp/animate_input")
+        temp_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 保存输入文件
+        video_path = temp_dir / "video.mp4"
+        image_path = temp_dir / "image.jpeg"
+        video_path.write_bytes(video_bytes)
+        image_path.write_bytes(image_bytes)
+        
+        # 预处理输出目录
+        output_dir = temp_dir / "process_results"
+        output_dir.mkdir(exist_ok=True)
+        
+        # 构建预处理命令
+        os.chdir(REPO_DIR)
+        
+        cmd = [
+            "python", "./wan/modules/animate/preprocess/preprocess_data.py",
+            "--ckpt_path", str(self.model_path / "process_checkpoint"),
+            "--video_path", str(video_path),
+            "--refer_path", str(image_path),
+            "--save_path", str(output_dir),
+            "--resolution_area", str(resolution_width), str(resolution_height),
+        ]
+        
+        # 根据模式添加特定参数
+        if mode == "animation":
+            cmd.extend(["--retarget_flag", "--use_flux"])
+        else:  # replacement
+            cmd.extend([
+                "--iterations", "3",
+                "--k", "7",
+                "--w_len", "1",
+                "--h_len", "1",
+                "--replace_flag"
+            ])
+        
+        print(f"运行预处理命令: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        
+        # 打包预处理结果
+        print("打包预处理结果...")
+        tar_buffer = BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode='w:gz') as tar:
+            tar.add(output_dir, arcname='process_results')
+        
+        result_bytes = tar_buffer.getvalue()
+        print(f"预处理完成，结果大小: {len(result_bytes) / 1024 / 1024:.2f} MB")
+        
+        return result_bytes
 
-        print(f"收到新的视频生成任务")
-        print(f"提示词: '{prompt}'")
-        print(f"模式: {'图片生成视频 (I2V)' if image_bytes else '文本生成视频 (T2V)'}")
-
-        # 负向提示词（中文 + 英文）
-        negative_prompt = (
-            "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，"
-            "整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，"
-            "画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，"
-            "手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
-        )
-
-        # 如果提供了图片，则进行 I2V 生成
-        image = None
-        if image_bytes:
-            image = Image.open(BytesIO(image_bytes)).convert("RGB")
-            print(f"输入图片原始尺寸: {image.size}")
-            
-            # 对于 I2V，需要根据图片比例调整尺寸
-            # TI2V-5B 的 size 参数表示面积，宽高比跟随输入图片
-            max_area = height * width  # 使用传入的 height 和 width 计算面积
-            aspect_ratio = image.height / image.width
-            
-            # 计算合适的尺寸（必须是 32 的倍数，因为 patch_size=2, scale_factor=16）
-            mod_value = 32
-            calc_height = round(np.sqrt(max_area * aspect_ratio)) // mod_value * mod_value
-            calc_width = round(np.sqrt(max_area / aspect_ratio)) // mod_value * mod_value
-            
-            # 调整图片大小
-            image = image.resize((calc_width, calc_height))
-            print(f"调整后图片尺寸: {image.size}")
-            
-            # 使用调整后的尺寸
-            height = calc_height
-            width = calc_width
-
-        print(f"视频分辨率: {width}x{height}, 帧数: {num_frames}")
-
-        # 设置生成器
-        generator = torch.Generator(device=self.device).manual_seed(seed)
-
-        # 生成视频
-        print("开始生成视频...")
-        output = self.pipe(
-            prompt=prompt,
-            image=image,  # None 表示 T2V，有值表示 I2V
-            negative_prompt=negative_prompt,
-            height=height,
-            width=width,
-            num_frames=num_frames,
-            guidance_scale=guidance_scale,
-            num_inference_steps=num_inference_steps,
-            generator=generator,
-        ).frames[0]
-
-        print(f"视频生成完成！帧数: {len(output)}")
-
-        # 导出为 MP4
-        print("正在导出视频...")
-        video_path = "/tmp/output_video.mp4"
-        export_to_video(output, video_path, fps=24)
-
-        # 读取视频文件为字节流
-        video_bytes = Path(video_path).read_bytes()
-        print(f"视频文件大小: {len(video_bytes) / 1024 / 1024:.2f} MB")
-
+    @modal.method()
+    def generate(
+        self,
+        preprocessed_bytes: bytes,
+        mode: Literal["animation", "replacement"] = "animation",
+        use_multi_gpu: bool = False,
+    ) -> bytes:
+        """
+        生成步骤：使用预处理结果生成最终视频
+        
+        参数:
+        - preprocessed_bytes: 预处理结果的打包字节流
+        - mode: "animation" 或 "replacement"
+        - use_multi_gpu: 是否使用多GPU（当前单GPU部署设为 False）
+        
+        返回:
+        - 生成的视频字节流
+        """
+        import os
+        import subprocess
+        import tarfile
+        from io import BytesIO
+        
+        print(f"开始生成视频 - 模式: {mode}")
+        
+        # 解压预处理结果
+        temp_dir = Path("/tmp/animate_generate")
+        temp_dir.mkdir(exist_ok=True, parents=True)
+        
+        tar_buffer = BytesIO(preprocessed_bytes)
+        with tarfile.open(fileobj=tar_buffer, mode='r:gz') as tar:
+            tar.extractall(temp_dir)
+        
+        process_results_dir = temp_dir / "process_results"
+        
+        # 构建生成命令
+        os.chdir(REPO_DIR)
+        
+        cmd = [
+            "python", "generate.py",
+            "--task", "animate-14B",
+            "--ckpt_dir", str(self.model_path),
+            "--src_root_path", str(process_results_dir),
+            "--refert_num", "1",
+        ]
+        
+        # 添加模式特定参数
+        if mode == "replacement":
+            cmd.extend(["--replace_flag", "--use_relighting_lora"])
+        
+        print(f"运行生成命令: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        
+        # 查找生成的视频文件
+        output_video = None
+        for video_file in process_results_dir.glob("**/*.mp4"):
+            if "output" in video_file.name.lower() or "result" in video_file.name.lower():
+                output_video = video_file
+                break
+        
+        if not output_video:
+            # 如果没找到，使用第一个 mp4 文件
+            output_video = next(process_results_dir.glob("**/*.mp4"), None)
+        
+        if not output_video:
+            raise FileNotFoundError("未找到生成的视频文件")
+        
+        print(f"找到生成视频: {output_video}")
+        video_bytes = output_video.read_bytes()
+        print(f"视频大小: {len(video_bytes) / 1024 / 1024:.2f} MB")
+        
         return video_bytes
-
-
-@app.function(image=image, timeout=1800)
-@modal.fastapi_endpoint(method="POST")  # 修复：使用新的装饰器名称
-async def generate_video_api(
-    prompt: str = Form(...),
-    image: Optional[UploadFile] = File(None),
-    height: int = Form(704),
-    width: int = Form(1280),
-    num_frames: int = Form(121),
-    num_inference_steps: int = Form(50),
-    guidance_scale: float = Form(5.0),
-    seed: int = Form(42),
-):
-    """
-    Web API 端点，用于通过 HTTP POST 请求生成视频。
-    
-    使用 multipart/form-data 格式：
-    - prompt: 文本提示词（必填）
-    - image: 可选的输入图片文件
-    - height: 视频高度（默认 704）
-    - width: 视频宽度（默认 1280）
-    - num_frames: 帧数（默认 121）
-    - num_inference_steps: 推理步数（默认 50）
-    - guidance_scale: 引导强度（默认 5.0）
-    - seed: 随机种子（默认 42）
-    """
-    print(f"收到来自 Web 的请求，提示词: '{prompt}'")
-
-    # 读取上传的图片文件（如果有）
-    image_bytes = None
-    if image:
-        image_bytes = await image.read()
-        print(f"收到输入图片，大小: {len(image_bytes)} bytes")
-
-    # 远程调用核心生成函数
-    video_bytes = Model().generate_video.remote(
-        prompt=prompt,
-        image_bytes=image_bytes,
-        height=height,
-        width=width,
-        num_frames=num_frames,
-        num_inference_steps=num_inference_steps,
-        guidance_scale=guidance_scale,
-        seed=seed,
-    )
-
-    # 返回生成的视频
-    return Response(content=video_bytes, media_type="video/mp4")
 
 
 @app.local_entrypoint()
 def main(
-    prompt: str = "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage",
-    image_path: Optional[str] = None,
-    output_path: str = "/tmp/wan22-video/output.mp4",
-    height: int = 704,
-    width: int = 1280,
-    num_frames: int = 121,
-    num_inference_steps: int = 50,
-    guidance_scale: float = 5.0,
-    seed: int = 42,
+    video_path: str,
+    image_path: str,
+    mode: str = "animation",
+    output_path: str = "/tmp/wan22-animate/output.mp4",
+    resolution_width: int = 1280,
+    resolution_height: int = 720,
 ):
     """
-    本地入口函数：调用云端模型生成视频，保存结果。
+    本地入口函数：完整的角色动画/替换流程
     
     用法示例:
-    1. 文本生成视频 (T2V):
-       modal run wan22_deploy.py --prompt "一只可爱的熊猫在竹林里玩耍"
     
-    2. 图片生成视频 (I2V):
-       modal run wan22_deploy.py --prompt "这只猫在海滩上冲浪" --image-path ./cat.jpg
+    1. Animation 模式（让静态角色动起来）:
+       modal run wan22_animate_deploy.py \
+           --video-path ./dance_video.mp4 \
+           --image-path ./character.jpg \
+           --mode animation
+    
+    2. Replacement 模式（替换视频中的角色）:
+       modal run wan22_animate_deploy.py \
+           --video-path ./original_video.mp4 \
+           --image-path ./new_character.jpg \
+           --mode replacement
     """
-    output_video_path = Path(output_path)
-
-    # 读取输入图片（如果提供）
-    image_bytes = None
-    if image_path:
-        input_image_path = Path(image_path)
-        if not input_image_path.exists():
-            print(f"错误：找不到输入图片 {input_image_path}")
-            return
-        print(f"🎬 正在读取输入图片: {input_image_path}")
-        image_bytes = input_image_path.read_bytes()
-
-    mode = "图片生成视频 (I2V)" if image_bytes else "文本生成视频 (T2V)"
-    print(f"🎬 模式: {mode}")
-    print(f"🎬 提示词: '{prompt}'")
-    print(f"🎬 分辨率: {width}x{height}")
-    print(f"🎬 帧数: {num_frames} ({num_frames/24:.1f}秒 @ 24fps)")
-    print(f"🎬 正在云端生成视频，这可能需要几分钟...")
-
-    # 调用远程生成函数
-    video_bytes = Model().generate_video.remote(
-        prompt=prompt,
+    video_path = Path(video_path)
+    image_path = Path(image_path)
+    output_path = Path(output_path)
+    
+    # 验证输入文件
+    if not video_path.exists():
+        print(f"错误：找不到视频文件 {video_path}")
+        return
+    if not image_path.exists():
+        print(f"错误：找不到图片文件 {image_path}")
+        return
+    
+    # 验证模式
+    if mode not in ["animation", "replacement"]:
+        print(f"错误：模式必须是 'animation' 或 'replacement'")
+        return
+    
+    print(f"🎭 模式: {mode.upper()}")
+    print(f"🎬 输入视频: {video_path}")
+    print(f"🖼️  角色图片: {image_path}")
+    print(f"📐 分辨率: {resolution_width}x{resolution_height}")
+    
+    # 读取输入文件
+    print("\n📤 上传输入文件...")
+    video_bytes = video_path.read_bytes()
+    image_bytes = image_path.read_bytes()
+    
+    # 步骤 1: 预处理
+    print("\n🔄 步骤 1/2: 预处理视频和图片（这可能需要几分钟）...")
+    model = Model()
+    preprocessed_bytes = model.preprocess.remote(
+        video_bytes=video_bytes,
         image_bytes=image_bytes,
-        height=height,
-        width=width,
-        num_frames=num_frames,
-        num_inference_steps=num_inference_steps,
-        guidance_scale=guidance_scale,
-        seed=seed,
+        mode=mode,
+        resolution_width=resolution_width,
+        resolution_height=resolution_height,
     )
-
-    # 保存视频
-    output_video_path.parent.mkdir(exist_ok=True, parents=True)
-    print(f"🎬 正在保存视频到: {output_video_path}")
-    output_video_path.write_bytes(video_bytes)
-    print(f"✅ 完成！视频已保存到: {output_video_path}")
+    print(f"✅ 预处理完成")
+    
+    # 步骤 2: 生成视频
+    print("\n🎨 步骤 2/2: 生成最终视频（这可能需要较长时间）...")
+    video_result_bytes = model.generate.remote(
+        preprocessed_bytes=preprocessed_bytes,
+        mode=mode,
+    )
+    
+    # 保存结果
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+    output_path.write_bytes(video_result_bytes)
+    print(f"\n✅ 完成！视频已保存到: {output_path}")
+    print(f"💾 文件大小: {len(video_result_bytes) / 1024 / 1024:.2f} MB")

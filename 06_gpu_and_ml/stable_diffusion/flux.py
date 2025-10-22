@@ -19,7 +19,7 @@ from pathlib import Path
 
 import modal
 
-from modal import web_endpoint # <--- 添加这一行
+from modal import fastapi_endpoint
 from fastapi.responses import Response # <--- 添加这一行
 # We'll make use of the full [CUDA toolkit](https://modal.com/docs/guide/cuda)
 # in this example, so we'll build our container image off of the `nvidia/cuda` base.
@@ -56,6 +56,7 @@ flux_image = (
         "invisible_watermark==0.2.0",
         "transformers==4.44.0",
         "huggingface_hub[hf_transfer]==0.26.2",
+        "hf-transfer", 
         "accelerate==0.33.0",
         "safetensors==0.4.4",
         "sentencepiece==0.2.0",
@@ -124,11 +125,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
         ),
     
     },
-<<<<<<< Updated upstream
     secrets=[modal.Secret.from_name("huggingface-secret")],
-=======
-    secrets=[modal.Secret.from_name("huggingface-secret")], 
->>>>>>> Stashed changes
 )
 class Model:
     compile: bool = (  # see section on torch.compile below for details
@@ -177,7 +174,7 @@ class Model:
     # =============================================================
     # vvvvvvvv       请在这里添加下面的API方法       vvvvvvvv
     # =============================================================
-    @web_endpoint(method="GET")
+    @fastapi_endpoint(method="GET")
     def web(self, prompt: str = "A cinematic photo of a baby penguin"):
         """
         这个函数被暴露为公共API。
