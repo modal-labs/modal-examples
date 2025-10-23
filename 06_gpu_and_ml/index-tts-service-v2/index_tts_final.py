@@ -71,8 +71,7 @@ CHECKPOINTS_DIR = "/checkpoints"
     gpu="A10G",
     volumes={CHECKPOINTS_DIR: model_volume},
     timeout=1200,  # 增加了 setup 的超时时间以供下载
-    scaledown_window=120,
-    # min_containers=1,  # 保持热启动
+    min_containers=1,  # 保持热启动
 )
 class IndexTTS2Service:
     
@@ -204,7 +203,8 @@ class IndexTTS2Service:
         self,
         text: str,
         voice_bytes: Optional[bytes] = None,
-        emotion_bytes: Optional[bytes] = None
+        emotion_bytes: Optional[bytes] = None,
+        speed_factor: float = 1.0
     ) -> bytes:
         """
         生成语音
@@ -259,6 +259,7 @@ class IndexTTS2Service:
                     spk_audio_prompt=voice_path,
                     text=text,
                     output_path=output_path,
+                    speed_factor=speed_factor,
                     verbose=False
                 )
             else:
@@ -302,36 +303,28 @@ class IndexTTS2Service:
         text: str = Form(...),
         voice: UploadFile = None,
         voice_url: str = Form(None),
-        emotion: UploadFile = None
+        emotion: UploadFile = None,
+        speed_factor: float = Form(1.0)  # <-- 在这里添加新参数
     ):
         """
         HTTP API 端点
-        
-        参数:
-            text: 要合成的文本
-            voice: 上传的参考音频文件
-            voice_url: 在线参考音频URL
-            emotion: 情感参考音频（仅v1支持）
         
         使用方法:
         1. 使用本地音频文件：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
               -F "voice=@speaker.wav" \
-              -F "speed=0.8" \
               --output output.wav
               
         2. 使用在线音频 URL：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
               -F "voice_url=https://example.com/audio.wav" \
-              -F "speed=0.8" \
               --output output.wav
               
         3. 不提供参考音频（使用默认声音）：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
-              -F "speed=0.8" \
               --output output.wav
         """
         from fastapi.responses import Response, JSONResponse
@@ -475,7 +468,7 @@ class IndexTTS2Service:
             
             try:
                 # 生成语音
-                audio_data = self._generate_internal(text, voice_data, emotion_data)
+                audio_data = self._generate_internal(text, voice_data, emotion_data, speed_factor)
                 print(f"✅ 语音生成成功: {len(audio_data)/1024:.1f}KB")
                 
                 # 返回 WAV 文件
@@ -552,17 +545,3 @@ def main():
     print("- min_containers=1 保持热启动，下载完成后，后续请求 < 5 秒")
     print("=" * 70 + "\n")
 
-# 测试命令
-# curl -X POST https://rodneycornwell--indextts2-official-fixed-indextts2service-api.modal.run \
-#   -F "text=这是一个没有参考语音的测试。" \
-#   --output no_voice.wav
-
-#   curl -X POST "https://rodneycornwell--indextts2-official-fixed-indextts2service-api.modal.run" \
-#   -F "text=这是一个测试文本,用于郭德纲声音小说" \
-#   -F "voice_url=https://res.cloudinary.com/dhodnm1yv/video/upload/v1761051270/mtienyhdgsz6omvbaxrv.mp3" \
-#   --output test.wav
-
-#   curl -X POST "https://rodneycornwell--indextts2-official-fixed-indextts2service-api.modal.run" \
-#   -F "text=你好世界,这个用于本地音频参考的测试" \
-#   -F "voice=@ref.wav" \
-#   --output output.wav
