@@ -71,7 +71,8 @@ CHECKPOINTS_DIR = "/checkpoints"
     gpu="A10G",
     volumes={CHECKPOINTS_DIR: model_volume},
     timeout=1200,  # 增加了 setup 的超时时间以供下载
-    min_containers=1,  # 保持热启动
+    scaledown_window=120,
+    # min_containers=1,  # 保持热启动
 )
 class IndexTTS2Service:
     
@@ -306,22 +307,31 @@ class IndexTTS2Service:
         """
         HTTP API 端点
         
+        参数:
+            text: 要合成的文本
+            voice: 上传的参考音频文件
+            voice_url: 在线参考音频URL
+            emotion: 情感参考音频（仅v1支持）
+        
         使用方法:
         1. 使用本地音频文件：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
               -F "voice=@speaker.wav" \
+              -F "speed=0.8" \
               --output output.wav
               
         2. 使用在线音频 URL：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
               -F "voice_url=https://example.com/audio.wav" \
+              -F "speed=0.8" \
               --output output.wav
               
         3. 不提供参考音频（使用默认声音）：
             curl -X POST "https://YOUR-URL/api" \
               -F "text=你好世界" \
+              -F "speed=0.8" \
               --output output.wav
         """
         from fastapi.responses import Response, JSONResponse
