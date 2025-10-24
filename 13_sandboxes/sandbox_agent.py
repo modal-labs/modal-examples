@@ -18,10 +18,10 @@ app = modal.App.lookup("example-sandbox-agent", create_if_missing=True)
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("curl", "git")
+    .env({"PATH": "/root/.local/bin:$PATH"})  # add claude to path
     .run_commands(
         "curl -fsSL https://claude.ai/install.sh | bash",
     )
-    .env({"PATH": "/root/.local/bin:$PATH"})  # add claude to path
 )
 
 with modal.enable_output():
@@ -30,7 +30,7 @@ print(f"Sandbox ID: {sandbox.object_id}")
 
 # Next we'll clone a repository that Claude Code will work on.
 repo_url = "https://github.com/modal-labs/modal-examples"
-git_ps = sandbox.exec("git", "clone", repo_url, "/repo")
+git_ps = sandbox.exec("git", "clone", "--depth", "1", repo_url, "/repo")
 git_ps.wait()
 print(f"Cloned '{repo_url}' into /repo.")
 
