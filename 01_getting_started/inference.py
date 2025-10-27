@@ -2,9 +2,9 @@ import modal
 
 app = modal.App("example-inference")
 
-image = (  # start from base image
+image = (  # define our dependencies
     modal.Image.debian_slim()
-    .uv_pip_install(  # install Python packages
+    .uv_pip_install(  # add Python packages
         "transformers[torch]"
     )
     .apt_install("ffmpeg")  # add audio processing tools
