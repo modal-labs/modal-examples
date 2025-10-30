@@ -1,0 +1,22 @@
+[package]
+name = "ssh_proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.98", features = ["backtrace"] }
+env_logger = "0.11.8"
+flume = "0.10.14"
+log = "0.4.27"
+rand_core = { version = "0.6", features = ["getrandom", "std"] }
+russh = "0.54.4"
+ssh-key = "0.6.7"
+tokio = { version = "1.47.1", features = ["full"] }
+tonic = { version = "0.14.2", features = ["tls-native-roots", "tls-webpki-roots"] }
+tonic-prost = "0.14.2"
+prost = "0.14" 
+prost-types = "0.14"
+uuid = { version = "1.18.1", features = ["v4"] }
+
+[build-dependencies]
+tonic-prost-build = "0.14.2"
