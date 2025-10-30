@@ -11,8 +11,8 @@ image = (  # define our dependencies
 )
 
 
-@app.function(gpu="l40s", image=image)
-def transcribe(url: str | None = None):
+@app.function(gpu="h100", image=image)
+def transcribe(url: str | None = None) -> str:
     from transformers import pipeline
 
     transcriber = pipeline(model="openai/whisper-tiny.en", device="cuda")
@@ -20,3 +20,4 @@ def transcribe(url: str | None = None):
     print(  # I have a dream that one day this nation will rise up live out the true meaning of its creed
         result["text"]
     )
+    return result["text"]
