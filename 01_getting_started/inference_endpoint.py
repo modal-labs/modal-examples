@@ -12,7 +12,7 @@ image = (
 
 @app.function(gpu="h100", image=image)
 @modal.fastapi_endpoint(docs=True)
-def chat(prompt: str = None) -> list[dict]:
+def chat(prompt: str | None = None) -> list[dict]:
     from transformers import pipeline
 
     if prompt is None:
