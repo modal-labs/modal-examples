@@ -31,6 +31,9 @@ ssh -p 35109 -i ~/.ssh/id_ed25519 user@r445.modal.host
 Note that in this implementation of the proxy server the `user` field is a wildcard that can be set to any string and is not used by the proxy server.
 
 
+## Demo
+[▶Watch the demo here!](./demo.mp4)
+
 ## Contributing
 
 Pull requests and issues are welcome!
