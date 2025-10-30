@@ -32,7 +32,7 @@ Note that in this implementation of the proxy server the `user` field is a wildc
 
 
 ## Demo
- 
+ Apologies for low resolution! You can view a higher resolution version [here!](./demo.mp4)
 ![Demo preview](./demo.gif)
 
 ## Contributing
