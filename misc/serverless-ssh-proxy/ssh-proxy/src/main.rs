@@ -129,7 +129,6 @@ impl Handler for SSHServer {
                 AuthInterceptor::new(credentials),
             );
             image_id_opt = get_entry(&mut rpc_client, dict_id.as_str(), "image_id").await?;
-            info!(" we have the image_id_opt: {:?}", image_id_opt);
         }
 
         let res = locked_conn
@@ -201,7 +200,6 @@ impl Handler for SSHServer {
         let dict_id_opt = self.dict_id.clone();
         async move {
             let image_id = cloned_client.lock().await.connection_epilogue().await?;
-            info!("FS snapshot image id: {} on channel {}", image_id, channel);
             // Persist image_id in cloud dict
             if let Some(dict_id) = dict_id_opt.as_ref() {
                 let channel = make_channel().await?;
@@ -220,9 +218,7 @@ impl Handler for SSHServer {
     #[allow(unused_variables)]
     fn auth_none(&mut self, _user: &str) -> impl Future<Output = Result<Auth, Self::Error>> + Send {
         async {
-            info!("auth_none received for user: {}", _user.to_string());
             self.user = Some(_user.to_string());
-            info!("got user: {}", _user.to_string());
             Ok(Auth::Reject {
                 partial_success: false,
                 proceed_with_methods: Some(MethodSet::from(vec![MethodKind::PublicKey].as_slice())),
@@ -251,7 +247,6 @@ impl Handler for SSHServer {
         public_key: &ssh_key::PublicKey,
     ) -> impl Future<Output = Result<Auth, Self::Error>> + Send {
         let dict_id_opt = self.dict_id.clone();
-        info!("offered_key: {:?}", public_key.to_openssh().unwrap_or_default());
         let offered_fp = key_fingerprint_sha256(public_key);
         async move {
             // Read allowed ssh_public_key from cloud dict and validate
@@ -263,11 +258,9 @@ impl Handler for SSHServer {
                     AuthInterceptor::new(credentials),
                 );
                 if let Some(stored_key) = get_entry(&mut rpc_client, dict_id.as_str(), "ssh_public_key").await? {
-                    info!("stored_key: {:?}", stored_key);
                     match ssh_key::PublicKey::from_openssh(stored_key.as_str()) {
                         Ok(parsed) => {
                             if key_fingerprint_sha256(&parsed) == offered_fp {
-                                info!("accepted public key");
                                 return Ok(Auth::Accept);
                             } else {
                                 warn!("offered key does not match stored key");
@@ -287,8 +280,6 @@ impl Handler for SSHServer {
                     }
                 }
             }
-            info!("no stored key found");
-            info!("rejected public key");
             Ok(Auth::Reject {
                 partial_success: false,
                 proceed_with_methods: None,
@@ -318,7 +309,6 @@ impl Handler for SSHServer {
         key: &ssh_key::PublicKey,
     ) -> Result<server::Auth, Self::Error> {
         self.user = Some(_user.to_string());
-        info!("auth_publickey received for user: {}", _user.to_string());
         
         if let Some(dict_id) = self.dict_id.as_ref() {
             let channel = make_channel().await?;
@@ -328,12 +318,10 @@ impl Handler for SSHServer {
                 AuthInterceptor::new(credentials),
             );
             if let Some(stored_key) = get_entry(&mut rpc_client, dict_id.as_str(), "ssh_public_key").await? {
-                info!("stored_key: {:?}", stored_key);
                 let offered_fp = key_fingerprint_sha256(key);
                 match ssh_key::PublicKey::from_openssh(stored_key.as_str()) {
                     Ok(parsed) => {
                         if key_fingerprint_sha256(&parsed) == offered_fp {
-                            info!("accepted public key");
                             return Ok(Auth::Accept);
                         } else {
                             warn!("offered key does not match stored key");

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 
 use anyhow::bail;
 use flume;
-use log::{info, warn};
+use log::warn;
 use russh::ChannelId;
 use russh::server::Handle;
 use tokio::sync::Mutex;
@@ -102,12 +102,6 @@ impl PTYConnectionManager {
     ) -> Result<flume::Receiver<RuntimeOutputBatch>, anyhow::Error> {
         let _ = self.make_app().await;
         if let Some(id) = image_id {
-            let _ = message_handle
-                .data(
-                    self._channel_id.unwrap(),
-                    "Restoring from snapshot...\n".as_bytes().into(),
-                )
-                .await;
             self.image_id = id.clone();
         } else {
             let _ = self.make_image(message_handle.clone()).await;
@@ -187,7 +181,6 @@ impl PTYConnectionManager {
             .sandbox_snapshot_fs(snapshot_req)
             .await?;
         // kill the sandbox
-        info!("snapshhotted now killing sandbox");
         let kill_req = Request::new(SandboxTerminateRequest {
             sandbox_id: self.sandbox_id.clone(),
         });
@@ -203,7 +196,6 @@ impl PTYConnectionManager {
 
     /// Creates sandbox, assigns id to instance variable
     pub async fn create_sandbox(&mut self) -> Result<String, anyhow::Error> {
-        info!("Creating sandbox with app_id: {}", self.app_id);
         let req = Request::new(SandboxCreateRequest {
             app_id: self.app_id.clone(),
             environment_name: self.environment_name.clone(),
