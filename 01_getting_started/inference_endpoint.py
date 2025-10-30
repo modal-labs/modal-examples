@@ -2,11 +2,16 @@ from pathlib import Path
 
 import modal
 
-app = modal.App("example-inference")
-image = modal.Image.debian_slim().uv_pip_install("transformers[torch]")
+app = modal.App("example-inference-endpoint")
+image = (
+    modal.Image.debian_slim()
+    .uv_pip_install("transformers[torch]")
+    .uv_pip_install("fastapi")
+)
 
 
 @app.function(gpu="h100", image=image)
+@modal.fastapi_endpoint(docs=True)
 def chat(prompt: str = None) -> list[dict]:
     from transformers import pipeline
 
