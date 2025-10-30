@@ -1,9 +1,6 @@
 # Serverless SSH Proxy
 
-
---
 Instance management wastes people quite a lot of [money](https://x.com/rspruijt/status/1878162991792685252). This project provides a proof of concept of a serverless proxy server that compatible with OpenSSH clients that automatically manages Modal container lifecycles with your connections. A container is automatically booted up upon connection establishment, and a filesystem snapshot is retrieved upon closure and used as a base image for future connections. Besides serving the proxy itself, you never pay for container management.
--- 
 
 ## Environment Variables
 
@@ -38,12 +35,7 @@ Note that in this implementation of the proxy server the `user` field is a wildc
 
 Pull requests and issues are welcome!
 
----
 
 ## License
 
 MIT
-
----
-
-
