@@ -32,7 +32,8 @@ Note that in this implementation of the proxy server the `user` field is a wildc
 
 
 ## Demo
-[▶Watch the demo here!](./demo.mp4)
+ 
+![Demo preview](./demo.gif)
 
 ## Contributing
 
