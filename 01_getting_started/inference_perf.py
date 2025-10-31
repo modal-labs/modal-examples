@@ -45,7 +45,7 @@ class Chat:
         print(prompt)
         context = [{"role": "user", "content": prompt}]
 
-        chatbot = pipeline(
+        chatbot = self.chatbot(
             model="Qwen/Qwen3-1.7B-FP8", device_map="cuda", max_new_tokens=1024
         )
         result = chatbot(context)
