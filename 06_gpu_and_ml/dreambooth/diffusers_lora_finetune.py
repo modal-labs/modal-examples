@@ -185,7 +185,7 @@ def load_images(image_urls: list[str]) -> Path:
     return img_path
 
 
-# ## Low-Rank Adapation (LoRA) fine-tuning for a text-to-image model
+# ## Low-Rank Adaptation (LoRA) fine-tuning for a text-to-image model
 
 # The base model we start from is trained to do a sort of "reverse [ekphrasis](https://en.wikipedia.org/wiki/Ekphrasis)":
 # it attempts to recreate a visual work of art or image from only its description.
