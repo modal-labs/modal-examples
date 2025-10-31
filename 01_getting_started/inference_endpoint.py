@@ -1,3 +1,6 @@
+# ---
+# cmd: ["modal", "serve", "01_getting_started/inference_endpoint.py"]
+# ---
 from pathlib import Path
 
 import modal
