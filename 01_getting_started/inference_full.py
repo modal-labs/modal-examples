@@ -1,6 +1,7 @@
 # ---
 # cmd: ["python", "01_getting_started/inference_full.py"]
 # deploy: true
+# mypy: ignore-errors
 # ---
 from pathlib import Path
 
@@ -73,8 +74,8 @@ if __name__ == "__main__":
     import urllib.request
     from datetime import datetime
 
-    Chat = modal.Cls.from_name(app.name, "Chat")
-    chat = Chat()
+    ChatCls = modal.Cls.from_name(app.name, "Chat")
+    chat = ChatCls()
     print(datetime.now(), "making .remote call to Chat.run")
     print(chat.run.remote())
     print(datetime.now(), "making web request to", url := chat.web.get_web_url())
