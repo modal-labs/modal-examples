@@ -31,7 +31,7 @@ app = modal.App("example-hello-world")
 # [`@app.function`](https://modal.com/docs/reference/modal.App#function).
 
 
-@app.function(gpu="l40s")
+@app.function()
 def f(i):
     if i % 2 == 0:
         print("hello", i)
