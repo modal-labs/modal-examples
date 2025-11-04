@@ -62,7 +62,7 @@ gw_app = modal.App(
 )
 
 
-@gw_app.function(min_containers=1, max_containers=1)
+@gw_app.function(max_containers=1)
 @modal.web_server(9091)
 def serve():
     subprocess.Popen("/usr/local/bin/pushgateway")
@@ -95,7 +95,7 @@ with client_image.imports():
     )
 
 
-@app.cls(min_containers=3)
+@app.cls()
 class ExampleClientApplication:
     @modal.enter()
     def init(self):
