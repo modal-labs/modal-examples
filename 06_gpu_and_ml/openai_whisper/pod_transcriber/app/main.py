@@ -141,8 +141,8 @@ def populate_podcast_metadata(podcast_id: str):
         remote_path="/assets",
     ),
     volumes={config.CACHE_DIR: volume},
-    min_containers=2,
 )
+@modal.concurrent(max_inputs=1000)
 @modal.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles

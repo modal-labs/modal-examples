@@ -90,7 +90,6 @@ model_volume = modal.Volume.from_name("ollama-models-store", create_if_missing=T
     gpu="H100",  # Use H100 GPUs for best performance
     volumes={MODEL_DIR: model_volume},  # Mount our model storage
     timeout=60 * 5,  # 5 minutes max input runtime
-    min_containers=1,  # Keep at least one container running for fast startup
 )
 class OllamaServer:
     ollama_process: subprocess.Popen | None = None
