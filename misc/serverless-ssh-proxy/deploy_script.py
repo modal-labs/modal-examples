@@ -47,5 +47,6 @@ def run_ssh_proxy():
     return result.returncode
 
 
-if __name__ == "__main__":
+@app.local_entrypoint()
+def main():
     run_ssh_proxy.remote()
