@@ -53,10 +53,11 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.10.1+gptoss",
-        "huggingface_hub[hf_transfer]==0.34",
+        "vllm==0.11.0",
+        "huggingface_hub[hf_transfer]==0.35.0",
+        "flashinfer-python==0.3.1",
         pre=True,
-        extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
+        
     )
 )
 
