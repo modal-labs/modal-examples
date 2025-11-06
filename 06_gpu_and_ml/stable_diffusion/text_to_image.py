@@ -235,7 +235,7 @@ web_image = (
 
 
 @app.function(image=web_image)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def ui():
     import fastapi.staticfiles

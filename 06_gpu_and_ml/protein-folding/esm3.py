@@ -223,7 +223,7 @@ def run_esm(sequence: str) -> str:
     volumes={VOLUME_PATH: volume},
     max_containers=1,  # Gradio requires sticky sessions
 )
-@modal.concurrent(max_inputs=1000)  # Gradio can handle many async inputs
+@modal.concurrent(max_inputs=100)  # Gradio can handle many async inputs
 @modal.asgi_app()
 def ui():
     import gradio as gr

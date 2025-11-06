@@ -226,7 +226,7 @@ def slugify(string):
     # and allow it to scale to 1000 concurrent inputs
     max_containers=1,
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def ui():
     import gradio as gr

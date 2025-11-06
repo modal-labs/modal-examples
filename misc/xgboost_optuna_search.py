@@ -133,7 +133,7 @@ if TYPE_CHECKING:
 
 
 @app.cls(cpu=2, memory=2048, volumes={"/data": volume}, max_containers=1)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 class OptunaHead:
     @modal.enter()
     def create_study(self):

@@ -155,7 +155,7 @@ PORT = 10210
     volumes=volumes,
     secrets=secrets,
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.web_server(port=PORT, startup_timeout=10 * MINUTES)
 def serve():
     import subprocess
