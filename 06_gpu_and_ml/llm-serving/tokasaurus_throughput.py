@@ -238,7 +238,9 @@ async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
     )
 
     url = serve.get_web_url()
-    async with aiohttp.ClientSession(base_url=url) as session:
+    async with aiohttp.ClientSession(
+        base_url=url, headers={"Accept-Encoding": "gzip, deflate, br"}
+    ) as session:
         print(f"Running health check for server at {url}")
 
         async with session.get("/v1/models", timeout=20 * MINUTES) as resp:

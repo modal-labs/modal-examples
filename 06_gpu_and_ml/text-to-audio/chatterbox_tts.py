@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
 # lambda-test: false
-# cmd: ["modal", "serve", "06_gpu_and_ml/test-to-audio/chatterbox_tts.py"]
+# cmd: ["modal", "serve", "06_gpu_and_ml/text-to-audio/chatterbox_tts.py"]
 # ---
 
 

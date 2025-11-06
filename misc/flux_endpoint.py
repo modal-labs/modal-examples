@@ -152,8 +152,6 @@ with flux_endpoint_image.imports():
             ),
         ),
     },
-    min_containers=1,
-    buffer_containers=0,
     scaledown_window=300,  # 5 minutes
     timeout=3600,  # 1 hour
     enable_memory_snapshot=True,
