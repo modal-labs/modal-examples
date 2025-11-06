@@ -39,7 +39,7 @@ css_path_remote = "/assets/styles.css"
     .add_local_file(css_path_local, remote_path=css_path_remote),
     max_containers=1,  # we currently maintain state in memory, so we restrict the server to one worker
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def web():
     import fasthtml.common as fh

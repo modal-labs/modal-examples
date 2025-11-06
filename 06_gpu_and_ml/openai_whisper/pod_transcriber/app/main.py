@@ -142,7 +142,7 @@ def populate_podcast_metadata(podcast_id: str):
     ),
     volumes={config.CACHE_DIR: volume},
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def fastapi_app():
     import fastapi.staticfiles

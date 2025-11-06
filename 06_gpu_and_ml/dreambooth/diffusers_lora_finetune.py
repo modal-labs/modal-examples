@@ -425,7 +425,7 @@ web_image = image.add_local_dir(
     image=web_image,
     max_containers=1,
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def fastapi_app():
     import gradio as gr

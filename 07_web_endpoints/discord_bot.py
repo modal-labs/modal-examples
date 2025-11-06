@@ -59,7 +59,7 @@ app = modal.App("example-discord-bot", image=image)
 
 
 @app.function()
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 async def fetch_api() -> str:
     import aiohttp
 
@@ -132,7 +132,7 @@ async def send_to_discord(payload: dict, app_id: str, interaction_token: str):
 
 
 @app.function()
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 async def reply(app_id: str, interaction_token: str):
     message = await fetch_api.local()
     await send_to_discord({"content": message}, app_id, interaction_token)
@@ -263,7 +263,7 @@ def create_slash_command(force: bool = False):
 
 
 @app.function(secrets=[discord_secret], min_containers=1)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, HTTPException, Request

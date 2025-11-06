@@ -397,7 +397,7 @@ class VolumeMiddleware:
     image=torch_image,
     volumes={volume_path: volume},
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.wsgi_app()
 def monitor_training():
     board = tensorboard.program.TensorBoard()
@@ -576,7 +576,7 @@ def web_generate(request: GenerationRequest):
     max_containers=1,
     volumes={volume_path: volume},
 )
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def ui():
     import gradio as gr

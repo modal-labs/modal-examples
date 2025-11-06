@@ -47,7 +47,7 @@ MINUTES = 60  # seconds
 
 
 @app.function(cpu=workers)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.web_server(port=8089)
 def serve():
     run_locust.local(default_args)

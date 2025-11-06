@@ -425,7 +425,7 @@ web_image = (
 
 
 @app.function(image=web_image, timeout=10 * MINUTES)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def ui():
     import fasthtml.common as fh

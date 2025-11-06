@@ -109,7 +109,7 @@ image = image.add_local_dir(local_assets_path, remote_path="/assets")
 
 
 @app.function(image=image)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app()
 def wrapper():
     web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))

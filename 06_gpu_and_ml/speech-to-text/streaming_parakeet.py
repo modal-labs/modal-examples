@@ -225,7 +225,7 @@ class ParakeetModel:
 
 
 @app.cls(image=image)
-@modal.concurrent(max_inputs=1000)
+@modal.concurrent(max_inputs=100)
 class WebServer:
     @modal.asgi_app()
     def web(self):
