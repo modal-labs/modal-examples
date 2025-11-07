@@ -33,10 +33,9 @@ vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.10.2",
+        "vllm==0.11.0",
         "huggingface_hub[hf_transfer]==0.35.0",
         "flashinfer-python==0.3.1",
-        "torch==2.8.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
 )
