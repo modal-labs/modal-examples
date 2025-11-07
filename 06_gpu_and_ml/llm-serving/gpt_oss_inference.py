@@ -35,8 +35,7 @@
 # ## Set up the container image
 
 # We'll start by defining a [custom container `Image`](https://modal.com/docs/guide/custom-container) that
-# installs all the necessary dependencies to run vLLM and the model. This includes a special-purpose vLLM prerelease
-# and a nightly PyTorch install for Triton support.
+# installs all the necessary dependencies to run vLLM and the model.
 
 import json
 import time
@@ -53,10 +52,9 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.10.1+gptoss",
-        "huggingface_hub[hf_transfer]==0.34",
-        pre=True,
-        extra_options="--extra-index-url https://wheels.vllm.ai/gpt-oss/ --extra-index-url https://download.pytorch.org/whl/nightly/cu128 --index-strategy unsafe-best-match",
+        "vllm==0.11.0",
+        "huggingface_hub[hf_transfer]==0.35.0",
+        "flashinfer-python==0.3.1",
     )
 )
 
@@ -112,7 +110,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"H200:{N_GPU}",
+    gpu=f"B200:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={
@@ -258,6 +256,8 @@ async def _send_request(
                 print(delta["content"], end="")  # print the content as it comes in
             elif "reasoning_content" in delta:
                 print(delta["reasoning_content"], end="")
+            elif not delta:
+                print()
             else:
                 raise ValueError(f"Unsupported response delta: {delta}")
     print("")
