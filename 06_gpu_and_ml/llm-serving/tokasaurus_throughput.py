@@ -55,10 +55,10 @@ TORCH_CUDA_ARCH_LIST = "9.0 9.0a"  # Hopper, aka H100/H200
 # since Modal [provides the host CUDA drivers](https://modal.com/docs/guide/cuda).
 
 toka_image = toka_image.env(
-    {"HF_HUB_ENABLE_HF_TRANSFER": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
+    {"HF_XET_HIGH_PERFORMANCE": "1", "TORCH_CUDA_ARCH_LIST": TORCH_CUDA_ARCH_LIST}
 ).uv_pip_install(
     "tokasaurus==0.0.2",
-    "huggingface_hub[hf_transfer]==0.33.0",
+    "huggingface-hub==0.36.0",
     "datasets==3.6.0",
 )
 

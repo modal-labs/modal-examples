@@ -97,7 +97,7 @@ vlm_image = (
     .env(
         {
             "HF_HOME": str(MODEL_VOL_PATH),
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_XET_HIGH_PERFORMANCE": "1",
         }
     )
     .run_function(  # download the model by running a Python function

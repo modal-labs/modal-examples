@@ -35,7 +35,7 @@ image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .apt_install("git", "clang")
     .uv_pip_install(
-        "huggingface_hub[hf_transfer]==0.33.5",
+        "huggingface-hub==0.36.0",
         "setuptools==69.0.3",
         "wheel==0.45.1",
         "ninja==1.11.1.4",
@@ -45,7 +45,7 @@ image = (
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_XET_HIGH_PERFORMANCE": "1",
             "VLLM_ALLOW_INSECURE_SERIALIZATION": "1",
             "HF_HOME": "/root/.cache/huggingface",
         }

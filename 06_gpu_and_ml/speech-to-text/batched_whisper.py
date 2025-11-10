@@ -32,15 +32,13 @@ image = (
     .pip_install(
         "torch==2.5.1",
         "transformers==4.47.1",
-        "hf-transfer==0.1.8",
-        "huggingface_hub==0.27.0",
+        "huggingface-hub==0.36.0",
         "librosa==0.10.2",
         "soundfile==0.12.1",
         "accelerate==1.2.1",
         "datasets==3.2.0",
     )
-    # Use the barebones `hf-transfer` package for maximum download speeds. No progress bar, but expect 700MB/s.
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": MODEL_DIR})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HUB_CACHE": MODEL_DIR})
 )
 
 model_cache = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)

@@ -113,12 +113,11 @@ def download_model():
 MINUTES = 60  # seconds
 tensorrt_image = (  # update the image by downloading the model we're using
     tensorrt_image.pip_install(  # add utilities for downloading the model
-        "hf-transfer==0.1.8",
-        "huggingface_hub==0.26.2",
+        "huggingface-hub==0.36.0",
         "requests~=2.32.2",
     )
-    .env(  # hf-transfer for faster downloads
-        {"HF_HUB_ENABLE_HF_TRANSFER": "1"}
+    .env(  # hf-xet: faster downloads
+        {"HF_XET_HIGH_PERFORMANCE": "1"}
     )
     .run_function(  # download the model
         download_model,

@@ -124,11 +124,10 @@ MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
 MODEL_REVISION = "53346005fb0ef11d3b6a83b12c895cca40156b6c"
 
 tensorrt_image = tensorrt_image.pip_install(
-    "hf-transfer==0.1.9",
-    "huggingface_hub==0.28.1",
+    "huggingface_hub==0.36.0",
 ).env(
     {
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",
+        "HF_XET_HIGH_PERFORMANCE": "1",
         "HF_HOME": str(MODELS_PATH),
         "TORCH_CUDA_ARCH_LIST": "9.0 9.0a",  # H100, silence noisy logs
     }

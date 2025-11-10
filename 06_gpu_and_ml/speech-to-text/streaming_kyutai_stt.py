@@ -31,9 +31,9 @@ app = modal.App(name="example-streaming-kyutai-stt")
 stt_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install(
-        "moshi==0.2.9", "fastapi==0.116.1", "hf_transfer==0.1.9", "julius==0.2.7"
+        "moshi==0.2.9", "fastapi==0.116.1", "huggingface-hub==0.36.0", "julius==0.2.7"
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1"})
 )
 
 # One dependency is missing: the model weights.

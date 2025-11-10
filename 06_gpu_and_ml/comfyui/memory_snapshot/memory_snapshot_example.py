@@ -46,7 +46,7 @@ vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 image = (
     image.pip_install("huggingface_hub[hf_transfer]==0.30.0")
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1"})
     .run_function(
         hf_download,
         volumes={"/cache": vol},

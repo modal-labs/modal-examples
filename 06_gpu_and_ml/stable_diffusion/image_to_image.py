@@ -40,7 +40,7 @@ image = (
         "Pillow~=11.2.1",
         "accelerate~=1.8.1",
         f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
-        "huggingface-hub[hf-transfer]==0.33.1",
+        "huggingface-hub==0.36.0",
         "optimum-quanto==0.2.7",
         "safetensors==0.5.3",
         "sentencepiece==0.2.0",
@@ -84,7 +84,7 @@ secrets = [modal.Secret.from_name("huggingface-secret")]
 # We configure environment variables to enable faster downloads from Hugging Face
 # and point the Hugging Face cache to our Modal Volume.
 
-image = image.env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": str(CACHE_DIR)})
+image = image.env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HOME": str(CACHE_DIR)})
 
 # Finally, we import packages we'll be using in our inference function,
 # but not locally.
