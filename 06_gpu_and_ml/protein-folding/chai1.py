@@ -108,7 +108,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install(
         "chai_lab==0.5.0",
-        "hf_transfer==0.1.8",
+        "huggingface-hub==0.36.0",
     )
     .uv_pip_install(
         "torch==2.7.1",
@@ -141,7 +141,7 @@ models_dir = Path("/models/chai1")
 image = image.env(  # update the environment variables in the image to...
     {
         "CHAI_DOWNLOADS_DIR": str(models_dir),  # point the chai code to it
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # speed up downloads
+        "HF_XET_HIGH_PERFORMANCE": "1",  # speed up downloads
     }
 )
 

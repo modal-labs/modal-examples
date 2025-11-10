@@ -51,7 +51,7 @@ image = (
         "accelerate==1.4.0",
         "diffusers==0.32.2",
         "fastapi[standard]==0.115.8",
-        "huggingface-hub[hf_transfer]==0.29.1",
+        "huggingface-hub==0.36.0",
         "imageio==2.37.0",
         "imageio-ffmpeg==0.6.0",
         "opencv-python==4.11.0.86",
@@ -87,7 +87,7 @@ MODEL_PATH = "/models"  # where the Volume will appear on our Functions' filesys
 
 image = image.env(
     {
-        "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
+        "HF_XET_HIGH_PERFORMANCE": "1",  # faster downloads
         "HF_HUB_CACHE": MODEL_PATH,
     }
 )

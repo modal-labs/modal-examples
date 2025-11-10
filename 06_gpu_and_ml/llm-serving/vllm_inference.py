@@ -34,10 +34,10 @@ vllm_image = (
     .entrypoint([])
     .uv_pip_install(
         "vllm==0.11.0",
-        "huggingface_hub[hf_transfer]==0.35.0",
+        "huggingface-hub==0.36.0",
         "flashinfer-python==0.3.1",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})  # faster model transfers
+    .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster model transfers
 )
 
 # ## Download the model weights

@@ -101,8 +101,7 @@ infinity_image = (
         [
             "pillow==11.3.0",  # for Infinity input typehint
             "datasets==4.0.0",  # for huggingface data download
-            "hf_transfer==0.1.9",  # for fast huggingface data download
-            "huggingface_hub[hf_xet]==0.33.2",
+            "huggingface-hub==0.36.0",  # for fast huggingface data download
             "tqdm==4.67.1",  # progress bar for dataset download
             "sentencepiece==0.2.0",  # for this particular chosen model
             "torchvision==0.22.1",  # for fast image loading
@@ -113,7 +112,7 @@ infinity_image = (
     .env(
         {
             "HF_HOME": vol_mnt.as_posix(),  # For model and data caching in our Volume
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # For fast data transfer
+            "HF_XET_HIGH_PERFORMANCE": "1",  # For fast data transfer
         }
     )
 )

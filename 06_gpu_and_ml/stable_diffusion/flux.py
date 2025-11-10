@@ -52,7 +52,7 @@ flux_image = (
     .pip_install(
         "invisible_watermark==0.2.0",
         "transformers==4.44.0",
-        "huggingface_hub[hf_transfer]==0.26.2",
+        "huggingface-hub==0.36.0",
         "accelerate==0.33.0",
         "safetensors==0.4.4",
         "sentencepiece==0.2.0",
@@ -60,7 +60,7 @@ flux_image = (
         f"git+https://github.com/huggingface/diffusers.git@{diffusers_commit_sha}",
         "numpy<2",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": "/cache"})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HUB_CACHE": "/cache"})
 )
 
 # Later, we'll also use `torch.compile` to increase the speed further.

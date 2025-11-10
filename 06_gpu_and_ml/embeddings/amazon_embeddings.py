@@ -161,11 +161,11 @@ inference_image = (
     .dockerfile_commands("ENTRYPOINT []")
     .pip_install(
         "httpx==0.28.1",
-        "huggingface_hub[hf_transfer]==0.30.2",
+        "huggingface-hub==0.36.0",
         "numpy==2.2.5",
         "tqdm==4.67.1",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": MODEL_DIR})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HOME": MODEL_DIR})
     .run_function(download_model, volumes={MODEL_DIR: MODEL_CACHE_VOLUME})
 )
 
