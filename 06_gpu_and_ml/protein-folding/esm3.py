@@ -54,9 +54,9 @@ esm3_image = (
         "esm==3.1.1",
         "torch==2.4.1",
         "gemmi==0.7.0",
-        "huggingface_hub[hf_transfer]==0.26.2",
+        "huggingface-hub==0.36.0",
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": str(MODELS_PATH)})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HOME": str(MODELS_PATH)})
 )
 
 # We'll also define a separate image, with different dependencies,

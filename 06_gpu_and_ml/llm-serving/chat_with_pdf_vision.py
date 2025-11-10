@@ -39,12 +39,12 @@ model_image = (
             "colpali-engine==0.3.5",
             "transformers>=4.45.0",
             "torch>=2.0.0",
-            "hf_transfer==0.1.8",
+            "huggingface-hub==0.36.0",
             "qwen-vl-utils==0.0.8",
             "torchvision==0.19.1",
         ]
     )
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HUB_CACHE": CACHE_DIR})
+    .env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HUB_CACHE": CACHE_DIR})
 )
 
 # These dependencies are only installed remotely, so we can't import them locally.

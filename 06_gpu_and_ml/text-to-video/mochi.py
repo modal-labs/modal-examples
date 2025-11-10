@@ -45,7 +45,7 @@ image = (
     .pip_install(
         "torch==2.5.1",
         "accelerate==1.1.1",
-        "hf_transfer==0.1.8",
+        "huggingface-hub==0.36.0",
         "sentencepiece==0.2.0",
         "imageio==2.36.0",
         "imageio-ffmpeg==0.5.1",
@@ -54,7 +54,7 @@ image = (
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_XET_HIGH_PERFORMANCE": "1",
             "HF_HOME": "/models",
         }
     )

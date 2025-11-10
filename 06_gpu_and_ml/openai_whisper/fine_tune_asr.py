@@ -79,7 +79,7 @@ image = (
         "datasets==3.6.0",
         "evaluate==0.4.5",
         "fastapi[standard]==0.116.1",
-        "huggingface_hub[hf_transfer]==0.33.4",
+        "huggingface-hub==0.36.0",
         "jiwer==4.0.0",
         "librosa==0.11.0",
         "torch==2.7.1",
@@ -89,7 +89,7 @@ image = (
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # Faster downloads from Hugging Face
+            "HF_XET_HIGH_PERFORMANCE": "1",  # Faster downloads from Hugging Face
             "HF_HOME": CACHE_DIR,
         }
     )

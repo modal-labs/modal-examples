@@ -50,7 +50,7 @@ image = (
         "accelerate==0.33.0",
         "diffusers==0.31.0",
         "fastapi[standard]==0.115.4",
-        "huggingface-hub[hf_transfer]==0.25.2",
+        "huggingface-hub==0.36.0",
         "sentencepiece==0.2.0",
         "torch==2.5.1",
         "torchvision==0.20.1",
@@ -58,7 +58,7 @@ image = (
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",  # faster downloads
+            "HF_XET_HIGH_PERFORMANCE": "1",  # faster downloads
             "HF_HUB_CACHE": CACHE_DIR,
         }
     )

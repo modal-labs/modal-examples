@@ -75,7 +75,7 @@ image = (
     )
     .env(
         {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
+            "HF_XET_HIGH_PERFORMANCE": "1",
             "HF_HOME": "/cache",  # cache directory for Hugging Face models
             "DEBIAN_FRONTEND": "noninteractive",
             "CXX": "g++",
@@ -85,7 +85,7 @@ image = (
     .apt_install("ffmpeg")
     .pip_install(
         "hf_transfer==0.1.9",
-        "huggingface_hub[hf-xet]==0.31.2",
+        "huggingface-hub==0.36.0",
         "nemo_toolkit[asr]==2.3.0",
         "cuda-python==12.8.0",
         "fastapi==0.115.12",

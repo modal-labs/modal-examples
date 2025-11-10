@@ -56,8 +56,7 @@ image = modal.Image.debian_slim(python_version="3.10").pip_install(
     "fastapi[standard]==0.115.4",
     "ftfy~=6.1.0",
     "gradio~=5.5.0",
-    "huggingface-hub==0.26.2",
-    "hf_transfer==0.1.8",
+    "huggingface-hub==0.36.0",
     "numpy<2",
     "peft==0.11.1",
     "pydantic==2.9.2",
@@ -138,7 +137,7 @@ huggingface_secret = modal.Secret.from_name(
 )
 
 image = image.env(
-    {"HF_HUB_ENABLE_HF_TRANSFER": "1"}  # turn on faster downloads from HF
+    {"HF_XET_HIGH_PERFORMANCE": "1"}  # turn on faster downloads from HF
 )
 
 
