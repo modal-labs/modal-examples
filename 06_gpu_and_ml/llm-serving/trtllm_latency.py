@@ -85,14 +85,13 @@ tensorrt_image = modal.Image.from_registry(
 
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).uv_pip_install(
+).pip_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
-    extra_options="--index-strategy unsafe-best-match",
 )
 
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)
