@@ -83,9 +83,9 @@ volume = modal.Volume.from_name("example-long-training", create_if_missing=True)
 
 # Modal Functions that run on GPUs [already have CUDA drivers installed](https://modal.com/docs/guide/cuda),
 # so dependency specification is straightforward.
-# We just `pip_install` PyTorch and PyTorch Lightning.
+# We just `uv_pip_install` PyTorch and PyTorch Lightning.
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "lightning~=2.4.0", "torch~=2.4.0", "torchvision==0.19.0"
 )
 

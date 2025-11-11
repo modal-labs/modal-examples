@@ -27,7 +27,7 @@ def download_model():
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("sentence-transformers==3.2.0")
+    .uv_pip_install("sentence-transformers==3.2.0")
     .run_function(download_model)
 )
 

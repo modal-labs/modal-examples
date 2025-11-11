@@ -83,7 +83,7 @@ image = (
         }
     )
     .apt_install("ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "hf_transfer==0.1.9",
         "huggingface-hub==0.36.0",
         "nemo_toolkit[asr]==2.3.0",

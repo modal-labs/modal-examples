@@ -18,7 +18,7 @@ app = modal.App("example-fasthtml-app")
 
 
 @app.function(
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
+    image=modal.Image.debian_slim(python_version="3.12").uv_pip_install(
         "python-fasthtml==0.5.2"
     )
 )

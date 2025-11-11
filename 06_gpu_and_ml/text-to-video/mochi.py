@@ -42,7 +42,7 @@ app = modal.App("example-mochi")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
-    .pip_install(
+    .uv_pip_install(
         "torch==2.5.1",
         "accelerate==1.1.1",
         "huggingface-hub==0.36.0",

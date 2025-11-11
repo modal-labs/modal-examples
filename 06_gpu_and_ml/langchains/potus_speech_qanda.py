@@ -15,7 +15,7 @@
 # ## Defining dependencies
 
 # The example uses packages to implement scraping, the document parsing & LLM API interaction, and web serving.
-# These are installed into a Debian Slim base image using the `pip_install` method.
+# These are installed into a Debian Slim base image using the `uv_pip_install` method.
 
 # Because OpenAI's API is used, we also specify the `openai-secret` Modal Secret, which contains an OpenAI API key.
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
+image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     # scraping pkgs
     "beautifulsoup4~=4.11.1",
     "httpx==0.23.3",

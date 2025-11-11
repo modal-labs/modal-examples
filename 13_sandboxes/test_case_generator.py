@@ -213,7 +213,7 @@ def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     image = (
         modal.Image.debian_slim()
         .apt_install("git", "curl", "tar", "default-jre")
-        .pip_install("webdiff")
+        .uv_pip_install("webdiff")
         .run_commands(
             f"git clone {MODULE_URL}",
             "curl -sSL https://install.python-poetry.org | python3 -",

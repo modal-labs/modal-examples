@@ -82,7 +82,7 @@ vlm_image = (
     modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
     .entrypoint([])  # removes chatty prints on entry
     .apt_install("libnuma-dev")  # Add NUMA library for sgl_kernel
-    .pip_install(  # add sglang and some Python dependencies
+    .uv_pip_install(  # add sglang and some Python dependencies
         "transformers==4.54.1",
         "numpy<2",
         "fastapi[standard]==0.115.4",
@@ -93,6 +93,7 @@ vlm_image = (
         "sglang[all]==0.4.10.post2",
         "sgl-kernel==0.2.8",
         "hf-xet==1.1.5",
+        pre=True,
     )
     .env(
         {
@@ -103,7 +104,7 @@ vlm_image = (
     .run_function(  # download the model by running a Python function
         download_model, volumes=volumes
     )
-    .pip_install(  # add an optional extra that renders images in the terminal
+    .uv_pip_install(  # add an optional extra that renders images in the terminal
         "term-image==0.7.1"
     )
 )

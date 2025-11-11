@@ -27,8 +27,8 @@ app = modal.App.lookup("example-jupyter-sandbox", create_if_missing=True)
 # Using a pre-defined image allows us to avoid re-installing packages on every Sandbox startup.
 
 image = (
-    modal.Image.debian_slim(python_version="3.12").pip_install("jupyter~=1.1.0")
-    # .pip_install("pandas", "numpy", "seaborn")  # Any other deps
+    modal.Image.debian_slim(python_version="3.12").uv_pip_install("jupyter~=1.1.0")
+    # .uv_pip_install("pandas", "numpy", "seaborn")  # Any other deps
 )
 
 # ## Starting a Jupyter server in a Sandbox

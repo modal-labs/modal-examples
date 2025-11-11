@@ -53,7 +53,7 @@ CACHE_DIR = "/hf-cache"
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
+    .uv_pip_install(
         "huggingface_hub==0.21.4",
         "transformers==4.38.2",
         "diffusers==0.26.3",
@@ -260,7 +260,7 @@ def main(
 # To set up your own, run `modal deploy cloud_bucket_mount_loras.py` and navigate to the URL it prints out.
 # If you're playing with the code, use `modal serve` instead to see changes live.
 
-web_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "fastapi[standard]==0.115.4",
     "gradio~=5.7.1",
     "pillow~=10.2.0",

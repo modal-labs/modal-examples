@@ -19,7 +19,7 @@ flash_attn_release = (
     "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp313-cp313-linux_x86_64.whl"
 )
 
-image = modal.Image.debian_slim(python_version="3.13").pip_install(
+image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
     "torch==2.6.0", "numpy==2.2.4", flash_attn_release
 )
 

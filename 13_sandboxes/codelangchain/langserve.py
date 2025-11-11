@@ -22,7 +22,7 @@ from .src.common import image
 
 app = modal.App("example-codelangchain-langserve")
 
-image = image.pip_install("langserve[all]==0.3.0")
+image = image.uv_pip_install("langserve[all]==0.3.0")
 
 
 @app.function(

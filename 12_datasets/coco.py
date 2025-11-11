@@ -27,7 +27,7 @@ volume = modal.CloudBucketMount(
     bucket_name,
     secret=bucket_creds,
 )
-image = modal.Image.debian_slim().apt_install("wget").pip_install("tqdm")
+image = modal.Image.debian_slim().apt_install("wget").uv_pip_install("tqdm")
 app = modal.App(
     "example-coco",
     image=image,

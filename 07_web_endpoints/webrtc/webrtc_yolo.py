@@ -128,7 +128,7 @@ video_processing_image = (
     # install system dependencies
     .apt_install("python3-opencv", "ffmpeg")
     # install Python dependencies
-    .pip_install(
+    .uv_pip_install(
         "aiortc==1.11.0",
         "fastapi==0.115.12",
         "huggingface-hub[hf_xet]==0.30.2",
@@ -271,7 +271,7 @@ class ObjDet(ModalWebRtcPeer):
 base_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("python3-opencv", "ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "fastapi[standard]==0.115.4",
         "aiortc==1.11.0",
         "opencv-python==4.11.0.86",

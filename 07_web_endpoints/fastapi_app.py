@@ -13,7 +13,7 @@ import modal
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
 
-image = modal.Image.debian_slim().pip_install("fastapi[standard]", "pydantic")
+image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]", "pydantic")
 app = modal.App("example-fastapi-app", image=image)
 web_app = FastAPI()
 

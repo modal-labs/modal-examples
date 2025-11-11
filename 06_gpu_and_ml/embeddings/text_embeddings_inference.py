@@ -68,7 +68,7 @@ tei_image = (
     )
     .dockerfile_commands("ENTRYPOINT []")
     .run_function(download_model, gpu=GPU_CONFIG)
-    .pip_install("httpx")
+    .uv_pip_install("httpx")
 )
 
 
@@ -129,7 +129,7 @@ def download_data():
     volume.commit()
 
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "google-cloud-bigquery", "pandas", "db-dtypes", "tqdm"
 )
 

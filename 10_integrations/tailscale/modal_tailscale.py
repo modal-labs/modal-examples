@@ -20,7 +20,7 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl")
     .run_commands("curl -fsSL https://tailscale.com/install.sh | sh")
-    .pip_install("requests==2.32.3", "PySocks==1.7.1")
+    .uv_pip_install("requests==2.32.3", "PySocks==1.7.1")
     .add_local_file("./entrypoint.sh", "/root/entrypoint.sh", copy=True)
     .run_commands("chmod a+x /root/entrypoint.sh")
     .entrypoint(["/root/entrypoint.sh"])

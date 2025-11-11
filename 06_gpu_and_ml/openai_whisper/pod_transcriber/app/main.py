@@ -21,7 +21,7 @@ model_cache = modal.Volume.from_name("parakeet-model-cache", create_if_missing=T
 app_image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "dacite",
         "jiwer",
         "ffmpeg-python",
@@ -51,7 +51,7 @@ parakeet_image = (
         }
     )
     .apt_install("ffmpeg")
-    .pip_install(
+    .uv_pip_install(
         "hf_transfer==0.1.9",
         "huggingface_hub[hf-xet]==0.31.2",
         "nemo_toolkit[asr]==2.3.0",
@@ -71,7 +71,7 @@ parakeet_image = (
 
 search_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
+    .uv_pip_install(
         "scikit-learn~=1.3.0",
         "tqdm~=4.46.0",
         "numpy~=1.23.3",

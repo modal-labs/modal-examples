@@ -197,7 +197,7 @@ def download_demo_files() -> None:
 
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
+    .uv_pip_install(
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.1",
         "starlette==0.41.2",
@@ -227,7 +227,7 @@ image = (
         "tqdm~=4.64.1",
     )
     # xformers library offers performance improvement.
-    .pip_install("xformers", pre=True)
+    .uv_pip_install("xformers", pre=True)
     .apt_install("git")
     # Here we place the latest ControlNet repository code into /root.
     # Because /root is almost empty, but not entirely empty, `git clone` won't work,

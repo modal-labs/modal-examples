@@ -18,7 +18,7 @@ persistent_volume = modal.Volume.from_name(
     create_if_missing=True,
 )
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install_from_requirements(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install_from_requirements(
     "requirements.txt"
 )
 app = modal.App(

@@ -80,7 +80,7 @@ tei_image = (
         add_python="3.10",
     )
     .dockerfile_commands("ENTRYPOINT []")
-    .pip_install("httpx", "numpy")
+    .uv_pip_install("httpx", "numpy")
 )
 
 with tei_image.imports():
@@ -256,7 +256,7 @@ def upload_result_to_hf(batch_size: int) -> None:
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install(
+    image=modal.Image.debian_slim().uv_pip_install(
         "datasets", "pyarrow", "hf_transfer", "huggingface_hub"
     ),
     volumes={

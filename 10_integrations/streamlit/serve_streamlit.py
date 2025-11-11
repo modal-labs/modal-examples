@@ -32,7 +32,7 @@ streamlit_script_remote_path = "/root/app.py"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2")
+    .uv_pip_install("streamlit~=1.35.0", "numpy~=1.26.4", "pandas~=2.2.2")
     .add_local_file(
         streamlit_script_local_path,
         streamlit_script_remote_path,
