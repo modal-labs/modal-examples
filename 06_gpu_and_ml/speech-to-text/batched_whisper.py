@@ -29,7 +29,7 @@ MODEL_REVISION = "afda370583db9c5359511ed5d989400a6199dfe1"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
+    .uv_pip_install(
         "torch==2.5.1",
         "transformers==4.47.1",
         "huggingface-hub==0.36.0",

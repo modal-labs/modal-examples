@@ -33,7 +33,7 @@ from typing import Literal, Optional
 import modal
 from pydantic import BaseModel, Field
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
+image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "instructor~=1.7.2", "anthropic==0.42.0"
 )
 

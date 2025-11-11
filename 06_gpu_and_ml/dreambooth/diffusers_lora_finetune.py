@@ -50,7 +50,7 @@ import modal
 
 app = modal.App(name="example-diffusers-lora-finetune")
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install(
+image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "accelerate==0.31.0",
     "datasets~=2.13.0",
     "fastapi[standard]==0.115.4",

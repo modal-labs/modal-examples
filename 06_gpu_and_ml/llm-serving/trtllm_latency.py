@@ -85,7 +85,7 @@ tensorrt_image = modal.Image.from_registry(
 
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
+).uv_pip_install(
     "tensorrt-llm==0.18.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     "flashinfer-python==0.2.5",
@@ -123,7 +123,7 @@ MODELS_PATH = VOLUME_PATH / "models"
 MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
 MODEL_REVISION = "53346005fb0ef11d3b6a83b12c895cca40156b6c"
 
-tensorrt_image = tensorrt_image.pip_install(
+tensorrt_image = tensorrt_image.uv_pip_install(
     "huggingface_hub==0.36.0",
 ).env(
     {

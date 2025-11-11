@@ -37,7 +37,7 @@ image = (
     .apt_install("libcudnn8")  # cuDNN runtime
     .apt_install("libcudnn8-dev")  # cuDNN headers (needed by torch wheels)
     # ── Python deps ─────────────────────────────────────────────────────────────
-    .pip_install(
+    .uv_pip_install(
         "whisperx==3.4.0",  # our ASR library
         "numpy==2.0.2",
         "scipy==1.15.0",

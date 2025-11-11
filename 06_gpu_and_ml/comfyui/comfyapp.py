@@ -45,8 +45,8 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
         python_version="3.11"
     )
     .apt_install("git")  # install git to clone ComfyUI
-    .pip_install("fastapi[standard]==0.115.4")  # install web dependencies
-    .pip_install("comfy-cli==1.4.1")  # install comfy-cli
+    .uv_pip_install("fastapi[standard]==0.115.4")  # install web dependencies
+    .uv_pip_install("comfy-cli==1.4.1")  # install comfy-cli
     .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
         "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.41"
     )
@@ -103,7 +103,7 @@ vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 image = (
     # install huggingface_hub with hf_xet support to speed up downloads
-    image.pip_install("huggingface-hub==0.36.0")
+    image.uv_pip_install("huggingface-hub==0.36.0")
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})
     .run_function(
         hf_download,

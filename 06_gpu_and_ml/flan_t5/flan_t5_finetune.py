@@ -12,7 +12,7 @@
 # The example uses the `dataset` package from HuggingFace to load the xsum dataset. It also uses the `transformers`
 # and `accelerate` packages with a PyTorch backend to finetune and serve the model. Finally, we also
 # install `tensorboard` and serve it via a web app. All packages are installed into a Debian Slim base image
-# using the `pip_install` function.
+# using the `uv_pip_install` function.
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ VOL_MOUNT_PATH = Path("/vol")
 # Other Flan-T5 models can be found [here](https://huggingface.co/docs/transformers/model_doc/flan-t5)
 BASE_MODEL = "google/flan-t5-base"
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install(
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "accelerate",
     "transformers",
     "torch",

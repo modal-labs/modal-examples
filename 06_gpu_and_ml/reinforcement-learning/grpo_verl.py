@@ -35,7 +35,7 @@ image = (
     modal.Image.from_registry("verlai/verl:app-verl0.4-vllm0.8.5-mcore0.12.1")
     .apt_install("git")
     .run_commands(f"git clone https://github.com/volcengine/verl {VERL_REPO_PATH}")
-    .pip_install("verl[vllm]==0.4.1")
+    .uv_pip_install("verl[vllm]==0.4.1")
 )
 
 # ## Defining the dataset
@@ -242,7 +242,7 @@ def get_latest_checkpoint_file_path():
 
 vllm_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install(
+    .uv_pip_install(
         "vllm==0.9.1",
         "flashinfer-python==0.2.6.post1",
         extra_index_url="https://download.pytorch.org/whl/cu128",

@@ -21,7 +21,7 @@ def nvidia_smi():
 # This is enough to install and use many CUDA-dependent libraries, like PyTorch.
 
 
-@app.function(gpu="T4", image=modal.Image.debian_slim().pip_install("torch"))
+@app.function(gpu="T4", image=modal.Image.debian_slim().uv_pip_install("torch"))
 def torch_cuda():
     import torch
 

@@ -39,7 +39,7 @@ def download_model():
 # Define our image; install dependencies.
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .pip_install(
+    .uv_pip_install(
         "jsonformer==0.9.0",
         "transformers",
         "torch",

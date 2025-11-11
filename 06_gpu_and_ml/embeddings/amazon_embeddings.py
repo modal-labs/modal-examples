@@ -82,7 +82,7 @@ def main(
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("datasets==3.5.1"), timeout=2 * HOURS
+    image=modal.Image.debian_slim().uv_pip_install("datasets==3.5.1"), timeout=2 * HOURS
 )
 def launch_job(dataset_name: str, dataset_subset: str, down_scale: float):
     import time
@@ -159,7 +159,7 @@ tei_image = "ghcr.io/huggingface/text-embeddings-inference:89-1.7"
 inference_image = (
     modal.Image.from_registry(tei_image, add_python="3.12")
     .dockerfile_commands("ENTRYPOINT []")
-    .pip_install(
+    .uv_pip_install(
         "httpx==0.28.1",
         "huggingface-hub==0.36.0",
         "numpy==2.2.5",

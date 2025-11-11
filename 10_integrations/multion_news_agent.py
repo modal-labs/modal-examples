@@ -20,7 +20,7 @@ app = modal.App("example-multion-news-agent")
 
 # Let's also define an image that has the `multion` package installed, so we can query the API.
 
-multion_image = modal.Image.debian_slim().pip_install("multion")
+multion_image = modal.Image.debian_slim().uv_pip_install("multion")
 
 # We can now define our main entrypoint, which uses [MultiOn](https://www.multion.ai/)
 # to scrape AI news everyday and post it on our Twitter account.

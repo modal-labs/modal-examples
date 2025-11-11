@@ -31,7 +31,7 @@ from enum import Enum
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
+image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "fastapi[standard]==0.115.4", "pynacl~=1.5.0", "requests~=2.32.3"
 )
 

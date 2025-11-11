@@ -22,7 +22,7 @@ app = modal.App("example-count-faces")
 open_cv_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("python3-opencv")
-    .pip_install(
+    .uv_pip_install(
         "fastapi[standard]==0.115.4",
         "opencv-python~=4.10.0",
         "numpy<2",
@@ -51,7 +51,7 @@ def count_faces(image_bytes: bytes) -> int:
 
 
 @app.function(
-    image=modal.Image.debian_slim(python_version="3.11").pip_install("inflect")
+    image=modal.Image.debian_slim(python_version="3.11").uv_pip_install("inflect")
 )
 @modal.asgi_app()
 def web():

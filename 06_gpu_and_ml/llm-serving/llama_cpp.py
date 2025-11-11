@@ -216,7 +216,7 @@ cache_dir = "/root/.cache/llama.cpp"
 
 download_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("huggingface-hub==0.36.0")
+    .uv_pip_install("huggingface-hub==0.36.0")
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})
 )
 

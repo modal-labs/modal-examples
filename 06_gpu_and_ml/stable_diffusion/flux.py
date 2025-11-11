@@ -49,7 +49,7 @@ flux_image = (
         "ffmpeg",
         "libgl1",
     )
-    .pip_install(
+    .uv_pip_install(
         "invisible_watermark==0.2.0",
         "transformers==4.44.0",
         "huggingface-hub==0.36.0",

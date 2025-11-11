@@ -135,7 +135,7 @@ def crawl():
 # We want to be able to trigger this function through a webhook.
 
 
-@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]"))
+@app.function(image=modal.Image.debian_slim().uv_pip_install("fastapi[standard]"))
 @modal.fastapi_endpoint()
 def crawl_webhook():
     crawl.remote()

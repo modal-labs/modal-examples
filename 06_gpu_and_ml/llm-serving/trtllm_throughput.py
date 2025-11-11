@@ -61,7 +61,7 @@ tensorrt_image = modal.Image.from_registry(
 
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
+).uv_pip_install(
     "tensorrt_llm==0.14.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
     "cuda-python==12.9.1",
@@ -112,7 +112,7 @@ def download_model():
 
 MINUTES = 60  # seconds
 tensorrt_image = (  # update the image by downloading the model we're using
-    tensorrt_image.pip_install(  # add utilities for downloading the model
+    tensorrt_image.uv_pip_install(  # add utilities for downloading the model
         "huggingface-hub==0.36.0",
         "requests~=2.32.2",
     )
@@ -572,7 +572,7 @@ def main():
 # This API wrapper doesn't need all the dependencies of the core inference service,
 # so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack.
 
-web_image = modal.Image.debian_slim(python_version="3.10").pip_install(
+web_image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
     "fastapi[standard]==0.115.4",
     "pydantic==2.9.2",
     "starlette==0.41.2",
