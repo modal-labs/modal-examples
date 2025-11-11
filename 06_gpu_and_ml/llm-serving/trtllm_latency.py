@@ -92,6 +92,7 @@ tensorrt_image = tensorrt_image.apt_install(
     "cuda-python==12.9.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
+    extra_options="--index-strategy unsafe-best-match",
 )
 
 # Note that we're doing this by [method-chaining](https://quanticdev.com/articles/method-chaining/)

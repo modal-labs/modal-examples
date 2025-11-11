@@ -235,6 +235,7 @@ vllm_image = (
         "vllm==0.9.1",
         "flashinfer-python==0.2.6.post1",
         extra_index_url="https://download.pytorch.org/whl/cu128",
+        extra_options="--index-strategy unsafe-best-match",
     )
     .env({"VLLM_USE_V1": "1"})
 )

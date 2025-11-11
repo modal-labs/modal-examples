@@ -93,6 +93,7 @@ vlm_image = (
         "sglang[all]==0.4.10.post2",
         "sgl-kernel==0.2.8",
         "hf-xet==1.1.5",
+        pre=True,
     )
     .env(
         {
