@@ -1,4 +1,5 @@
 # ---
+# lambda-test: false  # missing-secret
 # deploy: true
 # ---
 
