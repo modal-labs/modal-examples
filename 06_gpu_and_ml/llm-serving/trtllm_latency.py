@@ -90,6 +90,7 @@ tensorrt_image = tensorrt_image.apt_install(
     "pynvml<12",  # avoid breaking change to pynvml version API
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
+    "onnx==1.19.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
