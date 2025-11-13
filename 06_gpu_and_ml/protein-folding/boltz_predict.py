@@ -62,6 +62,8 @@ def main(
 
     if input_yaml_path is None:
         input_yaml_path = here / "data" / "boltz_affinity.yaml"
+    else:
+        input_yaml_path = Path(input_yaml_path)
     input_yaml = input_yaml_path.read_text()
 
     print(f"🧬 running boltz with input from {input_yaml_path}")
