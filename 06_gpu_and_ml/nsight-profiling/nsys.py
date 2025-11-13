@@ -2,24 +2,24 @@
 # runtimes: ["runc"]
 # ---
 
-# # Trace and profile GPU-accelerated applications with NSight Systems
+# # Trace and profile GPU-accelerated applications with Nsight Systems
 
 # This example demonstrates how to use
-# NVIDIA's [NSight Systems](https://developer.nvidia.com/nsight-systems)
+# NVIDIA's [Nsight Systems](https://developer.nvidia.com/nsight-systems)
 # profiling tool on Modal.
 
-# NSight Systems traces and profiles GPU-accelerated applications at the _systems_ level --
+# Nsight Systems traces and profiles GPU-accelerated applications at the _systems_ level --
 # that is, it correlates events across the host and the device(s), aka the CPU(s) and GPU(s).
 
-# To run NSight Systems, you will need to use a different version of Modal's Function runtime
+# To run Nsight Systems, you will need to use a different version of Modal's Function runtime
 # that allows user code to perform additional syscalls.
 # This is made available to select users on Modal's [Enterprise Plan](https://modal.com/pricing).
 # Users on that plan can request access by contacting Modal Support.
 
-# Note that the PyTorch profiler captures similar metrics to NSight Systems but
+# Note that the PyTorch profiler captures similar metrics to Nsight Systems but
 # does not require elevated permissions. You can find sample code for that [here](https://modal.com/docs/examples/torch_profiling).
 
-# ## Install NSight Systems and the CUDA Toolkit
+# ## Install Nsight Systems and the CUDA Toolkit
 
 # First, we need to install the software into our
 # [container Image](https://modal.com/docs/guide/images).
@@ -34,7 +34,7 @@ here = Path(__file__).parent  # directory of this script
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .run_commands(
-        # install system packages required to install NSight Systems
+        # install system packages required to install Nsight Systems
         "apt update",
         "apt install -y --no-install-recommends gnupg wget software-properties-common",
         # add NVIDIA's GPG keys
@@ -42,7 +42,7 @@ image = (
         "dpkg -i cuda-keyring_1.1-1_all.deb",
         # add the contrib APT repository that distributes CUDA software on Debian Linux
         "add-apt-repository contrib",
-        # install NSight Systems and the CUDA Toolkit
+        # install Nsight Systems and the CUDA Toolkit
         "apt update",
         "apt install -y cuda-nsight-systems-12-8 cuda-toolkit-12-8",
     )
@@ -52,7 +52,7 @@ image = (
     .add_local_file(here / "toy.cu", remote_path="/root/toy.cu")
 )
 
-# ## Run NSight Systems on Modal
+# ## Run Nsight Systems on Modal
 
 # Now we can use the `nsys` command-line tool on Modal.
 
@@ -87,7 +87,7 @@ def compile_and_profile(code: str, output_path: str = "profile.nsys-rep"):
 # MODAL_FUNCTION_RUNTIME=runc modal run -w profile.nsys-rep nsys.py::compile_and_profile --code $'#include <iostream>\nint main() { std::cout << "Hello, World!" << std::endl; return 0; }'
 # ```
 
-# If you [install the NSight Systems GUI on your local machine](https://developer.nvidia.com/nsight-systems/get-started),
+# If you [install the Nsight Systems GUI on your local machine](https://developer.nvidia.com/nsight-systems/get-started),
 # you can view the trace and profiler report -- no NVIDIA GPUs or CUDA Toolkit required.
 
 # The `local_entrypoint` below shows a slightly more realistic pattern,
