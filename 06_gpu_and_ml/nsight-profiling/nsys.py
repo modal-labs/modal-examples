@@ -84,7 +84,7 @@ def compile_and_profile(code: str, output_path: str = "profile.nsys-rep"):
 # from the terminal and write the response into a local file:
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal run -w profile.nsys-rep nsys.py::compile_and_profile --code $'#include <iostream>\nint main() { std::cout << "Hello, World!" << std::endl; return 0; }'
+# modal run -w profile.nsys-rep nsys.py::compile_and_profile --code $'#include <iostream>\nint main() { std::cout << "Hello, World!" << std::endl; return 0; }'
 # ```
 
 # If you [install the Nsight Systems GUI on your local machine](https://developer.nvidia.com/nsight-systems/get-started),
@@ -94,7 +94,7 @@ def compile_and_profile(code: str, output_path: str = "profile.nsys-rep"):
 # based on passing in a path to a CUDA program.
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal run nsys.py --input-path toy.cu
+# modal run nsys.py --input-path toy.cu
 # ```
 
 
@@ -118,7 +118,7 @@ def main(input_path: str | None = None, output_path: str | None = None):
 # or profiling in an interactive shell with
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal shell nsys.py
+# modal shell nsys.py
 # ```
 
 # Profiles saved to `/traces/` will be persisted in a Modal Volume.
