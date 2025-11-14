@@ -2,18 +2,23 @@
 # cmd: ["modal", "run", "10_integrations/mcp_server_stateless.py::test_tool"]
 # ---
 
-# # Deploy a remote, stateless MCP server on Modal
+# # Deploy a remote, stateless MCP server on Modal with FastMCP
 
-# This example demonstrates how to deploy a simple [MCP
-# server](https://modelcontextprotocol.io/) on Modal, that provides a tool to get the
-# current date and time in a given timezone. It is a stateless MCP server, meaning that
-# it does not store any state between requests, and uses the "streamable HTTP" transport
-# type.
+# This example demonstrates how to deploy a simple
+# [MCP server](https://modelcontextprotocol.io/)
+# on Modal.
 
-# It uses the [FastMCP library](https://github.com/jlowin/fastmcp) to create the MCP
-# server, which is wrapped using FastAPI, and served with a [Modal web
-# endpoint](https://modal.com/docs/guide/webhooks).
+# The server provides a tool to get the current date and time in a given timezone.
+# It is a stateless MCP server, meaning that it does not store any state between requests,
+# which is important for mapping onto Modal's serverless Functions.
+# It uses the "streamable HTTP" transport type.
 
+## Building the MCP server
+
+# First, we define our dependencies.
+
+# We use the [FastMCP library](https://github.com/jlowin/fastmcp) to create the MCP
+# server. We wrap with a FastAPI server to expose it to the Internet.
 
 import modal
 
@@ -26,7 +31,7 @@ image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
 )
 
 
-# First, we create the MCP server itself using FastMCP, and add a tool to it that
+# Next, we create the MCP server itself using FastMCP and add a tool to it that
 # allows LLMs to get the current date and time in a given timezone.
 
 
@@ -63,8 +68,9 @@ def make_mcp_server():
 # We then use FastMCP to create a Starlette app with `streamable-http` as transport
 # type, and set `stateless_http=True` to make it stateless.
 
-# This will be mounted by the FastAPI app, which we deploy as a Modal web endpoint using
-# [the `asgi_app` decorator](https://modal.com/docs/reference/modal.asgi_app):
+# This will be mounted by the FastAPI app, which we deploy as a
+# [Modal web endpoint](https://modal.com/docs/guide/webhooks)
+# using [the `asgi_app` decorator](https://modal.com/docs/reference/modal.asgi_app):
 
 
 @app.function(image=image)
@@ -109,11 +115,6 @@ def web():
 # current date and time in UTC!
 
 # To automatically test the MCP server, we spin up a client and have it list the tools.
-# This test is executed by running the script with `modal run`:
-
-# ```bash
-# modal run mcp_server_stateless::test_tool
-# ```
 
 
 @app.function(image=image)
@@ -138,3 +139,22 @@ async def test_tool(tool_name: str | None = None):
                 return
 
     raise Exception(f"could not find tool {tool_name}")
+
+
+# This test is executed by running the script with `modal run`:
+
+# ```bash
+# modal run mcp_server_stateless::test_tool
+# ```
+
+# ## Deploying the MCP server
+
+# `modal serve` creates an ephemeral, hot-reloading server,
+# which is useful for testing and development.
+
+# When it's time to move to production,
+# you can deploy the server with
+
+# ```bash
+# modal deploy mcp_server_stateless
+# ```
