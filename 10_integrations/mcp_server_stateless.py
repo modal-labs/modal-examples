@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "10_integrations/mcp_server_stateless.py"]
+# cmd: ["modal", "run", "10_integrations/mcp_server_stateless.py::test_tool"]
 # ---
 
 # # Deploy a remote, stateless MCP server on Modal
@@ -130,9 +130,11 @@ async def test_tool(tool_name: str | None = None):
     async with client:
         tools = await client.list_tools()
 
-    for tool in tools:
-        print(tool)
-        if tool.name == tool_name:
-            return
+        for tool in tools:
+            print(tool)
+            if tool.name == tool_name:
+                result = await client.call_tool(tool_name)
+                print(result.data)
+                return
 
     raise Exception(f"could not find tool {tool_name}")
