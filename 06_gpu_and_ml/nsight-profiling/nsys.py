@@ -94,7 +94,7 @@ def compile_and_profile(code: str, output_path: str = "profile.nsys-rep"):
 # based on passing in a path to a CUDA program.
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal run nsys.py --input-path toy.cu
+# modal run nsys.py --input-path toy.cu
 # ```
 
 
@@ -118,7 +118,7 @@ def main(input_path: str | None = None, output_path: str | None = None):
 # or profiling in an interactive shell with
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal shell nsys.py
+# modal shell nsys.py
 # ```
 
 # Profiles saved to `/traces/` will be persisted in a Modal Volume.
