@@ -84,7 +84,7 @@ def compile_and_profile(code: str, output_path: str = "profile.nsys-rep"):
 # from the terminal and write the response into a local file:
 
 # ```bash
-# MODAL_FUNCTION_RUNTIME=runc modal run -w profile.nsys-rep nsys.py::compile_and_profile --code $'#include <iostream>\nint main() { std::cout << "Hello, World!" << std::endl; return 0; }'
+# modal run -w profile.nsys-rep nsys.py::compile_and_profile --code $'#include <iostream>\nint main() { std::cout << "Hello, World!" << std::endl; return 0; }'
 # ```
 
 # If you [install the Nsight Systems GUI on your local machine](https://developer.nvidia.com/nsight-systems/get-started),
