@@ -13,7 +13,7 @@
 # which is important for mapping onto Modal's serverless Functions.
 # It uses the "streamable HTTP" transport type.
 
-## Building the MCP server
+# ## Building the MCP server
 
 # First, we define our dependencies.
 
