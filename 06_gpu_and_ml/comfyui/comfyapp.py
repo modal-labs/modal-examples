@@ -46,9 +46,9 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
     )
     .apt_install("git")  # install git to clone ComfyUI
     .uv_pip_install("fastapi[standard]==0.115.4")  # install web dependencies
-    .uv_pip_install("comfy-cli==1.4.1")  # install comfy-cli
+    .uv_pip_install("comfy-cli==1.5.3")  # install comfy-cli
     .run_commands(  # use comfy-cli to install ComfyUI and its dependencies
-        "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.41"
+        "comfy --skip-prompt install --fast-deps --nvidia --version 0.3.71"
     )
 )
 
@@ -60,7 +60,7 @@ image = (  # build up a Modal Image to run ComfyUI, step by step
 
 image = (
     image.run_commands(  # download a custom node
-        "comfy node install --fast-deps was-node-suite-comfyui@1.0.2"
+        "comfy node install --fast-deps was-ns@3.0.1"
     )
     # Add .run_commands(...) calls for any other custom nodes you want to download
 )
@@ -113,9 +113,7 @@ image = (
 )
 
 # Lastly, copy the ComfyUI workflow JSON to the container.
-image = image.add_local_file(
-    Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
-)
+image = image.add_local_file(Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json")
 
 
 # ## Running ComfyUI interactively
@@ -131,9 +129,7 @@ app = modal.App(name="example-comfyapp", image=image)
     gpu="L40S",  # good starter GPU for inference
     volumes={"/cache": vol},  # mounts our cached models
 )
-@modal.concurrent(
-    max_inputs=10
-)  # required for UI startup process which runs several API calls concurrently
+@modal.concurrent(max_inputs=10)  # required for UI startup process which runs several API calls concurrently
 @modal.web_server(8000, startup_timeout=60)
 def ui():
     subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)
@@ -186,11 +182,9 @@ class ComfyUI:
 
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
-        file_prefix = [
-            node.get("inputs")
-            for node in workflow.values()
-            if node.get("class_type") == "SaveImage"
-        ][0]["filename_prefix"]
+        file_prefix = [node.get("inputs") for node in workflow.values() if node.get("class_type") == "SaveImage"][0][
+            "filename_prefix"
+        ]
 
         # returns the image as bytes
         for f in Path(output_dir).iterdir():
@@ -201,9 +195,7 @@ class ComfyUI:
     def api(self, item: Dict):
         from fastapi import Response
 
-        workflow_data = json.loads(
-            (Path(__file__).parent / "workflow_api.json").read_text()
-        )
+        workflow_data = json.loads((Path(__file__).parent / "workflow_api.json").read_text())
 
         # insert the prompt
         workflow_data["6"]["inputs"]["text"] = item["prompt"]
