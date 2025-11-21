@@ -113,7 +113,9 @@ image = (
 )
 
 # Lastly, copy the ComfyUI workflow JSON to the container.
-image = image.add_local_file(Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json")
+image = image.add_local_file(
+    Path(__file__).parent / "workflow_api.json", "/root/workflow_api.json"
+)
 
 
 # ## Running ComfyUI interactively
@@ -129,7 +131,9 @@ app = modal.App(name="example-comfyapp", image=image)
     gpu="L40S",  # good starter GPU for inference
     volumes={"/cache": vol},  # mounts our cached models
 )
-@modal.concurrent(max_inputs=10)  # required for UI startup process which runs several API calls concurrently
+@modal.concurrent(
+    max_inputs=10
+)  # required for UI startup process which runs several API calls concurrently
 @modal.web_server(8000, startup_timeout=60)
 def ui():
     subprocess.Popen("comfy launch -- --listen 0.0.0.0 --port 8000", shell=True)
@@ -182,9 +186,11 @@ class ComfyUI:
 
         # looks up the name of the output image file based on the workflow
         workflow = json.loads(Path(workflow_path).read_text())
-        file_prefix = [node.get("inputs") for node in workflow.values() if node.get("class_type") == "SaveImage"][0][
-            "filename_prefix"
-        ]
+        file_prefix = [
+            node.get("inputs")
+            for node in workflow.values()
+            if node.get("class_type") == "SaveImage"
+        ][0]["filename_prefix"]
 
         # returns the image as bytes
         for f in Path(output_dir).iterdir():
@@ -195,7 +201,9 @@ class ComfyUI:
     def api(self, item: Dict):
         from fastapi import Response
 
-        workflow_data = json.loads((Path(__file__).parent / "workflow_api.json").read_text())
+        workflow_data = json.loads(
+            (Path(__file__).parent / "workflow_api.json").read_text()
+        )
 
         # insert the prompt
         workflow_data["6"]["inputs"]["text"] = item["prompt"]
