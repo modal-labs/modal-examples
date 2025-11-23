@@ -241,14 +241,13 @@ def get_latest_checkpoint_file_path():
 # We provide the code for setting up an OpenAI compatible inference endpoint here. For more details re. serving models on vLLM, check out [this example.](https://modal.com/docs/examples/vllm_inference#deploy-the-server)
 
 vllm_image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
+    .entrypoint([])
     .uv_pip_install(
-        "vllm==0.9.1",
-        "flashinfer-python==0.2.6.post1",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
-        extra_options="--index-strategy unsafe-best-match",
+        "vllm==0.11.2",
+        "huggingface-hub==0.36.0",
+        "flashinfer-python==0.5.2",
     )
-    .env({"VLLM_USE_V1": "1"})
 )
 
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
