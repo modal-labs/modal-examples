@@ -53,7 +53,7 @@ n_nodes = 4
 # while `nproc_per_node` is `torch.distributed` configuration ("how many processes should we spawn for you?").
 
 n_proc_per_node = N_GPU = 1
-GPU_CONFIG = f"H100:{N_GPU}"
+GPU_CONFIG = f"A100:{N_GPU}"
 
 # Lastly, we need to select our communications library: the software that will handle
 # sending messages between nodes in our cluster.
