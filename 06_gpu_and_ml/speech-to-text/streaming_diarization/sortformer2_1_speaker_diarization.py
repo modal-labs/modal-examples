@@ -3,6 +3,15 @@
 # pytest: false
 # ---
 
+# # Streaming Speaker Diarization with Sortformer2.1
+
+# In this example, we show how to deploy a streaming speaker diarization service with NVIDIA's Sortformer2.1 on Modal.
+# Sortformer2.1 is a state-of-the-art speaker diarization model that is designed to operate on streams of audio, rather than on complete audio files.
+
+# ## Setup
+
+# We start by importing some basic packages and the Modal SDK. As well as setting up our Modal App, Volume, and Image.
+
 from pathlib import Path
 from typing import Literal
 
@@ -48,6 +57,20 @@ with image.imports():
     from .sortformer2_1 import DiarizationConfig, NeMoStreamingDiarizer
 
 
+# ## Run Sortformer2.1 speaker diarization
+
+# Now we're ready to add the code that runs the Sortformer2.1 speaker diarization model.
+
+# We use a Modal [Cls](https://modal.com/docs/guide/lifecycle-functions)
+# so that we can separate out the model loading and setup code from the inference.
+# For more on lifecycle management with Clses and cold start penalty reduction on Modal, see
+# [this guide](https://modal.com/docs/guide/cold-start). In particular, the Sortformer2.1 model
+# is amenable to GPU snapshots.
+
+# We also include two configurations. The low latency configuration is used for real-time diarization,
+# and the high latency configuration is used for non-real-time diarization with higher accuracy.
+
+
 @app.cls(
     image=image,
     volumes={CACHE_PATH: cache_vol},
@@ -85,6 +108,17 @@ class Sortformer2_1_Speaker_Diarization:
         self.diarizer = NeMoStreamingDiarizer(
             cfg=self.config, model="nvidia/diar_streaming_sortformer_4spk-v2.1"
         )
+
+        # ## Using WebSockets to stream audio and diarization results
+
+        # We use a Modal [ASGI](https://modal.com/docs/guide/asgi) app to serve the diarization results
+        # over WebSockets. This allows us to stream the diarization results to the client in real-time.
+
+        # We use a simple queue-based architecture to handle the audio and diarization results.
+
+        # The audio is received from the client over WebSockets and added to a queue.
+        # The diarization results are then processed and added to a queue.
+        # The diarization results are then sent to the client over WebSockets.
 
         self.web_app = FastAPI()
 
@@ -159,6 +193,11 @@ class Sortformer2_1_Speaker_Diarization:
         # We want to return a 1x4 vector of probabilities for the total time window
         # We can take the mean across the time dimension (axis 0)
         return spk_pred.mean(axis=0).tolist()
+
+
+# ## Serving the diarization results to a frontend
+
+# We use a simple HTML frontend to display the diarization results.
 
 
 web_image = (
