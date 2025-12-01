@@ -5,10 +5,10 @@
 
 # # Streaming Speaker Diarization with Sortformer2.1
 
-# In this example, we show how to deploy a streaming speaker diarization service with NVIDIA's Sortformer2.1 on Modal.
-# Sortformer2.1 is a state-of-the-art speaker diarization model that is designed to operate on streams of audio, rather than on complete audio files.
+# In this example, we show how to deploy a streaming speaker diarization service with [NVIDIA's Sortformer2.1](https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1) on Modal.
+# Sortformer2.1 is a state-of-the-art speaker diarization model that is designed to operate on streams of audio.
 
-# Click the "View on GitHub" button to see the code. And [sign up for a Modal account](https://modal.com/signup) if you haven't already.
+# Try it yourself! Click the "View on GitHub" button to see the code. And [sign up for a Modal account](https://modal.com/signup) if you haven't already.
 
 # ## Setup
 
@@ -67,10 +67,21 @@ with image.imports():
 # so that we can separate out the model loading and setup code from the inference.
 # For more on lifecycle management with Clses and cold start penalty reduction on Modal, see
 # [this guide](https://modal.com/docs/guide/cold-start). In particular, the Sortformer2.1 model
-# is amenable to GPU snapshots.
+# is amenable to GPU snapshots which can significantly reduce cold start times.
 
 # We also include two configurations. The low latency configuration is used for real-time diarization,
 # and the high latency configuration is used for non-real-time diarization with higher accuracy.
+
+# ## Using WebSockets to stream audio and diarization results
+
+# We use a Modal [ASGI](https://modal.com/docs/guide/asgi) app to serve the diarization results
+# over WebSockets. This allows us to stream the diarization results to the client in real-time.
+
+# We use a simple queue-based architecture to handle the audio and diarization results.
+
+# The audio is received from the client over WebSockets and added to a queue.
+# The diarization results are then processed and added to a queue.
+# The diarization results are then sent to the client over WebSockets.
 
 
 @app.cls(
@@ -110,17 +121,6 @@ class Sortformer2_1_Speaker_Diarization:
         self.diarizer = NeMoStreamingDiarizer(
             cfg=self.config, model="nvidia/diar_streaming_sortformer_4spk-v2.1"
         )
-
-        # ## Using WebSockets to stream audio and diarization results
-
-        # We use a Modal [ASGI](https://modal.com/docs/guide/asgi) app to serve the diarization results
-        # over WebSockets. This allows us to stream the diarization results to the client in real-time.
-
-        # We use a simple queue-based architecture to handle the audio and diarization results.
-
-        # The audio is received from the client over WebSockets and added to a queue.
-        # The diarization results are then processed and added to a queue.
-        # The diarization results are then sent to the client over WebSockets.
 
         self.web_app = FastAPI()
 

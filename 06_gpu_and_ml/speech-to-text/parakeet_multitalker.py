@@ -6,10 +6,11 @@
 # # Parakeet Multi-talker Speech-to-Text
 
 # This example shows how to run a streaming multi-talker speech-to-text service
-# using NVIDIA's Parakeet Multi-talker model and Sortformer diarization model.
-# The application transcribes audio in real-time while identifying different speakers.
+# using [NVIDIA's Parakeet Multi-talker model](https://huggingface.co/nvidia/multitalker-parakeet-streaming-0.6b-v1) and Sortformer diarization model.
+# The application transcribes audio in real-time while identifying different speakers without the need
+# to register unique speakers in advance.
 
-# Click the "View on GitHub" button to see the code. And [sign up for a Modal account](https://modal.com/signup) if you haven't already.
+# Try it yourself! Click the "View on GitHub" button to see the code. And [sign up for a Modal account](https://modal.com/signup) if you haven't already.
 
 # ## Setup
 
@@ -17,8 +18,6 @@
 # We use a persistent Volume to cache the models.
 
 import asyncio
-import os
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -197,7 +196,17 @@ with image.imports():
 # This class loads the models into GPU memory and handles the streaming inference.
 # For more on lifecycle management with Cls and cold start penalty reduction on Modal, see
 # [this guide](https://modal.com/docs/guide/cold-start). In particular, this model
-# is amenable to GPU snapshots.
+# is amenable to GPU snapshots which can significantly reduce cold start times.
+
+# We use a `CacheAwareStreamingAudioBuffer` to manage the audio stream.
+# This buffer handles the streaming input and output, ensuring that the model receives
+# the correct amount of audio data for each inference step.
+
+# ### WebSocket Handling
+
+# We use FastAPI's WebSocket support to handle the audio stream.
+# Incoming audio bytes are buffered and processed in chunks, and
+# transcriptions are sent back to the client as they become available.
 
 
 @app.cls(
@@ -241,10 +250,6 @@ class Transcriber:
         audio_bytes = urlopen(AUDIO_URL).read()
         audio_bytes = preprocess_audio(AUDIO_URL, target_sample_rate=16000)
 
-        # We use a `CacheAwareStreamingAudioBuffer` to manage the audio stream.
-        # This buffer handles the streaming input and output, ensuring that the model receives
-        # the correct amount of audio data for each inference step.
-
         self.streaming_buffer = CacheAwareStreamingAudioBuffer(
             model=self.asr_model,
             online_normalization=self.cfg.online_normalization,
@@ -265,12 +270,6 @@ class Transcriber:
             print(f"stream_id: {stream_id}")
 
         self.streaming_buffer.reset_buffer()
-
-        # ### WebSocket Handling
-
-        # We use FastAPI's WebSocket support to handle the audio stream.
-        # Incoming audio bytes are buffered and processed in chunks, and
-        # transcriptions are sent back to the client as they become available.
 
         self.web_app = FastAPI()
 
@@ -439,17 +438,3 @@ class WebServer:
             return HTMLResponse(content=html_content)
 
         return web_app
-
-
-class NoStdStreams(object):
-    def __init__(self):
-        self.devnull = open(os.devnull, "w")
-
-    def __enter__(self):
-        self._stdout, self._stderr = sys.stdout, sys.stderr
-        self._stdout.flush(), self._stderr.flush()
-        sys.stdout, sys.stderr = self.devnull, self.devnull
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        sys.stdout, sys.stderr = self._stdout, self._stderr
-        self.devnull.close()
