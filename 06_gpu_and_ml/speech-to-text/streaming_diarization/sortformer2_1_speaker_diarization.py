@@ -8,6 +8,8 @@
 # In this example, we show how to deploy a streaming speaker diarization service with NVIDIA's Sortformer2.1 on Modal.
 # Sortformer2.1 is a state-of-the-art speaker diarization model that is designed to operate on streams of audio, rather than on complete audio files.
 
+# Click the "View on GitHub" button to see the code. And [sign up for a Modal account](https://modal.com/signup) if you haven't already.
+
 # ## Setup
 
 # We start by importing some basic packages and the Modal SDK. As well as setting up our Modal App, Volume, and Image.
