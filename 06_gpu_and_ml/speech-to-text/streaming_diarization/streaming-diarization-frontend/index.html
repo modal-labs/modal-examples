@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #controls {
+            margin: 20px 0;
+        }
+        #recordButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        #recordButton.recording {
+            background-color: #f44336;
+        }
+        #transcription {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Streaming Speaker Diarization with nvidia/diar_streaming_sortformer_4spk-v2_1</h1>
+    <p><em>Tip: Turn your microphone volume up for better transcription quality.</em></p>
+    <div id="controls">
+        <button id="recordButton">Start Diarizing</button>
+    </div>
+    <div id="speakers" style="display: flex; gap: 20px; margin-top: 20px;">
+        <div class="speaker-box" id="speaker-0">
+            <div class="speaker-label">Speaker 0</div>
+            <div class="speaker-indicator" style="width: 100px; height: 100px; background-color: #80EE64; opacity: 0.1;"></div>
+            <div class="speaker-prob">0.00</div>
+        </div>
+        <div class="speaker-box" id="speaker-1">
+            <div class="speaker-label">Speaker 1</div>
+            <div class="speaker-indicator" style="width: 100px; height: 100px; background-color: #80EE64; opacity: 0.1;"></div>
+            <div class="speaker-prob">0.00</div>
+        </div>
+        <div class="speaker-box" id="speaker-2">
+            <div class="speaker-label">Speaker 2</div>
+            <div class="speaker-indicator" style="width: 100px; height: 100px; background-color: #80EE64; opacity: 0.1;"></div>
+            <div class="speaker-prob">0.00</div>
+        </div>
+        <div class="speaker-box" id="speaker-3">
+            <div class="speaker-label">Speaker 3</div>
+            <div class="speaker-indicator" style="width: 100px; height: 100px; background-color: #80EE64; opacity: 0.1;"></div>
+            <div class="speaker-prob">0.00</div>
+        </div>
+    </div>
+    <!-- <div id="transcription"></div> -->
+    <script src="/static/sortformer2_1.js"></script>
+</body>
+</html>
