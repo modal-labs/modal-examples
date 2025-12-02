@@ -217,7 +217,6 @@ def warmup():
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
     },
-    secrets=[modal.Secret.from_name("huggingface-secret")],
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
 )
