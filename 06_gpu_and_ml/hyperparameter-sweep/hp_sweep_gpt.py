@@ -296,9 +296,12 @@ def main(
     default_hparams = ModelHyperparameters()
 
     # build list of hyperparameters to train & validate
-    nheads_options = (1, default_hparams.n_heads)
-    context_size_options = (8, default_hparams.context_size)
-    dropout_options = (0.1, default_hparams.dropout)
+    nheads_options = (default_hparams.n_heads,)
+    context_size_options = (default_hparams.context_size,)
+    dropout_options = (default_hparams.dropout,)
+    # nheads_options = (1, default_hparams.n_heads)
+    # context_size_options = (8, default_hparams.context_size)
+    # dropout_options = (0.1, default_hparams.dropout)
 
     hparams_list = [
         ModelHyperparameters(n_heads=h, context_size=c, dropout=d)
