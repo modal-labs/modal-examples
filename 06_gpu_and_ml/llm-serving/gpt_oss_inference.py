@@ -52,7 +52,7 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm[flashinfer]==0.11.2",
+        "vllm[flashinfer]==0.12.0",
         "huggingface_hub==0.36.0",
     )
     .env(
