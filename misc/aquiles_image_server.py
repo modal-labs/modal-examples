@@ -44,7 +44,7 @@ aquiles_image = (
     )
     .env({
         "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers from Hugging Face
-        "HF_TOKEN": os.getenv("Hugging_face_token_for_deploy", "")
+        "HF_TOKEN": os.getenv("Hugging_face_token_for_deploy", "") # HuggingFace token to download the models if you don't have them available in Modal secrets
     })  
 )
 
@@ -225,7 +225,7 @@ async def test():
     
     url = serve.get_web_url()
     
-    print(f"🚀 Server is available at: {url}\n")
+    print(f"Server is available at: {url}\n")
     
     # Create OpenAI client pointing to our Modal server
     client = OpenAI(base_url=url, api_key="dummy-api-key")
@@ -236,7 +236,7 @@ async def test():
         serene and awe-inspiring—earthlike fields and rivers running along the inner 
         surface of a colossal rotating structure."""
     
-    print(f"📝 Generating image with prompt:\n{prompt}\n")
+    print(f"Generating image with prompt:\n{prompt}\n")
     
     # Generate image using OpenAI-compatible API
     result = client.images.generate(
@@ -246,7 +246,7 @@ async def test():
         response_format="b64_json"
     )
     
-    print(f"💾 Downloading image...\n")
+    print(f"Downloading image...\n")
     
     # Save the generated image
     image_bytes = base64.b64decode(result.data[0].b64_json)
