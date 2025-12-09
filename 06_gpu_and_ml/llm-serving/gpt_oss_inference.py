@@ -52,15 +52,15 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.11.2",
+        "vllm[flashinfer]==0.11.2",
         "huggingface_hub==0.36.0",
-        "flashinfer-python==0.5.2",
     )
     .env(
         {
             "HF_XET_HIGH_PERFORMANCE": "1",
-            # B200 optimized environment variables
-            # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#launch-the-vllm-server
+            # B200 optimized environment variables. For more info, see:
+            # https://github.com/vllm-project/recipes/blob/5cc86ffa74d76cba488e440ce439b365cf5563b8/OpenAI/GPT-OSS.md#launch-the-vllm-server
+            # https://docs.vllm.ai/projects/recipes/en/latest/OpenAI/GPT-OSS.html#b200
             "VLLM_FLASHINFER_ALLREDUCE_FUSION_THRESHOLDS_MB": '{"2":32,"4":32,"8":8}',
             "VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1",
         }
@@ -93,20 +93,16 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 # There are a number of compilation settings for vLLM. Compilation improves inference performance
 # but incur extra latency at engine start time. We offer a high-level variable for controlling this trade-off.
 
-FAST_BOOT = False  # slower boots but faster inference
+FAST_BOOT = True  # slower boots but faster inference
 
 # Among the artifacts that are created at startup are CUDA graphs,
 # which allow the replay of several kernel launches for the price of one,
 # reducing CPU overhead. The max cudagraph capture size controls the largest batch size
 # that will be captured. For B200, we use 2048 for optimized performance.
 # If not specified, vLLM defaults to min(max_num_seqs * 2, 512).
-#
-# Note: The API changed in vLLM (PR #26016: https://github.com/vllm-project/vllm/pull/26016):
-# - Old: --cuda-graph-sizes (deprecated) or -O.cudagraph_capture_sizes
-# - New: --max-cudagraph-capture-size (simpler) or --cudagraph-capture-sizes (explicit list)
 
-MAX_INPUTS = 32  # how many requests can one replica handle? tune carefully!
-MAX_CUDAGRAPH_CAPTURE_SIZE = 2048  # Maximum batch size for CUDA graph capture
+MAX_INPUTS = 1000  # how many requests can one replica handle? tune carefully!
+MAX_CUDAGRAPH_CAPTURE_SIZE = 2048  # maximum batch size for CUDA graph capture
 
 # ## Build a vLLM engine and serve it
 
@@ -148,20 +144,21 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
+        "--async-scheduling",
+        "--stream-interval",
+        str(20),
+        "--kv-cache-dtype",
+        "fp8",
     ]
 
     # enforce-eager disables both Torch compilation and CUDA graph capture
     # default is no-enforce-eager. see the --compilation-config flag for tighter control
     cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
-    if not FAST_BOOT:  # CUDA graph capture is only used when NOT using --enforce-eager
-        # B200 optimized configuration with CUDA graph support
-        # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#prepare-the-config-file
-        # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#launch-the-vllm-server
+    if not FAST_BOOT:  # configure CUDA Graph capture
         cmd += [
             "--compilation-config",
             '{"pass_config":{"enable_fi_allreduce_fusion":true,"enable_noop":true},"custom_ops":["+rms_norm"],"cudagraph_mode":"FULL_AND_PIECEWISE"}',
-            "--async-scheduling",
             "--max-cudagraph-capture-size",
             str(MAX_CUDAGRAPH_CAPTURE_SIZE),
         ]
@@ -169,9 +166,9 @@ def serve():
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
 
-    print(cmd)
+    print(*cmd)
 
-    subprocess.Popen(" ".join(cmd), shell=True)
+    subprocess.Popen(cmd)
 
 
 # ## Deploy the server
