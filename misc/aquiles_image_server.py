@@ -30,11 +30,15 @@ import modal
 
 aquiles_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
-    .apt_install("git", "curl", "build-essential",)
+    .apt_install(
+        "git",
+        "curl",
+        "build-essential",
+    )
     .entrypoint([])
     .run_commands(
         "python -m pip install --upgrade pip",
-        "python -m pip install --upgrade setuptools wheel"
+        "python -m pip install --upgrade setuptools wheel",
     )
     .uv_pip_install(
         "torch==2.8",
@@ -43,10 +47,14 @@ aquiles_image = (
         "tokenizers==0.22.1",
         "git+https://github.com/Aquiles-ai/Aquiles-Image.git",
     )
-    .env({
-        "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers from Hugging Face
-        "HF_TOKEN": os.getenv("Hugging_face_token_for_deploy", "") # HuggingFace token to download the models if you don't have them available in Modal secrets
-    })
+    .env(
+        {
+            "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers from Hugging Face
+            "HF_TOKEN": os.getenv(
+                "Hugging_face_token_for_deploy", ""
+            ),  # HuggingFace token to download the models if you don't have them available in Modal secrets
+        }
+    )
 )
 
 # ## Select the model
@@ -122,9 +130,12 @@ def serve():
         str(AQUILES_PORT),
         "--model",
         MODEL_NAME,
-        "--set-steps", "35",  # number of diffusion steps (higher = better quality, slower)
-        "--api-key", "dummy-api-key",  # set your own API key for production
-        "--device-map", "cuda",  # use GPU acceleration
+        "--set-steps",
+        "35",  # number of diffusion steps (higher = better quality, slower)
+        "--api-key",
+        "dummy-api-key",  # set your own API key for production
+        "--device-map",
+        "cuda",  # use GPU acceleration
     ]
 
     print(f"Starting Aquiles-Image with the model: {MODEL_NAME}")
@@ -219,6 +230,7 @@ def serve():
 # Think of this like writing simple tests inside of the `if __name__ == "__main__"`
 # block of a Python script, but for cloud deployments!
 
+
 @app.local_entrypoint()
 async def test():
     import base64
@@ -242,10 +254,7 @@ async def test():
 
     # Generate image using OpenAI-compatible API
     result = client.images.generate(
-        model=MODEL_NAME,
-        prompt=prompt,
-        size="1024x1024",
-        response_format="b64_json"
+        model=MODEL_NAME, prompt=prompt, size="1024x1024", response_format="b64_json"
     )
 
     print("Downloading image...\n")
