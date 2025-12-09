@@ -1,16 +1,17 @@
 # Run Aquiles-Image API server with FLUX.1-Krea-dev on Modal
 
 """
-[Aquiles-Image](https://github.com/Aquiles-ai/Aquiles-Image) is a production-ready API server that brings state-of-the-art image generation 
-models to your applications. Built on FastAPI and Diffusers, it provides an OpenAI-compatible 
+[Aquiles-Image](https://github.com/Aquiles-ai/Aquiles-Image) is a production-ready API server that brings state-of-the-art image generation
+models to your applications. Built on FastAPI and Diffusers, it provides an OpenAI-compatible
 interface for generating and editing images using models like FLUX, Stable Diffusion 3.5, and more.
 
 This example shows how to deploy an Aquiles-Image server on Modal using the FLUX.1-Krea-dev model,
 providing a simple REST API for generating images from text prompts on Modal's GPU infrastructure.
 """
 
-import modal
 import os
+
+import modal
 
 # ## Set up the container image
 #
@@ -45,7 +46,7 @@ aquiles_image = (
     .env({
         "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers from Hugging Face
         "HF_TOKEN": os.getenv("Hugging_face_token_for_deploy", "") # HuggingFace token to download the models if you don't have them available in Modal secrets
-    })  
+    })
 )
 
 # ## Select the model
@@ -220,24 +221,25 @@ def serve():
 
 @app.local_entrypoint()
 async def test():
-    from openai import OpenAI
     import base64
-    
+
+    from openai import OpenAI
+
     url = serve.get_web_url()
-    
+
     print(f"Server is available at: {url}\n")
-    
+
     # Create OpenAI client pointing to our Modal server
     client = OpenAI(base_url=url, api_key="dummy-api-key")
-    
-    prompt = """A vast futuristic city curving upward into the sky, its buildings bending 
-        and connecting overhead in a continuous loop. Gravity shifts seamlessly along 
-        the curve, with sunlight streaming across inverted skyscrapers. The scene feels 
-        serene and awe-inspiring—earthlike fields and rivers running along the inner 
+
+    prompt = """A vast futuristic city curving upward into the sky, its buildings bending
+        and connecting overhead in a continuous loop. Gravity shifts seamlessly along
+        the curve, with sunlight streaming across inverted skyscrapers. The scene feels
+        serene and awe-inspiring—earthlike fields and rivers running along the inner
         surface of a colossal rotating structure."""
-    
+
     print(f"Generating image with prompt:\n{prompt}\n")
-    
+
     # Generate image using OpenAI-compatible API
     result = client.images.generate(
         model=MODEL_NAME,
@@ -245,12 +247,12 @@ async def test():
         size="1024x1024",
         response_format="b64_json"
     )
-    
-    print(f"Downloading image...\n")
-    
+
+    print("Downloading image...\n")
+
     # Save the generated image
     image_bytes = base64.b64decode(result.data[0].b64_json)
     with open("output.png", "wb") as f:
         f.write(image_bytes)
-    
+
     print("Image saved successfully as 'output.png'!")
