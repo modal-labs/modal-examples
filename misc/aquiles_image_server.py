@@ -253,4 +253,4 @@ async def test():
     with open("output.png", "wb") as f:
         f.write(image_bytes)
     
-    print(f"Image saved successfully as 'output.png'!")
+    print("Image saved successfully as 'output.png'!")
