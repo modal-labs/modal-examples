@@ -84,7 +84,7 @@ class Chatterbox:
     @modal.fastapi_endpoint(docs=True, method="POST")
     def api_endpoint(self, prompt: str):
         # Get the audio bytes from the generate method
-        audio_bytes = self.generate(prompt)
+        audio_bytes = self.generate.local(prompt)
 
         # Return the audio as a streaming response with appropriate MIME type.
         # This allows for browsers to playback audio directly.
