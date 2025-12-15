@@ -1,7 +1,7 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
 # lambda-test: false
-# cmd: ["modal", "serve", "06_gpu_and_ml/text-to-audio/chatterbox_tts.py"]
+# cmd: ["modal", "serve", "-m", "06_gpu_and_ml.text-to-audio.chatterbox_tts"]
 # ---
 
 # # Create a Chatterbox TTS API on Modal
@@ -80,6 +80,7 @@ class Chatterbox:
     @modal.enter()
     def load(self):
         self.model = ChatterboxTurboTTS.from_pretrained(device="cuda")
+        self.model = ChatterboxTurboTTS.from_pretrained(device="cuda")
 
     @modal.fastapi_endpoint(docs=True, method="POST")
     def api_endpoint(self, prompt: str):
@@ -130,7 +131,7 @@ def test():
 # Now deploy the Chatterbox API from this file's directory:
 #
 # ```shell
-# modal deploy chatterbox_tts.py
+# modal deploy -m 06_gpu_and_ml.text-to-audio.chatterbox_tts
 # ```
 #
 # And query the endpoint with:
