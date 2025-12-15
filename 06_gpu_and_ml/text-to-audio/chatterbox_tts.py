@@ -111,16 +111,17 @@ class Chatterbox:
 
 
 @app.local_entrypoint()
-def test():
+def test(
+    prompt: str = "Chatterbox running on Modal [chuckle].",
+    output_path: str = "/tmp/chatterbox-tts/output.wav",
+):
     chatterbox = Chatterbox()
-    audio_bytes = chatterbox.generate.remote(
-        prompt="Chatterbox running on Modal [chuckle]."
-    )
+    audio_bytes = chatterbox.generate.remote(prompt=prompt)
 
     # Save the audio bytes to a file
     import pathlib
 
-    output_path = pathlib.Path("/tmp/chatterbox-tts/output.wav")
+    output_path = pathlib.Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(audio_bytes)
     print(f"Audio saved to {output_path}")
