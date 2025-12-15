@@ -75,7 +75,11 @@ class Chatterbox:
     def generate(self, prompt: str):
         # Generate audio waveform from the input text
         wav = self.model.generate(
-            prompt, audio_prompt_path=PROJECT_DIR / "prompts" / "Lucy.wav"
+            prompt,
+            audio_prompt_path=PROJECT_DIR
+            / "chatterbox-tts-voices"
+            / "prompts"
+            / "Lucy.wav",
         )
 
         # Create an in-memory buffer to store the WAV file
