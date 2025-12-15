@@ -1,7 +1,5 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
-# lambda-test: false
-# cmd: ["modal", "serve", "-m", "06_gpu_and_ml.text-to-audio.chatterbox_tts"]
 # ---
 
 # # Create a Chatterbox TTS API on Modal
