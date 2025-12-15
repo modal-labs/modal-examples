@@ -78,7 +78,6 @@ class Chatterbox:
     @modal.enter()
     def load(self):
         self.model = ChatterboxTurboTTS.from_pretrained(device="cuda")
-        self.model = ChatterboxTurboTTS.from_pretrained(device="cuda")
 
     @modal.fastapi_endpoint(docs=True, method="POST")
     def api_endpoint(self, prompt: str):
