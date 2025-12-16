@@ -45,9 +45,6 @@ vllm_image: modal.Image = (
         {
             "HF_HUB_CACHE": HF_CACHE_PATH,
             "HF_XET_HIGH_PERFORMANCE": "1",
-            "TORCHINDUCTOR_COMPILE_THREADS": "1",
-            "TMS_INIT_ENABLE_CPU_BACKUP": "1",
-            "TORCHINDUCTOR_CACHE_DIR": "/root/.cache/torch/",
             "VLLM_SERVER_DEV_MODE": "1",
             "TORCH_CPP_LOG_LEVEL": "FATAL",
         }
@@ -96,7 +93,6 @@ class VLLM:
             f"{PORT}",
             "--disable-uvicorn-access-log",
             "--disable-log-requests",
-            "--enable-metrics",
             "--enable-sleep-mode",
         ]
 
