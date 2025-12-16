@@ -1,3 +1,23 @@
+# ---
+# deploy: true
+# cmd: ["python", "06_gpu_and_ml/llm-serving/sglang_low_latency.py"]
+# ---
+
+# # Low Latency Qwen 3-8B with SGLang and Modal
+
+# In this example, we show how to serve Qwen 3-8B with SGLang on Modal using @modal.experimental.http_server.
+# This is a new low latency routing service on Modal which offers significantly reduced overheads, higher throughput, and session based routing.
+# These features make `http_server` especially useful for inference workloads.
+
+# We also include instructions for cutting cold start times by an order of magnitude using Modal's [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
+
+# ## Set up the container image
+
+# Our first order of business is to define the environment our server will run in:
+# the [container `Image`](https://modal.com/docs/guide/custom-container).
+# We'll use the [SGLang inference server](https://github.com/sgl-project/sglang).
+# Note that we need to build the SGLang image from source since the official image does not support the `--enable-cpu-backup` flag.
+
 import subprocess
 import time
 
@@ -85,7 +105,7 @@ class SGLang:
 
         self.process = subprocess.Popen(cmd)
         self._wait_ready(self.process)
-        # self._warmup()
+        self._warmup()
         self._sleep()
 
     @modal.enter(snap=False)

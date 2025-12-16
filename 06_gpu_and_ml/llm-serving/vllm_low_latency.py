@@ -1,3 +1,23 @@
+# ---
+# deploy: true
+# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
+# ---
+
+# # Low Latency Qwen 3-8B with vLLM and Modal
+
+# In this example, we show how to serve Qwen 3-8B with vLLM on Modal using @modal.experimental.http_server.
+# This is a new low latency routing service on Modal which offers significantly reduced overheads, higher throughput, and session based routing.
+# These features make `http_server` especially useful for inference workloads.
+
+# We also include instructions for cutting cold start times by an order of magnitude using Modal's [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
+
+# ## Set up the container image
+
+# Our first order of business is to define the environment our server will run in:
+# the [container `Image`](https://modal.com/docs/guide/custom-container).
+# We'll use the [vLLM inference server](https://docs.vllm.ai).
+# vLLM can be installed with `uv pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
+
 import subprocess
 import time
 
