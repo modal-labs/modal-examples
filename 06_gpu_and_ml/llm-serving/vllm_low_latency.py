@@ -238,11 +238,9 @@ async def test(test_timeout=10 * MINUTE, content=None, twice=True):
 async def _send_request(
     session: aiohttp.ClientSession, model: str, messages: list, timeout: int
 ) -> None:
-    headers = {"X-Modal-Upstream": "userA"}
     async with session.post(
         "/v1/chat/completions",
         json={"messages": messages, "model": model, "temperature": 0.15},
-        headers=headers,
         timeout=timeout,
     ) as resp:
         resp.raise_for_status()
