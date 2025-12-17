@@ -284,12 +284,7 @@ if __name__ == "__main__":
     async def test(url):
         messages = [{"role": "user", "content": "Tell me a joke."}]
         async with aiohttp.ClientSession(base_url=url) as session:
-            await _send_request(session, "llm", messages, timeout=10 * MINUTE)
+            await _send_request(session, MODEL_NAME, messages, timeout=10 * MINUTE)
 
-    try:
-        print("calling inference server")
-        asyncio.run(test(vllm_server._experimental_get_flash_urls()[0]))
-    except modal.exception.NotFoundError:
-        raise Exception(
-            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
-        )
+    print("calling inference server")
+    asyncio.run(test(vllm_server._experimental_get_flash_urls()[0]))

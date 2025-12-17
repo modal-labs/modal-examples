@@ -43,7 +43,7 @@ HF_CACHE_VOL: modal.Volume = modal.Volume.from_name(
 HF_CACHE_PATH: str = "/root/.cache/huggingface"
 MODEL_PATH: str = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 sglang_image: modal.Image = (
-    modal.Image.from_registry("lmsysorg/sglang:v0.5.0rc2-cu126")
+    modal.Image.from_registry("lmsysorg/sglang:latest")
     .uv_pip_install(
         "huggingface-hub==0.36.0",
     )
@@ -300,12 +300,8 @@ if __name__ == "__main__":
     async def test(url):
         messages = [{"role": "user", "content": "Tell me a joke."}]
         async with aiohttp.ClientSession(base_url=url) as session:
-            await _send_request(session, "llm", messages, timeout=10 * MINUTE)
+            await _send_request(session, MODEL_NAME, messages, timeout=10 * MINUTE)
 
-    try:
-        print("calling inference server")
-        asyncio.run(test(sglang_server._experimental_get_flash_urls()[0]))
-    except modal.exception.NotFoundError:
-        raise Exception(
-            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
-        )
+    print("calling inference server")
+    asyncio.run(test(sglang_server._experimental_get_flash_urls()[0]))
+
