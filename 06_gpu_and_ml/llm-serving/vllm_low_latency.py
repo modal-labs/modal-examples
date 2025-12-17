@@ -60,6 +60,7 @@ with vllm_image.imports():
 
 app = modal.App(name=APP_NAME)
 
+
 @app.cls(
     image=vllm_image,
     gpu="H100",
@@ -109,6 +110,10 @@ class VLLM:
     def wake_up(self):
         self._wake_up()
 
+    @modal.exit()
+    def stop(self):
+        self.process.terminate()
+
     @staticmethod
     def _warmup():
         payload = {
@@ -149,6 +154,7 @@ class VLLM:
     @staticmethod
     def _wake_up():
         requests.post(f"http://127.0.0.1:{PORT}/wake_up").raise_for_status()
+
 
 ## Deploy the server
 
@@ -220,13 +226,16 @@ async def test(test_timeout=10 * MINUTE, content=None, twice=True):
     async with aiohttp.ClientSession(base_url=url) as session:
         while time.time() - start_time < test_timeout:
             print(f"Running health check for server at {url}")
-            async with session.get("/health", timeout=test_timeout - 1 * MINUTE) as resp:
+            async with session.get(
+                "/health", timeout=test_timeout - 1 * MINUTE
+            ) as resp:
                 if resp.status == 200:
                     print(f"Successful health check for server at {url}")
                     break
                 time.sleep(10)
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await _send_request(session, "llm", messages, timeout=1 * MINUTE)
+
 
 async def _send_request(
     session: aiohttp.ClientSession, model: str, messages: list, timeout: int
@@ -240,7 +249,11 @@ async def _send_request(
     }
 
     # To use sticky routing, set X-Modal-Upstream header. TODO(claudia): update this header to be `Modal-Session-Id`.
-    headers = {"Content-Type": "application/json", "Accept": "text/event-stream", "X-Modal-Upstream": "userA"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "X-Modal-Upstream": "userA",
+    }
 
     async with session.post(
         "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
@@ -260,6 +273,7 @@ async def _send_request(
             )  # or something went horribly wrong
             print(chunk["choices"][0]["delta"]["content"], end="")
     print()
+
 
 if __name__ == "__main__":
     import asyncio
