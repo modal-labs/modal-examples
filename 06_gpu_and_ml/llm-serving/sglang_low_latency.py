@@ -256,7 +256,8 @@ async def _send_request(
         "temperature": 0.15,
     }
 
-    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    # To use sticky routing, set X-Modal-Upstream header. TODO(claudia): update this header to be `Modal-Session-Id`.
+    headers = {"Content-Type": "application/json", "Accept": "text/event-stream", "X-Modal-Upstream": "userA"}
 
     async with session.post(
         "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
