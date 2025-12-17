@@ -18,10 +18,8 @@
 # We'll use the [SGLang inference server](https://github.com/sgl-project/sglang).
 # Note that we need to build the SGLang image from source since the official image does not support the `--enable-cpu-backup` flag.
 
-import json
 import subprocess
 import time
-from typing import Any
 
 import aiohttp
 import modal
@@ -43,7 +41,7 @@ HF_CACHE_VOL: modal.Volume = modal.Volume.from_name(
 HF_CACHE_PATH: str = "/root/.cache/huggingface"
 MODEL_PATH: str = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 sglang_image: modal.Image = (
-    modal.Image.from_registry("lmsysorg/sglang:latest")
+    modal.Image.from_registry("lmsysorg/sglang:0.5.0rc2-cu126")
     .uv_pip_install(
         "huggingface-hub==0.36.0",
     )
@@ -256,39 +254,15 @@ async def test(test_timeout=10 * MINUTE, content=None, twice=True):
 async def _send_request(
     session: aiohttp.ClientSession, model: str, messages: list, timeout: int
 ) -> None:
-    # `stream=True` tells an OpenAI-compatible backend to stream chunks
-    payload: dict[str, Any] = {
-        "messages": messages,
-        "model": model,
-        "stream": True,
-        "temperature": 0.15,
-    }
-
-    # To use sticky routing, set X-Modal-Upstream header. TODO(claudia): update this header to be `Modal-Session-Id`.
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-        "X-Modal-Upstream": "userA",
-    }
-
+    headers = {"X-Modal-Upstream": "userA"}
     async with session.post(
-        "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
+        "/v1/chat/completions",
+        json={"messages": messages, "model": model, "temperature": 0.15},
+        headers=headers,
+        timeout=timeout,
     ) as resp:
-        async for raw in resp.content:
-            resp.raise_for_status()
-            # extract new content and stream it
-            line = raw.decode().strip()
-            if not line or line == "data: [DONE]":
-                continue
-            if line.startswith("data: "):  # SSE prefix
-                line = line[len("data: ") :]
-
-            chunk = json.loads(line)
-            assert (
-                chunk["object"] == "chat.completion.chunk"
-            )  # or something went horribly wrong
-            print(chunk["choices"][0]["delta"]["content"], end="")
-    print()
+        resp.raise_for_status()
+        print((await resp.json())["choices"][0]["message"]["content"])
 
 
 if __name__ == "__main__":
@@ -304,4 +278,3 @@ if __name__ == "__main__":
 
     print("calling inference server")
     asyncio.run(test(sglang_server._experimental_get_flash_urls()[0]))
-
