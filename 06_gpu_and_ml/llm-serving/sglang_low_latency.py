@@ -296,7 +296,6 @@ if __name__ == "__main__":
 
     # after deployment, we can use the class from anywhere
     sglang_server = modal.Cls.from_name("example-sglang-low-latency", "SGLang")
-    server = sglang_server()
 
     async def test(url):
         messages = [{"role": "user", "content": "Tell me a joke."}]
@@ -305,7 +304,7 @@ if __name__ == "__main__":
 
     try:
         print("calling inference server")
-        asyncio.run(test(server.serve.get_web_url()))
+        asyncio.run(test(sglang_server._experimental_get_flash_urls()[0]))
     except modal.exception.NotFoundError:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
