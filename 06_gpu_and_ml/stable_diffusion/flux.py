@@ -16,6 +16,9 @@
 import time
 from io import BytesIO
 from pathlib import Path
+from pydantic import BaseModel
+
+
 
 import modal
 
@@ -78,6 +81,11 @@ flux_image = flux_image.env(
     }
 )
 
+class ImageRequest(BaseModel):
+    prompt: str = "A cinematic photo of a baby penguin"
+    width: int = 1024  # 添加宽度,默认1024
+    height: int = 1024  # 添加高度,默认1024
+    
 # Finally, we construct our Modal [App](https://modal.com/docs/reference/modal.App),
 # set its default image to the one we just constructed,
 # and import `FluxPipeline` for downloading and running Flux.1.
@@ -113,7 +121,7 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
 
 
 @app.cls(
-    gpu="H100",  # fast GPU with strong software support
+    gpu="A100",  # fast GPU with strong software support
     scaledown_window=20 * MINUTES,
     timeout=60 * MINUTES,  # leave plenty of time for compilation
     volumes={  # add Volumes to store serializable compilation artifacts, see section on torch.compile below
@@ -127,6 +135,8 @@ NUM_INFERENCE_STEPS = 4  # use ~50 for [dev], smaller for [schnell]
     },
     secrets=[modal.Secret.from_name("huggingface-secret")],
 )
+
+    
 class Model:
     compile: bool = (  # see section on torch.compile below for details
         modal.parameter(default=False)
@@ -138,20 +148,34 @@ class Model:
             f"black-forest-labs/FLUX.1-{VARIANT}", torch_dtype=torch.bfloat16
         ).to("cuda")  # move model to GPU
         self.pipe = optimize(pipe, compile=self.compile)
-
-    @modal.method()
-    def inference(self, prompt: str) -> bytes:
-        print("🎨 generating image...")
+        
+    def _generate_image(self, prompt: str,width: int = 1024, height: int = 1024) -> bytes:
+        """内部图像生成方法"""
+        print(f"🎨 generating image with size {width}x{height}...")
         out = self.pipe(
             prompt,
             output_type="pil",
             num_inference_steps=NUM_INFERENCE_STEPS,
+            width=width,   # 添加宽度参数
+            height=height,  # 添加高度参数
         ).images[0]
 
         byte_stream = BytesIO()
         out.save(byte_stream, format="JPEG")
         return byte_stream.getvalue()
 
+    @modal.method()
+    def inference(self, prompt: str,width: int = 1024, height: int = 1024) -> bytes:
+        """供 modal run 调用的方法"""
+        return self._generate_image(prompt,width, height)
+
+# 独立的 web endpoint（在类外面）
+@app.function()
+@modal.fastapi_endpoint(method="POST")
+def web(request: ImageRequest):
+    """公共 API 端点"""
+    image_bytes = Model().inference.remote(request.prompt,request.width,request.height)
+    return Response(content=image_bytes, media_type="image/jpeg")
 
 # ## Calling our inference function
 
@@ -171,34 +195,22 @@ class Model:
 # the inference is after cold start. In our tests, clients received images in about 1.2 seconds.
 # We save the output bytes to a temporary file.
 
-    # =============================================================
-    # vvvvvvvv       请在这里添加下面的API方法       vvvvvvvv
-    # =============================================================
-    @fastapi_endpoint(method="GET")
-    def web(self, prompt: str = "A cinematic photo of a baby penguin"):
-        """
-        这个函数被暴露为公共API。
-        它调用内部的 inference 方法来完成实际工作。
-        """
-        image_bytes = self.inference.remote(prompt)
-        return Response(content=image_bytes, media_type="image/jpeg")
-    # =============================================================
-    # ^^^^^^^^       添加完毕       ^^^^^^^^
-    # =============================================================
 
 @app.local_entrypoint()
 def main(
     prompt: str = "An isometric illustration of a glowing command line interface, showing Google Gemini AI processing code and data.",
+    width: int = 1024,
+    height: int = 1024,
     twice: bool = True,
     compile: bool = False,
 ):
     t0 = time.time()
-    image_bytes = Model(compile=compile).inference.remote(prompt)
+    image_bytes = Model(compile=compile).inference.remote(prompt, width, height)
     print(f"🎨 first inference latency: {time.time() - t0:.2f} seconds")
 
     if twice:
         t0 = time.time()
-        image_bytes = Model(compile=compile).inference.remote(prompt)
+        image_bytes = Model(compile=compile).inference.remote(prompt, width, height)
         print(f"🎨 second inference latency: {time.time() - t0:.2f} seconds")
 
     output_path = Path("/tmp") / "flux" / "output.jpg"
