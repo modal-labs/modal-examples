@@ -41,13 +41,8 @@ HF_CACHE_VOL: modal.Volume = modal.Volume.from_name(
 HF_CACHE_PATH: str = "/root/.cache/huggingface"
 MODEL_PATH: str = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 sglang_image: modal.Image = (
-    modal.Image.from_registry("lmsysorg/sglang:0.5.0rc2-cu126")
-    .uv_pip_install(
-        "huggingface-hub==0.36.0",
-    )
-    .run_commands("git clone https://github.com/sgl-project/sglang.git /sglang")
-    .run_commands("pip uninstall -y sglang")
-    .run_commands("cd /sglang && pip install -e python[all]")
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.6.post2-cu129-amd64-runtime")
+    .uv_pip_install("huggingface-hub==0.36.0")
     .env(
         {
             "HF_HUB_CACHE": HF_CACHE_PATH,
