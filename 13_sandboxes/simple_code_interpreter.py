@@ -20,10 +20,9 @@
 
 import inspect
 import json
-from typing import Any
+from typing import Any, Iterator
 
 import modal
-import modal.container_process
 
 
 def driver_program():
@@ -54,10 +53,7 @@ def driver_program():
 
         print(
             json.dumps(
-                {
-                    "stdout": stdout_io.getvalue(),
-                    "stderr": stderr_io.getvalue(),
-                }
+                {"stdout": stdout_io.getvalue(), "stderr": stderr_io.getvalue()}
             ),
             flush=True,
         )
@@ -67,14 +63,13 @@ def driver_program():
 # `ContainerProcess` that is running the driver program and execute code in it.
 
 
-def run_code(p: modal.container_process.ContainerProcess, code: str):
-    p.stdin.write(json.dumps({"code": code}))
-    p.stdin.write("\n")
-    p.stdin.drain()
-    next_line = next(iter(p.stdout))
-    result = json.loads(next_line)
+def run_code(writer: modal.io_streams.StreamWriter, reader: Iterator[str], code: str):
+    writer.write(json.dumps({"code": code}) + "\n")
+    writer.drain()
+    result = json.loads(next(reader))
     print(result["stdout"], end="")
-    print("\033[91m" + result["stderr"] + "\033[0m", end="")
+    if result["stderr"]:
+        print("\033[91m" + result["stderr"] + "\033[0m", end="")
 
 
 # We've got our driver program and our code runner. Now we can create a Sandbox
@@ -90,25 +85,26 @@ driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
 app = modal.App.lookup("example-simple-code-interpreter", create_if_missing=True)
 sb = modal.Sandbox.create(app=app)
 p = sb.exec("python", "-c", driver_program_command, bufsize=1)
+reader, writer = p.stdin, iter(p.stdout)
 
 # ## Running code in a Modal Sandbox
 
 # Now we can execute some code in the Sandbox!
 
-run_code(p, "print('hello, world!')")  # hello, world!
+run_code(reader, writer, "print('hello, world!')")  # hello, world!
 
 # The Sandbox and our code interpreter are stateful,
 # so we can define variables and use them in subsequent code.
 
-run_code(p, "x = 10")
-run_code(p, "y = 5")
-run_code(p, "result = x + y")
-run_code(p, "print(f'The result is: {result}')")  # The result is: 15
+run_code(reader, writer, "x = 10")
+run_code(reader, writer, "y = 5")
+run_code(reader, writer, "result = x + y")
+run_code(reader, writer, "print(f'The result is: {result}')")  # The result is: 15
 
 # We can also see errors when code fails.
 
-run_code(p, "print('Attempting to divide by zero...')")
-run_code(p, "1 / 0")  # Execution Error: division by zero
+# run_code(stdin, stdout, "print('Attempting to divide by zero...')")
+# run_code(stdin, stdout, "1 / 0")  # Execution Error: division by zero
 
 # Finally, let's clean up after ourselves and terminate the Sandbox.
 
