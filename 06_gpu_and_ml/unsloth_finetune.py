@@ -284,7 +284,7 @@ class TrainingConfig:
     secrets=[modal.Secret.from_name("wandb-secret")],
     timeout=TIMEOUT_HOURS * 60 * 60,
     retries=modal.Retries(initial_delay=0.0, max_retries=MAX_RETRIES),
-    max_inputs=1,  # Ensure we get a fresh container on retry
+    single_use_containers=True,  # Ensure we get a fresh container on retry
 )
 def finetune(config: TrainingConfig):
     # Get structured paths for organized file storage

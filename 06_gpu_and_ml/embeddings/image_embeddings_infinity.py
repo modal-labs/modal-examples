@@ -23,7 +23,7 @@
 # While batchsize maximizes GPU utilization, the time to form a batch (ie reading images)
 # will ultimately overtake inference, whether due to I/O, sending data across a wire, etc.
 # We can make up for this by using idle GPU cores to store additional copies of the model:
-# this _GPU packing_ is achieved via an async queue and the [@modal.concurrent(max_inputs:int) ](https://modal.com/docs/guide/concurrent-inputs#input-concurrency "Modal: input concurrency")
+# this _GPU packing_ is achieved via an async queue and the [`@modal.concurrent(max_inputs:int)`](https://modal.com/docs/guide/concurrent-inputs#input-concurrency)
 # decorator. Once you nail down `batch_size` you can crank up the number of containers to distribute the
 # computational load. High values of concurrency has diminishing returns, we believe,
 # because we are already throttling the CPU with multi-threaded dataloading. The demo herein

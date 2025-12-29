@@ -122,12 +122,16 @@ retries = modal.Retries(initial_delay=0.0, max_retries=10)
 timeout = 30  # seconds
 
 # Now, we put all of this together by wrapping `train` and decorating it
-# with `app.function` to add all the infrastructure. We add `max_inputs=1` to ensure that our retries
+# with `app.function` to add all the infrastructure. We add the `single_use_containers` flag to ensure that our retries
 # will always kickoff in a fresh container.
 
 
 @app.function(
-    volumes=volumes, gpu="a10g", timeout=timeout, retries=retries, max_inputs=1
+    volumes=volumes,
+    gpu="a10g",
+    timeout=timeout,
+    retries=retries,
+    single_use_containers=True,
 )
 def train_interruptible(*args, **kwargs):
     train(*args, **kwargs)
