@@ -20,6 +20,7 @@
 
 import inspect
 import json
+import sys
 from typing import Any, Iterator
 
 import modal
@@ -59,21 +60,10 @@ def driver_program():
         )
 
 
-# Now that we have the driver program, we can write a function to take a
-# `ContainerProcess` that is running the driver program and execute code in it.
+# We run this driver program in a [Modal Sandbox](https://modal.com/docs/guide/sandboxes).
 
-
-def run_code(writer: modal.io_streams.StreamWriter, reader: Iterator[str], code: str):
-    writer.write(json.dumps({"code": code}) + "\n")
-    writer.drain()
-    result = json.loads(next(reader))
-    print(result["stdout"], end="")
-    if result["stderr"]:
-        print("\033[91m" + result["stderr"] + "\033[0m", end="")
-
-
-# We've got our driver program and our code runner. Now we can create a Sandbox
-# and run the driver program in it.
+app = modal.App.lookup("example-simple-code-interpreter", create_if_missing=True)
+sb = modal.Sandbox.create(app=app)
 
 # We have to convert the driver program to a string to pass it to the Sandbox.
 # Here we use `inspect.getsource` to get the source code as a string,
@@ -82,12 +72,30 @@ def run_code(writer: modal.io_streams.StreamWriter, reader: Iterator[str], code:
 driver_program_text = inspect.getsource(driver_program)
 driver_program_command = f"""{driver_program_text}\n\ndriver_program()"""
 
-app = modal.App.lookup("example-simple-code-interpreter", create_if_missing=True)
-sb = modal.Sandbox.create(app=app)
+# We then kick off the program with [`Sandbox.exec`](https://modal.com/docs/reference/modal.Sandbox#exec),
+# which creates a process inside the Sandbox (see [`modal.container_process`](https://modal.com/docs/reference/modal.container_process)
+# for details).
+
 p = sb.exec("python", "-c", driver_program_command, bufsize=1)
-reader, writer = p.stdin, iter(p.stdout)
 
 # ## Running code in a Modal Sandbox
+
+# Now we need a way to run code inside that running driver process.
+# Our driver program already defined a JSON interface on its `stdin` and `stdout`,
+# so we just need to write a quick wrapper to write to the remote `stdin`
+# and read from the remote `stdout`.
+
+reader, writer = p.stdin, iter(p.stdout)
+
+
+def run_code(writer: modal.io_streams.StreamWriter, reader: Iterator[str], code: str):
+    writer.write(json.dumps({"code": code}) + "\n")
+    writer.drain()
+    result = json.loads(next(reader))
+    print(result["stdout"], end="")
+    if result["stderr"]:
+        print("\033[91m" + result["stderr"] + "\033[0m", end="", file=sys.stderr)
+
 
 # Now we can execute some code in the Sandbox!
 
@@ -103,8 +111,8 @@ run_code(reader, writer, "print(f'The result is: {result}')")  # The result is: 
 
 # We can also see errors when code fails.
 
-# run_code(stdin, stdout, "print('Attempting to divide by zero...')")
-# run_code(stdin, stdout, "1 / 0")  # Execution Error: division by zero
+run_code(reader, writer, "print('Attempting to divide by zero...')")
+run_code(reader, writer, "1 / 0")  # Execution Error: division by zero
 
 # Finally, let's clean up after ourselves and terminate the Sandbox.
 
