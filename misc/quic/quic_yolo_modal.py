@@ -396,7 +396,7 @@ with image.imports():
     gpu="A100-40GB",
     volumes=cache,
     region="us-west-1",
-    max_inputs=1,
+    single_use_containers=True,
 )
 async def yolo_quic_server(
     *,
