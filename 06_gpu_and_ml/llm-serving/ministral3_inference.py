@@ -454,7 +454,7 @@ if __name__ == "__main__":
     try:
         print("calling inference server")
         asyncio.run(test(server.serve.get_web_url()))
-    except modal.exception.NotFoundError:
+    except modal.exception.NotFoundError as e:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
-        )
+        ) from e

@@ -28,6 +28,7 @@
 
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
+import asyncio
 import subprocess
 import time
 
@@ -216,13 +217,41 @@ def _wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
     raise TimeoutError(f"SGLang server not ready within timeout of {timeout} seconds")
 
 
-# ## Define the inference server
+# ## Define the inference server and infrastructure
+
+# ### Selecting infrastructure to minimize latency
+
+# Minimizing latency requires geographic co-location of clients and servers.
+
+# So for low latency LLM inference services on Modal, you must select a
+# [cloud region](https://modal.com/docs/guide/region-selection)
+# for both the GPU-accelerated containers running inference
+# and for the Modal proxies that forward requests to them.
+
+# Here, we assume users are mostly in the northern half of the Americas
+# and select a single cloud region, `us-east`, to serve them.
+# This should result in at most a few dozen milliseconds of round-trip time.
+
+REGION = "us-east"
+
+# For production-scale LLM inference services, there are generally
+# enough requests to justify keeping at least one replica running at all times.
+# Having a "warm" or "live" replica reduces latency by skipping slow initialization work
+# that occurs when new replica boot up (a ["cold start"](https://modal.com/docs/guide/cold-start)).
+# For LLM inference servers, that latency runs into the seconds or few tens of seconds,
+# even with snapshotting.
+
+# To ensure at least one container is always available,
+# we can set the `min_containers` of our Modal Function
+# to `1` or more.
+
+# However, since this is sample code
+
+MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
 app = modal.App(name="example-sglang-low-latency")
 
 PORT = 8000
-REGION = "us-east"
-MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
 TARGET_INPUTS = 20
 
@@ -256,15 +285,16 @@ class SGLang:
             "--revision",
             MODEL_REVISION,
             "--served-model-name",
-            MODEL_NAME,  # TODO: "llm"
+            MODEL_NAME,
             "--host",
             "0.0.0.0",
             "--port",
             f"{PORT}",
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
-            f"{TARGET_INPUTS * 2}--enable-metrics",
-            "--enable-memory-saver",
-            "--enable-weights-cpu-backup",  # enable offload, for snapshotting
+            f"{TARGET_INPUTS * 2}",
+            "--enable-metrics",
+            "--enable-memory-saver",  # enable offload, for snapshotting
+            "--enable-weights-cpu-backup",
         ]
 
         self.process = subprocess.Popen(cmd)
@@ -332,7 +362,7 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
     }
     if content is None:
         content = [
-            {"type": "text", "text": "Explain the Singular Value Decomposition."},
+            {"type": "text", "text": "Explain the Singular Value Decomposition."}
         ]
 
     messages = [  # OpenAI chat format
@@ -340,26 +370,18 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
         {"role": "user", "content": content},
     ]
 
-    start_time = time.time()
-    async with aiohttp.ClientSession(base_url=url) as session:
-        print(f"Running health check for server at {url}")
-        while time.time() - start_time < test_timeout:
-            async with session.get(
-                "/health", timeout=test_timeout - 1 * MINUTES
-            ) as resp:
-                if resp.status == 200:
-                    print(f"Successful health check for server at {url}")
-                    break
+    await probe(url, messages, timeout=test_timeout)
+    if twice:
+        messages[0]["content"] = "You are Jar Jar Binks."
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
-        await _send_request(session, "llm", messages, timeout=1 * MINUTES)
-        if twice:
-            messages[0]["content"] = "You are Jar Jar Binks."
-            print(f"Sending messages to {url}:", *messages, sep="\n\t")
-            await _send_request(session, "llm", messages, timeout=1 * MINUTES)
+        await probe(url, messages, timeout=1 * MINUTES)
 
 
 async def _send_request(
-    session: aiohttp.ClientSession, model: str, messages: list, timeout: int
+    session: aiohttp.ClientSession,
+    model: str,
+    messages: list,
+    timeout: int | None = None,
 ) -> None:
     async with session.post(
         "/v1/chat/completions",
@@ -370,16 +392,31 @@ async def _send_request(
         print((await resp.json())["choices"][0]["message"]["content"])
 
 
-if __name__ == "__main__":
-    import asyncio
+async def probe(url, messages=None, timeout=5 * MINUTES):
+    if messages is None:
+        messages = [{"role": "user", "content": "Tell me a joke."}]
 
+    deadline: float = time.time() + timeout
+    async with aiohttp.ClientSession(base_url=url) as session:
+        while time.time() < deadline:
+            try:
+                await _send_request(session, "llm", messages)
+                return
+            except (
+                aiohttp.client_exceptions.ClientResponseError or asyncio.TimeoutError
+            ):
+                time.sleep(1)
+    raise TimeoutError(f"No response from server within {timeout} seconds")
+
+
+if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
     sglang_server = modal.Cls.from_name("example-sglang-low-latency", "SGLang")
 
-    async def test(url):
-        messages = [{"role": "user", "content": "Tell me a joke."}]
-        async with aiohttp.ClientSession(base_url=url) as session:
-            await _send_request(session, MODEL_NAME, messages, timeout=10 * MINUTES)
-
     print("calling inference server")
-    asyncio.run(test(sglang_server._experimental_get_flash_urls()[0]))
+    try:
+        asyncio.run(probe(sglang_server._experimental_get_flash_urls()[0]))
+    except modal.exception.NotFoundError as e:
+        raise Exception(
+            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
+        ) from e
