@@ -35,6 +35,8 @@ import aiohttp
 import modal
 import modal.experimental
 
+MINUTES = 60  # seconds
+
 sglang_image: modal.Image = (
     modal.Image.from_registry(
         "lmsysorg/sglang:v0.5.6.post2-cu129-amd64-runtime"
@@ -150,16 +152,78 @@ sglang_image = sglang_image.env(
     }
 )
 
+# ## Speed up cold starts with GPU snapshotting
+
+# ### Sleeping and waking an SGLang server
+
 with sglang_image.imports():
     import requests
 
 
-PORT = 8000
-MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
-MINUTES = 60  # seconds
+def _sleep():
+    headers = {"Content-Type": "application/json"}
+    requests.post(
+        f"http://127.0.0.1:{PORT}/release_memory_occupation",
+        headers=headers,
+        json={},
+    ).raise_for_status()
 
+
+def _wake_up():
+    headers = {"Content-Type": "application/json"}
+    requests.post(
+        f"http://127.0.0.1:{PORT}/resume_memory_occupation",
+        headers=headers,
+        json={},
+    ).raise_for_status()
+
+
+# ### Readiness checks and warmups for an SGLang server
+
+
+def _warmup():
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [{"role": "user", "content": "Hello, how are you?"}],
+        "max_tokens": 16,
+    }
+    for _ in range(3):
+        requests.post(
+            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
+        ).raise_for_status()
+
+
+def _wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+    def check_process_is_running() -> Exception | None:
+        if process is not None and process.poll() is not None:
+            return Exception(
+                f"Process {process.pid} exited with code {process.returncode}"
+            )
+        return None
+
+    deadline: float = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            if error := check_process_is_running():
+                raise error
+            response = requests.get(f"http://127.0.0.1:{PORT}/health")
+            if response.status_code == 200:
+                print("Server is healthy")
+                return
+            time.sleep(1)
+        except Exception:
+            pass
+    raise TimeoutError(f"SGLang server not ready within timeout of {timeout} seconds")
+
+
+# ## Define the inference server
 
 app = modal.App(name="example-sglang-low-latency")
+
+PORT = 8000
+REGION = "us-east"
+MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
+
 TARGET_INPUTS = 20
 
 
@@ -169,16 +233,16 @@ TARGET_INPUTS = 20
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
-    region="us-east",
+    region=REGION,
     min_containers=MIN_CONTAINERS,
 )
 @modal.experimental.http_server(
-    port=PORT, proxy_regions=["us-east"], exit_grace_period=5
+    port=PORT,
+    proxy_regions=[REGION],
+    exit_grace_period=5,  # seconds
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
-    """Serve a HuggingFace model via SGLang with readiness check."""
-
     @modal.enter(snap=True)
     def startup(self) -> None:
         """Start the SGLang server and block until it is healthy."""
@@ -204,72 +268,17 @@ class SGLang:
         ]
 
         self.process = subprocess.Popen(cmd)
-        self._wait_ready(self.process)
-        self._warmup()
-        self._sleep()
+        _wait_ready(self.process)
+        _warmup()
+        _sleep()
 
     @modal.enter(snap=False)
     def wake_up(self):
-        self._wake_up()
+        _wake_up()
 
     @modal.exit()
     def stop(self):
         self.process.terminate()
-
-    @staticmethod
-    def _warmup():
-        payload = {
-            "model": MODEL_NAME,
-            "messages": [{"role": "user", "content": "Hello, how are you?"}],
-            "max_tokens": 16,
-        }
-        for _ in range(3):
-            requests.post(
-                f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
-            ).raise_for_status()
-
-    @staticmethod
-    def _wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
-        def check_process_is_running() -> Exception | None:
-            if process is not None and process.poll() is not None:
-                return Exception(
-                    f"Process {process.pid} exited with code {process.returncode}"
-                )
-            return None
-
-        deadline: float = time.time() + timeout
-        while time.time() < deadline:
-            try:
-                if error := check_process_is_running():
-                    raise error
-                response = requests.get(f"http://127.0.0.1:{PORT}/health")
-                if response.status_code == 200:
-                    print("Server is healthy")
-                    return
-                time.sleep(1)
-            except Exception:
-                pass
-        raise TimeoutError(
-            f"SGLang server not ready within timeout of {timeout} seconds"
-        )
-
-    @staticmethod
-    def _sleep():
-        headers = {"Content-Type": "application/json"}
-        requests.post(
-            f"http://127.0.0.1:{PORT}/release_memory_occupation",
-            headers=headers,
-            json={},
-        ).raise_for_status()
-
-    @staticmethod
-    def _wake_up():
-        headers = {"Content-Type": "application/json"}
-        requests.post(
-            f"http://127.0.0.1:{PORT}/resume_memory_occupation",
-            headers=headers,
-            json={},
-        ).raise_for_status()
 
 
 ## Deploy the server
