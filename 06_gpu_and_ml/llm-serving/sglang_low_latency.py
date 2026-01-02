@@ -76,11 +76,9 @@ sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
 # We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
 # Typical speeds are around one to two GB/s.
 
-HF_CACHE_VOL: modal.Volume = modal.Volume.from_name(
-    "huggingface-cache", create_if_missing=True
-)
-HF_CACHE_PATH: str = "/root/.cache/huggingface"
-MODEL_PATH: str = f"{HF_CACHE_PATH}/{MODEL_NAME}"
+HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+HF_CACHE_PATH = "/root/.cache/huggingface"
+MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 
 # In addition to pointing the Hugging Face Hub at the path
 # where we mount the Volume, we also turn on "high performance" downloads,
@@ -108,10 +106,8 @@ sglang_image = sglang_image.env(
 # must be [JIT-compiled](https://modal.com/gpu-glossary/host-software/nvrtc).
 # We store these in a Modal Volume as well.
 
-DG_CACHE_VOL: modal.Volume = modal.Volume.from_name(
-    "deepgemm-cache", create_if_missing=True
-)
-DG_CACHE_PATH: str = "/root/.cache/deepgemm"
+DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
+DG_CACHE_PATH = "/root/.cache/deepgemm"
 
 # JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
 
@@ -131,8 +127,8 @@ def compile_deep_gemm():
         )
 
 
-# We run this Python function as part of the building of our Image,
-# so that it has access to the approprate GPU and the caches for our model and compilaton artifacts.
+# We run this Python function on Modal as part of building the Image,
+# so that it has access to the appropriate GPU and the caches for our model and compilaton artifacts.
 
 sglang_image = sglang_image.run_function(
     compile_deep_gemm,
@@ -142,16 +138,12 @@ sglang_image = sglang_image.run_function(
 
 # ### Other environment variables
 
-# Lastly, we set a few environment variables that improve compatibility of
-# the Torch Inductor compiler with GPU snapshotting.
+# Lastly, we set any additional environment variables.
+# Here, we set a flag that improves compatibility of
+# the [Torch Inductor compiler](https://dev-discuss.pytorch.org/t/torchinductor-a-pytorch-native-compiler-with-define-by-run-ir-and-symbolic-shapes/747)
+# with GPU snapshotting.
 
-
-sglang_image = sglang_image.env(
-    {
-        "TORCHINDUCTOR_COMPILE_THREADS": "1",
-        "TMS_INIT_ENABLE_CPU_BACKUP": "1",  # TODO: check this is needed
-    }
-)
+sglang_image = sglang_image.env({"TORCHINDUCTOR_COMPILE_THREADS": "1"})
 
 # ## Speed up cold starts with GPU snapshotting
 
@@ -161,30 +153,23 @@ with sglang_image.imports():
     import requests
 
 
-def _sleep():
-    headers = {"Content-Type": "application/json"}
+def sleep():
     requests.post(
-        f"http://127.0.0.1:{PORT}/release_memory_occupation",
-        headers=headers,
-        json={},
+        f"http://127.0.0.1:{PORT}/release_memory_occupation", json={}
     ).raise_for_status()
 
 
-def _wake_up():
-    headers = {"Content-Type": "application/json"}
+def wake_up():
     requests.post(
-        f"http://127.0.0.1:{PORT}/resume_memory_occupation",
-        headers=headers,
-        json={},
+        f"http://127.0.0.1:{PORT}/resume_memory_occupation", json={}
     ).raise_for_status()
 
 
 # ### Readiness checks and warmups for an SGLang server
 
 
-def _warmup():
+def warmup():
     payload = {
-        "model": MODEL_NAME,
         "messages": [{"role": "user", "content": "Hello, how are you?"}],
         "max_tokens": 16,
     }
@@ -194,26 +179,24 @@ def _warmup():
         ).raise_for_status()
 
 
-def _wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
-    def check_process_is_running() -> Exception | None:
-        if process is not None and process.poll() is not None:
-            return Exception(
-                f"Process {process.pid} exited with code {process.returncode}"
-            )
-        return None
+def check_running(p: subprocess.Popen):
+    if (rc := p.poll()) is not None:
+        raise subprocess.CalledProcessError(rc, cmd=p.args)
 
-    deadline: float = time.time() + timeout
+
+def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+    deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            if error := check_process_is_running():
-                raise error
-            response = requests.get(f"http://127.0.0.1:{PORT}/health")
-            if response.status_code == 200:
-                print("Server is healthy")
-                return
+            check_running(process)
+            requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
+            return
+        except (
+            subprocess.CalledProcessError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError,
+        ):
             time.sleep(1)
-        except Exception:
-            pass
     raise TimeoutError(f"SGLang server not ready within timeout of {timeout} seconds")
 
 
@@ -245,7 +228,7 @@ REGION = "us-east"
 # we can set the `min_containers` of our Modal Function
 # to `1` or more.
 
-# However, since this is sample code
+# However, since this is sample code,
 
 MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
@@ -298,13 +281,13 @@ class SGLang:
         ]
 
         self.process = subprocess.Popen(cmd)
-        _wait_ready(self.process)
-        _warmup()
-        _sleep()
+        wait_ready(self.process)
+        warmup()
+        sleep()
 
     @modal.enter(snap=False)
     def wake_up(self):
-        _wake_up()
+        wake_up()
 
     @modal.exit()
     def stop(self):
@@ -353,17 +336,17 @@ class SGLang:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, content=None, twice=True):
+async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
     url = SGLang._experimental_get_flash_urls()[0]
 
     system_prompt = {
         "role": "system",
         "content": "You are a pirate who can't help but drop sly reminders that he went to Harvard.",
     }
-    if content is None:
-        content = [
-            {"type": "text", "text": "Explain the Singular Value Decomposition."}
-        ]
+    if prompt is None:
+        prompt = "Explain the Singular Value Decomposition."
+
+    content = [{"type": "text", "text": prompt}]
 
     messages = [  # OpenAI chat format
         system_prompt,
@@ -375,6 +358,34 @@ async def test(test_timeout=10 * MINUTES, content=None, twice=True):
         messages[0]["content"] = "You are Jar Jar Binks."
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await probe(url, messages, timeout=1 * MINUTES)
+
+
+# This test relies on the two helper functions below,
+# which ping the server and wait for a valid response.
+
+# The `probe` helper function specifically ignores
+# two types of errors that can occur while a replica
+# is starting up -- timeouts on the client and 5XX responses
+# from the server. Modal returns the [503 error code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# to indicate that an `experimental.http_server` is not available.
+
+
+async def probe(url, messages=None, timeout=5 * MINUTES):
+    if messages is None:
+        messages = [{"role": "user", "content": "Tell me a joke."}]
+
+    deadline = time.time() + timeout
+    async with aiohttp.ClientSession(base_url=url) as session:
+        while time.time() < deadline:
+            try:
+                await _send_request(session, "llm", messages)
+                return
+            except (
+                aiohttp.client_exceptions.ClientResponseError,
+                asyncio.TimeoutError,
+            ):
+                await asyncio.sleep(1)
+    raise TimeoutError(f"No response from server within {timeout} seconds")
 
 
 async def _send_request(
@@ -392,21 +403,31 @@ async def _send_request(
         print((await resp.json())["choices"][0]["message"]["content"])
 
 
-async def probe(url, messages=None, timeout=5 * MINUTES):
-    if messages is None:
-        messages = [{"role": "user", "content": "Tell me a joke."}]
+# ### Test memory snapshotting
 
-    deadline: float = time.time() + timeout
-    async with aiohttp.ClientSession(base_url=url) as session:
-        while time.time() < deadline:
-            try:
-                await _send_request(session, "llm", messages)
-                return
-            except (
-                aiohttp.client_exceptions.ClientResponseError or asyncio.TimeoutError
-            ):
-                time.sleep(1)
-    raise TimeoutError(f"No response from server within {timeout} seconds")
+# Using `modal run` creates an ephemeral Modal App,
+# rather than a deployed Modal App.
+# Ephemeral Modal Apps are short-lived,
+# so they turn off snapshotting.
+
+# To test the memory snapshot version of the server,
+# first deploy it with `modal deploy`
+# and then hit it with a client.
+
+# You should observe startup improvements
+# after a handful of cold starts
+# (usually less than five).
+# If you want to see the speedup during a test,
+# we recommend heading to the deployed App in your
+# [Modal dashboard](https://modal.com/apps)
+# and manually stopping containers after they have served a request.
+
+# You can use the client code below to test the endpoint.
+# It can be run with the command
+
+# ```
+# python sglang_low_latency.py
+# ```
 
 
 if __name__ == "__main__":
