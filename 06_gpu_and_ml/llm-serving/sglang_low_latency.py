@@ -1,9 +1,4 @@
-# ---
-# deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/sglang_low_latency.py"]
-# ---
-
-# # Low latency Qwen 3-8B with SGLang and Modal
+# # Low latency Qwen 3 8B with SGLang and Modal
 
 # In this example, we show how to serve [SGLang](https://github.com/sgl-project/sglang) at low latency on Modal.
 
@@ -17,9 +12,6 @@
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
-# We also include instructions for cutting cold start times by an order of magnitude using Modal's
-# [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
-
 # ## Set up the container image
 
 # Our first order of business is to define the environment our server will run in:
@@ -31,6 +23,7 @@
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
 import asyncio
+import json
 import subprocess
 import time
 
@@ -153,77 +146,6 @@ sglang_image = sglang_image.run_function(
     gpu=GPU,
 )
 
-
-# ## Speed up cold starts with GPU snapshotting
-
-# Modal is a serverless compute platform, so all of your
-# inference services automatically scale up and down to handle
-# variable load.
-
-# Scaling up a new replica requires quite a bit of work --
-# loading up Python and system packages, loading model weights,
-# setting up the inference engine, and so on.
-
-# We can skip over and speed up a bunch of this work
-# when spinning up new replicas after the first
-# by directly booting from a [memory snapshot](https://modal.com/docs/guide/memory-snapshot),
-# which contains the exact in-memory representation of our server just before it begins taking requests.
-
-# Most applications can be snapshot and experience substantial speedups (2x to 10x,
-# see [our initial benchmarks here](https://modal.com/blog/gpu-mem-snapshots)).
-# However, it generally requires some extra work to adapt the application code.
-
-# For instance, we here set an environment variable that improves the compatibility of
-# the [Torch Inductor compiler](https://dev-discuss.pytorch.org/t/torchinductor-a-pytorch-native-compiler-with-define-by-run-ir-and-symbolic-shapes/747)
-# with GPU snapshotting and enables
-
-sglang_image = sglang_image.env(
-    {"TORCHINDUCTOR_COMPILE_THREADS": "1", "TMS_INIT_ENABLE_CPU_BACKUP": "1"}
-)
-
-# Below, we walk through a few steps required to make an SGLang server compatible with snapshots.
-
-# ### Sleeping and waking an SGLang server
-
-# We prepare our SGLang inference server for snapshotting by first sending
-# a few requests to "warm it up", ensuring that it is fully ready to process requests.
-# Then we "put it to sleep", moving non-essential data out of GPU memory,
-# with a request to `/release_memory_occupation`.
-# At this point, we can take a memory snapshot.
-# Upon snapshot restoration, we "wake up" the server
-# with a request to `/resume_memory_occupation`.
-
-# We use the [`requests` library](https://requests.readthedocs.io/en/latest/)
-# to send ourselves these HTTP requests on
-# [`localhost`/`127.0.0.1`](https://superuser.com/questions/31824/why-is-localhost-ip-127-0-0-1).
-
-with sglang_image.imports():
-    import requests
-
-
-def warmup():
-    payload = {
-        "messages": [{"role": "user", "content": "Hello, how are you?"}],
-        "max_tokens": 16,
-    }
-    for _ in range(3):
-        requests.post(
-            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
-        ).raise_for_status()
-
-
-def sleep():
-    requests.post(
-        f"http://127.0.0.1:{PORT}/release_memory_occupation", json={}
-    ).raise_for_status()
-
-
-def wake_up():
-    requests.post(
-        f"http://127.0.0.1:{PORT}/resume_memory_occupation", json={}
-    ).raise_for_status()
-
-
 # ## Define the inference server and infrastructure
 
 # ### Selecting infrastructure to minimize latency
@@ -237,24 +159,23 @@ def wake_up():
 # as part of defining a `modal.experimental.http_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
-# and select a single cloud region, `us-east`, to serve them.
+# and select the `us-east` cloud region serve them.
+# This should result in at most a few dozen milliseconds of round-trip time.
 
 REGION = "us-east"
-
-# This should result in at most a few dozen milliseconds of round-trip time.
 
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
 # Having a "warm" or "live" replica reduces latency by skipping slow initialization work
-# that occurs when new replica boot up (a ["cold start"](https://modal.com/docs/guide/cold-start)).
-# For LLM inference servers, that latency runs into the seconds or few tens of seconds,
-# even with snapshotting.
+# that occurs when new replica boots up (a ["cold start"](https://modal.com/docs/guide/cold-start)).
+# For LLM inference servers, that latency runs from seconds to minutes.
 
 # To ensure at least one container is always available,
 # we can set the `min_containers` of our Modal Function
 # to `1` or more.
 
-# However, since this is sample code, we'll set it to `0`.
+# However, since this is documentation code, we'll set it to `0`
+# to avoid surprise bills during casual use.
 
 MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
@@ -273,7 +194,7 @@ TARGET_INPUTS = 20
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-# ### Controlling container lifecycles with `Modal.Cls`
+# ### Controlling container lifecycles with `modal.Cls`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators
@@ -294,13 +215,20 @@ TARGET_INPUTS = 20
 # requests our server can handle before we need to scale up.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
-# which methods of the class should be run when starting the server and shutting it down. The `enter`
-# methods also define what code is run before memory snapshot creation (`snap=True`) and after memory snapshot restoration (`snap=False`).
+# which methods of the class should be run when starting the server and shutting it down.
 
 # Modal considers a new replica ready to receive inputs once the `modal.enter` methods have exited
 # and the container accepts connections.
 # To ensure that we actually finish setting up our server before we are marked ready for inputs,
-# we define a helper function to check whether the server is finished setting up.
+# we define a helper function to check whether the server is finished setting up and to
+# send it a few test inputs.
+
+# We use the [`requests` library](https://requests.readthedocs.io/en/latest/)
+# to send ourselves these HTTP requests on
+# [`localhost`/`127.0.0.1`](https://superuser.com/questions/31824/why-is-localhost-ip-127-0-0-1).
+
+with sglang_image.imports():
+    import requests
 
 
 def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
@@ -324,6 +252,17 @@ def check_running(p: subprocess.Popen):
         raise subprocess.CalledProcessError(rc, cmd=p.args)
 
 
+def warmup():
+    payload = {
+        "messages": [{"role": "user", "content": "Hello, how are you?"}],
+        "max_tokens": 16,
+    }
+    for _ in range(3):
+        requests.post(
+            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
+        ).raise_for_status()
+
+
 # With all this in place, we are ready to define our high-performance, low-latency
 # LLM inference server.
 
@@ -335,8 +274,6 @@ PORT = 8000
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
-    enable_memory_snapshot=True,
-    experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
 )
@@ -347,10 +284,9 @@ PORT = 8000
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
-    @modal.enter(snap=True)
+    @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up and put it to sleep."""
-
         cmd = [
             "python",
             "-m",
@@ -370,25 +306,20 @@ class SGLang:
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
-            "--enable-memory-saver",  # enable offload, for snapshotting
-            "--enable-weights-cpu-backup",  # enable offload, for snapshotting
+            "--decode-log-interval",  # in tokens
+            "250",
         ]
 
         self.process = subprocess.Popen(cmd)
         wait_ready(self.process)
-        warmup()  # for snapshotting
-        sleep()
-
-    @modal.enter(snap=False)
-    def wake_up(self):
-        wake_up()
+        warmup()
 
     @modal.exit()
     def stop(self):
         self.process.terminate()
 
 
-## Deploy the server
+# ## Deploy the server
 
 # To deploy the server on Modal, just run
 
@@ -398,7 +329,7 @@ class SGLang:
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
 
-## Interact with the server
+# ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
 # something like `https://your-workspace-name--example-sglang-low-latency-sglang.us-east.modal.direct`.
@@ -414,7 +345,7 @@ class SGLang:
 # In your browser, you can just hit refresh until the docs page appears.
 # You can see the status of the applicaton and its containers on your [Modal dashboard](https://modal.com/apps).
 
-## Test the server
+# ## Test the server
 
 # To make it easier to test the server setup, we also include a `local_entrypoint`
 # that hits the server with a simple client.
@@ -458,7 +389,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
 
 # This test relies on the two helper functions below,
-# which ping the server and wait for a valid response.
+# which ping the server and wait for a valid response to stream.
 
 # The `probe` helper function specifically ignores
 # two types of errors that can occur while a replica
@@ -475,7 +406,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     async with aiohttp.ClientSession(base_url=url) as session:
         while time.time() < deadline:
             try:
-                await _send_request(session, "llm", messages)
+                await _send_request_streaming(session, messages)
                 return
             except asyncio.TimeoutError:
                 await asyncio.sleep(1)
@@ -487,55 +418,42 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     raise TimeoutError(f"No response from server within {timeout} seconds")
 
 
-async def _send_request(
-    session: aiohttp.ClientSession,
-    model: str,
-    messages: list,
-    timeout: int | None = None,
+async def _send_request_streaming(
+    session: aiohttp.ClientSession, messages: list, timeout: int | None = None
 ) -> None:
+    payload = {"messages": messages, "stream": True}
+    headers = {"Accept": "text/event-stream"}
+
     async with session.post(
-        "/v1/chat/completions",
-        json={"messages": messages, "model": model},
-        timeout=timeout,
+        "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
     ) as resp:
         resp.raise_for_status()
-        print((await resp.json())["choices"][0]["message"]["content"])
+        full_text = ""
 
+        async for raw in resp.content:
+            line = raw.decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
 
-# ### Test memory snapshotting
+            # Server-Sent Events format: "data: ...."
+            if not line.startswith("data:"):
+                continue
 
-# Using `modal run` creates an ephemeral Modal App, rather than a deployed Modal App.
-# Ephemeral Modal Apps are short-lived, so they turn off memory snapshotting.
+            data = line[len("data:") :].strip()
+            if data == "[DONE]":
+                break
 
-# To test the memory snapshot version of the server,
-# first deploy it with `modal deploy`
-# and then hit it with a client.
+            try:
+                evt = json.loads(data)
+            except json.JSONDecodeError:
+                # ignore any non-JSON keepalive
+                continue
 
-# You should observe startup improvements
-# after a handful of cold starts
-# (usually less than five).
-# If you want to see the speedup during a test,
-# we recommend heading to the deployed App in your
-# [Modal dashboard](https://modal.com/apps)
-# and manually stopping containers after they have served a request
-# to ensure turnover.
+            delta = (evt.get("choices") or [{}])[0].get("delta") or {}
+            chunk = delta.get("content")
 
-# You can use the client code below to test the endpoint.
-# It can be run with the command
-
-# ```bash
-# python sglang_low_latency.py
-# ```
-
-
-if __name__ == "__main__":
-    # after deployment, we can use the class from anywhere
-    sglang_server = modal.Cls.from_name("example-sglang-low-latency", "SGLang")
-
-    print("calling inference server")
-    try:
-        asyncio.run(probe(sglang_server._experimental_get_flash_urls()[0]))
-    except modal.exception.NotFoundError as e:
-        raise Exception(
-            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
-        ) from e
+            if chunk:
+                print(chunk, end="", flush="\n" in chunk or "." in chunk)
+                full_text += chunk
+        print()  # newline after stream completes
+        print(full_text)
