@@ -39,28 +39,17 @@ sglang_image = (
     ).entrypoint([])  # silence chatty logs on container start
 )
 
-# We also choose a GPU to deploy our inference server onto.
+# We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
 # which offers excellent price-performance
 # and supports 8bit floating point operations, which are the
 # lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
 # across a variety of model architectures.
 
-# We run on two of them to double our effective [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
-# during tensor parallel operations like large matrix multiplications.
-# This leads to a speedup of up to 2x for [memory-bound](https://modal.com/gpu-glossary/perf/memory-bound)
-# workloads like the decode phase of LLM inference.
-# It also doubles the [arithmetic bandwidth](https://modal.com/gpu-glossary/perf/arithmetic-bandwidth)
-# for [compute-bound](https://modal.com/gpu-glossary/perf/compute-bound)
-# workloads like the prefill phase of LLM inference.
+# Below, we discuss the choice of GPU count.
 
-N_GPUS = 2
-GPU = f"H100!:{N_GPUS}"
-
-# Actual speedups are generally less than what you get from "napkin math" based on available bandwidths --
-# we observed a speedup of about 30% moving from one to two H100s when developing this example.
-# We recommend [application-specific benchmarking](https://modal.com/llm-almanac/how-to-benchmark)
-# guided by [published generic benchmarks](https://modal.com/llm-almanac/advisor).
+GPU_TYPE, N_GPUS = "H100!", 2
+GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
@@ -146,6 +135,93 @@ sglang_image = sglang_image.run_function(
     gpu=GPU,
 )
 
+# ## Configure SGLang for minimal latency
+
+# LLM inference engines like SGLang come with a wide variety of "knobs" to tune performance.
+
+# To determine the appropriate configuration to hit latency and throughput service objectives,
+# we recommend [application-specific benchmarking](https://modal.com/llm-almanac/how-to-benchmark)
+# guided by [published generic benchmarks](https://modal.com/llm-almanac/advisor).
+
+# Here, we assume that the primary goal is to minimize per-request latency, with less regard to throughput
+# (and so to cost) and walk through some of the key choices.
+
+# The primary contributor to per-request latency is the time to move all of the model's weights (multiple gigabytes)
+# from [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram)
+# into [SRAM in the Streaming Multiprocessors](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor),
+# which must be done at least once in the course of processing a request --
+# naively, once per token per request.
+# The time taken is limited by the
+# [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
+# between those two stores, which is on the order of terabytes per second on modern data center GPUs.
+# With models at the scale of gigabytes, a token will take milliseconds to generate --
+# or whole seconds for the kilotoken responses users are accustomed to.
+
+# We use two strategies to cut latency in our [memory-bound](https://modal.com/gpu-glossary/perf/memory-bound) workload:
+
+# - operate across multiple GPUs for more aggregate bandwidth and faster loads, with tensor parallelism
+
+# - generate more tokens per load, with speculative decoding
+
+# ### Increasing effective memory bandwidth with tensor parallelism
+
+# Running SGLang on two H100s will double our effective
+# [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
+# during large matrix multiplications.
+
+
+# Matrices are also known as tensors, and so this strategy that takes advantage
+# of the inherent parallelism within matrix multiplication is known as _tensor parallelism_.
+
+# Actual speedups are generally less than what you get from "napkin math" based on available bandwidths --
+# we observed a speedup of about 30% moving from one to two H100s when developing this example, rather than 100%.
+
+# ### Parallelizing token generation with speculative decoding
+
+# Transformer and recurrent language models generate text sequentially:
+# the model's output at step `i` is part of the input at step `i+1`.
+# Per Amdahl's Law, that sequential work becomes the bottleneck
+# as other steps get faster from increased parallelism.
+
+# The solution is to generate more tokens on each step.
+# The primary technique to do so without changing model behavior is known as
+# [_speculative decoding_](https://developer.nvidia.com/blog/an-introduction-to-speculative-decoding-for-reducing-latency-in-ai-inference/),
+# which "speculates" a number of draft tokens and verifies them in parallel with the primary model.
+
+# Speculative decoding techniques themselves have a number of parameters, the most important
+# of which is the technique to use to generate draft tokens.
+# Simple techniques based on n-grams are a good place to start.
+# But in our experience, the [EAGLE-3](https://arxiv.org/abs/2503.01840)
+# technique gives enough of a performance boost to be worth
+# the overhead of maintaining an extra model for speculation.
+
+# And for popular models, you can often find a high-quality EAGLE-3 draft model
+# with open weights. For Qwen 3-8B, we like
+# [`Tengyunw`'s model](https://huggingface.co/Tengyunw/qwen3_8b_eagle3).
+
+speculative_config = {
+    "speculative-algorithm": "EAGLE3",
+    "speculative-draft-model-path": "Tengyunw/qwen3_8b_eagle3",
+}
+
+# We adopt the default configuration for this model from the documentation.
+# With these settings, we observed an ~30% boost in throughput for a single user
+# during the development of this sample code.
+
+speculative_config |= {
+    "speculative-num-steps": 6,
+    "speculative-eagle-topk": 10,
+    "speculative-num-draft-tokens": 32,
+}
+
+# Note that unlike tensor parallelism,
+# speculative decoding is not good for
+# [compute-bound](https://modal.com/gpu-glossary/perf/compute-bound)
+# workloads, since it generally increases demand for
+# [arithmetic bandwidth](https://modal.com/gpu-glossary/perf/arithmetic-bandwidth).
+# So for workloads that admit larger batch sizes for requests,
+# on the scale of dozens to hundreds, speculative decoding is not recommended.
+
 # ## Define the inference server and infrastructure
 
 # ### Selecting infrastructure to minimize latency
@@ -189,7 +265,7 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
 # For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
 
-TARGET_INPUTS = 20
+TARGET_INPUTS = 10
 
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
@@ -243,8 +319,8 @@ def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
             requests.exceptions.ConnectionError,
             requests.exceptions.HTTPError,
         ):
-            time.sleep(1)
-    raise TimeoutError(f"SGLang server not ready within timeout of {timeout} seconds")
+            time.sleep(5)
+    raise TimeoutError(f"SGLang server not ready within {timeout} seconds")
 
 
 def check_running(p: subprocess.Popen):
@@ -306,8 +382,14 @@ class SGLang:
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
-            "--decode-log-interval",  # in tokens
+            "--decode-log-interval",  # how often to log during decoding, in tokens
             "250",
+            "--mem-fraction",  # leave space for speculative model
+            "0.8",
+        ]
+
+        cmd += [  # add speculative config
+            item for k, v in speculative_config.items() for item in (f"--{k}", str(v))
         ]
 
         self.process = subprocess.Popen(cmd)
