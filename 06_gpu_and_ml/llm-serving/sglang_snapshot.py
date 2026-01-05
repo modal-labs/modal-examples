@@ -6,7 +6,12 @@
 # # Serverless Qwen 3-8B with SGLang and Modal Snapshots
 
 # In this example, we show how to serve [SGLang](https://github.com/sgl-project/sglang) on Modal
-# with 10x faster cold starts.
+# with ~10x faster cold starts.
+
+# Fast cold starts are particularly useful for LLM inference applications
+# that have highly "bursty" workloads, like document processing.
+# See [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
+# for a breakdown of different LLM inference workloads and how to optimize them.
 
 # The key technique is
 # [CPU + GPU memory snapshotting](https://modal.com/docs/guide/memory-snapshot),
@@ -15,11 +20,6 @@
 # This adds some complexity to the deployment.
 # If you just want to get started running a basic LLM server on Modal, see
 # [this example](https://modal.com/docs/examples/llm_inference).
-
-# Fast cold starts are particularly useful for LLM inference applications
-# that have highly "bursty" workloads, like document processing.
-# See [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
-# for a breakdown of different LLM inference workloads and how to optimize them.
 
 # ## Set up the container image
 
@@ -485,11 +485,11 @@ async def _send_request(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    sglang_server = modal.Cls.from_name("example-sglang-low-latency", "SGLang")
+    SGLang = modal.Cls.from_name("example-sglang-snapshot", "SGLang")
 
     print("calling inference server")
     try:
-        asyncio.run(probe(sglang_server._experimental_get_flash_urls()[0]))
+        asyncio.run(probe(SGLang().serve.get_web_url()))
     except modal.exception.NotFoundError as e:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
