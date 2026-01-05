@@ -359,7 +359,7 @@ class SGLang:
         self.process.terminate()
 
 
-## Deploy the server
+# ## Deploy the server
 
 # To deploy the server on Modal, just run
 
@@ -369,7 +369,7 @@ class SGLang:
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
 
-## Interact with the server
+# ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
 # something like `https://your-workspace-name--example-sglang-snapshot-sglang.modal.run`.
@@ -380,7 +380,7 @@ class SGLang:
 # and translate requests into `curl` commands.
 # For simple routes, you can even send a request directly from the docs page.
 
-## Test the server
+# ## Test the server
 
 # To make it easier to test the server setup, we also include a `local_entrypoint`
 # that hits the server with a simple client.
@@ -476,11 +476,6 @@ async def _send_request(
 # to ensure turnover.
 
 # You can use the client code below to test the endpoint.
-# It can be run with the command
-
-# ```bash
-# python sglang_snapshot.py
-# ```
 
 
 if __name__ == "__main__":
@@ -494,3 +489,9 @@ if __name__ == "__main__":
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
         ) from e
+
+# It can be run with the command
+
+# ```bash
+# python sglang_snapshot.py
+# ```
