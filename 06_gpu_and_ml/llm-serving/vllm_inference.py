@@ -4,24 +4,27 @@
 
 # # Run OpenAI-compatible LLM inference with Qwen and vLLM
 
+# In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
+
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
 # This has complicated their interface far beyond "text-in, text-out".
 # OpenAI's API has emerged as a standard for that interface,
 # and it is supported by open source LLM serving frameworks like [vLLM](https://docs.vllm.ai/en/latest/).
 
-# In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
+# This example is intended to demonstrate the basics of deploying LLM inference on Modal.
+# For more on how to optimize performance, see
+# [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
+# and check out our
+# [LLM Engineer's Almanac](https://modal.com/llm-almanac).
 
 # Our examples repository also includes scripts for running clients and load-testing for OpenAI-compatible APIs
 # [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
-
-# You can find a (somewhat out-of-date) video walkthrough of this example and the related scripts on the Modal YouTube channel
-# [here](https://www.youtube.com/watch?v=QmY_7ePR1hM).
 
 # ## Set up the container image
 
 # Our first order of business is to define the environment our server will run in:
 # the [container `Image`](https://modal.com/docs/guide/custom-container).
-# vLLM can be installed with `pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
+# vLLM can be installed with `uv pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
 
 import json
 from typing import Any
