@@ -144,6 +144,9 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
+        # async scheduling is useful for smaller models and batches,
+        # but isn't compatible with all vLLM features, e.g. speculative decoding
+        "--async-scheduling",
     ]
 
     # enforce-eager disables both Torch compilation and CUDA graph capture
