@@ -52,9 +52,18 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.11.0",
-        "huggingface_hub[hf_transfer]==0.35.0",
-        "flashinfer-python==0.3.1",
+        "vllm==0.11.2",
+        "huggingface_hub==0.36.0",
+        "flashinfer-python==0.5.2",
+    )
+    .env(
+        {
+            "HF_XET_HIGH_PERFORMANCE": "1",
+            # B200 optimized environment variables
+            # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#launch-the-vllm-server
+            "VLLM_FLASHINFER_ALLREDUCE_FUSION_THRESHOLDS_MB": '{"2":32,"4":32,"8":8}',
+            "VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1",
+        }
     )
 )
 
@@ -88,14 +97,16 @@ FAST_BOOT = False  # slower boots but faster inference
 
 # Among the artifacts that are created at startup are CUDA graphs,
 # which allow the replay of several kernel launches for the price of one,
-# reducing CPU overhead. We over-ride the defaults with a smaller number of sizes
-# that we think better balances latency from future JIT CUDA graph generation
-# and startup latency.
+# reducing CPU overhead. The max cudagraph capture size controls the largest batch size
+# that will be captured. For B200, we use 2048 for optimized performance.
+# If not specified, vLLM defaults to min(max_num_seqs * 2, 512).
+#
+# Note: The API changed in vLLM (PR #26016: https://github.com/vllm-project/vllm/pull/26016):
+# - Old: --cuda-graph-sizes (deprecated) or -O.cudagraph_capture_sizes
+# - New: --max-cudagraph-capture-size (simpler) or --cudagraph-capture-sizes (explicit list)
 
 MAX_INPUTS = 32  # how many requests can one replica handle? tune carefully!
-CUDA_GRAPH_CAPTURE_SIZES = [  # 1, 2, 4, ... MAX_INPUTS
-    1 << i for i in range((MAX_INPUTS).bit_length())
-]
+MAX_CUDAGRAPH_CAPTURE_SIZE = 2048  # Maximum batch size for CUDA graph capture
 
 # ## Build a vLLM engine and serve it
 
@@ -143,10 +154,16 @@ def serve():
     # default is no-enforce-eager. see the --compilation-config flag for tighter control
     cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
-    if not FAST_BOOT:  # CUDA graph capture is only used with `--enforce-eager`
+    if not FAST_BOOT:  # CUDA graph capture is only used when NOT using --enforce-eager
+        # B200 optimized configuration with CUDA graph support
+        # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#prepare-the-config-file
+        # Reference: https://github.com/vllm-project/recipes/blob/main/OpenAI/GPT-OSS.md#launch-the-vllm-server
         cmd += [
-            "-O.cudagraph_capture_sizes="
-            + str(CUDA_GRAPH_CAPTURE_SIZES).replace(" ", "")
+            "--compilation-config",
+            '{"pass_config":{"enable_fi_allreduce_fusion":true,"enable_noop":true},"custom_ops":["+rms_norm"],"cudagraph_mode":"FULL_AND_PIECEWISE"}',
+            "--async-scheduling",
+            "--max-cudagraph-capture-size",
+            str(MAX_CUDAGRAPH_CAPTURE_SIZE),
         ]
 
     # assume multiple GPUs are for splitting up large matrix multiplications
