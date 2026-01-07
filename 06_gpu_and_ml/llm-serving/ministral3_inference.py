@@ -36,12 +36,12 @@ VLLM_PORT = 8000
 app = modal.App("example-ministral3-inference")
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
     .uv_pip_install(
-        "vllm~=0.11.2",
+        "vllm==0.13.0",
         "huggingface-hub==0.36.0",
-        "flashinfer-python==0.5.2",
+        "flashinfer-python==0.5.3",
     )
 )
 
