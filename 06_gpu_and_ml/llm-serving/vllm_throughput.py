@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/llm-serving/vllm_throughput"]
+# cmd: ["modal", "run", "--detach", "06_gpu_and_ml/llm-serving/vllm_throughput.py"]
 # ---
 
 # # Run LLM inference at maximum throughput
@@ -11,7 +11,7 @@
 # [our guide](https://modal.com/docs/guide/high-performance-llm-inference).
 
 # As our sample application, we use an LLM to summarize thousands of filings with
-# the U.S. federal government's Securities and Exchange Commission,
+# the U.S. federal government's Securities and Exchange Commission (SEC),
 # made available to the public for free in daily data dumps
 # via the SEC's Electronic Data Gathering, Analysis, and Retrieval System
 # ([EDGAR](https://www.sec.gov/submit-filings/about-edgar)).
