@@ -1,21 +1,21 @@
 # ---
 # output-directory: "/tmp/chatterbox-tts"
-# lambda-test: false
-# cmd: ["modal", "serve", "06_gpu_and_ml/text-to-audio/chatterbox_tts.py"]
 # ---
-
 
 # # Create a Chatterbox TTS API on Modal
 
-# This example demonstrates how to deploy a text-to-speech (TTS) API using the Chatterbox TTS model on Modal.
-# The API accepts text prompts and returns generated audio as WAV files through a FastAPI endpoint.
-# We use Modal's class-based approach with GPU acceleration to provide fast, scalable TTS inference.
+# This example demonstrates how to deploy a text-to-speech (TTS) API using the open source model Chatterbox Turbo on Modal.
+
+# Chatterbox Turbo is a state-of-the-art TTS model that can generate natural, expressive speech that rivals proprietary models.
+# Prompts can include paralinguistic tags like `[chuckle]`, `[sigh]`, and `[gasp]`. Chatterbox also support voice cloning by passing
+# a short (about 10 seconds) audio prompt of the target voice.
+#
+# Check out [Resemble AI's website](https://www.resemble.ai/) or
+# the [Chatterbox Github](https://github.com/resemble-ai/chatterbox) repo for more details.
 
 # ## Setup
 
-# Import the necessary modules for Modal deployment and TTS functionality.
-
-import io
+# Import `modal`, the only required local dependency.
 
 import modal
 
@@ -24,18 +24,35 @@ import modal
 # We start with Modal's baseline `debian_slim` image and install the required packages.
 # - `chatterbox-tts`: The TTS model library
 # - `fastapi`: Web framework for creating the API endpoint
+# - "peft": Required for properly loading the model
 
-image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
-    "chatterbox-tts==0.1.1", "fastapi[standard]"
+image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
+    "chatterbox-tts==0.1.6",
+    "fastapi[standard]==0.124.4",
+    "peft==0.18.0",
 )
+
+# We'll also use Chatterbox's provided set of voice prompts which you can download [here](https://modal-cdn.com/blog/audio/chatterbox-tts-voices.zip).
+# Unzip the file and upload it to a `modal.Volume` called `chatterbox-tts-voices` with the following CLI commands:
+# ```shell
+# modal volume create chatterbox-tts-voices
+# modal volume put chatterbox-tts-voices <PATH-TO-UNZIPPED-VOICE-PROMPTS-DIRECTORY>
+# ```
+# Now we can instantiate the volume and use it with our app.
+
+chatterbox_tts_voices_vol = modal.Volume.from_name("chatterbox-tts-voices")
+VOICE_PROMPTS_DIR = "/chatterbox-tts/prompts"
+
 app = modal.App("example-chatterbox-tts", image=image)
 
 # Import the required libraries within the image context to ensure they're available
-# when the container runs. This includes audio processing and the TTS model itself.
+# when the container runs. This includes audio processing modules and the Chatterbox TTS module itself.
 
 with image.imports():
+    import io
+
     import torchaudio as ta
-    from chatterbox.tts import ChatterboxTTS
+    from chatterbox.tts_turbo import ChatterboxTurboTTS
     from fastapi.responses import StreamingResponse
 
 # ## The TTS model class
@@ -44,44 +61,75 @@ with image.imports():
 # We configure the class to use an A10G GPU with additional parameters:
 
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
-# - `enable_memory_snapshot=True`: Enable [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to optimize cold boot times
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container
 
+# We'll also need to provide a Hugging Face token using a `modal.Secret` to access the model weights,
+# and attach the `chatterbox-tts-voices` volume to the container.
 
-@app.cls(gpu="a10g", scaledown_window=60 * 5, enable_memory_snapshot=True)
+
+@app.cls(
+    gpu="a10g",
+    scaledown_window=60 * 5,
+    secrets=[modal.Secret.from_name("hf-token")],
+    volumes={VOICE_PROMPTS_DIR: chatterbox_tts_voices_vol},
+)
 @modal.concurrent(max_inputs=10)
 class Chatterbox:
     @modal.enter()
     def load(self):
-        self.model = ChatterboxTTS.from_pretrained(device="cuda")
+        self.model = ChatterboxTurboTTS.from_pretrained(device="cuda")
 
     @modal.fastapi_endpoint(docs=True, method="POST")
-    def generate(self, prompt: str):
-        # Generate audio waveform from the input text
-        wav = self.model.generate(prompt)
-
-        # Create an in-memory buffer to store the WAV file
-        buffer = io.BytesIO()
-
-        # Save the generated audio to the buffer in WAV format
-        # Uses the model's sample rate and WAV format
-        ta.save(buffer, wav, self.model.sr, format="wav")
-
-        # Reset buffer position to the beginning for reading
-        buffer.seek(0)
+    def api_endpoint(self, prompt: str):
+        # Get the audio bytes from the generate method
+        audio_bytes = self.generate.local(prompt)
 
         # Return the audio as a streaming response with appropriate MIME type.
         # This allows for browsers to playback audio directly.
         return StreamingResponse(
-            io.BytesIO(buffer.read()),
+            io.BytesIO(audio_bytes),
             media_type="audio/wav",
         )
 
+    @modal.method()
+    def generate(self, prompt: str) -> bytes:
+        # Generate audio waveform from the input text
+        wav = self.model.generate(
+            prompt,
+            audio_prompt_path=VOICE_PROMPTS_DIR
+            + "/chatterbox-tts-voices"
+            + "/prompts"
+            + "/Lucy.wav",
+        )
 
-# Now deploy the Chatterbox API with:
+        # Convert the waveform to bytes
+        buffer = io.BytesIO()
+        ta.save(buffer, wav, self.model.sr, format="wav")
+        buffer.seek(0)
+        return buffer.read()
+
+
+@app.local_entrypoint()
+def test(
+    prompt: str = "Chatterbox running on Modal [chuckle].",
+    output_path: str = "/tmp/chatterbox-tts/output.wav",
+):
+    chatterbox = Chatterbox()
+    audio_bytes = chatterbox.generate.remote(prompt=prompt)
+
+    # Save the audio bytes to a file
+    import pathlib
+
+    output_path = pathlib.Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(audio_bytes)
+    print(f"Audio saved to {output_path}")
+
+
+# Now deploy the Chatterbox API from this file's directory:
 #
 # ```shell
-# modal deploy chatterbox_tts.py
+# modal deploy -m 06_gpu_and_ml.text-to-audio.chatterbox_tts
 # ```
 #
 # And query the endpoint with:
@@ -90,11 +138,8 @@ class Chatterbox:
 # mkdir -p /tmp/chatterbox-tts  # create tmp directory
 #
 # curl -X POST --get "<YOUR-ENDPOINT-URL>" \
-#   --data-urlencode "prompt=Chatterbox running on Modal"
+#   --data-urlencode "prompt=Chatterbox running on Modal [chuckle]." \
 #   --output /tmp/chatterbox-tts/output.wav
 # ```
 #
 # You'll receive a WAV file named `/tmp/chatterbox-tts/output.wav` containing the generated audio.
-#
-# This app takes about 30 seconds to cold boot, mostly dominated by loading
-# the Chatterbox model into GPU memory. It takes 2-3s to generate a 5s audio clip.

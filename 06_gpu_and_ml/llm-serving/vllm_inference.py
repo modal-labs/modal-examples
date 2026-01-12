@@ -2,26 +2,29 @@
 # pytest: false
 # ---
 
-# # Run OpenAI-compatible LLM inference with Qwen3-8B and vLLM
+# # Run OpenAI-compatible LLM inference with Qwen and vLLM
+
+# In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
 
 # LLMs do more than just model language: they chat, they produce JSON and XML, they run code, and more.
 # This has complicated their interface far beyond "text-in, text-out".
 # OpenAI's API has emerged as a standard for that interface,
 # and it is supported by open source LLM serving frameworks like [vLLM](https://docs.vllm.ai/en/latest/).
 
-# In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
+# This example is intended to demonstrate the basics of deploying LLM inference on Modal.
+# For more on how to optimize performance, see
+# [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
+# and check out our
+# [LLM Engineer's Almanac](https://modal.com/llm-almanac).
 
 # Our examples repository also includes scripts for running clients and load-testing for OpenAI-compatible APIs
 # [here](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/llm-serving/openai_compatible).
-
-# You can find a (somewhat out-of-date) video walkthrough of this example and the related scripts on the Modal YouTube channel
-# [here](https://www.youtube.com/watch?v=QmY_7ePR1hM).
 
 # ## Set up the container image
 
 # Our first order of business is to define the environment our server will run in:
 # the [container `Image`](https://modal.com/docs/guide/custom-container).
-# vLLM can be installed with `pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
+# vLLM can be installed with `uv pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
 
 import json
 from typing import Any
@@ -33,31 +36,31 @@ vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.11.2",
+        "vllm==0.13.0",
         "huggingface-hub==0.36.0",
-        "flashinfer-python==0.5.2",
     )
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster model transfers
 )
 
 # ## Download the model weights
 
-# We'll be running a pretrained foundation model -- Qwen's Qwen3-8B.
+# We'll be running a pretrained foundation model --
+# [Alibaba's Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507-FP8).
 # It is trained with reasoning capabilities, which allow it to
 # enhance the quality of its generated responses.
 
-# We'll use an FP8 (eight-bit floating-point) post-training-quantized variant: Qwen/Qwen3-8B-FP8.
+# We'll use an FP8 (eight-bit floating-point) post-training-quantized variant: `Qwen/Qwen3-4B-Thinking-2507-FP8`.
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
 
 # You can swap this model out for another by changing the strings below.
-# A single H100 GPU has enough VRAM to store an 8,000,000,000 parameter model,
-# like Qwen3-8B, in eight bit precision, along with a very large KV cache.
+# A single H100 GPU has enough VRAM to store a 4,000,000,000 parameter model,
+# like Qwen3 4B, in eight bit precision, along with a very large KV cache.
 
 
-MODEL_NAME = "Qwen/Qwen3-8B-FP8"
-MODEL_REVISION = "220b46e3b2180893580a4454f21f22d3ebb187d3"  # avoid nasty surprises when repos update!
+MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507-FP8"
+MODEL_REVISION = "953532f942706930ec4bb870569932ef63038fdf"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -150,7 +153,7 @@ def serve():
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
 
-    print(cmd)
+    print(*cmd)
 
     subprocess.Popen(" ".join(cmd), shell=True)
 
@@ -248,7 +251,7 @@ async def _send_request(
     headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
 
     async with session.post(
-        "/v1/chat/completions", json=payload, headers=headers, timeout=1 * MINUTES
+        "/v1/chat/completions", json=payload, headers=headers
     ) as resp:
         async for raw in resp.content:
             resp.raise_for_status()
