@@ -243,11 +243,7 @@ def get_latest_checkpoint_file_path():
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
-    .uv_pip_install(
-        "vllm==0.11.2",
-        "huggingface-hub==0.36.0",
-        "flashinfer-python==0.5.2",
-    )
+    .uv_pip_install("vllm==0.13.0")
 )
 
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
