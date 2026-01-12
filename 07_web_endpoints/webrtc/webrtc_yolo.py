@@ -105,7 +105,6 @@
 # - install the necessary libs for processing video, `opencv` and `ffmpeg`, and
 # - install the necessary Python packages.
 
-import os
 from pathlib import Path
 
 import modal
@@ -129,7 +128,7 @@ video_processing_image = (
     .apt_install("python3-opencv", "ffmpeg")
     # install Python dependencies
     .uv_pip_install(
-        "aiortc==1.11.0",
+        "aiortc==1.14.0",
         "fastapi==0.115.12",
         "huggingface-hub[hf_xet]==0.30.2",
         "onnxruntime-gpu==1.21.0",
@@ -198,7 +197,7 @@ app = modal.App("example-webrtc-yolo")
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[modal.Secret.from_name("turn-credentials")],
+    # secrets=[modal.Secret.from_name("turn-credentials")],
     region="us-east",  # set to your region
 )
 @modal.concurrent(
@@ -240,18 +239,18 @@ class ObjDet(ModalWebRtcPeer):
                 )
 
     async def get_turn_servers(self, peer_id=None, msg=None) -> dict:
-        creds = {
-            "username": os.environ["TURN_USERNAME"],
-            "credential": os.environ["TURN_CREDENTIAL"],
-        }
+        # creds = {
+        #     "username": os.environ["TURN_USERNAME"],
+        #     "credential": os.environ["TURN_CREDENTIAL"],
+        # }
 
         turn_servers = [
-            {"urls": "stun:stun.relay.metered.ca:80"},  # STUN is free, no creds neeeded
-            # for TURN, sign up for the free service here: https://www.metered.ca/tools/openrelay/
-            {"urls": "turn:standard.relay.metered.ca:80"} | creds,
-            {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
-            {"urls": "turn:standard.relay.metered.ca:443"} | creds,
-            {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"} | creds,
+            # {"urls": "stun:stun.relay.metered.ca:80"},  # STUN is free, no creds neeeded
+            # # for TURN, sign up for the free service here: https://www.metered.ca/tools/openrelay/
+            # {"urls": "turn:standard.relay.metered.ca:80"} | creds,
+            # {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
+            # {"urls": "turn:standard.relay.metered.ca:443"} | creds,
+            # {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"} | creds,
         ]
 
         return {"type": "turn_servers", "ice_servers": turn_servers}
