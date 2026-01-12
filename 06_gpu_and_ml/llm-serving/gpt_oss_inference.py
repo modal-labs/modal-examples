@@ -47,7 +47,7 @@ import modal
 
 vllm_image = (
     modal.Image.from_registry(
-        "nvidia/cuda:12.8.1-devel-ubuntu22.04",
+        "nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04",
         add_python="3.12",
     )
     .entrypoint([])

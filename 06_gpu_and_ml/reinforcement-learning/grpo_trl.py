@@ -230,7 +230,7 @@ def get_latest_checkpoint_file_path():
 # We provide the code for setting up an OpenAI compatible inference endpoint here. For more details re. serving models on vLLM, check out [this example.](https://modal.com/docs/examples/vllm_inference#deploy-the-server)
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04", add_python="3.12")
     .entrypoint([])
     .uv_pip_install("vllm==0.13.0")
 )
