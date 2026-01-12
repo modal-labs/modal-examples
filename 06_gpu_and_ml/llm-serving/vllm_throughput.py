@@ -89,7 +89,7 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.13")
     .entrypoint([])
     .uv_pip_install(
         "vllm==0.13.0",
@@ -173,7 +173,9 @@ class Filing:
     summary: str | None = None
 
 
-data_proc_image = modal.Image.debian_slim().uv_pip_install("edgartools==5.8.3")
+data_proc_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
+    "edgartools==5.8.3"
+)
 
 sec_edgar_feed = modal.Volume.from_name(
     "example-sec-edgar-feed", create_if_missing=True
@@ -228,7 +230,9 @@ def _transform_filing_batch(raw_filing_paths: list[Path]) -> list[Filing | None]
 
 # ## Loading filings from the SEC EDGAR Feed
 
-scraper_image = modal.Image.debian_slim().uv_pip_install("requests==2.32.5")
+scraper_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
+    "requests==2.32.5"
+)
 
 
 @app.function(
