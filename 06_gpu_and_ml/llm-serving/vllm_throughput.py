@@ -31,7 +31,7 @@
 # and the high [GPU power utilization](https://modal.com/docs/guide/gpu-metrics),
 # further indicating we are close to the hardware's physical limits.
 
-# ![](./examples-vllm-throughput-dashboard.png)
+# ![Modal Dashboard indicating 30k tok/s input and 2k tok/s output on a single H100 GPU](https://modal-cdn.com/example-vllm-throughput-dashboard.png)
 
 # At Modal's [current rates](https://modal.com/pricing) as of early 2026,
 # that comes out to roughly 4¢ per million tokens.
