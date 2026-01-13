@@ -383,7 +383,7 @@ class SGLang:
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
             "--decode-log-interval",  # how often to log during decoding, in tokens
-            "250",
+            "100",
             "--mem-fraction",  # leave space for speculative model
             "0.8",
         ]
