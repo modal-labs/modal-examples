@@ -54,7 +54,7 @@ parakeet_image = (
     .uv_pip_install(
         "hf_transfer==0.1.9",
         "huggingface_hub[hf-xet]==0.31.2",
-        "nemo_toolkit[asr]==2.3.0",
+        "nemo_toolkit[asr]==2.3.2",
         "cuda-python==12.8.0",
         "fastapi==0.115.12",
         "numpy<2",
