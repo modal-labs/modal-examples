@@ -11,6 +11,7 @@
 # and examine files.
 
 import modal
+from modal.container_process import ContainerProcess
 
 app = modal.App.lookup("example-sandbox-agent", create_if_missing=True)
 
@@ -42,7 +43,7 @@ print(f"Sandbox ID: {sandbox.object_id}")
 # `ContainerProcess`es in Sandboxes [here](https://modal.com/docs/reference/modal.container_process).
 
 repo_url = "https://github.com/modal-labs/modal-examples"
-git_ps: modal.ContainerProcess = sandbox.exec(
+git_ps: ContainerProcess = sandbox.exec(
     "git", "clone", "--depth", "1", repo_url, "/repo"
 )
 git_ps.wait()
