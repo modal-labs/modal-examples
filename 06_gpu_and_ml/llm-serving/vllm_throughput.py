@@ -191,9 +191,9 @@ class Filing:
 # over SGLang, but either can work well.
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.13")
+    modal.Image.from_registry("nvidia/cuda:12.9.1-devel-ubuntu24.04", add_python="3.12")
     .entrypoint([])
-    .uv_pip_install("vllm==0.13.0", "huggingface-hub==0.36.0")
+    .uv_pip_install("vllm==0.14.0")
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster model transfers
 )
 

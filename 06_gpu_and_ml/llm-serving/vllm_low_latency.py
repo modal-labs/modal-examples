@@ -41,8 +41,8 @@ HF_CACHE_VOL: modal.Volume = modal.Volume.from_name(
 HF_CACHE_PATH: str = "/root/.cache/huggingface"
 MODEL_PATH: str = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 vllm_image: modal.Image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
-    .uv_pip_install("vllm==0.11.2", "huggingface-hub==0.36.0")
+    modal.Image.from_registry("nvidia/cuda:12.9.1-devel-ubuntu24.04", add_python="3.12")
+    .uv_pip_install("vllm==0.14.0")
     .env(
         {
             "HF_HUB_CACHE": HF_CACHE_PATH,
