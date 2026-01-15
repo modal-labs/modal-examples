@@ -55,9 +55,9 @@ vllm_image = (
         "vllm==0.13.0",
         "huggingface_hub[hf_transfer]==0.36.0",
     )
-    .env(
+    .env(  # fast Blackwell-specific MoE kernels
         {"VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"}
-    )  # fast Blackwell-specific MoE kernels
+    )
     .add_local_file("config.yaml", "/root/config.yaml")
 )
 
