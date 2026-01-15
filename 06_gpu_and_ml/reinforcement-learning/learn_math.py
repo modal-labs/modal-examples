@@ -21,7 +21,7 @@ import modal
 
 app = modal.App(name="example-learn-math")
 cuda_version = "12.9.1"
-flavor = "cudnn-devel"
+flavor = "devel"
 operating_sys = "ubuntu24.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 

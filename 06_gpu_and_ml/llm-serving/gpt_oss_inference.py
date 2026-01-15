@@ -47,14 +47,11 @@ import modal
 
 vllm_image = (
     modal.Image.from_registry(
-        "nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04",
+        "nvidia/cuda:12.9.1-devel-ubuntu24.04",
         add_python="3.12",
     )
     .entrypoint([])
-    .uv_pip_install(
-        "vllm==0.13.0",
-        "huggingface_hub[hf_transfer]==0.36.0",
-    )
+    .uv_pip_install("vllm==0.14.0")
     .env(  # fast Blackwell-specific MoE kernels
         {"VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"}
     )
@@ -189,6 +186,8 @@ def serve():
         "--async-scheduling",  # reduces host overhead, but might not be compatible with all features
     ]
 
+    # enforce-eager disables both Torch compilation and CUDA graph capture
+    # default is no-enforce-eager. see the --compilation-config flag for tighter control
     cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
     # assume multiple GPUs are for splitting up large matrix multiplications
