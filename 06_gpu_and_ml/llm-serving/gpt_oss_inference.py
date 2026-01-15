@@ -58,7 +58,6 @@ vllm_image = (
     .env(  # fast Blackwell-specific MoE kernels
         {"VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"}
     )
-    .add_local_file("config.yaml", "/root/config.yaml")
 )
 
 
