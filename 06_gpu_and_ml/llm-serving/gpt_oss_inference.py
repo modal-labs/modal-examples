@@ -51,8 +51,13 @@ vllm_image = (
         add_python="3.12",
     )
     .entrypoint([])
-    .uv_pip_install("vllm==0.13.0")
-    .env({"HF_XET_HIGH_PERFORMANCE": "1"})
+    .uv_pip_install(
+        "vllm==0.13.0",
+        "huggingface_hub[hf_transfer]==0.36.0",
+    )
+    .env(  # fast Blackwell-specific MoE kernels
+        {"VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8": "1"}
+    )
 )
 
 
@@ -77,13 +82,69 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # a number of artifacts are created. We also cache these artifacts.
 
 vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+flashinfer_cache_vol = modal.Volume.from_name(
+    "flashinfer-cache", create_if_missing=True
+)
 
-# Compilation improves inference performance but incurs extra latency at startup.
+# ## Configuring vLLM to serve GPT-OSS
 
-FAST_BOOT = False  # slower boots but faster inference
+# The vLLM docs include an [excellent resource on tuning GPT-OSS](https://docs.vllm.ai/projects/recipes/en/latest/OpenAI/GPT-OSS.html).
+# We mostly use the configuration values reported there, but try to explain the reasoning as we go.
 
-MAX_INPUTS = 32
-MAX_CUDAGRAPH_CAPTURE_SIZE = 2048
+VLLM_CONFIG = {  # return tokens in chunks of 20, save on host overhead
+    "stream-interval": 20
+}
+
+# One of the most important choices is to use speculative decoding,
+# which attempts to generate multiple tokens per forward pass
+# by means of a separate "speculator" model.
+# We here use RedHatAI's open source, generic EAGLE3-based speculator for this model.
+# We recommend using the EAGLE3 technique to train a custom speculator on your own traffic.
+
+SPECULATIVE_CONFIG = {
+    "model": "RedHatAI/gpt-oss-20b-speculator.eagle3",
+    "num_speculative_tokens": 7,
+    "method": "eagle3",
+}
+
+# Speculative decoding acclerates inference without changing model behavior.
+# We can also accelerate inference by further quantizing the model.
+# Here, we reduce the size of KV cache entries by quantizing them to FP8.
+
+VLLM_CONFIG |= {"kv-cache-dtype": "fp8"}
+
+# There are a number of compilation settings for vLLM. Compilation improves inference performance
+# but incurs extra latency at engine start time. When iterating on and developing a server,
+# we recommend turning compilation off to speed up development cycles, which we here control
+# with a global variable.
+
+FAST_BOOT = False
+
+# Otherwise, we use the values suggested in the recipe:
+
+COMPILATION_CONFIG = {
+    "pass_config": {"fuse_allreduce_rms": True, "eliminate_noops": True}
+}
+
+# As part of compilation, vLLM collects up sequences (really, DAGs)
+# of CUDA kernel launches into CUDA graphs.
+# We set the maximum batch size for the CUDA graph capture step to the
+# maximum number of inputs we want to handle per replica,
+# which also shows up in our autoscaling configuration below.
+
+MAX_INPUTS = 32  # how many requests can one replica handle? tune carefully!
+VLLM_CONFIG |= {"max-cudagraph-capture-size": MAX_INPUTS}
+
+# Lastly, there are a few knobs we can tune based on the typical lengths
+# of sequences we expect to observe.
+# For many agentic tasks to which this model is well-suited,
+# those lengths can go into the tens of thousands of tokens.
+# Let's assume they're never longer than 2 ^ 15 tokens.
+
+VLLM_CONFIG |= {
+    "max-num-batched-tokens": 16384,
+    "max-model-len": 32768,
+}
 
 # ## Build a vLLM engine and serve it
 
@@ -98,12 +159,13 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"H200:{N_GPU}",
-    scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
+    gpu=f"B200:{N_GPU}",
+    scaledown_window=10 * MINUTES,  # how long should we stay up with no requests?
     timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
+        "/root/.cache/flashinfer": flashinfer_cache_vol,
     },
 )
 @modal.concurrent(max_inputs=MAX_INPUTS)
@@ -114,7 +176,6 @@ def serve():
     cmd = [
         "vllm",
         "serve",
-        "--uvicorn-log-level=info",
         MODEL_NAME,
         "--revision",
         MODEL_REVISION,
@@ -125,26 +186,25 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
+        "--async-scheduling",  # reduces host overhead, but might not be compatible with all features
     ]
 
     cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
-    if not FAST_BOOT:
-        cmd += [
-            "--async-scheduling",
-            "--max-cudagraph-capture-size",
-            str(MAX_CUDAGRAPH_CAPTURE_SIZE),
-            "--max-num-batched-tokens",
-            "8192",
-            "--stream-interval",
-            "20",
-        ]
-
+    # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
 
-    print(cmd)
+    # add complex configuration objects
+    cmd += ["--compilation-config", json.dumps(COMPILATION_CONFIG)]
+    cmd += ["--speculative-config", json.dumps(SPECULATIVE_CONFIG)]
 
-    subprocess.Popen(" ".join(cmd), shell=True)
+    cmd += [  # add assorted config
+        item for k, v in VLLM_CONFIG.items() for item in (f"--{k}", str(v))
+    ]
+
+    print(*cmd)
+
+    subprocess.Popen(cmd)
 
 
 # ## Deploy the server

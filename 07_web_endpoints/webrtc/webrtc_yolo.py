@@ -129,7 +129,7 @@ video_processing_image = (
     .apt_install("python3-opencv", "ffmpeg")
     # install Python dependencies
     .uv_pip_install(
-        "aiortc==1.11.0",
+        "aiortc==1.14.0",
         "fastapi==0.115.12",
         "huggingface-hub[hf_xet]==0.30.2",
         "onnxruntime-gpu==1.21.0",
