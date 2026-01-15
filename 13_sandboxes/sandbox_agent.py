@@ -11,10 +11,13 @@
 # and examine files.
 
 import modal
+from modal.container_process import ContainerProcess
 
 app = modal.App.lookup("example-sandbox-agent", create_if_missing=True)
 
-# First we create a custom Image that has Claude Code installed.
+# First, we create a custom [Image](https://modal.com/docs/images) that has Claude Code
+# and git installed.
+
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("curl", "git")
@@ -24,20 +27,35 @@ image = (
     )
 )
 
+# Then we create our Sandbox.
+
 with modal.enable_output():
     sandbox = modal.Sandbox.create(app=app, image=image)
 print(f"Sandbox ID: {sandbox.object_id}")
 
-# Next we'll clone a repository that Claude Code will work on.
+# Next we'll clone the repository that Claude Code will work on.
+# We'll use [the Modal examples repo](https://github.com/modal-labs/modal-examples)
+# that this example is a part of.
+
+# We trigger the clone by [`exec`](https://modal.com/docs/reference/modal.Sandbox#exec)uting
+# `git` as a process inside the Sandbox. We then `.wait` for it to finish.
+# You can read more about the interface for managing
+# `ContainerProcess`es in Sandboxes [here](https://modal.com/docs/reference/modal.container_process).
+
 repo_url = "https://github.com/modal-labs/modal-examples"
-git_ps = sandbox.exec("git", "clone", "--depth", "1", repo_url, "/repo")
+git_ps: ContainerProcess = sandbox.exec(
+    "git", "clone", "--depth", "1", repo_url, "/repo"
+)
 git_ps.wait()
 print(f"Cloned '{repo_url}' into /repo.")
 
-# Finally we'll run Claude Code to analyze the repository.
+# Finally we'll use `exec` again to run Claude Code to analyze the repository.
+# Here, we pass the `pty` flag to give the process a
+# [pseudo-terminal](https://unix.stackexchange.com/questions/21147/what-are-pseudo-terminals-pty-tty).
+
 claude_cmd = ["claude", "-p", "What is in this repository?"]
 
-print("\nRunning command:", claude_cmd)
+print("\nRunning command:", *claude_cmd)
 
 claude_ps = sandbox.exec(
     *claude_cmd,
@@ -48,6 +66,8 @@ claude_ps = sandbox.exec(
     workdir="/repo",
 )
 claude_ps.wait()
+
+# Once the command finishes, we read the `stdout` and `stderr`.
 
 print("\nAgent stdout:\n")
 print(claude_ps.stdout.read())
