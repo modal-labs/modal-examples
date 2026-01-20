@@ -61,8 +61,8 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 # in each forward pass.
 
 MODEL_NAME = "Qwen/Qwen3-8B-FP8"
-MODEL_REVISION = (
-    "220b46e3b2180893580a4454f21f22d3ebb187d3"  # latest commit as of 2026-01-01
+MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
+    "220b46e3b2180893580a4454f21f22d3ebb187d3"  # latest commit as of 2026-01-20, from 2025-07-25
 )
 
 # We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen3),
@@ -169,7 +169,6 @@ sglang_image = sglang_image.run_function(
 # [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # during large matrix multiplications.
 
-
 # Matrices are also known as tensors, and so this strategy that takes advantage
 # of the inherent parallelism within matrix multiplication is known as _tensor parallelism_.
 
@@ -239,6 +238,14 @@ speculative_config |= {
 # This should result in at most a few dozen milliseconds of round-trip time.
 
 REGION = "us-east"
+
+# Latencies for mutli-turn interactions with LLMs are
+# substantially cut when previous interaction turns are in the KV cache.
+# KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
+# so they aren't shared across replicas.
+# To improve cache hit rate, `modal.experimental.http_server`
+# includes sticky routing based on a client-provided header.
+# See the client code below for details.
 
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
@@ -479,13 +486,30 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
 # when an `experimental.http_server` has no live replicas.
 
+# We include a header with each request --
+# `Modal-Session-ID`.
+# The value associated with this key
+# is used to map requests onto containers such that
+# while the set of containers is fixed, requests with the same value
+# are sent to the same container.
+# Set this to a different value per multi-turn interaction
+# (prototypically, a user conversation thread with a chatbot)
+# to improve KV cache hit rates.
+# Additionally, when the set of containers changes (e.g. due to autoscaling),
+# sessions are rebalanced such that load is approximately evenly spread,
+# much like in [RAID rebalancing](https://cordero.me/understanding-raid-rebalance-ensuring-optimal-performance-and-data-protection/).
+# This ensures no container ends up as a "hot spot" handling too many client requests.
+
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
+    client_id = str(0)  # set this to some string per multi-turn interaction
+    # often a UUID per "conversation"
+    headers = {"Modal-Session-ID": client_id}
     deadline = time.time() + timeout
-    async with aiohttp.ClientSession(base_url=url) as session:
+    async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
         while time.time() < deadline:
             try:
                 await _send_request_streaming(session, messages)
