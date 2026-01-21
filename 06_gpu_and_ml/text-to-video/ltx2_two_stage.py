@@ -49,26 +49,33 @@ app = modal.App("example-ltx2-two-stage")
 
 # Install LTX-2 packages from GitHub along with dependencies.
 
+#    Building ltx-trainer @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-trainer
+#       Built ltx-core @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-core
+#    Building ltx-pipelines @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-pipelines
+cuda_version = "12.9.1"  # should be no greater than host CUDA version
+flavor = "devel"  # includes full CUDA toolkit
+operating_sys = "ubuntu24.04"
+tag = f"{cuda_version}-{flavor}-{operating_sys}"
+HF_CACHE_PATH = "/cache"
+
+
 image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.12")
     .apt_install("git", "ffmpeg")
     .uv_pip_install(
-        "torch==2.7.0",
-        "torchvision==0.22.0",
-        "accelerate==1.6.0",
-        "transformers==4.51.3",
-        "diffusers==0.33.1",
-        "sentencepiece==0.2.0",
-        "huggingface-hub==0.36.0",
-        "imageio==2.37.0",
-        "imageio-ffmpeg==0.5.1",
-        "pillow==11.1.0",
-        # "safetensors==0.5.7",÷
-        # Install LTX-2 packages
         "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-core",
         "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-pipelines",
+        "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-trainer",
     )
-    .env({"HF_XET_HIGH_PERFORMANCE": "1"})
+    .uv_pip_install("flash-attn>=2.5.0", extra_options="--no-build-isolation")
+    .env(
+        {
+            "HF_XET_HIGH_PERFORMANCE": "1",
+            "PYTORCH_ALLOC_CONF": "expandable_segments:True",
+            "TRANSFORMERS_NO_ADVISORY_WARNINGS": "1",  # Quiet `use_fast` suggestions inside LTX-2
+        }
+    )
+    .entrypoint([])
 )
 
 # ## Model storage
@@ -102,6 +109,8 @@ OUTPUT_VOLUME = "ltx2-outputs"
 output_volume = modal.Volume.from_name(OUTPUT_VOLUME, create_if_missing=True)
 OUTPUT_PATH = Path("/outputs")
 
+# LTX-2 uses 24kHz audio sample rate
+AUDIO_SAMPLE_RATE = 24000
 MINUTES = 60
 
 # Model file paths on HuggingFace
@@ -112,9 +121,10 @@ DISTILLED_LORA_FILE = "ltx-2-19b-distilled-lora-384.safetensors"
 GEMMA_REPO = "google/gemma-3-12b-it-qat-q4_0-unquantized"
 
 with image.imports():
+    import torch
     from ltx_core.loader import LTXV_LORA_COMFY_RENAMING_MAP, LoraPathStrengthAndSDOps
     from ltx_pipelines.ti2vid_two_stages import TI2VidTwoStagesPipeline
-
+    from ltx_pipelines.utils.media_io import encode_video
 
 # ## LTX-2 Two-Stage Pipeline
 
@@ -202,30 +212,34 @@ class LTX2TwoStage:
             fp8transformer=True,  # Use FP8 for efficiency
         )
 
+        # Turn off GPU cleanup
+        # Disable memory cleanup between stages for faster inference
+        from ltx_pipelines.utils import helpers
+
+        helpers.cleanup_memory = lambda: None  # Replace with no-op function
+
         # Warm up the pipeline to load model shards into memory
         print("🔥 Warming up pipeline (loading model shards)...")
-        warmup_start = time.perf_counter()
         try:
             # Trigger model loading with minimal generation
-            self.pipeline(
-                prompt="warmup",
-                negative_prompt="",
-                seed=42,
-                height=256,
-                width=256,
-                num_frames=9,  # Minimal frames
-                frame_rate=8.0,
-                num_inference_steps=1,  # Just 1 step to trigger loading
-                cfg_guidance_scale=1.0,
-                output_path="/tmp/warmup.mp4",
-            )
-            # Clean up warmup output
-            import os
-
-            if os.path.exists("/tmp/warmup.mp4"):
-                os.remove("/tmp/warmup.mp4")
+            with torch.no_grad():
+                video_iter, _ = self.pipeline(
+                    prompt="warmup",
+                    negative_prompt="",
+                    seed=42,
+                    height=256,
+                    width=256,
+                    num_frames=9,  # Minimal frames
+                    frame_rate=8.0,
+                    num_inference_steps=1,  # Just 1 step to trigger loading
+                    cfg_guidance_scale=1.0,
+                    images=[],
+                )
+                # Consume the iterator to trigger actual inference
+                _ = list(video_iter)
+            print("🔥 Warmup complete - models loaded on GPU")
         except Exception as e:
-            print(f"⚠️  Warmup generated an error (expected): {e}")
+            print(f"⚠️  Warmup error (may be expected): {e}")
 
         print(f"✅ Pipeline ready in {time.perf_counter() - st:.2f}s")
 
@@ -280,18 +294,30 @@ class LTX2TwoStage:
         start = time.time()
 
         # Generate video
-        self.pipeline(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            seed=seed,
-            height=height,
-            width=width,
-            num_frames=num_frames,
-            frame_rate=frame_rate,
-            num_inference_steps=num_inference_steps,
-            cfg_guidance_scale=cfg_guidance_scale,
-            images=images,
-        )
+        # Generate video - pipeline returns (video_iterator, audio_tensor)
+        # Note: video is an Iterator[torch.Tensor] that yields decoded chunks for memory efficiency
+        with torch.no_grad():
+            video_iterator, audio_tensor = self.pipeline(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                seed=seed,
+                height=height,
+                width=width,
+                num_frames=num_frames,
+                frame_rate=frame_rate,
+                num_inference_steps=num_inference_steps,
+                cfg_guidance_scale=cfg_guidance_scale,
+                images=images,
+            )
+
+            encode_video(
+                video=video_iterator,
+                fps=frame_rate,
+                audio=audio_tensor,
+                audio_sample_rate=AUDIO_SAMPLE_RATE,
+                output_path=str(output_file),
+                video_chunks_number=1,  # Single chunk for simple use case
+            )
 
         duration = time.time() - start
         print(f"⚡ Generated in {duration:.1f}s")
@@ -319,7 +345,7 @@ class LTX2TwoStage:
 
 @app.local_entrypoint()
 def main(
-    prompt: str = "A serene mountain landscape with snow-capped peaks, rolling clouds, and golden sunlight",
+    prompt: str = "A serene mountain landscape with snow-capped peaks, rolling clouds, and golden sunlight; a chickadee swoops into frame whistling a dark and ominous tune",
     image_path: Optional[str] = None,
     negative_prompt: str = "worst quality, inconsistent motion, blurry, jittery, distorted",
     num_frames: int = 121,
@@ -327,7 +353,7 @@ def main(
     width: int = 768,
     height: int = 512,
     seed: int = 42,
-    twice: bool = False,
+    twice: bool = True,
 ):
     """Generate high-quality video with LTX-2 two-stage pipeline."""
 
