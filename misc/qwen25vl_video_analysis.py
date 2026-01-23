@@ -359,7 +359,6 @@ def main():
         max_frames=32,
     )
     print(f"Events detected: {events['response']}")
-    
     # Example 3: OCR extraction
     print("\n📝 Extracting text from video...")
     ocr_result = model.extract_ocr_from_video.remote(
@@ -375,7 +374,6 @@ def main():
 def api_analyze_video(video_file: modal.web_endpoint.File, query: str):
     """
     Web API endpoint for video analysis.
-    
     Usage:
         curl -X POST https://your-modal-url.modal.run/api_analyze_video \
              -F "video_file=@video.mp4" \
@@ -384,7 +382,6 @@ def api_analyze_video(video_file: modal.web_endpoint.File, query: str):
     model = Qwen25VLModel()
     
     video_bytes = video_file.content
-    
     result = model.analyze_video.remote(
         video_bytes=video_bytes,
         query=query,
