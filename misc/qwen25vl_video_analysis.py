@@ -11,7 +11,6 @@ Qwen2.5-VL is SOTA for vision-language tasks, matching GPT-4o in video understan
 while being fully open-source and deployable on Modal's serverless infrastructure.
 """
 
-
 import modal
 
 # Create Modal app
@@ -38,7 +37,6 @@ image = (
 
 # Download model weights at build time for faster cold starts
 with image.imports():
-
     import torch
     from PIL import Image
 
@@ -99,10 +97,7 @@ class Qwen25VLModel:
         print(f"✓ Model loaded on {self.model.device}")
 
     def _extract_video_frames(
-        self,
-        video_bytes: bytes,
-        max_frames: int = 32,
-        fps: float = None
+        self, video_bytes: bytes, max_frames: int = 32, fps: float = None
     ) -> list[Image.Image]:
         """
         Extract frames from video bytes.
@@ -212,7 +207,7 @@ class Qwen25VLModel:
 
         # Trim and decode
         generated_ids_trimmed = [
-            out_ids[len(in_ids):]
+            out_ids[len(in_ids) :]
             for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
         ]
 
