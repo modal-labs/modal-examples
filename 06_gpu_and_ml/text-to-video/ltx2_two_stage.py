@@ -2,7 +2,7 @@
 # output-directory: "/tmp/ltx2"
 # ---
 
-# # High-quality video generation with LTX-2 Two-Stage Pipeline
+# # High-quality video generation with LTX-2 Two-Stage Pipeline (Flash-Attn-3 Test)
 
 # This example demonstrates [LTX-2](https://github.com/Lightricks/LTX-2)'s production-quality
 # two-stage pipeline for text-to-video and image-to-video generation.
@@ -25,10 +25,10 @@
 
 # ```bash
 # # Text-to-video
-# modal run ltx2_two_stage.py --prompt "A serene mountain landscape at sunrise"
+# modal run ltx2_two_stage_fa3.py --prompt "A serene mountain landscape at sunrise"
 #
 # # Image-to-video
-# modal run ltx2_two_stage.py \
+# modal run ltx2_two_stage_fa3.py \
 #   --prompt "Mountains come alive at sunrise" \
 #   --image-path /path/to/mountain.jpg
 # ```
@@ -43,31 +43,28 @@ from typing import Optional
 
 import modal
 
-app = modal.App("example-ltx2-two-stage")
-
 # ### Container image
 
-# Install LTX-2 packages from GitHub along with dependencies.
-
-#    Building ltx-trainer @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-trainer
-#       Built ltx-core @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-core
-#    Building ltx-pipelines @ git+https://github.com/Lightricks/LTX-2.git@727c43e998776af554dc502c744ed74b4ba34702#subdirectory=packages/ltx-pipelines
-cuda_version = "12.9.1"  # should be no greater than host CUDA version
-flavor = "devel"  # includes full CUDA toolkit
-operating_sys = "ubuntu24.04"
-tag = f"{cuda_version}-{flavor}-{operating_sys}"
+# Install LTX-2 packages from GitHub with Flash-Attention 3 for testing.
+# Flash-Attn-3 is a beta release that may provide performance improvements.
+# Install torch before LTX-2 to ensure flash-attn-3 compatibility
 HF_CACHE_PATH = "/cache"
-
+ltx2_commit = "727c43e998776af554dc502c744ed74b4ba34702"
 
 image = (
-    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.6.1-devel-ubuntu24.04", add_python="3.12")
     .apt_install("git", "ffmpeg")
     .uv_pip_install(
-        "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-core",
-        "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-pipelines",
-        "git+https://github.com/Lightricks/LTX-2.git#subdirectory=packages/ltx-trainer",
+        "torch==2.7.0",
+        "torchaudio==2.7.0",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
     )
-    .uv_pip_install("flash-attn>=2.5.0", extra_options="--no-build-isolation")
+    .uv_pip_install(
+        f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-core",
+        f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-pipelines",
+        f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-trainer",
+        "https://huggingface.co/alexnasa/flash-attn-3/resolve/main/128/flash_attn_3-3.0.0b1-cp39-abi3-linux_x86_64.whl",
+    )
     .env(
         {
             "HF_XET_HIGH_PERFORMANCE": "1",
@@ -85,110 +82,76 @@ image = (
 # - Spatial upsampler (for 2x resolution upscaling)
 # - Distilled LoRA (required for two-stage pipeline)
 # - Gemma text encoder (automatically downloaded)
+# All of these are cached to `model_volume`, which we mount in the container
+# where HuggingFace normally looks for a cache (`/root/.cache/huggingface`).
+# We also make a separate volume for output videos. We'll automatically
+# save the videos to this volume, and also download them locally.
 
-# To download the required LTX-2 model files, run:
-# ```bash
-# huggingface-cli download Lightricks/LTX-2 \
-#   ltx-2-19b-distilled-fp8.safetensors \
-#   ltx-2-spatial-upscaler-x2-1.0.safetensors \
-#   ltx-2-19b-distilled-lora-384.safetensors \
-#   --local-dir /path/to/models/ltx2
-# ```
-# Then upload to Modal Volume:
-# ```bash
-# modal volume put ltx2-models /path/to/models/ltx2 /models/ltx2
-# ```
-
-# Alternatively, you can use the Python API to download them programmatically.
-
-MODEL_VOLUME = "ltx2-models"
-model_volume = modal.Volume.from_name(MODEL_VOLUME, create_if_missing=True)
-MODEL_PATH = Path("/models")
+model_volume = modal.Volume.from_name("ltx2-models", create_if_missing=True)
 
 OUTPUT_VOLUME = "ltx2-outputs"
+OUTPUT_PATH = Path("/output-videos")
 output_volume = modal.Volume.from_name(OUTPUT_VOLUME, create_if_missing=True)
-OUTPUT_PATH = Path("/outputs")
 
-# LTX-2 uses 24kHz audio sample rate
-AUDIO_SAMPLE_RATE = 24000
-MINUTES = 60
-
-# Model file paths on HuggingFace
-HF_REPO = "Lightricks/LTX-2"
-CHECKPOINT_FILE = "ltx-2-19b-distilled-fp8.safetensors"
-UPSAMPLER_FILE = "ltx-2-spatial-upscaler-x2-1.0.safetensors"
-DISTILLED_LORA_FILE = "ltx-2-19b-distilled-lora-384.safetensors"
-GEMMA_REPO = "google/gemma-3-12b-it-qat-q4_0-unquantized"
 
 with image.imports():
+    # For inference_mode
     import torch
+
+    # Hugging Face
+    from huggingface_hub import hf_hub_download, snapshot_download
+
+    # Models
     from ltx_core.loader import LTXV_LORA_COMFY_RENAMING_MAP, LoraPathStrengthAndSDOps
     from ltx_pipelines.ti2vid_two_stages import TI2VidTwoStagesPipeline
+    from ltx_pipelines.utils import helpers as ltx_helpers
+
+    # For saving LTX-2 video iterators to a video file
     from ltx_pipelines.utils.media_io import encode_video
+
+app = modal.App(
+    "example-ltx2-two-stage-fa3",
+    image=image,
+    volumes={"/root/.cache/huggingface": model_volume, OUTPUT_PATH: output_volume},
+    # secrets=[modal.Secret.from_name("huggingface-secret")],
+)
+
 
 # ## LTX-2 Two-Stage Pipeline
 
+MINUTES = 60
+
 
 @app.cls(
-    image=image,
     gpu="H100",
     timeout=30 * MINUTES,
     scaledown_window=15 * MINUTES,
-    volumes={
-        MODEL_PATH: model_volume,
-        OUTPUT_PATH: output_volume,
-    },
-    secrets=[modal.Secret.from_name("huggingface-secret")],
 )
 class LTX2TwoStage:
     @modal.enter()
     def setup(self):
         """Initialize the two-stage pipeline."""
-        from huggingface_hub import hf_hub_download, snapshot_download
 
         print("🎬 Loading LTX-2 Two-Stage Pipeline...")
         st = time.perf_counter()
 
-        # Model paths
-        checkpoint_path = MODEL_PATH / "ltx2" / CHECKPOINT_FILE
-        upsampler_path = MODEL_PATH / "ltx2" / UPSAMPLER_FILE
-        distilled_lora_path = MODEL_PATH / "ltx2" / DISTILLED_LORA_FILE
-        gemma_path = MODEL_PATH / "gemma"
-
-        # Create directories
-        (MODEL_PATH / "ltx2").mkdir(parents=True, exist_ok=True)
-
-        # Download models if not cached
-        if not checkpoint_path.exists():
-            print(f"📥 Downloading {CHECKPOINT_FILE}...")
-            hf_hub_download(
-                repo_id=HF_REPO,
-                filename=CHECKPOINT_FILE,
-                local_dir=str(MODEL_PATH / "ltx2"),
-            )
-
-        if not upsampler_path.exists():
-            print(f"📥 Downloading {UPSAMPLER_FILE}...")
-            hf_hub_download(
-                repo_id=HF_REPO,
-                filename=UPSAMPLER_FILE,
-                local_dir=str(MODEL_PATH / "ltx2"),
-            )
-
-        if not distilled_lora_path.exists():
-            print(f"📥 Downloading {DISTILLED_LORA_FILE}...")
-            hf_hub_download(
-                repo_id=HF_REPO,
-                filename=DISTILLED_LORA_FILE,
-                local_dir=str(MODEL_PATH / "ltx2"),
-            )
-
-        if True:  # not gemma_path.exists():
-            print("📥 Downloading Gemma text encoder...")
-            snapshot_download(
-                repo_id=GEMMA_REPO,
-                local_dir=str(gemma_path),
-            )
+        # Download models (cached automatically to volume)
+        ltx2_repo = "Lightricks/LTX-2"
+        checkpoint_path = hf_hub_download(
+            repo_id=ltx2_repo,
+            filename="ltx-2-19b-distilled-fp8.safetensors",
+        )
+        upsampler_path = hf_hub_download(
+            repo_id=ltx2_repo,
+            filename="ltx-2-spatial-upscaler-x2-1.0.safetensors",
+        )
+        distilled_lora_path = hf_hub_download(
+            repo_id=ltx2_repo,
+            filename="ltx-2-19b-distilled-lora-384.safetensors",
+        )
+        gemma_dir = snapshot_download(
+            repo_id="google/gemma-3-12b-it-qat-q4_0-unquantized",
+        )
 
         # Commit downloads to volume
         model_volume.commit()
@@ -196,7 +159,7 @@ class LTX2TwoStage:
         # Setup distilled LoRA
         distilled_lora = [
             LoraPathStrengthAndSDOps(
-                str(distilled_lora_path),
+                distilled_lora_path,
                 0.6,  # LoRA strength
                 LTXV_LORA_COMFY_RENAMING_MAP,
             ),
@@ -204,19 +167,16 @@ class LTX2TwoStage:
 
         # Initialize pipeline
         self.pipeline = TI2VidTwoStagesPipeline(
-            checkpoint_path=str(checkpoint_path),
+            checkpoint_path=checkpoint_path,
             distilled_lora=distilled_lora,
-            spatial_upsampler_path=str(upsampler_path),
-            gemma_root=str(gemma_path),
+            spatial_upsampler_path=upsampler_path,
+            gemma_root=gemma_dir,
             loras=[],
             fp8transformer=True,  # Use FP8 for efficiency
         )
 
-        # Turn off GPU cleanup
         # Disable memory cleanup between stages for faster inference
-        from ltx_pipelines.utils import helpers
-
-        helpers.cleanup_memory = lambda: None  # Replace with no-op function
+        ltx_helpers.cleanup_memory = lambda: None  # Replace with no-op function
 
         # Warm up the pipeline to load model shards into memory
         print("🔥 Warming up pipeline (loading model shards)...")
@@ -267,7 +227,7 @@ class LTX2TwoStage:
 
         Args:
             prompt: Text description of the video
-            image_path: Optional path to input image for image-to-video
+            image_path: Optional path to input image for image-to-video (used as first frame)
             negative_prompt: Things to avoid
             height: Video height
             width: Video width
@@ -314,7 +274,7 @@ class LTX2TwoStage:
                 video=video_iterator,
                 fps=frame_rate,
                 audio=audio_tensor,
-                audio_sample_rate=AUDIO_SAMPLE_RATE,
+                audio_sample_rate=24000,  # LTX-2 audio sample rate
                 output_path=str(output_file),
                 video_chunks_number=1,  # Single chunk for simple use case
             )
@@ -332,12 +292,12 @@ class LTX2TwoStage:
 
 # Run with:
 # ```bash
-# modal run ltx2_two_stage.py --prompt "A serene mountain landscape at sunrise"
+# modal run ltx2_two_stage_fa3.py --prompt "A serene mountain landscape at sunrise"
 # ```
 
 # For image-to-video:
 # ```bash
-# modal run ltx2_two_stage.py \
+# modal run ltx2_two_stage_fa3.py \
 #   --prompt "The mountain landscape comes alive with morning light" \
 #   --image-path /path/to/image.jpg
 # ```
