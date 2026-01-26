@@ -519,7 +519,7 @@ def clean_xml(xml: str) -> str:
     return xml.strip()
 
 
-def truncate_head_tail(text: str, head: int = 30000, tail: int = 3000) -> str:
+def truncate_head_tail(text: str, head: int = 13_000, tail: int = 2_000) -> str:
     if len(text) <= head + tail:
         return text
     return text[:head].rstrip() + "\n\n[...TRUNCATED...]\n\n" + text[-tail:].lstrip()
