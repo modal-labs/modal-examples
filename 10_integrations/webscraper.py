@@ -130,8 +130,10 @@ playwright_image = modal.Image.debian_slim(python_version="3.10").run_commands(
 
 @app.function(image=playwright_image)
 async def get_links(cur_url: str) -> list[str]:
-    from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-    from playwright.async_api import async_playwright
+    from playwright.async_api import (
+        TimeoutError as PlaywrightTimeoutError,
+        async_playwright,
+    )
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()
