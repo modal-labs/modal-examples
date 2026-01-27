@@ -1,4 +1,5 @@
 # ---
+# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py::cli"]
 # args: ["--query", "How many oil barrels were released from reserves?"]
 # ---
 
@@ -211,7 +212,7 @@ def cli(query: str, show_sources: bool = False):
 # ## Test run the CLI
 
 # ```bash
-# modal run potus_speech_qanda.py --query "What did the president say about Justice Breyer"
+# modal run potus_speech_qanda.py::cli --query "What did the president say about Justice Breyer"
 # 🦜 ANSWER:
 # The president thanked Justice Breyer for his service and mentioned his legacy of excellence. He also nominated Ketanji Brown Jackson to continue in Justice Breyer's legacy.
 # ```
@@ -219,7 +220,7 @@ def cli(query: str, show_sources: bool = False):
 # To see the text of the sources the model chain used to provide the answer, set the `--show-sources` flag.
 
 # ```bash
-# modal run potus_speech_qanda.py \
+# modal run potus_speech_qanda.py::cli \
 #    --query "How many oil barrels were released from reserves?" \
 #    --show-sources
 # ```
