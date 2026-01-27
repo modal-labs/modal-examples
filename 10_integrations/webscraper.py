@@ -130,12 +130,22 @@ playwright_image = modal.Image.debian_slim(python_version="3.10").run_commands(
 
 @app.function(image=playwright_image)
 async def get_links(cur_url: str) -> list[str]:
-    from playwright.async_api import async_playwright
+    from playwright.async_api import (
+        TimeoutError as PlaywrightTimeoutError,
+        async_playwright,
+    )
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
-        await page.goto(cur_url)
+
+        try:
+            await page.goto(cur_url, timeout=10_000)  # ten seconds
+        except PlaywrightTimeoutError:
+            print(f"Timeout loading {cur_url}, skipping")
+            await browser.close()
+            return []
+
         links = await page.eval_on_selector_all(
             "a[href]", "elements => elements.map(element => element.href)"
         )
