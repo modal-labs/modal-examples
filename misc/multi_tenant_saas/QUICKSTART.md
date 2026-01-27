@@ -250,16 +250,3 @@ Before going to production:
 - 💬 [Modal Community](https://modal.com/community)
 - 📚 [Modal Docs](https://modal.com/docs)
 
-## Cost Estimate
-
-Running this system on Modal:
-
-- **Free Tier**: ~$0-10/month (dev/testing)
-- **Small SaaS**: ~$50-200/month (< 1000 requests/day)
-- **Growing SaaS**: ~$500-2000/month (< 10k requests/day)
-
-*Costs scale with actual usage. Modal charges only for compute time used.*
-
----
-
-**Ready to build your SaaS? Start with Step 1! 🚀**
