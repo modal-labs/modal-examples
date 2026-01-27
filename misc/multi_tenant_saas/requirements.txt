@@ -1,0 +1,8 @@
+modal>=0.72.0
+pyjwt>=2.8.0
+redis>=5.0.0
+pydantic>=2.5.0
+fastapi>=0.109.0
+python-multipart>=0.0.6
+cryptography>=41.0.0
+python-jose>=3.3.0
