@@ -127,8 +127,15 @@ playwright_image = modal.Image.debian_slim(python_version="3.10").run_commands(
 # machine since this will all run in Modal. We can now modify our `get_links`
 # function to make use of the new tools.
 
+# Since we're fetching from external servers, we use Modal's built-in
+# [`Retries`](https://modal.com/docs/reference/modal.Retries) to handle transient
+# network failures or server timeouts with exponential backoff.
 
-@app.function(image=playwright_image)
+
+@app.function(
+    image=playwright_image,
+    retries=modal.Retries(max_retries=3, backoff_coefficient=2.0),
+)
 async def get_links(cur_url: str) -> list[str]:
     from playwright.async_api import async_playwright
 
