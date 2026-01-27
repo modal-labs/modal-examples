@@ -1,4 +1,5 @@
 # ---
+# cmd: ["modal", "run", "06_gpu_and_ml/langchains/potus_speech_qanda.py::cli"]
 # args: ["--query", "How many oil barrels were released from reserves?"]
 # ---
 
@@ -53,11 +54,16 @@ retriever = None  # embedding index that's relatively expensive to compute, so c
 
 # ## Scraping the speech
 
-# It's super easy to scrape the transcipt of Biden's speech using `httpx` and `BeautifulSoup`.
+# It's super easy to scrape the transcript of Biden's speech using `httpx` and `BeautifulSoup`.
 # This speech is just one document and it's relatively short, but it's enough to demonstrate
 # the question-answering capability of the LLM chain.
 
+# Since we're fetching from an external server, we use Modal's built-in
+# [`Retries`](https://modal.com/docs/reference/modal.Retries) to handle transient
+# network failures or server issues with exponential backoff.
 
+
+@app.function(retries=modal.Retries(max_retries=3, backoff_coefficient=2.0))
 def scrape_state_of_the_union() -> str:
     import httpx
     from bs4 import BeautifulSoup
@@ -68,7 +74,7 @@ def scrape_state_of_the_union() -> str:
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9"
     }
-    response = httpx.get(url, headers=headers)
+    response = httpx.get(url, headers=headers, timeout=30.0)
     soup = BeautifulSoup(response.text, "lxml")
 
     # locate the div containing the speech
@@ -109,7 +115,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
         state_of_the_union = speech_file_path.read_text()
     else:
         print("scraping the 2022 State of the Union speech")
-        state_of_the_union = scrape_state_of_the_union()
+        state_of_the_union = scrape_state_of_the_union.remote()
         speech_file_path.write_text(state_of_the_union)
 
     # Questions about a document can often be answered
@@ -206,7 +212,7 @@ def cli(query: str, show_sources: bool = False):
 # ## Test run the CLI
 
 # ```bash
-# modal run potus_speech_qanda.py --query "What did the president say about Justice Breyer"
+# modal run potus_speech_qanda.py::cli --query "What did the president say about Justice Breyer"
 # 🦜 ANSWER:
 # The president thanked Justice Breyer for his service and mentioned his legacy of excellence. He also nominated Ketanji Brown Jackson to continue in Justice Breyer's legacy.
 # ```
@@ -214,7 +220,7 @@ def cli(query: str, show_sources: bool = False):
 # To see the text of the sources the model chain used to provide the answer, set the `--show-sources` flag.
 
 # ```bash
-# modal run potus_speech_qanda.py \
+# modal run potus_speech_qanda.py::cli \
 #    --query "How many oil barrels were released from reserves?" \
 #    --show-sources
 # ```
