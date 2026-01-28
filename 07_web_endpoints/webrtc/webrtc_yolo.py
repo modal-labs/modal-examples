@@ -205,6 +205,7 @@ app = modal.App("example-webrtc-yolo")
 # For now, we'll use an empty secrets list - TURN servers will be skipped if credentials aren't available
 # You can add the secret later: modal secret create turn-credentials TURN_USERNAME=... TURN_CREDENTIAL=...
 
+
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
@@ -256,7 +257,7 @@ class ObjDet(ModalWebRtcPeer):
             {"urls": "stun:stun.relay.metered.ca:80"},
             {"urls": "stun:stun.l.google.com:19302"},  # Google's free STUN server
         ]
-        
+
         # Add TURN servers if credentials are available
         if "TURN_USERNAME" in os.environ and "TURN_CREDENTIAL" in os.environ:
             creds = {
@@ -264,12 +265,15 @@ class ObjDet(ModalWebRtcPeer):
                 "credential": os.environ["TURN_CREDENTIAL"],
             }
             # for TURN, sign up for the free service here: https://www.metered.ca/tools/openrelay/
-            turn_servers.extend([
-                {"urls": "turn:standard.relay.metered.ca:80"} | creds,
-                {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
-                {"urls": "turn:standard.relay.metered.ca:443"} | creds,
-                {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"} | creds,
-            ])
+            turn_servers.extend(
+                [
+                    {"urls": "turn:standard.relay.metered.ca:80"} | creds,
+                    {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
+                    {"urls": "turn:standard.relay.metered.ca:443"} | creds,
+                    {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"}
+                    | creds,
+                ]
+            )
 
         return {"type": "turn_servers", "ice_servers": turn_servers}
 
