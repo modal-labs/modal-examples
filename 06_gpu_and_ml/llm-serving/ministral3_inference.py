@@ -36,13 +36,9 @@ VLLM_PORT = 8000
 app = modal.App("example-ministral3-inference")
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.9.1-devel-ubuntu24.04", add_python="3.12")
     .entrypoint([])
-    .uv_pip_install(
-        "vllm==0.13.0",
-        "huggingface-hub==0.36.0",
-        "flashinfer-python==0.5.3",
-    )
+    .uv_pip_install("vllm==0.14.0")
 )
 
 # ## Download the Ministral weights
