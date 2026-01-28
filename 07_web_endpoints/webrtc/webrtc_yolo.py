@@ -256,7 +256,7 @@ class ObjDet(ModalWebRtcPeer):
             {"urls": "stun:stun.relay.metered.ca:80"},
             {"urls": "stun:stun.l.google.com:19302"},  # Google's free STUN server
         ]
-        
+
         # Add TURN servers if credentials are available
         if "TURN_USERNAME" in os.environ and "TURN_CREDENTIAL" in os.environ:
             creds = {
