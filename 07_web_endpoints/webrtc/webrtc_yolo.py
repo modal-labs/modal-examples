@@ -287,10 +287,29 @@ class ObjDet(ModalWebRtcPeer):
 
 base_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("python3-opencv", "ffmpeg")
+    .apt_install(
+        "python3-opencv",
+        "ffmpeg",
+        # FFmpeg development libraries (for building older av version)
+        "libavformat-dev",
+        "libavcodec-dev",
+        "libavdevice-dev",
+        "libavutil-dev",
+        "libswscale-dev",
+        "libswresample-dev",
+        "libavfilter-dev",
+        # Build tools
+        "build-essential",
+        "pkg-config",
+        "python3-dev",
+    )
     .uv_pip_install(
+        "cython",
+        # Use aiortc 1.10.0 which supports av 13.x (compatible with FFmpeg 5.1)
+        # aiortc 1.11.0 requires av 14.x which needs FFmpeg 7
+        "av==13.0.0",  # Compatible with FFmpeg 5.1 (check if exists, otherwise try 12.x)
+        "aiortc==1.10.0",  # Supports av 13.x
         "fastapi[standard]==0.115.4",
-        "aiortc==1.11.0",
         "opencv-python==4.11.0.86",
         "shortuuid==1.0.13",
     )
