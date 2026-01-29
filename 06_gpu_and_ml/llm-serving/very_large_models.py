@@ -1,5 +1,5 @@
 # ---
-# cmd = ["APP_USE_DUMMY_WEIGHTS=1", "modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
+# cmd: ["APP_USE_DUMMY_WEIGHTS=1", "modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
 # ---
 
 # # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4)
@@ -23,11 +23,9 @@
 import asyncio
 import json
 import os
-from pathlib import Path
-import signal
 import subprocess
-import textwrap
 import time
+from pathlib import Path
 
 import aiohttp
 import modal
