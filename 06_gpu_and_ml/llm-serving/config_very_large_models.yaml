@@ -1,0 +1,24 @@
+ # General Config
+ host: 0.0.0.0
+ log-level: debug  # very noisy
+
+ # Model Config
+ tool-call-parser: glm47
+ reasoning-parser: glm45
+ trust-remote-code: true
+
+ # Memory
+ mem-fraction-static: 0.85
+ chunked-prefill-size: 32768
+ kv-cache-dtype: fp8_e4m3
+
+ # Observability
+ enable-metrics: true
+ collect-tokens-histogram: true
+
+ # Batching
+ max-running-requests: 32
+ cuda-graph-max-bs: 32
+
+ # SpecDec (speed up low/moderate concurrency)
+ speculative-algorithm: EAGLE  # built into GLM 4.7, is just multi-token prediction
