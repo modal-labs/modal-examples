@@ -1,3 +1,7 @@
+# ---
+# cmd = ["APP_USE_DUMMY_WEIGHTS=1", "modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
+# ---
+
 # # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4)
 
 # This example demonstrates the basic patterns for serving language models on Modal
