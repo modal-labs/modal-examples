@@ -219,7 +219,8 @@ if modal.is_local():
 # - the port to serve on, which is also used to connect up Modal networking
 
 # We also pass the `HF_HUB_OFFLINE` environment variable here,
-# so that our server will crash if the weights are not in cache.
+# so that our server will crash when trying to load the real model
+# if those weights are not in cache.
 # For smaller models, we can instead load weights dynamically on
 # server start (and cache them so later starts are faster).
 # But for large models, weight loading extends the first start latency
@@ -231,7 +232,7 @@ if modal.is_local():
 def _start_server() -> subprocess.Popen:
     """Start SGLang server in a subprocess"""
     cmd = [
-        "HF_HUB_OFFLINE=1",
+        f"HF_HUB_OFFLINE={0 if USE_DUMMY_WEIGHTS else 1}",
         "python",
         "-m",
         "sglang.launch_server",
