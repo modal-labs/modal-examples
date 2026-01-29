@@ -1,7 +1,7 @@
 name: Run changed examples
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - main
     paths:
@@ -12,11 +12,16 @@ on:
     paths:
       - "**.py"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to test (e.g., refs/pull/123/head or a branch name)'
+        required: false
+        type: string
 
 # Cancel previous runs of the same PR but do not cancel previous runs on main
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event.pull_request.number != '' || github.ref != 'refs/heads/main' }}
 
 env:
   TERM: linux
@@ -34,6 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 0
 
       - name: Find changed examples
@@ -56,6 +62,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 1
       - uses: ./.github/actions/setup
 
