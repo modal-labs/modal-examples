@@ -1,8 +1,16 @@
+# ---
+# mypy: ignore-errors
+# ---
+
 # # Override Modal resource options (GPU, scaling) at runtime with `Cls.with_options`
 
-# `Cls.with_options` lets you override the resource configuration of a
-# Modal class at runtime. This is useful when the same code needs to run
-# with different resource allocations depending on the workload.
+# [`Cls.with_options`](https://modal.com/docs/reference/modal.Cls#with_options)
+# lets you override the resource configuration of a
+# Modal [Cls](https://modal.com/docs/guide/lifecycle-functions) at runtime.
+# This is useful when the same code needs to run
+# with different resource allocations -- say, with a GPU or with out,
+# or with a large [warm pool of containers](https://modal.com/docs/guide/cold-start)
+# -- at different times -- say, when iterating on code and when in production.
 
 # Each call to `with_options` returns a new class handle that scales
 # independently from the original.
