@@ -1,5 +1,6 @@
 # ---
-# cmd: ["APP_USE_DUMMY_WEIGHTS=1", "modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
+# env: {"APP_USE_DUMMY_WEIGHTS": "1"}
 # ---
 
 # # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4)
