@@ -348,7 +348,13 @@ class Vllm:
 # in our project by putting it in a separate container Image.
 
 data_proc_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
-    "edgartools==5.11.1"
+    # pin transitive deps to avoid surprises like this one:
+    # https://www.edgartools.io/pandas-3-0-and-edgartools/
+    "edgartools==5.8.3",
+    "httpx==0.28.1",
+    "httpxthrottlecache==0.3.0",
+    "pandas<3",
+    "pyrate-limiter==3.9.0",
 )
 
 # Instead of hitting the SEC's EDGAR Feed API every time we want to run a job,
