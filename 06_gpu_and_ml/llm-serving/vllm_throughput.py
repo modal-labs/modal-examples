@@ -53,6 +53,8 @@ from zoneinfo import ZoneInfo
 
 import modal
 
+MINUTES = 60  # seconds
+
 app = modal.App("example-vllm-throughput")
 
 # Many batch jobs work nicely as scripts -- code that is run
@@ -125,7 +127,7 @@ def main(lookback: int = 7, wait_for_results: bool = True):
 # into a remote Modal Function!
 
 
-@app.function()  # simple function, only Modal and stdlib, so no config required!
+@app.function(timeout=15 * MINUTES)
 def orchestrate(lookback: int) -> list[modal.FunctionCall]:
     llm = Vllm()
 
@@ -346,7 +348,13 @@ class Vllm:
 # in our project by putting it in a separate container Image.
 
 data_proc_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
-    "edgartools==5.8.3"
+    # pin transitive deps to avoid surprises like this one:
+    # https://www.edgartools.io/pandas-3-0-and-edgartools/
+    "edgartools==5.8.3",
+    "httpx==0.28.1",
+    "httpxthrottlecache==0.3.0",
+    "pandas<3",
+    "pyrate-limiter==3.9.0",
 )
 
 # Instead of hitting the SEC's EDGAR Feed API every time we want to run a job,
@@ -397,7 +405,10 @@ def transform(folder: str | None) -> list[Filing]:
 
 
 @app.function(
-    volumes={data_root: sec_edgar_feed}, scaledown_window=5, image=data_proc_image
+    volumes={data_root: sec_edgar_feed},
+    scaledown_window=5,
+    image=data_proc_image,
+    timeout=10 * MINUTES,
 )
 def _transform_filing_batch(raw_filing_paths: list[Path]) -> list[Filing | None]:
     from edgar.sgml import FilingSGML
