@@ -19,9 +19,8 @@
 
 # ## Set up OpenCode on Modal
 
-import os
-from pathlib import Path
 import secrets
+from pathlib import Path
 
 import modal
 
