@@ -1,5 +1,6 @@
 # ---
 # cmd: ["python", "13_sandboxes/opencode_server.py"]
+# pytest: false
 # ---
 
 # # Run OpenCode in a Modal Sandbox
@@ -19,6 +20,7 @@
 
 # ## Set up OpenCode on Modal
 
+import os
 import secrets
 from pathlib import Path
 
@@ -57,11 +59,18 @@ if CONFIG_PATH.exists():
 
 MODAL_PATH = (Path("~") / ".modal.toml").expanduser()
 if not MODAL_PATH.exists():
-    raise FileNotFoundError(
-        "Modal configuration file not found. Make sure you set up Modal with `modal setup` first!"
+    modal_token_id = os.environ.get("MODAL_TOKEN_ID")
+    modal_token_secret = os.environ.get("MODAL_TOKEN_SECRET")
+    if modal_token_id is None or modal_token_secret is None:
+        raise FileNotFoundError(
+            "Modal configuration file not found. Make sure you set up Modal with `modal setup` first!"
+        )
+    image = image.env(
+        {"MODAL_TOKEN_ID": modal_token_id, "MODAL_TOKEN_SECRET": modal_token_secret}
     )
+else:
+    image = image.add_local_file(MODAL_PATH, "/root/.modal.toml")
 
-image = image.add_local_file(MODAL_PATH, "/root/.modal.toml")
 
 # Finally, we copy over the code we want to work on.
 
