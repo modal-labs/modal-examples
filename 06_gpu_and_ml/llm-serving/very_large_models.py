@@ -193,7 +193,9 @@ if modal.is_local():
     if local_config_path is None:
         local_config_path = here / "config_very_large_models.yaml"
 
-        local_config_path.write_text(default_config)
+        if not local_config_path.exists():
+            local_config_path.write_text(default_config)
+
         print(
             f"Using default config from {local_config_path.relative_to(here)}:",
             default_config,
