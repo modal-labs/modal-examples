@@ -15,7 +15,7 @@
 # Here, we pass in [this Modal examples repository](https://github.com/modal-labs/modal-examples)
 # and give the agent the ability to run and debug the examples -- including this one! Meta.
 
-# ![A screenshot of the OpenCode Web UI showing this coding agent running its own code](https://modal-public-assets.s3.us-east-1.amazonaws.com/examples-opencode-server-webui.png)
+# ![A screenshot of the OpenCode Web UI showing this coding agent running its own code](https://modal-cdn.com/examples-opencode-server-webui.png)
 
 # ## Set up OpenCode on Modal
 
