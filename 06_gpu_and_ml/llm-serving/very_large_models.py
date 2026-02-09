@@ -351,7 +351,7 @@ MINUTES = 60  # seconds
 @modal.experimental.http_server(
     port=SGLANG_PORT,
     proxy_regions=["us-east"],
-    exit_grace_period=5 * MINUTES,  # time to finish requests on shutdown
+    exit_grace_period=25,  # time to finish requests on shutdown (seconds)
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
