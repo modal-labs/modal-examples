@@ -2,22 +2,40 @@
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
 # args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
-import subprocess
-import time
 
-import modal
-
-app = modal.App(
-    name="sandbox-test-case-generator",
-)
-model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
-files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
+# # LLM-Generated Unit Test Development
+#
+# Unit tests can become pretty tedious to generate and maintain. While LLMs are a useful tool
+# for generating test cases, hallucinations are always a possibility, making the code
+# potentially unsafe to run locally.
+#
+# In this example, we'll show you how to generate unit test cases in a [sample repository](https://github.com/modal-labs/password-analyzer) using an open-source LLM,
+# and then run them in Modal Sandboxes - our sandboxed environment. We'll then open ports
+# on our each of our Sandboxes, showing the code diff and new test case coverage.
+#
+# # Model Setup
+#
+# First, let's pick an LLM to do the heavy lifting. We went with [deepseek-coder-6.7b-instruct"](https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct)
+# which gives us a pretty good trade-off of size to quality. At just 7B parameters, it sits at 9th place on Hugging Face's
+# [Big Code Models Leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard), beat out primarily by larger models.
+#
 
 MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
 MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
 
+# Next, we'll create some [Modal Volumes](https://modal.com/docs/reference/modal.Volume). One for caching our model weights,
+# so that we don't have to re-download them on each inference. Another for writing our new test case files to.
 
-model_image = (
+import modal
+
+model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
+files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
+
+# ## Model Dependencies
+# We'll package our dependencies into a [Modal Image](https://modal.com/docs/reference/modal.Image). We'll start from a
+# container image provided [by the SGLang team via Dockerhub](https://hub.docker.com/r/lmsysorg/sglang/tags),
+# as well as a few packages and flags from Hugging Face to facilitate fast model download.
+server_image = (
     modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
     .uv_pip_install(
         "sglang[all]==0.4.9.post3",
@@ -33,9 +51,19 @@ model_image = (
     .entrypoint([])  # silence noisy logs
 )
 
+app = modal.App(
+    name="sandbox-test-case-generator",
+)
 
+
+# ## Model Server
+# Let's put it all together to set up our inference server! Using a [modal.Cls](https://modal.com/docs/reference/modal.Cls), we can
+# easily attach an L40S GPU by setting the `gpu` parameter. The `@modal.enter()` decorator creates
+# a `download_model` lifecycle function, which is run once when the container starts. These are executed sequentially,
+# so our SGLang server starts once the weights are downloaded. Finally, the `@modal.web_endpoint()` converts this
+# into a web endpoint that can be invoked for model inference.
 @app.cls(
-    image=model_image,
+    image=server_image,
     volumes={
         "/cache": model_volume,
         "/data": files_volume,
@@ -78,6 +106,13 @@ class TestCaseServer:
     @modal.web_server(port=8000, startup_timeout=240)
     def serve(self):
         return
+
+
+# ## Model Client
+# Now that our server's set up, let's create a client. Our server is OpenAI-compatible, giving us just one required dependency.
+# We [parametrize](https://modal.com/docs/guide/parametrized-functions#using-parametrized-functions-with-lifecycle-functions) our function with
+# the server `url`, which we'll pass in later. Finally, we add a [`@modal.method()`](https://modal.com/docs/reference/modal.method#modalmethod) decorator
+# to register our `generate()` function as a Modal Function.
 
 
 @app.cls(
@@ -157,7 +192,10 @@ class TestCaseClient:
             return self.write_outputs(f"test_{file_name}", output_contents)
         except Exception as e:
             print(f"Error generating test file: {e}")
-            return None
+            return str(e)
+
+
+# We also set up another Modal Function to download files from our repo to the Modal Volume.
 
 
 @app.function(
@@ -206,6 +244,12 @@ def download_files_to_volume(
     return [name for name in file_to_text.keys() if not name.startswith("test_")]
 
 
+# # Sandbox Setup
+# ## Image
+# Now, let's create a secure environment for our generated test cases to be run in.
+# We'll define another Modal Image for our [Modal Sandbox](https://modal.com/docs/guide/sandboxes), installing
+# the [Allure Framework](https://github.com/allure-framework) for generating a report, as well as
+# [git](https://git-scm.com/) for cloning our [sample repo](https://github.com/modal-labs/password-analyzer).
 def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     ALLURE_VERSION = "2.34.1"
     MODULE_URL = f"https://github.com/{gh_owner}/{gh_repo_name}"
@@ -226,15 +270,25 @@ def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     return image
 
 
+# ## Sandbox Command
+# Next, we define our Sandbox command, chaining together a series of commands. We'll show the difference
+# between the two unit test files, re-run unit tests with the LLM-generated files to check test case
+# coverage, and show the results of both in ports 8000 and 8001.
+
+
 def run_sandbox(image: modal.Image, file_name: str):
     new_file_name = file_name.replace(".py", "_llm.py")
 
     cmd = (
+        # Take the diff between the generated and original unit test file, and host it on port 8001
         f"webdiff password-analyzer/tests/{file_name} /data/outputs/{file_name}  --host 0.0.0.0 --port 8001 &&"
+        # Install poetry and allure
         + "cd password-analyzer && "
         + "poetry install --no-root && "
         + "poetry run pytest --alluredir allure-results || true && "
+        # Overwrite the original unit test file with the LLM-generated one
         + f"cp /data/outputs/{file_name} tests/{new_file_name} && "
+        # Re-run pytest and show the unit test results in an Allure report on port 8000
         + "poetry run pytest --alluredir allure-results || true && "
         + "allure serve allure-results --host 0.0.0.0 --port 8000"
     )
@@ -254,6 +308,12 @@ def run_sandbox(image: modal.Image, file_name: str):
     return sb
 
 
+# # Put it all together!
+# Finally, we can define a [local_entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint) and chain
+# everything together. We'll create our test case server and download the Github files from our repo to a Modal Volume.
+# We'll use [`map.aio`](https://modal.com/docs/reference/modal.Function#map) to invoke our server asynchronously,
+# generating our unit test files in parallel. Finally, we'll create our Sandboxes to validate our new test cases,
+# similarly using [`sb.wait.aio`](https://modal.com/docs/reference/modal.Sandbox#wait).
 @app.local_entrypoint()
 async def main(
     gh_owner: str,
@@ -294,6 +354,10 @@ async def main(
 
 # # Addenda
 # The below functions are utility functions.
+import subprocess
+import time
+
+
 def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
     file_to_sandbox: dict[str, modal.Sandbox] = {}
     for filename in filenames:
