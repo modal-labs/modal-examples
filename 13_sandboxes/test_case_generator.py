@@ -5,26 +5,25 @@
 
 # # LLM-Generated Unit Test Development
 #
-# Unit tests can become pretty tedious to generate and maintain. While LLMs are a useful tool
-# for generating test cases, hallucinations are always a possibility, making the code
+# Unit tests can become tedious to generate and maintain. While LLMs are a useful tool
+# for generating test cases, hallucinations are always possible, making the code
 # potentially unsafe to run locally.
 #
-# In this example, we'll show you how to generate unit test cases in a [sample repository](https://github.com/modal-labs/password-analyzer) using an open-source LLM,
+# In this example, we'll show you how to generate unit tests in a [sample repository](https://github.com/modal-labs/password-analyzer) using an open-source LLM,
 # and then run them in Modal Sandboxes - our sandboxed environment. We'll then open ports
-# on our each of our Sandboxes, showing the code diff and new test case coverage.
+# on each of our Sandboxes, showing the code diff and new test case coverage.
 #
 # # Model Setup
 #
-# First, let's pick an LLM to do the heavy lifting. We went with [deepseek-coder-6.7b-instruct"](https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct)
-# which gives us a pretty good trade-off of size to quality. At just 7B parameters, it sits at 9th place on Hugging Face's
-# [Big Code Models Leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard), beat out primarily by larger models.
-#
+# First, let's pick an LLM to do the heavy lifting. We went with [deepseek-coder-6.7b-instruct](https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct)
+# which offers a good trade-off between size and quality. At just 7B parameters, it ranks 9th on Hugging Face's
+# [Big Code Models Leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard), only beat out primarily by larger models.
 
 MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
 MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
 
-# Next, we'll create some [Modal Volumes](https://modal.com/docs/reference/modal.Volume). One for caching our model weights,
-# so that we don't have to re-download them on each inference. Another for writing our new test case files to.
+# Next, we'll create some [Modal Volumes](https://modal.com/docs/reference/modal.Volume) - one for caching our model weights,
+# so that we don't have to re-download them on each inference and another for writing our new test case files.
 
 import modal
 
@@ -32,9 +31,9 @@ model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing
 files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
 
 # ## Model Dependencies
-# We'll package our dependencies into a [Modal Image](https://modal.com/docs/reference/modal.Image). We'll start from a
+# We'll package our dependencies into a [Modal Image](https://modal.com/docs/reference/modal.Image). Starting from a
 # container image provided [by the SGLang team via Dockerhub](https://hub.docker.com/r/lmsysorg/sglang/tags),
-# as well as a few packages and flags from Hugging Face to facilitate fast model download.
+# we'll also add a few packages and flags from Hugging Face to facilitate fast model download.
 server_image = (
     modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
     .uv_pip_install(
@@ -109,10 +108,10 @@ class TestCaseServer:
 
 
 # ## Model Client
-# Now that our server's set up, let's create a client. Our server is OpenAI-compatible, giving us just one required dependency.
-# We [parametrize](https://modal.com/docs/guide/parametrized-functions#using-parametrized-functions-with-lifecycle-functions) our function with
-# the server `url`, which we'll pass in later. Finally, we add a [`@modal.method()`](https://modal.com/docs/reference/modal.method#modalmethod) decorator
-# to register our `generate()` function as a Modal Function.
+# Now that our server is set up, let's create a client. We [parametrize](https://modal.com/docs/guide/parametrized-functions#using-parametrized-functions-with-lifecycle-functions) our function with
+# the server `url`, which we'll pass in later. We'll add a [`@modal.method()`](https://modal.com/docs/reference/modal.method#modalmethod) decorator
+# to register our `generate()` function as a Modal Function. Finally, we can invoke our OpenAI-compatible server with our prompt
+# to generate test cases!
 
 
 @app.cls(
@@ -246,10 +245,10 @@ def download_files_to_volume(
 
 # # Sandbox Setup
 # ## Image
-# Now, let's create a secure environment for our generated test cases to be run in.
+# Now, let's create a secure environment for our generated test cases to run in.
 # We'll define another Modal Image for our [Modal Sandbox](https://modal.com/docs/guide/sandboxes), installing
-# the [Allure Framework](https://github.com/allure-framework) for generating a report, as well as
-# [git](https://git-scm.com/) for cloning our [sample repo](https://github.com/modal-labs/password-analyzer).
+# the [Allure Framework](https://github.com/allure-framework) to generate a report, as well as
+# [git](https://git-scm.com/) to clone our [sample repo](https://github.com/modal-labs/password-analyzer).
 def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     ALLURE_VERSION = "2.34.1"
     MODULE_URL = f"https://github.com/{gh_owner}/{gh_repo_name}"
