@@ -456,7 +456,9 @@ scraper_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
 # We add [retries](https://modal.com/docs/guide/retries)
 # via our Modal decorator as well, so that we can tolerate temporary outages or rate limits.
 
-# Note that we also attach the same Volume used in the `transform` Functions above.
+# Note that we also attach the same Volume used in the `transform` Functions above
+# and we explicitly [`.commit`](https://modal.com/docs/reference/modal.Volume#commit) our writes
+# so that they will be visible to future containers running `transform`.
 
 
 @app.function(
@@ -469,21 +471,22 @@ scraper_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
 def extract(day: dt.date) -> str | None:
     target_folder = str(day)
     day_dir = data_root / target_folder
+    daily_name = f"{day:%Y%m%d}.nc.tar.gz"
+    tar_path = day_dir / daily_name
 
     # If the folder doesn't exist yet, try downloading the day's tarball
-    if not day_dir.exists():
+    if not tar_path.exists():
         print(f"Looking for data for {day} in SEC EDGAR Feed")
         ok = _download_from_sec_edgar(day, day_dir)
         if not ok:
             return None
 
-    daily_name = f"{day:%Y%m%d}.nc.tar.gz"
-    tar_path = day_dir / daily_name
 
     if not any(p.suffix == ".nc" for p in day_dir.iterdir()):
         print(f"Loading data for {day} from {tar_path}")
         _extract_tarfile(tar_path, day_dir)
 
+    sec_edgar_feed.commit()
     print(f"Data for {day} loaded")
 
     return target_folder
