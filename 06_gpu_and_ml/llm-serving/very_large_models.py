@@ -3,7 +3,7 @@
 # env: {"APP_USE_DUMMY_WEIGHTS": "1"}
 # ---
 
-# # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4)
+# # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4.7/5)
 
 # This example demonstrates the basic patterns for serving language models on Modal
 # whose weights consume hundreds of gigabytes of storage.
@@ -351,7 +351,7 @@ MINUTES = 60  # seconds
 @modal.experimental.http_server(
     port=SGLANG_PORT,
     proxy_regions=["us-east"],
-    exit_grace_period=5 * MINUTES,  # time to finish requests on shutdown
+    exit_grace_period=25,  # time to finish requests on shutdown (seconds)
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
