@@ -214,6 +214,11 @@ def main(
 # This script supports configuration via command-line arguments.
 # Run with `--help` to see all options.
 
+# For private repositories, you can pass a GitHub personal access token.
+# If you use the `gh` CLI, you can use shell command substitution to pass your current auth:
+#     modal run 13_sandboxes/opencode_server.py --github-token $(gh auth token)
+# This pattern works in bash, zsh, and most other shells.
+
 
 def parse_timeout(timeout_str: str) -> int:
     if timeout_str.endswith("h"):
@@ -267,7 +272,7 @@ if __name__ == "__main__":
         "--github-token",
         type=str,
         default=None,
-        help="GitHub PAT for private repositories",
+        help="GitHub PAT for private repositories. Tip: use $(gh auth token) to pass your current gh CLI auth",
     )
 
     args = parser.parse_args()
