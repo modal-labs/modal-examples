@@ -481,7 +481,6 @@ def extract(day: dt.date) -> str | None:
         if not ok:
             return None
 
-
     if not any(p.suffix == ".nc" for p in day_dir.iterdir()):
         print(f"Loading data for {day} from {tar_path}")
         _extract_tarfile(tar_path, day_dir)
