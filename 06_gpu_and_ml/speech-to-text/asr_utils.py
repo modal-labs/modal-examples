@@ -5,10 +5,10 @@
 
 import math
 import os
-from pathlib import Path
 import sys
 import tempfile
 import wave
+from pathlib import Path
 from typing import Callable, Sequence
 from urllib.request import urlopen
 

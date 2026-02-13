@@ -30,7 +30,7 @@ app = modal.App("example-fasthtml-checkboxes")
 db = modal.Dict.from_name("example-fasthtml-checkboxes-db", create_if_missing=True)
 
 css_path_local = Path(__file__).parent / "styles.css"
-css_path_remote = Path("/assets/styles.css")
+css_path_remote = "/assets/styles.css"
 
 
 @app.function(
@@ -76,7 +76,7 @@ def web():
             db["checkboxes"] = checkboxes
         print("Checkbox state persisted.")
 
-    style = css_path_remote.read_text()
+    style = Path(css_path_remote).read_text()
     app, _ = fh.fast_app(
         # FastHTML uses the ASGI spec, which allows handling of shutdown events
         on_shutdown=[on_shutdown],
