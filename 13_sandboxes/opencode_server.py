@@ -219,7 +219,6 @@ def main(
 # Run with `--help` to see all options.
 
 # To grant the agent the same GitHub permissions you have, you can pass a GitHub personal access token.
-# This enables both cloning private repositories and using authenticated `gh` commands inside the sandbox.
 # If you use the `gh` CLI, you can use shell command substitution to pass your current auth:
 
 # ```bash
