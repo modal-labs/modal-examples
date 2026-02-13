@@ -76,7 +76,8 @@ def web():
             db["checkboxes"] = checkboxes
         print("Checkbox state persisted.")
 
-    style = open(css_path_remote, "r").read()
+    with open(css_path_remote, "r") as f:
+        style = f.read()
     app, _ = fh.fast_app(
         # FastHTML uses the ASGI spec, which allows handling of shutdown events
         on_shutdown=[on_shutdown],

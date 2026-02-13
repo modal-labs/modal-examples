@@ -82,7 +82,8 @@ def get_bytes_from_wav(location: str) -> bytes:
     if location.startswith("http"):
         bytes = urlopen(location).read()
     else:
-        bytes = open(location, "rb").read()
+        with open(location, "rb") as f:
+            bytes = f.read()
 
     return bytes
 
