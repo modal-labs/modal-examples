@@ -5,7 +5,7 @@
 
 # # Run OpenCode in a Modal Sandbox
 
-# This example demonstrates how to run [OpenCode](https://opencode.ai/)
+# This example demonstrates how to run [OpenCode](https://opencode.ai/docs)
 # remotely and connect to it from your local terminal or browser.
 
 # Combine self-hosted OpenCode with [serving a big, smart model](https://modal.com/docs/examples/very_large_models)
