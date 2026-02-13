@@ -180,7 +180,7 @@ PORT = 8000
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
     proxy_regions=[PROXY_REGION],  # location of proxies, should be same as Cls region
-    exit_grace_period=5,  # seconds, time to finish up requests when closing down
+    exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
