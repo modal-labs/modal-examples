@@ -40,7 +40,7 @@ DEFAULT_GITHUB_REPO = "modal-labs/modal-examples"
 def define_base_image() -> modal.Image:
     image = (
         modal.Image.debian_slim()
-        .apt_install("curl", "git")
+        .apt_install("curl", "git", "gh")
         .run_commands("curl -fsSL https://opencode.ai/install | bash")
         .env({"PATH": "/root/.opencode/bin:${PATH}"})
     )
@@ -214,10 +214,12 @@ def main(
 # This script supports configuration via command-line arguments.
 # Run with `--help` to see all options.
 
-# For private repositories, you can pass a GitHub personal access token.
+# To grant the agent the same GitHub permissions you have, you can pass a GitHub personal access token.
 # If you use the `gh` CLI, you can use shell command substitution to pass your current auth:
-#     modal run 13_sandboxes/opencode_server.py --github-token $(gh auth token)
-# This pattern works in bash, zsh, and most other shells.
+
+# ```bash
+#     python 13_sandboxes/opencode_server.py --github-token $(gh auth token)
+# ```
 
 
 def parse_timeout(timeout_str: str) -> int:
