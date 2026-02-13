@@ -5,6 +5,7 @@
 
 import math
 import os
+from pathlib import Path
 import sys
 import tempfile
 import wave
@@ -82,7 +83,7 @@ def get_bytes_from_wav(location: str) -> bytes:
     if location.startswith("http"):
         bytes = urlopen(location).read()
     else:
-        bytes = open(location, "rb").read()
+        bytes = Path(location).read_bytes()
 
     return bytes
 
