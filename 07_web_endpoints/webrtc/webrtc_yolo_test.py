@@ -10,7 +10,6 @@ from .webrtc_yolo import (
     CACHE_PATH,
     WebcamObjDet,
     app,
-    base_image,
     cache,
 )
 
@@ -39,8 +38,19 @@ def test():
 # That said, using these classes does require us to manually `start` and `stop` streams.
 # For example, we'll need to override the `run_streams` method to start the source stream, and we'll make use of the `on_ended` callback to stop the recording.
 
+test_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("python3-opencv")
+    .uv_pip_install(
+        "fastapi[standard]==0.115.4",
+        "shortuuid==1.0.13",
+        "opencv-python==4.11.0.86",
+        "aiortc==1.14.0",
+    )
+)
 
-@app.cls(image=base_image, volumes=cache)
+
+@app.cls(image=test_image, volumes=cache)
 class TestPeer(ModalWebRtcPeer):
     TEST_VIDEO_SOURCE_URL = "https://modal-cdn.com/cliff_jumping.mp4"
     TEST_VIDEO_RECORD_FILE = CACHE_PATH / "test_video.mp4"
