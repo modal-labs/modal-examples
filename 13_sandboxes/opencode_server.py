@@ -40,7 +40,7 @@ DEFAULT_GITHUB_REPO = "modal-labs/modal-examples"
 def define_base_image() -> modal.Image:
     image = (
         modal.Image.debian_slim()
-        .apt_install("curl", "git")
+        .apt_install("curl", "git", "gh")
         .run_commands("curl -fsSL https://opencode.ai/install | bash")
         .env({"PATH": "/root/.opencode/bin:${PATH}"})
     )
@@ -127,7 +127,7 @@ def create_sandbox(
     image: modal.Image,
     timeout: int,
     app: modal.App,
-    password_secret: modal.Secret,
+    secrets: list[modal.Secret],
     working_dir: str | None = None,
 ) -> modal.Sandbox:
     print("🏖️  Creating sandbox")
@@ -141,7 +141,7 @@ def create_sandbox(
             "--log-level=DEBUG",
             "--print-logs",
             encrypted_ports=[OPENCODE_PORT],
-            secrets=[password_secret],
+            secrets=secrets,
             timeout=timeout,
             image=image,
             app=app,
@@ -204,8 +204,12 @@ def main(
 
     password = secrets.token_urlsafe(13)
     password_secret = modal.Secret.from_dict({"OPENCODE_SERVER_PASSWORD": password})
+    sandbox_secrets = [password_secret]
 
-    sandbox = create_sandbox(image, timeout, app, password_secret, "/root/code")
+    if github_token:
+        sandbox_secrets.append(modal.Secret.from_dict({"GH_TOKEN": github_token}))
+
+    sandbox = create_sandbox(image, timeout, app, sandbox_secrets, "/root/code")
     print_access_info(sandbox, password)
 
 
@@ -213,6 +217,13 @@ def main(
 
 # This script supports configuration via command-line arguments.
 # Run with `--help` to see all options.
+
+# To grant the agent the same GitHub permissions you have, you can pass a GitHub personal access token.
+# If you use the `gh` CLI, you can use shell command substitution to pass your current auth:
+
+# ```bash
+#     python 13_sandboxes/opencode_server.py --github-token $(gh auth token)
+# ```
 
 
 def parse_timeout(timeout_str: str) -> int:
@@ -267,7 +278,7 @@ if __name__ == "__main__":
         "--github-token",
         type=str,
         default=None,
-        help="GitHub PAT for private repositories",
+        help="GitHub PAT for private repos and gh CLI auth. Tip: use $(gh auth token)",
     )
 
     args = parser.parse_args()
