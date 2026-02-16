@@ -213,7 +213,7 @@ def serve():
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, content=None, twice=True):
-    url = serve.get_web_url()
+    url = await serve.get_web_url.aio()
 
     system_prompt = {
         "role": "system",
