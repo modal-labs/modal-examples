@@ -127,7 +127,7 @@ def main(lookback: int = 7, wait_for_results: bool = True):
 # into a remote Modal Function!
 
 
-@app.function(timeout=15 * MINUTES)
+@app.function(timeout=30 * MINUTES)
 def orchestrate(lookback: int) -> list[modal.FunctionCall]:
     llm = Vllm()
 
@@ -383,7 +383,9 @@ data_root = Path("/data")
 # Again, we use `map` to transparently scale out across containers.
 
 
-@app.function(volumes={data_root: sec_edgar_feed}, scaledown_window=5)
+@app.function(
+    volumes={data_root: sec_edgar_feed}, timeout=10 * MINUTES, scaledown_window=5
+)
 def transform(folder: str | None) -> list[Filing]:
     if folder is None:
         return []
