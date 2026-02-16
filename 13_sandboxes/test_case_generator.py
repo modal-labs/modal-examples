@@ -273,7 +273,7 @@ def get_sandbox_image(gh_owner: str, gh_repo_name: str):
 # coverage, and show the results of both in ports 8000 and 8001.
 
 
-def run_sandbox(image: modal.Image, file_name: str):
+async def run_sandbox(image: modal.Image, file_name: str):
     new_file_name = file_name.replace(".py", "_llm.py")
 
     cmd = (
@@ -290,7 +290,7 @@ def run_sandbox(image: modal.Image, file_name: str):
         + "allure serve allure-results --host 0.0.0.0 --port 8000"
     )
 
-    sb = modal.Sandbox.create(
+    sb = await modal.Sandbox.create.aio(
         "sh",
         "-c",
         cmd,
@@ -345,7 +345,7 @@ async def main(
     print("Test case files generated successfully! Creating sandboxes...")
 
     # Create sandboxes to run the generated test files
-    sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
+    sandboxes = await create_sandboxes(output_files, gh_owner, gh_repo_name)
     await asyncio.gather(
         *[sb.wait.aio(raise_on_termination=False) for sb in sandboxes],
         return_exceptions=True,
@@ -360,18 +360,19 @@ import subprocess
 import time
 
 
-def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
+async def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
     file_to_sandbox: dict[str, modal.Sandbox] = {}
     for filename in filenames:
         print(f"Running sandbox for {filename}")
         image = get_sandbox_image(gh_owner, gh_repo_name)
-        sb = run_sandbox(image, filename)
+        sb = await run_sandbox(image, filename)
         file_to_sandbox[filename] = sb
     time.sleep(20)  # Hack to make sure URLs show up at the very end
 
     for filename, sb in file_to_sandbox.items():
-        tunnel1 = sb.tunnels()[8000]
-        tunnel2 = sb.tunnels()[8001]
+        tunnels = await sb.tunnels.aio()
+        tunnel1 = tunnels[8000]
+        tunnel2 = tunnels[8001]
         print(f"Sandbox created and run for generated test file: {filename}")
         print(f"✨ View diff: {tunnel2.url}")
         print(f"✨ View test results: {tunnel1.url}\n")
