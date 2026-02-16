@@ -328,7 +328,7 @@ async def main(
     sglang_server = TestCaseServer()
 
     # Download files to volume
-    input_files = download_files_to_volume.remote(
+    input_files = await download_files_to_volume.remote.aio(
         folder_paths=[gh_module_path, gh_tests_path],
         gh_owner=gh_owner,
         gh_repo_name=gh_repo_name,
@@ -336,7 +336,7 @@ async def main(
     )
 
     # Initialize client and generate test files
-    generator = TestCaseClient(url=sglang_server.serve.get_web_url())  # type: ignore
+    generator = TestCaseClient(url=await sglang_server.serve.get_web_url.aio())  # type: ignore
     output_generator = generator.generate.map.aio(input_files)
     output_files = []
     async for f in output_generator:
