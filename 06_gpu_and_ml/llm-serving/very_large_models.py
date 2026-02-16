@@ -409,7 +409,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = Server._experimental_get_flash_urls()[0]
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     if USE_DUMMY_WEIGHTS:
         system_prompt = {"role": "system", "content": "This system produces gibberish."}
