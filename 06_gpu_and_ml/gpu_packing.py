@@ -105,7 +105,7 @@ async def main(n_requests: int = 100):
     print("Testing Baseline (1 Model)")
     t0 = time.time()
     server = Server(n_models=1)
-    server.prewarm.remote()
+    await server.prewarm.remote.aio()
     print("Container boot took {:.4f}s".format(time.time() - t0))
 
     t0 = time.time()
@@ -118,7 +118,7 @@ async def main(n_requests: int = 100):
     print("Testing Packing (10 Models)")
     t0 = time.time()
     server = Server(n_models=10)
-    server.prewarm.remote()
+    await server.prewarm.remote.aio()
     print("Container boot took {:.4f}s".format(time.time() - t0))
 
     t0 = time.time()
