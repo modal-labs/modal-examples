@@ -230,14 +230,16 @@ async def benchmark(seed: int = 42, limit: int = 16, num_few_shot: int = 4):
     import asyncio
 
     print("Loading dataset")
-    dataset = load_dataset.remote(seed=seed, num_few_shot=num_few_shot, limit=limit)
+    dataset = await load_dataset.remote.aio(
+        seed=seed, num_few_shot=num_few_shot, limit=limit
+    )
     print(f"Total number of items to process: {len(dataset)}")
 
-    serve.update_autoscaler(
+    await serve.update_autoscaler.aio(
         max_containers=1  # prevent concurrent execution when benchmarking
     )
 
-    url = serve.get_web_url()
+    url = await serve.get_web_url.aio()
     async with aiohttp.ClientSession(
         base_url=url, headers={"Accept-Encoding": "gzip, deflate, br"}
     ) as session:

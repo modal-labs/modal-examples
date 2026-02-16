@@ -307,8 +307,8 @@ async def main(audio_url: str = AUDIO_URL):
     audio_data = preprocess_audio(audio_bytes)
 
     print("🎤 Starting Transcription")
-    with modal.Queue.ephemeral() as q:
-        ParakeetModel().run_with_queue.spawn(q)
+    async with modal.Queue.ephemeral() as q:
+        await ParakeetModel().run_with_queue.spawn.aio(q)
         send = asyncio.create_task(send_audio(q, audio_data))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)

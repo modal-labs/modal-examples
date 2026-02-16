@@ -454,7 +454,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = SGLang._experimental_get_flash_urls()[0]
+    url = (await SGLang._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
