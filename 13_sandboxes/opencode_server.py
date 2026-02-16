@@ -73,9 +73,9 @@ def clone_github_repo(
     # For public repositories, no token is needed.
 
     if token:
-        clone_cmd = f"GIT_ASKPASS=echo git clone --quiet --depth 1 --branch {ref} https://oauth2:{token}@github.com/{repo}.git /root/code"
+        clone_cmd = f"GIT_ASKPASS=echo git clone --quiet --depth 1 --branch {ref} --no-single-branch https://oauth2:{token}@github.com/{repo}.git /root/code"
     else:
-        clone_cmd = f"GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch {ref} https://github.com/{repo}.git /root/code"
+        clone_cmd = f"GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 --branch {ref} --no-single-branch https://github.com/{repo}.git /root/code"
 
     print(f"🏖️  Cloning {repo}@{ref} to /root/code")
     return image.run_commands(git_config, clone_cmd, force_build=True)
