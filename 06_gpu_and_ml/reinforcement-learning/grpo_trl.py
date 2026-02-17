@@ -24,7 +24,11 @@ app: modal.App = modal.App("example-grpo-trl")
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
 image: modal.Image = modal.Image.debian_slim().uv_pip_install(
-    "trl[vllm]==0.19.1", "datasets==3.5.1", "wandb==0.17.6"
+    "trl[vllm]==0.19.1",
+    "vllm==0.9.1",
+    "transformers==4.52.4",
+    "datasets==3.5.1",
+    "wandb==0.17.6",
 )
 
 # We import the necessary libraries needed in the context of the image.
