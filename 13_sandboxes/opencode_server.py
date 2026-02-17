@@ -23,7 +23,6 @@
 
 import argparse
 import os
-import secrets
 from pathlib import Path
 
 import modal
@@ -181,6 +180,7 @@ def print_access_info(sandbox: modal.Sandbox, password_secret_name: str):
         f"modal shell --secret {password_secret_name} --cmd 'env | grep OPENCODE_SERVER_PASSWORD='",
         sep="\n\t",
     )
+
 
 # The server is secured via a password in a [Modal Secret](https://modal.com/docs/guide/secrets).
 # You can create one by heading to the [Secrets Dashboard](https://modal.com/secrets)
