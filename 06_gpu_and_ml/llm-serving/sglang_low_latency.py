@@ -488,11 +488,15 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
 # We include a header with each request --
 # `Modal-Session-ID`.
+# This is header is used by clients of `http_server`s on Modal
+# to identify which requests should be routed to the same container
+# (with caveats explained below).
+
 # The value associated with this key
 # is used to map requests onto containers such that
 # while the set of containers is fixed, requests with the same value
 # are sent to the same container.
-# Set this to a different value per multi-turn interaction
+# Set this to a different value per distinct multi-turn interaction
 # (prototypically, a user conversation thread with a chatbot)
 # to improve KV cache hit rates.
 # Additionally, when the set of containers changes (e.g. due to autoscaling),
