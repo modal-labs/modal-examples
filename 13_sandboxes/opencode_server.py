@@ -83,7 +83,7 @@ def clone_github_repo(
 
 # ## Grant Modal credentials
 
-# Since the agent is working with Modal code, we also give it access to Modal.
+# Since the agent is working with Modal code, we also make it easy to provide Modal access.
 # Examples in this repo should run with nothing more than `modal` installed --
 # except for a few that use `fastapi`.
 
@@ -149,10 +149,6 @@ def create_sandbox(
         )
 
 
-# The server is secured with a temporary password
-# generated with the `secrets` library from the Python stdlib.
-# We pass it to the Sandbox via a [Modal Secret](https://modal.com/docs/guide/secrets).
-
 # OpenCode is truly open -- there are many interfaces to the underlying
 # coding agent server.
 # Here we print information for:
@@ -161,7 +157,7 @@ def create_sandbox(
 # - accessing the TUI from your local terminal
 
 
-def print_access_info(sandbox: modal.Sandbox, password: str):
+def print_access_info(sandbox: modal.Sandbox, password_secret_name: str):
     print(
         "🏖️  Access the sandbox directly:",
         f"modal shell {sandbox.object_id}",
@@ -173,14 +169,26 @@ def print_access_info(sandbox: modal.Sandbox, password: str):
         "🏖️  Access the WebUI:",
         tunnel.url,
         "Username: opencode",
-        f"Password: {password}",
         sep="\n\t",
     )
     print(
         "🏖️  Access the TUI:",
-        f"OPENCODE_SERVER_PASSWORD={password} opencode attach {tunnel.url}",
+        f"OPENCODE_SERVER_PASSWORD=YOUR_PASSWORD opencode attach {tunnel.url}",
         sep="\n\t",
     )
+    print(
+        "🏖️  Display the password:",
+        f"modal shell --secret {password_secret_name} --cmd 'env | grep OPENCODE_SERVER_PASSWORD='",
+        sep="\n\t",
+    )
+
+# The server is secured via a password in a [Modal Secret](https://modal.com/docs/guide/secrets).
+# You can create one by heading to the [Secrets Dashboard](https://modal.com/secrets)
+# and creating a new "Custom" Secret. Use `OPENCODE_SERVER_PASSWORD` as the key
+# and the password as the value.
+
+# The CLI will also give you a helpful one-liner you can use to recover the password
+# with your Modal credentials in case you forget it.
 
 
 # ## Putting it all together
@@ -193,6 +201,7 @@ def main(
     github_repo: str,
     github_ref: str,
     github_token: str | None,
+    password_secret_name: str,
 ):
     app = modal.App.lookup(app_name, create_if_missing=True)
     image = define_base_image()
@@ -202,15 +211,14 @@ def main(
 
     image = clone_github_repo(image, github_repo, github_ref, github_token)
 
-    password = secrets.token_urlsafe(13)
-    password_secret = modal.Secret.from_dict({"OPENCODE_SERVER_PASSWORD": password})
-    sandbox_secrets = [password_secret]
+    password_secret = modal.Secret.from_name(password_secret_name)
 
+    sandbox_secrets = [password_secret]
     if github_token:
         sandbox_secrets.append(modal.Secret.from_dict({"GH_TOKEN": github_token}))
 
     sandbox = create_sandbox(image, timeout, app, sandbox_secrets, "/root/code")
-    print_access_info(sandbox, password)
+    print_access_info(sandbox, password_secret_name)
 
 
 # ## Command-line options
@@ -263,6 +271,12 @@ if __name__ == "__main__":
         help="Disable Modal credential access",
     )
     parser.add_argument(
+        "--password-secret",
+        dest="password_secret_name",
+        help="Name",
+        default="opencode-secret",
+    )
+    parser.add_argument(
         "--github-repo",
         type=str,
         default=DEFAULT_GITHUB_REPO,
@@ -290,4 +304,5 @@ if __name__ == "__main__":
         args.github_repo,
         args.github_ref,
         args.github_token,
+        args.password_secret_name,
     )
