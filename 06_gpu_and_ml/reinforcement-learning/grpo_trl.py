@@ -24,9 +24,9 @@ app: modal.App = modal.App("example-grpo-trl")
 # We define an image where we install the TRL library.
 # We also install vLLM for the next part of this example. We also use Weights & Biases for logging.
 image: modal.Image = modal.Image.debian_slim().uv_pip_install(
-    "trl[vllm]==0.19.1",
-    "vllm==0.9.1",
-    "transformers==4.52.4",
+    "trl[vllm]==0.28.0",
+    "vllm==0.12.0",
+    "transformers==4.57",
     "datasets==3.5.1",
     "wandb==0.17.6",
 )
@@ -236,8 +236,8 @@ def get_latest_checkpoint_file_path():
 vllm_image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install(
-        "vllm==0.9.1",
-        "flashinfer-python==0.2.6.post1",
+        "vllm==0.12.0",
+        "flashinfer-python==0.5.3",
         extra_index_url="https://download.pytorch.org/whl/cu128",
         extra_options="--index-strategy unsafe-best-match",
     )
