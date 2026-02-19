@@ -255,6 +255,7 @@ app = modal.App(name=APP_NAME)
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
+    timeout=10 * MINUTES,
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
@@ -387,6 +388,8 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # Set this to a different value per multi-turn interaction
 # (prototypically, a user conversation thread with a chatbot)
 # to improve KV cache hit rates.
+# Note that this header is only compatible with
+# Modal `http_server`s.
 
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
