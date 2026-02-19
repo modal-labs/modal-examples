@@ -112,3 +112,7 @@ sandbox.exec("rm", "-rfv", "/", "--no-preserve-root")
 # Let's terminate the Sandbox to clean up after ourselves.
 
 sandbox.terminate()
+
+# After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
+# your local `sandbox` object to clean up any client-side resources.
+sandbox.detach()

@@ -156,6 +156,7 @@ def add_sandbox_to_queue() -> None:
         raise Exception("Health check failed")
 
     pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
+    sb.detach()
 
 
 # We also have a utility function that can be `.spawn()`ed to terminate Sandboxes.
@@ -165,6 +166,7 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
     for id in sandbox_ids:
         sb = modal.Sandbox.from_id(id)
         sb.terminate()
+        sb.detach()
         num_terminated += 1
 
     print(f"Terminated {num_terminated} Sandboxes")

@@ -117,3 +117,7 @@ run_code(reader, writer, "1 / 0")  # Execution Error: division by zero
 # Finally, let's clean up after ourselves and terminate the Sandbox.
 
 sb.terminate()
+
+# After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
+# your local `sandbox` object to clean up any client-side resources.
+sb.detach()
