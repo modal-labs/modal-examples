@@ -220,8 +220,8 @@ def main(
     sandbox = create_sandbox(image, timeout, app, sandbox_secrets, "/root/code")
     print_access_info(sandbox, password_secret_name)
 
-    # After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
-    # your local `sandbox` object to clean up any client-side resources.
+    # After you are done calling methods on the `sandbox` object, we recommend calling `detach` to disconnect
+    # your local `sandbox` object and clean up any client-side resources.
     sandbox.detach()
 
 

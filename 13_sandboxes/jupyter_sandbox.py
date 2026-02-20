@@ -111,10 +111,9 @@ else:
 
 # You can now open this URL in your browser to access the Jupyter notebook!
 
-# After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
-# your local `sandbox` object to clean up any client-side resources.
+# After you are done calling methods on the `sandbox` object, we recommend calling `detach` to disconnect
+# your local `sandbox` object and clean up any client-side resources.
 sandbox.detach()
 
 # When you're done, terminate the sandbox using your [Modal dashboard](https://modal.com/sandboxes)
 # or by running `Sandbox.from_id(sandbox.object_id).terminate()`.
-# When

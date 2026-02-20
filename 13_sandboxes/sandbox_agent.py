@@ -76,6 +76,6 @@ stderr = claude_ps.stderr.read()
 if stderr != "":
     print("Agent stderr:", stderr)
 
-# After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
-# your local `sandbox` object to clean up any client-side resources.
+# After you are done calling methods on the `sandbox` object, we recommend calling `detach` to disconnect
+# your local `sandbox` object and clean up any client-side resources.
 sandbox.detach()

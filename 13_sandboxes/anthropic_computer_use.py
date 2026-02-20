@@ -99,8 +99,8 @@ else:
 # Note: The sandbox logs may mention `localhost:8080`.
 # Ignore this and use the printed tunnel URLs instead.
 
-# After you are done sending operations to the sandbox, we recommend calling `detach` to disconnect
-# your local `sandbox` object to clean up any client-side resources.
+# After you are done calling methods on the `sandbox` object, we recommend calling `detach` to disconnect
+# your local `sandbox` object and clean up any client-side resources.
 sandbox.detach()
 
 # When finished, you can terminate the sandbox from your [Modal dashboard](https://modal.com/containers)
