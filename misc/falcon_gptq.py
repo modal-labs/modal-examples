@@ -8,7 +8,7 @@
 # cold start time on Modal is around 25s.
 #
 # For faster inference at the expense of a slower cold start, check out
-# [Running Falcon-40B with `bitsandbytes` quantization](https://github.com/modal-labs/modal-examples/blob/main/misc/falcon_bitsandbytes.py). You can also
+# [Running Falcon-40B with `bitsandbytes` quantization](https://modal.com/docs/examples/falcon_bitsandbytes). You can also
 # run a smaller model via the [Gemma 7B example](https://modal.com/docs/examples/vllm_gemma).
 #
 # ## Setup
@@ -138,7 +138,7 @@ def cli():
 # Finally, we can serve the model from a web endpoint with `modal deploy falcon_gptq.py`. If
 # you visit the resulting URL with a question parameter in your URL, you can view the model's
 # stream back a response.
-# You can try it out by deploying with `modal deploy falcon_gptq.py` and querying the web endpoint it creates.
+# You can try our deployment [here](https://modal-labs--example-falcon-gptq-get.modal.run/?question=Why%20are%20manhole%20covers%20round?).
 @app.function(timeout=60 * 10)
 @modal.fastapi_endpoint()
 def get(question: str):

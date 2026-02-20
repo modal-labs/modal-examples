@@ -6,7 +6,7 @@
 # # Algolia docsearch crawler
 
 # This tutorial shows you how to use Modal to run the [Algolia docsearch
-# crawler](https://docsearch.algolia.com/docs/legacy/run-your-own/) to index your
+# crawler](https://docsearch.algolia.com/docs/what-is-docsearch/) to index your
 # website and make it searchable. This is not just example code - we run the same
 # code in production to power search on this page (`Ctrl+K` to try it out!).
 
@@ -156,7 +156,7 @@ def crawl_webhook():
 
 # The indexed contents can be found at https://www.algolia.com/apps/APP_ID/explorer/browse/, for your
 # APP_ID. Once you're happy with the results, you can [set up the `docsearch` package with your
-# website](https://docsearch.algolia.com/docs/legacy/run-your-own/), and create a search component that uses this index.
+# website](https://docsearch.algolia.com/docs/what-is-docsearch/), and create a search component that uses this index.
 
 # ## Entrypoint for development
 

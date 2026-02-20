@@ -7,7 +7,7 @@
 
 # In this example, we show how to serve Mistral's Ministral 3 vision-language models on Modal.
 
-# The [Ministral 3](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512) model series
+# The [Ministral 3](https://mistral.ai/news/ministraux/) model series
 # performs competitively with the Qwen 3-VL model series on benchmarks
 # (see model cards for details).
 
@@ -55,7 +55,7 @@ vllm_image = (
 
 vllm_image = vllm_image.env({"HF_XET_HIGH_PERFORMANCE": "1"})
 
-# The [Ministral 3 model series](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512)
+# The [Ministral 3 model series](https://mistral.ai/news/ministraux/)
 # contains a variety of models:
 
 # - 3B, 8B, and 14B sizes
