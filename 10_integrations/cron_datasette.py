@@ -9,7 +9,7 @@
 # Build and deploy an interactive movie database that automatically updates daily with the latest IMDb data.
 # This example shows how to serve a Datasette application on Modal with millions of movie and TV show records.
 
-# Try it out for yourself [here](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
+# To try it out, deploy with `modal deploy cron_datasette.py` and open the URL it prints.
 
 # Along the way, we will learn how to use the following Modal features:
 
@@ -403,4 +403,4 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("  modal deploy cron_datasette.py  # For production deployment")
 
 
-# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
+# You can explore the data by deploying with `modal deploy cron_datasette.py` and opening the URL it prints.

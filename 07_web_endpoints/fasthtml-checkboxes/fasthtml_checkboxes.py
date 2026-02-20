@@ -6,7 +6,7 @@
 
 # # Deploy 100,000 multiplayer checkboxes on Modal with FastHTML
 
-# [![Screenshot of FastHTML Checkboxes UI](./ui.png)](https://modal-labs-examples--example-fasthtml-checkboxes-web.modal.run)
+# ![Screenshot of FastHTML Checkboxes UI](./ui.png)
 
 # This example shows how you can deploy a multiplayer checkbox game with FastHTML on Modal.
 

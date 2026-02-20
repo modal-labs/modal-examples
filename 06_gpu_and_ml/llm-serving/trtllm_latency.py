@@ -40,7 +40,7 @@
 # to optimize the engine for low latency.
 
 # Be sure to check out TensorRT-LLM's
-# [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples)
+# [examples](https://nvidia.github.io/TensorRT-LLM/llm-api/)
 # for sample code beyond what we cover here, like low-rank adapters (LoRAs).
 
 # ### What is a TRT-LLM engine?

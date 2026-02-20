@@ -7,7 +7,7 @@
 
 # In this example, we show how to serve Mistral's Ministral 3 vision-language models on Modal.
 
-# The [Ministral 3](https://huggingface.co/collections/mistralai/ministral-3-more) model series
+# The [Ministral 3](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512) model series
 # performs competitively with the Qwen 3-VL model series on benchmarks
 # (see model cards for details).
 
@@ -55,7 +55,7 @@ vllm_image = (
 
 vllm_image = vllm_image.env({"HF_XET_HIGH_PERFORMANCE": "1"})
 
-# The [Ministral 3 model series](https://huggingface.co/collections/mistralai/ministral-3-more)
+# The [Ministral 3 model series](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512)
 # contains a variety of models:
 
 # - 3B, 8B, and 14B sizes
@@ -70,7 +70,7 @@ MODEL_NAME = "mistralai/Ministral-3-8B-Instruct-2512"
 
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
-# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
+# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/introducing-b200-h200).
 
 # At 80 GB VRAM, a single H100 GPU has enough space to store the 8B FP8 model weights (~8 GB)
 # and a very large KV cache. A single H100 is also enough to serve the 14B model in full precision,

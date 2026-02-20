@@ -46,7 +46,7 @@ CONFIG = {
         "synonyms": [["cls", "class"]],
     },
     "stop_urls": [
-        "https://modal.com/docs/reference/modal.Stub",
+        "https://modal.com/docs/reference/modal.App",
         "https://modal.com/gpu-glossary",
         "https://modal.com/docs/reference/changelog",
     ],
@@ -156,7 +156,7 @@ def crawl_webhook():
 
 # The indexed contents can be found at https://www.algolia.com/apps/APP_ID/explorer/browse/, for your
 # APP_ID. Once you're happy with the results, you can [set up the `docsearch` package with your
-# website](https://docsearch.algolia.com/docs/docsearch-v3/), and create a search component that uses this index.
+# website](https://docsearch.algolia.com/docs/legacy/run-your-own/), and create a search component that uses this index.
 
 # ## Entrypoint for development
 
