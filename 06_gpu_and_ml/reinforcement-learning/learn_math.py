@@ -4,8 +4,8 @@
 
 # # Training a mathematical reasoning model using the verifiers library with sandboxed code execution
 
-# This example demonstrates how to train mathematical reasoning models on Modal using the [verifiers library](https://github.com/willccbb/verifiers) with [Modal Sandboxes](https://modal.com/docs/guide/sandbox) for executing generated code.
-# The [verifiers library](https://github.com/willccbb/verifiers) is a set of tools and abstractions for training LLMs with reinforcement learning in verifiable multi-turn environments via [GRPO](https://arxiv.org/abs/2402.03300).
+# This example demonstrates how to train mathematical reasoning models on Modal using the [verifiers library](https://github.com/PrimeIntellect-ai/verifiers) with [Modal Sandboxes](https://modal.com/docs/guide/sandbox) for executing generated code.
+# The [verifiers library](https://github.com/PrimeIntellect-ai/verifiers) is a set of tools and abstractions for training LLMs with reinforcement learning in verifiable multi-turn environments via [GRPO](https://arxiv.org/abs/2402.03300).
 
 # This example demonstrates how to:
 # - Launch a distributed GRPO training job on Modal with 4× H100 GPUs.
@@ -15,7 +15,7 @@
 
 # ## Setup
 # We start by importing modal and the dependencies from the verifiers library. Then, we create a Modal App and an image with a NVIDIA CUDA base image.
-# We install the dependencies for the `verifiers` and `flash-attn` libraries, following the verifiers [README](https://github.com/willccbb/verifiers?tab=readme-ov-file#getting-started).
+# We install the dependencies for the `verifiers` and `flash-attn` libraries, following the verifiers [README](https://github.com/PrimeIntellect-ai/verifiers?tab=readme-ov-file#getting-started).
 
 import modal
 
@@ -80,8 +80,8 @@ TOOL_DESCRIPTIONS = """
 """
 
 # ## Training
-# Following the [verifiers example](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py), we will need a training script and a config file.
-# For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/willccbb/verifiers/blob/main/configs/zero3.yaml).
+# Following the [verifiers example](https://github.com/PrimeIntellect-ai/verifiers), we will need a training script and a config file.
+# For sandboxed code execution, we will use [this training script](/docs/examples/trainer_script_grpo) and the config file defined [here](https://github.com/PrimeIntellect-ai/verifiers/blob/main/configs/zero3.yaml).
 
 # We create a function that uses 4 H100 GPUs and mounts the defined Volumes. Then, we write the training script and the config file to the `/root/` directory.
 # We use the `willcb/Qwen3-0.6B` model from HuggingFace, setting up inference via a vLLM server. Once, the model is served, we will launch the training script using `accelerate`.

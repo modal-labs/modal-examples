@@ -5,7 +5,7 @@
 
 # # Training script for training a reasoning model using the verifiers library with sandboxed code execution
 
-# This script is used to train a model using GRPO. This is adapted from the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
+# This script is used to train a model using GRPO. This is adapted from the [verifiers library](https://github.com/PrimeIntellect-ai/verifiers) example.
 # Here, we use a Modal Sandbox to execute python code during training. Modal Sandboxes offer an easy way to execute untrusted code in a completely isolated environment.
 # This is a more secure way to execute python code during training.
 
@@ -83,7 +83,7 @@ model, tokenizer = vf.get_model_and_tokenizer(model_name)
 run_name = "math-grpo_" + model_name.split("/")[-1].lower()
 
 # These parameters are adapted to test the training script via an overfitting test. We will use 128 examples from the training set and overfit the model to them.
-# To learn more about the parameters, please refer to the [verifiers library](https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py) example.
+# To learn more about the parameters, please refer to the [verifiers library](https://github.com/PrimeIntellect-ai/verifiers) example.
 
 training_args = vf.grpo_defaults(run_name=run_name)
 training_args.num_iterations = 50

@@ -277,7 +277,7 @@ with image.imports():
 app = modal.App("example-serve-very-large-models", image=image)
 
 # Most importantly, we need to decide what hardware to run on.
-# [H200 and B200 GPUs](https://modal.com/blog/introducting-b200-h200)
+# [H200 and B200 GPUs](https://modal.com/blog/introducing-b200-h200)
 # have over 100 GB of [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram) --
 # 141 GB and 180 GB, respectively.
 # The model's weights will be stored in this memory,
