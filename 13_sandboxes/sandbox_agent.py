@@ -15,7 +15,7 @@ from modal.container_process import ContainerProcess
 
 app = modal.App.lookup("example-sandbox-agent", create_if_missing=True)
 
-# First, we create a custom [Image](https://modal.com/docs/images) that has Claude Code
+# First, we create a custom [Image](https://modal.com/docs/guide/images) that has Claude Code
 # and git installed.
 
 image = (
