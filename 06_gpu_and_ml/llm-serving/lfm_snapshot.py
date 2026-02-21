@@ -3,13 +3,20 @@
 # cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot.py"]
 # ---
 
-# # Low Latency LFM 2 8B with vLLM and Modal
+# # Low Latency, Serverless LFM 2 with vLLM and Modal
 
-# In this example, we show how to serve Liquid AI's [LFM 2 model](https://www.liquid.ai/liquid-foundation-models)
-# with [vLLM](https://docs.vllm.ai) at low latency on Modal.
+# In this example, we show how to serve Liquid AI's [LFM 2 models](https://www.liquid.ai/liquid-foundation-models)
+# with [vLLM](https://docs.vllm.ai) with low latency and fast cold starts on Modal.
 
-# This example demonstrates everything required to run inference at the highest performance
-# and with the lowest latency possible, including advanced features of both vLLM and Modal.
+# The LFM 2 models are not vanilla Transformers -- they have a hybrid architecture,
+# discovered via an architecture search that optimized for quality, latency, and memory footprint.
+# Check out their [technical report](https://arxiv.org/abs/2511.23404v1)
+# for more details.
+
+# This example demonstrates techniques to run inference at high efficiency,
+# including advanced features of vLLM and Modal.
+# For a simpler introduction to LLM serving, see
+# [this example](https://modal.com/docs/examples/llm_inference).
 
 # To minimize routing overheads, we use `@modal.experimental.http_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
@@ -67,8 +74,6 @@ MAX_INPUTS = 100
 GPU = "H100"
 
 REGION = "us-east"
-
-MIN_CONTAINERS = 0
 
 with vllm_image.imports():
     import requests
@@ -132,7 +137,6 @@ def wake_up():
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
-    min_containers=MIN_CONTAINERS,
 )
 @modal.experimental.http_server(
     port=VLLM_PORT,
