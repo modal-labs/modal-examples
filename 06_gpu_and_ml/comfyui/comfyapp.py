@@ -103,7 +103,7 @@ vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 image = (
     # install huggingface_hub with hf_xet support to speed up downloads
-    image.uv_pip_install("huggingface-hub==0.36.0")
+    image.uv_pip_install("huggingface-hub==1.4.1")
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})
     .run_function(
         hf_download,
