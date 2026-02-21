@@ -13,11 +13,6 @@
 # Check out their [technical report](https://arxiv.org/abs/2511.23404v1)
 # for more details.
 
-# Fast cold starts are particularly useful for LLM inference applications
-# that have highly "bursty" workloads, like document processing.
-# See [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
-# for a breakdown of different LLM inference workloads and how to optimize them.
-
 # This example demonstrates techniques to run inference at high efficiency,
 # including advanced features of both vLLM and Modal.
 # For a simpler introduction to LLM serving, see
@@ -29,6 +24,11 @@
 
 # We also include instructions for cutting cold start times by an order of magnitude using Modal's
 # [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
+
+# Fast cold starts are particularly useful for LLM inference applications
+# that have highly "bursty" workloads, like document processing.
+# See [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
+# for a breakdown of different LLM inference workloads and how to optimize them.
 
 # ## Set up the container image
 
@@ -72,15 +72,7 @@ vllm_image = (
 # ### Selecting the GPU
 
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
-# which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
-# lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
-# across a variety of model architectures.
-
-# At 80 GB VRAM, a single H100 GPU has plenty of space to store the 8B model weights
-# and a large KV cache. Unlike larger models, the LFM 2 8B doesn't benefit from
-# [tensor parallelism](https://modal.com/docs/guide/gpu#tensor-parallelism) --
-# a single GPU is sufficient.
+# which offers excellent price-performance and has sufficient VRAM to store the models.
 
 N_GPU = 1
 GPU = "H100"
@@ -147,7 +139,7 @@ MIN_CONTAINERS = 0
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-TARGET_INPUTS = 10
+TARGET_INPUTS = 32
 MAX_INPUTS = 100
 
 # ## Speed up cold starts with GPU snapshotting
