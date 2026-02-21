@@ -148,19 +148,18 @@ async def test():
             assert resp.status == 200, f"Health check failed: {resp.status}"
             print("Health check passed")
 
-        while True:
-            payload = {
-                "model": "llm",
-                "messages": messages,
-                "max_tokens": 7 * 1024,
-                "temperature": 0,
-            }
-            async with session.post(
-                "/v1/chat/completions",
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                content = data["choices"][0]["message"]["content"]
-                print(f"Response: {content}")
+        payload = {
+            "model": "llm",
+            "messages": messages,
+            "max_tokens": 7 * 1024,
+            "temperature": 0,
+        }
+        async with session.post(
+            "/v1/chat/completions",
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            content = data["choices"][0]["message"]["content"]
+            print(f"Response: {content}")
