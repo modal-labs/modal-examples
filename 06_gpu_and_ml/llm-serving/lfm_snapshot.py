@@ -395,7 +395,12 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
     await probe(url, messages, timeout=test_timeout)
     if twice:
-        messages = [{"role": "user", "content": "List every country and its capital in Chinese."}]
+        messages = [
+            {
+                "role": "user",
+                "content": "List every country and its capital in Chinese.",
+            }
+        ]
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await probe(url, messages, timeout=1 * MINUTES)
 
