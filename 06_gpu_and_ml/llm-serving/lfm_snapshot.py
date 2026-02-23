@@ -94,7 +94,7 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # You'll need to create a Secret named `huggingface-secret`
 # with your token [here](https://modal.com/apps/secrets).
 
-hf_secret = modal.Secret.from_name("huggingface-secret", create_if_missing=False)
+hf_secret = modal.Secret.from_name("huggingface-secret")
 
 # ### Caching compilation artifacts
 
