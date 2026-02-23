@@ -88,7 +88,13 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # In addition to pointing the Hugging Face Hub at the path
 # where we mount the Volume, we also
 # [turn on "high performance" downloads](https://huggingface.co/docs/hub/en/models-downloading#faster-downloads),
-# which can fully saturate our network bandwidth.
+# which can fully saturate our network bandwidth,
+# and provide an `HF_TOKEN` via a [Modal Secret](https://modal.com/docs/guide/secrets)
+# so that our downloads aren't throttled.
+# You'll need to create a Secret named `huggingface-secret`
+# with your token [here](https://modal.com/apps/secrets).
+
+hf_secret = modal.Secret.from_name("huggingface-secret")
 
 # ### Caching compilation artifacts
 
@@ -265,7 +271,7 @@ def wake_up():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LFM 2 inference server.
 
-app = modal.App("examples-lfm-snapshot")
+app = modal.App("example-lfm-snapshot")
 
 
 @app.cls(
@@ -277,7 +283,7 @@ app = modal.App("examples-lfm-snapshot")
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
     },
-    secrets=[modal.Secret.from_name("huggingface-secret-liquid")],
+    secrets=[hf_secret],
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
@@ -345,10 +351,10 @@ class LfmVllmInference:
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--examples-lfm-snapshot-lfmvllminference.us-east.modal.direct`.
+# something like `https://your-workspace-name--example-lfm-snapshot-lfmvllminference.us-east.modal.direct`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--examples-lfm-snapshot-lfmvllminference.us-east.modal.direct/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-lfm-snapshot-lfmvllminference.us-east.modal.direct/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 # For simple routes, you can even send a request directly from the docs page.
@@ -504,7 +510,7 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = modal.Cls.from_name("examples-lfm-snapshot", "LfmVllmInference")
+    LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
         url = LfmVllmInference._experimental_get_flash_urls()[0]
