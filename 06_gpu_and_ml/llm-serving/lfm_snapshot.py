@@ -326,7 +326,7 @@ class LfmVllmInference:
         self.process = subprocess.Popen(cmd)
         wait_ready(self.process)
         warmup()
-        sleep(1)
+        sleep(level=1)
 
     @modal.enter(snap=False)
     def restore(self):
@@ -384,10 +384,10 @@ class LfmVllmInference:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = LfmVllmInference._experimental_get_flash_urls()[0]
+    url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
 
     if prompt is None:
-        prompt = "Count to 1000, slowly."
+        prompt = "List every country and its capital."
 
     messages = [
         {"role": "user", "content": prompt},
@@ -395,7 +395,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
     await probe(url, messages, timeout=test_timeout)
     if twice:
-        messages = [{"role": "user", "content": "Tell me a joke."}]
+        messages = [{"role": "user", "content": "List every country and its capital in Chinese."}]
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await probe(url, messages, timeout=1 * MINUTES)
 
@@ -426,7 +426,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
-    client_id = str(0)
+    client_id = str(0)  # set this yourself based on KV cache hit-rate
     headers = {"Modal-Session-ID": client_id}
     deadline = time.time() + timeout
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
@@ -480,7 +480,6 @@ async def _send_request_streaming(
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
         print()
-        print(full_text)
 
 
 # ### Test memory snapshotting
@@ -513,8 +512,8 @@ if __name__ == "__main__":
     LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
-        url = LfmVllmInference._experimental_get_flash_urls()[0]
-        messages = [{"role": "user", "content": "Tell me a joke."}]
+        url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+        messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
     try:
