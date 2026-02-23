@@ -88,7 +88,13 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # In addition to pointing the Hugging Face Hub at the path
 # where we mount the Volume, we also
 # [turn on "high performance" downloads](https://huggingface.co/docs/hub/en/models-downloading#faster-downloads),
-# which can fully saturate our network bandwidth.
+# which can fully saturate our network bandwidth,
+# and provide an `HF_TOKEN` via a [Modal Secret](https://modal.com/docs/guide/secrets)
+# so that our downloads aren't throttled.
+# You'll need to create a Secret named `huggingface-secret`
+# with your token [here](https://modal.com/apps/secrets).
+
+hf_secret = modal.Secret.from_name("huggingface-secret", create_if_missing=False)
 
 # ### Caching compilation artifacts
 
@@ -265,7 +271,7 @@ def wake_up():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LFM 2 inference server.
 
-app = modal.App("examples-lfm-snapshot")
+app = modal.App("example-lfm-snapshot")
 
 
 @app.cls(
@@ -277,7 +283,7 @@ app = modal.App("examples-lfm-snapshot")
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
     },
-    secrets=[modal.Secret.from_name("huggingface-secret-liquid")],
+    secrets=[hf_secret],
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
