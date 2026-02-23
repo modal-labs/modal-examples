@@ -510,7 +510,7 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = modal.Cls.from_name("examples-lfm-snapshot", "LfmVllmInference")
+    LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
         url = LfmVllmInference._experimental_get_flash_urls()[0]
