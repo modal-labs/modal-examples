@@ -16,6 +16,8 @@
 # Here, we run the [24B-A2B variant](https://huggingface.co/LiquidAI/LFM2-24B-A2B) of LFM2,
 # described [here](https://www.liquid.ai/blog/lfm2-24b-a2b). This variant is designed
 # for efficient inference and includes instruction tuning.
+# It is released under the weights-available [LFM 1.0 License](https://huggingface.co/LiquidAI/LFM2-24B-A2B/blob/main/LICENSE),
+# which restricts commercial use for entities with over $10M in revenue.
 
 # This example demonstrates techniques to run inference at high efficiency,
 # including advanced features of both vLLM and Modal.
