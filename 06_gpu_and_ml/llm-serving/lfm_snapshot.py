@@ -3,15 +3,21 @@
 # cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot.py"]
 # ---
 
-# # Low Latency, Serverless LFM 2 with vLLM and Modal
+# # Low Latency, Serverless LFM2 with vLLM and Modal
 
-# In this example, we show how to serve Liquid AI's [LFM 2 models](https://www.liquid.ai/liquid-foundation-models)
+# In this example, we show how to serve Liquid AI's [LFM2 models](https://www.liquid.ai/liquid-foundation-models)
 # with [vLLM](https://docs.vllm.ai) with low latency and fast cold starts on Modal.
 
-# The LFM 2 models are not vanilla Transformers -- they have a hybrid architecture,
+# The LFM2 models are not vanilla Transformers -- they have a hybrid architecture,
 # discovered via an architecture search that optimized for quality, latency, and memory footprint.
 # Check out their [technical report](https://arxiv.org/abs/2511.23404v1)
 # for more details.
+
+# Here, we run the [24B-A2B variant](https://huggingface.co/LiquidAI/LFM2-24B-A2B) of LFM2,
+# described [here](https://www.liquid.ai/blog/lfm2-24b-a2b). This variant is designed
+# for efficient inference and includes instruction tuning.
+# It is released under the weights-available [LFM 1.0 License](https://huggingface.co/LiquidAI/LFM2-24B-A2B/blob/main/LICENSE),
+# which restricts commercial use for entities with over $10M in revenue.
 
 # This example demonstrates techniques to run inference at high efficiency,
 # including advanced features of both vLLM and Modal.
@@ -22,7 +28,7 @@
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
-# We also include instructions for cutting cold start times by an order of magnitude using Modal's
+# We also include instructions for cutting cold start times using Modal's
 # [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
 
 # Fast cold starts are particularly useful for LLM inference applications
@@ -50,7 +56,7 @@ import modal.experimental
 
 MINUTES = 60
 
-MODEL_NAME = os.environ.get("MODEL_NAME", "LiquidAI/LFM2-8B-A1B")
+MODEL_NAME = os.environ.get("MODEL_NAME", "LiquidAI/LFM2-24B-A2B")
 print(f"Running deployment script for model: {MODEL_NAME}")
 
 vllm_image = (
