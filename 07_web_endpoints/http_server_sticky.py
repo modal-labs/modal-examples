@@ -6,6 +6,8 @@
 
 # For a gentler introduction to Modal HTTP Servers,
 # see [this example](https://modal.com/docs/examples/http_server).
+# For the use of Modal HTTP Servers for LLM inference,
+# see [this example](https://modal.com/docs/examples/sglang_low_latency).
 
 # In sticky routing, sequential requests from the same client
 # are sent to the same server replica.
@@ -37,7 +39,6 @@ import aiohttp
 import modal
 import modal.experimental
 from rich.console import Console
-
 
 app = modal.App("example-http-server-sticky")
 
@@ -95,15 +96,30 @@ class Server:
 
 # ## Test the routing behavior of the Modal HTTP Server
 
+# Now we define our routing test, which will run locally
+# and interact with our Modal HTTP Server by sending requests.
+
+# It spins up some `n`umber of `client` tasks and repeatedly sends requests from each for some number of `seconds`.
+# The clients can be configured to use `sticky` routing or not (`--no-sticky`).
+
+# The test uses the `CONTAINER_ID`s returned by the HTTP Server
+# to track whether clients' requests are serviced by the same or different replicas.
+# It fails if the clients were configured to be sticky and any client
+# observes a different `CONTAINER_ID` on different requests.
+# So long as the set of containers does not change,
+# due to, for instance, replica failure or pre-emption,
+# this test should pass.
+
 
 @app.local_entrypoint()
 async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
 
+    # wait for at least one replica to spin up
     url = (await Server._experimental_get_flash_urls.aio())[0]
     async with aiohttp.ClientSession() as sess:
         await wait_available(sess, url)
 
-    # allow generous time for all replicas to spin up;
+    # allow generous time for all replicas to spin up based on rough heuristic;
     # remove this sleep and increase CONTAINERS
     # to observe session routing changes during autoscaling
     await asyncio.sleep(5 + ((CONTAINERS - 10) // 2))
@@ -121,11 +137,29 @@ async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
         raise AssertionError("Sticky routing violated for some clients")
 
 
+# Because it is a Modal `local_entrypoint`,
+# this Python function automatically gets a CLI:
+
+# ```bash
+# modal run http_server_sticky.py --help
+# ```
+
+# You can run the test with:
+
 # ```bash
 # modal run http_server_sticky.py
 # ```
 
 # ## Write the client for the Modal HTTP Server
+
+# The code in this section implements some Modal HTTP Server-specific client logic.
+
+# First, clients of Modal HTTP Servers need to handle
+# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# error response status codes, which are returned whenever there are no live replicas.
+
+# In our case, we use them as a signal that at least one replica
+# is ready and so we can proceed with the test.
 
 
 async def wait_available(sess: aiohttp.ClientSession, url: str) -> None:
@@ -133,6 +167,16 @@ async def wait_available(sess: aiohttp.ClientSession, url: str) -> None:
         async with sess.post(url, json={}) as resp:
             if resp.status != 503:
                 return
+
+
+# The full client logic appears in the function below.
+# Notably, it includes the header `Modal-Session-Id`
+# if clients are configured for sticky routing.
+# Here, we choose a simple small integer `client_id`.
+
+# The client collects information about which `CONTAINER_ID`s
+# it receives from the server and returns those in the form of
+# a simple `dataclass`.
 
 
 @dataclass
