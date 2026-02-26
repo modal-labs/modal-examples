@@ -35,7 +35,7 @@ MINUTES = 60  # seconds
 
 sglang_image = (
     modal.Image.from_registry(
-        "lmsysorg/sglang:v0.5.6.post2-cu129-amd64-runtime"
+        "lmsysorg/sglang:v0.5.9-cu130-amd64-runtime"
     ).entrypoint([])  # silence chatty logs on container start
 )
 
@@ -94,7 +94,7 @@ sglang_image = sglang_image.env(
 # As a rule, LLM inference servers like SGLang don't directly provide their own kernels.
 # They draw high-performance kernels from a variety of sources.
 
-# As of version `0.5.6`, SGLang's default kernel backend
+# As of version `0.5.9`, SGLang's default kernel backend
 # for FP8 matrix multiplications (`fp8-gemm-backend`)
 # on Hopper [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
 # GPUs like the H100 is
