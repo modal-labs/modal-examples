@@ -1,287 +1,281 @@
-# # Run Qwen2-VL on SGLang for Visual QA
+# # Run Qwen3.5-VL on SGLang for Visual QA
 
 # Vision-Language Models (VLMs) are like LLMs with eyes:
 # they can generate text based not just on other text,
 # but on images as well.
 
 # This example shows how to run a VLM on Modal using the
-# [SGLang](https://github.com/sgl-project/sglang) library.
-
-# Here's a sample inference, with the image rendered directly (and at low resolution) in the terminal:
-
-# ![Sample output answering a question about a photo of the Statue of Liberty](https://modal-public-assets.s3.amazonaws.com/sgl_vlm_qa_sol.png)
+# [SGLang](https://github.com/sgl-project/sglang) library
+# with an OpenAI-compatible API server.
 
 # ## Setup
 
-# First, we'll import the libraries we need locally
-# and define some constants.
-
-import os
+import asyncio
+import json
+import subprocess
 import time
-import warnings
-from pathlib import Path
-from typing import Optional
-from uuid import uuid4
 
+import aiohttp
 import modal
+import modal.experimental
 
-# VLMs are generally larger than LLMs with the same cognitive capability.
-# LLMs are already hard to run effectively on CPUs, so we'll use a GPU here.
-# We find that inference for a single input takes about 3-4 seconds on an A10G.
+MINUTES = 60
 
-# You can customize the GPU type and count using the `GPU_TYPE` and `GPU_COUNT` environment variables.
-# If you want to see the model really rip, try an `"a100-80gb"` or an `"h100"`
-# on a large batch.
+# ## Configure the container image
 
-GPU_TYPE = os.environ.get("GPU_TYPE", "l40s")
-GPU_COUNT = os.environ.get("GPU_COUNT", 1)
+# We use the official SGLang Docker image with CUDA 12.9.
 
-GPU_CONFIG = f"{GPU_TYPE}:{GPU_COUNT}"
-
-SGL_LOG_LEVEL = "error"  # try "debug" or "info" if you have issues
-
-MINUTES = 60  # seconds
-
-# We use the [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
-# model by Alibaba.
-
-MODEL_PATH = "Qwen/Qwen2-VL-7B-Instruct"
-MODEL_REVISION = "a7a06a1cc11b4514ce9edcde0e3ca1d16e5ff2fc"
-TOKENIZER_PATH = "Qwen/Qwen2-VL-7B-Instruct"
-MODEL_CHAT_TEMPLATE = "qwen2-vl"
-
-# We download it from the Hugging Face Hub using the Python function below.
-# We'll store it in a [Modal Volume](https://modal.com/docs/guide/volumes)
-# so that it's not downloaded every time the container starts.
-
-MODEL_VOL_PATH = Path("/models")
-MODEL_VOL = modal.Volume.from_name("sgl-cache", create_if_missing=True)
-volumes = {MODEL_VOL_PATH: MODEL_VOL}
-
-
-def download_model():
-    from huggingface_hub import snapshot_download
-
-    snapshot_download(
-        MODEL_PATH,
-        local_dir=str(MODEL_VOL_PATH / MODEL_PATH),
-        revision=MODEL_REVISION,
-        ignore_patterns=["*.pt", "*.bin"],
-    )
-
-
-# Modal runs Python functions on containers in the cloud.
-# The environment those functions run in is defined by the container's `Image`.
-# The block of code below defines our example's `Image`.
-cuda_version = "12.8.0"  # should be no greater than host CUDA version
-flavor = "devel"  #  includes full CUDA toolkit
-operating_sys = "ubuntu22.04"
-tag = f"{cuda_version}-{flavor}-{operating_sys}"
-
-vlm_image = (
-    modal.Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
-    .entrypoint([])  # removes chatty prints on entry
-    .apt_install("libnuma-dev")  # Add NUMA library for sgl_kernel
-    .uv_pip_install(  # add sglang and some Python dependencies
-        "transformers==4.54.1",
-        "numpy<2",
-        "fastapi[standard]==0.115.4",
-        "pydantic==2.9.2",
-        "requests==2.32.3",
-        "starlette==0.41.2",
-        "torch==2.7.1",
-        "sglang[all]==0.4.10.post2",
-        "sgl-kernel==0.2.8",
-        "hf-xet==1.1.5",
-        pre=True,
-    )
-    .env(
-        {
-            "HF_HOME": str(MODEL_VOL_PATH),
-            "HF_XET_HIGH_PERFORMANCE": "1",
-        }
-    )
-    .run_function(  # download the model by running a Python function
-        download_model, volumes=volumes
-    )
-    .uv_pip_install(  # add an optional extra that renders images in the terminal
-        "term-image==0.7.1"
-    )
+sglang_image = (
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.9-cu129-amd64-runtime")
+    .entrypoint([])
+    .uv_pip_install("huggingface-hub==0.36.0")
 )
 
-# ## Defining a Visual QA service
+# ## Configure GPU
 
-# Running an inference service on Modal is as easy as writing inference in Python.
+# We use a single H100 GPU. The FP8-quantized Qwen3.5-35B-A3B model
+# fits comfortably in the 80GB H100 memory.
 
-# The code below adds a modal `Cls` to an `App` that runs the VLM.
+GPU = "H100!:1"
+N_GPUS = 1
 
-# We define a method `generate` that takes a URL for an image and a question
-# about the image as inputs and returns the VLM's answer.
+# ## Configure the model
 
-# By decorating it with `@modal.fastapi_endpoint`, we expose it as an HTTP endpoint,
-# so it can be accessed over the public Internet from any client.
+# [Qwen3.5-35B-A3B-FP8](https://huggingface.co/Qwen/Qwen3.5-35B-A3B-FP8)
+# is a vision-language model with 35B total parameters (3B activated)
+# in FP8 format for efficient inference.
 
-app = modal.App("example-sgl-vlm")
+MODEL_NAME = "Qwen/Qwen3.5-35B-A3B-FP8"
+MODEL_REVISION = "0b2752837483aa34b3db6e83e151b150c0e00e49"
+
+# ## Cache model weights
+
+# We cache model weights in a Modal Volume for faster cold starts.
+
+HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+HF_CACHE_PATH = "/root/.cache/huggingface"
+
+DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
+DG_CACHE_PATH = "/root/.cache/deepgemm"
+
+sglang_image = sglang_image.env(
+    {
+        "HF_HUB_CACHE": HF_CACHE_PATH,
+        "HF_XET_HIGH_PERFORMANCE": "1",
+        "SGLANG_ENABLE_JIT_DEEPGEMM": "1",
+    }
+)
+
+
+def compile_deep_gemm():
+    import os
+    import subprocess
+
+    if int(os.environ.get("SGLANG_ENABLE_JIT_DEEPGEMM", "1")):
+        subprocess.run(
+            f"python3 -m sglang.compile_deep_gemm --model-path {MODEL_NAME} --revision {MODEL_REVISION} --tp {N_GPUS}",
+            shell=True,
+            check=True,
+        )
+
+
+sglang_image = sglang_image.run_function(
+    compile_deep_gemm,
+    volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
+    gpu=GPU,
+)
+
+# ## Define the inference server
+
+PORT = 8000
+TARGET_INPUTS = 10
+
+app = modal.App(name="example-sgl-vlm")
+
+
+def wait_ready(process: subprocess.Popen, timeout: int = 10 * MINUTES):
+    import requests
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            check_running(process)
+            requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
+            return
+        except (
+            subprocess.CalledProcessError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError,
+        ):
+            time.sleep(5)
+    raise TimeoutError(f"SGLang server not ready within {timeout} seconds")
+
+
+def check_running(p: subprocess.Popen):
+    if (rc := p.poll()) is not None:
+        raise subprocess.CalledProcessError(rc, cmd=p.args)
+
+
+def warmup():
+    import requests
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+                        },
+                    },
+                    {"type": "text", "text": "What is this?"},
+                ],
+            }
+        ],
+        "max_tokens": 16,
+    }
+    for _ in range(2):
+        requests.post(
+            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=120
+        ).raise_for_status()
+
+
+REGION = "us-east"
 
 
 @app.cls(
-    gpu=GPU_CONFIG,
-    timeout=20 * MINUTES,
-    scaledown_window=20 * MINUTES,
-    image=vlm_image,
-    volumes=volumes,
+    image=sglang_image,
+    gpu=GPU,
+    volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
+    region=REGION,
+    timeout=15 * MINUTES,
 )
-@modal.concurrent(max_inputs=100)
-class Model:
-    @modal.enter()  # what should a container do after it starts but before it gets input?
-    def start_runtime(self):
-        """Starts an SGL runtime to execute inference."""
-        import sglang as sgl
+@modal.experimental.http_server(port=PORT, proxy_regions=[REGION])
+@modal.concurrent(target_inputs=TARGET_INPUTS)
+class VLM:
+    @modal.enter()
+    def startup(self):
+        cmd = [
+            "python",
+            "-m",
+            "sglang.launch_server",
+            "--model-path",
+            MODEL_NAME,
+            "--revision",
+            MODEL_REVISION,
+            "--served-model-name",
+            MODEL_NAME,
+            "--host",
+            "0.0.0.0",
+            "--port",
+            f"{PORT}",
+            "--tp",
+            f"{N_GPUS}",
+            "--cuda-graph-max-bs",
+            f"{TARGET_INPUTS * 2}",
+            "--enable-metrics",
+            "--mem-fraction-static",
+            "0.8",
+            "--context-length",
+            "65536",
+            "--reasoning-parser",
+            "qwen3",
+        ]
 
-        self.runtime = sgl.Runtime(
-            model_path=MODEL_PATH,
-            tokenizer_path=TOKENIZER_PATH,
-            tp_size=GPU_COUNT,  # t_ensor p_arallel size, number of GPUs to split the model over
-            log_level=SGL_LOG_LEVEL,
-        )
-        self.runtime.endpoint.chat_template = sgl.lang.chat_template.get_chat_template(
-            MODEL_CHAT_TEMPLATE
-        )
-        sgl.set_default_backend(self.runtime)
+        self.process = subprocess.Popen(cmd)
+        wait_ready(self.process)
+        warmup()
 
-    @modal.fastapi_endpoint(method="POST", docs=True)
-    def generate(self, request: dict) -> str:
-        from pathlib import Path
-
-        import requests
-        import sglang as sgl
-        from term_image.image import from_file
-
-        start = time.monotonic_ns()
-        request_id = uuid4()
-        print(f"Generating response to request {request_id}")
-
-        image_url = request.get("image_url")
-        if image_url is None:
-            image_url = (
-                "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
-            )
-
-        response = requests.get(image_url)
-        response.raise_for_status()
-
-        image_filename = image_url.split("/")[-1]
-        image_path = Path(f"/tmp/{uuid4()}-{image_filename}")
-        image_path.write_bytes(response.content)
-
-        @sgl.function
-        def image_qa(s, image_path, question):
-            s += sgl.user(sgl.image(str(image_path)) + question)
-            s += sgl.assistant(sgl.gen("answer"))
-
-        question = request.get("question")
-        if question is None:
-            question = "What is this?"
-
-        state = image_qa.run(
-            image_path=image_path, question=question, max_new_tokens=128
-        )
-        # show the question and image in the terminal for demonstration purposes
-        print(Colors.BOLD, Colors.GRAY, "Question: ", question, Colors.END, sep="")
-        terminal_image = from_file(image_path)
-        terminal_image.draw()
-        print(
-            f"request {request_id} completed in {round((time.monotonic_ns() - start) / 1e9, 2)} seconds"
-        )
-
-        return state["answer"]
-
-    @modal.exit()  # what should a container do before it shuts down?
-    def shutdown_runtime(self):
-        self.runtime.shutdown()
+    @modal.exit()
+    def stop(self):
+        self.process.terminate()
 
 
-# ## Asking questions about images via POST
-
-# Now, we can send this Modal Function a POST request with an image and a question
-# and get back an answer.
-
-# The code below will start up the inference service
-# so that it can be run from the terminal as a one-off,
-# like a local script would be, using `modal run`:
-
-# ```bash
-# modal run sgl_vlm.py
-# ```
-
-# By default, we hit the endpoint twice to demonstrate how much faster
-# the inference is once the server is running.
+# ## Test the server
 
 
 @app.local_entrypoint()
-def main(
-    image_url: Optional[str] = None, question: Optional[str] = None, twice: bool = True
-):
-    import json
-    import urllib.request
+async def main():
+    url = (await VLM._experimental_get_flash_urls.aio())[0]
 
-    model = Model()
-
-    payload = json.dumps(
+    messages = [
         {
-            "image_url": image_url,
-            "question": question,
-        },
-    )
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://modal-public-assets.s3.amazonaws.com/golden-gate-bridge.jpg"
+                    },
+                },
+                {"type": "text", "text": "What is this? Describe it briefly."},
+            ],
+        }
+    ]
 
-    req = urllib.request.Request(
-        model.generate.get_web_url(),
-        data=payload.encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    with urllib.request.urlopen(req) as response:
-        assert response.getcode() == 200, response.getcode()
-        print(json.loads(response.read().decode()))
-
-    if twice:
-        # second response is faster, because the Function is already running
-        with urllib.request.urlopen(req) as response:
-            assert response.getcode() == 200, response.getcode()
-            print(json.loads(response.read().decode()))
+    await probe(url, messages, timeout=10 * MINUTES)
 
 
-# ## Deployment
+async def probe(url: str, messages: list, timeout: int = 5 * MINUTES):
+    headers = {"Modal-Session-ID": "test-session"}
+    deadline = time.time() + timeout
 
-# To set this up as a long-running, but serverless, service, we can deploy it to Modal:
-
-# ```bash
-# modal deploy sgl_vlm.py
-# ```
-
-# And then send requests from anywhere. See the [docs](https://modal.com/docs/guide/webhook-urls)
-# for details on the `web_url` of the function, which also appears in the terminal output
-# when running `modal deploy`.
-
-# You can also find interactive documentation for the endpoint at the `/docs` route of the web endpoint URL.
-
-# ## Addenda
-
-# The rest of the code in this example is just utility code.
-
-warnings.filterwarnings(  # filter warning from the terminal image library
-    "ignore",
-    message="It seems this process is not running within a terminal. Hence, some features will behave differently or be disabled.",
-    category=UserWarning,
-)
+    async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
+        while time.time() < deadline:
+            try:
+                await _send_request_streaming(session, messages)
+                return
+            except asyncio.TimeoutError:
+                await asyncio.sleep(1)
+            except aiohttp.client_exceptions.ClientResponseError as e:
+                if e.status == 503:
+                    await asyncio.sleep(1)
+                    continue
+                raise
+    raise TimeoutError(f"No response from server within {timeout} seconds")
 
 
-class Colors:
-    """ANSI color codes"""
+async def _send_request_streaming(
+    session: aiohttp.ClientSession, messages: list, timeout: int | None = None
+) -> None:
+    payload = {
+        "messages": messages,
+        "stream": True,
+        "max_tokens": 256,
+        "extra_body": {"top_k": 20},
+    }
+    headers = {"Accept": "text/event-stream"}
 
-    GREEN = "\033[0;32m"
-    BLUE = "\033[0;34m"
-    GRAY = "\033[0;90m"
-    BOLD = "\033[1m"
-    END = "\033[0m"
+    async with session.post(
+        "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
+    ) as resp:
+        resp.raise_for_status()
+        full_text = ""
+
+        async for raw in resp.content:
+            line = raw.decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
+
+            if not line.startswith("data:"):
+                continue
+
+            data = line[len("data:") :].strip()
+            if data == "[DONE]":
+                break
+
+            try:
+                evt = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+
+            delta = (evt.get("choices") or [{}])[0].get("delta") or {}
+            chunk = delta.get("content")
+
+            if chunk:
+                print(chunk, end="", flush=True)
+                full_text += chunk
+
+        print()
