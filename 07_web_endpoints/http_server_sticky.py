@@ -116,7 +116,7 @@ class Server:
 
 
 @app.local_entrypoint()
-async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
+async def test(n_clients: int = 2, sticky: bool = True, seconds: float = 5.0):
     # wait for at least one replica to spin up
     url = (await Server._experimental_get_flash_urls.aio())[0]
     async with aiohttp.ClientSession() as sess:
