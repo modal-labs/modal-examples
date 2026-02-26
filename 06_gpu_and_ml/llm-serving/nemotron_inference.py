@@ -435,4 +435,3 @@ async def _send_request_streaming(
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
         print()  # newline after stream completes
-        print(full_text)
