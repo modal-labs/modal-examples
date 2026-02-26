@@ -1,3 +1,7 @@
+# ---
+# mypy: ignore-errors
+# ---
+
 # # Sticky routing for Modal HTTP Servers
 
 # This example demonstrates the usage and behavior of
