@@ -42,10 +42,10 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:v0.5.9-cu129-amd64-runtime").entrypoint(
-        []  # silence chatty logs on container start
-    )
+sglang_image = modal.Image.from_registry(
+    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
+).entrypoint(
+    []  # silence chatty logs on container start
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
