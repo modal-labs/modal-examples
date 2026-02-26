@@ -202,15 +202,18 @@ async def client(
 
     async with aiohttp.ClientSession(headers=headers) as sess:
         while time.monotonic() < end:
-            async with sess.post(
-                url, json={}, timeout=aiohttp.ClientTimeout(total=5)
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    seen.add(data["CONTAINER_ID"])
-                    n_ok += 1
-                else:
-                    n_err += 1
+            try:
+                async with sess.post(
+                    url, json={}, timeout=aiohttp.ClientTimeout(total=5)
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        seen.add(data["CONTAINER_ID"])
+                        n_ok += 1
+                    else:
+                        n_err += 1
+            except asyncio.TimeoutError:
+                n_err += 1
 
     return ClientResult(client_id, seen, n_ok, n_err)
 
