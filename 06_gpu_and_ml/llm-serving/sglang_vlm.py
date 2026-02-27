@@ -306,7 +306,7 @@ async def _send_request_streaming(
     payload = {
         "messages": messages,
         "stream": True,
-        "extra_body": {"top_k": 20},
+        "top_k": 20,
     }
     headers = {"Accept": "text/event-stream"}
 
