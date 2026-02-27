@@ -24,6 +24,7 @@
 
 import asyncio
 import json
+import os
 import subprocess
 import time
 
@@ -40,15 +41,19 @@ sglang_image = (
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
-# We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
-# which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
+# Both the [H100](https://modal.com/blog/introducing-h100) (Hopper)
+# and [B200](https://modal.com/blog/introducing-b200) (Blackwell) GPUs
+# offer excellent price-performance
+# and support 8bit floating point operations, which are the
 # lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
 # across a variety of model architectures.
 
-# Below, we discuss the choice of GPU count.
+# Below, we discuss the choice of GPU count. By default, we use 2 H100 GPUs.
+# Set the `GPU_TYPE` and `N_GPUS` environment variables at deploy time to customize,
+# e.g. `GPU_TYPE=B200 N_GPUS=8 modal deploy sglang_low_latency.py` for Blackwell.
 
-GPU_TYPE, N_GPUS = "H100!", 2
+GPU_TYPE = os.environ.get("GPU_TYPE", "H100!")
+N_GPUS = int(os.environ.get("N_GPUS", "2" if "H100" in GPU_TYPE else "8"))
 GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
@@ -70,12 +75,16 @@ MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
 
-# We don't want to load the model from the Hub every time we start the server.
-# We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
-# Typical speeds are around one to two GB/s.
+# We don't want to fetch and compile from scratch on every run.
+# We mount one persistent cache volume at `/cache` so model weights,
+# kernel artifacts, and runtime caches all survive across `modal run`s.
 
-HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
-HF_CACHE_PATH = "/root/.cache/huggingface"
+CACHE_VOL = modal.Volume.from_name(
+    "sglang-low-latency-cache", create_if_missing=True
+)
+CACHE_MOUNT_PATH = "/cache"
+CACHE_ROOT_PATH = CACHE_MOUNT_PATH
+HF_CACHE_PATH = f"{CACHE_ROOT_PATH}/huggingface"
 MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 
 # In addition to pointing the Hugging Face Hub at the path
@@ -83,9 +92,7 @@ MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 # [turn on "high performance" downloads](https://huggingface.co/docs/hub/en/models-downloading#faster-downloads),
 # which can fully saturate our network bandwidth.
 
-sglang_image = sglang_image.env(
-    {"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"}
-)
+sglang_image = sglang_image.env({"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"})
 
 # ### Cacheing compilation artifacts
 
@@ -96,8 +103,8 @@ sglang_image = sglang_image.env(
 
 # As of version `0.5.9`, SGLang's default kernel backend
 # for FP8 matrix multiplications (`fp8-gemm-backend`)
-# on Hopper [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
-# GPUs like the H100 is
+# on Hopper and Blackwell [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
+# GPUs like the H100 and B200 is
 # [DeepGEMM](https://github.com/deepseek-ai/DeepGEMM)
 # by DeepSeek.
 
@@ -105,24 +112,61 @@ sglang_image = sglang_image.env(
 # must be [JIT-compiled](https://modal.com/gpu-glossary/host-software/nvrtc).
 # We store these in a Modal Volume as well.
 
-DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
-DG_CACHE_PATH = "/root/.cache/deepgemm"
+DG_CACHE_PATH = f"{CACHE_ROOT_PATH}/deep_gemm"
+SGLANG_CACHE_PATH = f"{CACHE_ROOT_PATH}/sglang"
+TRITON_CACHE_PATH = f"{CACHE_ROOT_PATH}/triton"
+OUTLINES_CACHE_PATH = f"{CACHE_ROOT_PATH}/outlines"
+MODELSCOPE_CACHE_PATH = f"{CACHE_ROOT_PATH}/modelscope"
+FLASHINFER_CUBIN_PATH = f"{CACHE_ROOT_PATH}/.cache/flashinfer/cubins"
+TORCHINDUCTOR_CACHE_PATH = f"{SGLANG_CACHE_PATH}/torchinductor"
+HICACHE_FILE_PATH = f"{SGLANG_CACHE_PATH}/hicache_file"
+HICACHE_NIXL_PATH = f"{SGLANG_CACHE_PATH}/hicache_nixl"
+
+CACHE_VOLUMES = {CACHE_ROOT_PATH: CACHE_VOL}
 
 # JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
 
-sglang_image = sglang_image.env({"SGLANG_ENABLE_JIT_DEEPGEMM": "1"})
+sglang_image = sglang_image.env(
+    {
+        "SGLANG_ENABLE_JIT_DEEPGEMM": "1",
+        "SGLANG_DG_CACHE_DIR": DG_CACHE_PATH,
+        "SGLANG_CACHE_DIR": SGLANG_CACHE_PATH,
+        "SGLANG_CACHE_ROOT": SGLANG_CACHE_PATH,
+        "SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR": HICACHE_FILE_PATH,
+        "SGLANG_HICACHE_NIXL_BACKEND_STORAGE_DIR": HICACHE_NIXL_PATH,
+        "XDG_CACHE_HOME": CACHE_ROOT_PATH,
+        "HF_HOME": HF_CACHE_PATH,
+        "HUGGINGFACE_HUB_CACHE": HF_CACHE_PATH,
+        "TRANSFORMERS_CACHE": HF_CACHE_PATH,
+        "TORCHINDUCTOR_CACHE_DIR": TORCHINDUCTOR_CACHE_PATH,
+        "FLASHINFER_WORKSPACE_BASE": CACHE_ROOT_PATH,
+        "FLASHINFER_CUBIN_DIR": FLASHINFER_CUBIN_PATH,
+        "TRITON_HOME": CACHE_ROOT_PATH,
+        "TRITON_CACHE_DIR": f"{TRITON_CACHE_PATH}/cache",
+        "OUTLINES_CACHE_DIR": OUTLINES_CACHE_PATH,
+        "MODELSCOPE_CACHE": MODELSCOPE_CACHE_PATH,
+    }
+)
 
 # We trigger the compilation by running `sglang.compile_deep_gemm` in a `subprocess`
 # kicked off from a Python function.
 
 
 def compile_deep_gemm():
-    import os
-
     if int(os.environ.get("SGLANG_ENABLE_JIT_DEEPGEMM", "1")):
         subprocess.run(
-            f"python3 -m sglang.compile_deep_gemm --model-path {MODEL_NAME} --revision {MODEL_REVISION} --tp {N_GPUS}",
-            shell=True,
+            [
+                "python3",
+                "-m",
+                "sglang.compile_deep_gemm",
+                "--model-path",
+                MODEL_NAME,
+                "--revision",
+                MODEL_REVISION,
+                "--tp",
+                str(N_GPUS),
+            ],
+            check=True,
         )
 
 
@@ -131,7 +175,7 @@ def compile_deep_gemm():
 
 sglang_image = sglang_image.run_function(
     compile_deep_gemm,
-    volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
+    volumes=CACHE_VOLUMES,
     gpu=GPU,
 )
 
@@ -165,7 +209,7 @@ sglang_image = sglang_image.run_function(
 
 # ### Increasing effective memory bandwidth with tensor parallelism
 
-# Running SGLang on two H100s will double our effective
+# Running SGLang on multiple GPUs multiplies our effective
 # [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # during large matrix multiplications.
 
@@ -174,6 +218,7 @@ sglang_image = sglang_image.run_function(
 
 # Actual speedups are generally less than what you get from "napkin math" based on available bandwidths --
 # we observed a speedup of about 30% moving from one to two H100s when developing this example, rather than 100%.
+# B200s have higher per-GPU memory bandwidth and more GPU RAM, so we can use more GPUs for maximum parallelism.
 
 # ### Parallelizing token generation with speculative decoding
 
@@ -356,7 +401,7 @@ PORT = 8000
 @app.cls(
     image=sglang_image,
     gpu=GPU,
-    volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
+    volumes=CACHE_VOLUMES,
     region=REGION,
     min_containers=MIN_CONTAINERS,
 )
@@ -452,8 +497,39 @@ class SGLang:
 # block of a Python script, but for cloud deployments!
 
 
+def _coerce_timeout_seconds(value, *, name: str) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be numeric seconds, got {value!r}") from exc
+
+    raise TypeError(f"{name} must be numeric seconds, got {type(value).__name__}")
+
+
+def _coerce_bool(value, *, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "t", "yes", "y"}:
+            return True
+        if normalized in {"0", "false", "f", "no", "n"}:
+            return False
+    raise ValueError(f"{name} must be a boolean, got {value!r}")
+
+
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
+async def test(
+    test_timeout: float = 10 * MINUTES,
+    prompt: str | None = None,
+    twice="true",
+):
+    test_timeout = _coerce_timeout_seconds(test_timeout, name="test_timeout")
+    twice = _coerce_bool(twice, name="twice")
     url = (await SGLang._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
@@ -506,6 +582,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
+    timeout = _coerce_timeout_seconds(timeout, name="timeout")
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
