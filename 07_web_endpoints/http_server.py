@@ -39,7 +39,7 @@ import modal.experimental
 # Finally, add one more decorator, `app.cls`, with the rest of your resource definitions,
 # like [distributed Volume storage](https://modal.com/docs/guide/volumes)
 # [CPU/memory resources](https://modal.com/docs/guide/resources),
-# and [GPU type and count](https://modal.com/docs/guide/gpus).
+# and [GPU type and count](https://modal.com/docs/guide/gpu).
 # To reduce end-to-end latency, include a [Region](https://modal.com/docs/guide/region-selection)
 # in this decorator that matches the proxy region and containers will be deployed into that Region.
 # Note that region-pinning has cost and resource availability implications!
