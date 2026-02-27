@@ -350,8 +350,6 @@ async def _send_request_streaming(
         print()
         return full_text
 
-        print()
-        return full_text
 
 
 # You can kick off a test run with the command
