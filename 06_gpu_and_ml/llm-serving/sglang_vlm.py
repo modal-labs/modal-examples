@@ -342,6 +342,8 @@ async def _send_request_streaming(
 
             if chunk and ("." in chunk or "\n" in chunk):
                 print(chunk, end="", flush=True)
+                full_text += chunk
+                chunk = ""
         if chunk:
             print(chunk, end="", flush=True)
             full_text += chunk
