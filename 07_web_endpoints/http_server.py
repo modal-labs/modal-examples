@@ -106,4 +106,4 @@ def ping():
 # and once a container is ready, the 503s will stop and clients will receive the server's responses.
 
 # Modal HTTP Servers also support "sticky routing" for improved cache locality within client sessions.
-# For details, see [this example](https://modal.com/docs/examples/http_server).
+# For details, see [this example](https://modal.com/docs/examples/http_server_sticky).
