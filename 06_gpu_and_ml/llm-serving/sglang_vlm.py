@@ -344,12 +344,13 @@ async def _send_request_streaming(
                 print(chunk, end="", flush=True)
                 full_text += chunk
                 chunk = ""
+
         if chunk:
             print(chunk, end="", flush=True)
             full_text += chunk
+
         print()
         return full_text
-
 
 
 # You can kick off a test run with the command
