@@ -227,29 +227,32 @@ def check_running(p: subprocess.Popen):
 # substantially slower.
 
 SAMPLE_PAYLOAD = {
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "https://modal-cdn.com/golden-gate-bridge.jpg"
-                        },
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://modal-cdn.com/golden-gate-bridge.jpg"
                     },
-                    {"type": "text", "text": "What is this?"},
-                ],
-            }
-        ],
-        "max_tokens": 16,
+                },
+                {"type": "text", "text": "What is this?"},
+            ],
+        }
+    ],
+    "max_tokens": 16,
 }
 
 
 def warmup():
     import requests
+
     for _ in range(2):
         requests.post(
-            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=SAMPLE_PAYLOAD, timeout=120
+            f"http://127.0.0.1:{PORT}/v1/chat/completions",
+            json=SAMPLE_PAYLOAD,
+            timeout=120,
         ).raise_for_status()
 
 
