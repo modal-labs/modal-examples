@@ -110,7 +110,13 @@ from pathlib import Path
 
 import modal
 
-from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcSignalingServer
+# Handle imports for both module execution (-m) and standalone parsing
+try:
+    # Try relative imports first (works when run as module with -m)
+    from .modal_webrtc import ModalWebRtcPeer, ModalWebRtcSignalingServer
+except ImportError:
+    # Fall back to absolute imports (works when Modal CLI parses standalone)
+    from modal_webrtc import ModalWebRtcPeer, ModalWebRtcSignalingServer
 
 py_version = "3.12"
 tensorrt_ld_path = f"/usr/local/lib/python{py_version}/site-packages/tensorrt_libs"
@@ -194,11 +200,17 @@ app = modal.App("example-webrtc-yolo")
 # See the [region selection](https://modal.com/docs/guide/region-selection) guide for more information.
 
 
+# TURN credentials are optional - you can use free STUN servers without them
+# To use TURN servers, create a Modal Secret called "turn-credentials" with TURN_USERNAME and TURN_CREDENTIAL
+# For now, we'll use an empty secrets list - TURN servers will be skipped if credentials aren't available
+# You can add the secret later: modal secret create turn-credentials TURN_USERNAME=... TURN_CREDENTIAL=...
+
+
 @app.cls(
     image=video_processing_image,
     gpu="A100-40GB",
     volumes=cache,
-    secrets=[modal.Secret.from_name("turn-credentials")],
+    # secrets=[modal.Secret.from_name("turn-credentials")],  # Uncomment when you create the secret
     region="us-east",  # set to your region
 )
 @modal.concurrent(
@@ -240,19 +252,28 @@ class ObjDet(ModalWebRtcPeer):
                 )
 
     async def get_turn_servers(self, peer_id=None, msg=None) -> dict:
-        creds = {
-            "username": os.environ["TURN_USERNAME"],
-            "credential": os.environ["TURN_CREDENTIAL"],
-        }
-
+        # STUN servers are free and work for most networks
         turn_servers = [
-            {"urls": "stun:stun.relay.metered.ca:80"},  # STUN is free, no creds neeeded
-            # for TURN, sign up for the free service here: https://www.metered.ca/tools/openrelay/
-            {"urls": "turn:standard.relay.metered.ca:80"} | creds,
-            {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
-            {"urls": "turn:standard.relay.metered.ca:443"} | creds,
-            {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"} | creds,
+            {"urls": "stun:stun.relay.metered.ca:80"},
+            {"urls": "stun:stun.l.google.com:19302"},  # Google's free STUN server
         ]
+
+        # Add TURN servers if credentials are available
+        if "TURN_USERNAME" in os.environ and "TURN_CREDENTIAL" in os.environ:
+            creds = {
+                "username": os.environ["TURN_USERNAME"],
+                "credential": os.environ["TURN_CREDENTIAL"],
+            }
+            # for TURN, sign up for the free service here: https://www.metered.ca/tools/openrelay/
+            turn_servers.extend(
+                [
+                    {"urls": "turn:standard.relay.metered.ca:80"} | creds,
+                    {"urls": "turn:standard.relay.metered.ca:80?transport=tcp"} | creds,
+                    {"urls": "turn:standard.relay.metered.ca:443"} | creds,
+                    {"urls": "turns:standard.relay.metered.ca:443?transport=tcp"}
+                    | creds,
+                ]
+            )
 
         return {"type": "turn_servers", "ice_servers": turn_servers}
 
@@ -313,7 +334,11 @@ class WebcamObjDet(ModalWebRtcSignalingServer):
 def get_yolo_model(cache_path):
     import onnxruntime
 
-    from .yolo import YOLOv10
+    # Handle imports for both module execution (-m) and standalone parsing
+    try:
+        from .yolo import YOLOv10
+    except ImportError:
+        from yolo import YOLOv10
 
     onnxruntime.preload_dlls()
     return YOLOv10(cache_path)
@@ -330,7 +355,11 @@ def get_yolo_track(track, yolo_model=None):
     from aiortc import MediaStreamTrack
     from aiortc.contrib.media import VideoFrame
 
-    from .yolo import YOLOv10
+    # Handle imports for both module execution (-m) and standalone parsing
+    try:
+        from .yolo import YOLOv10
+    except ImportError:
+        from yolo import YOLOv10
 
     class YOLOTrack(MediaStreamTrack):
         """
