@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# cmd: ["modal", "run", "06_gpu_and_ml/comfyui/comfyapp.py"]
 # ---
 
 # # Run Flux on ComfyUI as an API
@@ -248,16 +247,6 @@ class ComfyUI:
 
 # ![comfyui menu](https://modal-cdn.com/cdnbot/comfyui_menugo5j8ahx_27d72c45.webp)
 
-# ## More resources
-# - Use [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to speed up cold starts (check out the `memory_snapshot` directory on [Github](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/comfyui))
-# - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
-
-# - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
-
-# - Understand tradeoffs of parallel processing strategies when
-# [scaling ComfyUI](https://modal.com/blog/scaling-comfyui)
-
-
 # ## Testing the API
 
 # To test the API setup, we include a `local_entrypoint` that healthchecks the server
@@ -266,7 +255,7 @@ class ComfyUI:
 # If you execute the command
 
 # ```bash
-# modal run comfyapp.py
+# modal run 06_gpu_and_ml/comfyui/comfyapp.py
 # ```
 
 # a fresh replica of the ComfyUI server will be spun up on Modal while
