@@ -108,8 +108,22 @@ def main(lookback: int = 5, wait_for_results: bool = True):
 # For both extraction and transformation, we use
 # [`.map`](https://modal.com/docs/guide/scale),
 # which fans out inputs over containers in parallel.
-# Each invocation handles one day's worth of data --
-# the same granularity offered by the data source.
+# Each invocation handles at most 1,500 rows,
+# which leads to runtimes of about five minutes per call
+# By parallelizing the calls, we finish processing everything in about five minutes.
+
+# "Rechunking" our data from a list of filings by day
+# into a list of filings of fixed size requires a little
+# helper function:
+
+
+def rechunk(lists, size: int = 1_500):
+    from itertools import chain, islice
+
+    it = iter(chain.from_iterable(lists))
+    while chunk := list(islice(it, size)):
+        yield chunk
+
 
 # For the LLM call, we use
 # [`.spawn`](https://modal.com/docs/guide/job-queue),
@@ -143,9 +157,10 @@ def orchestrate(lookback: int) -> list[modal.FunctionCall]:
     print("Transforming raw SEC filings for these dates:", *folders)
     filing_batches = list(transform.map(folders))
     n_filings = sum(map(len, filing_batches))
+    submission_batches_gen = rechunk(filing_batches)
 
     print(f"Submitting {n_filings} SEC filings to LLM for summarization")
-    jobs = list(llm.process.spawn(batch) for batch in filing_batches)
+    jobs = list(llm.process.spawn(batch) for batch in submission_batches_gen)
     if jobs:
         print("FunctionCall IDs:", *[job.object_id for job in jobs], sep="\n\t")
 
