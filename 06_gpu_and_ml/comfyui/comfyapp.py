@@ -1,6 +1,5 @@
 # ---
 # deploy: true
-# cmd: ["modal", "serve", "06_gpu_and_ml/comfyui/comfyapp.py"]
 # ---
 
 # # Run Flux on ComfyUI as an API
@@ -39,6 +38,11 @@ from typing import Dict
 
 import modal
 import modal.experimental
+
+try:
+    import aiohttp
+except ImportError:
+    aiohttp = None
 
 image = (  # build up a Modal Image to run ComfyUI, step by step
     modal.Image.debian_slim(  # start from basic Linux with Python
@@ -103,7 +107,7 @@ vol = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 
 image = (
     # install huggingface_hub with hf_xet support to speed up downloads
-    image.uv_pip_install("huggingface-hub==1.4.1")
+    image.uv_pip_install("huggingface-hub==0.36.0")
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})
     .run_function(
         hf_download,
@@ -243,11 +247,48 @@ class ComfyUI:
 
 # ![comfyui menu](https://modal-cdn.com/cdnbot/comfyui_menugo5j8ahx_27d72c45.webp)
 
-# ## More resources
-# - Use [memory snapshots](https://modal.com/docs/guide/memory-snapshot) to speed up cold starts (check out the `memory_snapshot` directory on [Github](https://github.com/modal-labs/modal-examples/tree/main/06_gpu_and_ml/comfyui))
-# - Run a ComfyUI workflow as a [Python script](https://modal.com/blog/comfyui-prototype-to-production)
+# ## Testing the API
 
-# - When to use [A1111 vs ComfyUI](https://modal.com/blog/a1111-vs-comfyui)
+# To test the API setup, we include a `local_entrypoint` that healthchecks the server
+# and then hits it with a test prompt.
 
-# - Understand tradeoffs of parallel processing strategies when
-# [scaling ComfyUI](https://modal.com/blog/scaling-comfyui)
+# If you execute the command
+
+# ```bash
+# modal run 06_gpu_and_ml/comfyui/comfyapp.py
+# ```
+
+# a fresh replica of the ComfyUI server will be spun up on Modal while
+# the code below executes on your local machine.
+
+
+@app.local_entrypoint()
+async def test():
+    import time
+
+    url = await ComfyUI().api.get_web_url.aio()
+    prompt = "Spider-Man visits Yosemite, rendered by Blender, trending on artstation"
+
+    async with aiohttp.ClientSession(base_url=url) as session:
+        print(f"Sending request to {url} with prompt: {prompt}")
+        start_time = time.time()
+        data = json.dumps({"prompt": prompt}).encode("utf-8")
+        async with session.post(
+            "/",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        ) as resp:
+            resp.raise_for_status()
+            img_bytes = await resp.read()
+            elapsed = round(time.time() - start_time, 1)
+            print(f"Image finished generating in {elapsed} seconds!")
+
+            output_dir = Path("/tmp/comfyui")
+            output_dir.mkdir(exist_ok=True, parents=True)
+            filename = output_dir / f"{slugify(prompt)}.png"
+            filename.write_bytes(img_bytes)
+            print(f"Saved to '{filename}'")
+
+
+def slugify(s: str) -> str:
+    return s.lower().replace(" ", "-").replace(".", "-").replace("/", "-")[:32]
