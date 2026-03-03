@@ -84,7 +84,7 @@ app = modal.App("example-vllm-throughput")
 
 
 @app.local_entrypoint()
-def main(lookback: int = 7, wait_for_results: bool = True):
+def main(lookback: int = 5, wait_for_results: bool = True):
     jobs = orchestrate.remote(lookback=lookback)  # trigger remote job orchestration
 
     if wait_for_results:
@@ -282,6 +282,7 @@ vllm_throughput_kwargs = {
 @app.cls(
     image=vllm_image,
     gpu=GPU,
+    timeout=10 * MINUTES,
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
