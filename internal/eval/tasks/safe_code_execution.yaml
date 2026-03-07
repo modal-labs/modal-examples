@@ -1,0 +1,93 @@
+id: safe_code_execution
+title: Multi-Language Code Execution in Sandboxes
+description: |
+  Write a Python program using a cloud compute platform that runs arbitrary
+  code in multiple programming languages inside an isolated sandbox environment.
+
+  Requirements:
+  1. Create a custom container image with Node.js, Ruby, and PHP installed
+     alongside the default Python
+  2. Look up or create a named application for the sandbox
+  3. Create a sandbox with the custom image that stays alive waiting for commands
+  4. Execute commands in 5 different languages inside the sandbox:
+     a. Bash: echo "hello from bash"
+     b. Python: print "hello from python"
+     c. Node.js: console.log "hello from nodejs"
+     d. Ruby: puts "hello from ruby"
+     e. PHP: echo "hello from php"
+  5. Print the stdout from each language execution
+  6. Demonstrate piping between languages: use Python to generate 10 random
+     numbers (1-100) and pipe them to Node.js to compute and print their sum
+  7. Demonstrate streaming output: run a Ruby script that prints 10 lines
+     with timestamps, flushing after each line with 0.5s delay, and stream
+     the output line by line
+  8. Show that sandboxes are isolated by running a destructive command
+     (rm -rf / --no-preserve-root)
+  9. Terminate the sandbox to clean up
+category: sandboxes
+difficulty: medium
+source_file: 13_sandboxes/safe_code_execution.py
+reference_code: |
+  import modal
+
+  image = modal.Image.debian_slim(python_version="3.11").apt_install(
+      "nodejs", "ruby", "php"
+  )
+  app = modal.App.lookup("example-safe-code-execution", create_if_missing=True)
+
+  with modal.enable_output():
+      sandbox = modal.Sandbox.create(app=app, image=image)
+
+  print(f"Sandbox ID: {sandbox.object_id}")
+
+  bash_ps = sandbox.exec("echo", "hello from bash")
+  python_ps = sandbox.exec("python", "-c", "print('hello from python')")
+  nodejs_ps = sandbox.exec("node", "-e", 'console.log("hello from nodejs")')
+  ruby_ps = sandbox.exec("ruby", "-e", "puts 'hello from ruby'")
+  php_ps = sandbox.exec("php", "-r", "echo 'hello from php';")
+
+  print(bash_ps.stdout.read(), end="")
+  print(python_ps.stdout.read(), end="")
+  print(nodejs_ps.stdout.read(), end="")
+  print(ruby_ps.stdout.read(), end="")
+  print(php_ps.stdout.read(), end="")
+  print()
+
+  combined_process = sandbox.exec(
+      "bash",
+      "-c",
+      """python -c 'import random; print(" ".join(str(random.randint(1, 100)) for _ in range(10)))' |
+      node -e 'const readline = require("readline");
+      const rl = readline.createInterface({input: process.stdin});
+      rl.on("line", (line) => {
+        const sum = line.split(" ").map(Number).reduce((a, b) => a + b, 0);
+        console.log(`The sum of the random numbers is: ${sum}`);
+        rl.close();
+      });'""",
+  )
+
+  result = combined_process.stdout.read().strip()
+  print(result)
+
+  slow_printer = sandbox.exec(
+      "ruby",
+      "-e",
+      """
+      10.times do |i|
+        puts "Line #{i + 1}: #{Time.now}"
+        STDOUT.flush
+        sleep(0.5)
+      end
+      """,
+  )
+
+  for line in slow_printer.stdout:
+      print(line, end="")
+
+  sandbox.exec("rm", "-rfv", "/", "--no-preserve-root")
+
+  sandbox.terminate()
+tags:
+- sandboxes
+- multi_language
+- isolation

@@ -1,0 +1,57 @@
+id: cls_with_options
+title: Override Resource Configuration at Runtime
+description: |
+  Write a Python program using a cloud compute platform that demonstrates
+  overriding resource configuration (GPU, memory) of a serverless class
+  at runtime.
+
+  Requirements:
+  1. Define a class `Worker` with default resource settings of 1 CPU,
+     128 MB memory, and 60 second timeout
+  2. The class has a method `compute` that:
+     a. Takes an integer n
+     b. Tries to run nvidia-smi (to show GPU availability)
+     c. Returns the sum of i*i for i in range(n)
+  3. The class should be deployable to cloud infrastructure
+  4. Create a local entrypoint that:
+     a. Creates a default worker instance and calls compute remotely
+        with n=1000, printing the result
+     b. Creates a GPU-accelerated variant of the same class with a T4 GPU
+        and 512 MB memory using a runtime configuration override
+     c. Calls compute remotely on the GPU variant with n=10_000_000,
+        printing the result
+category: scaling
+difficulty: medium
+source_file: 03_scaling_out/cls_with_options.py
+reference_code: |
+  import modal
+
+  app = modal.App("example-cls-with-options")
+
+
+  @app.cls(cpu=1, memory=128, timeout=60)
+  class Worker:
+      @modal.method()
+      def compute(self, n: int) -> int:
+          import subprocess
+
+          subprocess.Popen("nvidia-smi", shell=True)
+
+          return sum(i * i for i in range(n))
+
+
+  @app.local_entrypoint()
+  def main():
+      default_worker = Worker()
+      result = default_worker.compute.remote(1_000)
+      print(f"Default worker result: {result}")
+
+      GpuWorker = Worker.with_options(gpu="T4", memory=512)
+      gpu_worker = GpuWorker()
+      result = gpu_worker.compute.remote(10_000_000)
+      print(f"GPU worker result:     {result}")
+tags:
+- cls
+- gpu
+- resources
+- with_options
