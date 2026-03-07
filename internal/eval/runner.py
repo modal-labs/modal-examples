@@ -1,7 +1,11 @@
 """Main eval runner - Modal app for A/B testing documentation variants.
 
+Runs coding agents (Claude Code CLI or Codex CLI) inside Modal Sandboxes
+with documentation mounted as files. The agents generate code based only
+on the provided docs, which is then evaluated for correctness.
+
 Usage:
-    # Run eval with current llms.txt
+    # Run eval with current llms.txt using Claude Code
     modal run internal/eval/runner.py
 
     # Run with specific docs variant and agent
@@ -17,6 +21,9 @@ Usage:
 
     # Skip LLM judge (faster, pattern-only scoring)
     modal run internal/eval/runner.py --no-judge
+
+    # Use Codex CLI agent
+    modal run internal/eval/runner.py --agent codex
 """
 
 import json
@@ -25,7 +32,7 @@ from pathlib import Path
 
 import modal
 
-from .agents import AgentConfig, generate_code
+from .agents import AgentConfig, run_agent_in_sandbox
 from .evaluator import evaluate_code
 from .tasks import (
     EvalResult,
@@ -37,6 +44,7 @@ from .tasks import (
 
 app = modal.App("docs-eval-runner")
 
+# Image for the evaluator (judge) - needs LLM API access for scoring
 eval_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "anthropic",
     "openai",
@@ -52,7 +60,7 @@ LLMS_TXT_URL = "https://modal.com/llms.txt"
         modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]),
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
     ],
-    timeout=300,
+    timeout=600,
 )
 def run_single_task(
     task_dict: dict,
@@ -62,17 +70,17 @@ def run_single_task(
     use_judge: bool,
     judge_agent: str,
 ) -> dict:
-    """Run a single eval task and return results."""
+    """Run a single eval task: spawn a coding agent in a sandbox, then evaluate."""
     task = EvalTask.from_dict(task_dict)
     config = AgentConfig(agent_type=agent_type, model=model)
 
-    start_time = time.time()
-
+    # Run the coding agent inside a Modal Sandbox
     try:
-        generated_code = generate_code(
+        generated_code, generation_time = run_agent_in_sandbox(
             task_description=task.description,
             docs_content=docs_content,
             config=config,
+            app=app,
         )
     except Exception as e:
         return EvalResult(
@@ -83,20 +91,18 @@ def run_single_task(
             generated_code="",
             scores={},
             overall_score=0.0,
-            error=f"Generation failed: {e}",
+            error=f"Agent failed: {e}",
         ).to_dict()
 
-    generation_time = time.time() - start_time
-
     # Evaluate the generated code
+    eval_start = time.time()
     eval_scores = evaluate_code(
         generated_code=generated_code,
         reference_code=task.reference_code,
         use_judge=use_judge,
         judge_agent=judge_agent,
     )
-
-    eval_time = time.time() - start_time - generation_time
+    eval_time = time.time() - eval_start
 
     scores = eval_scores.to_dict()
     scores["generation_time_s"] = round(generation_time, 2)
@@ -146,7 +152,13 @@ def print_report(
                     f" Quality:{j['code_quality']}/5"
                 )
 
-            print(f"  {task_id:30s} [{status}] score={score:.2f}{judge_info}")
+            error_info = ""
+            if r.get("error"):
+                error_info = f" ERROR: {r['error']}"
+
+            print(
+                f"  {task_id:30s} [{status}] score={score:.2f}{judge_info}{error_info}"
+            )
 
         avg_score = total_score / n if n > 0 else 0
         print(f"\n  Summary: {syntax_pass}/{n} syntax valid, avg score={avg_score:.3f}")
@@ -209,7 +221,7 @@ def main(
     """Run the docs eval framework.
 
     Args:
-        agent: Agent to use for code generation ("claude" or "codex")
+        agent: Coding agent CLI to use ("claude" or "codex")
         model: Model override (uses agent default if not set)
         docs_variant: Docs variant name(s) from internal/eval/docs/
         docs_url: URL to fetch docs from (default: modal llms.txt)
@@ -255,7 +267,7 @@ def main(
     for variant_name, docs_content in variants_to_test.items():
         print(f"\nRunning eval with docs variant: {variant_name}")
 
-        # Launch all tasks in parallel using .map
+        # Launch all tasks in parallel using starmap
         task_dicts = [t.to_dict() for t in tasks]
 
         results = list(
