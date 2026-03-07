@@ -146,7 +146,7 @@ def print_report(
                     f" Quality:{j['code_quality']}/5"
                 )
 
-            print(f"  {task_id:30s} [{status}] " f"score={score:.2f}{judge_info}")
+            print(f"  {task_id:30s} [{status}] score={score:.2f}{judge_info}")
 
         avg_score = total_score / n if n > 0 else 0
         print(f"\n  Summary: {syntax_pass}/{n} syntax valid, avg score={avg_score:.3f}")
