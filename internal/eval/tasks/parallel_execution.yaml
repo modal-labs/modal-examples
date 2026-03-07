@@ -1,0 +1,66 @@
+id: parallel_execution
+title: Parallel Execution with Spawn and Gather
+description: |
+  Write a Python program using a cloud compute platform that demonstrates
+  running multiple functions in parallel using spawn/gather patterns.
+
+  Requirements:
+  1. Define a function `step1` that takes a word string, sleeps for 2 seconds,
+     prints "step1 done", and returns the word
+  2. Define a function `step2` that takes a number, sleeps for 1 second,
+     prints "step2 done", raises ValueError("custom error") if number is 0,
+     and otherwise returns the number
+  3. Both functions should run on cloud infrastructure
+  4. Create a local entrypoint that demonstrates three patterns:
+     a. Spawn both functions independently (step1 with "foo", step2 with 2),
+        then retrieve and multiply their results (should print "foofoo")
+     b. Use a gather/collect mechanism to run step1("bar") and step2(4)
+        in parallel and assert the results equal ["bar", 4]
+     c. Demonstrate error handling: gather step1("bar") and step2(0),
+        catching the ValueError with message "custom error"
+category: advanced
+difficulty: medium
+source_file: 08_advanced/parallel_execution.py
+reference_code: |
+  import time
+
+  import modal
+
+  app = modal.App("example-parallel-execution")
+
+
+  @app.function()
+  def step1(word):
+      time.sleep(2)
+      print("step1 done")
+      return word
+
+
+  @app.function()
+  def step2(number):
+      time.sleep(1)
+      print("step2 done")
+      if number == 0:
+          raise ValueError("custom error")
+      return number
+
+
+  @app.local_entrypoint()
+  def main():
+      word_call = step1.spawn("foo")
+      number_call = step2.spawn(2)
+
+      print(word_call.get() * number_call.get())
+
+      results = modal.FunctionCall.gather(step1.spawn("bar"), step2.spawn(4))
+      assert results == ["bar", 4]
+
+      try:
+          modal.FunctionCall.gather(step1.spawn("bar"), step2.spawn(0))
+      except ValueError as exc:
+          assert str(exc) == "custom error"
+tags:
+- parallel
+- spawn
+- gather
+- error_handling

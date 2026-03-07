@@ -1,0 +1,78 @@
+id: basic_web
+title: Serverless Web Endpoints
+description: |
+  Write a Python program using a cloud compute platform that exposes
+  several HTTP web endpoints as serverless functions.
+
+  Requirements:
+  1. Create a custom container image with fastapi[standard] installed
+  2. Define a GET endpoint `hello` that returns the string "Hello world!"
+     with interactive API docs enabled
+  3. Define a GET endpoint `greet` that takes a `user` string query parameter
+     and returns "Hello {user}!" with interactive docs enabled
+  4. Define a POST endpoint `goodbye` that accepts a JSON body (dict) with
+     a "name" key and returns "Goodbye {name}!" (defaulting to "world" if
+     no name provided), with interactive docs enabled
+  5. Define a class-based endpoint `WebApp` with:
+     a. A startup lifecycle method that records the start time
+     b. A GET endpoint `web` that returns both start_time and current_time
+  6. Define a GPU-accelerated GET endpoint `expensive_secret` that:
+     a. Returns a secret string message
+     b. Is protected with proxy authentication so only workspace members can access it
+category: web_endpoints
+difficulty: medium
+source_file: 07_web_endpoints/basic_web.py
+reference_code: |
+  import modal
+
+  image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]")
+  app = modal.App(name="example-basic-web", image=image)
+
+
+  @app.function()
+  @modal.fastapi_endpoint(
+      docs=True
+  )
+  def hello():
+      return "Hello world!"
+
+
+  @app.function()
+  @modal.fastapi_endpoint(docs=True)
+  def greet(user: str) -> str:
+      return f"Hello {user}!"
+
+
+  @app.function()
+  @modal.fastapi_endpoint(method="POST", docs=True)
+  def goodbye(data: dict) -> str:
+      name = data.get("name") or "world"
+      return f"Goodbye {name}!"
+
+
+  @app.cls()
+  class WebApp:
+      @modal.enter()
+      def startup(self):
+          from datetime import datetime, timezone
+
+          print("Starting up!")
+          self.start_time = datetime.now(timezone.utc)
+
+      @modal.fastapi_endpoint(docs=True)
+      def web(self):
+          from datetime import datetime, timezone
+
+          current_time = datetime.now(timezone.utc)
+          return {"start_time": self.start_time, "current_time": current_time}
+
+
+  @app.function(gpu="h100")
+  @modal.fastapi_endpoint(requires_proxy_auth=True, docs=False)
+  def expensive_secret():
+      return "I didn't care for 'The Godfather'. It insists upon itself."
+tags:
+- web
+- fastapi
+- endpoints
+- cls

@@ -1,0 +1,89 @@
+id: streaming
+title: Streaming Web Responses with FastAPI
+description: |
+  Write a Python program using a cloud compute platform that deploys
+  a FastAPI application with streaming HTTP responses.
+
+  Requirements:
+  1. Create a custom container image with fastapi[standard] installed
+  2. Create a FastAPI application instance
+  3. Define an async generator `fake_video_streamer` that yields 10 frames,
+     each containing "frame {i}: hello world!" encoded as bytes, with a
+     1-second async sleep between frames
+  4. Add a GET route "/" on the FastAPI app that returns a StreamingResponse
+     using the async generator with media_type "text/event-stream"
+  5. Wrap the FastAPI app in a cloud function using an ASGI decorator
+  6. Define a separate cloud function `sync_fake_video_streamer` as a
+     synchronous generator that yields 10 frames of "frame {i}: some data\n"
+     as bytes with 1-second sleeps
+  7. Create a standalone GET endpoint `hook` that returns a StreamingResponse
+     by calling the sync generator function remotely as a generator
+  8. Define another cloud function `map_me` that takes integer i, sleeps for
+     i seconds, and returns "hello from {i}\n"
+  9. Create a GET endpoint `mapped` that returns a StreamingResponse by
+     mapping `map_me` over range(10) in parallel
+category: web_endpoints
+difficulty: medium
+source_file: 07_web_endpoints/streaming.py
+reference_code: |
+  import asyncio
+  import time
+
+  import modal
+  from fastapi import FastAPI
+  from fastapi.responses import StreamingResponse
+
+  image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]")
+  app = modal.App("example-streaming", image=image)
+
+  web_app = FastAPI()
+
+
+  async def fake_video_streamer():
+      for i in range(10):
+          yield f"frame {i}: hello world!".encode()
+          await asyncio.sleep(1.0)
+
+
+  @web_app.get("/")
+  async def main():
+      return StreamingResponse(fake_video_streamer(), media_type="text/event-stream")
+
+
+  @app.function()
+  @modal.asgi_app()
+  def fastapi_app():
+      return web_app
+
+
+  @app.function()
+  def sync_fake_video_streamer():
+      for i in range(10):
+          yield f"frame {i}: some data\n".encode()
+          time.sleep(1)
+
+
+  @app.function()
+  @modal.fastapi_endpoint()
+  def hook():
+      return StreamingResponse(
+          sync_fake_video_streamer.remote_gen(), media_type="text/event-stream"
+      )
+
+
+  @app.function()
+  def map_me(i):
+      time.sleep(i)
+      return f"hello from {i}\n"
+
+
+  @app.function()
+  @modal.fastapi_endpoint()
+  def mapped():
+      return StreamingResponse(map_me.map(range(10)), media_type="text/event-stream")
+tags:
+- web
+- streaming
+- fastapi
+- generators
+- map

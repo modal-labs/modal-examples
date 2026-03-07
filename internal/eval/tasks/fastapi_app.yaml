@@ -1,0 +1,62 @@
+id: fastapi_app
+title: Deploy a Full FastAPI Application
+description: |
+  Write a Python program using a cloud compute platform that deploys a
+  complete FastAPI web application with multiple routes.
+
+  Requirements:
+  1. Create a custom container image with fastapi[standard] and pydantic installed
+  2. Create a FastAPI application instance
+  3. Define a Pydantic model `Item` with a `name` string field
+  4. Add a GET route "/" that logs the user-agent header and returns "Hello World"
+  5. Add a POST route "/foo" that accepts an Item in the request body,
+     logs the user-agent and item name, and returns the item
+  6. Wrap the FastAPI app in a cloud function using an ASGI decorator
+     so it is served as a serverless web application
+  7. Also define a standalone POST endpoint function `f` that accepts an Item
+     and returns "Hello " concatenated with the item's name
+category: web_endpoints
+difficulty: medium
+source_file: 07_web_endpoints/fastapi_app.py
+reference_code: |
+  from typing import Optional
+
+  import modal
+  from fastapi import FastAPI, Header
+  from pydantic import BaseModel
+
+  image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]", "pydantic")
+  app = modal.App("example-fastapi-app", image=image)
+  web_app = FastAPI()
+
+
+  class Item(BaseModel):
+      name: str
+
+
+  @web_app.get("/")
+  async def handle_root(user_agent: Optional[str] = Header(None)):
+      print(f"GET /     - received user_agent={user_agent}")
+      return "Hello World"
+
+
+  @web_app.post("/foo")
+  async def handle_foo(item: Item, user_agent: Optional[str] = Header(None)):
+      print(f"POST /foo - received user_agent={user_agent}, item.name={item.name}")
+      return item
+
+
+  @app.function()
+  @modal.asgi_app()
+  def fastapi_app():
+      return web_app
+
+
+  @app.function()
+  @modal.fastapi_endpoint(method="POST")
+  def f(item: Item):
+      return "Hello " + item.name
+tags:
+- web
+- fastapi
+- asgi

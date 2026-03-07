@@ -1,0 +1,65 @@
+id: import_sklearn
+title: Custom Container Image with Python Packages
+description: |
+  Write a Python program using a cloud compute platform that demonstrates
+  building a custom container image with third-party Python packages.
+
+  Requirements:
+  1. Create a custom container image that:
+     a. Installs the system library "libgomp1" via apt
+     b. Installs scikit-learn via pip/uv
+  2. Use conditional imports so that numpy and sklearn modules are only
+     imported inside the cloud container (not locally)
+  3. Define a function `fit` that:
+     a. Prints "Inside run!"
+     b. Records the start time
+     c. Loads the diabetes dataset from sklearn
+     d. Uses only the third feature column (index 2) with np.newaxis
+     e. Fits a LinearRegression model
+     f. Returns the elapsed time
+  4. The function should run on cloud infrastructure
+  5. Include a main block that:
+     a. Runs the app context
+     b. Calls the function remotely
+     c. Prints both the function time and total time
+category: containers
+difficulty: easy
+source_file: 02_building_containers/import_sklearn.py
+reference_code: |
+  import time
+
+  import modal
+
+  app = modal.App(
+      "example-import-sklearn",
+      image=modal.Image.debian_slim()
+      .apt_install("libgomp1")
+      .uv_pip_install("scikit-learn"),
+  )
+
+  with app.image.imports():
+      import numpy as np
+      from sklearn import datasets, linear_model
+
+
+  @app.function()
+  def fit():
+      print("Inside run!")
+      t0 = time.time()
+      diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
+      diabetes_X = diabetes_X[:, np.newaxis, 2]
+      regr = linear_model.LinearRegression()
+      regr.fit(diabetes_X, diabetes_y)
+      return time.time() - t0
+
+
+  if __name__ == "__main__":
+      t0 = time.time()
+      with app.run():
+          t = fit.remote()
+          print("Function time spent:", t)
+      print("Full time spent:", time.time() - t0)
+tags:
+- containers
+- images
+- packages
