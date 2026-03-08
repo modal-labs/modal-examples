@@ -1,8 +1,8 @@
 """Coding agent backends for sandbox-based code generation.
 
-Supports Claude Code CLI and Codex CLI as configurable coding agents.
-Each agent runs inside a Modal Sandbox with docs mounted as files,
-providing isolated environments with controlled documentation access.
+Supports Claude Code CLI and OpenAI (via Responses API) as configurable
+coding agents. Each agent runs inside a Modal Sandbox with docs mounted
+as files, providing isolated environments with controlled documentation access.
 """
 
 import re
@@ -21,19 +21,15 @@ claude_code_image = (
     .run_commands("curl -fsSL https://claude.ai/install.sh | bash")
 )
 
-codex_cli_image = (
+codex_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("curl", "git")
-    .run_commands(
-        "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -",
-        "apt-get install -y nodejs",
-        "npm install -g @openai/codex",
-    )
+    .pip_install("openai")
 )
 
 AGENT_IMAGES = {
     "claude": claude_code_image,
-    "codex": codex_cli_image,
+    "codex": codex_image,
 }
 
 AGENT_SECRETS = {
@@ -89,6 +85,57 @@ Requirements:
 - Do NOT use any prior knowledge that contradicts the documentation
 
 Save your final solution to /workspace/solution.py"""
+
+# Python script that runs inside the sandbox to call the OpenAI API.
+# This replaces the Codex CLI (which requires OAuth login) with a direct
+# API call using OPENAI_API_KEY env var.
+_OPENAI_AGENT_SCRIPT = r"""
+import re
+import sys
+
+from openai import OpenAI
+
+model = sys.argv[1]
+prompt = sys.argv[2]
+
+client = OpenAI()  # reads OPENAI_API_KEY from env
+
+response = client.responses.create(
+    model=model,
+    instructions="You are a coding assistant. Write code to files as requested.",
+    input=prompt,
+)
+
+# Extract the text output
+text = ""
+for item in response.output:
+    if item.type == "message":
+        for block in item.content:
+            if hasattr(block, "text"):
+                text += block.text
+
+# Try to extract code and write solution.py
+patterns = [
+    r"```python\s*\n(.*?)```",
+    r"```\s*\n(.*?)```",
+]
+code = None
+for pattern in patterns:
+    matches = re.findall(pattern, text, re.DOTALL)
+    if matches:
+        code = matches[-1].strip()
+        break
+
+if code:
+    with open("/workspace/solution.py", "w") as f:
+        f.write(code)
+    print(code)
+else:
+    # The response might be raw code without markdown fences
+    with open("/workspace/solution.py", "w") as f:
+        f.write(text)
+    print(text)
+"""
 
 
 @dataclass
@@ -179,11 +226,24 @@ def run_agent_in_sandbox(
         f.write(docs_content)
         f.close()
 
+        # Initialize a git repo in /workspace (required by Claude Code CLI)
+        if config.agent_type == "claude":
+            for git_cmd in [
+                ["git", "init"],
+                ["git", "config", "user.email", "eval@modal.com"],
+                ["git", "config", "user.name", "Eval"],
+                ["git", "add", "."],
+                ["git", "commit", "-m", "init", "--allow-empty"],
+            ]:
+                git_ps = sandbox.exec(*git_cmd, workdir="/workspace")
+                git_ps.wait()
+
         # Build prompt
         prompt = AGENT_PROMPT.format(task_description=task_description)
 
         # Run the coding agent
         if config.agent_type == "claude":
+            # Claude Code CLI: `claude -p <prompt>` for non-interactive mode
             agent_cmd = ["claude", "-p", prompt, "--output-format", "text"]
             if config.model:
                 agent_cmd.extend(["--model", config.model])
@@ -193,18 +253,16 @@ def run_agent_in_sandbox(
                 workdir="/workspace",
             )
         else:  # codex
-            agent_cmd = [
-                "codex",
-                "--prompt",
-                prompt,
-                "--approval-mode",
-                "full-auto",
-                "--quiet",
-            ]
-            if config.model:
-                agent_cmd.extend(["--model", config.model])
+            # Use OpenAI Responses API via Python script (the Codex CLI
+            # requires OAuth login, incompatible with headless sandboxes)
+            agent_script_f = sandbox.open("/workspace/_run_agent.py", "w")
+            agent_script_f.write(_OPENAI_AGENT_SCRIPT)
+            agent_script_f.close()
             agent_ps = sandbox.exec(
-                *agent_cmd,
+                "python",
+                "/workspace/_run_agent.py",
+                config.resolved_model,
+                prompt,
                 secrets=secrets,
                 workdir="/workspace",
             )
@@ -212,6 +270,15 @@ def run_agent_in_sandbox(
         agent_ps.wait()
         elapsed = time.time() - start_time
         agent_stdout = agent_ps.stdout.read()
+        agent_stderr = agent_ps.stderr.read()
+        agent_rc = agent_ps.returncode
+
+        # Log agent execution details for debugging
+        print(f"[agents] Agent exited with rc={agent_rc} in {elapsed:.1f}s")
+        if agent_stderr.strip():
+            print(f"[agents] stderr: {agent_stderr[:500]}")
+        if agent_stdout.strip():
+            print(f"[agents] stdout length: {len(agent_stdout)} chars")
 
         # Try to read the solution file the agent was asked to create
         try:
@@ -233,6 +300,9 @@ def run_agent_in_sandbox(
                 "-not",
                 "-path",
                 "*/__pycache__/*",
+                "-not",
+                "-name",
+                "_run_agent.py",
             )
             ls_ps.wait()
             py_files = ls_ps.stdout.read().strip().split("\n")
