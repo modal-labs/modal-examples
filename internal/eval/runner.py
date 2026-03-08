@@ -6,24 +6,22 @@ on the provided docs, which is then evaluated for correctness.
 
 Usage:
     # Run eval with current llms.txt using Claude Code
-    modal run internal/eval/runner.py
+    modal run -m internal.eval.runner
 
     # Run with specific docs variant and agent
-    modal run internal/eval/runner.py --agent claude --docs-variant llms_txt
+    modal run -m internal.eval.runner --agent claude --docs-variant llms_txt
 
     # Run specific tasks only
-    modal run internal/eval/runner.py --task-ids hello_world,get_started
+    modal run -m internal.eval.runner --task-ids hello_world,get_started
 
-    # Compare two doc variants
-    modal run internal/eval/runner.py \
-        --docs-variant llms_txt \
-        --docs-variant llms_txt_v2
+    # Compare two doc variants (comma-separated)
+    modal run -m internal.eval.runner --docs-variant llms_txt,llms_txt_v2
 
     # Skip LLM judge (faster, pattern-only scoring)
-    modal run internal/eval/runner.py --no-judge
+    modal run -m internal.eval.runner --no-judge
 
     # Use Codex CLI agent
-    modal run internal/eval/runner.py --agent codex
+    modal run -m internal.eval.runner --agent codex
 """
 
 import json
@@ -57,7 +55,6 @@ LLMS_TXT_URL = "https://modal.com/llms.txt"
 @app.function(
     image=eval_image,
     secrets=[
-        modal.Secret.from_name("anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]),
         modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
     ],
     timeout=600,
@@ -213,7 +210,7 @@ def print_report(
 def main(
     agent: str = "claude",
     model: str | None = None,
-    docs_variant: list[str] | None = None,
+    docs_variant: str | None = None,
     docs_url: str | None = None,
     task_ids: str | None = None,
     category: str | None = None,
@@ -251,8 +248,8 @@ def main(
     variants_to_test: dict[str, str] = {}
 
     if docs_variant:
-        for v in docs_variant:
-            variants_to_test[v] = load_docs_variant(v)
+        for v in docs_variant.split(","):
+            variants_to_test[v.strip()] = load_docs_variant(v.strip())
     elif docs_url:
         variants_to_test[docs_url] = fetch_docs_from_url(docs_url)
     else:
