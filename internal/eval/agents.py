@@ -98,7 +98,7 @@ class AgentConfig:
     agent_type: str  # "claude" or "codex"
     model: str | None = None
     timeout: int = 300  # Sandbox timeout in seconds
-    block_network: bool = True  # Block all network except LLM API endpoints
+    network_isolated: bool = True  # Restrict network to only LLM API endpoints
     extra_params: dict = field(default_factory=dict)
 
     @property
@@ -156,14 +156,15 @@ def run_agent_in_sandbox(
         "image": image,
         "timeout": config.timeout,
     }
-    if config.block_network:
+    if config.network_isolated:
         cidr_allowlist = resolve_cidr_allowlist(config.agent_type)
         if not cidr_allowlist:
             raise RuntimeError(
                 f"Failed to resolve API IPs for {config.agent_type}. "
                 "Cannot create network-isolated sandbox without allowlist."
             )
-        sandbox_kwargs["block_network"] = True
+        # cidr_allowlist restricts outbound traffic to only the listed CIDRs.
+        # This blocks access to modal.com docs while allowing LLM API calls.
         sandbox_kwargs["cidr_allowlist"] = cidr_allowlist
 
     # Create sandbox (long-running, we exec commands into it)

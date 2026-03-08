@@ -69,12 +69,12 @@ def run_single_task(
     model: str | None,
     use_judge: bool,
     judge_agent: str,
-    block_network: bool = True,
+    network_isolated: bool = True,
 ) -> dict:
     """Run a single eval task: spawn a coding agent in a sandbox, then evaluate."""
     task = EvalTask.from_dict(task_dict)
     config = AgentConfig(
-        agent_type=agent_type, model=model, block_network=block_network
+        agent_type=agent_type, model=model, network_isolated=network_isolated
     )
 
     # Run the coding agent inside a Modal Sandbox
@@ -263,10 +263,10 @@ def main(
     print(
         f"Testing {len(variants_to_test)} doc variant(s): {list(variants_to_test.keys())}"
     )
-    block_network = not no_network_isolation
+    network_isolated = not no_network_isolation
     print(f"Agent: {agent}" + (f" ({model})" if model else ""))
     print(f"Judge: {'disabled' if no_judge else judge_agent}")
-    print(f"Network isolation: {'enabled' if block_network else 'disabled'}")
+    print(f"Network isolation: {'enabled' if network_isolated else 'disabled'}")
 
     # Run evaluations
     all_results: dict[str, list[dict]] = {}
@@ -287,7 +287,7 @@ def main(
                         model,
                         not no_judge,
                         judge_agent,
-                        block_network,
+                        network_isolated,
                     )
                     for td in task_dicts
                 ]
