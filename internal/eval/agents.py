@@ -6,6 +6,7 @@ providing isolated environments with controlled documentation access.
 """
 
 import re
+import socket
 import time
 from dataclasses import dataclass, field
 
@@ -40,6 +41,38 @@ AGENT_SECRETS = {
     "codex": "openai-secret",
 }
 
+# --- Network Isolation ---
+
+# API hostnames that coding agents need to reach.
+# All other outbound traffic is blocked when network isolation is enabled.
+AGENT_API_HOSTS = {
+    "claude": ["api.anthropic.com"],
+    "codex": ["api.openai.com"],
+}
+
+
+def resolve_cidr_allowlist(agent_type: str) -> list[str]:
+    """Resolve LLM API hostnames to /24 CIDR ranges for the sandbox allowlist.
+
+    Uses DNS resolution at call time to get current IPs, then broadens
+    to /24 ranges to handle CDN IP rotation within the same subnet.
+    """
+    cidrs = set()
+    hosts = AGENT_API_HOSTS.get(agent_type, [])
+    for host in hosts:
+        try:
+            # getaddrinfo returns all resolved addresses (IPv4 and IPv6)
+            results = socket.getaddrinfo(host, 443, socket.AF_INET)
+            for _, _, _, _, sockaddr in results:
+                ip = sockaddr[0]
+                # Use /24 to handle CDN IP rotation within same subnet
+                prefix = ".".join(ip.split(".")[:3])
+                cidrs.add(f"{prefix}.0/24")
+        except socket.gaierror:
+            pass  # DNS resolution failed; sandbox will fail if no IPs resolved
+    return sorted(cidrs)
+
+
 # --- Prompts ---
 
 AGENT_PROMPT = """\
@@ -65,6 +98,7 @@ class AgentConfig:
     agent_type: str  # "claude" or "codex"
     model: str | None = None
     timeout: int = 300  # Sandbox timeout in seconds
+    block_network: bool = True  # Block all network except LLM API endpoints
     extra_params: dict = field(default_factory=dict)
 
     @property
@@ -116,12 +150,24 @@ def run_agent_in_sandbox(
     secret_name = AGENT_SECRETS[config.agent_type]
     secrets = [modal.Secret.from_name(secret_name)]
 
+    # Resolve CIDR allowlist for LLM API endpoints
+    sandbox_kwargs: dict = {
+        "app": app,
+        "image": image,
+        "timeout": config.timeout,
+    }
+    if config.block_network:
+        cidr_allowlist = resolve_cidr_allowlist(config.agent_type)
+        if not cidr_allowlist:
+            raise RuntimeError(
+                f"Failed to resolve API IPs for {config.agent_type}. "
+                "Cannot create network-isolated sandbox without allowlist."
+            )
+        sandbox_kwargs["block_network"] = True
+        sandbox_kwargs["cidr_allowlist"] = cidr_allowlist
+
     # Create sandbox (long-running, we exec commands into it)
-    sandbox = modal.Sandbox.create(
-        app=app,
-        image=image,
-        timeout=config.timeout,
-    )
+    sandbox = modal.Sandbox.create(**sandbox_kwargs)
 
     start_time = time.time()
 

@@ -69,10 +69,13 @@ def run_single_task(
     model: str | None,
     use_judge: bool,
     judge_agent: str,
+    block_network: bool = True,
 ) -> dict:
     """Run a single eval task: spawn a coding agent in a sandbox, then evaluate."""
     task = EvalTask.from_dict(task_dict)
-    config = AgentConfig(agent_type=agent_type, model=model)
+    config = AgentConfig(
+        agent_type=agent_type, model=model, block_network=block_network
+    )
 
     # Run the coding agent inside a Modal Sandbox
     try:
@@ -216,6 +219,7 @@ def main(
     category: str | None = None,
     no_judge: bool = False,
     judge_agent: str = "claude",
+    no_network_isolation: bool = False,
     output: str | None = None,
 ):
     """Run the docs eval framework.
@@ -229,6 +233,7 @@ def main(
         category: Filter tasks by category
         no_judge: Skip LLM-as-judge evaluation
         judge_agent: Agent to use for judging ("claude" or "codex")
+        no_network_isolation: Disable network isolation (allow all outbound)
         output: Path to save JSON results
     """
     # Load tasks
@@ -258,8 +263,10 @@ def main(
     print(
         f"Testing {len(variants_to_test)} doc variant(s): {list(variants_to_test.keys())}"
     )
+    block_network = not no_network_isolation
     print(f"Agent: {agent}" + (f" ({model})" if model else ""))
     print(f"Judge: {'disabled' if no_judge else judge_agent}")
+    print(f"Network isolation: {'enabled' if block_network else 'disabled'}")
 
     # Run evaluations
     all_results: dict[str, list[dict]] = {}
@@ -273,7 +280,15 @@ def main(
         results = list(
             run_single_task.starmap(
                 [
-                    (td, docs_content, agent, model, not no_judge, judge_agent)
+                    (
+                        td,
+                        docs_content,
+                        agent,
+                        model,
+                        not no_judge,
+                        judge_agent,
+                        block_network,
+                    )
                     for td in task_dicts
                 ]
             )
