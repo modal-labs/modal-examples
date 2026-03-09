@@ -1,8 +1,7 @@
 """Main eval runner - Modal app for A/B testing documentation variants.
 
-Runs coding agents (Claude Code CLI or Codex CLI) inside Modal Sandboxes
-with documentation mounted as files. The agents generate code based only
-on the provided docs, which is then evaluated for correctness.
+Runs coding agents (Claude Code CLI, OpenAI Responses API, or Devin API)
+to generate code based only on provided docs, then evaluates correctness.
 
 Usage:
     # Run eval with current llms.txt using Claude Code
@@ -20,8 +19,11 @@ Usage:
     # Skip LLM judge (faster, pattern-only scoring)
     modal run -m internal.eval.runner --no-judge
 
-    # Use Codex CLI agent
+    # Use Codex (OpenAI) agent
     modal run -m internal.eval.runner --agent codex
+
+    # Use Devin agent (via Devin API)
+    modal run -m internal.eval.runner --agent devin
 """
 
 import json
@@ -30,7 +32,7 @@ from pathlib import Path
 
 import modal
 
-from .agents import AgentConfig, run_agent_in_sandbox
+from .agents import AgentConfig, run_agent_in_sandbox, run_devin_agent
 from .evaluator import evaluate_code
 from .tasks import (
     EvalResult,
@@ -47,9 +49,58 @@ eval_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "anthropic",
     "openai",
     "pyyaml",
+    "requests",
 )
 
 LLMS_TXT_URL = "https://modal.com/llms.txt"
+
+
+def _evaluate_and_build_result(
+    task: EvalTask,
+    agent_type: str,
+    model: str,
+    generated_code: str,
+    generation_time: float,
+    use_judge: bool,
+    judge_agent: str,
+) -> dict:
+    """Score generated code and return an EvalResult dict."""
+    eval_start = time.time()
+    eval_scores = evaluate_code(
+        generated_code=generated_code,
+        reference_code=task.reference_code,
+        use_judge=use_judge,
+        judge_agent=judge_agent,
+    )
+    eval_time = time.time() - eval_start
+
+    scores = eval_scores.to_dict()
+    scores["generation_time_s"] = round(generation_time, 2)
+    scores["eval_time_s"] = round(eval_time, 2)
+
+    return EvalResult(
+        task_id=task.id,
+        docs_variant="",
+        agent=agent_type,
+        model=model,
+        generated_code=generated_code,
+        scores=scores,
+        overall_score=eval_scores.overall_score,
+    ).to_dict()
+
+
+def _error_result(task: EvalTask, agent_type: str, model: str, error: str) -> dict:
+    """Return an EvalResult dict for a failed agent run."""
+    return EvalResult(
+        task_id=task.id,
+        docs_variant="",
+        agent=agent_type,
+        model=model,
+        generated_code="",
+        scores={},
+        overall_score=0.0,
+        error=error,
+    ).to_dict()
 
 
 @app.function(
@@ -68,13 +119,12 @@ def run_single_task(
     judge_agent: str,
     network_isolated: bool = True,
 ) -> dict:
-    """Run a single eval task: spawn a coding agent in a sandbox, then evaluate."""
+    """Run a single eval task: spawn a sandbox-based agent, then evaluate."""
     task = EvalTask.from_dict(task_dict)
     config = AgentConfig(
         agent_type=agent_type, model=model, network_isolated=network_isolated
     )
 
-    # Run the coding agent inside a Modal Sandbox
     try:
         generated_code, generation_time = run_agent_in_sandbox(
             task_description=task.description,
@@ -83,40 +133,56 @@ def run_single_task(
             app=app,
         )
     except Exception as e:
-        return EvalResult(
-            task_id=task.id,
-            docs_variant="",
-            agent=agent_type,
-            model=config.resolved_model,
-            generated_code="",
-            scores={},
-            overall_score=0.0,
-            error=f"Agent failed: {e}",
-        ).to_dict()
+        return _error_result(task, agent_type, config.resolved_model, str(e))
 
-    # Evaluate the generated code
-    eval_start = time.time()
-    eval_scores = evaluate_code(
-        generated_code=generated_code,
-        reference_code=task.reference_code,
-        use_judge=use_judge,
-        judge_agent=judge_agent,
+    return _evaluate_and_build_result(
+        task,
+        agent_type,
+        config.resolved_model,
+        generated_code,
+        generation_time,
+        use_judge,
+        judge_agent,
     )
-    eval_time = time.time() - eval_start
 
-    scores = eval_scores.to_dict()
-    scores["generation_time_s"] = round(generation_time, 2)
-    scores["eval_time_s"] = round(eval_time, 2)
 
-    return EvalResult(
-        task_id=task.id,
-        docs_variant="",
-        agent=agent_type,
-        model=config.resolved_model,
-        generated_code=generated_code,
-        scores=scores,
-        overall_score=eval_scores.overall_score,
-    ).to_dict()
+@app.function(
+    image=eval_image,
+    secrets=[
+        modal.Secret.from_name("openai-secret", required_keys=["OPENAI_API_KEY"]),
+        modal.Secret.from_name("devin-secret", required_keys=["DEVIN_API_KEY"]),
+    ],
+    timeout=900,  # Devin sessions can take longer
+)
+def run_single_task_devin(
+    task_dict: dict,
+    docs_content: str,
+    model: str | None,
+    use_judge: bool,
+    judge_agent: str,
+) -> dict:
+    """Run a single eval task using the Devin API, then evaluate."""
+    task = EvalTask.from_dict(task_dict)
+    config = AgentConfig(agent_type="devin", model=model, timeout=600)
+
+    try:
+        generated_code, generation_time = run_devin_agent(
+            task_description=task.description,
+            docs_content=docs_content,
+            config=config,
+        )
+    except Exception as e:
+        return _error_result(task, "devin", config.resolved_model, str(e))
+
+    return _evaluate_and_build_result(
+        task,
+        "devin",
+        config.resolved_model,
+        generated_code,
+        generation_time,
+        use_judge,
+        judge_agent,
+    )
 
 
 def print_report(
@@ -222,7 +288,7 @@ def main(
     """Run the docs eval framework.
 
     Args:
-        agent: Coding agent CLI to use ("claude" or "codex")
+        agent: Coding agent to use ("claude", "codex", or "devin")
         model: Model override (uses agent default if not set)
         docs_variant: Docs variant name(s) from internal/eval/docs/
         docs_url: URL to fetch docs from (default: modal llms.txt)
@@ -274,22 +340,34 @@ def main(
         # Launch all tasks in parallel using starmap
         task_dicts = [t.to_dict() for t in tasks]
 
-        results = list(
-            run_single_task.starmap(
-                [
-                    (
-                        td,
-                        docs_content,
-                        agent,
-                        model,
-                        not no_judge,
-                        judge_agent,
-                        network_isolated,
-                    )
-                    for td in task_dicts
-                ]
+        if agent == "devin":
+            # Devin agent uses a separate function with devin-secret
+            results = list(
+                run_single_task_devin.starmap(
+                    [
+                        (td, docs_content, model, not no_judge, judge_agent)
+                        for td in task_dicts
+                    ]
+                )
             )
-        )
+        else:
+            # Sandbox-based agents (claude, codex)
+            results = list(
+                run_single_task.starmap(
+                    [
+                        (
+                            td,
+                            docs_content,
+                            agent,
+                            model,
+                            not no_judge,
+                            judge_agent,
+                            network_isolated,
+                        )
+                        for td in task_dicts
+                    ]
+                )
+            )
 
         # Tag results with variant name
         for r in results:

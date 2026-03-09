@@ -1,16 +1,22 @@
-"""Coding agent backends for sandbox-based code generation.
+"""Coding agent backends for eval code generation.
 
-Supports Claude Code CLI and OpenAI (via Responses API) as configurable
-coding agents. Each agent runs inside a Modal Sandbox with docs mounted
-as files, providing isolated environments with controlled documentation access.
+Supports three agent types:
+- Claude Code CLI: runs inside a Modal Sandbox
+- OpenAI (Responses API): runs inside a Modal Sandbox
+- Devin (API): creates a Devin session via the REST API
+
+Sandbox-based agents get docs mounted as files with network isolation.
+Devin agent gets docs included in the prompt and runs in its own environment.
 """
 
+import os
 import re
 import socket
 import time
 from dataclasses import dataclass, field
 
 import modal
+import requests
 
 # --- Sandbox Images ---
 
@@ -35,6 +41,7 @@ AGENT_IMAGES = {
 AGENT_SECRETS = {
     "claude": "anthropic-secret",
     "codex": "openai-secret",
+    "devin": "devin-secret",
 }
 
 # --- Network Isolation ---
@@ -85,6 +92,28 @@ Requirements:
 - Do NOT use any prior knowledge that contradicts the documentation
 
 Save your final solution to /workspace/solution.py"""
+
+# Prompt for Devin API agent (docs are included inline since there's no sandbox).
+DEVIN_AGENT_PROMPT = """\
+Below is documentation you MUST use as your sole reference.
+
+<docs>
+{docs_content}
+</docs>
+
+Based ONLY on the documentation above, write a complete, runnable Python program \
+for the following task:
+
+{task_description}
+
+Requirements:
+- Write complete Python code that can be run with `modal run script.py`
+- Include all necessary imports
+- Use ONLY the APIs and patterns described in the documentation
+- Do NOT use any prior knowledge that contradicts the documentation
+- Do NOT browse modal.com or any external documentation
+
+Output your final solution inside a ```python code fence."""
 
 # Python script that runs inside the sandbox to call the OpenAI API.
 # This replaces the Codex CLI (which requires OAuth login) with a direct
@@ -142,7 +171,7 @@ else:
 class AgentConfig:
     """Configuration for a coding agent."""
 
-    agent_type: str  # "claude" or "codex"
+    agent_type: str  # "claude", "codex", or "devin"
     model: str | None = None
     timeout: int = 300  # Sandbox timeout in seconds
     network_isolated: bool = True  # Restrict network to only LLM API endpoints
@@ -155,6 +184,7 @@ class AgentConfig:
         defaults = {
             "claude": "claude-sonnet-4-20250514",
             "codex": "o3-mini",
+            "devin": "devin",
         }
         return defaults.get(self.agent_type, self.agent_type)
 
@@ -325,3 +355,118 @@ def run_agent_in_sandbox(
 
     finally:
         sandbox.terminate()
+
+
+# --- Devin API Agent ---
+
+_DEVIN_API_BASE = "https://api.devin.ai/v3"
+
+
+def run_devin_agent(
+    task_description: str,
+    docs_content: str,
+    config: AgentConfig,
+) -> tuple[str, float]:
+    """Run a Devin session via the REST API and return (generated_code, elapsed_time).
+
+    Creates a Devin session with the task and docs in the prompt,
+    polls until the session completes, then extracts code from the
+    session messages.
+
+    Requires DEVIN_API_KEY environment variable to be set.
+
+    Note: Unlike sandbox-based agents, Devin runs in its own environment.
+    Network isolation is enforced via prompt instructions (not cidr_allowlist).
+    """
+    api_key = os.environ.get("DEVIN_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "DEVIN_API_KEY not set. "
+            "Create a Modal secret 'devin-secret' with key DEVIN_API_KEY."
+        )
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    # Build prompt with docs included inline
+    prompt = DEVIN_AGENT_PROMPT.format(
+        docs_content=docs_content,
+        task_description=task_description,
+    )
+
+    # Create Devin session
+    start_time = time.time()
+    resp = requests.post(
+        f"{_DEVIN_API_BASE}/organizations/sessions",
+        headers=headers,
+        json={"prompt": prompt},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    session = resp.json()
+    session_id = session["session_id"]
+    devin_id = f"devin-{session_id}"
+    print(f"[devin] Created session {devin_id}")
+
+    # Poll until session reaches a terminal status
+    terminal_statuses = {"exit", "error", "suspended"}
+    while True:
+        elapsed = time.time() - start_time
+        if elapsed > config.timeout:
+            raise RuntimeError(
+                f"Devin session timed out after {config.timeout}s. Session: {devin_id}"
+            )
+        time.sleep(15)
+
+        resp = requests.get(
+            f"{_DEVIN_API_BASE}/organizations/sessions/{devin_id}",
+            headers=headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        session = resp.json()
+        status = session.get("status", "unknown")
+        print(f"[devin] Status: {status} ({elapsed:.0f}s elapsed)")
+
+        if status in terminal_statuses:
+            break
+
+    elapsed = time.time() - start_time
+    print(f"[devin] Session finished with status={status} in {elapsed:.1f}s")
+
+    if status == "error":
+        raise RuntimeError(f"Devin session errored. Session: {devin_id}")
+
+    # Extract code from structured output if available
+    structured_output = session.get("structured_output")
+    if isinstance(structured_output, dict) and structured_output.get("code"):
+        return structured_output["code"], elapsed
+
+    # Fetch session messages and extract code from the last Devin message
+    resp = requests.get(
+        f"{_DEVIN_API_BASE}/organizations/sessions/{devin_id}/messages",
+        headers=headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    messages_data = resp.json()
+    messages = messages_data.get("items", [])
+
+    # Look through messages in reverse for code in Devin's responses
+    for msg in reversed(messages):
+        # Skip user messages
+        if msg.get("role") == "user":
+            continue
+        text = msg.get("text", "") or msg.get("content", "")
+        if not text:
+            continue
+        code = extract_code(text)
+        if code and len(code) > 20:  # Minimum viable code length
+            return code, elapsed
+
+    raise RuntimeError(
+        f"Could not extract code from Devin session {devin_id}. "
+        f"Check session at https://app.devin.ai/sessions/{session_id}"
+    )
