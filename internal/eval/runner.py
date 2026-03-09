@@ -281,7 +281,7 @@ def main(
     task_ids: str | None = None,
     category: str | None = None,
     no_judge: bool = False,
-    judge_agent: str = "claude",
+    judge_agent: str = "codex",
     no_network_isolation: bool = False,
     output: str | None = None,
 ):
@@ -295,7 +295,7 @@ def main(
         task_ids: Comma-separated task IDs to run (default: all)
         category: Filter tasks by category
         no_judge: Skip LLM-as-judge evaluation
-        judge_agent: Agent to use for judging ("claude" or "codex")
+        judge_agent: Agent to use for judging ("codex" or "claude")
         no_network_isolation: Disable network isolation (allow all outbound)
         output: Path to save JSON results
     """
