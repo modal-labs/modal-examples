@@ -1,0 +1,9 @@
+initialize: |
+  pip install uv pre-commit
+  uv pip install --system setuptools wheel
+  uv pip install --system -r internal/requirements.txt
+  uv pip install --system modal
+  pre-commit install
+maintenance: |
+  uv pip install --system -r internal/requirements.txt
+  uv pip install --system modal
