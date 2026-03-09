@@ -249,6 +249,7 @@ def run_agent_in_sandbox(
                 agent_cmd.extend(["--model", config.model])
             agent_ps = sandbox.exec(
                 *agent_cmd,
+                pty=True,  # Claude Code requires a PTY
                 secrets=secrets,
                 workdir="/workspace",
             )
