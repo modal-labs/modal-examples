@@ -1,5 +1,5 @@
 initialize: |
-  pip install uv pre-commit
+  pip install pre-commit
   uv pip install --system setuptools wheel
   uv pip install --system -r internal/requirements.txt
   uv pip install --system modal
