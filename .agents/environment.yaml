@@ -1,9 +1,11 @@
 initialize: |
-  pip install pre-commit
-  uv pip install --system setuptools wheel
-  uv pip install --system -r internal/requirements.txt
-  uv pip install --system modal
+  uv venv .venv
+  . .venv/bin/activate
+  uv pip install pre-commit setuptools wheel
+  uv pip install -r internal/requirements.txt
+  uv pip install modal
   pre-commit install
 maintenance: |
-  uv pip install --system -r internal/requirements.txt
-  uv pip install --system modal
+  . .venv/bin/activate
+  uv pip install -r internal/requirements.txt
+  uv pip install modal
