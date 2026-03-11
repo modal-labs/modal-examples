@@ -43,7 +43,11 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 sglang_image = modal.Image.from_registry(
+<<<<<<< charlesfrye/nemotron-super-nvfp4
     "lmsysorg/sglang:v0.5.9"
+=======
+    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
+>>>>>>> main
 ).entrypoint(
     []  # silence chatty logs on container start
 )
@@ -59,18 +63,18 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-# We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20848).
-# This model has 120B total parameters with 12B active,
-# quantized to [4-bit floating point](https://quant.exposed).
+# We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
+# For lower latency, we pick the intermediate-sized model (120B params)
+# quantized to [lower precision floating point](https://quant.exposed).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 # Loading fewer bytes of model weights also speeds up [cold starts](https://modal.com/docs/guide/cold-start)
 # of our inference server.
 
-MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
+MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4),
+# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8),
 # so we'll need their Python package.
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
@@ -240,7 +244,7 @@ PORT = 8000
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
-class Serve:
+class Server:
     @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up."""
@@ -256,8 +260,13 @@ class Serve:
             "0.0.0.0",
             "--port",
             f"{PORT}",
-            "--tp",
+            "--tp",  # configure GPU parallelism
             f"{N_GPUS}",
+<<<<<<< charlesfrye/nemotron-super-nvfp4
+=======
+            "--ep",
+            f"{N_GPUS}",
+>>>>>>> main
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
@@ -325,7 +334,7 @@ class Serve:
 
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
-    url = (await Serve._experimental_get_flash_urls.aio())[0]
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
