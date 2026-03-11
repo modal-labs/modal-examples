@@ -43,11 +43,7 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 sglang_image = modal.Image.from_registry(
-<<<<<<< charlesfrye/nemotron-super-nvfp4
     "lmsysorg/sglang:v0.5.9"
-=======
-    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
->>>>>>> main
 ).entrypoint(
     []  # silence chatty logs on container start
 )
@@ -262,11 +258,6 @@ class Server:
             f"{PORT}",
             "--tp",  # configure GPU parallelism
             f"{N_GPUS}",
-<<<<<<< charlesfrye/nemotron-super-nvfp4
-=======
-            "--ep",
-            f"{N_GPUS}",
->>>>>>> main
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
