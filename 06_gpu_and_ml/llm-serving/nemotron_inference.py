@@ -61,7 +61,7 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
 # For lower latency, we pick the intermediate-sized model (120B params)
-# quantized to [lower precision floating point](https://quant.exposed)).
+# quantized to [lower precision floating point](https://quant.exposed).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
@@ -239,7 +239,7 @@ PORT = 8000
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
-class Serve:
+class Server:
     @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up."""
@@ -327,7 +327,7 @@ class Serve:
 
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
-    url = (await Serve._experimental_get_flash_urls.aio())[0]
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
