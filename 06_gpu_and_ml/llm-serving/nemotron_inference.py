@@ -43,7 +43,7 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:nightly-dev-20260310-0fd9a57d"
+    "lmsysorg/sglang:v0.5.9"
 ).entrypoint(
     []  # silence chatty logs on container start
 )
@@ -54,7 +54,7 @@ sglang_image = modal.Image.from_registry(
 # and supports both 8 bit and 4 bit [quantized floating point](https://quant.exposed)
 # operations.
 
-GPU_TYPE, N_GPUS = "B200", 2
+GPU_TYPE, N_GPUS = "B200", 1
 GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
@@ -105,10 +105,11 @@ sglang_image = sglang_image.env(
 # as part of defining a `modal.experimental.http_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
-# and select the `us-east` cloud region serve them.
+# and select the `us` cloud region serve them.
 # This should result in at most a few dozen milliseconds of round-trip time.
 
-REGION = "us-east"
+REGION = "us"
+PROXY_REGION = "us-east"
 
 # Latencies for multi-turn interactions with LLMs are
 # substantially cut when previous interaction turns are in the KV cache.
@@ -235,7 +236,7 @@ PORT = 8000
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[REGION],  # location of proxies, should be same as Cls region
+    proxy_regions=[PROXY_REGION],  # location of proxies, should overlap with Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
@@ -245,9 +246,8 @@ class Serve:
         """Start the SGLang server and block until it is healthy, then warm it up."""
 
         cmd = [
-            "python",
-            "-m",
-            "sglang.launch_server",
+            "sglang",
+            "serve",
             "--model-path",
             MODEL_NAME,
             "--served-model-name",
@@ -258,10 +258,6 @@ class Serve:
             f"{PORT}",
             "--tp",
             f"{N_GPUS}",
-            "--ep",
-            f"{N_GPUS}",
-            "--chunked-prefill-size",
-            "8192",
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
@@ -271,8 +267,7 @@ class Serve:
             "--tool-call-parser",
             "qwen3_coder",
             "--reasoning-parser",
-            "nemotron_3",
-            "--disable-radix-cache",
+            "nano_v3",
         ]
 
         self.process = subprocess.Popen(cmd)
