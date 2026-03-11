@@ -231,7 +231,7 @@ PORT = 8000
     region=REGION,
     min_containers=MIN_CONTAINERS,
     secrets=[modal.Secret.from_name("huggingface-secret")],
-    startup_timeout=20 * MINUTES  # time to load weights
+    startup_timeout=20 * MINUTES,  # time to load weights
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
