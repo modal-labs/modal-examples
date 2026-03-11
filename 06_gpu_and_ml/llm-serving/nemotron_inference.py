@@ -327,7 +327,7 @@ class Server:
 
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
-    url = (await Serve._experimental_get_flash_urls.aio())[0]
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
