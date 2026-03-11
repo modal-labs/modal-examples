@@ -70,7 +70,7 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4),
+# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8),
 # so we'll need their Python package.
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
