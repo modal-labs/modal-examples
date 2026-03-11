@@ -42,9 +42,7 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:v0.5.9"
-).entrypoint(
+sglang_image = modal.Image.from_registry("lmsysorg/sglang:v0.5.9").entrypoint(
     []  # silence chatty logs on container start
 )
 
