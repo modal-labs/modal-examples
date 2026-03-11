@@ -1,4 +1,4 @@
-# # Low latency Nemotron 3 with SGLang and Modal
+# # Low latency Nvidia Nemotron 3 with SGLang and Modal
 
 # In this example, we show how to serve Nvidia's [Nemotron](https://www.nvidia.com/en-us/ai-data-science/foundation-models/nemotron/) models
 # on Modal at low latency with [SGLang](https://github.com/sgl-project/sglang).
@@ -13,7 +13,7 @@
 # and so it includes advanced features of both SGLang and Modal.
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
-# It also runs a small and efficient model, as far as LLMs go.
+# It also runs a "medium-sized" model, as far as LLMs go.
 # For more on serving very large language models, see
 # [this example](https://modal.com/docs/examples/very_large_models).
 
@@ -54,22 +54,23 @@ sglang_image = modal.Image.from_registry(
 # and supports both 8 bit and 4 bit [quantized floating point](https://quant.exposed)
 # operations.
 
-GPU_TYPE, N_GPUS = "B200", 1
+GPU_TYPE, N_GPUS = "B200", 2
 GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-# We'll serve [NVIDIA's Nemotron 3 Nano](https://arxiv.org/abs/2512.20856).
-# For lower latency, we pick a smaller model (30B params quantized to [4-bit floating point](https://quant.exposed)).
+# We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
+# For lower latency, we pick the intermediate-sized model (120B params)
+# quantized to [lower precision floating point](https://quant.exposed)).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 # Loading fewer bytes of model weights also speeds up [cold starts](https://modal.com/docs/guide/cold-start)
 # of our inference server.
 
-MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
+MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4),
+# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4),
 # so we'll need their Python package.
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
@@ -184,7 +185,7 @@ with sglang_image.imports():
     import requests
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -230,6 +231,7 @@ PORT = 8000
     region=REGION,
     min_containers=MIN_CONTAINERS,
     secrets=[modal.Secret.from_name("huggingface-secret")],
+    startup_timeout=20 * MINUTES  # time to load weights
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
@@ -237,7 +239,7 @@ PORT = 8000
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
-class Server:
+class Serve:
     @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up."""
@@ -254,7 +256,9 @@ class Server:
             "0.0.0.0",
             "--port",
             f"{PORT}",
-            "--tp",  # use all GPUs to split up tensor-parallel operations
+            "--tp",  # configure GPU parallelism
+            f"{N_GPUS}",
+            "--ep",
             f"{N_GPUS}",
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
@@ -322,8 +326,8 @@ class Server:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await Server._experimental_get_flash_urls.aio())[0]
+async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
+    url = (await Serve._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
@@ -374,7 +378,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # This ensures no container ends up as a "hot spot" handling too many client requests.
 
 
-async def probe(url, messages=None, timeout=5 * MINUTES):
+async def probe(url, messages=None, timeout=20 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
