@@ -1,0 +1,92 @@
+id: vllm_inference
+title: Deploy an OpenAI-Compatible LLM Server
+description: |
+  Write a Python program using a cloud compute platform that deploys a
+  vLLM-based LLM inference server with an OpenAI-compatible API.
+
+  Requirements:
+  1. Create a container image based on nvidia/cuda:12.8.0-devel-ubuntu22.04 with
+     Python 3.12, vllm==0.13.0, and huggingface-hub==0.36.0 installed
+  2. Set environment variable HF_XET_HIGH_PERFORMANCE=1 for faster model downloads
+  3. Configure two persistent cloud volumes:
+     a. One for the Hugging Face model cache at /root/.cache/huggingface
+     b. One for vLLM compilation cache at /root/.cache/vllm
+  4. Define a web server function `serve` that:
+     a. Runs on a single H100 GPU
+     b. Has a 15-minute scaledown window
+     c. Has a 10-minute startup timeout
+     d. Supports up to 32 concurrent inputs
+     e. Serves vLLM on port 8000 as a web server endpoint
+     f. Runs the model "Qwen/Qwen3-4B-Thinking-2507-FP8" with a pinned revision
+     g. Has a configurable FAST_BOOT flag that controls enforce-eager mode
+  5. Create a local entrypoint `test` that:
+     a. Gets the web URL of the deployed server
+     b. Performs a health check
+     c. Sends a chat completion request with streaming
+     d. Uses aiohttp for async HTTP requests
+category: gpu_ml
+difficulty: hard
+source_file: 06_gpu_and_ml/llm-serving/vllm_inference.py
+reference_code: |
+  import json
+  from typing import Any
+
+  import aiohttp
+  import modal
+
+  vllm_image = (
+      modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+      .entrypoint([])
+      .uv_pip_install(
+          "vllm==0.13.0",
+          "huggingface-hub==0.36.0",
+      )
+      .env({"HF_XET_HIGH_PERFORMANCE": "1"})
+  )
+
+  MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507-FP8"
+  MODEL_REVISION = "953532f942706930ec4bb870569932ef63038fdf"
+
+  hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+  vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
+
+  FAST_BOOT = True
+
+  app = modal.App("example-vllm-inference")
+
+  N_GPU = 1
+  MINUTES = 60
+  VLLM_PORT = 8000
+
+
+  @app.function(
+      image=vllm_image,
+      gpu=f"H100:{N_GPU}",
+      scaledown_window=15 * MINUTES,
+      timeout=10 * MINUTES,
+      volumes={
+          "/root/.cache/huggingface": hf_cache_vol,
+          "/root/.cache/vllm": vllm_cache_vol,
+      },
+  )
+  @modal.concurrent(max_inputs=32)
+  @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
+  def serve():
+      import subprocess
+
+      cmd = [
+          "vllm", "serve", "--uvicorn-log-level=info",
+          MODEL_NAME, "--revision", MODEL_REVISION,
+          "--served-model-name", MODEL_NAME, "llm",
+          "--host", "0.0.0.0", "--port", str(VLLM_PORT),
+      ]
+      cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
+      cmd += ["--tensor-parallel-size", str(N_GPU)]
+
+      subprocess.Popen(" ".join(cmd), shell=True)
+tags:
+- gpu
+- llm
+- vllm
+- web_server
+- volumes

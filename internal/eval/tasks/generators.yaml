@@ -1,0 +1,36 @@
+id: generators
+title: Remote Generator Function
+description: |
+  Write a Python program using a cloud compute platform that runs a
+  generator function remotely and streams results back.
+
+  Requirements:
+  1. Define a generator function `f` that takes an integer `i`
+  2. The function yields values from 0 to i-1 (using range)
+  3. The function should be decorated to run on cloud infrastructure
+  4. Create a local entrypoint that:
+     a. Calls the generator function remotely with input 10
+     b. Iterates over the remote generator results
+     c. Prints each yielded value
+category: getting_started
+difficulty: easy
+source_file: 01_getting_started/generators.py
+reference_code: |
+  import modal
+
+  app = modal.App("example-generators")
+
+
+  @app.function()
+  def f(i):
+      for j in range(i):
+          yield j
+
+
+  @app.local_entrypoint()
+  def main():
+      for r in f.remote_gen(10):
+          print(r)
+tags:
+- basics
+- generators

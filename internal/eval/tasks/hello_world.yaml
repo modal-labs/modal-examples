@@ -1,0 +1,56 @@
+id: hello_world
+title: Remote Function Execution with Parallel Mapping
+description: |
+  Write a Python program using a cloud compute platform that demonstrates
+  running functions locally, remotely, and in parallel.
+
+  Requirements:
+  1. Define a function `f` that takes an integer `i`
+  2. If `i` is even, print "hello {i}" to stdout
+  3. If `i` is odd, print "world {i}" to stderr
+  4. The function returns `i * i`
+  5. The function should be decorated to run on cloud infrastructure
+  6. Create a local entrypoint that:
+     a. Runs the function locally with input 1000 and prints the result
+     b. Runs the function remotely in the cloud with input 1000 and prints the result
+     c. Maps the function over range(200) in parallel in the cloud,
+        sums all returned values, and prints the total
+category: getting_started
+difficulty: easy
+source_file: 01_getting_started/hello_world.py
+reference_code: |
+  import sys
+
+  import modal
+
+  app = modal.App("example-hello-world")
+
+
+  @app.function()
+  def f(i):
+      if i % 2 == 0:
+          print("hello", i)
+      else:
+          print("world", i, file=sys.stderr)
+
+      return i * i
+
+
+  @app.local_entrypoint()
+  def main():
+      # run the function locally
+      print(f.local(1000))
+
+      # run the function remotely on Modal
+      print(f.remote(1000))
+
+      # run the function in parallel and remotely on Modal
+      total = 0
+      for ret in f.map(range(200)):
+          total += ret
+
+      print(total)
+tags:
+- basics
+- parallel
+- map

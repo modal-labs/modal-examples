@@ -1,0 +1,33 @@
+id: get_started
+title: Simple Remote Function Call
+description: |
+  Write a minimal Python program using a cloud compute platform that runs
+  a function remotely.
+
+  Requirements:
+  1. Define a function `square` that takes a number `x`
+  2. The function prints "This code is running on a remote worker!"
+  3. The function returns `x ** 2`
+  4. The function should be decorated to run on cloud infrastructure
+  5. Create a local entrypoint that calls the function remotely with
+     input 42 and prints "the square is" followed by the result
+category: getting_started
+difficulty: easy
+source_file: 01_getting_started/get_started.py
+reference_code: |
+  import modal
+
+  app = modal.App("example-get-started")
+
+
+  @app.function()
+  def square(x):
+      print("This code is running on a remote worker!")
+      return x**2
+
+
+  @app.local_entrypoint()
+  def main():
+      print("the square is", square.remote(42))
+tags:
+- basics
