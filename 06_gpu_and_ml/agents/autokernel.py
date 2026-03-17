@@ -59,9 +59,10 @@
 
 # We need two things in our container: AutoKernel and the Claude Code CLI.
 
-import modal
 import os
 import time
+
+import modal
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -126,7 +127,7 @@ WORKDIR = "/root/autokernel"
 def run_step(name: str, cmd: str):
     import subprocess
 
-    print(f"\n{'='*60}\n  {name}\n{'='*60}\n$ {cmd}\n")
+    print(f"\n{'=' * 60}\n  {name}\n{'=' * 60}\n$ {cmd}\n")
     start = time.time()
     result = subprocess.run(
         cmd, shell=True, cwd=WORKDIR, text=True, capture_output=True
@@ -155,7 +156,7 @@ def save_results(model_name: str):
     ws_src = os.path.join(WORKDIR, "workspace")
     if os.path.exists(ws_src):
         shutil.copytree(ws_src, os.path.join(dst, "workspace"))
-        print(f"  saved workspace/")
+        print("  saved workspace/")
     vol.commit()
     print(f"\nResults saved to volume at /results/{model_name}/")
 
@@ -195,9 +196,7 @@ def run_agent_loop(max_turns: int = 500):
     )
 
     # Find the claude binary
-    which = subprocess.run(
-        "which claude", shell=True, capture_output=True, text=True
-    )
+    which = subprocess.run("which claude", shell=True, capture_output=True, text=True)
     claude_bin = which.stdout.strip()
     if not claude_bin:
         for path in [
@@ -217,10 +216,14 @@ def run_agent_loop(max_turns: int = 500):
 
     claude_cmd = [
         claude_bin,
-        "-p", agent_prompt,
-        "--allowedTools", "Bash,Read,Edit,Write,Glob,Grep",
-        "--max-turns", str(max_turns),
-        "--output-format", "stream-json",
+        "-p",
+        agent_prompt,
+        "--allowedTools",
+        "Bash,Read,Edit,Write,Glob,Grep",
+        "--max-turns",
+        str(max_turns),
+        "--output-format",
+        "stream-json",
         "--verbose",
     ]
 
@@ -239,9 +242,9 @@ def run_agent_loop(max_turns: int = 500):
                 for i, line in enumerate(lines):
                     if i == 0 and seen_lines == 0:
                         cols = line.strip().split("\t")
-                        print(f"\n  {'─'*60}")
+                        print(f"\n  {'─' * 60}")
                         print(f"  columns: {', '.join(cols)}")
-                        print(f"  {'─'*60}")
+                        print(f"  {'─' * 60}")
                         seen_lines = 1
                         continue
                     if i >= seen_lines:
@@ -276,14 +279,17 @@ def run_agent_loop(max_turns: int = 500):
     for attempt in range(max_restarts):
         exp_count = seen_lines - 1 if seen_lines > 0 else 0
         print(
-            f"\n{'='*60}\n"
+            f"\n{'=' * 60}\n"
             f"  Agent loop (attempt {attempt + 1}/{max_restarts}, {exp_count} experiments so far)\n"
-            f"{'='*60}\n"
+            f"{'=' * 60}\n"
         )
 
         proc = subprocess.Popen(
-            claude_cmd, cwd=WORKDIR,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            claude_cmd,
+            cwd=WORKDIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
         # Stream stdout, print compact agent activity
@@ -293,6 +299,7 @@ def run_agent_loop(max_turns: int = 500):
                 continue
             try:
                 import json
+
                 event = json.loads(line)
             except (json.JSONDecodeError, ValueError):
                 continue
@@ -319,7 +326,7 @@ def run_agent_loop(max_turns: int = 500):
 
         elapsed = time.time() - start_time
         exp_count = seen_lines - 1 if seen_lines > 0 else 0
-        print(f"\nAgent ran for {elapsed/60:.1f} total minutes")
+        print(f"\nAgent ran for {elapsed / 60:.1f} total minutes")
 
         if proc.returncode == 0:
             print(f"Agent finished. {exp_count} experiments logged.")
@@ -352,6 +359,7 @@ def run_agent_loop(max_turns: int = 500):
 # We use `required_keys=[]` so the secret doesn't block dry-run mode.
 # Claude Code picks up ANTHROPIC_API_KEY from the environment automatically.
 
+
 @app.function(
     gpu="H100",
     timeout=36000,  # 10 hours
@@ -375,7 +383,7 @@ def run_overnight(
     ║  Backend:  {backend:<40} ║
     ║  Top-K:    {top_k:<40} ║
     ║  Dry run:  {str(dry_run):<40} ║
-    ║  Agent:    {'SKIPPED' if dry_run else f'Claude Code ({max_agent_turns} turns)':<40} ║
+    ║  Agent:    {"SKIPPED" if dry_run else f"Claude Code ({max_agent_turns} turns)":<40} ║
     ╚══════════════════════════════════════════════════════╝
     """)
 
@@ -464,7 +472,9 @@ def download_results(model_name: str = "llama"):
     for root, dirs, files in os.walk(latest):
         for fname in files:
             path = os.path.join(root, fname)
-            print(f"  {os.path.relpath(path, latest)} ({os.path.getsize(path):,} bytes)")
+            print(
+                f"  {os.path.relpath(path, latest)} ({os.path.getsize(path):,} bytes)"
+            )
 
 
 # ## Run it
@@ -499,6 +509,7 @@ def download_results(model_name: str = "llama"):
 # ```
 
 # # Main Modal entrypoint
+
 
 @app.local_entrypoint()
 def main(
