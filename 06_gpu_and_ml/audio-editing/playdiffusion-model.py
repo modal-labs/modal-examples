@@ -112,7 +112,7 @@ class PlayDiffusionModel:
 def run_asr(audio_url: str) -> Tuple[str, List[Dict[str, Any]]]:
     temp_file_path: str = write_to_tempfile(audio_url)
     audio_file = open(temp_file_path, "rb")
-    whisper_client: OpenAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    whisper_client: OpenAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=60.0, max_retries=3)
     transcript = whisper_client.audio.transcriptions.create(
         file=audio_file,
         model="whisper-1",

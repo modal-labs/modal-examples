@@ -170,7 +170,7 @@ def extract_example_metadata(
         example_contents = Path(__file__).read_text()
         filename = Path(__file__).name
 
-    client = instructor.from_anthropic(Anthropic())
+    client = instructor.from_anthropic(Anthropic(timeout=60.0, max_retries=3))
     model = "claude-3-opus-20240229" if with_opus else "claude-3-haiku-20240307"
 
     # add the schema as the `response_model` argument in what otherwise looks like a normal LLM API call

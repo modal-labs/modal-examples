@@ -220,7 +220,7 @@ async def mcts_worker(
     """
     import openai
 
-    client = openai.AsyncOpenAI()
+    client = openai.AsyncOpenAI(timeout=60.0, max_retries=3)
     current_path = node_data["path"]
     depth = node_data["depth"]
 
