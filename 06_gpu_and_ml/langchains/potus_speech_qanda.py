@@ -146,7 +146,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
             metadatas=[{"source": i} for i in range(len(texts))],
         ).as_retriever()
 
-    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
+    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0, request_timeout=60, max_retries=3)
 
     system_prompt = (
         "You are an assistant for question-answering tasks. "

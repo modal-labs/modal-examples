@@ -125,7 +125,7 @@ def main():
 
     args = parser.parse_args()
 
-    client = OpenAI(api_key=args.api_key)
+    client = OpenAI(api_key=args.api_key, timeout=60.0, max_retries=3)
 
     workspace = args.workspace or modal.config._profile
 

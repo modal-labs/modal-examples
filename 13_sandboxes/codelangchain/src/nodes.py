@@ -63,7 +63,7 @@ class Nodes:
             code: str = Field(description="Code block not including import statements")
 
         ## LLM
-        llm = ChatOpenAI(temperature=0, model=self.model, streaming=True)
+        llm = ChatOpenAI(temperature=0, model=self.model, streaming=True, request_timeout=60, max_retries=3)
 
         # Tool
         code_tool_oai = convert_to_openai_tool(Code)
@@ -311,7 +311,7 @@ Here is the user question:
             decision: Decision = Field(description="Decision to finish or retry")
             explanation: str = Field(description="Explanation for the decision")
 
-        llm = ChatOpenAI(temperature=0, model=self.model)
+        llm = ChatOpenAI(temperature=0, model=self.model, request_timeout=60, max_retries=3)
         evaluation_tool = convert_to_openai_tool(ExecutionEvaluation)
         llm_with_tool = llm.bind(
             tools=[evaluation_tool],
