@@ -180,7 +180,7 @@ PORT = 8000
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
     proxy_regions=[PROXY_REGION],  # location of proxies, should be same as Cls region
-    exit_grace_period=5,  # seconds, time to finish up requests when closing down
+    exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
@@ -277,7 +277,12 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
     if messages is None:
-        messages = [{"role": "user", "content": "Tell me a joke."}]
+        messages = [
+            {
+                "role": "user",
+                "content": "Write me five very different programs, repeated in Python and Rust.",
+            }
+        ]
 
     client_id = str(0)  # set this to some string per multi-turn interaction
     # often a UUID per "conversation"

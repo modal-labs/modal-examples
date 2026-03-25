@@ -242,7 +242,7 @@ def serve():
 
 @app.local_entrypoint()
 async def test(test_timeout=30 * MINUTES, user_content=None, twice=True):
-    url = serve.get_web_url()
+    url = await serve.get_web_url.aio()
     system_prompt = {
         "role": "system",
         "content": f"""You are ChatModal, a large language model trained by Modal.

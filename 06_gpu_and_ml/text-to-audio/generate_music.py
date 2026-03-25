@@ -37,6 +37,7 @@ image = (
         "torch==2.8.0",
         "torchaudio==2.8.0",
         "git+https://github.com/ace-step/ACE-Step.git@6ae0852b1388de6dc0cca26b31a86d711f723cb3",  # we can install directly from GitHub!
+        "numba==0.63.1",
     )
 )
 

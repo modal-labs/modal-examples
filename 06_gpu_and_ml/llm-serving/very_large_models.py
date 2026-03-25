@@ -3,7 +3,7 @@
 # env: {"APP_USE_DUMMY_WEIGHTS": "1"}
 # ---
 
-# # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4)
+# # Serve very large language models (DeepSeek V3, Kimi-K2, GLM 4.7/5)
 
 # This example demonstrates the basic patterns for serving language models on Modal
 # whose weights consume hundreds of gigabytes of storage.
@@ -193,7 +193,9 @@ if modal.is_local():
     if local_config_path is None:
         local_config_path = here / "config_very_large_models.yaml"
 
-        local_config_path.write_text(default_config)
+        if not local_config_path.exists():
+            local_config_path.write_text(default_config)
+
         print(
             f"Using default config from {local_config_path.relative_to(here)}:",
             default_config,
@@ -275,7 +277,7 @@ with image.imports():
 app = modal.App("example-serve-very-large-models", image=image)
 
 # Most importantly, we need to decide what hardware to run on.
-# [H200 and B200 GPUs](https://modal.com/blog/introducting-b200-h200)
+# [H200 and B200 GPUs](https://modal.com/blog/introducing-b200-h200)
 # have over 100 GB of [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram) --
 # 141 GB and 180 GB, respectively.
 # The model's weights will be stored in this memory,
@@ -349,7 +351,7 @@ MINUTES = 60  # seconds
 @modal.experimental.http_server(
     port=SGLANG_PORT,
     proxy_regions=["us-east"],
-    exit_grace_period=5 * MINUTES,  # time to finish requests on shutdown
+    exit_grace_period=25,  # time to finish requests on shutdown (seconds)
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
@@ -407,7 +409,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = Server._experimental_get_flash_urls()[0]
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     if USE_DUMMY_WEIGHTS:
         system_prompt = {"role": "system", "content": "This system produces gibberish."}

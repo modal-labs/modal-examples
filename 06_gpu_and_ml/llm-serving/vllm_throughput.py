@@ -53,6 +53,8 @@ from zoneinfo import ZoneInfo
 
 import modal
 
+MINUTES = 60  # seconds
+
 app = modal.App("example-vllm-throughput")
 
 # Many batch jobs work nicely as scripts -- code that is run
@@ -82,7 +84,7 @@ app = modal.App("example-vllm-throughput")
 
 
 @app.local_entrypoint()
-def main(lookback: int = 7, wait_for_results: bool = True):
+def main(lookback: int = 5, wait_for_results: bool = True):
     jobs = orchestrate.remote(lookback=lookback)  # trigger remote job orchestration
 
     if wait_for_results:
@@ -106,8 +108,22 @@ def main(lookback: int = 7, wait_for_results: bool = True):
 # For both extraction and transformation, we use
 # [`.map`](https://modal.com/docs/guide/scale),
 # which fans out inputs over containers in parallel.
-# Each invocation handles one day's worth of data --
-# the same granularity offered by the data source.
+# Each invocation handles at most 1,500 rows,
+# which leads to runtimes of about five minutes per call
+# By parallelizing the calls, we finish processing everything in about five minutes.
+
+# "Rechunking" our data from a list of filings by day
+# into a list of filings of fixed size requires a little
+# helper function:
+
+
+def rechunk(lists, size: int = 1_500):
+    from itertools import chain, islice
+
+    it = iter(chain.from_iterable(lists))
+    while chunk := list(islice(it, size)):
+        yield chunk
+
 
 # For the LLM call, we use
 # [`.spawn`](https://modal.com/docs/guide/job-queue),
@@ -125,7 +141,7 @@ def main(lookback: int = 7, wait_for_results: bool = True):
 # into a remote Modal Function!
 
 
-@app.function()  # simple function, only Modal and stdlib, so no config required!
+@app.function(timeout=30 * MINUTES)
 def orchestrate(lookback: int) -> list[modal.FunctionCall]:
     llm = Vllm()
 
@@ -141,9 +157,10 @@ def orchestrate(lookback: int) -> list[modal.FunctionCall]:
     print("Transforming raw SEC filings for these dates:", *folders)
     filing_batches = list(transform.map(folders))
     n_filings = sum(map(len, filing_batches))
+    submission_batches_gen = rechunk(filing_batches)
 
     print(f"Submitting {n_filings} SEC filings to LLM for summarization")
-    jobs = list(llm.process.spawn(batch) for batch in filing_batches)
+    jobs = list(llm.process.spawn(batch) for batch in submission_batches_gen)
     if jobs:
         print("FunctionCall IDs:", *[job.object_id for job in jobs], sep="\n\t")
 
@@ -280,6 +297,7 @@ vllm_throughput_kwargs = {
 @app.cls(
     image=vllm_image,
     gpu=GPU,
+    timeout=10 * MINUTES,
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
@@ -346,7 +364,13 @@ class Vllm:
 # in our project by putting it in a separate container Image.
 
 data_proc_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
-    "edgartools==5.8.3"
+    # pin transitive deps to avoid surprises like this one:
+    # https://www.edgartools.io/pandas-3-0-and-edgartools/
+    "edgartools==5.8.3",
+    "httpx==0.28.1",
+    "httpxthrottlecache==0.3.0",
+    "pandas<3",
+    "pyrate-limiter==3.9.0",
 )
 
 # Instead of hitting the SEC's EDGAR Feed API every time we want to run a job,
@@ -375,7 +399,9 @@ data_root = Path("/data")
 # Again, we use `map` to transparently scale out across containers.
 
 
-@app.function(volumes={data_root: sec_edgar_feed}, scaledown_window=5)
+@app.function(
+    volumes={data_root: sec_edgar_feed}, timeout=10 * MINUTES, scaledown_window=5
+)
 def transform(folder: str | None) -> list[Filing]:
     if folder is None:
         return []
@@ -397,7 +423,10 @@ def transform(folder: str | None) -> list[Filing]:
 
 
 @app.function(
-    volumes={data_root: sec_edgar_feed}, scaledown_window=5, image=data_proc_image
+    volumes={data_root: sec_edgar_feed},
+    scaledown_window=5,
+    image=data_proc_image,
+    timeout=10 * MINUTES,
 )
 def _transform_filing_batch(raw_filing_paths: list[Path]) -> list[Filing | None]:
     from edgar.sgml import FilingSGML
@@ -445,7 +474,9 @@ scraper_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
 # We add [retries](https://modal.com/docs/guide/retries)
 # via our Modal decorator as well, so that we can tolerate temporary outages or rate limits.
 
-# Note that we also attach the same Volume used in the `transform` Functions above.
+# Note that we also attach the same Volume used in the `transform` Functions above
+# and we explicitly [`.commit`](https://modal.com/docs/reference/modal.Volume#commit) our writes
+# so that they will be visible to future containers running `transform`.
 
 
 @app.function(
@@ -458,21 +489,21 @@ scraper_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
 def extract(day: dt.date) -> str | None:
     target_folder = str(day)
     day_dir = data_root / target_folder
+    daily_name = f"{day:%Y%m%d}.nc.tar.gz"
+    tar_path = day_dir / daily_name
 
     # If the folder doesn't exist yet, try downloading the day's tarball
-    if not day_dir.exists():
+    if not tar_path.exists():
         print(f"Looking for data for {day} in SEC EDGAR Feed")
         ok = _download_from_sec_edgar(day, day_dir)
         if not ok:
             return None
 
-    daily_name = f"{day:%Y%m%d}.nc.tar.gz"
-    tar_path = day_dir / daily_name
-
     if not any(p.suffix == ".nc" for p in day_dir.iterdir()):
         print(f"Loading data for {day} from {tar_path}")
         _extract_tarfile(tar_path, day_dir)
 
+    sec_edgar_feed.commit()
     print(f"Data for {day} loaded")
 
     return target_folder

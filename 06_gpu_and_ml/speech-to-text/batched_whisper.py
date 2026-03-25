@@ -170,5 +170,5 @@ async def transcribe_hf_dataset(dataset_name):
 async def main(dataset_name: Optional[str] = None):
     if dataset_name is None:
         dataset_name = "hf-internal-testing/librispeech_asr_dummy"
-    for result in transcribe_hf_dataset.remote_gen(dataset_name):
+    async for result in transcribe_hf_dataset.remote_gen.aio(dataset_name):
         print(result["text"])

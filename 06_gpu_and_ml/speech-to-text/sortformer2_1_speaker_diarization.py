@@ -74,7 +74,7 @@ with image.imports():
 
 # ## Using WebSockets to stream audio and diarization results
 
-# We use a Modal [ASGI](https://modal.com/docs/guide/asgi) app to serve the diarization results
+# We use a Modal [ASGI](https://modal.com/docs/guide/webhooks) app to serve the diarization results
 # over WebSockets. This allows us to stream the diarization results to the client in real-time.
 
 # We use a simple queue-based architecture to handle the audio and diarization results.

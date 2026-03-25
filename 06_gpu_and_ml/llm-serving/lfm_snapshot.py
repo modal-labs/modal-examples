@@ -1,15 +1,26 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot.py"]
 # ---
 
-# # Low latency Qwen 3 8B with vLLM and Modal
+# # Low Latency, Serverless LFM2 with vLLM and Modal
 
-# In this example, we show how to serve [vLLM](https://docs.vllm.ai) at low latency on Modal.
+# In this example, we show how to serve Liquid AI's [LFM2 models](https://www.liquid.ai/liquid-foundation-models)
+# with [vLLM](https://docs.vllm.ai) with low latency and fast cold starts on Modal.
 
-# This example is intended to demonstrate everything required to run
-# inference at the highest performance and with the lowest latency possible,
-# and so it includes advanced features of both vLLM and Modal.
+# The LFM2 models are not vanilla Transformers -- they have a hybrid architecture,
+# discovered via an architecture search that optimized for quality, latency, and memory footprint.
+# Check out their [technical report](https://arxiv.org/abs/2511.23404v1)
+# for more details.
+
+# Here, we run the [24B-A2B variant](https://huggingface.co/LiquidAI/LFM2-24B-A2B) of LFM2,
+# described [here](https://www.liquid.ai/blog/lfm2-24b-a2b). This variant is designed
+# for efficient inference and includes instruction tuning.
+# It is released under the weights-available [LFM 1.0 License](https://huggingface.co/LiquidAI/LFM2-24B-A2B/blob/main/LICENSE),
+# which restricts commercial use for entities with over $10M in revenue.
+
+# This example demonstrates techniques to run inference at high efficiency,
+# including advanced features of both vLLM and Modal.
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
@@ -17,20 +28,25 @@
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
-# We also include instructions for cutting cold start times by an order of magnitude using Modal's
+# We also include instructions for cutting cold start times using Modal's
 # [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
+
+# Fast cold starts are particularly useful for LLM inference applications
+# that have highly "bursty" workloads, like document processing.
+# See [this guide](https://modal.com/docs/guide/high-performance-llm-inference)
+# for a breakdown of different LLM inference workloads and how to optimize them.
 
 # ## Set up the container image
 
 # Our first order of business is to define the environment our server will run in:
 # the [container `Image`](https://modal.com/docs/guide/images).
 # We'll use the [vLLM inference server](https://docs.vllm.ai).
-# vLLM can be installed with `uv pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
 
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
 import asyncio
 import json
+import os
 import subprocess
 import time
 
@@ -38,57 +54,60 @@ import aiohttp
 import modal
 import modal.experimental
 
-MINUTES = 60  # seconds
+MINUTES = 60
+
+MODEL_NAME = os.environ.get("MODEL_NAME", "LiquidAI/LFM2-24B-A2B")
+print(f"Running deployment script for model: {MODEL_NAME}")
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
-    .uv_pip_install("vllm==0.11.2", "huggingface-hub==0.36.0")
+    modal.Image.from_registry("vllm/vllm-openai:v0.15.1")
+    .entrypoint([])
+    .run_commands("ln -s $(which python3) /usr/bin/python")
+    .pip_install("transformers==5.1.0")
     .env(
         {
+            "HF_HUB_CACHE": "/root/.cache/huggingface",
+            "HF_XET_HIGH_PERFORMANCE": "1",
             "VLLM_SERVER_DEV_MODE": "1",
             "TORCH_CPP_LOG_LEVEL": "FATAL",
+            "MODEL_NAME": MODEL_NAME,
         }
     )
 )
 
-# We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
-# We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
-# which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
-# lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
-# across a variety of model architectures.
+# ### Selecting the GPU
 
+# We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
+# which offers excellent price-performance and has sufficient VRAM to store the models.
+
+N_GPU = 1
 GPU = "H100"
 
 # ### Loading and caching the model weights
-
-# We'll serve [Alibaba's Qwen 3 LLM](https://www.alibabacloud.com/blog/alibaba-introduces-qwen3-setting-new-benchmark-in-open-source-ai-with-hybrid-reasoning_602192).
-# For lower latency, we pick a smaller model (8B params).
-
-MODEL_NAME = "Qwen/Qwen3-8B"
-MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "b968826d9c46dd6066d109eabc6255188de91218"  # latest commit as of 2025-12-16
-)
-
-# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen3),
-# so we'll need their Python package.
 
 # We don't want to load the model from the Hub every time we start the server.
 # We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
 # Typical speeds are around one to two GB/s.
 
-HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
-HF_CACHE_PATH = "/root/.cache/huggingface"
-MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
+hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 
 # In addition to pointing the Hugging Face Hub at the path
 # where we mount the Volume, we also
 # [turn on "high performance" downloads](https://huggingface.co/docs/hub/en/models-downloading#faster-downloads),
-# which can fully saturate our network bandwidth.
+# which can fully saturate our network bandwidth,
+# and provide an `HF_TOKEN` via a [Modal Secret](https://modal.com/docs/guide/secrets)
+# so that our downloads aren't throttled.
+# You'll need to create a Secret named `huggingface-secret`
+# with your token [here](https://modal.com/apps/secrets).
 
-vllm_image = vllm_image.env(
-    {"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"}
-)
+hf_secret = modal.Secret.from_name("huggingface-secret")
+
+# ### Caching compilation artifacts
+
+# Model weights aren't the only thing we want to cache.
+# vLLM also produces compilation artifacts that we want to persist across restarts.
+
+vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 # ## Define the inference server and infrastructure
 
@@ -108,28 +127,16 @@ vllm_image = vllm_image.env(
 
 REGION = "us-east"
 
-# Latencies for multi-turn interactions with LLMs are
-# substantially cut when previous interaction turns are in the KV cache.
-# KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
-# so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
-# includes sticky routing based on a client-provided header.
-# See the client code below for details.
-
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
 # Having a "warm" or "live" replica reduces latency by skipping slow initialization work
 # that occurs when new replica boots up (a ["cold start"](https://modal.com/docs/guide/cold-start)).
 # For LLM inference servers, that latency runs from seconds to minutes.
 
-# To ensure at least one container is always available,
-# we can set the `min_containers` of our Modal Function
-# to `1` or more.
+# However, since this is documentation code, we'll set the `min_containers` of our Modal Function
+# to `0` to avoid surprise bills during casual use.
 
-# However, since this is documentation code, we'll set it to `0`
-# to avoid surprise bills during casual use.
-
-MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
+MIN_CONTAINERS = 0
 
 # Finally, we need to decide how we will scale up and down replicas
 # in response to load. Without autoscaling, users' requests will queue
@@ -141,12 +148,30 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
 # For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
 
-TARGET_INPUTS = 20
-
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-# ### Cutting cold starts with GPU memory snapshots
+TARGET_INPUTS = 32
+MAX_INPUTS = 100
+
+# ## Speed up cold starts with GPU snapshotting
+
+# Modal is a serverless compute platform, so all of your
+# inference services automatically scale up and down to handle
+# variable load.
+
+# Scaling up a new replica requires quite a bit of work --
+# loading up Python and system packages, loading model weights,
+# setting up the inference engine, and so on.
+
+# We can skip over and speed up a bunch of this work
+# when spinning up new replicas after the first
+# by directly booting from a [memory snapshot](https://modal.com/docs/guide/memory-snapshot),
+# which contains the exact in-memory representation of our server just before it begins taking requests.
+
+# Most applications can be snapshot and experience substantial speedups (2x to 10x,
+# see [our initial benchmarks here](https://modal.com/blog/gpu-mem-snapshots)).
+# However, it generally requires some extra work to adapt the application code.
 
 # vLLM supports a sleep mode that allows us to leverage Modal's
 # [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot)
@@ -158,6 +183,69 @@ TARGET_INPUTS = 20
 # we start vLLM, wait for it to be ready, warm it up, then put it to sleep.
 # The `@modal.enter(snap=False)` method runs after restoring from snapshot:
 # we wake vLLM back up so it can serve requests immediately.
+
+# ### Sleeping and waking a vLLM server
+
+# We prepare our vLLM inference server for snapshotting by first sending
+# a few requests to "warm it up", ensuring that it is fully ready to process requests.
+# Then we "put it to sleep", moving non-essential data out of GPU memory,
+# with a request to `/sleep`. At this point, we can take a memory snapshot.
+# Upon snapshot restoration, we "wake up" the server with a request to `/wake_up`.
+
+# We use the [`requests` library](https://requests.readthedocs.io/en/latest/)
+# to send ourselves these HTTP requests on
+# [`localhost`/`127.0.0.1`](https://superuser.com/questions/31824/why-is-localhost-ip-127-0-0-1).
+
+VLLM_PORT = 8000
+
+with vllm_image.imports():
+    import requests
+
+
+def wait_ready(process: subprocess.Popen, timeout: int = 15 * MINUTES):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            check_running(process)
+            requests.get(f"http://127.0.0.1:{VLLM_PORT}/health").raise_for_status()
+            return
+        except (
+            subprocess.CalledProcessError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError,
+        ):
+            time.sleep(5)
+    raise TimeoutError(f"vLLM server not ready within {timeout} seconds")
+
+
+def check_running(p: subprocess.Popen):
+    if (rc := p.poll()) is not None:
+        raise subprocess.CalledProcessError(rc, cmd=p.args)
+
+
+def warmup():
+    payload = {
+        "model": "llm",
+        "messages": [{"role": "user", "content": "Hello, how are you?"}],
+        "max_tokens": 16,
+    }
+    for _ in range(3):
+        requests.post(
+            f"http://127.0.0.1:{VLLM_PORT}/v1/chat/completions",
+            json=payload,
+            timeout=60,
+        ).raise_for_status()
+
+
+def sleep(level: int = 1):
+    requests.post(
+        f"http://127.0.0.1:{VLLM_PORT}/sleep?level={level}"
+    ).raise_for_status()
+
+
+def wake_up():
+    requests.post(f"http://127.0.0.1:{VLLM_PORT}/wake_up").raise_for_status()
+
 
 # ### Controlling container lifecycles with `modal.Cls`
 
@@ -185,111 +273,66 @@ TARGET_INPUTS = 20
 
 # Modal considers a new replica ready to receive inputs once the `modal.enter` methods have exited
 # and the container accepts connections.
-# To ensure that we actually finish setting up our server before we are marked ready for inputs,
-# we define a helper function to check whether the server is finished setting up and to
-# send it a few test inputs.
-
-# We use the [`requests` library](https://requests.readthedocs.io/en/latest/)
-# to send ourselves these HTTP requests on
-# [`localhost`/`127.0.0.1`](https://superuser.com/questions/31824/why-is-localhost-ip-127-0-0-1).
-
-with vllm_image.imports():
-    import requests
-
-PORT = 8000
-
-
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            check_running(process)
-            requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
-            return
-        except (
-            subprocess.CalledProcessError,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
-        ):
-            time.sleep(5)
-    raise TimeoutError(f"vLLM server not ready within {timeout} seconds")
-
-
-def check_running(p: subprocess.Popen):
-    if (rc := p.poll()) is not None:
-        raise subprocess.CalledProcessError(rc, cmd=p.args)
-
-
-def warmup():
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [{"role": "user", "content": "Hello, how are you?"}],
-        "max_tokens": 16,
-    }
-    for _ in range(3):
-        requests.post(
-            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
-        ).raise_for_status()
-
-
-def sleep(level: int = 1):
-    requests.post(f"http://127.0.0.1:{PORT}/sleep?level={level}").raise_for_status()
-
-
-def wake_up():
-    requests.post(f"http://127.0.0.1:{PORT}/wake_up").raise_for_status()
-
 
 # With all this in place, we are ready to define our high-performance, low-latency
-# LLM inference server.
+# LFM 2 inference server.
 
-APP_NAME = "example-vllm-low-latency"
-app = modal.App(name=APP_NAME)
+app = modal.App("example-lfm-snapshot")
 
 
 @app.cls(
     image=vllm_image,
     gpu=GPU,
-    volumes={HF_CACHE_PATH: HF_CACHE_VOL},
+    scaledown_window=5 * MINUTES,
+    timeout=15 * MINUTES,
+    volumes={
+        "/root/.cache/huggingface": hf_cache_vol,
+        "/root/.cache/vllm": vllm_cache_vol,
+    },
+    secrets=[hf_secret],
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-    timeout=10 * MINUTES,
 )
 @modal.experimental.http_server(
-    port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[REGION],  # location of proxies, should be same as Cls region
-    exit_grace_period=5,  # seconds, time to finish up requests when closing down
+    port=VLLM_PORT,
+    proxy_regions=[REGION],
+    exit_grace_period=5,
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
-class VLLM:
+class LfmVllmInference:
     @modal.enter(snap=True)
     def startup(self):
         """Start the vLLM server and block until it is healthy, then warm it up and put it to sleep."""
         cmd = [
             "vllm",
             "serve",
-            "--uvicorn-log-level",
-            "error",
             MODEL_NAME,
-            "--revision",
-            MODEL_REVISION,
             "--served-model-name",
             MODEL_NAME,
+            "--served-model-name",
+            "llm",
             "--host",
             "0.0.0.0",
             "--port",
-            f"{PORT}",
-            "--disable-uvicorn-access-log",
-            "--disable-log-requests",
+            f"{VLLM_PORT}",
+            "--dtype",
+            "bfloat16",
+            "--gpu-memory-utilization",
+            "0.8",
+            "--max-num-seqs",
+            f"{MAX_INPUTS}",
+            "--max-cudagraph-capture-size",
+            f"{MAX_INPUTS}",
             "--enable-sleep-mode",
         ]
 
+        print(*cmd)
         self.process = subprocess.Popen(cmd)
         wait_ready(self.process)
         warmup()
-        sleep(1)
+        sleep(level=1)
 
     @modal.enter(snap=False)
     def restore(self):
@@ -306,7 +349,7 @@ class VLLM:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy vllm_low_latency.py
+# modal deploy lfm_snapshot.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -314,10 +357,10 @@ class VLLM:
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-vllm-low-latency-vllm.us-east.modal.direct`.
+# something like `https://your-workspace-name--example-lfm-snapshot-lfmvllminference.us-east.modal.direct`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-low-latency-vllm.us-east.modal.direct/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-lfm-snapshot-lfmvllminference.us-east.modal.direct/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 # For simple routes, you can even send a request directly from the docs page.
@@ -335,7 +378,7 @@ class VLLM:
 # If you execute the command
 
 # ```bash
-# modal run vllm_low_latency.py
+# modal run lfm_snapshot.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -347,30 +390,28 @@ class VLLM:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = VLLM._experimental_get_flash_urls()[0]
+    url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
 
-    system_prompt = {
-        "role": "system",
-        "content": "You are a pirate who can't help but drop sly reminders that he went to Harvard.",
-    }
     if prompt is None:
-        prompt = "Explain the Singular Value Decomposition."
+        prompt = "List every country and its capital."
 
-    content = [{"type": "text", "text": prompt}]
-
-    messages = [  # OpenAI chat format
-        system_prompt,
-        {"role": "user", "content": content},
+    messages = [
+        {"role": "user", "content": prompt},
     ]
 
     await probe(url, messages, timeout=test_timeout)
     if twice:
-        messages[0]["content"] = "You are Jar Jar Binks."
+        messages = [
+            {
+                "role": "user",
+                "content": "List every country and its capital in Chinese.",
+            }
+        ]
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
         await probe(url, messages, timeout=1 * MINUTES)
 
 
-# This test relies on the two helper functions below,
+# This test relies on the `probe` helper function below,
 # which ping the server and wait for a valid response to stream.
 
 # The `probe` helper function specifically ignores
@@ -396,8 +437,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
-    client_id = str(0)  # set this to some string per multi-turn interaction
-    # often a UUID per "conversation"
+    client_id = str(0)  # set this yourself based on KV cache hit-rate
     headers = {"Modal-Session-ID": client_id}
     deadline = time.time() + timeout
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
@@ -418,7 +458,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
 async def _send_request_streaming(
     session: aiohttp.ClientSession, messages: list, timeout: int | None = None
 ) -> None:
-    payload = {"model": MODEL_NAME, "messages": messages, "stream": True}
+    payload = {"model": "llm", "messages": messages, "stream": True}
     headers = {"Accept": "text/event-stream"}
 
     async with session.post(
@@ -432,7 +472,6 @@ async def _send_request_streaming(
             if not line:
                 continue
 
-            # Server-Sent Events format: "data: ...."
             if not line.startswith("data:"):
                 continue
 
@@ -443,7 +482,6 @@ async def _send_request_streaming(
             try:
                 evt = json.loads(data)
             except json.JSONDecodeError:
-                # ignore any non-JSON keepalive
                 continue
 
             delta = (evt.get("choices") or [{}])[0].get("delta") or {}
@@ -452,17 +490,47 @@ async def _send_request_streaming(
             if chunk:
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
-        print()  # newline after stream completes
-        print(full_text)
+        print()
 
+
+# ### Test memory snapshotting
+
+# Using `modal run` creates an ephemeral Modal App,
+# rather than a deployed Modal App.
+# Ephemeral Modal Apps are short-lived,
+# so they turn off snapshotting.
+
+# To test the memory snapshot version of the server,
+# first deploy it with `modal deploy`
+# and then hit it with a client.
+
+# You should observe startup improvements
+# after a handful of cold starts
+# (usually less than five).
+# If you want to see the speedup during a test,
+# we recommend heading to the deployed App in your
+# [Modal dashboard](https://modal.com/apps)
+# and manually stopping containers after they have served a request.
+
+# You can use the client code below to test the endpoint.
+# It can be run with the command
+
+# ```
+# python lfm_snapshot.py
+# ```
 
 if __name__ == "__main__":
-    # after deployment, we can use the class from anywhere
-    vllm_server = modal.Cls.from_name(APP_NAME, "VLLM")
+    LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
-    async def main(url):
-        messages = [{"role": "user", "content": "Tell me a joke."}]
+    async def main():
+        url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+        messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
-    print("calling inference server")
-    asyncio.run(main(vllm_server._experimental_get_flash_urls()[0]))
+    try:
+        print("calling inference server")
+        asyncio.run(main())
+    except modal.exception.NotFoundError as e:
+        raise Exception(
+            f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
+        ) from e

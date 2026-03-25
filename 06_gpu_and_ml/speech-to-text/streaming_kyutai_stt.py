@@ -384,8 +384,8 @@ async def test(
 
     print("Starting transcription")
     start_time = time.monotonic_ns()
-    with modal.Queue.ephemeral() as q:
-        STT().transcribe_queue.spawn(q)
+    async with modal.Queue.ephemeral() as q:
+        await STT().transcribe_queue.spawn.aio(q)
         send = asyncio.create_task(send_audio(audio_bytes, q, chunk_size, rtf))
         recv = asyncio.create_task(receive_text(q))
         await asyncio.gather(send, recv)

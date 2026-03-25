@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import wave
+from pathlib import Path
 from typing import Callable, Sequence
 from urllib.request import urlopen
 
@@ -82,7 +83,7 @@ def get_bytes_from_wav(location: str) -> bytes:
     if location.startswith("http"):
         bytes = urlopen(location).read()
     else:
-        bytes = open(location, "rb").read()
+        bytes = Path(location).read_bytes()
 
     return bytes
 

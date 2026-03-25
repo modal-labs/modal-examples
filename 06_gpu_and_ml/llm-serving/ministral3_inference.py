@@ -70,7 +70,7 @@ MODEL_NAME = "mistralai/Ministral-3-8B-Instruct-2512"
 
 # Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
 # is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
-# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/announcing-h200-b200).
+# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/introducing-b200-h200).
 
 # At 80 GB VRAM, a single H100 GPU has enough space to store the 8B FP8 model weights (~8 GB)
 # and a very large KV cache. A single H100 is also enough to serve the 14B model in full precision,

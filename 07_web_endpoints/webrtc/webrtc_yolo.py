@@ -268,21 +268,14 @@ class ObjDet(ModalWebRtcPeer):
 #
 # The JavaScript and HTML files are alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/frontend).
 
-base_image = (
+this_directory = Path(__file__).parent.resolve()
+server_image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("python3-opencv", "ffmpeg")
     .uv_pip_install(
         "fastapi[standard]==0.115.4",
-        "aiortc==1.11.0",
-        "opencv-python==4.11.0.86",
         "shortuuid==1.0.13",
     )
-)
-
-this_directory = Path(__file__).parent.resolve()
-
-server_image = base_image.add_local_dir(
-    this_directory / "frontend", remote_path="/frontend"
+    .add_local_dir(this_directory / "frontend", remote_path="/frontend")
 )
 
 

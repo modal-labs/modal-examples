@@ -1,12 +1,21 @@
-# # Low latency Qwen 3 8B with SGLang and Modal
+# # Low latency Nvidia Nemotron 3 with SGLang and Modal
 
-# In this example, we show how to serve [SGLang](https://github.com/sgl-project/sglang) at low latency on Modal.
+# In this example, we show how to serve Nvidia's [Nemotron](https://www.nvidia.com/en-us/ai-data-science/foundation-models/nemotron/) models
+# on Modal at low latency with [SGLang](https://github.com/sgl-project/sglang).
+
+# The Nemotron models use MoE matmuls and hybrid attention
+# (mixing Transformer and Mamba layers) to deliver
+# powerful capabilities in a model that's efficient to run.
+# You can read more in the paper [here](https://arxiv.org/abs/2512.20856).
 
 # This example is intended to demonstrate everything required to run
 # inference at the highest performance and with the lowest latency possible,
 # and so it includes advanced features of both SGLang and Modal.
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
+# It also runs a "medium-sized" model, as far as LLMs go.
+# For more on serving very large language models, see
+# [this example](https://modal.com/docs/examples/very_large_models).
 
 # To minimize routing overheads, we use `@modal.experimental.http_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
@@ -33,39 +42,33 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = (
-    modal.Image.from_registry(
-        "lmsysorg/sglang:v0.5.6.post2-cu129-amd64-runtime"
-    ).entrypoint([])  # silence chatty logs on container start
+sglang_image = modal.Image.from_registry("lmsysorg/sglang:v0.5.9").entrypoint(
+    []  # silence chatty logs on container start
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
-# We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
+# We choose the [B200 GPU](https://modal.com/blog/introducing-b200),
 # which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
-# lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
-# across a variety of model architectures.
+# and supports both 8 bit and 4 bit [quantized floating point](https://quant.exposed)
+# operations.
 
-# Below, we discuss the choice of GPU count.
-
-GPU_TYPE, N_GPUS = "H100!", 2
+GPU_TYPE, N_GPUS = "B200", 1
 GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-# We'll serve [Alibaba's Qwen 3 LLM](https://www.alibabacloud.com/blog/alibaba-introduces-qwen3-setting-new-benchmark-in-open-source-ai-with-hybrid-reasoning_602192).
-# For lower latency, we pick a smaller model (8B params)
-# in a lower precision floating point format (FP8).
+# We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
+# For lower latency, we pick the intermediate-sized model (120B params)
+# quantized to [lower precision floating point](https://quant.exposed).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
+# Loading fewer bytes of model weights also speeds up [cold starts](https://modal.com/docs/guide/cold-start)
+# of our inference server.
 
-MODEL_NAME = "Qwen/Qwen3-8B-FP8"
-MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "220b46e3b2180893580a4454f21f22d3ebb187d3"  # latest commit as of 2026-01-20, from 2025-07-25
-)
+MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen3),
+# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8),
 # so we'll need their Python package.
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
@@ -87,140 +90,6 @@ sglang_image = sglang_image.env(
     {"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"}
 )
 
-# ### Cacheing compilation artifacts
-
-# Model weights aren't the only thing we want to cache.
-
-# As a rule, LLM inference servers like SGLang don't directly provide their own kernels.
-# They draw high-performance kernels from a variety of sources.
-
-# As of version `0.5.6`, SGLang's default kernel backend
-# for FP8 matrix multiplications (`fp8-gemm-backend`)
-# on Hopper [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
-# GPUs like the H100 is
-# [DeepGEMM](https://github.com/deepseek-ai/DeepGEMM)
-# by DeepSeek.
-
-# The binaries of these kernels are not included in the SGLang Docker image and so
-# must be [JIT-compiled](https://modal.com/gpu-glossary/host-software/nvrtc).
-# We store these in a Modal Volume as well.
-
-DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
-DG_CACHE_PATH = "/root/.cache/deepgemm"
-
-# JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
-
-sglang_image = sglang_image.env({"SGLANG_ENABLE_JIT_DEEPGEMM": "1"})
-
-# We trigger the compilation by running `sglang.compile_deep_gemm` in a `subprocess`
-# kicked off from a Python function.
-
-
-def compile_deep_gemm():
-    import os
-
-    if int(os.environ.get("SGLANG_ENABLE_JIT_DEEPGEMM", "1")):
-        subprocess.run(
-            f"python3 -m sglang.compile_deep_gemm --model-path {MODEL_NAME} --revision {MODEL_REVISION} --tp {N_GPUS}",
-            shell=True,
-        )
-
-
-# We run this Python function on Modal as part of building the Image
-# so that it has access to the appropriate GPU and the caches for our model and compilaton artifacts.
-
-sglang_image = sglang_image.run_function(
-    compile_deep_gemm,
-    volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
-    gpu=GPU,
-)
-
-# ## Configure SGLang for minimal latency
-
-# LLM inference engines like SGLang come with a wide variety of "knobs" to tune performance.
-
-# To determine the appropriate configuration to hit latency and throughput service objectives,
-# we recommend [application-specific benchmarking](https://modal.com/llm-almanac/how-to-benchmark)
-# guided by [published generic benchmarks](https://modal.com/llm-almanac/advisor).
-
-# Here, we assume that the primary goal is to minimize per-request latency, with less regard to throughput
-# (and so to cost) and walk through some of the key choices.
-
-# The primary contributor to per-request latency is the time to move all of the model's weights (multiple gigabytes)
-# from [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram)
-# into [SRAM in the Streaming Multiprocessors](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor),
-# which must be done at least once in the course of processing a request --
-# naively, once per token per request.
-# The time taken is limited by the
-# [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
-# between those two stores, which is on the order of terabytes per second on modern data center GPUs.
-# With models at the scale of gigabytes, a token will take milliseconds to generate --
-# or whole seconds for the kilotoken responses users are accustomed to.
-
-# We use two strategies to cut latency in our [memory-bound](https://modal.com/gpu-glossary/perf/memory-bound) workload:
-
-# - operate across multiple GPUs for more aggregate bandwidth and faster loads, with tensor parallelism
-
-# - generate more tokens per load, with speculative decoding
-
-# ### Increasing effective memory bandwidth with tensor parallelism
-
-# Running SGLang on two H100s will double our effective
-# [memory bandwidth](https://modal.com/gpu-glossary/perf/memory-bandwidth)
-# during large matrix multiplications.
-
-# Matrices are also known as tensors, and so this strategy that takes advantage
-# of the inherent parallelism within matrix multiplication is known as _tensor parallelism_.
-
-# Actual speedups are generally less than what you get from "napkin math" based on available bandwidths --
-# we observed a speedup of about 30% moving from one to two H100s when developing this example, rather than 100%.
-
-# ### Parallelizing token generation with speculative decoding
-
-# Transformer and recurrent language models generate text sequentially:
-# the model's output at step `i` is part of the input at step `i+1`.
-# Per Amdahl's Law, that sequential work becomes the bottleneck
-# as other steps get faster from increased parallelism.
-
-# The solution is to generate more tokens on each step.
-# The primary technique to do so without changing model behavior is known as
-# [_speculative decoding_](https://developer.nvidia.com/blog/an-introduction-to-speculative-decoding-for-reducing-latency-in-ai-inference/),
-# which "speculates" a number of draft tokens and verifies them in parallel with the primary model.
-
-# Speculative decoding techniques themselves have a number of parameters, the most important
-# of which is the technique to use to generate draft tokens.
-# Simple techniques based on n-grams are a good place to start.
-# But in our experience, the [EAGLE-3](https://arxiv.org/abs/2503.01840)
-# technique gives enough of a performance boost to be worth
-# the overhead of maintaining an extra model for speculation.
-
-# And for popular models, you can often find a high-quality EAGLE-3 draft model
-# with open weights. For Qwen 3-8B, we like
-# [`Tengyunw`'s model](https://huggingface.co/Tengyunw/qwen3_8b_eagle3).
-
-speculative_config = {
-    "speculative-algorithm": "EAGLE3",
-    "speculative-draft-model-path": "Tengyunw/qwen3_8b_eagle3",
-}
-
-# We adopt the default configuration for this model from the documentation.
-# With these settings, we observed an ~30% boost in throughput for a single user
-# during the development of this sample code.
-
-speculative_config |= {
-    "speculative-num-steps": 6,
-    "speculative-eagle-topk": 10,
-    "speculative-num-draft-tokens": 32,
-}
-
-# Note that unlike tensor parallelism,
-# speculative decoding is not good for
-# [compute-bound](https://modal.com/gpu-glossary/perf/compute-bound)
-# workloads, since it generally increases demand for
-# [arithmetic bandwidth](https://modal.com/gpu-glossary/perf/arithmetic-bandwidth).
-# So for workloads that admit larger batch sizes for requests,
-# on the scale of dozens to hundreds, speculative decoding is not recommended.
-
 # ## Define the inference server and infrastructure
 
 # ### Selecting infrastructure to minimize latency
@@ -234,12 +103,13 @@ speculative_config |= {
 # as part of defining a `modal.experimental.http_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
-# and select the `us-east` cloud region serve them.
+# and select the `us` cloud region serve them.
 # This should result in at most a few dozen milliseconds of round-trip time.
 
-REGION = "us-east"
+REGION = "us"
+PROXY_REGION = "us-east"
 
-# Latencies for mutli-turn interactions with LLMs are
+# Latencies for multi-turn interactions with LLMs are
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
@@ -314,7 +184,7 @@ with sglang_image.imports():
     import requests
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -347,56 +217,55 @@ def warmup():
 
 
 # With all this in place, we are ready to define our high-performance, low-latency
-# LLM inference server.
+# Nemotron inference server.
 
-app = modal.App(name="example-sglang-low-latency")
+app = modal.App(name="example-nemotron-inference")
 PORT = 8000
 
 
 @app.cls(
     image=sglang_image,
     gpu=GPU,
-    volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
+    volumes={HF_CACHE_PATH: HF_CACHE_VOL},
     region=REGION,
     min_containers=MIN_CONTAINERS,
+    secrets=[modal.Secret.from_name("huggingface-secret")],
+    startup_timeout=20 * MINUTES,  # time to load weights
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[REGION],  # location of proxies, should be same as Cls region
+    proxy_regions=[PROXY_REGION],  # location of proxies, should overlap with Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
-class SGLang:
+class Server:
     @modal.enter()
     def startup(self):
-        """Start the SGLang server and block until it is healthy, then warm it up and put it to sleep."""
+        """Start the SGLang server and block until it is healthy, then warm it up."""
+
         cmd = [
-            "python",
-            "-m",
-            "sglang.launch_server",
+            "sglang",
+            "serve",
             "--model-path",
             MODEL_NAME,
-            "--revision",
-            MODEL_REVISION,
             "--served-model-name",
             MODEL_NAME,
             "--host",
             "0.0.0.0",
             "--port",
             f"{PORT}",
-            "--tp",  # use all GPUs to split up tensor-parallel operations
+            "--tp",  # configure GPU parallelism
             f"{N_GPUS}",
             "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
             "--decode-log-interval",  # how often to log during decoding, in tokens
             "100",
-            "--mem-fraction",  # leave space for speculative model
-            "0.8",
-        ]
-
-        cmd += [  # add speculative config
-            item for k, v in speculative_config.items() for item in (f"--{k}", str(v))
+            "--trust-remote-code",
+            "--tool-call-parser",
+            "qwen3_coder",
+            "--reasoning-parser",
+            "nano_v3",
         ]
 
         self.process = subprocess.Popen(cmd)
@@ -413,7 +282,7 @@ class SGLang:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy sglang_low_latency.py
+# modal deploy nemotron_inference.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -421,10 +290,10 @@ class SGLang:
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-sglang-low-latency-sglang.us-east.modal.direct`.
+# something like `https://your-workspace-name--example-nemotron-inference-server.us-east.modal.direct`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-sglang-low-latency-sglang.us-east.modal.direct/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-nemotron-inference-server.us-east.modal.direct/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 # For simple routes, you can even send a request directly from the docs page.
@@ -432,7 +301,7 @@ class SGLang:
 # Note: when no replicas are available, Modal will respond with
 # the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503).
 # In your browser, you can just hit refresh until the docs page appears.
-# You can see the status of the applicaton and its containers on your [Modal dashboard](https://modal.com/apps).
+# You can see the status of the application and its containers on your [Modal dashboard](https://modal.com/apps).
 
 # ## Test the server
 
@@ -442,7 +311,7 @@ class SGLang:
 # If you execute the command
 
 # ```bash
-# modal run sglang_low_latency.py
+# modal run nemotron_inference.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -453,8 +322,8 @@ class SGLang:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang._experimental_get_flash_urls.aio())[0]
+async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
+    url = (await Server._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
         "role": "system",
@@ -505,7 +374,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # This ensures no container ends up as a "hot spot" handling too many client requests.
 
 
-async def probe(url, messages=None, timeout=5 * MINUTES):
+async def probe(url, messages=None, timeout=20 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
@@ -560,10 +429,9 @@ async def _send_request_streaming(
                 continue
 
             delta = (evt.get("choices") or [{}])[0].get("delta") or {}
-            chunk = delta.get("content")
+            chunk = delta.get("content") or delta.get("reasoning_content")
 
             if chunk:
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
         print()  # newline after stream completes
-        print(full_text)

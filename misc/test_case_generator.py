@@ -2,44 +2,65 @@
 # cmd: ["modal", "run", "-m", "13_sandboxes.test_case_generator"]
 # args: ["--gh-owner", "modal-labs", "--gh-repo-name", "password-analyzer", "--gh-module-path", "src/password_strength", "--gh-tests-path", "tests", "--gh-branch", "main"]
 # ---
-import subprocess
-import time
 
-import modal
+# # LLM-Generated Unit Test Development
 
-app = modal.App(
-    name="sandbox-test-case-generator",
-)
-model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
-files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
+# Unit tests can become tedious to generate and maintain. While LLMs are a useful tool
+# for generating test cases, hallucinations are always possible, making the code
+# potentially unsafe to run locally.
+#
+# In this example, we'll show you how to generate unit tests in a [sample repository](https://github.com/modal-labs/password-analyzer) using an open-source LLM,
+# and then run them in Modal Sandboxes - our sandboxed environment. We'll then open ports
+# on each of our Sandboxes, showing the code diff and new test case coverage.
+
+# # Model Setup
+
+# First, let's pick an LLM to do the heavy lifting. We went with [deepseek-coder-6.7b-instruct](https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct)
+# which offers a good trade-off between size and quality. At just 7B parameters, it ranks 9th on Hugging Face's
+# [Big Code Models Leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard), only beat out primarily by larger models.
 
 MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"
 MODEL_REVISION = "e5d64addd26a6a1db0f9b863abf6ee3141936807"
 
+# Next, we'll create some [Modal Volumes](https://modal.com/docs/reference/modal.Volume) - one for caching our model weights,
+# so that we don't have to re-download them on each inference and another for writing our new test case files.
 
-model_image = (
+import modal
+
+model_volume = modal.Volume.from_name("deepseek-model-volume", create_if_missing=True)
+files_volume = modal.Volume.from_name("files-volume", create_if_missing=True)
+
+# ## Model Dependencies
+
+# We'll package our dependencies into a [Modal Image](https://modal.com/docs/reference/modal.Image). Starting from a
+# container image provided [by the SGLang team via Dockerhub](https://hub.docker.com/r/lmsysorg/sglang/tags),
+# we'll also add a few packages and flags from Hugging Face to facilitate fast model download.
+server_image = (
     modal.Image.from_registry("lmsysorg/sglang:v0.4.9.post3-cu126", add_python="3.12")
     .uv_pip_install(
         "sglang[all]==0.4.9.post3",
         "accelerate==1.8.1",
         "hf_transfer==0.1.9",
     )
-    .env(
-        {
-            "HF_HUB_ENABLE_HF_TRANSFER": "1",
-            "HF_HOME": "/cache",
-        }
-    )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/cache"})
     .entrypoint([])  # silence noisy logs
 )
 
+app = modal.App(name="sandbox-test-case-generator")
+
+
+# ## Model Server
+
+# Let's put it all together to set up our inference server! Using a [modal.Cls](https://modal.com/docs/reference/modal.Cls), we can
+# easily attach an L40S GPU by setting the `gpu` parameter. The `@modal.enter()` decorator creates
+# a `download_model` lifecycle function, which is run once when the container starts. These are executed sequentially,
+# so our SGLang server starts once the weights are downloaded. Finally, the `@modal.web_endpoint()` converts this
+# into a web endpoint that can be invoked for model inference.
+
 
 @app.cls(
-    image=model_image,
-    volumes={
-        "/cache": model_volume,
-        "/data": files_volume,
-    },
+    image=server_image,
+    volumes={"/cache": model_volume, "/data": files_volume},
     gpu="L40S",
     timeout=600,
 )
@@ -80,13 +101,19 @@ class TestCaseServer:
         return
 
 
+# ## Model Client
+
+# Now that our server is set up, let's create a client. We [parametrize](https://modal.com/docs/guide/parametrized-functions#using-parametrized-functions-with-lifecycle-functions) our function with
+# the server `url`, which we'll pass in later. We'll add a [`@modal.method()`](https://modal.com/docs/reference/modal.method#modalmethod) decorator
+# to register our `generate()` function as a Modal Function. Finally, we can invoke our OpenAI-compatible server with our prompt
+# to generate test cases!
+
+
 @app.cls(
     image=modal.Image.debian_slim(python_version="3.12").uv_pip_install(
         "openai==1.97.1"
     ),
-    volumes={
-        "/data": files_volume,
-    },
+    volumes={"/data": files_volume},
 )
 class TestCaseClient:
     url: str = modal.parameter()
@@ -157,7 +184,10 @@ class TestCaseClient:
             return self.write_outputs(f"test_{file_name}", output_contents)
         except Exception as e:
             print(f"Error generating test file: {e}")
-            return None
+            return str(e)
+
+
+# We also set up another Modal Function to download files from our repo to the Modal Volume.
 
 
 @app.function(
@@ -206,6 +236,16 @@ def download_files_to_volume(
     return [name for name in file_to_text.keys() if not name.startswith("test_")]
 
 
+# # Sandbox Setup
+
+# ## Image
+
+# Now, let's create a secure environment for our generated test cases to run in.
+# We'll define another Modal Image for our [Modal Sandbox](https://modal.com/docs/guide/sandboxes), installing
+# the [Allure Framework](https://github.com/allure-framework) to generate a report, as well as
+# [git](https://git-scm.com/) to clone our [sample repo](https://github.com/modal-labs/password-analyzer).
+
+
 def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     ALLURE_VERSION = "2.34.1"
     MODULE_URL = f"https://github.com/{gh_owner}/{gh_repo_name}"
@@ -226,20 +266,31 @@ def get_sandbox_image(gh_owner: str, gh_repo_name: str):
     return image
 
 
-def run_sandbox(image: modal.Image, file_name: str):
+# ## Sandbox Command
+
+# Next, we define our Sandbox command, chaining together a series of commands. We'll show the difference
+# between the two unit test files, re-run unit tests with the LLM-generated files to check test case
+# coverage, and show the results of both in ports 8000 and 8001.
+
+
+async def run_sandbox(image: modal.Image, file_name: str):
     new_file_name = file_name.replace(".py", "_llm.py")
 
     cmd = (
+        # Take the diff between the generated and original unit test file, and host it on port 8001
         f"webdiff password-analyzer/tests/{file_name} /data/outputs/{file_name}  --host 0.0.0.0 --port 8001 &&"
+        # Install poetry and allure
         + "cd password-analyzer && "
         + "poetry install --no-root && "
         + "poetry run pytest --alluredir allure-results || true && "
+        # Overwrite the original unit test file with the LLM-generated one
         + f"cp /data/outputs/{file_name} tests/{new_file_name} && "
+        # Re-run pytest and show the unit test results in an Allure report on port 8000
         + "poetry run pytest --alluredir allure-results || true && "
         + "allure serve allure-results --host 0.0.0.0 --port 8000"
     )
 
-    sb = modal.Sandbox.create(
+    sb = await modal.Sandbox.create.aio(
         "sh",
         "-c",
         cmd,
@@ -254,6 +305,15 @@ def run_sandbox(image: modal.Image, file_name: str):
     return sb
 
 
+# # Put it all together!
+
+# Finally, we can define a [local_entrypoint](https://modal.com/docs/reference/modal.App#local_entrypoint) and chain
+# everything together. We'll create our test case server and download the Github files from our repo to a Modal Volume.
+# We'll use [`map.aio`](https://modal.com/docs/reference/modal.Function#map) to invoke our server asynchronously,
+# generating our unit test files in parallel. Finally, we'll create our Sandboxes to validate our new test cases,
+# similarly using [`sb.wait.aio`](https://modal.com/docs/reference/modal.Sandbox#wait).
+
+
 @app.local_entrypoint()
 async def main(
     gh_owner: str,
@@ -265,10 +325,10 @@ async def main(
     import asyncio
 
     # Start server
-    sg_lang_server = TestCaseServer()
+    sglang_server = TestCaseServer()
 
     # Download files to volume
-    input_files = download_files_to_volume.remote(
+    input_files = await download_files_to_volume.remote.aio(
         folder_paths=[gh_module_path, gh_tests_path],
         gh_owner=gh_owner,
         gh_repo_name=gh_repo_name,
@@ -276,7 +336,7 @@ async def main(
     )
 
     # Initialize client and generate test files
-    generator = TestCaseClient(url=sg_lang_server.serve.get_web_url())  # type: ignore
+    generator = TestCaseClient(url=await sglang_server.serve.get_web_url.aio())  # type: ignore
     output_generator = generator.generate.map.aio(input_files)
     output_files = []
     async for f in output_generator:
@@ -285,7 +345,7 @@ async def main(
     print("Test case files generated successfully! Creating sandboxes...")
 
     # Create sandboxes to run the generated test files
-    sandboxes = create_sandboxes(output_files, gh_owner, gh_repo_name)
+    sandboxes = await create_sandboxes(output_files, gh_owner, gh_repo_name)
     await asyncio.gather(
         *[sb.wait.aio(raise_on_termination=False) for sb in sandboxes],
         return_exceptions=True,
@@ -293,19 +353,26 @@ async def main(
 
 
 # # Addenda
-# The below functions are utility functions.
-def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
+
+# The functions below are utilities used above.
+
+import subprocess
+import time
+
+
+async def create_sandboxes(filenames: list[str], gh_owner: str, gh_repo_name: str):
     file_to_sandbox: dict[str, modal.Sandbox] = {}
     for filename in filenames:
         print(f"Running sandbox for {filename}")
         image = get_sandbox_image(gh_owner, gh_repo_name)
-        sb = run_sandbox(image, filename)
+        sb = await run_sandbox(image, filename)
         file_to_sandbox[filename] = sb
     time.sleep(20)  # Hack to make sure URLs show up at the very end
 
     for filename, sb in file_to_sandbox.items():
-        tunnel1 = sb.tunnels()[8000]
-        tunnel2 = sb.tunnels()[8001]
+        tunnels = await sb.tunnels.aio()
+        tunnel1 = tunnels[8000]
+        tunnel2 = tunnels[8001]
         print(f"Sandbox created and run for generated test file: {filename}")
         print(f"✨ View diff: {tunnel2.url}")
         print(f"✨ View test results: {tunnel1.url}\n")
