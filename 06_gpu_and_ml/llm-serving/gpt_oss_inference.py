@@ -52,7 +52,7 @@ vllm_image = (
     )
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.13.0",
+        "vllm==0.18.1",
         "huggingface_hub[hf_transfer]==0.36.0",
     )
     .env(  # fast Blackwell-specific MoE kernels
@@ -103,6 +103,7 @@ VLLM_CONFIG = {  # return tokens in chunks of 20, save on host overhead
 
 SPECULATIVE_CONFIG = {
     "model": "RedHatAI/gpt-oss-20b-speculator.eagle3",
+    "revision": "97d07a21e8b7e2b667725dd92f579525c0a30d05",
     "num_speculative_tokens": 7,
     "method": "eagle3",
 }
