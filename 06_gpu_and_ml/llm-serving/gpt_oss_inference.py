@@ -309,6 +309,8 @@ async def _send_request(
                 print(delta["content"], end="")  # print the content as it comes in
             elif "reasoning_content" in delta:
                 print(delta["reasoning_content"], end="")
+            elif "reasoning" in delta:
+                print(delta["reasoning"], end="")
             elif not delta:
                 print()
             else:
