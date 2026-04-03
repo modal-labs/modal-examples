@@ -26,7 +26,7 @@ app = modal.App.lookup("example-anthropic-computer-use", create_if_missing=True)
 # provides a prebuilt Docker image. We use this hosted image to create our sandbox environment.
 
 sandbox_image = (
-    modal.experimental.raw_registry_image(
+    modal.Image.from_registry(
         "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest",
     )
     .env({"WIDTH": "1920", "HEIGHT": "1080"})
