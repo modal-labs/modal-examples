@@ -203,6 +203,19 @@ def post_to_slack(message_payload: dict):
     print(f"Posted report to {channel}")
 
 
+_RELATIVE_TIME_RE = re.compile(r"^now-(\d+)([dhms])$")
+_UNIT_MAP = {"d": "days", "h": "hours", "m": "minutes", "s": "seconds"}
+
+
+def _parse_relative_time(spec: str, now: datetime) -> datetime:
+    """Convert a Datadog-style relative time like ``now-7d`` to a datetime."""
+    m = _RELATIVE_TIME_RE.match(spec)
+    if not m:
+        return now - timedelta(days=7)
+    value, unit = int(m.group(1)), m.group(2)
+    return now - timedelta(**{_UNIT_MAP[unit]: value})
+
+
 # ## Running the analysis
 
 
@@ -223,7 +236,7 @@ def analyze_docs_404s(from_time: str = "now-7d", to_time: str = "now"):
 
     now = datetime.now(tz=timezone.utc)
     to_dt = now
-    from_dt = now - timedelta(days=7)
+    from_dt = _parse_relative_time(from_time, now)
 
     message = format_slack_message(results, from_dt, to_dt)
     post_to_slack.remote(message)
