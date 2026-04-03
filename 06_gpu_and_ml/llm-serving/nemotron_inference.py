@@ -33,6 +33,7 @@
 
 import asyncio
 import json
+import os
 import subprocess
 import time
 
@@ -42,8 +43,9 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = modal.Image.from_registry("lmsysorg/sglang:v0.5.9").entrypoint(
-    []  # silence chatty logs on container start
+sglang_image = (
+    modal.Image.from_registry("lmsysorg/sglang:dev-cu13", add_python="3.11")
+    .entrypoint([])  # silence chatty logs on container start
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
@@ -59,16 +61,16 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
 # For lower latency, we pick the intermediate-sized model (120B params)
-# quantized to [lower precision floating point](https://quant.exposed).
+# quantized to [four bits](https://quant.exposed).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 # Loading fewer bytes of model weights also speeds up [cold starts](https://modal.com/docs/guide/cold-start)
 # of our inference server.
 
-MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8"
+MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8),
+# We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4),
 # so we'll need their Python package.
 
 sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
@@ -265,7 +267,7 @@ class Server:
             "--tool-call-parser",
             "qwen3_coder",
             "--reasoning-parser",
-            "nano_v3",
+            "nemotron_3",
         ]
 
         self.process = subprocess.Popen(cmd)
