@@ -33,7 +33,6 @@
 
 import asyncio
 import json
-import os
 import subprocess
 import time
 
@@ -44,8 +43,9 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:dev-cu13", add_python="3.11")
-    .entrypoint([])  # silence chatty logs on container start
+    modal.Image.from_registry("lmsysorg/sglang:dev-cu13", add_python="3.11").entrypoint(
+        []  # silence chatty logs on container start
+    )
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
@@ -61,7 +61,7 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
 # For lower latency, we pick the intermediate-sized model (120B params)
-# quantized to [four bits](https://quant.exposed).
+# quantized to [lower precision floating point](https://quant.exposed).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
