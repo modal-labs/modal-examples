@@ -18,7 +18,6 @@ import time
 import urllib.request
 
 import modal
-import modal.experimental
 
 app = modal.App.lookup("example-anthropic-computer-use", create_if_missing=True)
 
