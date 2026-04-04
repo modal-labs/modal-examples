@@ -360,8 +360,6 @@ class SGLang:
     @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up and put it to sleep."""
-        import os
-
         cmd = [
             "python",
             "-m",
