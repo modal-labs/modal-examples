@@ -51,21 +51,20 @@ vllm_image = (
 # It can also take images, video, and audio as inputs,
 # though we won't use that here.
 
-# We'll use the 31B-it variant, [`google/gemma-4-31B-it`](https://huggingface.co/google/gemma-4-31B-it).
+# We'll use the 26BA4B variant, [`google/gemma-4-26B-A4B-it`](https://huggingface.co/google/gemma-4-26B-A4B-it).
 # This variant is trained with reasoning capabilities, which allow it to
-# enhance the quality of its generated responses,
-# and has ~31 billion parameters.
-# Furthermore, we'll use a version of that model that has been [quantized](https://quant.exposed)
-# down to 4bit floating point by [Red Hat AI](https://huggingface.co/RedHatAI).
+# enhance the quality of its generated responses.
+# It has `26B`illion parameters, of which `4B`illion are `A`ctive
+# in processing of each token.
 
 # You can swap this model out for another by changing the strings below,
 # though you might also need to adjust some of the server configuration as well.
-# A single B200 GPU has more than enough VRAM to store this model's ~20 GB of weights
+# A single H200 GPU has enough VRAM to store this 26,000,000,000 parameter model
 # along with a large KV cache.
 
 
-MODEL_NAME = "RedHatAI/gemma-4-31B-it-NVFP4"
-MODEL_REVISION = "93cb8f7d153c2cf07cc0dda3feb6b85feec38658"  # avoid nasty surprises when repos update!
+MODEL_NAME = "google/gemma-4-26B-A4B-it"
+MODEL_REVISION = "47b6801b24d15ff9bcd8c96dfaea0be9ed3a0301"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
@@ -123,7 +122,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"B200:{N_GPU}",
+    gpu=f"H200:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
