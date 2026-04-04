@@ -35,14 +35,14 @@ MINUTES = 60  # seconds
 
 sglang_image = (
     modal.Image.from_registry(
-        "lmsysorg/sglang:v0.5.6.post2-cu129-amd64-runtime"
+        "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
     ).entrypoint([])  # silence chatty logs on container start
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
 # which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
+# and supports [8bit floating point operations](https://quant.exposed), which are the
 # lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
 # across a variety of model architectures.
 
@@ -53,24 +53,21 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-# We'll serve [Alibaba's Qwen 3 LLM](https://www.alibabacloud.com/blog/alibaba-introduces-qwen3-setting-new-benchmark-in-open-source-ai-with-hybrid-reasoning_602192).
-# For lower latency, we pick a smaller model (8B params)
+# We'll serve [Alibaba's Qwen 3.5 LLM](https://qwen.ai/blog?id=qwen3.5).
+# For lower latency, we pick the 35B mixture-of-experts model with 3 billion active parameters
 # in a lower precision floating point format (FP8).
-# This reduces the amount of data that needs to be loaded
+# Expert sparsity and lower precision reduce the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 
-MODEL_NAME = "Qwen/Qwen3-8B-FP8"
+MODEL_NAME = "Qwen/Qwen3.5-35B-A3B-FP8"
 MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "220b46e3b2180893580a4454f21f22d3ebb187d3"  # latest commit as of 2026-01-20, from 2025-07-25
+    "0b2752837483aa34b3db6e83e151b150c0e00e49"  # latest commit as of 2026-04-03, from release
 )
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen3),
-# so we'll need their Python package.
+# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen35).
 
-sglang_image = sglang_image.uv_pip_install("huggingface-hub==0.36.0")
-
-# We don't want to load the model from the Hub every time we start the server.
+# But we don't want to load the model from the Hub every time we start the server.
 # We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
 # Typical speeds are around one to two GB/s.
 
@@ -94,7 +91,7 @@ sglang_image = sglang_image.env(
 # As a rule, LLM inference servers like SGLang don't directly provide their own kernels.
 # They draw high-performance kernels from a variety of sources.
 
-# As of version `0.5.6`, SGLang's default kernel backend
+# As of version `0.5.9`, SGLang's default kernel backend
 # for FP8 matrix multiplications (`fp8-gemm-backend`)
 # on Hopper [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
 # GPUs like the H100 is
@@ -190,27 +187,20 @@ sglang_image = sglang_image.run_function(
 # Speculative decoding techniques themselves have a number of parameters, the most important
 # of which is the technique to use to generate draft tokens.
 # Simple techniques based on n-grams are a good place to start.
-# But in our experience, the [EAGLE-3](https://arxiv.org/abs/2503.01840)
-# technique gives enough of a performance boost to be worth
-# the overhead of maintaining an extra model for speculation.
-
-# And for popular models, you can often find a high-quality EAGLE-3 draft model
-# with open weights. For Qwen 3-8B, we like
-# [`Tengyunw`'s model](https://huggingface.co/Tengyunw/qwen3_8b_eagle3).
+# But many models are released with built-in speculation based on
+# [multi-token prediction](https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/Multi_Token_Prediction.html),
+# also known in SGLang as [EAGLE](https://arxiv.org/abs/2401.15077).
 
 speculative_config = {
-    "speculative-algorithm": "EAGLE3",
-    "speculative-draft-model-path": "Tengyunw/qwen3_8b_eagle3",
+    "speculative-algorithm": "EAGLE",
 }
 
-# We adopt the default configuration for this model from the documentation.
-# With these settings, we observed an ~30% boost in throughput for a single user
-# during the development of this sample code.
+# We adopt the default configuration for this speculator from [the cookbook](https://cookbook.sglang.io/autoregressive/Qwen/Qwen3.5).
 
 speculative_config |= {
-    "speculative-num-steps": 6,
-    "speculative-eagle-topk": 10,
-    "speculative-num-draft-tokens": 32,
+    "speculative-num-steps": 3,
+    "speculative-eagle-topk": 1,
+    "speculative-num-draft-tokens": 4,
 }
 
 # Note that unlike tensor parallelism,
@@ -370,6 +360,8 @@ class SGLang:
     @modal.enter()
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up and put it to sleep."""
+        import os
+
         cmd = [
             "python",
             "-m",
@@ -474,7 +466,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
     if twice:
         messages[0]["content"] = "You are Jar Jar Binks."
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
-        await probe(url, messages, timeout=1 * MINUTES)
+        await probe(url, messages, timeout=test_timeout)
 
 
 # This test relies on the two helper functions below,
@@ -566,4 +558,3 @@ async def _send_request_streaming(
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
         print()  # newline after stream completes
-        print(full_text)
