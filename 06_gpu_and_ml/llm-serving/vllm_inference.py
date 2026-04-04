@@ -2,7 +2,7 @@
 # pytest: false
 # ---
 
-# # Run OpenAI-compatible LLM inference with Qwen and vLLM
+# # Run OpenAI-compatible LLM inference with Gemma and vLLM
 
 # In this example, we show how to run a vLLM server in OpenAI-compatible mode on Modal.
 
@@ -33,11 +33,13 @@ import aiohttp
 import modal
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
     .uv_pip_install(
-        "vllm==0.13.0",
-        "huggingface-hub==0.36.0",
+        "vllm==0.19.0",
+    )
+    .uv_pip_install(  # as of vllm 0.19.0, must install transformers separately to use Gemma 4
+        "transformers==5.5.0",
     )
     .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster model transfers
 )
@@ -45,27 +47,30 @@ vllm_image = (
 # ## Download the model weights
 
 # We'll be running a pretrained foundation model --
-# [Alibaba's Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507-FP8).
-# It is trained with reasoning capabilities, which allow it to
+# [Goole's Gemma 4](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/).
+# It can also take images, video, and audio as inputs,
+# though we won't use that here.
+
+# We'll use the 26BA4B variant, [`google/gemma-4-26B-A4B-it`](https://huggingface.co/google/gemma-4-26B-A4B-it).
+# This variant is trained with reasoning capabilities, which allow it to
 # enhance the quality of its generated responses.
+# It has `26B`illion parameters, of which `4B`illion are `A`ctive
+# in processing of each token.
 
-# We'll use an FP8 (eight-bit floating-point) post-training-quantized variant: `Qwen/Qwen3-4B-Thinking-2507-FP8`.
-# Native hardware support for FP8 formats in [Tensor Cores](https://modal.com/gpu-glossary/device-hardware/tensor-core)
-# is limited to the latest [Streaming Multiprocessor architectures](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
-# like those of Modal's [Hopper H100/H200 and Blackwell B200 GPUs](https://modal.com/blog/introducing-b200-h200).
-
-# You can swap this model out for another by changing the strings below.
-# A single H100 GPU has enough VRAM to store a 4,000,000,000 parameter model,
-# like Qwen3 4B, in eight bit precision, along with a very large KV cache.
+# You can swap this model out for another by changing the strings below,
+# though you might also need to adjust some of the server configuration as well.
+# A single H200 GPU has enough VRAM to store this 26,000,000,000 parameter model
+# along with a large KV cache.
 
 
-MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507-FP8"
-MODEL_REVISION = "953532f942706930ec4bb870569932ef63038fdf"  # avoid nasty surprises when repos update!
+MODEL_NAME = "google/gemma-4-26B-A4B-it"
+MODEL_REVISION = "47b6801b24d15ff9bcd8c96dfaea0be9ed3a0301"  # avoid nasty surprises when repos update!
 
 # Although vLLM will download weights from Hugging Face on-demand,
 # we want to cache them so we don't do it every time our server starts.
 # We'll use [Modal Volumes](https://modal.com/docs/guide/volumes) for our cache.
-# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk. For more on storing model weights on Modal, see
+# Modal Volumes are essentially a "shared disk" that all Modal Functions can access like it's a regular disk.
+# For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
 
@@ -81,13 +86,15 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 
 # vLLM has embraced dynamic and just-in-time compilation to eke out additional performance without having to write too many custom kernels,
 # e.g. via the Torch compiler and CUDA graph capture.
-# These compilation features incur latency at startup in exchange for lowered latency and higher throughput during generation.
+# These compilation features incur latency in exchange for lowered latency and higher throughput during generation.
+# This latency is typically tens of seconds to a few minutes, reduced to about ten seconds when loaded from the cache.
 # We make this trade-off controllable with the `FAST_BOOT` variable below.
 
-FAST_BOOT = True
+FAST_BOOT = False
 
 # If you're running an LLM service that frequently scales from 0 (frequent ["cold starts"](https://modal.com/docs/guide/cold-start))
-# then you'll want to set this to `True`.
+# you might want to set this to `True`, or consider [GPU memory snapshots](https://modal.com/docs/guide/memory-snapshots).
+# It's also useful to set this when you're iterating on the server configuration.
 
 # If you're running an LLM service that usually has multiple replicas running, then set this to `False` for improved performance.
 
@@ -115,7 +122,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"H100:{N_GPU}",
+    gpu=f"H200:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
     timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
@@ -124,16 +131,16 @@ VLLM_PORT = 8000
     },
 )
 @modal.concurrent(  # how many requests can one replica handle? tune carefully!
-    max_inputs=32
+    max_inputs=100,
 )
 @modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
 def serve():
+    import json
     import subprocess
 
     cmd = [
         "vllm",
         "serve",
-        "--uvicorn-log-level=info",
         MODEL_NAME,
         "--revision",
         MODEL_REVISION,
@@ -144,6 +151,8 @@ def serve():
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
+        "--uvicorn-log-level=info",
+        "--async-scheduling",
     ]
 
     # enforce-eager disables both Torch compilation and CUDA graph capture
@@ -152,6 +161,17 @@ def serve():
 
     # assume multiple GPUs are for splitting up large matrix multiplications
     cmd += ["--tensor-parallel-size", str(N_GPU)]
+
+    # add model-specific configuration
+    cmd += [
+        # skip multimedia support, just language
+        "--limit-mm-per-prompt",
+        f"'{json.dumps({'image': 0, 'video': 0, 'audio': 0})}'",
+        # enable reasoning and tool use
+        "--enable-auto-tool-choice",
+        "--reasoning-parser gemma4",
+        "--tool-call-parser gemma4",
+    ]
 
     print(*cmd)
 
@@ -247,6 +267,8 @@ async def _send_request(
 ) -> None:
     # `stream=True` tells an OpenAI-compatible backend to stream chunks
     payload: dict[str, Any] = {"messages": messages, "model": model, "stream": True}
+    # explicitly enable thinking for this model
+    payload["chat_template_kwargs"] = {"enable_thinking": True}
 
     headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
 
@@ -266,7 +288,12 @@ async def _send_request(
             assert (
                 chunk["object"] == "chat.completion.chunk"
             )  # or something went horribly wrong
-            print(chunk["choices"][0]["delta"]["content"], end="")
+            delta = chunk["choices"][0]["delta"]
+            content = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content")
+            if content:
+                print(content, end="")
+            else:
+                print("\n", chunk)
     print()
 
 
