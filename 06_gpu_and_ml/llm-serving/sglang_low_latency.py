@@ -1,4 +1,4 @@
-# # Low latency Qwen 3 8B with SGLang and Modal
+# # Low latency Qwen 3.5 with SGLang and Modal
 
 # In this example, we show how to serve [SGLang](https://github.com/sgl-project/sglang) at low latency on Modal.
 
