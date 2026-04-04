@@ -289,7 +289,11 @@ async def _send_request(
                 chunk["object"] == "chat.completion.chunk"
             )  # or something went horribly wrong
             delta = chunk["choices"][0]["delta"]
-            content = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content")
+            content = (
+                delta.get("content")
+                or delta.get("reasoning")
+                or delta.get("reasoning_content")
+            )
             if content:
                 print(content, end="")
             else:
