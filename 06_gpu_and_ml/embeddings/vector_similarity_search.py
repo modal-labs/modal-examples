@@ -1,5 +1,6 @@
 # ---
 # deploy: false
+# lambda-test: false
 # ---
 
 # # Vector similarity search with pgvector and sentence-transformers
