@@ -47,7 +47,7 @@ vllm_image = (
 # ## Download the model weights
 
 # We'll be running a pretrained foundation model --
-# [Goole's Gemma 4](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/).
+# [Google's Gemma 4](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/).
 # It can also take images, video, and audio as inputs,
 # though we won't use that here.
 
