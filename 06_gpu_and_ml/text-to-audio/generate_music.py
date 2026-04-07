@@ -1,8 +1,15 @@
-# # Make music with ACE-Step
+# # Make music with ACE-Step 1.5
 
 # In this example, we show you how you can run [ACE Studio](https://acestudio.ai/)'s
-# [ACE-Step](https://github.com/ace-step/ACE-Step) music generation model
+# [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) music generation model
 # on Modal.
+
+# ACE-Step 1.5 introduces a dual-handler architecture:
+# a DiT (Diffusion Transformer) handler for audio generation
+# and an LM (Language Model) handler for Chain-of-Thought reasoning.
+# The LM automatically enhances prompts, detects language,
+# and generates metadata like BPM and key —
+# replacing the manual ERG guidance parameters from the previous version.
 
 # We'll set up both a serverless music generation service
 # and a web user interface.
@@ -26,57 +33,45 @@ import modal
 
 # Note that we don't have to install anything with "CUDA"
 # in the name -- the drivers come for free with the Modal environment
-# and the rest gets installed `pip`. That makes our life a lot easier!
+# and the rest gets installed via `pip`. That makes our life a lot easier!
 # If you want to see the details, check out [this guide](https://modal.com/docs/guide/gpu)
 # in our docs.
+
+# ACE-Step 1.5 uses a local path dependency (`nano-vllm`) in its
+# package configuration, so we clone the repo first and install from
+# the local directory. This lets `uv` resolve all dependencies together,
+# including the CUDA-enabled PyTorch build and the local `nano-vllm` package.
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("git", "ffmpeg")
-    .uv_pip_install(
-        "torch==2.8.0",
-        "torchaudio==2.8.0",
-        "git+https://github.com/ace-step/ACE-Step.git@6ae0852b1388de6dc0cca26b31a86d711f723cb3",  # we can install directly from GitHub!
-        "numba==0.63.1",
+    .run_commands(
+        "git clone --branch v0.1.6 --depth 1 https://github.com/ace-step/ACE-Step-1.5.git /opt/ace-step",
     )
+    .uv_pip_install("/opt/ace-step")
 )
 
 # In addition to source code, we'll also need the model weights.
 
-# ACE-Step integrates with the Hugging Face ecosystem, so setting up the models
-# is straightforward. `ACEStepPipeline` internally uses the Hugging Face model hub
+# ACE-Step 1.5 integrates with the Hugging Face ecosystem, so setting up the models
+# is straightforward. The model handlers use Hugging Face
 # to download the weights if not already present.
 
-
-def load_model(and_return=False):
-    from acestep.pipeline_ace_step import ACEStepPipeline
-
-    model = ACEStepPipeline(dtype="bfloat16", cpu_offload=False, overlapped_decode=True)
-    if and_return:
-        return model
-
-
-# But Modal Functions are serverless: instances spin down when they aren't being used.
-# If we want to avoid downloading the weights every time we start a new instance,
-# we need to store the weights somewhere besides our local filesystem.
-
-# So we add a Modal [Volume](https://modal.com/docs/guide/volumes)
-# to store the weights in the cloud. For more on storing model weights on Modal, see
+# We use a single `checkpoints/` directory for all model downloads
+# (both the DiT and LM models) and persist it with a Modal
+# [Volume](https://modal.com/docs/guide/volumes).
+# For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
-cache_dir = "/root/.cache/ace-step/checkpoints"
-model_cache = modal.Volume.from_name("ACE-Step-model-cache", create_if_missing=True)
+checkpoints_dir = "/opt/ace-step/checkpoints"
+model_cache = modal.Volume.from_name("ACE-Step-v15-model-cache", create_if_missing=True)
 
-# We don't need to change any of the model loading code --
-# we just need to make sure the model gets stored in the right directory.
-
-# To do that, we set an environment variable that Hugging Face expects
-# (and another one that speeds up downloads, for good measure)
-# and then run the `load_model` Python function.
+# We set the `ACESTEP_PROJECT_ROOT` environment variable so that
+# the model handlers know where to find the checkpoints directory.
 
 image = image.env(
-    {"HF_HUB_CACHE": cache_dir, "HF_HUB_ENABLE_HF_TRANSER": "1"}
-).run_function(load_model, volumes={cache_dir: model_cache})
+    {"ACESTEP_PROJECT_ROOT": "/opt/ace-step", "HF_HUB_ENABLE_HF_TRANSFER": "1"}
+)
 
 # While we're at it, let's also define the environment for our UI.
 # We'll stick with Python and so use FastAPI and Gradio.
@@ -101,13 +96,47 @@ web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
 app = modal.App("example-generate-music")
 
 
-@app.cls(gpu="l40s", image=image, volumes={cache_dir: model_cache})
+@app.cls(gpu="l40s", image=image, volumes={checkpoints_dir: model_cache})
 class MusicGenerator:
     @modal.enter()
     def init(self):
-        from acestep.pipeline_ace_step import ACEStepPipeline
+        from acestep.handler import AceStepHandler
+        from acestep.llm_inference import LLMHandler
+        from acestep.model_downloader import ensure_main_model, ensure_lm_model
 
-        self.model: ACEStepPipeline = load_model(and_return=True)
+        # Download models if not already cached in the Volume.
+        # The main model includes the DiT (turbo), VAE, text encoder,
+        # and the default 1.7B LM. We also download the smaller 0.6B LM
+        # separately for faster inference.
+        ensure_main_model(checkpoints_dir=checkpoints_dir)
+        ensure_lm_model(
+            model_name="acestep-5Hz-lm-0.6B", checkpoints_dir=checkpoints_dir
+        )
+
+        # Initialize the DiT handler for audio generation.
+        # The "turbo" model uses only 8 diffusion steps, making it
+        # much faster than the 50-step base model.
+        self.dit_handler = AceStepHandler()
+        init_status, enable_generate = self.dit_handler.initialize_service(
+            project_root="/opt/ace-step",
+            config_path="acestep-v15-turbo",
+            device="cuda",
+        )
+        if not enable_generate:
+            raise RuntimeError(f"DiT model initialization failed: {init_status}")
+
+        # Initialize the LM handler for Chain-of-Thought reasoning.
+        # The LM enhances prompts, detects language, and generates metadata
+        # like BPM and key — replacing the manual ERG parameters from v1.
+        self.llm_handler = LLMHandler()
+        lm_status, lm_success = self.llm_handler.initialize(
+            checkpoint_dir=checkpoints_dir,
+            lm_model_path="acestep-5Hz-lm-0.6B",
+            backend="vllm",
+            device="cuda",
+        )
+        if not lm_success:
+            raise RuntimeError(f"LM initialization failed: {lm_status}")
 
     @modal.method()
     def run(
@@ -118,32 +147,33 @@ class MusicGenerator:
         format: str = "wav",  # or mp3
         manual_seeds: Optional[int] = 1,
     ) -> bytes:
-        import uuid
+        from acestep.inference import GenerationParams, GenerationConfig, generate_music
 
-        output_path = f"/dev/shm/output_{uuid.uuid4().hex}.{format}"
-        print("Generating music...")
-        self.model(
-            audio_duration=duration,
-            prompt=prompt,
+        # ACE-Step 1.5 uses `GenerationParams` for music parameters and
+        # `GenerationConfig` for batch/output settings, replacing the
+        # flat keyword arguments from the previous version.
+        params = GenerationParams(
+            caption=prompt,
             lyrics=lyrics,
-            format=format,
-            save_path=output_path,
-            manual_seeds=manual_seeds,
-            # for samples, see https://github.com/ace-step/ACE-Step/tree/6ae0852b1388de6dc0cca26b31a86d711f723cb3/examples/
-            # note that the parameters below are fixed in all of the samples in the default folder
-            infer_step=60,
-            guidance_scale=15,
-            scheduler_type="euler",
-            cfg_type="apg",
-            omega_scale=10,
-            guidance_interval=0.5,
-            guidance_interval_decay=0,
-            min_guidance_scale=3,
-            use_erg_tag=True,
-            use_erg_lyric=True,
-            use_erg_diffusion=True,
+            duration=duration,
+            thinking=True,
         )
-        return Path(output_path).read_bytes()
+        config = GenerationConfig(
+            audio_format=format,
+            batch_size=1,
+            seeds=[manual_seeds] if manual_seeds is not None else None,
+            use_random_seed=manual_seeds is None,
+        )
+        result = generate_music(
+            self.dit_handler,
+            self.llm_handler,
+            params,
+            config,
+            save_dir="/dev/shm",
+        )
+        if not result.success:
+            raise RuntimeError(f"Music generation failed: {result.error}")
+        return Path(result.audios[0]["path"]).read_bytes()
 
 
 # We can then generate music from anywhere by running code like what we have in the `local_entrypoint` below.
@@ -158,7 +188,7 @@ def main(
     manual_seeds: Optional[int] = 1,
 ):
     if lyrics is None:
-        lyrics = "[inst]"
+        lyrics = "[Instrumental]"
     if prompt is None:
         prompt = "Korean pop music, bright energetic electronic music, catchy melody, female vocals"
         lyrics = """[intro][intro]
