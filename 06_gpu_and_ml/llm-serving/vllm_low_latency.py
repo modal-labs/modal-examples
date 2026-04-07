@@ -3,7 +3,7 @@
 # cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
 # ---
 
-# # Low latency Qwen 3 8B with vLLM and Modal
+# # Low latency Qwen 3.5 35B-A3B with DFlash speculative decoding and vLLM on Modal
 
 # In this example, we show how to serve [vLLM](https://docs.vllm.ai) at low latency on Modal.
 
@@ -20,12 +20,28 @@
 # We also include instructions for cutting cold start times by an order of magnitude using Modal's
 # [CPU + GPU memory snapshots](https://modal.com/docs/guide/memory-snapshot).
 
+# ## Speculative decoding with DFlash
+
+# [DFlash](https://arxiv.org/abs/2602.06036) is a speculative decoding method that uses
+# a lightweight block diffusion model to draft multiple tokens in parallel,
+# achieving up to 2.8x speedup over autoregressive decoding.
+# It works by generating draft tokens with a small diffusion model,
+# then verifying them against the main model in a single forward pass.
+# The more tokens that are accepted, the faster decoding proceeds.
+
+# For low latency serving, speculative decoding is critical:
+# it reduces the time-to-first-token and increases tokens-per-second
+# without sacrificing output quality, since every drafted token is verified.
+
 # ## Set up the container image
 
 # Our first order of business is to define the environment our server will run in:
 # the [container `Image`](https://modal.com/docs/guide/images).
 # We'll use the [vLLM inference server](https://docs.vllm.ai).
 # vLLM can be installed with `uv pip`, since Modal [provides the CUDA drivers](https://modal.com/docs/guide/cuda).
+
+# We install vLLM from the nightly wheel index, which is required for DFlash support.
+# The `--torch-backend=auto` flag ensures the correct PyTorch backend for our CUDA version.
 
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
@@ -41,8 +57,12 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
-    .uv_pip_install("vllm==0.11.2", "huggingface-hub==0.36.0")
+    modal.Image.from_registry("nvidia/cuda:12.6.3-devel-ubuntu22.04", add_python="3.11")
+    .uv_pip_install(
+        "vllm",
+        "huggingface-hub",
+        extra_index_url="https://wheels.vllm.ai/nightly",
+    )
     .env(
         {
             "VLLM_SERVER_DEV_MODE": "1",
@@ -53,22 +73,39 @@ vllm_image = (
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
-# which offers excellent price-performance
-# and supports 8bit floating point operations, which are the
-# lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
-# across a variety of model architectures.
+# which offers excellent price-performance.
+# The H100's 80 GB of GPU memory fits the Qwen3.5-35B-A3B model (~66 GB in BF16),
+# the DFlash draft model (~1 GB), and a KV cache sufficient for 32K context.
+# We restrict the maximum model length with `--max-model-len 32768` to keep
+# KV cache memory within the H100's capacity while still supporting
+# most single-turn and short multi-turn interactions.
 
 GPU = "H100"
 
 # ### Loading and caching the model weights
 
-# We'll serve [Alibaba's Qwen 3 LLM](https://www.alibabacloud.com/blog/alibaba-introduces-qwen3-setting-new-benchmark-in-open-source-ai-with-hybrid-reasoning_602192).
-# For lower latency, we pick a smaller model (8B params).
+# We serve the [Qwen 3.5 35B-A3B model](https://huggingface.co/Qwen/Qwen3.5-35B-A3B) in BF16.
+# Despite having 35B total parameters, this is a
+# [Mixture-of-Experts (MoE)](https://modal.com/gpu-glossary/model-architecture/mixture-of-experts)
+# model that activates only 3B parameters per token,
+# giving it the inference cost of a much smaller model with the quality of a much larger one.
 
-MODEL_NAME = "Qwen/Qwen3-8B"
+# We use BF16 rather than the FP8-quantized variant because the DFlash draft model
+# shares the target model's embedding and LM head weights. The quantization mismatch
+# between an FP8 target model and a BF16 draft model corrupts draft token generation,
+# causing DFlash acceptance rates to collapse from ~40% to 0% and producing garbled output.
+# The officially tested combination for DFlash is the BF16 model.
+
+# For speculative decoding, we pair it with the
+# [DFlash draft model](https://huggingface.co/z-lab/Qwen3.5-35B-A3B-DFlash),
+# a lightweight block diffusion model that generates draft tokens in parallel.
+
+MODEL_NAME = "Qwen/Qwen3.5-35B-A3B"
 MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "b968826d9c46dd6066d109eabc6255188de91218"  # latest commit as of 2025-12-16
+    "ec2d4ece1ffb563322cbee9a48fe0e3fcbce0307"  # latest commit as of 2026-04-07
 )
+
+DRAFT_MODEL_NAME = "z-lab/Qwen3.5-35B-A3B-DFlash"
 
 # We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen3),
 # so we'll need their Python package.
@@ -80,6 +117,13 @@ MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
 HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 HF_CACHE_PATH = "/root/.cache/huggingface"
 MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
+
+# vLLM's `torch.compile` step takes over 10 minutes on first run.
+# We persist the compile cache to a separate Volume so that subsequent
+# cold starts skip compilation entirely, reducing startup from 15+ minutes
+# to under 2 minutes (just model weight loading).
+VLLM_CACHE_VOL = modal.Volume.from_name("vllm-compile-cache", create_if_missing=True)
+VLLM_CACHE_PATH = "/root/.cache/vllm"
 
 # In addition to pointing the Hugging Face Hub at the path
 # where we mount the Volume, we also
@@ -199,7 +243,7 @@ with vllm_image.imports():
 PORT = 8000
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 30 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -225,10 +269,13 @@ def warmup():
         "model": MODEL_NAME,
         "messages": [{"role": "user", "content": "Hello, how are you?"}],
         "max_tokens": 16,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     for _ in range(3):
         requests.post(
-            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
+            f"http://127.0.0.1:{PORT}/v1/chat/completions",
+            json=payload,
+            timeout=5 * MINUTES,
         ).raise_for_status()
 
 
@@ -246,16 +293,24 @@ def wake_up():
 APP_NAME = "example-vllm-low-latency"
 app = modal.App(name=APP_NAME)
 
+SPECULATIVE_CONFIG = json.dumps(
+    {
+        "method": "dflash",
+        "model": DRAFT_MODEL_NAME,
+        "num_speculative_tokens": 15,
+    }
+)
+
 
 @app.cls(
     image=vllm_image,
     gpu=GPU,
-    volumes={HF_CACHE_PATH: HF_CACHE_VOL},
+    volumes={HF_CACHE_PATH: HF_CACHE_VOL, VLLM_CACHE_PATH: VLLM_CACHE_VOL},
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-    timeout=10 * MINUTES,
+    timeout=30 * MINUTES,
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
@@ -267,11 +322,21 @@ class VLLM:
     @modal.enter(snap=True)
     def startup(self):
         """Start the vLLM server and block until it is healthy, then warm it up and put it to sleep."""
+
+        # DFlash speculative decoding: the draft model generates tokens in
+        # parallel via block diffusion, then the main model verifies them in a
+        # single forward pass — achieving up to 2.8x speedup.
+        # Flash attention backend is required for DFlash compatibility and is
+        # generally the fastest attention implementation available.
+        # --max-num-batched-tokens limits scheduling overhead to improve
+        # per-request latency at the cost of peak throughput.
+        # --reasoning-parser qwen3 separates thinking content from the final
+        # response in the API output for Qwen3.5's default thinking mode.
+        # --language-model-only skips the vision encoder to free GPU memory for
+        # KV cache, since we only serve text-only requests.
         cmd = [
             "vllm",
             "serve",
-            "--uvicorn-log-level",
-            "error",
             MODEL_NAME,
             "--revision",
             MODEL_REVISION,
@@ -281,9 +346,21 @@ class VLLM:
             "0.0.0.0",
             "--port",
             f"{PORT}",
+            "--uvicorn-log-level",
+            "error",
             "--disable-uvicorn-access-log",
-            "--disable-log-requests",
             "--enable-sleep-mode",
+            "--speculative-config",
+            SPECULATIVE_CONFIG,
+            "--attention-backend",
+            "flash_attn",
+            "--max-num-batched-tokens",
+            "32768",
+            "--max-model-len",
+            "32768",
+            "--reasoning-parser",
+            "qwen3",
+            "--language-model-only",
         ]
 
         self.process = subprocess.Popen(cmd)
@@ -346,7 +423,7 @@ class VLLM:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
+async def test(test_timeout=30 * MINUTES, prompt=None, twice=True):
     url = VLLM._experimental_get_flash_urls()[0]
 
     system_prompt = {
@@ -418,7 +495,13 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
 async def _send_request_streaming(
     session: aiohttp.ClientSession, messages: list, timeout: int | None = None
 ) -> None:
-    payload = {"model": MODEL_NAME, "messages": messages, "stream": True}
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages,
+        "stream": True,
+        "max_tokens": 512,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
     headers = {"Accept": "text/event-stream"}
 
     async with session.post(
@@ -426,6 +509,7 @@ async def _send_request_streaming(
     ) as resp:
         resp.raise_for_status()
         full_text = ""
+        reasoning_text = ""
 
         async for raw in resp.content:
             line = raw.decode("utf-8", errors="ignore").strip()
@@ -448,9 +532,17 @@ async def _send_request_streaming(
 
             delta = (evt.get("choices") or [{}])[0].get("delta") or {}
             chunk = delta.get("content")
+            reasoning_chunk = delta.get("reasoning_content")
+
+            if reasoning_chunk:
+                print(reasoning_chunk, end="", flush=True)
+                reasoning_text += reasoning_chunk
 
             if chunk:
-                print(chunk, end="", flush="\n" in chunk or "." in chunk)
+                if reasoning_text:
+                    print("\n---\n", end="", flush=True)
+                    reasoning_text = ""
+                print(chunk, end="", flush=True)
                 full_text += chunk
         print()  # newline after stream completes
         print(full_text)

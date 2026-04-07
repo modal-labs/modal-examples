@@ -20,6 +20,10 @@
 # We start from a container image provided
 # [by the SGLang team via Dockerhub](https://hub.docker.com/r/lmsysorg/sglang/tags).
 
+# DFlash speculative decoding requires a version of SGLang
+# [from a specific PR branch](https://github.com/sgl-project/sglang/pull/20547),
+# so we install it on top of the base image.
+
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
 import asyncio
@@ -33,12 +37,23 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
-).entrypoint(
-    []  # silence chatty logs on container start
+sglang_image = (
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.9-cu129-amd64-runtime")
+    .entrypoint(
+        []  # silence chatty logs on container start
+    )
+    .run_commands(
+        "pip uninstall -y flashinfer-jit-cache",
+    )
+    .uv_pip_install(
+        "sglang[all] @ git+https://github.com/sgl-project/sglang.git@refs/pull/20547/head#subdirectory=python",
+    )
+    .env(
+        {
+            "SGLANG_DISABLE_CUDNN_CHECK": "1",  # system CuDNN is 9.16; pip metadata is stale after upgrade
+        }
+    )
 )
-
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
 # which offers excellent price-performance
@@ -54,15 +69,30 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 # ### Loading and cacheing the model weights
 
 # We'll serve [Alibaba's Qwen 3.5 LLM](https://qwen.ai/blog?id=qwen3.5).
-# For lower latency, we pick the 35B mixture-of-experts model with 3 billion active parameters
-# in a lower precision floating point format (FP8).
-# Expert sparsity and lower precision reduce the amount of data that needs to be loaded
+# For lower latency, we pick the 35B mixture-of-experts model with 3 billion active parameters.
+# Expert sparsity reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 
+# We use the [FP8-quantized variant](https://huggingface.co/Qwen/Qwen3.5-35B-A3B-FP8)
+# to halve the memory bandwidth required to load weights per step,
+# which is the bottleneck in single-request inference.
+# Although the DFlash draft model was trained against the BF16 variant,
+# speculative decoding verifies draft tokens against the target model's outputs regardless of quantization,
+# so FP8 is fully compatible.
+
 MODEL_NAME = "Qwen/Qwen3.5-35B-A3B-FP8"
 MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "0b2752837483aa34b3db6e83e151b150c0e00e49"  # latest commit as of 2026-04-03, from release
+    "0b2752837483aa34b3db6e83e151b150c0e00e49"  # latest commit as of 2026-04-07
+)
+
+# For speculative decoding, we pair the base model with a
+# [DFlash draft model](https://huggingface.co/z-lab/Qwen3.5-35B-A3B-DFlash),
+# a lightweight block diffusion model that drafts multiple tokens in parallel.
+
+DRAFT_MODEL_NAME = "z-lab/Qwen3.5-35B-A3B-DFlash"
+DRAFT_MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
+    "a6ab3a277f856d91c43f28711611e7929073d56d"  # latest commit as of 2026-04-07
 )
 
 # We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen35).
@@ -118,7 +148,7 @@ def compile_deep_gemm():
 
     if int(os.environ.get("SGLANG_ENABLE_JIT_DEEPGEMM", "1")):
         subprocess.run(
-            f"python3 -m sglang.compile_deep_gemm --model-path {MODEL_NAME} --revision {MODEL_REVISION} --tp {N_GPUS}",
+            f"python3 -m sglang.compile_deep_gemm --model-path {MODEL_NAME} --revision {MODEL_REVISION} --tp {N_GPUS} --trust-remote-code",
             shell=True,
         )
 
@@ -172,7 +202,7 @@ sglang_image = sglang_image.run_function(
 # Actual speedups are generally less than what you get from "napkin math" based on available bandwidths --
 # we observed a speedup of about 30% moving from one to two H100s when developing this example, rather than 100%.
 
-# ### Parallelizing token generation with speculative decoding
+# ### Parallelizing token generation with DFlash speculative decoding
 
 # Transformer and recurrent language models generate text sequentially:
 # the model's output at step `i` is part of the input at step `i+1`.
@@ -184,23 +214,23 @@ sglang_image = sglang_image.run_function(
 # [_speculative decoding_](https://developer.nvidia.com/blog/an-introduction-to-speculative-decoding-for-reducing-latency-in-ai-inference/),
 # which "speculates" a number of draft tokens and verifies them in parallel with the primary model.
 
-# Speculative decoding techniques themselves have a number of parameters, the most important
-# of which is the technique to use to generate draft tokens.
-# Simple techniques based on n-grams are a good place to start.
-# But many models are released with built-in speculation based on
-# [multi-token prediction](https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/Multi_Token_Prediction.html),
-# also known in SGLang as [EAGLE](https://arxiv.org/abs/2401.15077).
+# [DFlash](https://arxiv.org/abs/2602.06036) is a speculative decoding method
+# that uses a lightweight block diffusion model to draft multiple tokens in parallel,
+# achieving up to **2.8x** speedup over autoregressive decoding at single-request concurrency.
+# Unlike n-gram or multi-token prediction (MTP/EAGLE) approaches that generate tokens sequentially,
+# DFlash generates an entire block of draft tokens in a single forward pass of the draft model.
 
 speculative_config = {
-    "speculative-algorithm": "EAGLE",
+    "speculative-algorithm": "DFLASH",
+    "speculative-draft-model-path": DRAFT_MODEL_NAME,
 }
 
-# We adopt the default configuration for this speculator from [the cookbook](https://cookbook.sglang.io/autoregressive/Qwen/Qwen3.5).
+# We configure the number of draft tokens per step to match the block size
+# recommended by the [DFlash cookbook](https://huggingface.co/z-lab/Qwen3.5-35B-A3B-DFlash).
+# More draft tokens increases potential speedup at the cost of more memory for the draft model's KV cache.
 
 speculative_config |= {
-    "speculative-num-steps": 3,
-    "speculative-eagle-topk": 1,
-    "speculative-num-draft-tokens": 4,
+    "speculative-num-draft-tokens": 16,
 }
 
 # Note that unlike tensor parallelism,
@@ -304,7 +334,7 @@ with sglang_image.imports():
     import requests
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 10 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -329,10 +359,11 @@ def warmup():
     payload = {
         "messages": [{"role": "user", "content": "Hello, how are you?"}],
         "max_tokens": 16,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     for _ in range(3):
         requests.post(
-            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=10
+            f"http://127.0.0.1:{PORT}/v1/chat/completions", json=payload, timeout=120
         ).raise_for_status()
 
 
@@ -349,6 +380,7 @@ PORT = 8000
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     region=REGION,
     min_containers=MIN_CONTAINERS,
+    startup_timeout=10 * MINUTES,
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
@@ -381,8 +413,13 @@ class SGLang:
             "--enable-metrics",  # expose metrics endpoints for telemetry
             "--decode-log-interval",  # how often to log during decoding, in tokens
             "100",
-            "--mem-fraction",  # leave space for speculative model
-            "0.8",
+            "--mem-fraction-static",  # leave space for draft model and KV cache
+            "0.75",
+            "--attention-backend",  # Flash Attention 3, optimized for Hopper GPUs (H100)
+            "fa3",
+            "--mamba-scheduler-strategy",  # extra buffer for Qwen3.5's hybrid DeltaNet + attention architecture
+            "extra_buffer",
+            "--trust-remote-code",  # required for DFlash draft model's custom code
         ]
 
         cmd += [  # add speculative config
