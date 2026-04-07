@@ -42,6 +42,7 @@ image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
 # machine (where the package may not be installed) without raising an error.
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+MODEL_REVISION = "c9745ed1d9f207416be6d2e6f8de32d1f16199bf"  # pin to avoid surprises!
 EMBEDDING_DIM = 384  # output dimension of all-MiniLM-L6-v2
 
 
@@ -49,7 +50,7 @@ EMBEDDING_DIM = 384  # output dimension of all-MiniLM-L6-v2
 def embed(texts: list[str]) -> list[list[float]]:
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(MODEL_NAME)
+    model = SentenceTransformer(MODEL_NAME, revision=MODEL_REVISION)
     # normalize_embeddings=True makes cosine similarity equivalent to dot product,
     # which pgvector can compute very efficiently.
     embeddings = model.encode(texts, normalize_embeddings=True)
