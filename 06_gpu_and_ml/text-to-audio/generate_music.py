@@ -103,7 +103,7 @@ class MusicGenerator:
     def init(self):
         from acestep.handler import AceStepHandler
         from acestep.llm_inference import LLMHandler
-        from acestep.model_downloader import ensure_main_model, ensure_lm_model
+        from acestep.model_downloader import ensure_lm_model, ensure_main_model
 
         # Download models if not already cached in the Volume.
         lm_model_name = "acestep-5Hz-lm-4B"
@@ -140,7 +140,7 @@ class MusicGenerator:
         format: str = "mp3",  # or wav
         manual_seeds: Optional[int] = 1,
     ) -> bytes:
-        from acestep.inference import GenerationParams, GenerationConfig, generate_music
+        from acestep.inference import GenerationConfig, GenerationParams, generate_music
 
         params = GenerationParams(
             caption=prompt,
