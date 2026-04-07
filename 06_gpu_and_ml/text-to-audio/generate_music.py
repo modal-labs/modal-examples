@@ -4,12 +4,11 @@
 # [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) music generation model
 # on Modal.
 
-# ACE-Step 1.5 introduces a dual-handler architecture:
+# ACE-Step 1.5 introduces a multi-model architecture:
 # a DiT (Diffusion Transformer) handler for audio generation
-# and an LM (Language Model) handler for Chain-of-Thought reasoning.
+# and an LM (Language Model) handler for prompt augmentation.
 # The LM automatically enhances prompts, detects language,
-# and generates metadata like BPM and key —
-# replacing the manual ERG guidance parameters from the previous version.
+# and generates metadata like BPM and key.
 
 # We'll set up both a serverless music generation service
 # and a web user interface.
@@ -28,14 +27,8 @@ import modal
 # This environment is captured by a
 # [container image](https://modal.com/docs/guide/images),
 # which we build step-by-step by calling methods to add dependencies,
-# like `apt_install` to add system packages and `pip_install` to add
+# like `apt_install` to add system packages and `uv_pip_install` to add
 # Python packages.
-
-# Note that we don't have to install anything with "CUDA"
-# in the name -- the drivers come for free with the Modal environment
-# and the rest gets installed via `pip`. That makes our life a lot easier!
-# If you want to see the details, check out [this guide](https://modal.com/docs/guide/gpu)
-# in our docs.
 
 # ACE-Step 1.5 uses a local path dependency (`nano-vllm`) in its
 # package configuration, so we clone the repo first and install from
@@ -43,12 +36,17 @@ import modal
 # including the CUDA-enabled PyTorch build and the local `nano-vllm` package.
 
 image = (
-    modal.Image.debian_slim(python_version="3.12")
+    modal.Image.from_registry(
+        "nvidia/cuda:13.0.0-cudnn-devel-ubuntu22.04", add_python="3.12"
+    )
     .apt_install("git", "ffmpeg")
     .run_commands(
         "git clone --branch v0.1.6 --depth 1 https://github.com/ace-step/ACE-Step-1.5.git /opt/ace-step",
     )
-    .uv_pip_install("/opt/ace-step")
+    .uv_pip_install(
+        "/opt/ace-step", "hf_transfer==0.1.9", "torchcodec==0.10.0", "torch~=2.10.0"
+    )
+    .entrypoint([])
 )
 
 # In addition to source code, we'll also need the model weights.
@@ -77,7 +75,10 @@ image = image.env(
 # We'll stick with Python and so use FastAPI and Gradio.
 
 web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
-    "fastapi[standard]==0.115.4", "gradio==4.44.1", "pydantic==2.10.1"
+    "fastapi[standard]==0.115.4",
+    "gradio==6.11.0",
+    "huggingface-hub==1.9.1",
+    "pydantic==2.10.1",
 )
 
 # This is a totally different environment from the one we run our model in.
@@ -105,17 +106,11 @@ class MusicGenerator:
         from acestep.model_downloader import ensure_main_model, ensure_lm_model
 
         # Download models if not already cached in the Volume.
-        # The main model includes the DiT (turbo), VAE, text encoder,
-        # and the default 1.7B LM. We also download the smaller 0.6B LM
-        # separately for faster inference.
+        lm_model_name = "acestep-5Hz-lm-4B"
         ensure_main_model(checkpoints_dir=checkpoints_dir)
-        ensure_lm_model(
-            model_name="acestep-5Hz-lm-0.6B", checkpoints_dir=checkpoints_dir
-        )
+        ensure_lm_model(model_name=lm_model_name, checkpoints_dir=checkpoints_dir)
 
-        # Initialize the DiT handler for audio generation.
-        # The "turbo" model uses only 8 diffusion steps, making it
-        # much faster than the 50-step base model.
+        # Initialize the audio generation model.
         self.dit_handler = AceStepHandler()
         init_status, enable_generate = self.dit_handler.initialize_service(
             project_root="/opt/ace-step",
@@ -125,13 +120,11 @@ class MusicGenerator:
         if not enable_generate:
             raise RuntimeError(f"DiT model initialization failed: {init_status}")
 
-        # Initialize the LM handler for Chain-of-Thought reasoning.
-        # The LM enhances prompts, detects language, and generates metadata
-        # like BPM and key — replacing the manual ERG parameters from v1.
+        # Initialize the language model for prompt enhancement.
         self.llm_handler = LLMHandler()
         lm_status, lm_success = self.llm_handler.initialize(
             checkpoint_dir=checkpoints_dir,
-            lm_model_path="acestep-5Hz-lm-0.6B",
+            lm_model_path=lm_model_name,
             backend="vllm",
             device="cuda",
         )
@@ -144,14 +137,11 @@ class MusicGenerator:
         prompt: str,
         lyrics: str,
         duration: float = 60.0,
-        format: str = "wav",  # or mp3
+        format: str = "mp3",  # or wav
         manual_seeds: Optional[int] = 1,
     ) -> bytes:
         from acestep.inference import GenerationParams, GenerationConfig, generate_music
 
-        # ACE-Step 1.5 uses `GenerationParams` for music parameters and
-        # `GenerationConfig` for batch/output settings, replacing the
-        # flat keyword arguments from the previous version.
         params = GenerationParams(
             caption=prompt,
             lyrics=lyrics,
@@ -184,7 +174,7 @@ def main(
     prompt: Optional[str] = None,
     lyrics: Optional[str] = None,
     duration: Optional[float] = None,
-    format: str = "wav",  # or mp3
+    format: str = "mp3",  # or wav
     manual_seeds: Optional[int] = 1,
 ):
     if lyrics is None:
@@ -254,7 +244,7 @@ def slugify(string):
     image=web_image,
     # Gradio requires sticky sessions
     # so we limit the number of concurrent containers to 1
-    # and allow it to scale to 1000 concurrent inputs
+    # and allow it to scale to 100 concurrent inputs
     max_containers=1,
 )
 @modal.concurrent(max_inputs=100)
@@ -274,7 +264,7 @@ def ui():
     temp_dir = Path("/dev/shm")
 
     async def generate_music(
-        prompt: str, lyrics: str, duration: float = 30.0, format: str = "wav"
+        prompt: str, lyrics: str, duration: float = 30.0, format: str = "mp3"
     ):
         audio_bytes = await generate.aio(
             prompt, lyrics, duration=duration, format=format
@@ -294,7 +284,7 @@ def ui():
                 duration = gr.Number(
                     label="Duration (seconds)", value=10.0, minimum=1.0, maximum=300.0
                 )
-                format = gr.Radio(["wav", "mp3"], label="Format", value="wav")
+                format = gr.Radio(["wav", "mp3"], label="Format", value="mp3")
                 btn = gr.Button("Generate")
             with gr.Column():
                 clip_output = gr.Audio(label="Generated Music", autoplay=True)
