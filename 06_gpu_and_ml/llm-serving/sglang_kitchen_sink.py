@@ -216,6 +216,8 @@ class SGLang:
             "0.8",
             "--attention-backend",
             "fa4",  # use bleeding-edge attention backend
+            "--reasoning-parser",
+            "qwen3",  # stream reasoning content for Qwen3 thinking model
         ]
 
         cmd += [  # add speculative config
@@ -268,6 +270,11 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
         {"role": "user", "content": content},
     ]
 
+    await probe(
+        url,
+        [{"role": "user", "content": "List all the capitals in Europe."}],
+        verbose=False,
+    )
     await probe(url, messages, timeout=test_timeout)
     if twice:
         messages[0]["content"] = "You are Jar Jar Binks."
@@ -275,7 +282,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
         await probe(url, messages, timeout=1 * MINUTES)
 
 
-async def probe(url, messages=None, timeout=5 * MINUTES):
+async def probe(url, messages=None, timeout=5 * MINUTES, extra_body=None, verbose=True):
     if messages is None:
         messages = [
             {
@@ -291,7 +298,9 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
         while time.time() < deadline:
             try:
-                await _send_request_streaming(session, messages)
+                await _send_request_streaming(
+                    session, messages, extra_body=extra_body, verbose=verbose
+                )
                 return
             except asyncio.TimeoutError:
                 await asyncio.sleep(1)
@@ -304,10 +313,25 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
 
 
 async def _send_request_streaming(
-    session: aiohttp.ClientSession, messages: list, timeout: int | None = None
+    session: aiohttp.ClientSession,
+    messages: list,
+    timeout: int | None = None,
+    extra_body: dict | None = None,
+    verbose: bool = True,
 ) -> None:
-    payload = {"messages": messages, "stream": True}
+    payload = {
+        "messages": messages,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    if extra_body:
+        payload.update(extra_body)
     headers = {"Accept": "text/event-stream"}
+
+    t_start = time.perf_counter()
+    t_first_token = None
+    t_last_token = None
+    completion_tokens = None
 
     async with session.post(
         "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
@@ -320,7 +344,6 @@ async def _send_request_streaming(
             if not line:
                 continue
 
-            # Server-Sent Events format: "data: ...."
             if not line.startswith("data:"):
                 continue
 
@@ -331,17 +354,40 @@ async def _send_request_streaming(
             try:
                 evt = json.loads(data)
             except json.JSONDecodeError:
-                # ignore any non-JSON keepalive
                 continue
 
-            delta = (evt.get("choices") or [{}])[0].get("delta") or {}
-            chunk = delta.get("content")
+            choices = evt.get("choices") or []
+            if not choices:
+                usage = evt.get("usage")
+                if usage:
+                    completion_tokens = usage.get("completion_tokens")
+                continue
+
+            delta = choices[0].get("delta") or {}
+            chunk = delta.get("content") or delta.get("reasoning_content")
 
             if chunk:
-                print(chunk, end="", flush="\n" in chunk or "." in chunk)
+                now = time.perf_counter()
+                if t_first_token is None:
+                    t_first_token = now
+                t_last_token = now
+                if verbose:
+                    print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
-        print()  # newline after stream completes
-        print(full_text)
+
+        if verbose:
+            print()
+
+        if verbose and t_first_token and t_last_token and completion_tokens:
+            ttft = t_first_token - t_start
+            decode_time = t_last_token - t_first_token
+            decode_tps = completion_tokens / decode_time if decode_time > 0 else 0
+            print(
+                f"TTFT: {ttft * 1000:.1f}ms | Decode TPS: {decode_tps:.1f} tok/s | Output tokens: {completion_tokens}"
+            )
+
+        if verbose:
+            print(full_text)
 
 
 # ### Test memory snapshotting
