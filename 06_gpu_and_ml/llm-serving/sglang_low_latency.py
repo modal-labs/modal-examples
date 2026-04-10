@@ -33,9 +33,7 @@ import modal.experimental
 
 MINUTES = 60  # seconds
 
-sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
-).entrypoint(
+sglang_image = modal.Image.from_registry("lmsysorg/sglang:latest-cu130").entrypoint(
     []  # silence chatty logs on container start
 )
 
@@ -106,8 +104,15 @@ DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
 DG_CACHE_PATH = "/root/.cache/deepgemm"
 
 # JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
+# The nightly build also requires SPEC_V2 for speculative decoding with Qwen3.5 hybrid models.
 
-sglang_image = sglang_image.env({"SGLANG_ENABLE_JIT_DEEPGEMM": "1"})
+sglang_image = sglang_image.env(
+    {
+        "SGLANG_ENABLE_JIT_DEEPGEMM": "1",
+        "SGLANG_ENABLE_SPEC_V2": "1",
+        "SGLANG_ENABLE_DFLASH_SPEC_V2": "1",
+    }
+)
 
 # We trigger the compilation by running `sglang.compile_deep_gemm` in a `subprocess`
 # kicked off from a Python function.
@@ -125,11 +130,15 @@ def compile_deep_gemm():
 
 # We run this Python function on Modal as part of building the Image
 # so that it has access to the appropriate GPU and the caches for our model and compilaton artifacts.
+# Note: with the nightly image (CUDA 13 base), the DeepGEMM compilation takes longer
+# and may time out during image build. The kernels will be JIT-compiled at runtime instead
+# and cached to the Volume for subsequent runs.
 
 sglang_image = sglang_image.run_function(
     compile_deep_gemm,
     volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
     gpu=GPU,
+    timeout=60 * MINUTES,
 )
 
 # ## Configure SGLang for minimal latency
@@ -192,16 +201,26 @@ sglang_image = sglang_image.run_function(
 # also known in SGLang as [EAGLE](https://arxiv.org/abs/2401.15077).
 
 speculative_config = {
-    "speculative-algorithm": "EAGLE",
+    # "speculative-algorithm": "EAGLE",  # baseline: ~250 tok/s on nightly
 }
 
-# We adopt the default configuration for this speculator from [the cookbook](https://cookbook.sglang.io/autoregressive/Qwen/Qwen3.5).
+# We adopt the DFLASH speculator with a BF16 draft model for the FP8 target.
+# DFLASH generates draft tokens using the full draft model in a single forward pass,
+# which can produce more draft tokens per step than EAGLE's autoregressive approach.
 
 speculative_config |= {
-    "speculative-num-steps": 3,
-    "speculative-eagle-topk": 1,
-    "speculative-num-draft-tokens": 4,
+    "speculative-algorithm": "DFLASH",
+    "speculative-draft-model-path": "z-lab/Qwen3.5-35B-A3B-DFlash",
+    "speculative-num-draft-tokens": 16,
 }
+
+# # Baseline EAGLE config (from cookbook):
+# speculative_config = {
+#     "speculative-algorithm": "EAGLE",
+#     "speculative-num-steps": 3,
+#     "speculative-eagle-topk": 1,
+#     "speculative-num-draft-tokens": 4,
+# }
 
 # Note that unlike tensor parallelism,
 # speculative decoding is not good for
@@ -304,7 +323,7 @@ with sglang_image.imports():
     import requests
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -349,6 +368,7 @@ PORT = 8000
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     region=REGION,
     min_containers=MIN_CONTAINERS,
+    startup_timeout=20 * MINUTES,
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
@@ -382,7 +402,10 @@ class SGLang:
             "--decode-log-interval",  # how often to log during decoding, in tokens
             "100",
             "--mem-fraction",  # leave space for speculative model
-            "0.8",
+            "0.75",
+            "--mamba-scheduler-strategy",  # required for speculative decoding with Qwen3.5 on nightly
+            "extra_buffer",
+            "--trust-remote-code",  # required for DFLASH draft model
         ]
 
         cmd += [  # add speculative config
@@ -443,7 +466,7 @@ class SGLang:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
+async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
     url = (await SGLang._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
@@ -521,7 +544,11 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
 async def _send_request_streaming(
     session: aiohttp.ClientSession, messages: list, timeout: int | None = None
 ) -> None:
-    payload = {"messages": messages, "stream": True}
+    payload = {
+        "messages": messages,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
     headers = {"Accept": "text/event-stream"}
 
     async with session.post(
@@ -529,6 +556,9 @@ async def _send_request_streaming(
     ) as resp:
         resp.raise_for_status()
         full_text = ""
+        t_first_token = None
+        t_last_token = None
+        completion_tokens = None
 
         async for raw in resp.content:
             line = raw.decode("utf-8", errors="ignore").strip()
@@ -549,10 +579,31 @@ async def _send_request_streaming(
                 # ignore any non-JSON keepalive
                 continue
 
+            usage = evt.get("usage")
+            if usage:
+                completion_tokens = usage.get("completion_tokens")
+
             delta = (evt.get("choices") or [{}])[0].get("delta") or {}
             chunk = delta.get("content")
 
             if chunk:
+                now = time.monotonic()
+                if t_first_token is None:
+                    t_first_token = now
+                t_last_token = now
                 print(chunk, end="", flush="\n" in chunk or "." in chunk)
                 full_text += chunk
         print()  # newline after stream completes
+
+        if t_first_token and t_last_token and completion_tokens:
+            decode_time = t_last_token - t_first_token
+            output_tok_per_s = completion_tokens / decode_time if decode_time > 0 else 0
+            print(f"\n--- perf ---")
+            print(f"  output tokens:  {completion_tokens}")
+            print(f"  decode time:    {decode_time:.2f}s")
+            print(f"  output tok/s:   {output_tok_per_s:.1f}")
+        elif t_first_token and t_last_token:
+            decode_time = t_last_token - t_first_token
+            print(f"\n--- perf ---")
+            print(f"  decode time:    {decode_time:.2f}s")
+            print(f"  output tok/s:   N/A (completion_tokens not in usage)")
