@@ -138,10 +138,7 @@ def index():
     # literal "[x,y,…]" and rely on Postgres to cast it to the VECTOR type.
     cur.executemany(
         "INSERT INTO documents (text, embedding) VALUES (%s, %s::vector)",
-        [
-            (text, f"[{','.join(map(str, vec))}]")
-            for text, vec in zip(CORPUS, vectors)
-        ],
+        [(text, f"[{','.join(map(str, vec))}]") for text, vec in zip(CORPUS, vectors)],
     )
 
     conn.commit()
