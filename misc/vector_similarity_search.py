@@ -200,7 +200,7 @@ def search(query: str, top_k: int = 5) -> list[tuple[float, str]]:
 # Run with:
 #
 # ```bash
-# modal run 06_gpu_and_ml/embeddings/vector_similarity_search.py
+# modal run misc/vector_similarity_search.py
 # ```
 
 
