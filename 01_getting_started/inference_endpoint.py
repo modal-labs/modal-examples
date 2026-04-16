@@ -24,9 +24,7 @@ def chat(prompt: str | None = None) -> list[dict]:
     print(prompt)
     context = [{"role": "user", "content": prompt}]
 
-    chatbot = pipeline(
-        model="Qwen/Qwen3-1.7B-FP8", device_map="cuda", max_new_tokens=1024
-    )
+    chatbot = pipeline(model="Qwen/Qwen3-1.7B", device_map="cuda", max_new_tokens=1024)
     result = chatbot(context)
     print(result[0]["generated_text"][-1]["content"])
 

@@ -29,7 +29,7 @@ class Chat:
     @modal.enter()
     def init(self):
         self.chatbot = pipeline(
-            model="Qwen/Qwen3-1.7B-FP8", device_map="cuda", max_new_tokens=1024
+            model="Qwen/Qwen3-1.7B", device_map="cuda", max_new_tokens=1024
         )
 
     @modal.fastapi_endpoint(docs=True)

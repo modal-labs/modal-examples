@@ -16,9 +16,7 @@ def chat(prompt: str | None = None) -> list[dict]:
     print(prompt)
     context = [{"role": "user", "content": prompt}]
 
-    chatbot = pipeline(
-        model="Qwen/Qwen3-1.7B-FP8", device_map="cuda", max_new_tokens=1024
-    )
+    chatbot = pipeline(model="Qwen/Qwen3-1.7B", device_map="cuda", max_new_tokens=1024)
     result = chatbot(context)
     print(result[0]["generated_text"][-1]["content"])
 
@@ -35,5 +33,4 @@ def main():
             f"/no_think Read this code.\n\n{(root_dir / path).read_text()}\nIn one paragraph, what does the code do?"
         )
 
-    for result in chat.map(examples):
-        print(result[0]["generated_text"][-1]["content"])
+    chat.for_each(examples[:100], ignore_exceptions=True)
