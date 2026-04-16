@@ -7,6 +7,9 @@ from pathlib import Path
 
 import modal
 
+MODEL_NAME = "Qwen/Qwen3-1.7B"
+MODEL_REVISION = "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"  # pin to avoid surprises!
+
 app = modal.App("example-inference-perf")
 image = (
     modal.Image.debian_slim()
@@ -29,7 +32,10 @@ class Chat:
     @modal.enter()
     def init(self):
         self.chatbot = pipeline(
-            model="Qwen/Qwen3-1.7B", device_map="cuda", max_new_tokens=1024
+            model=MODEL_NAME,
+            revision=MODEL_REVISION,
+            device_map="cuda",
+            max_new_tokens=1024,
         )
 
     @modal.fastapi_endpoint(docs=True)
