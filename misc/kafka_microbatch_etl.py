@@ -1,5 +1,5 @@
 # ---
-# cmd: ["python", "misc/kafka_microbatch_etl.py", "--batch=25", "--timeout-s=5", "--local=true"]
+# cmd: ["modal", "run", "misc/kafka_microbatch_etl.py", "--batch=25", "--timeout-s=5", "--local"]
 # runtimes: ["runc", "gvisor"]
 # ---
 #
