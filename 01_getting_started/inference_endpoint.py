@@ -5,9 +5,6 @@ from pathlib import Path
 
 import modal
 
-MODEL_NAME = "Qwen/Qwen3-1.7B"
-MODEL_REVISION = "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"  # pin to avoid surprises!
-
 app = modal.App("example-inference-endpoint")
 image = (
     modal.Image.debian_slim()
@@ -27,12 +24,7 @@ def chat(prompt: str | None = None) -> list[dict]:
     print(prompt)
     context = [{"role": "user", "content": prompt}]
 
-    chatbot = pipeline(
-        model=MODEL_NAME,
-        revision=MODEL_REVISION,
-        device_map="cuda",
-        max_new_tokens=1024,
-    )
+    chatbot = pipeline(model="Qwen/Qwen3-1.7B", device_map="cuda", max_new_tokens=1024)
     result = chatbot(context)
     print(result[0]["generated_text"][-1]["content"])
 
