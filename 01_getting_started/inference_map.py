@@ -9,7 +9,7 @@ app = modal.App("example-inference-map")
 image = modal.Image.debian_slim().uv_pip_install("transformers[torch]")
 
 
-@app.function(gpu="h100", image=image)
+@app.function(gpu="h100", image=image, timeout=600)
 def chat(prompt: str | None = None) -> list[dict]:
     from transformers import pipeline
 
