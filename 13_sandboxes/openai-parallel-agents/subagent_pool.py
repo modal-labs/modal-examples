@@ -1,8 +1,13 @@
-import asyncio
+# ---
+# lambda-test: false  # auxiliary-file
+# ---
 import uuid
 
-from agents.extensions.sandbox.modal import ModalSandboxClient, ModalSandboxClientOptions, ModalImageSelector
-
+from agents.extensions.sandbox.modal import (
+    ModalImageSelector,
+    ModalSandboxClient,
+    ModalSandboxClientOptions,
+)
 from subagent import SubAgent
 
 # Maximum number of concurrently active subagents per GPU type.
@@ -13,10 +18,12 @@ GPU_LIMITS: dict[str, int] = {
     "H100:8": 2,
 }
 
-SANDBOX_TIMEOUT_S: int = 1 * 60 * 60 # 1 hour
+SANDBOX_TIMEOUT_S: int = 1 * 60 * 60  # 1 hour
+
 
 class SubAgentPool:
     """Pool of sandbox agents that can be spawned, invoked, and managed by an orchestrator."""
+
     def __init__(
         self,
         client: ModalSandboxClient,
@@ -76,7 +83,15 @@ class SubAgentPool:
 
         agent_id = "sub_" + str(uuid.uuid4()).replace("-", "")
         sandbox_session = await client.create(options=per_sandbox_options)
-        subagent = SubAgent(agent_id, agent_name, self._model, objective, self._client, sandbox_session, gpu=gpu)
+        subagent = SubAgent(
+            agent_id,
+            agent_name,
+            self._model,
+            objective,
+            self._client,
+            sandbox_session,
+            gpu=gpu,
+        )
         self._entries[agent_id] = subagent
         return subagent
 
@@ -111,4 +126,3 @@ class SubAgentPool:
             running = sum(1 for e in self._entries.values() if e.gpu == gpu_type)
             result[gpu_type] = {"limit": limit, "running": running}
         return result
-

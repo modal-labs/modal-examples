@@ -2,6 +2,7 @@
 # cmd: ["uv", "run", "--directory", "13_sandboxes/openai-parallel-agents", "openai_parallel_agents.py", "--prompt", "Implement and train a model on the MNIST dataset using three separate approaches: pytorch, tensorflow, and jax"]
 # pytest: false
 # mypy: ignore-errors
+# ---
 # # Building Massively Parallel Agents with OpenAI Agent SDK and Modal
 
 # The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) is a powerful new tool
@@ -11,7 +12,7 @@
 
 # In this example, we'll show you how to build a custom agent harness, from scratch, on top of the OpenAI Agents SDK.
 # This harness will be built with parallelism in mind, with the ability to spawn and manage multiple coding subagents in parallel.
-# 
+#
 # We'll integrate Modal [Sandboxes](https://modal.com/docs/guide/sandbox) to give those agents computers
 # (even GPUs) to run in, and use it to massively parallelize
 # [Parameter Golf](https://openai.com/index/parameter-golf/) experiments across multiple GPUs simultaneously.
@@ -233,8 +234,10 @@ import asyncio
 import os
 import uuid
 
-from agents.extensions.sandbox.modal import ModalSandboxClient, ModalSandboxClientOptions  # type: ignore[import]
-
+from agents.extensions.sandbox.modal import (  # type: ignore[import]
+    ModalSandboxClient,
+    ModalSandboxClientOptions,
+)
 from orchestrator import OrchestratorAgent
 
 
@@ -279,7 +282,7 @@ async def main(prompt: str | None, interactive: bool = False) -> None:
                 output = await orchestrator.run(user_input)
                 print(output)
 
-        print("No prompt provided. Use --prompt \"<prompt>\" or --interactive to run.")
+        print('No prompt provided. Use --prompt "<prompt>" or --interactive to run.')
     finally:
         await orchestrator.delete_all()
 

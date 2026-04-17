@@ -1,3 +1,6 @@
+# ---
+# lambda-test: false  # auxiliary-file
+# ---
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +11,6 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-
 from subagent_pool import SubAgentPool
 
 if TYPE_CHECKING:
@@ -33,7 +35,11 @@ class LiveDisplay:
         tool = orch.current_tool or "-"
         turns = orch.turns
 
-        spinner = _SPINNER_FRAMES[self._frame % len(_SPINNER_FRAMES)] if orch.is_thinking else " "
+        spinner = (
+            _SPINNER_FRAMES[self._frame % len(_SPINNER_FRAMES)]
+            if orch.is_thinking
+            else " "
+        )
 
         stats = Text()
         stats.append(f"{spinner} ", style="yellow" if orch.is_thinking else "dim")
@@ -64,7 +70,9 @@ class LiveDisplay:
 
     def _render_subagents(self) -> Panel:
         entries = self._pool.list_entries()
-        table = Table(box=None, show_header=True, padding=(0, 2), header_style="dim", expand=True)
+        table = Table(
+            box=None, show_header=True, padding=(0, 2), header_style="dim", expand=True
+        )
         table.add_column("", width=2)
         table.add_column("Agent")
         table.add_column("State", width=9)
@@ -74,9 +82,9 @@ class LiveDisplay:
 
         state_styles: dict[str, tuple[str, str]] = {
             "running": ("yellow", _SPINNER_FRAMES[self._frame % len(_SPINNER_FRAMES)]),
-            "done":    ("green",  "✓"),
-            "error":   ("red",    "✗"),
-            "idle":    ("dim",    "·"),
+            "done": ("green", "✓"),
+            "error": ("red", "✗"),
+            "idle": ("dim", "·"),
         }
         for agent in entries:
             style, icon = state_styles.get(agent.state, ("", "?"))

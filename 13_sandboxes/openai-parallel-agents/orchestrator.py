@@ -1,18 +1,20 @@
+# ---
+# lambda-test: false  # auxiliary-file
+# ---
 import asyncio
-from typing import Any
-
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal
 
 from agents import AgentHooks, ModelSettings, StopAtTools, function_tool
-from agents.extensions.sandbox.modal import ModalSandboxClient, ModalSandboxClientOptions
+from agents.extensions.sandbox.modal import (
+    ModalSandboxClient,
+    ModalSandboxClientOptions,
+)
 from agents.memory import SQLiteSession
-from agents.run import Agent, Runner, RunConfig
-from openai.types.shared import Reasoning, ReasoningEffort
-
+from agents.run import Agent, RunConfig, Runner
 from display import LiveDisplay
+from openai.types.shared import Reasoning, ReasoningEffort
 from subagent_pool import SubAgentPool
-
-from pathlib import Path
 
 ORCHESTRATOR_INSTRUCTIONS = """
 You are a relentless execution agent. Your only job is to get the user's task fully done - not \
@@ -41,12 +43,17 @@ unless status is unchanged. One sentence, no filler.
 Start each session by calling list_skills and loading any that are relevant.
 Skills contain detailed operational guidance - follow them closely.
 """
+
+
 class OrchestratorHooks(AgentHooks):  # type: ignore[type-arg]
     """Custom lifecycle hooks used to track orchestrator state and reset reasoning effort."""
+
     def bind(self, orchestrator: "OrchestratorAgent") -> None:
         self._orchestrator = orchestrator
 
-    async def on_llm_start(self, context: Any, agent: Any, system_prompt: Any, input_items: Any) -> None:
+    async def on_llm_start(
+        self, context: Any, agent: Any, system_prompt: Any, input_items: Any
+    ) -> None:
         self._orchestrator.turns += 1
         self._orchestrator.is_thinking = True
 
@@ -58,12 +65,15 @@ class OrchestratorHooks(AgentHooks):  # type: ignore[type-arg]
     async def on_tool_start(self, context: Any, agent: Any, tool: Any) -> None:
         self._orchestrator.current_tool = tool.name
 
-    async def on_tool_end(self, context: Any, agent: Any, tool: Any, result: Any) -> None:
+    async def on_tool_end(
+        self, context: Any, agent: Any, tool: Any, result: Any
+    ) -> None:
         self._orchestrator.current_tool = None
 
 
 class OrchestratorAgent:
     """Orchestrator agent that manages a pool of sandbox agents to complete user tasks."""
+
     def __init__(
         self,
         model: str,
@@ -208,7 +218,9 @@ class OrchestratorAgent:
                       The sandbox filesystem will be restored from that snapshot.
         """
         try:
-            entry = await self._pool.create(agent_name, objective, gpu=gpu, image_id=image_id)
+            entry = await self._pool.create(
+                agent_name, objective, gpu=gpu, image_id=image_id
+            )
         except ValueError as exc:
             gpu_type = str(exc)
             return (
@@ -281,19 +293,24 @@ class OrchestratorAgent:
             return f"Subagent '{agent_id}' has no active task."
 
         result = await entry.run_task
-        entry.run_task = None # mark as done
+        entry.run_task = None  # mark as done
         return result.final_output or ""
 
     async def wait_for_first_subagent_result(self) -> str:
         """Block until any running subagent finishes and return its ID and result."""
-        running = {e.run_task: e for e in self._pool._entries.values() if e.run_task and not e.run_task.done()}
+        running = {
+            e.run_task: e
+            for e in self._pool._entries.values()
+            if e.run_task and not e.run_task.done()
+        }
         if not running:
             return "No running subagents."
-        done, _ = await asyncio.wait(running.keys(), return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait(
+            running.keys(), return_when=asyncio.FIRST_COMPLETED
+        )
         entry = running[next(iter(done))]
         result = await self.wait_for_subagent_result(entry.id)
         return f"Subagent '{entry.id}' ({entry.name}) completed: {result}"
-
 
     def finish(self, summary: str) -> str:
         """Signal completion with a concise summary of what was accomplished,
@@ -304,4 +321,3 @@ class OrchestratorAgent:
             summary: A concise summary of what was accomplished.
         """
         return summary
-
