@@ -65,6 +65,7 @@
 # can manage multiple parallel subagents and wait for them selectively:
 #
 # ```python
+# # orchestrator tools:
 # async def invoke_subagent(self, agent_id: str, prompt: str) -> str:
 #     """Start a task on a subagent and return immediately (non-blocking)."""
 #     entry = self._pool.get(agent_id)
