@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false  # auxiliary-file
+# pytest: false
 # ---
 from __future__ import annotations
 

@@ -1,5 +1,6 @@
 # ---
 # lambda-test: false  # auxiliary-file
+# pytest: false
 # ---
 import uuid
 

@@ -1,6 +1,7 @@
 # ---
 # cmd: ["uv", "run", "--directory", "13_sandboxes/openai-parallel-agents", "openai_parallel_agents.py", "--prompt", "Implement and train a model on the MNIST dataset using three separate approaches: pytorch, tensorflow, and jax"]
 # pytest: false
+# lambda-test: false
 # mypy: ignore-errors
 # ---
 # # Building Massively Parallel Agents with OpenAI Agent SDK and Modal
