@@ -219,7 +219,7 @@
 
 # Our harness is now complete. You can kick off a Parameter Golf parallel experiment with:
 #
-# ```
+# ```bash
 # uv run openai_parallel_agents.py --prompt "Prepare a Parameter Golf experiment environment, generate a plan for five parallel experiments to run, and run those experiments. Report back your findings, including final training loss and score."
 # ```
 
