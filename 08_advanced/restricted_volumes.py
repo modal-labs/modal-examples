@@ -4,8 +4,10 @@
 # ---
 import modal
 
-app = modal.App.lookup(name="restricted-sb-app", create_if_missing=True)
-volume = modal.Volume.from_name("restricted-sb-data", create_if_missing=True, version=2)
+app = modal.App.lookup(name="example-restricted-volumes", create_if_missing=True)
+volume = modal.Volume.from_name(
+    "example-restricted-volumes-data", create_if_missing=True, version=2
+)
 
 image = (
     modal.Image.debian_slim()
@@ -17,7 +19,8 @@ image = (
 )
 
 sandbox = modal.Sandbox.create(app=app, image=image, volumes={"/data": volume})
-print("Sandbox ID: ", sandbox.object_id)
+sandbox_id = sandbox.object_id
+print("Sandbox ID: ", sandbox_id)
 
 
 def sandbox_restricted_exec(sandbox: modal.Sandbox, command: str, user: str):
@@ -32,22 +35,36 @@ def sandbox_restricted_exec(sandbox: modal.Sandbox, command: str, user: str):
 
 print("⌛Setting up sandbox...")
 p = sandbox.exec("sh", "-c", "mkdir -p /data/user1")
+p.wait()
 p = sandbox.exec("sh", "-c", "mkdir -p /data/user2")
+p.wait()
 p = sandbox.exec(
     "sh", "-c", "chown -R user1:user1 /data/user1  && chmod 700 /data/user1"
 )
+p.wait()
 p = sandbox.exec(
     "sh", "-c", "chown -R user2:user2 /data/user2  && chmod 700 /data/user2"
 )
+p.wait()
 print("Sandbox setup complete.")
 
 print("\n🟢 Baseline exec (unrestricted, should succeed):")
 p = sandbox.exec("sh", "-c", "ls -la /data/user1")
+p.wait()
 for line in p.stdout:
     print(line, end="")
 
 print("\n🟢 Restricted user1 exec (should succeed):")
 p = sandbox_restricted_exec(sandbox, "ls -la /data/user1", "user1")
+p.wait()
 
 print("\n🔴 Restricted user1 exec (should fail):")
 p = sandbox_restricted_exec(sandbox, "ls -la /data/user2", "user1")
+p.wait()
+
+url = f"https://modal.com/id/{sandbox_id}"
+
+print(
+    f"\n☀️ Sandbox live! See: {url}\nYou can use modal.Sandbox.from_id('{sandbox_id}') to run additional commands."
+)
+# sandbox = modal.Sandbox.from_id(sandbox_id)
