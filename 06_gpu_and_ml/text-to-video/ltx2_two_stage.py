@@ -51,11 +51,14 @@ image = (
         extra_index_url="https://download.pytorch.org/whl/cu128",
     )
     .uv_pip_install(
+        "torch==2.7.0",
+        "torchaudio==2.7.0",
         "transformers>=4.52,<5",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-core",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-pipelines",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-trainer",
         "https://huggingface.co/alexnasa/flash-attn-3/resolve/main/128/flash_attn_3-3.0.0b1-cp39-abi3-linux_x86_64.whl",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
     )
     .env(
         {
