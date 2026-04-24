@@ -1,5 +1,5 @@
 # ---
-# lamdba-test: false
+# lambda-test: false
 # ---
 
 # # Serve DeepSeek V4 Pro on Modal with SGLang
