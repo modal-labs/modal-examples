@@ -26,9 +26,7 @@ here = Path(__file__).parent
 # We use the `deepseek-v4-blackwell` tag of the SGLang image, which is the
 # Blackwell-tuned build the SGLang team recommends for V4.
 
-image = modal.Image.from_registry(
-    "lmsysorg/sglang:deepseek-v4-blackwell"
-).entrypoint(
+image = modal.Image.from_registry("lmsysorg/sglang:deepseek-v4-blackwell").entrypoint(
     []  # silence chatty logs on entry
 )
 
