@@ -304,7 +304,7 @@ with sglang_image.imports():
     import requests
 
 
-def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
+def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -349,6 +349,7 @@ PORT = 8000
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     region=REGION,
     min_containers=MIN_CONTAINERS,
+    startup_timeout=20 * MINUTES,
 )
 @modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
