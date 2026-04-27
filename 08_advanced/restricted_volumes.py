@@ -10,7 +10,7 @@ volume = modal.Volume.from_name(
 )
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.12")
     .apt_install("sudo")
     .run_commands(
         "sudo adduser --disabled-password --gecos '' user1",
@@ -18,7 +18,9 @@ image = (
     )
 )
 
-sandbox = modal.Sandbox.create(app=app, image=image, volumes={"/data": volume})
+sandbox = modal.Sandbox.create(
+    app=app, image=image, volumes={"/data": volume}, timeout=300
+)
 sandbox_id = sandbox.object_id
 print("Sandbox ID: ", sandbox_id)
 
@@ -36,6 +38,8 @@ print("Sandbox setup complete.")
 print("\n🟢 Baseline exec (unrestricted, should succeed):")
 p = sandbox.exec("sh", "-c", "ls -la /data/user1")
 for line in p.stdout:
+    print(line, end="")
+for line in p.stderr:
     print(line, end="")
 p.wait()
 assert p.returncode == 0, "Unrestricted exec should succeed"
