@@ -28,10 +28,9 @@ MINUTES = 60
 # with our server's dependencies,
 # we build off of the official SGLang Docker image with CUDA 13.
 
-sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:v0.5.10.post1-cu130-runtime")
-    .entrypoint([])
-)
+sglang_image = modal.Image.from_registry(
+    "lmsysorg/sglang:v0.5.10.post1-cu130-runtime"
+).entrypoint([])
 
 # ## Configure the model
 
