@@ -1,4 +1,4 @@
-# # Serve the Qwen3.5 Vision-Language Model with SGLang
+# # Serve the Qwen 3.6 Vision-Language Model with SGLang
 
 # Vision-Language Models (VLMs) are like LLMs with eyes:
 # they can generate text based not just on other text,
@@ -26,29 +26,28 @@ MINUTES = 60
 
 # To define the container [Image](https://modal.com/docs/guide/images)
 # with our server's dependencies,
-# we build off of the official SGLang Docker image with CUDA 12.9.
+# we build off of the official SGLang Docker image with CUDA 13.
 
 sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:v0.5.9-cu129-amd64-runtime")
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.10.post1-cu130-runtime")
     .entrypoint([])
-    .uv_pip_install("huggingface-hub==0.36.0")
 )
 
 # ## Configure the model
 
-# [Qwen3.5-35B-A3B-FP8](https://huggingface.co/Qwen/Qwen3.5-35B-A3B-FP8)
+# [Qwen3.6-35B-A3B-FP8](https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8)
 # is a vision-language reasoning foundational model with 35B total parameters,
 # of which only 3B are activated per input sequence per forward pass.
 # We use the [8bit quantized floating point](https://quant.exposed)
 # version of the model for faster [cold starts](https://modal.com/docs/guide/cold-start)
 # and faster inference with negligible behavior differences.
 
-MODEL_NAME = "Qwen/Qwen3.5-35B-A3B-FP8"
-MODEL_REVISION = "0b2752837483aa34b3db6e83e151b150c0e00e49"
+MODEL_NAME = "Qwen/Qwen3.6-35B-A3B-FP8"
+MODEL_REVISION = "95a723d08a9490559dae23d0cff1d9466213d989"
 
 # ## Configure GPU
 
-# We use a single H100 GPU. The 35 GB of model weights fits comfortably in this GPU's 80GB of
+# We use a single H100 GPU. The ~35 GB of model weights fits comfortably in this GPU's 80GB of
 # [high-bandwidth memory](https://modal.com/gpu-glossary/device-hardware/gpu-ram).
 
 GPU = "H100!:1"
@@ -66,11 +65,17 @@ HF_CACHE_PATH = "/root/.cache/huggingface"
 DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
 DG_CACHE_PATH = "/root/.cache/deepgemm"
 
+# We configure the behavior and performance of the weight and compilation
+# caches via environment variables.
+# We also set a few other useful performance flags for this model.
+
 sglang_image = sglang_image.env(
     {
         "HF_HUB_CACHE": HF_CACHE_PATH,
         "HF_XET_HIGH_PERFORMANCE": "1",
         "SGLANG_ENABLE_JIT_DEEPGEMM": "1",
+        "SGLANG_USE_CUDA_IPC_TRANSPORT": "1",
+        "SGLANG_USE_IPC_POOL_HANDLE_CACHE": "1",
     }
 )
 
@@ -103,12 +108,10 @@ sglang_image = sglang_image.run_function(
 # We use a [Modal Cls](https://modal.com/docs/guide/lifecycle-functions)
 # to separate container startup logic from input processing
 # (as part of `modal.enter`-decorated methods).
-# We use a Modal HTTP Server to create a low latency edge deployment
-# in the `us` served by a proxy in `us-east`.
+# We use a Modal HTTP Server backed by a proxy in `us-east`.
 # We also handle clean teardown of the server in a `modal.exit` method.
 
 
-REGION = "us"
 PROXY_REGION = "us-east"
 
 PORT = 8000
@@ -121,7 +124,6 @@ app = modal.App(name="example-sglang-vlm")
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
-    region=REGION,
     timeout=15 * MINUTES,
 )
 @modal.experimental.http_server(port=PORT, proxy_regions=[PROXY_REGION])
@@ -142,9 +144,9 @@ class VlmServer:
 # ### Setting up the server
 
 # The server configuration is based on the information in the
-# [Hugging Face repo](https://huggingface.co/Qwen/Qwen3.5-35B-A3B-FP8).
+# [SGLang Cookbook](https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.6).
 # It includes speculative decoding via multi-token prediction
-# for improved performance at low to moderate concurrency.
+# for lower latency at low to moderate concurrency.
 # For more on optimizing the performance of VLMs and LLMs,
 # see [this guide](https://modal.com/docs/guide/high-performance-llm-inference).
 
@@ -174,12 +176,14 @@ def _start_server() -> subprocess.Popen:
         "0.8",
         "--context-length",
         "131_072",
+        "--mamba-scheduler-strategy",
+        "extra_buffer",
         "--reasoning-parser",
         "qwen3",
         "--tool-call-parser",
         "qwen3_coder",
         "--speculative-algo",
-        "NEXTN",
+        "EAGLE",
         "--speculative-num-steps",
         "3",
         "--speculative-eagle-topk",
