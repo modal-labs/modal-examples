@@ -14,7 +14,7 @@ image = (
     .uv_pip_install(
         "fastapi==0.116.1",
         "ffmpeg-python==0.2.0",
-        "https://github.com/openai/whisper/archive/v20230314.tar.gz",
+        "openai-whisper==20250625",
         "numpy<2",
     )
 )
