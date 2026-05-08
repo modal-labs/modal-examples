@@ -69,7 +69,7 @@ async def parse(request: fastapi.Request):
 async def poll_results(call_id: str):
     function_call = modal.functions.FunctionCall.from_id(call_id)
     try:
-        result = function_call.get(timeout=0)
+        result = await function_call.get.aio(timeout=0)
     except TimeoutError:
         return fastapi.responses.JSONResponse(content="", status_code=202)
 

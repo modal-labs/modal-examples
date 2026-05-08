@@ -4,6 +4,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    - cron: "33 12 * * *"
 
 jobs:
   deploy:
