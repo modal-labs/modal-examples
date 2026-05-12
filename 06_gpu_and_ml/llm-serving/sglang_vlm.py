@@ -62,7 +62,7 @@ HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 HF_CACHE_PATH = "/root/.cache/huggingface"
 
 DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
-DG_CACHE_PATH = "/root/.cache/deepgemm"
+DG_CACHE_PATH = "/root/.cache/deep_gemm"
 
 # We configure the behavior and performance of the weight and compilation
 # caches via environment variables.

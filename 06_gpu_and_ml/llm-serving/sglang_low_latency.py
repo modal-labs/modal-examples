@@ -103,7 +103,7 @@ sglang_image = sglang_image.env(
 # We store these in a Modal Volume as well.
 
 DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
-DG_CACHE_PATH = "/root/.cache/deepgemm"
+DG_CACHE_PATH = "/root/.cache/deep_gemm"
 
 # JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
 
