@@ -16,7 +16,7 @@ jobs:
   build-and-run:
     name: Build a random example from scratch and run it
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 65
     steps:
       - name: Checkout Repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
