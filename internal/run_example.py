@@ -8,7 +8,7 @@ import time
 from . import utils
 
 MINUTES = 60
-DEFAULT_TIMEOUT = 12 * MINUTES
+DEFAULT_TIMEOUT = 14 * MINUTES
 
 
 def run_script(example, timeout=DEFAULT_TIMEOUT):
