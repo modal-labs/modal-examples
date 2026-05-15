@@ -254,9 +254,8 @@ def maintain_pool():
             to_terminate.append(sr.id)
             continue
 
-        # Found first good sandbox, but don't put it back in the queue to preserve
-        # queue ordering.
-        to_terminate.append(sr.id)
+        # Found first good sandbox; put it back to keep it available for claiming.
+        pool_queue.put(sr)
         break
 
     if to_terminate:
