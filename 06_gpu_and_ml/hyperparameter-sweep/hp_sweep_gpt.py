@@ -33,11 +33,11 @@
 # and then select the best one for additional training.
 
 # We'll monitor this training live and serve our training and trained models
-# as web endpoints and simple browser UIs.
+# as Web Functions and simple browser UIs.
 
 # Along the way we'll use many features of the Modal platform:
-# [distributed volumes](https://modal.com/docs/guide/volumes),
-# multiple [web endpoints](https://modal.com/docs/guide/webhooks),
+# [distributed Volumes](https://modal.com/docs/guide/volumes),
+# multiple [Web Functions](https://modal.com/docs/guide/webhooks),
 # and [parallel container execution](https://modal.com/docs/guide/scale#parallel-execution-of-inputs).
 
 # Together, these features give every machine learning and AI team
@@ -100,7 +100,7 @@ torch_image = torch_image.add_local_dir(
     Path(__file__).parent / "src", remote_path="/root/src"
 )
 
-# We'll serve a simple web endpoint:
+# We'll serve a simple Web Function:
 web_image = base_image.uv_pip_install("fastapi[standard]==0.115.4", "starlette==0.41.2")
 
 # And we'll deploy a web UI for interacting with our trained models using Gradio.
@@ -420,7 +420,7 @@ def monitor_training():
 # ## Serving SLMs on Modal during and after training
 
 # Because our weights are stored in a distributed Volume,
-# we can deploy an inference endpoint based off of them without any extra work --
+# we can deploy an inference Function based off of them without any extra work --
 # and we can even check in on models while we're still training them! # For more on storing model weights on Modal, see
 # [this guide](https://modal.com/docs/guide/model-weights).
 
@@ -511,13 +511,13 @@ class ModelInference:
         return self.model.generate_from_text(self.tokenizer, prompt, n_new_tokens)
 
 
-# ### Adding a simple web endpoint
+# ### Adding a simple Web Function
 
 # The `ModelInference` class above is available for use
 # from any other Python environment with the right Modal credentials
 # and the `modal` package installed -- just use [`lookup`](https://modal.com/docs/reference/modal.Cls#lookup).
 
-# But we can also expose it as a web endpoint for easy access
+# But we can also expose it as a Web Function for easy access
 # from anywhere, including other programming languages or the command line.
 
 
@@ -532,7 +532,7 @@ def web_generate(request: GenerationRequest):
     return {"output": output}
 
 
-# This endpoint can be deployed on Modal with `modal deploy`.
+# This Function can be deployed on Modal with `modal deploy`.
 # That will allow us to generate text via a simple `curl` command like this:
 
 # ```bash

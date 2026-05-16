@@ -17,9 +17,9 @@
 
 # It demonstrates a simple, productive, and cost-effective pathway
 # to building on large pretrained models using Modal's building blocks, like
-# [GPU-accelerated](https://modal.com/docs/guide/gpu) Modal Functions and Clses for compute-intensive work,
+# [GPU-accelerated](https://modal.com/docs/guide/gpu) Modal Functions for compute-intensive work,
 # [Volumes](https://modal.com/docs/guide/volumes) for storage,
-# and [web endpoints](https://modal.com/docs/guide/webhooks) for serving.
+# and [Web Functions](https://modal.com/docs/guide/webhooks) for serving.
 
 # And with some light customization, you can use it to generate images of your pet!
 

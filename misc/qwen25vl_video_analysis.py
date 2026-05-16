@@ -360,9 +360,9 @@ def main():
     print(f"OCR results: {ocr_result['response']}")
 
 
-# Web endpoint for API access
+# Web Function for API access
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def api_analyze_video(video_file: modal.web_endpoint.File, query: str):
     """
     Web API endpoint for video analysis.

@@ -17,7 +17,7 @@ image = modal.Image.debian_slim().uv_pip_install(
 
 app = modal.App("example-badges", image=image)
 
-# ## Defining the web endpoint
+# ## Defining the Web Function
 
 # In addition to using `@app.function()` to decorate our function, we use the
 # [`@modal.fastapi_endpoint` decorator](https://modal.com/docs/guide/webhooks)
@@ -46,7 +46,7 @@ async def package_downloads(package_name: str):
 
 # In this function, we use `pypistats` to query the most recent stats for our package, and then
 # use that as the text for a SVG badge, rendered using `pybadges`.
-# Since Modal web endpoints are FastAPI functions under the hood, we return this SVG wrapped in a FastAPI response with the correct media type.
+# Since Modal Web Functions are FastAPI path operation functions under the hood, we return this SVG wrapped in a FastAPI response with the correct media type.
 # Also note that FastAPI automatically interprets `package_name` as a [query param](https://fastapi.tiangolo.com/tutorial/query-params/).
 
 # ## Running and deploying
@@ -64,7 +64,7 @@ async def package_downloads(package_name: str):
 # To deploy using the Modal CLI by running `modal deploy badges.py`,
 
 # Either way, as soon as we run this command, Modal gives us the link to our brand new
-# web endpoint in the output:
+# Web Function in the output:
 
 # ![web badge deployment](./badges_deploy.png)
 
