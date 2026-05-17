@@ -120,7 +120,7 @@ def goodbye(data: dict) -> str:
 # If you head to the URL for the `goodbye` function in your browser,
 # you will get a 405 Method Not Allowed error, because browsers only send GET requests by default.
 # While this is technically a separate concern from query parameters versus request bodies
-# and you can define a function accepts GET requests and uses data from the body,
+# and you can define a function that accepts GET requests and uses data from the body,
 # it is [considered bad form](https://stackoverflow.com/a/983458).
 
 # Navigate to `/docs` for more on how to call the function.

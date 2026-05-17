@@ -12,6 +12,7 @@ while being fully open-source and deployable on Modal's serverless infrastructur
 """
 
 import modal
+from fastapi import File
 
 # Create Modal app
 app = modal.App("qwen25vl-video-analysis")
@@ -363,7 +364,7 @@ def main():
 # Web Function for API access
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
-def api_analyze_video(video_file: modal.web_endpoint.File, query: str):
+def api_analyze_video(video_file: File, query: str):
     """
     Web API endpoint for video analysis.
     Usage:
