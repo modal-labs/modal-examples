@@ -182,8 +182,8 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 #
 # [1]: https://modal.com/docs/guide/sdk-javascript-go
 #
-# The [Web Function][1] proxies to `claim_sandbox` using a `.local()` invocation,
-# which then runs in the same container without additional latency.
+# The Web Function proxies to `claim_sandbox` using a `.local()` invocation,
+# which runs in the same container without additional latency.
 
 
 @app.function(image=server_image)
