@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "-m", "07_web_endpoints.webrtc.webrtc_yolo_test"]
+# cmd: ["modal", "run", "-m", "07_web.webrtc.webrtc_yolo_test"]
 # ---
 
 

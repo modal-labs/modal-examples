@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "-m", "07_web_endpoints.webrtc.webrtc_yolo"]
+# cmd: ["modal", "serve", "-m", "07_web.webrtc.webrtc_yolo"]
 # deploy: true
 # ---
 
@@ -88,7 +88,7 @@
 # They're also decorated with Modal [lifetime hooks](https://modal.com/docs/guide/lifecycle-functions).
 # Add the [`app.cls`](https://modal.com/docs/reference/modal.App#cls) decorator and some custom logic, and you're ready to deploy on Modal.
 
-# You can find them in the [`modal_webrtc.py` file](https://github.com/modal-labs/modal-examples/blob/main/07_web_endpoints/webrtc/modal_webrtc.py) provided alongside this example in the [GitHub repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/modal_webrtc.py).
+# You can find them in the [`modal_webrtc.py` file](https://github.com/modal-labs/modal-examples/blob/main/07_web/webrtc/modal_webrtc.py) provided alongside this example in the [GitHub repo](https://github.com/modal-labs/modal-examples/tree/main/07_web/webrtc/modal_webrtc.py).
 
 # ## Using `modal_webrtc` to detect objects in webcam footage
 
@@ -266,7 +266,7 @@ class ObjDet(ModalWebRtcPeer):
 # as well as a `web_app` property which will be [served by Modal](https://modal.com/docs/guide/webhooks#asgi-apps---fastapi-fasthtml-starlette).
 # We'll use these to add a frontend which uses the WebRTC JavaScript API to stream a peer's webcam from the browser.
 #
-# The JavaScript and HTML files are alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/frontend).
+# The JavaScript and HTML files are alongside this example in the [Github repo](https://github.com/modal-labs/modal-examples/tree/main/07_web/webrtc/frontend).
 
 this_directory = Path(__file__).parent.resolve()
 server_image = (
@@ -394,4 +394,4 @@ def get_yolo_track(track, yolo_model=None):
 # designing and troubleshooting an appropriate testing process for this application as we did writing
 # the application itself!
 
-# You can find the testing code in the GitHub repository [here](https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc/webrtc_yolo_test.py).
+# You can find the testing code in the GitHub repository [here](https://github.com/modal-labs/modal-examples/tree/main/07_web/webrtc/webrtc_yolo_test.py).

@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/count_faces.py"]
+# cmd: ["modal", "serve", "07_web/count_faces.py"]
 # ---
 
 # # Run OpenCV face detection on an image
