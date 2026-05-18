@@ -54,8 +54,8 @@ app = modal.App(name="sandbox-test-case-generator")
 # Let's put it all together to set up our inference server! Using a [modal.Cls](https://modal.com/docs/reference/modal.Cls), we can
 # easily attach an L40S GPU by setting the `gpu` parameter. The `@modal.enter()` decorator creates
 # a `download_model` lifecycle function, which is run once when the container starts. These are executed sequentially,
-# so our SGLang server starts once the weights are downloaded. Finally, the `@modal.fastapi_endpoint()` converts this
-# into a Web Function that can be invoked for model inference.
+# so our SGLang server starts once the weights are downloaded. Finally, the `@modal.web_server()` decorator exposes the server
+# to the internet.
 
 
 @app.cls(
