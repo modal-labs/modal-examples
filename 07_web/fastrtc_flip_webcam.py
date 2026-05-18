@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/fastrtc_flip_webcam.py"]
+# cmd: ["modal", "serve", "07_web/fastrtc_flip_webcam.py"]
 # deploy: true
 # ---
 
@@ -152,7 +152,7 @@ def ui():
 # To try this out for yourself, run
 
 # ```bash
-# modal serve 07_web_endpoints/fastrtc_flip_webcam.py
+# modal serve 07_web/fastrtc_flip_webcam.py
 # ```
 
 # and head to the `modal.run` URL that appears in your terminal.

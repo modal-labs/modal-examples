@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/fasthtml_app.py"]
+# cmd: ["modal", "serve", "07_web/fasthtml_app.py"]
 # ---
 
 # # Deploy a FastHTML app with Modal

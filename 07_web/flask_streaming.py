@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/flask_streaming.py"]
+# cmd: ["modal", "serve", "07_web/flask_streaming.py"]
 # ---
 
 # # Deploy Flask app with streaming results with Modal

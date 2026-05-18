@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/basic_web.py"]
+# cmd: ["modal", "serve", "07_web/basic_web.py"]
 # ---
 
 # # Hello world wide web!

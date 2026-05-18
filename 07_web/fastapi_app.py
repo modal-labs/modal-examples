@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/fastapi_app.py"]
+# cmd: ["modal", "serve", "07_web/fastapi_app.py"]
 # ---
 
 # # Deploy FastAPI app with Modal

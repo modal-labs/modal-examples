@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
+# cmd: ["modal", "serve", "07_web/streaming.py"]
 # ---
 
 # # Deploy a FastAPI app with streaming responses
