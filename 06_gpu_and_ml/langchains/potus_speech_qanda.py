@@ -6,7 +6,7 @@
 # # Retrieval-augmented generation (RAG) for question-answering with LangChain
 
 # In this example we create a large-language-model (LLM) powered question answering
-# web endpoint and CLI. Only a single document is used as the knowledge-base of the application,
+# Web Function and CLI. Only a single document is used as the knowledge-base of the application,
 # the 2022 USA State of the Union address by President Joe Biden. However, this same application structure
 # could be extended to do question-answering over all State of the Union speeches, or other large text corpuses.
 
@@ -178,7 +178,7 @@ def qanda_langchain(query: str) -> tuple[str, list[str]]:
 # ## Mapping onto Modal
 
 # With our application's functionality implemented we can hook it into Modal.
-# As said above, we're implementing a web endpoint, `web`, and a CLI command, `cli`.
+# As said above, we're implementing a Web Function, `web`, and a CLI command, `cli`.
 
 
 @app.function()
@@ -225,9 +225,9 @@ def cli(query: str, show_sources: bool = False):
 #    --show-sources
 # ```
 
-# ## Test run the web endpoint
+# ## Test run the Web Function
 
-# Modal makes it trivially easy to ship LangChain chains to the web. We can test drive this app's web endpoint
+# Modal makes it trivially easy to ship LangChain chains to the web. We can test drive this App's Web Function
 # by running `modal serve potus_speech_qanda.py` and then hitting the endpoint with `curl`:
 
 # ```bash
@@ -242,7 +242,7 @@ def cli(query: str, show_sources: bool = False):
 # }
 # ```
 
-# You can also find interactive docs for the endpoint at the `/docs` route of the web endpoint URL.
+# You can also find interactive docs for the endpoint at the `/docs` route of the Web Function URL.
 
 # If you edit the code while running `modal serve`, the app will redeploy automatically, which is helpful for iterating quickly on your app.
 

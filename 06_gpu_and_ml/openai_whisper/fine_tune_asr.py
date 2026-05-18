@@ -397,7 +397,7 @@ def main(test: bool = False):
 # to load the model just once on container startup using the `@modal.enter` decorator.
 # We can use
 # [modal.fastapi_endpoint](https://modal.com/docs/reference/modal.fastapi_endpoint)
-# to expose our inference function as a web endpoint.
+# to expose our inference function as a Web Function.
 
 
 @app.cls(

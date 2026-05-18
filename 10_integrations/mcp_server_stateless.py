@@ -69,14 +69,14 @@ def make_mcp_server():
 # type, and set `stateless_http=True` to make it stateless.
 
 # This will be mounted by the FastAPI app, which we deploy as a
-# [Modal web endpoint](https://modal.com/docs/guide/webhooks)
+# [Modal Web Function](https://modal.com/docs/guide/webhooks)
 # using [the `asgi_app` decorator](https://modal.com/docs/reference/modal.asgi_app):
 
 
 @app.function(image=image)
 @modal.asgi_app()
 def web():
-    """ASGI web endpoint for the MCP server"""
+    """Web gateway for the MCP server"""
     from fastapi import FastAPI
 
     mcp = make_mcp_server()
