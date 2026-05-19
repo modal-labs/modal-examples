@@ -37,7 +37,7 @@ sglang_image = modal.Image.from_registry(
 # [Qwen3.6-35B-A3B-FP8](https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8)
 # is a vision-language reasoning foundational model with 35B total parameters,
 # of which only 3B are activated per input sequence per forward pass.
-# We use the [8bit quantized floating point](https://quant.exposed)
+# We use the [8bit quantized floating point](https://modal.com/llm-almanac/quant-formats)
 # version of the model for faster [cold starts](https://modal.com/docs/guide/cold-start)
 # and faster inference with negligible behavior differences.
 
