@@ -42,7 +42,7 @@ sglang_image = modal.Image.from_registry(
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [H100 GPU](https://modal.com/blog/introducing-h100),
 # which offers excellent price-performance
-# and supports [8bit floating point operations](https://quant.exposed), which are the
+# and supports [8bit floating point operations](https://modal.com/llm-almanac/quant-formats), which are the
 # lowest precision well-supported in the relevant [GPU kernels](https://modal.com/gpu-glossary/device-software/kernel)
 # across a variety of model architectures.
 
