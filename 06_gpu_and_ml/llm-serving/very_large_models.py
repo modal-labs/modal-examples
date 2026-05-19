@@ -100,7 +100,8 @@ def download_model(repo_id, revision=None):
 
 # To run the function, we need to pick a specific model to download.
 # We'll use Z.ai's GLM 4.7 in eight bit
-# [floating point quantization](https://modal.com/llm-almanac/quant-formats/)
+# [floating point quantization](https://modal.com/llm-almanac/quant-formats).
+
 # This model takes about thirty minutes to an hour to download from Hugging Face.
 
 REPO_ID = "zai-org/GLM-4.7-FP8"
