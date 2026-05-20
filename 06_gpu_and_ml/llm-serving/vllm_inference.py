@@ -112,6 +112,9 @@ FAST_BOOT = False
 # and we activate the [built-in multi-token prediction (MTP)](https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/)
 # speculative decoding for improved throughput at lower concurrencies.
 
+SPECULATIVE_MODEL_NAME = "google/gemma-4-26B-A4B-it-assistant"
+SPECULATIVE_MODEL_REVISION = "f188f476dc11dd5bb3014dc861529d316bce49d3"
+
 # For more on the performance you can expect when serving your own LLMs, see
 # [our LLM engine performance benchmarks](https://modal.com/llm-almanac).
 
@@ -188,7 +191,7 @@ def serve():
     # add speculative decoding
     cmd += [
         "--speculative-config",
-        f"'{json.dumps({'model': 'google/gemma-4-26B-A4B-it-assistant', 'num_speculative_tokens': 4})}'",
+        f"'{json.dumps({'model': SPECULATIVE_MODEL_NAME, 'revision': SPECULATIVE_MODEL_REVISION, 'num_speculative_tokens': 4})}'",
     ]
 
     print(*cmd)
