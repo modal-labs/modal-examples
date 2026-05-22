@@ -1,6 +1,7 @@
 # ---
 # cmd: ["python", "13_sandboxes/opencode_swarm.py"]
 # pytest: false
+# lambda-test: false
 # ---
 
 # # Replicate the Sailboxes experiment on Modal
