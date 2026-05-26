@@ -47,11 +47,6 @@ def etl(batch: int = 100, timeout_s: int = 5):
     rows, end = [], time.time() + timeout_s
     while len(rows) < batch and time.time() < end:
         m = c.poll(0.5)
-        if not m or m.error():
-            continue
-        rows.append(
-            {
-                "ts": m.timestamp()[1],
         if not m or m.error() or m.value() is None:
             continue
         rows.append(
@@ -60,8 +55,7 @@ def etl(batch: int = 100, timeout_s: int = 5):
                 "payload": json.loads(m.value().decode("utf-8")),
             }
         )
-            }
-        )
+
     c.close()
 
     if rows:
