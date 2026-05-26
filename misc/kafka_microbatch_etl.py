@@ -52,7 +52,14 @@ def etl(batch: int = 100, timeout_s: int = 5):
         rows.append(
             {
                 "ts": m.timestamp()[1],
+        if not m or m.error() or m.value() is None:
+            continue
+        rows.append(
+            {
+                "ts": m.timestamp()[1],
                 "payload": json.loads(m.value().decode("utf-8")),
+            }
+        )
             }
         )
     c.close()
