@@ -10,6 +10,8 @@
 # The Sandbox provides an isolated environment where the agent can safely execute code
 # and examine files.
 
+# You can also run this in a [Modal Notebook](https://modal.com/notebooks/modal-labs/_/nb-30WInxiigR3Wc8kQ3jU7Hr).
+
 import modal
 from modal.container_process import ContainerProcess
 
