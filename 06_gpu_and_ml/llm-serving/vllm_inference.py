@@ -35,13 +35,13 @@ import modal
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
-    .uv_pip_install(
-        "vllm==0.19.0",
+    .uv_pip_install("vllm==0.21.0")
+    .env(
+        {
+            "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers
+            "VLLM_LOG_STATS_INTERVAL": "1",  # more frequent metrics logging
+        }
     )
-    .uv_pip_install(  # as of vllm 0.19.0, must install transformers separately to use Gemma 4
-        "transformers==5.5.0",
-    )
-    .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster model transfers
 )
 
 # ## Download the model weights
@@ -99,6 +99,21 @@ FAST_BOOT = False
 # If you're running an LLM service that usually has multiple replicas running, then set this to `False` for improved performance.
 
 # See the code below for details on the parameters that `FAST_BOOT` controls.
+
+# ### Model-specific configuration
+
+# Almost all models require some amount of configuration via command-line flags,
+# especially to achieve optimal performance.
+
+# We set these flags in the code below, roughly following the
+# [usage guide from the vLLM docs](https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html).
+
+# For instance, we turn off multimodal features to save on [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
+# and we activate the [built-in multi-token prediction (MTP)](https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/)
+# speculative decoding for improved throughput at lower concurrencies.
+
+SPECULATIVE_MODEL_NAME = "google/gemma-4-26B-A4B-it-assistant"
+SPECULATIVE_MODEL_REVISION = "f188f476dc11dd5bb3014dc861529d316bce49d3"
 
 # For more on the performance you can expect when serving your own LLMs, see
 # [our LLM engine performance benchmarks](https://modal.com/llm-almanac).
@@ -173,6 +188,12 @@ def serve():
         "--tool-call-parser gemma4",
     ]
 
+    # add speculative decoding
+    cmd += [
+        "--speculative-config",
+        f"'{json.dumps({'model': SPECULATIVE_MODEL_NAME, 'revision': SPECULATIVE_MODEL_REVISION, 'num_speculative_tokens': 4})}'",
+    ]
+
     print(*cmd)
 
     subprocess.Popen(" ".join(cmd), shell=True)
@@ -232,7 +253,7 @@ def serve():
 
 
 @app.local_entrypoint()
-async def test(test_timeout=10 * MINUTES, content=None, twice=True):
+async def test(test_timeout=15 * MINUTES, content=None, twice=True):
     url = await serve.get_web_url.aio()
 
     system_prompt = {

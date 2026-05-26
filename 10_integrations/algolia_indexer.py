@@ -113,7 +113,7 @@ CONFIG = {
 # ## The actual function
 
 # We want to trigger our crawler from our CI/CD pipeline, so we're serving it as a
-# [web endpoint](https://modal.com/docs/guide/webhooks) that can be triggered by a `GET` request during deploy.
+# [Web Function](https://modal.com/docs/guide/webhooks) that can be triggered by a `GET` request during deploy.
 # You could also consider running the crawler on a [schedule](https://modal.com/docs/guide/cron).
 
 # The Algolia crawler is written for Python 3.6 and needs to run in the `pipenv` created for it,

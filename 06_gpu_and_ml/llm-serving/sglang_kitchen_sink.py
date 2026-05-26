@@ -66,7 +66,7 @@ sglang_image = sglang_image.env(
 # JIT DeepGEMM kernels are on by default, but we explicitly enable them via an environment variable.
 
 DG_CACHE_VOL = modal.Volume.from_name("deepgemm-cache", create_if_missing=True)
-DG_CACHE_PATH = "/root/.cache/deepgemm"
+DG_CACHE_PATH = "/root/.cache/deep_gemm"
 
 sglang_image = sglang_image.env({"SGLANG_ENABLE_JIT_DEEPGEMM": "1"})
 

@@ -251,7 +251,7 @@ web_app = FastAPI()
 
 # Each ControlNet gradio demo module exposes a `block` Gradio interface running in queue-mode,
 # which is initialized in module scope on import and served on `0.0.0.0`. We want the block interface object,
-# but the queueing and launched webserver aren't compatible with Modal's serverless web endpoint interface,
+# but the queueing and launched webserver aren't compatible with Modal's serverless Web Function interface,
 # so in the `import_gradio_app_blocks` function we patch out these behaviors.
 
 

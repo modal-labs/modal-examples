@@ -36,7 +36,7 @@ class BackendService:
         return input_val[::-1]  # reverse the string
 
 
-# Then, we can define a web endpoint that will submit a request to the backend service
+# Then, we can define a Web Function that will submit a request to the backend service
 # as well as other API routes for polling or retrieving results.
 
 # To submit jobs asynchronously, we can use ['spawn'](https://modal.com/docs/reference/modal.Function#spawn),
@@ -52,7 +52,7 @@ class BackendService:
 )
 @modal.asgi_app()
 @modal.concurrent(max_inputs=100)
-def web_endpoint():
+def gateway():
     from fastapi import FastAPI, Request
 
     web_app = FastAPI()
@@ -103,7 +103,7 @@ def test_polling():
     import urllib.request
 
     # Get the deployed URL
-    url = web_endpoint.get_web_url()
+    url = gateway.get_web_url()
     print(f"URL: {url}")
 
     # Submit request

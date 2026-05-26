@@ -6,8 +6,8 @@ code in a flexible control flow aimed at completing a task or goal.
 It is implemented in LangChain, using the LangGraph library to structure the
 agent and the LangServe framework to turn it into a FastAPI app.
 
-We use Modal to turn that app into a web endpoint. We also use Modal to
-"sandbox" the agent's code execution, so that it can't accidentally (or when
+We use Modal to expose it to the internet as a Web Function. We also use Modal
+to "sandbox" the agent's code execution, so that it can't accidentally (or when
 prompt injected!) damage the application by executing some inadvisable code.
 
 Modal's Charles Frye and LangChain's Lance Martin did a

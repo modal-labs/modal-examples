@@ -38,7 +38,9 @@ from pathlib import Path
 import modal
 
 # We pin an LTX-2 commit and install its three subpackages.
-# Torch is installed first to ensure compatibility with Flash-Attention 3.
+# Torch is installed, along with a Flash-Attention 3 (as a wheel)
+# for faster inference on GPUs with the Hopper
+# [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture).
 
 ltx2_commit = "28c3c73"
 
@@ -48,14 +50,13 @@ image = (
     .uv_pip_install(
         "torch==2.7.0",
         "torchaudio==2.7.0",
-        extra_index_url="https://download.pytorch.org/whl/cu128",
-    )
-    .uv_pip_install(
         "transformers>=4.52,<5",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-core",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-pipelines",
         f"git+https://github.com/Lightricks/LTX-2.git@{ltx2_commit}#subdirectory=packages/ltx-trainer",
         "https://huggingface.co/alexnasa/flash-attn-3/resolve/main/128/flash_attn_3-3.0.0b1-cp39-abi3-linux_x86_64.whl",
+        extra_index_url="https://download.pytorch.org/whl/cu128",
+        extra_options="--index-strategy unsafe-best-match",
     )
     .env(
         {

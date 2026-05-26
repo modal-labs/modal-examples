@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/basic_web.py"]
+# cmd: ["modal", "serve", "07_web/basic_web.py"]
 # ---
 
 # # Hello world wide web!
@@ -11,7 +11,7 @@
 # This tutorial shows the path with the shortest ["time to 200"](https://shkspr.mobi/blog/2021/05/whats-your-apis-time-to-200/):
 # [`modal.fastapi_endpoint`](https://modal.com/docs/reference/modal.fastapi_endpoint).
 
-# On Modal, web endpoints have all the superpowers of Modal Functions:
+# On Modal, Web Functions have all the superpowers of Modal Functions:
 # they can be [accelerated with GPUs](https://modal.com/docs/guide/gpu),
 # they can access [Secrets](https://modal.com/docs/guide/secrets) or [Volumes](https://modal.com/docs/guide/volumes),
 # and they [automatically scale](https://modal.com/docs/guide/cold-start) to handle more traffic.
@@ -47,7 +47,7 @@ def hello():
     return "Hello world!"
 
 
-# You can turn this function into a web endpoint by running `modal serve basic_web.py`.
+# You can expose this Web Function to the internet by running `modal serve basic_web.py`.
 # In the output, you should see a URL that ends with `hello-dev.modal.run`.
 # If you navigate to this URL, you should see the `"Hello world!"` message appear in your browser.
 
@@ -56,19 +56,19 @@ def hello():
 # From this documentation, you can interact with your endpoint, sending HTTP requests and receiving HTTP responses.
 # For more details, see the [FastAPI documentation](https://fastapi.tiangolo.com/features/#automatic-docs).
 
-# By running the endpoint with `modal serve`, you created a temporary endpoint that will disappear if you interrupt your terminal.
+# By running the App with `modal serve`, you created a temporary endpoint that will disappear if you interrupt your terminal.
 # These temporary endpoints are great for debugging -- when you save a change to any of your dependent files, the endpoint will redeploy.
 # Try changing the message to something else, hitting save, and then hitting refresh in your browser or re-sending
 # the request from `/docs` or the command line. You should see the new message, along with logs in your terminal showing the redeploy and the request.
 
-# When you're ready to deploy this endpoint permanently, run `modal deploy basic_web.py`.
-# Now, your function will be available even when you've closed your terminal or turned off your computer.
+# When you're ready to deploy the Web Function persistently, run `modal deploy basic_web.py`.
+# Now, your Function will be available even when you've closed your terminal or turned off your computer.
 
-# ## Send data to a web endpoint
+# ## Send data to a Web Function
 
-# The web endpoint above was a bit silly: it always returns the same message.
+# The function above was a bit silly: it always returns the same message.
 
-# Most endpoints need an input to be useful. There are two ways to send data to a web endpoint:
+# Most functions need an input to be useful. There are two ways to send data to a Web Function:
 # - in the URL as a [query parameter](#sending-data-in-query-parameters)
 # - in the [body of the request](#sending-data-in-the-request-body) as JSON
 
@@ -87,23 +87,23 @@ def greet(user: str) -> str:
     return f"Hello {user}!"
 
 
-# If you are already running `modal serve basic_web.py`, this endpoint will be available at a URL, printed in your terminal, that ends with `greet-dev.modal.run`.
+# If you are already running `modal serve basic_web.py`, this Function will be available at a URL, printed in your terminal, that ends with `greet-dev.modal.run`.
 
 # We provide Python type-hints to get type information in the docs and
 # [automatic validation](https://fastapi.tiangolo.com/tutorial/query-params-str-validations/).
 # For example, if you navigate directly to the URL for `greet`, you will get a detailed error message
-# indicating that the `user` parameter is missing. Navigate instead to `/docs` to see how to invoke the endpoint properly.
+# indicating that the `user` parameter is missing. Navigate instead to `/docs` to see how to structure the request.
 
 # You can read more about query parameters in the [FastAPI documentation](https://fastapi.tiangolo.com/tutorial/query-params/).
 
 
 # ### Sending data in the request body
 
-# For larger and more complex data, it is generally preferrable to send data in the body of the HTTP request.
+# For larger and more complex data, it is generally preferable to send data in the body of the HTTP request.
 # This body is formatted as [JSON](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Objects/JSON),
 # the most common data interchange format on the web.
 
-# To set up an endpoint that accepts JSON data, add an argument with a `dict` type-hint to your function.
+# To set up a Web Function that accepts JSON data, add an argument with a `dict` type-hint to your function.
 # This argument will be populated with the data sent in the request body.
 
 
@@ -115,15 +115,15 @@ def goodbye(data: dict) -> str:
 
 
 # Note that we gave a value of `"POST"` for the `method` argument here.
-# This argument defines the HTTP request method that the endpoint will respond to,
+# This argument defines the HTTP request method that the function will respond to,
 # and it defaults to `"GET"`.
-# If you head to the URL for the `goodbye` endpoint in your browser,
+# If you head to the URL for the `goodbye` function in your browser,
 # you will get a 405 Method Not Allowed error, because browsers only send GET requests by default.
 # While this is technically a separate concern from query parameters versus request bodies
-# and you can define an endpoint that accepts GET requests and uses data from the body,
+# and you can define a function that accepts GET requests and uses data from the body,
 # it is [considered bad form](https://stackoverflow.com/a/983458).
 
-# Navigate to `/docs` for more on how to invoke the endpoint properly.
+# Navigate to `/docs` for more on how to call the function.
 # You will need to send a POST request with a JSON body containing a `name` key.
 # To get the same typing and validation benefits as with query parameters,
 # use a [Pydantic model](https://fastapi.tiangolo.com/tutorial/body/)
@@ -133,12 +133,12 @@ def goodbye(data: dict) -> str:
 
 # ## Handle expensive startup with `modal.Cls`
 
-# Sometimes your endpoint needs to do something before it can handle its first request,
+# Sometimes your function needs to do something before it can handle its first request,
 # like get a value from a database or set the value of a variable.
 # If that step is expensive, like [loading a large ML model](https://modal.com/docs/guide/model-weights),
 # it'd be a shame to have to do it every time a request comes in!
 
-# Web endpoints can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters),
+# Web Functions can be methods on a [`modal.Cls`](https://modal.com/docs/guide/lifecycle-functions#container-lifecycle-functions-and-parameters),
 # which allows you to manage the container's lifecycle independently from processing individual requests.
 
 # This example will only set the `start_time` instance variable once, on container startup.
@@ -161,7 +161,7 @@ class WebApp:
         return {"start_time": self.start_time, "current_time": current_time}
 
 
-# ## Protect web endpoints with proxy authentication
+# ## Protect Web Functions with proxy authentication
 
 # Sharing your Python functions on the web is great, but it's not always a good idea
 # to make those functions available to just anyone.
@@ -170,7 +170,7 @@ class WebApp:
 # is more expensive to run than to call (and so might be abused by your enemies)
 # or reveals information that you would rather keep secret.
 
-# To protect your Modal web endpoints so that they can't be triggered except
+# To protect your Modal Web Functions so that they can't be triggered except
 # by members of your [Modal workspace](https://modal.com/docs/guide/workspaces),
 # add the `requires_proxy_auth=True` flag to the `fastapi_endpoint` decorator.
 
@@ -188,7 +188,7 @@ def expensive_secret():
 # You should also check the dashboard page for this app (at the URL printed at the very top of the `modal` command output)
 # so you can see that no containers were spun up to handle the request -- this authorization is handled entirely inside Modal's infrastructure.
 
-# You can trigger the web endpoint by [creating a Proxy Auth Token](https://modal.com/settings/proxy-auth-tokens)
+# You can trigger the Web Function by [creating a Proxy Auth Token](https://modal.com/settings/proxy-auth-tokens)
 # and then including the token ID and secret in the `Modal-Key` and `Modal-Secret` headers.
 
 # From the command line, that might look like

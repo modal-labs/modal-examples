@@ -8,7 +8,10 @@ import time
 from . import utils
 
 MINUTES = 60
-DEFAULT_TIMEOUT = 12 * MINUTES
+# NB: Max runtime for AWS Lambda is 15 minutes.
+# Asynchronous monitoring is managed by Lambda, so max timeout here is limited.
+# ref: https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html
+DEFAULT_TIMEOUT = 14 * MINUTES
 
 
 def run_script(example, timeout=DEFAULT_TIMEOUT):

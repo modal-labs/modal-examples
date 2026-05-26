@@ -598,7 +598,7 @@ def generate_web(data: GenerateRequest) -> list[str]:
     return Model.generate.remote(data.prompts, settings=None)
 
 
-# To set our function up as a web endpoint, we need to run this file --
+# To set our function up as a Web Function, we need to run this file --
 # with `modal serve` to create a hot-reloading development server or `modal deploy` to deploy it to production.
 
 # ```bash

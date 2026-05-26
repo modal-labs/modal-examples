@@ -7,7 +7,7 @@
 #
 # This example demonstrates how to build a pool of "warm"
 # [Modal Sandboxes](https://modal.com/docs/guide/sandbox), and deploy a
-# [Modal web endpoint](https://modal.com/docs/guide/webhook-urls) that let's you claim
+# [Modal Web Function](https://modal.com/docs/guide/webhook-urls) that lets you claim
 # a Sandbox from the pool, getting a URL to the server running in the Sandbox.
 #
 # Maintaining a pool of warm Sandboxes is useful for example if your Sandboxes need
@@ -177,25 +177,19 @@ def terminate_sandboxes(sandbox_ids: list[str]) -> int:
 #
 # We expose two ways to claim a Sandbox from the pool and get a URL to the server:
 #
-# - a web endpoint
-# - a Function that can be called using the Modal SDK for [Python][1], [Go, or JS][2].
+# - a public Web Function that can be addressed via HTTP
+# - a Function that can be called using the Modal SDK (including from [Go or JS][1]).
 #
-# [1]: https://github.com/modal-labs/modal-client
-# [2]: https://github.com/modal-labs/libmodal
+# [1]: https://modal.com/docs/guide/sdk-javascript-go
 #
-# The web endpoint is deployed as a [Modal web endpoint][3], and calls the
-# `claim_sandbox` Function using `claim_sandbox.local()`, meaning that it's called in
-# the same process as the web endpoint.
-#
-# The Function can be called using the Modal SDK for [Python][1], [Go, or JS][2].
-#
-# [1]: https://github.com/modal-labs/modal-client
-# [2]: https://github.com/modal-labs/libmodal
-# [3]: https://modal.com/docs/guide/webhook-urls
+# The Web Function proxies to `claim_sandbox` using a `.local()` invocation,
+# which runs in the same container without additional latency.
+
+
 @app.function(image=server_image)
 @modal.fastapi_endpoint()
 @modal.concurrent(max_inputs=20)
-def claim_sandbox_web_endpoint(check_health: bool = True) -> str:
+def claim_sandbox_web_function(check_health: bool = True) -> str:
     return claim_sandbox.local(check_health=check_health)
 
 
@@ -351,12 +345,12 @@ def demo():
     time.sleep(2)  # wait for the pool to be backfilled in the background
     check()
 
-    deployed_web_endpoint = modal.Function.from_name(
-        "example-sandbox-pool", "claim_sandbox_web_endpoint"
+    deployed_web_function = modal.Function.from_name(
+        "example-sandbox-pool", "claim_sandbox_web_function"
     )
-    web_endpoint_url = deployed_web_endpoint.get_web_url()
-    print(f"\nClaiming a Sandbox using the web endpoint at '{web_endpoint_url}'...")
-    with urllib.request.urlopen(web_endpoint_url) as response:
+    claim_url = deployed_web_function.get_web_url()
+    print(f"\nClaiming a Sandbox using the Function at '{claim_url}'...")
+    with urllib.request.urlopen(claim_url) as response:
         sandbox_url = response.read().decode("utf-8").strip(' "')
         print(f"Claimed Sandbox URL: {sandbox_url}")
 

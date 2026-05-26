@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "serve", "07_web_endpoints/streaming.py"]
+# cmd: ["modal", "serve", "07_web/streaming.py"]
 # ---
 
 # # Deploy a FastAPI app with streaming responses
@@ -47,7 +47,7 @@ def fastapi_app():
     return web_app
 
 
-# This `hook` web endpoint Modal function calls *another* Modal function,
+# This `hook` Web Function calls *another* Modal Function,
 # and it just works!
 
 
@@ -66,8 +66,8 @@ def hook():
     )
 
 
-# This `mapped` web endpoint Modal function does a parallel `.map` on a simple
-# Modal function. Using `.starmap` also would work in the same fashion.
+# This `mapped` Web Function does a parallel `.map` on a simple
+# Modal Function. Using `.starmap` also would work in the same fashion.
 
 
 @app.function()

@@ -49,8 +49,8 @@ gw_image = (
 # This is an example configuration, but a production-ready configuration will differ in two respects:
 
 # 1. You should set up authentication for the Pushgateway. Pushgateway has support for [basic authentication](https://github.com/prometheus/pushgateway/blob/42c4075fc5e2564031f2852885cdb2f5d570f672/README.md#tls-and-basic-authentication)
-#    out of the box. If you need more advanced authentication, consider using a [web endpoint with authentication](https://modal.com/docs/guide/webhooks#authentication)
-#    which proxies requests to the Pushgateway.
+#    out of the box. If you need more advanced authentication, consider using a [Web Function layer](https://modal.com/docs/guide/webhooks#authentication)
+#    that proxies requests to the Pushgateway.
 
 # 2. The Pushgateway should listen on a [custom domain](https://modal.com/docs/guide/webhook-urls#custom-domains).
 #    This will allow you to configure Prometheus to scrape metrics from a predictable URL rather than
@@ -140,7 +140,7 @@ app.include(gw_app)
 # ├── 🔨 Created mount /home/ec2-user/modal/examples/10_integrations/pushgateway.py
 # ├── 🔨 Created function ExampleClientApplication.*.
 # ├── 🔨 Created web function serve => https://modal-labs-examples--example-pushgateway-serve.modal.run
-# └── 🔨 Created web endpoint for ExampleClientApplication.hello => https://modal-labs-examples--hello-pushgateway.modal.run
+# └── 🔨 Created web function for ExampleClientApplication.hello => https://modal-labs-examples--hello-pushgateway.modal.run
 # ✓ App deployed! 🎉
 # ```
 

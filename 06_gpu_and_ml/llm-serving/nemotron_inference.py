@@ -49,7 +49,7 @@ sglang_image = modal.Image.from_registry("lmsysorg/sglang:v0.5.9").entrypoint(
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
 # We choose the [B200 GPU](https://modal.com/blog/introducing-b200),
 # which offers excellent price-performance
-# and supports both 8 bit and 4 bit [quantized floating point](https://quant.exposed)
+# and supports both 8 bit and 4 bit [quantized floating point](https://modal.com/llm-almanac/quant-formats)
 # operations.
 
 GPU_TYPE, N_GPUS = "B200", 1
@@ -59,7 +59,7 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # We'll serve [NVIDIA's Nemotron 3 Super](https://arxiv.org/abs/2512.20856).
 # For lower latency, we pick the intermediate-sized model (120B params)
-# quantized to [lower precision floating point](https://quant.exposed).
+# quantized to [lower precision floating point](https://modal.com/llm-almanac/quant-formats).
 # This reduces the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.

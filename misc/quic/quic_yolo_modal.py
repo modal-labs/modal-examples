@@ -5,7 +5,7 @@ direct connection through firewalls.
 Networking code adapted from:
 https://gist.github.com/aksh-at/e85a5517610a1a2bff35fac41d4c982f
 YOLO model code from:
-https://github.com/modal-labs/modal-examples/tree/main/07_web_endpoints/webrtc
+https://github.com/modal-labs/modal-examples/tree/main/07_web/webrtc
 Usage:
 # Start server (rendezvous + YOLO on GPU)
 > modal serve quic_yolo_modal.py

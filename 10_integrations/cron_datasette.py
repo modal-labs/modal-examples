@@ -17,7 +17,7 @@
 
 # * [Scheduled functions](https://modal.com/docs/guide/cron): the underlying dataset is refreshed daily, so we schedule a function to run daily.
 
-# * [Web endpoints](https://modal.com/docs/guide/webhooks): exposes the Datasette application for web browser interaction and API requests.
+# * [Web Functions](https://modal.com/docs/guide/webhooks): exposes the Datasette application for web browser interaction and API requests.
 
 # ## Basic setup
 
@@ -251,11 +251,11 @@ def refresh_db():
     prep_db.remote()
 
 
-# ## Web endpoint
+# ## Web Function
 
-# Hooking up the SQLite database to a Modal webhook is as simple as it gets.
-# The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a few
-# lines to instantiate the `Datasette` instance and return its app server.
+# Hooking up the SQLite database to a Modal Function is as simple as it gets.
+# The Modal `@asgi_app` decorator wraps a few lines of code: one `import` and a couple more
+# that instantiate the `Datasette` instance and return its app server.
 
 # First, let's define a metadata object for the database.
 # This will be used to configure Datasette to display a custom UI with some pre-defined queries.
@@ -339,7 +339,7 @@ metadata = {
     },
 }
 
-# Now we can define the web endpoint that will serve the Datasette application
+# Now we can define the Web Function that will serve the Datasette application
 
 
 @app.function(
@@ -349,7 +349,7 @@ metadata = {
 @modal.concurrent(max_inputs=16)
 @modal.asgi_app()
 def ui():
-    """Web endpoint for Datasette UI."""
+    """Web Function backing the Datasette UI."""
     from datasette.app import Datasette
 
     ds = Datasette(
@@ -403,4 +403,4 @@ def run(force_refresh: bool = False, filter_year: int = None):
     print("  modal deploy cron_datasette.py  # For production deployment")
 
 
-# You can explore the data at the [deployed web endpoint](https://modal-labs-examples--example-cron-datasette-ui.modal.run).
+# You can explore the data at the [deployed Web Function](https://modal-labs-examples--example-cron-datasette-ui.modal.run).

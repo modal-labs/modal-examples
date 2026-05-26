@@ -178,7 +178,7 @@ def cli(prompt: Optional[str] = None):
 
 
 # ## Serve the model
-# Finally, we can serve the model from a web endpoint with `modal deploy falcon_bitsandbytes.py`. If
+# Finally, we can serve the model from a Web Function with `modal deploy falcon_bitsandbytes.py`. If
 # you visit the resulting URL with a question parameter in your URL, you can view the model's
 # stream back a response.
 # You can try our deployment [here](https://modal-labs--example-falcon-bnb-get.modal.run/?question=How%20do%20planes%20work?).
