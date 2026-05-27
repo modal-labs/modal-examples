@@ -7,8 +7,13 @@
 
 # ESMFold2 is available in two configurations:
 
-# - [ESMFold2](https://huggingface.co/biohub/ESMFold2): the larger model for maximum accuracy. It can be run either from a single sequence or with MSA context, with MSAs improving performance on difficult complexes.
-# - [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast): a smaller model optimized for very fast single-sequence folding. It is well suited for high-throughput folding, designed sequences, metagenomic proteins, and targets with limited homologous sequence information.
+# - [ESMFold2](https://huggingface.co/biohub/ESMFold2): the larger model for
+#   maximum accuracy. It can be run either from a single sequence or with MSA
+#   context, with MSAs improving performance on difficult complexes.
+# - [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast): a smaller
+#   model optimized for very fast single-sequence folding. It is well suited for
+#   high-throughput folding, designed sequences, metagenomic proteins, and
+#   targets with limited homologous sequence information.
 
 # In this example, we demonstrate how to run ESMFold2 on Modal's flexible
 # serverless infrastructure. By default, we fold a protein-DNA-ligand complex
