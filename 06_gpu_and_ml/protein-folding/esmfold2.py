@@ -1,16 +1,14 @@
 # # Fold proteins and biomolecular complexes with ESMFold2
 
-# [ESMFold2](https://huggingface.co/biohub/ESMFold2) is an open source structure
-# prediction model from the [Chan Zuckerberg Biohub](https://biohub.org/).
-# It pairs the 6B-parameter ESMC encoder with a diffusion-based structure
-# module that decodes amino acid sequences (and optionally DNA, RNA, ligand,
-# and chemically modified residues) into atomic-resolution 3D models of
-# proteins and their complexes.
+# [ESMFold2](https://biohub.ai/esm/protein/about) is a state-of-the-art model
+# for biomolecular complex structure prediction, developed by Biohub and released
+# under an open license. Built on ESMC representations, it produces leading accuracy
+# for protein-protein and antibody-antigen interactions at any given compute budget.
 
-# The model was used to design lab-validated minibinders and single-chain antibodies against five
-# therapeutic targets in cancer and immunology, and put up SOTA results on the Foldbench
-# protein-protein and antibody-antigen benchmarks
-# (see the [technical report](https://biohub.ai/papers/esm_protein.pdf)).
+# ESMFold2 is available in two configurations:
+
+# - [ESMFold2](https://huggingface.co/biohub/ESMFold2): the larger model for maximum accuracy. It can be run either from a single sequence or with MSA context, with MSAs improving performance on difficult complexes.
+# - [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast): a smaller model optimized for very fast single-sequence folding. It is well suited for high-throughput folding, designed sequences, metagenomic proteins, and targets with limited homologous sequence information.
 
 # In this example, we demonstrate how to run ESMFold2 on Modal's flexible
 # serverless infrastructure. By default, we fold a protein-DNA-ligand complex
@@ -117,11 +115,7 @@ class ESMFold2Inference:
     @modal.enter()
     def load_model(self):
         print("🧬 loading ESMFold2 onto the GPU")
-        self.model = (
-            ESMFold2Model.from_pretrained(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION)
-            .cuda()
-            .eval()
-        )
+        self.model = ESMFold2Model.from_pretrained(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION).cuda().eval()
 
     @modal.method()
     def fold(
@@ -152,9 +146,7 @@ class ESMFold2Inference:
                 ]
             )
         else:
-            spi = StructurePredictionInput(
-                sequences=[ProteinInput(id="A", sequence=sequence.strip())]
-            )
+            spi = StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=sequence.strip())])
 
         print(
             f"🧬 folding with num_loops={num_loops}, "
