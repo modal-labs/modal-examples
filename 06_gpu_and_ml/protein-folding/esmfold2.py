@@ -115,7 +115,11 @@ class ESMFold2Inference:
     @modal.enter()
     def load_model(self):
         print("🧬 loading ESMFold2 onto the GPU")
-        self.model = ESMFold2Model.from_pretrained("biohub/ESMFold2").cuda().eval()
+        self.model = (
+            ESMFold2Model.from_pretrained(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION)
+            .cuda()
+            .eval()
+        )
 
     @modal.method()
     def fold(
@@ -146,7 +150,9 @@ class ESMFold2Inference:
                 ]
             )
         else:
-            spi = StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=sequence.strip())])
+            spi = StructurePredictionInput(
+                sequences=[ProteinInput(id="A", sequence=sequence.strip())]
+            )
 
         print(
             f"🧬 folding with num_loops={num_loops}, "
