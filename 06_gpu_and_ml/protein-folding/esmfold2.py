@@ -1,0 +1,261 @@
+# # Fold proteins and biomolecular complexes with ESMFold2
+
+# [ESMFold2](https://huggingface.co/biohub/ESMFold2) is an open source structure
+# prediction model from the [Chan Zuckerberg Biohub](https://biohub.org/).
+# It pairs the 6B-parameter ESMC encoder with a diffusion-based structure
+# module that decodes amino acid sequences (and optionally DNA, RNA, ligand,
+# and chemically modified residues) into atomic-resolution 3D models of
+# proteins and their complexes.
+
+# ESMFold2 leads on Foldbench protein-protein and antibody-antigen benchmarks, and was used to
+# design lab-validated minibinders and single-chain antibodies against five
+# therapeutic targets in cancer and immunology (see the [technical report](https://biohub.ai/papers/esm_protein.pdf)).
+
+# In this example, we demonstrate how to run ESMFold2 on Modal's flexible
+# serverless infrastructure. By default, we fold a protein-DNA-ligand complex
+# (the M.HhaI DNA methyltransferase bound to a methylated DNA duplex and its
+# SAH cofactor), which exercises the model's full multimer capabilities.
+# You can also pass any single-chain protein sequence from the command line.
+
+# This script is meant as a starting point that demonstrates how to
+# create a `modal.Image` with the correct dependencies, cache weights to a `modal.Volume`,
+# and save the output to a file for a single folding request.
+# To experience the full power of Modal, try scaling inference up across
+# hundreds or thousands of structures, or invert the model to design binders
+# for your favorite target.
+
+# ## Setup
+
+from pathlib import Path
+from typing import Optional
+
+import modal
+
+here = Path(__file__).parent  # the directory of this file
+
+MINUTES = 60  # seconds
+
+app = modal.App(name="example-esmfold2")
+
+# ## Installing ESMFold2 Python dependencies on Modal
+
+# Code executing on Modal runs inside containers built from
+# [`modal.Image`s](https://modal.com/docs/guide/images) that include that
+# code's dependencies.
+# Here, we do it in a few lines, using the `uv` package manager.
+# We install the `esm` package in a seperate step because it depends on a fork of the `transformers` package.
+# By separating the install steps, we can ensure that the `esm` package is installed with the correct version of the `transformers` package.
+
+ESM_REVISION = "81b3646c9429ea8458918415ad6a46178cb59833"  # pin upstream commit so builds are reproducible
+flash_attn_release = (
+    "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/"
+    "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp313-cp313-linux_x86_64.whl"
+)
+esmfold2_image = (
+    modal.Image.debian_slim(python_version="3.13")
+    .apt_install("git")
+    .uv_pip_install("torch==2.6.0", "numpy==2.2.4", flash_attn_release)
+    .uv_pip_install(
+        "transformer-engine[pytorch]",
+        "xformers",
+        "huggingface-hub",
+    )
+    .uv_pip_install(
+        f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
+    )
+)
+
+# We'll use the `image.imports()` context manager to import libraries we'll need to get the model weights and run inference.
+# The context manager allows us to import libraries that might not be installed locally but are installed in our `modal.Image`.
+
+with esmfold2_image.imports():
+    from esm.models.esmfold2 import (
+        DNAInput,
+        ESMFold2InputBuilder,
+        LigandInput,
+        Modification,
+        ProteinInput,
+        StructurePredictionInput,
+    )
+    from huggingface_hub import snapshot_download
+    from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
+
+# ## Caching ESMFold2 model weights on Modal Volumes
+
+# Not all "dependencies" belong in a container image. ESMFold2, for example,
+# depends on the weights of the underlying ESMC-6B language model and the
+# diffusion structure module.
+
+# Rather than re-downloading them on each cold start (which would add several
+# minutes of GPU time to every inference) or baking them into the image
+# (which would require they be re-downloaded any time the other dependencies
+# changed), we cache them on a [Modal Volume](https://modal.com/docs/guide/volumes).
+# A Modal Volume is a distributed file system that all of your code running on
+# Modal can access.
+# For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
+# For details on how we download the weights in this case, see the [Addenda](#addenda).
+
+esmfold2_volume = modal.Volume.from_name("esmfold2-models", create_if_missing=True)
+models_dir = Path("/models")
+
+# We point the Hugging Face cache at the Volume so any auxiliary files
+# pulled in by `from_pretrained` land on the Volume too.
+
+esmfold2_image = esmfold2_image.env(
+    {
+        "HF_HOME": str(models_dir),
+        "HF_XET_HIGH_PERFORMANCE": "1",  # speed up downloads
+    }
+)
+
+# ## Running ESMFold2 on Modal
+
+# To run inference on Modal we wrap our code in a decorator, `@app.cls`.
+# We provide that decorator with some arguments that describe the infrastructure
+# our code needs to run: the Volume we created, the Image we defined, and of
+# course a GPU! We'll use an H100, but you can use any other [GPU supported by Modal](https://modal.com/docs/guide/gpu).
+
+# When we use the `@app.cls` decorator, we can define a method decorated with the []`@modal.enter()` lifecycle hook](https://modal.com/docs/guide/lifecycle-functions#modalenter).
+# This method will be run once when a new container starts, so we only have to pay the model loading cost once.
+# The exeuction time of the `@modal.enter()` method is included in the container startup time, so it won't serve requests
+# until it's ready.
+
+# To run inference, we define a method decorated with the `@modal.method()` decorator.
+# We expose just the knobs that most users will want to tweak (number of
+# trunk recycles, diffusion sampling steps, and seed); for the full set of
+# options, see the
+# [ESMFold2 model card](https://huggingface.co/Biohub/ESMFold2).
+
+ESMFOLD2_REPO = "biohub/ESMFold2"
+ESMFOLD2_REVISION = "6234905"  # pin for reproducibility
+
+
+@app.cls(
+    image=esmfold2_image,
+    volumes={models_dir: esmfold2_volume},
+    gpu="H100",
+    timeout=20 * MINUTES,
+)
+class ESMFold2Inference:
+    @modal.enter()
+    def load_model(self):
+        print("🧬 downloading ESMFold2 model weights")
+        snapshot_download(
+            repo_id=ESMFOLD2_REPO,
+            revision=ESMFOLD2_REVISION,
+        )
+
+        print("🧬 loading ESMFold2 onto the GPU")
+        self.model = ESMFold2Model.from_pretrained("biohub/ESMFold2").cuda().eval()
+
+    @modal.method()
+    def fold(
+        self,
+        sequence: Optional[str] = None,
+        num_loops: int = 3,
+        num_sampling_steps: int = 50,
+        num_diffusion_samples: int = 1,
+        seed: int = 0,
+    ) -> tuple[str, float, float, float]:
+        if sequence is None:
+            # default to the M.HhaI methyltransferase / DNA / SAH complex (PDB 1MHT);
+            # `C36` is the CCD code for 5-methylcytosine, `SAH` for the cofactor
+            spi = StructurePredictionInput(
+                sequences=[
+                    ProteinInput(id="A", sequence=MHHAI_SEQUENCE),
+                    DNAInput(
+                        id="B",
+                        sequence="GATAGCGCTATC",
+                        modifications=[Modification(position=5, ccd="C36")],
+                    ),
+                    DNAInput(
+                        id="C",
+                        sequence="TGATAGCGCTATC",
+                        modifications=[Modification(position=6, ccd="C36")],
+                    ),
+                    LigandInput(id="L", ccd=["SAH"]),
+                ]
+            )
+        else:
+            spi = StructurePredictionInput(
+                sequences=[ProteinInput(id="A", sequence=sequence.strip())]
+            )
+
+        print(
+            f"🧬 folding with num_loops={num_loops}, "
+            f"num_sampling_steps={num_sampling_steps}, "
+            f"num_diffusion_samples={num_diffusion_samples}"
+        )
+        result = ESMFold2InputBuilder().fold(
+            self.model,
+            spi,
+            num_loops=num_loops,
+            num_sampling_steps=num_sampling_steps,
+            num_diffusion_samples=num_diffusion_samples,
+            seed=seed,
+        )
+
+        return (
+            result.complex.to_mmcif(),
+            float(result.plddt.mean()),
+            float(result.ptm),
+            float(result.iptm),
+        )
+
+
+# ## Fold a complex from the command line
+
+# To showcase the full breadth of ESMFold2 -- it can predict structures of
+# proteins, nucleic acids, ligands, and modified residues all at once -- we
+# fold a complex by default: the
+# [M.HhaI](https://www.rcsb.org/structure/1MHT) cytosine-5 DNA methyltransferase
+# from _Haemophilus haemolyticus_, bound to a methylated DNA duplex and the
+# [S-adenosyl-L-homocysteine](https://en.wikipedia.org/wiki/S-Adenosyl-L-homocysteine)
+# cofactor that remains after methyl transfer.
+
+MHHAI_SEQUENCE = (
+    "MIEIKDKQLTGLRFIDLFAGLGGFRLALESCGAECVYSNEWDKYAQEVYEMNFGEKPEGDITQVNEKTIPDH"
+    "DILCAGFPCQAFSISGKQKGFEDSRGTLFFDIARIVREKKPKVVFMENVKNFASHDNGNTLEVVKNTMNELD"
+    "YSFHAKVLNALDYGIPQKRERIYMICFRNDLNIQNFQFPKPFELNTFVKDLLLPDSEVEHLVIDRKDLVMTN"
+    "QEIEQTTPKTVRLGIVGKGGQGERIYSTRGIAITLSAYGGGIFAKTGGYLVNGKTRKLHPRECARVMGYPDS"
+    "YKVHPSTSQAYKQFGNSVVINVLQYIAYNIGSSLNFKPY"
+)
+
+# The logic for running ESMFold2 is encapsulated in the function below,
+# which you can trigger from the command line by running
+
+# ```shell
+# modal run esmfold2.py
+# ```
+
+# This will set up the environment for running ESMFold2 inference in Modal's cloud,
+# run it, and save the predicted structure locally as a
+# [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File),
+# which you can render with [Mol\* Viewer](https://molstar.org/viewer).
+
+# To fold a single protein chain instead, pass a sequence:
+
+# ```shell
+# modal run esmfold2.py --sequence "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQA..."
+# ```
+
+
+@app.local_entrypoint()
+def main(
+    sequence: Optional[str] = None,
+    output_path: Optional[str] = None,
+):
+    print("🧬 running ESMFold2")
+    esmfold2 = ESMFold2Inference()
+    cif_text, plddt, ptm, iptm = esmfold2.fold.remote(sequence)
+
+    print(f"🧬 pLDDT mean: {plddt:.3f}, pTM: {ptm:.3f}, ipTM: {iptm:.3f}")
+
+    if output_path is None:
+        output_path = Path("/tmp") / "esmfold2" / "prediction.cif"
+    else:
+        output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"🧬 writing predicted structure to {output_path}")
+    output_path.write_text(cif_text)
