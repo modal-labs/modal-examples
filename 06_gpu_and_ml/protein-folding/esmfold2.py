@@ -20,9 +20,9 @@
 # This script is meant as a starting point that demonstrates how to
 # create a `modal.Image` with the correct dependencies, cache weights to a `modal.Volume`,
 # and save the output to a file for a single folding request.
-# To experience the full power of Modal, try scaling inference up across
-# hundreds or thousands of structures, or invert the model to design binders
-# for your favorite target.
+# To really leverage Modal's serverless infrastructure, try scaling inference up across
+# hundreds or thousands of structures or invert the model to design binders
+# for a target protein.
 
 # ## Setup
 
@@ -43,23 +43,12 @@ app = modal.App(name="example-esmfold2")
 # [`modal.Image`s](https://modal.com/docs/guide/images) that include that
 # code's dependencies.
 # Here, we do it in a few lines, using the `uv` package manager.
-# We install the `esm` package in a seperate step because it depends on a fork of the `transformers` package.
-# By separating the install steps, we can ensure that the `esm` package is installed with the correct version of the `transformers` package.
 
 ESM_REVISION = "81b3646c9429ea8458918415ad6a46178cb59833"  # pin upstream commit so builds are reproducible
-flash_attn_release = (
-    "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/"
-    "flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp313-cp313-linux_x86_64.whl"
-)
+
 esmfold2_image = (
     modal.Image.debian_slim(python_version="3.13")
     .apt_install("git")
-    .uv_pip_install("torch==2.6.0", "numpy==2.2.4", flash_attn_release)
-    .uv_pip_install(
-        "transformer-engine[pytorch]",
-        "xformers",
-        "huggingface-hub",
-    )
     .uv_pip_install(
         f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
     )
@@ -232,6 +221,8 @@ MHHAI_SEQUENCE = (
 # run it, and save the predicted structure locally as a
 # [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File),
 # which you can render with [Mol\* Viewer](https://molstar.org/viewer).
+
+# ![Image of folded complex in Mol\* Viewer](https://modal-cdn.com/cdnbot/example-esmfold2-molviewerin7blk30_59122d5b.webp)
 
 # To fold a single protein chain instead, pass a sequence:
 
