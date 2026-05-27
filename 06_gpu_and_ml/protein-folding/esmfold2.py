@@ -73,12 +73,14 @@ with esmfold2_image.imports():
 # ## Caching ESMFold2 model weights on Modal Volumes
 
 # Rather than re-downloading the model weights on each cold start, we cache them on a [Modal Volume](https://modal.com/docs/guide/volumes).
+# The first time you run inference, you'll see that downloading the weights takes several minutes,
+# but subsequent runs will start up significantly faster.
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
 esmfold2_volume = modal.Volume.from_name("esmfold2-models", create_if_missing=True)
 models_dir = Path("/models")
 
-# We'll`` point the HF cache at the Volume and enable high-performance downloads by setting some environment variables on our `modal.Image`.
+# We also need to point the HF cache at the Volume, and we'll enable high-performance downloads by setting some environment variables on our `modal.Image`.
 
 esmfold2_image = esmfold2_image.env(
     {
@@ -188,19 +190,17 @@ MHHAI_SEQUENCE = (
     "YKVHPSTSQAYKQFGNSVVINVLQYIAYNIGSSLNFKPY"
 )
 
-# The logic for running ESMFold2 is encapsulated in the function below,
-# which you can trigger from the command line by running
+# Fold the complex in the cloud by running the following command:
 
 # ```shell
 # modal run esmfold2.py
 # ```
 
-# This will set up the environment for running ESMFold2 inference in Modal's cloud,
-# run it, and save the predicted structure locally as a
+# This will save the predicted structure locally as a
 # [Crystallographic Information File](https://en.wikipedia.org/wiki/Crystallographic_Information_File),
 # which you can render with [Mol\* Viewer](https://molstar.org/viewer).
 
-# ![Image of folded complex in Mol\* Viewer](https://modal-cdn.com/cdnbot/example-esmfold2-molviewerin7blk30_59122d5b.webp)
+# ![Image of folded complex in Molstar Viewer](https://modal-cdn.com/cdnbot/example-esmfold2-molviewerin7blk30_59122d5b.webp)
 
 # To fold a single protein chain instead, pass a sequence:
 
