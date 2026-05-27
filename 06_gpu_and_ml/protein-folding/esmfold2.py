@@ -1,7 +1,7 @@
 # # Fold proteins and biomolecular complexes with ESMFold2
 
 # [ESMFold2](https://biohub.ai/esm/protein/about) is a state-of-the-art model
-# for biomolecular complex structure prediction, developed by Biohub and released
+# for biomolecular complex structure prediction, developed by [Biohub](https://biohub.ai/) and released
 # under an open license. Built on ESMC representations, it produces leading accuracy
 # for protein-protein and antibody-antigen interactions at any given compute budget.
 
