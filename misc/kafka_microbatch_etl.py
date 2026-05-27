@@ -16,8 +16,6 @@ import os
 import time
 
 import modal
-import requests
-from confluent_kafka import Consumer
 
 image = modal.Image.debian_slim().pip_install("confluent-kafka", "requests")
 app = modal.App(
@@ -29,6 +27,9 @@ app = modal.App(
 
 @app.function()
 def etl(batch: int = 100, timeout_s: int = 5):
+    import requests
+    from confluent_kafka import Consumer
+
     c = Consumer(
         {
             "bootstrap.servers": os.environ["KAFKA_BOOTSTRAP"],
@@ -70,4 +71,3 @@ def etl(batch: int = 100, timeout_s: int = 5):
 def main(batch: int = 100, timeout_s: int = 5, local: bool = False):
     fn = etl.local if local else etl.remote
     print(fn(batch=batch, timeout_s=timeout_s))
-
