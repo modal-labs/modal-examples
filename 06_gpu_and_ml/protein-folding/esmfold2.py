@@ -7,9 +7,10 @@
 # and chemically modified residues) into atomic-resolution 3D models of
 # proteins and their complexes.
 
-# ESMFold2 leads on Foldbench protein-protein and antibody-antigen benchmarks, and was used to
-# design lab-validated minibinders and single-chain antibodies against five
-# therapeutic targets in cancer and immunology (see the [technical report](https://biohub.ai/papers/esm_protein.pdf)).
+# The model was used to design lab-validated minibinders and single-chain antibodies against five
+# therapeutic targets in cancer and immunology, and put up SOTA results on the Foldbench
+# protein-protein and antibody-antigen benchmarks
+# (see the [technical report](https://biohub.ai/papers/esm_protein.pdf)).
 
 # In this example, we demonstrate how to run ESMFold2 on Modal's flexible
 # serverless infrastructure. By default, we fold a protein-DNA-ligand complex
@@ -42,7 +43,8 @@ app = modal.App(name="example-esmfold2")
 # Code executing on Modal runs inside containers built from
 # [`modal.Image`s](https://modal.com/docs/guide/images) that include that
 # code's dependencies.
-# Here, we do it in a few lines, using the `uv` package manager.
+# For ESMFold2, we only need the `esm` library from Biohub which will install the necessary dependencies
+# including a custom fork of the `transformers` library.
 
 ESM_REVISION = "81b3646c9429ea8458918415ad6a46178cb59833"  # pin upstream commit so builds are reproducible
 
@@ -54,7 +56,7 @@ esmfold2_image = (
     )
 )
 
-# We'll use the `image.imports()` context manager to import libraries we'll need to get the model weights and run inference.
+# We'll use the `image.imports()` context manager to import libraries we'll need in our inference code.
 # The context manager allows us to import libraries that might not be installed locally but are installed in our `modal.Image`.
 
 with esmfold2_image.imports():
@@ -66,29 +68,17 @@ with esmfold2_image.imports():
         ProteinInput,
         StructurePredictionInput,
     )
-    from huggingface_hub import snapshot_download
     from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
 
 # ## Caching ESMFold2 model weights on Modal Volumes
 
-# Not all "dependencies" belong in a container image. ESMFold2, for example,
-# depends on the weights of the underlying ESMC-6B language model and the
-# diffusion structure module.
-
-# Rather than re-downloading them on each cold start (which would add several
-# minutes of GPU time to every inference) or baking them into the image
-# (which would require they be re-downloaded any time the other dependencies
-# changed), we cache them on a [Modal Volume](https://modal.com/docs/guide/volumes).
-# A Modal Volume is a distributed file system that all of your code running on
-# Modal can access.
+# Rather than re-downloading the model weights on each cold start, we cache them on a [Modal Volume](https://modal.com/docs/guide/volumes).
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
-# For details on how we download the weights in this case, see the [Addenda](#addenda).
 
 esmfold2_volume = modal.Volume.from_name("esmfold2-models", create_if_missing=True)
 models_dir = Path("/models")
 
-# We point the Hugging Face cache at the Volume so any auxiliary files
-# pulled in by `from_pretrained` land on the Volume too.
+# We'll`` point the HF cache at the Volume and enable high-performance downloads by setting some environment variables on our `modal.Image`.
 
 esmfold2_image = esmfold2_image.env(
     {
@@ -99,21 +89,17 @@ esmfold2_image = esmfold2_image.env(
 
 # ## Running ESMFold2 on Modal
 
-# To run inference on Modal we wrap our code in a decorator, `@app.cls`.
-# We provide that decorator with some arguments that describe the infrastructure
+# To run inference on Modal, we define an `ESMFold2Inference` class and wrap it with the `@app.cls` decorator.
+# The decorator takes some arguments that describe the infrastructure
 # our code needs to run: the Volume we created, the Image we defined, and of
-# course a GPU! We'll use an H100, but you can use any other [GPU supported by Modal](https://modal.com/docs/guide/gpu).
+# course a GPU. We'll use an H100, but you can use any other [GPU supported by Modal](https://modal.com/docs/guide/gpu).
 
-# When we use the `@app.cls` decorator, we can define a method decorated with the []`@modal.enter()` lifecycle hook](https://modal.com/docs/guide/lifecycle-functions#modalenter).
-# This method will be run once when a new container starts, so we only have to pay the model loading cost once.
+# When we use the `@app.cls` decorator, we can define a method decorated with the [`@modal.enter()` lifecycle hook](https://modal.com/docs/guide/lifecycle-functions#modalenter).
+# This method will be run once when a new container starts.
 # The exeuction time of the `@modal.enter()` method is included in the container startup time, so it won't serve requests
 # until it's ready.
 
-# To run inference, we define a method decorated with the `@modal.method()` decorator.
-# We expose just the knobs that most users will want to tweak (number of
-# trunk recycles, diffusion sampling steps, and seed); for the full set of
-# options, see the
-# [ESMFold2 model card](https://huggingface.co/Biohub/ESMFold2).
+# To enable remote execution, we decorate our `fold` method with `@modal.method()`. We'll demonstrate later how to call it using `fold.remote()`.
 
 ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_REVISION = "6234905"  # pin for reproducibility
@@ -128,12 +114,6 @@ ESMFOLD2_REVISION = "6234905"  # pin for reproducibility
 class ESMFold2Inference:
     @modal.enter()
     def load_model(self):
-        print("🧬 downloading ESMFold2 model weights")
-        snapshot_download(
-            repo_id=ESMFOLD2_REPO,
-            revision=ESMFOLD2_REVISION,
-        )
-
         print("🧬 loading ESMFold2 onto the GPU")
         self.model = ESMFold2Model.from_pretrained("biohub/ESMFold2").cuda().eval()
 
@@ -166,9 +146,7 @@ class ESMFold2Inference:
                 ]
             )
         else:
-            spi = StructurePredictionInput(
-                sequences=[ProteinInput(id="A", sequence=sequence.strip())]
-            )
+            spi = StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=sequence.strip())])
 
         print(
             f"🧬 folding with num_loops={num_loops}, "
