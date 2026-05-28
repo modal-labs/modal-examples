@@ -30,7 +30,7 @@ def deploy(
         print(f"⏩ skipping: '{module_with_app.name}' is not marked for deploy")
         return None
 
-    deploy_command = f"modal deploy -m {module_with_app.name}"
+    deploy_command = f"modal deploy -m {module_with_app.stem}"
     if dry_run:
         print(f"🌵  dry-run: '{module_with_app.name}' would have deployed")
     else:
