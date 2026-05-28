@@ -1,8 +1,7 @@
 # # Run Stepfun with SGLang
 
 # In this example, we show how to run a [SGLang](https://github.com/sgl-project/sglang) server
-# on Modal serving [StepFun's Step 3.5 Flash](https://huggingface.co/stepfun-ai/Step-3.5-Flash-FP8),
-# an open-weights MoE model with 196B total and 11B active parameters.
+# on Modal serving [StepFun's Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash-FP8).
 
 # ## Set up the container image
 
@@ -18,9 +17,9 @@ import modal.experimental
 MINUTES = 60  # seconds
 
 sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:dev-pr-18084")
-    .run_commands("rm -rf /root/.cache/huggingface")
+    modal.Image.from_registry("lmsysorg/sglang:dev-cu13-dev-step-3.7-flash")
     .entrypoint([])  # silence chatty logs on container start
+    .run_commands("rm -rf /root/.cache/huggingface") # clean up
 )
 
 # We'll need 8 H100 GPUs to run this 196B parameter MoE model.
@@ -31,7 +30,7 @@ GPU = f"H100:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-MODEL_NAME = "stepfun-ai/Step-3.5-Flash-FP8"
+MODEL_NAME = "stepfun-ai/Step-3.7-Flash-FP8"
 MODEL_REVISION = None
 
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache model weights
@@ -93,6 +92,7 @@ TARGET_INPUTS = 16
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
+    secrets=[modal.Secret.from_name("huggingface-secret")],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
 )
@@ -122,7 +122,9 @@ class SGLang:
             "--max-running-requests",
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",
+            "--trust-remote-code",
         ]
+
         cmd += (
             [
                 "--revision",
