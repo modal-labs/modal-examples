@@ -77,3 +77,11 @@ print(claude_ps.stdout.read())
 stderr = claude_ps.stderr.read()
 if stderr != "":
     print("Agent stderr:", stderr)
+
+# Nice, you've got Claude Code running in a Modal Sandbox! What's next?
+
+# - Check out [this example](https://modal.com/docs/examples/opencode_server) to see how you might productionize this.
+# - Want to restore quickly after repo setup / builds? Try [Filesystem Snapshots](https://modal.com/docs/guide/sandbox-snapshots#filesystem-snapshots).
+# - More complex prompt routing and metadata? You may need a [Dict](https://modal.com/docs/guide/dicts) or a [Queue](https://modal.com/docs/guide/queues).
+# - Need performant, durable storage? Try out [Modal Volumes](https://modal.com/docs/guide/volumes).
+# - Hook it up to your custom [MCP Server](https://modal.com/docs/examples/mcp_server_stateless) for passing more external context to your agent.
