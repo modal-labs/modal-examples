@@ -1,4 +1,4 @@
-# # Run Stepfun with SGLang
+# # Run StepFun models with SGLang
 
 # In this example, we show how to run a [SGLang](https://github.com/sgl-project/sglang) server
 # on Modal serving [StepFun's Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash-FP8).
