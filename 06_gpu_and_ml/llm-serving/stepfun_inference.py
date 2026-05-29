@@ -98,7 +98,7 @@ TARGET_INPUTS = 16
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
-    secrets=[],
+    secrets=[hf_secret],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
 )
