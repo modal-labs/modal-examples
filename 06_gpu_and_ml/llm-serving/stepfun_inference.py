@@ -39,6 +39,12 @@ MODEL_REVISION = "d14f10bf45f025eae0f096ce7c91e9c08b0416da"
 HF_CACHE_VOL = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 HF_CACHE_PATH = "/root/.cache/huggingface"
 
+# We also include a [Modal Secret](https://modal.com/docs/guide/secrets)
+# with Hugging Face API credentials so that we can download the model faster.
+# You can create a Secret [here](https://modal.com/secrets).
+
+hf_secret = modal.Secret.from_name("huggingface-secret")
+
 sglang_image = sglang_image.env(
     {"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"}
 )
@@ -92,7 +98,7 @@ TARGET_INPUTS = 16
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
-    secrets=[modal.Secret.from_name("huggingface-secret")],
+    secrets=[],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
 )
