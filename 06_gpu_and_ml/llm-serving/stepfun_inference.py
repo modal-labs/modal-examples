@@ -19,7 +19,7 @@ MINUTES = 60  # seconds
 sglang_image = (
     modal.Image.from_registry("lmsysorg/sglang:dev-cu13-dev-step-3.7-flash")
     .entrypoint([])  # silence chatty logs on container start
-    .run_commands("rm -rf /root/.cache/huggingface") # clean up
+    .run_commands("rm -rf /root/.cache/huggingface")  # clean up
 )
 
 # We'll need 8 H100 GPUs to run this 196B parameter MoE model.
