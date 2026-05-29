@@ -31,7 +31,7 @@ GPU = f"H100:{N_GPUS}"
 # ### Loading and cacheing the model weights
 
 MODEL_NAME = "stepfun-ai/Step-3.7-Flash-FP8"
-MODEL_REVISION = None
+MODEL_REVISION = "d14f10bf45f025eae0f096ce7c91e9c08b0416da"
 
 # We use a [Modal Volume](https://modal.com/docs/guide/volumes) to cache model weights
 # so we don't re-download them on every cold start.
