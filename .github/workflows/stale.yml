@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: fpicalausa/remove-stale-branches@7c4f2afe88a36c0f9114cd958380979b9d7323fb # v2.4.0
         env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # remove after June 2
         with:
           operations-per-run: 500
           days-before-branch-stale: 30
