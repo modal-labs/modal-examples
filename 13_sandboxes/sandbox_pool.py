@@ -53,8 +53,8 @@ server_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
 # Here we define the image that will be used to run the server that runs in the
 # Sandbox. In this simple example, we just run the built in Python HTTP server that
 # returns a directory listing.
-sandbox_image = modal.Image.debian_slim(python_version="3.11").run_commands(
-    "apt-get install -y --no-install-recommends curl"
+sandbox_image = modal.Image.debian_slim(python_version="3.11").apt_install(
+    "curl"
 )
 SANDBOX_SERVER_PORT = 8080
 READINESS_PROBE_TIMEOUT_SECONDS = 10
