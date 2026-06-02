@@ -22,7 +22,7 @@
 # In this example, we'll demonstrate how implement this process on Modal
 # using [ESMFold2 and ESMC](https://biohub.ai/esm/protein/about), state-of-the-art models
 # developed at [Biohub](https://biohub.ai/) that can predict the stucture of biomolecular complexes.
-# Check out their [technical report](https://bhp-papers-prod.s3.us-west-2.amazonaws.com/esm_protein.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAU6GD3FYNPNY5VQML%2F20260601%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260601T211329Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEE0aCXVzLXdlc3QtMiJHMEUCIQCo7iFVdbR8PdDuUKXkftQzwb17YIokN8eqsU4GVNLfXwIgHiY8F9BRKFhS52xYV8vva0yAJMDVBBqr%2BSVWTbnKmu4qqQUIFhAAGgwzMzk3MTMxNDIyOTgiDMbnfvOsb0AlGC9GIiqGBfl271MAE4q1YvlP0gVJcR0GQGmNLzYLOFZlKZuAl%2B2f10e9ff6O%2Fvq5OJvVoVFZPeFRAMFZnVpu7qmjZdTsDEkr9Kb2RUrItMI1ycrMkO%2FpdRXfLEZVCQ9l1frm93b3arhbJrA2QS0l7h7Kvqgn3vdh3sfkxP1oeOEf5H2noCepBdJdNozmQ9Mb%2FBU5BnVN02SzQ4W0HgY00XTNbIqdOcW2cQ%2B21zcFwMeoxxzDnLcNuIG6pAD2fJ7IJBmijW9aSLOhqR42e%2F0ZsJiRHIINIYC1x1z1OiPLIQM6ILV9Wxevn761h1zCONepQvxsSQ%2Byha7ztQ7%2BGL4dQskSiXA84IZa%2F0oUWSPPPJjwoIynM0dqONngLtjV3yX9uZ7o6NhesV0zEJgfgR1uuibPX3hmtd0uSTT1b%2FzqWwWqnVVpw8pXOPUaYO1uoD8kgud45U%2F2fKZYyHDkG9oL%2F3CQO7C%2B5okYLMBFDKQGJb4yb75uTCot0IYQC%2FlQbwrBkLiwCFvElX0%2FZ%2BpYOAiaeUFMiiJp6jCItrXPpvxKrHZnpOpRaXdaAkm%2F64Kwj2SW0mjok02hHW3PH39iY5dJ0DghclJBOEE1qFniEC5gFtzfEq4%2Bpm7J6gklIjIPdIbZT2vCKZBDeD1QjY9zdM8m%2B9sLAQokhqVyI4OJijDwzMoEA6vIrjjST8yy6dHq4oLrWAXBwt2dDJPRxNLOPKsbRRPfHbkwqxEu%2BPEfwkUchp5VchYrPlODlOWr6%2FdttlF%2FIwrFbMbCRJqLNQjCMpSaZJdZy1wWjMIWrsNx2KKoPIcs%2FaV26fN0lY%2BQ5DXESYLTCR1zBkCVXJirIK7o7xIEt715r0FlsAJDQqDAGVAw%2Bev30AY6mQFHzylgearF%2BJ1Qw4tnwpmoig%2FIAhz5LidTy1nyBTemeT2O0Pr8U9dU%2BkDaAGdvNL0Rkxs2SWvh0BQvQA6OKy9gILvE2ZXDqY2JnjaCyEKyrzigIL7sW2UFZUQwV86rVCEosqsY1fIvFRtKI3NRDkDhk%2Bqg7BfmA94bkXcp0PG863YrF76%2BtzXHNJa1vVmRv0CSrKWSX0bfAoY%3D&X-Amz-Signature=e478c493d9cbaa2d48de8a100b4e93182b00b064c0c07b6809d0dc79c136ed74&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject)
+# Check out their [technical report](https://modal-cdn.com/esmfold2_tech_report.pdf)
 # to see how the models were developed and used to design and experimentally validate binders against therapeutically relevant targets.
 
 # We'll start by building a Modal Function that designs a single binder; then with only
@@ -64,7 +64,7 @@ image = (
         "anarci=2024.05.21-0",
         channels=["conda-forge", "bioconda"],
     )
-    .pip_install(
+    .uv_pip_install(
         f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
         "abnumber==0.4.4",
         "pyarrow==18.1.0",
@@ -264,9 +264,8 @@ def main(
 # written to both the `esmfold2-binder-design-results` Volume and to a local
 # file for inspection.
 
-# `target_names` and `binder_names` are passed as comma-separated strings
-# because Modal's local-entrypoint CLI doesn't accept lists directly. The
-# defaults sweep one target across two binder modalities -- a `minibinder`
+# `target_names` and `binder_names` are passed as comma-separated strings.
+# The defaults sweep one target across two binder modalities -- a `minibinder`
 # and the `trastuzumab_framework_vhvl` antibody template -- so a single
 # command fans out across both at once:
 
