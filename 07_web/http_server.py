@@ -21,27 +21,23 @@
 from pathlib import Path
 
 import modal
-import modal.experimental
-
-# Notice that we imported `modal.experimental` above.
-# Modal HTTP Servers are still under development,
-# so the interface is subject to change.
 
 # To make a Modal HTTP Server, define a Python class
 # with a [`modal.enter`-decorated](https://modal.com/docs/guide/lifecycle-functions) method
 # that creates a subtask (thread or process) that listens for HTTP requests on some port.
 
-# Then wrap that class in the `modal.experimental.http_server` decorator,
+# Then wrap that class in the `app._experimental_server` decorator,
 # passing in the `port` your server task is listening on
-# and a list of `proxy_regions` where Modal should add your server to an edge proxy
+# and a list of `routing_regions` where Modal should add your server to an edge proxy
 # that communicates directly with the containers running your server.
 
-# Finally, add one more decorator, `app.cls`, with the rest of your resource definitions,
-# like [distributed Volume storage](https://modal.com/docs/guide/volumes)
+# You can also pass the rest of your resource definitions,
+# like [distributed Volume storage](https://modal.com/docs/guide/volumes),
 # [CPU/memory resources](https://modal.com/docs/guide/resources),
-# and [GPU type and count](https://modal.com/docs/guide/gpu).
+# and [GPU type and count](https://modal.com/docs/guide/gpu),
+# to `app._experimental_server`.
 # To reduce end-to-end latency, include a [Region](https://modal.com/docs/guide/region-selection)
-# in this decorator that matches the proxy region and containers will be deployed into that Region.
+# that matches the routing region and containers will be deployed into that Region.
 # Note that region-pinning has cost and resource availability implications!
 # See [the guide](https://modal.com/docs/guide/region-selection)
 # for details.
@@ -50,13 +46,16 @@ import modal.experimental
 
 PORT = 8000
 REGION = "us"
-PROXY_REGION = "us-east"
+ROUTING_REGION = "us-east"
 
 app = modal.App("example-http-server")
 
 
-@app.cls(region=REGION)
-@modal.experimental.http_server(port=PORT, proxy_regions=[PROXY_REGION])
+@app._experimental_server(
+    region=REGION,
+    port=PORT,
+    routing_regions=[ROUTING_REGION],
+)
 class FileServer:
     @modal.enter()
     def start(self):
@@ -82,7 +81,7 @@ def ping():
     from urllib.error import HTTPError
     from urllib.request import urlopen
 
-    url = FileServer._experimental_get_flash_urls()[0]  # one URL per proxy region
+    url = FileServer.get_urls()[ROUTING_REGION]
 
     this = Path(__file__).name
 
