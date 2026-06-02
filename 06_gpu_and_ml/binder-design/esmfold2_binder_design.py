@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "-m", "06_gpu_and_ml.binder-design.esmfold2_binder_design"]
+# cmd: ["modal", "run", "-m", "06_gpu_and_ml.binder-design.esmfold2_binder_design::main"]
 # ---
 
 # # Design protein binders at scale with ESMFold2 and ESMC
