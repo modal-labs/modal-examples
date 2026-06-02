@@ -5,14 +5,13 @@
 # # Design protein binders at scale with ESMFold2 and ESMC
 
 # Protein folding was a landmark breakthrough in computational biology.
-# But for many applications, we do not just want to predict the structures of existing proteins —
+# But for many applications, we don't just want to predict the structures of existing proteins —
 # we want to design new proteins that can modulate biology.
 
 # One of the most important ways to do that is through binding.
 # Protein-protein interactions drive much of biological function,
 # and the ability to design molecules that bind specific targets
 # opens the door to new research tools and therapeutics.
-
 # Recent AI approaches have tackled binder design by inverting
 # structure prediction models via an iterative optimization process:
 # 1. Fold a candidate binder together with the target protein.
@@ -22,10 +21,9 @@
 
 # In this example, we'll demonstrate how implement this process on Modal
 # using [ESMFold2 and ESMC](https://biohub.ai/esm/protein/about), state-of-the-art models
-# developed by [Biohub](https://biohub.ai/) that can predict the stucture of biomolecular complexes.
-# In their [technical report](https://bhp-papers-prod.s3.us-west-2.amazonaws.com/esm_protein.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAU6GD3FYNPNY5VQML%2F20260601%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260601T211329Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEE0aCXVzLXdlc3QtMiJHMEUCIQCo7iFVdbR8PdDuUKXkftQzwb17YIokN8eqsU4GVNLfXwIgHiY8F9BRKFhS52xYV8vva0yAJMDVBBqr%2BSVWTbnKmu4qqQUIFhAAGgwzMzk3MTMxNDIyOTgiDMbnfvOsb0AlGC9GIiqGBfl271MAE4q1YvlP0gVJcR0GQGmNLzYLOFZlKZuAl%2B2f10e9ff6O%2Fvq5OJvVoVFZPeFRAMFZnVpu7qmjZdTsDEkr9Kb2RUrItMI1ycrMkO%2FpdRXfLEZVCQ9l1frm93b3arhbJrA2QS0l7h7Kvqgn3vdh3sfkxP1oeOEf5H2noCepBdJdNozmQ9Mb%2FBU5BnVN02SzQ4W0HgY00XTNbIqdOcW2cQ%2B21zcFwMeoxxzDnLcNuIG6pAD2fJ7IJBmijW9aSLOhqR42e%2F0ZsJiRHIINIYC1x1z1OiPLIQM6ILV9Wxevn761h1zCONepQvxsSQ%2Byha7ztQ7%2BGL4dQskSiXA84IZa%2F0oUWSPPPJjwoIynM0dqONngLtjV3yX9uZ7o6NhesV0zEJgfgR1uuibPX3hmtd0uSTT1b%2FzqWwWqnVVpw8pXOPUaYO1uoD8kgud45U%2F2fKZYyHDkG9oL%2F3CQO7C%2B5okYLMBFDKQGJb4yb75uTCot0IYQC%2FlQbwrBkLiwCFvElX0%2FZ%2BpYOAiaeUFMiiJp6jCItrXPpvxKrHZnpOpRaXdaAkm%2F64Kwj2SW0mjok02hHW3PH39iY5dJ0DghclJBOEE1qFniEC5gFtzfEq4%2Bpm7J6gklIjIPdIbZT2vCKZBDeD1QjY9zdM8m%2B9sLAQokhqVyI4OJijDwzMoEA6vIrjjST8yy6dHq4oLrWAXBwt2dDJPRxNLOPKsbRRPfHbkwqxEu%2BPEfwkUchp5VchYrPlODlOWr6%2FdttlF%2FIwrFbMbCRJqLNQjCMpSaZJdZy1wWjMIWrsNx2KKoPIcs%2FaV26fN0lY%2BQ5DXESYLTCR1zBkCVXJirIK7o7xIEt715r0FlsAJDQqDAGVAw%2Bev30AY6mQFHzylgearF%2BJ1Qw4tnwpmoig%2FIAhz5LidTy1nyBTemeT2O0Pr8U9dU%2BkDaAGdvNL0Rkxs2SWvh0BQvQA6OKy9gILvE2ZXDqY2JnjaCyEKyrzigIL7sW2UFZUQwV86rVCEosqsY1fIvFRtKI3NRDkDhk%2Bqg7BfmA94bkXcp0PG863YrF76%2BtzXHNJa1vVmRv0CSrKWSX0bfAoY%3D&X-Amz-Signature=e478c493d9cbaa2d48de8a100b4e93182b00b064c0c07b6809d0dc79c136ed74&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject) ,
-# researchers used this approach to design binders against five therapeutically relevant targets
-# and experimentally validated their afficinity, selectivity, and acitivity in the lab.
+# developed at [Biohub](https://biohub.ai/) that can predict the stucture of biomolecular complexes.
+# Check out their [technical report](https://bhp-papers-prod.s3.us-west-2.amazonaws.com/esm_protein.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAU6GD3FYNPNY5VQML%2F20260601%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260601T211329Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEE0aCXVzLXdlc3QtMiJHMEUCIQCo7iFVdbR8PdDuUKXkftQzwb17YIokN8eqsU4GVNLfXwIgHiY8F9BRKFhS52xYV8vva0yAJMDVBBqr%2BSVWTbnKmu4qqQUIFhAAGgwzMzk3MTMxNDIyOTgiDMbnfvOsb0AlGC9GIiqGBfl271MAE4q1YvlP0gVJcR0GQGmNLzYLOFZlKZuAl%2B2f10e9ff6O%2Fvq5OJvVoVFZPeFRAMFZnVpu7qmjZdTsDEkr9Kb2RUrItMI1ycrMkO%2FpdRXfLEZVCQ9l1frm93b3arhbJrA2QS0l7h7Kvqgn3vdh3sfkxP1oeOEf5H2noCepBdJdNozmQ9Mb%2FBU5BnVN02SzQ4W0HgY00XTNbIqdOcW2cQ%2B21zcFwMeoxxzDnLcNuIG6pAD2fJ7IJBmijW9aSLOhqR42e%2F0ZsJiRHIINIYC1x1z1OiPLIQM6ILV9Wxevn761h1zCONepQvxsSQ%2Byha7ztQ7%2BGL4dQskSiXA84IZa%2F0oUWSPPPJjwoIynM0dqONngLtjV3yX9uZ7o6NhesV0zEJgfgR1uuibPX3hmtd0uSTT1b%2FzqWwWqnVVpw8pXOPUaYO1uoD8kgud45U%2F2fKZYyHDkG9oL%2F3CQO7C%2B5okYLMBFDKQGJb4yb75uTCot0IYQC%2FlQbwrBkLiwCFvElX0%2FZ%2BpYOAiaeUFMiiJp6jCItrXPpvxKrHZnpOpRaXdaAkm%2F64Kwj2SW0mjok02hHW3PH39iY5dJ0DghclJBOEE1qFniEC5gFtzfEq4%2Bpm7J6gklIjIPdIbZT2vCKZBDeD1QjY9zdM8m%2B9sLAQokhqVyI4OJijDwzMoEA6vIrjjST8yy6dHq4oLrWAXBwt2dDJPRxNLOPKsbRRPfHbkwqxEu%2BPEfwkUchp5VchYrPlODlOWr6%2FdttlF%2FIwrFbMbCRJqLNQjCMpSaZJdZy1wWjMIWrsNx2KKoPIcs%2FaV26fN0lY%2BQ5DXESYLTCR1zBkCVXJirIK7o7xIEt715r0FlsAJDQqDAGVAw%2Bev30AY6mQFHzylgearF%2BJ1Qw4tnwpmoig%2FIAhz5LidTy1nyBTemeT2O0Pr8U9dU%2BkDaAGdvNL0Rkxs2SWvh0BQvQA6OKy9gILvE2ZXDqY2JnjaCyEKyrzigIL7sW2UFZUQwV86rVCEosqsY1fIvFRtKI3NRDkDhk%2Bqg7BfmA94bkXcp0PG863YrF76%2BtzXHNJa1vVmRv0CSrKWSX0bfAoY%3D&X-Amz-Signature=e478c493d9cbaa2d48de8a100b4e93182b00b064c0c07b6809d0dc79c136ed74&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject)
+# to see how the models were developed and used to design and experimentally validate binders against therapeutically relevant targets.
 
 # We'll start by building a Modal Function that designs a single binder; then with only
 # a few more lines of code, we'll write an orchestrator function
@@ -47,31 +45,27 @@ app = modal.App(
 
 # ## A bioconda-flavored Modal Image
 
-# Binder design needs a few specialized libraries on top of the usual
-# `transformers` / `torch` stack: the [`esm`](https://github.com/Biohub/esm)
-# library from CZ Biohub (which pulls in a custom fork of `transformers`),
-# plus [`abnumber`](https://github.com/prihoda/AbNumber)
-# and the [`anarci`](https://github.com/oxpig/ANARCI) /
-# [`hmmer`](http://hmmer.org/) tools it shells out to for CDR annotation of
-# antibodies.
+# We'll use `Image.micromamba` as our base image because a few of the packages we needd
+# are only available via Conda. We'll also instaall the [`esm`](https://github.com/Biohub/esm)
+# library from CZ Biohub (which pulls in a custom fork of `transformers`) and a few other helpful libraries
+# for working with protein sequences.
 
-# `CUBLAS_WORKSPACE_CONFIG` is required for
-# `torch.use_deterministic_algorithms(True)` -- which we'll set when we run
-# our design search to ensure reproducibility.
+# We also set `CUBLAS_WORKSPACE_CONFIG` which allows us to ensure reproducibility by calling
+# `torch.use_deterministic_algorithms(True)` at the top of our code.
 
-ESM_REVISION = "main"  # see https://github.com/Biohub/esm
+ESM_REVISION = "f652b471d29da828b31e9b7a9cf7d0a7803240f5"  # see https://github.com/Biohub/esm
 
 image = (
     modal.Image.micromamba(python_version="3.12")
     .run_commands("apt update && apt install -y git build-essential")
     .micromamba_install(
-        "anarci>=2020.04.03",
-        "hmmer=3.4",
+        "anarci=2.0.6",
         channels=["conda-forge", "bioconda"],
     )
     .pip_install(
-        "abnumber==0.4.4",
         f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
+        "abnumber==0.4.4",
+        "hmmer=3.4.0",
         "pyarrow==18.1.0",
     )
     .env(
@@ -98,9 +92,7 @@ models_dir = Path("/models")
 
 # A second Volume will store our results.
 
-results_volume = modal.Volume.from_name(
-    "esmfold2-binder-design-results", create_if_missing=True
-)
+results_volume = modal.Volume.from_name("esmfold2-binder-design-results", create_if_missing=True)
 results_dir = Path("/results")
 
 
@@ -291,12 +283,8 @@ def sweep(
     n_seeds: int = 8,
     output_path: Optional[str] = None,
 ):
-    target_name_list = [
-        name.strip() for name in target_names.split(",") if name.strip()
-    ]
-    binder_name_list = [
-        name.strip() for name in binder_names.split(",") if name.strip()
-    ]
+    target_name_list = [name.strip() for name in target_names.split(",") if name.strip()]
+    binder_name_list = [name.strip() for name in binder_names.split(",") if name.strip()]
 
     line_sweeps = {
         "target_name": target_name_list,
@@ -311,9 +299,7 @@ def sweep(
         f"🧬 launching sweep: targets={target_name_list}, binders={binder_name_list}, "
         f"n_seeds={n_seeds}, use_scaling_critics={use_scaling_critics}"
     )
-    parquet_bytes = run_sweep.remote(
-        line_sweeps, use_scaling_critics=use_scaling_critics
-    )
+    parquet_bytes = run_sweep.remote(line_sweeps, use_scaling_critics=use_scaling_critics)
 
     if output_path is None:
         output_path = Path("/tmp") / "esmfold2_binder_design" / "selection.parquet"
