@@ -143,8 +143,8 @@ class ESMFold2Designer:
         is_antibody: bool | None = None,
         seed: int = 0,
         batch_size: int = 1,
-    ) -> tuple[list[str], dict[int, dict[str, torch.Tensor]], list[dict]]:
-        return design_binder(
+    ) -> tuple[list[str], dict[int, dict[str, list[float]]], list[dict]]:
+        best_sequences, trajectory, critic_results = design_binder(
             self.inversion_models,
             self.hf_critic_models,
             self.esmc_model,
@@ -156,3 +156,13 @@ class ESMFold2Designer:
             seed=seed,
             batch_size=batch_size,
         )
+        trajectory = {
+            step: {k: v.tolist() for k, v in losses.items()}
+            for step, losses in trajectory.items()
+        }
+        for r in critic_results:
+            if "logits" in r:
+                r["logits"] = r["logits"].tolist()
+            if "complex" in r:
+                r["complex"] = r["complex"].to_pdb_string()
+        return best_sequences, trajectory, critic_results
