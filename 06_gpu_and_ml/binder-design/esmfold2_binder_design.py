@@ -2,58 +2,34 @@
 # cmd: ["modal", "run", "-m", "06_gpu_and_ml.binder-design.esmfold2_binder_design"]
 # ---
 
-# # Design protein binders at scale with ESMFold2
+# # Design protein binders at scale with ESMFold2 and ESMC
 
-# The ability to accurately "fold" proteins, that is, infer their 3D structures from their
-# sequence of amino acids was the landmark breakthrough that brought computational
-# biology into the AI conversation. But folding _per se_ is not the problem
-# biologists want to solve. What we want really want to do is design new molecules which
-# can be used as drugs, sensors, or other biomedecial applications.
+# Protein folding was a landmark breakthrough in computational biology.
+# But for many applications, we do not just want to predict the structures of existing proteins —
+# we want to design new proteins that can modulate biology.
 
-# The key idea is to generate proteins or peptides (smaller molecules made of amino acids)
-# that bind to a protein of interest at target site. These "binders" alter how the
-# protein works, either by blocking it from binding to other proteins or by acting as a bridge
-# that helps other proteins or small molecules interact with the target protein. The former
-# can shut down diseased pathways. The latter can be used to deliver drugs or biosensors.
+# One of the most important ways to do that is through binding.
+# Protein-protein interactions drive much of biological function,
+# and the ability to design molecules that bind specific targets
+# opens the door to new research tools and therapeutics.
 
-# Traditionally, binder design has been a slow and manual process, requiring
-# months or years of directed evolution or rational design.
-# But if you had a a model that could not only go from sequence to structure for single molecules ("folding"),
-# but also understand how multiple folded proteins interact, you could
-# explore the sequence space _in silico_ at a much larger scale.
+# Recent AI approaches have tackled binder design by inverting
+# structure prediction models via an iterative optimization process:
+# 1. Fold a candidate binder together with the target protein.
+# 2. Score the resulting structure based on how well the binder folds and binds.
+# 3. Take a step in sequence space that improves the score.
+# 4. Repeat.
 
-# At a high-level, the algorithm looks something like this:
-# - Fold a candidate binder together with the target.
-# - Score the resulting structure on how well the binder folds and binds.
-# - Take a step in sequence space that improves the score.
-# - Repeat for a fixed number of steps.
+# In this example, we'll demonstrate how implement this process on Modal
+# using [ESMFold2 and ESMC](https://biohub.ai/esm/protein/about), state-of-the-art models
+# developed by [Biohub](https://biohub.ai/) that can predict the stucture of biomolecular complexes.
+# In their [technical report](https://bhp-papers-prod.s3.us-west-2.amazonaws.com/esm_protein.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAU6GD3FYNPNY5VQML%2F20260601%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260601T211329Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEE0aCXVzLXdlc3QtMiJHMEUCIQCo7iFVdbR8PdDuUKXkftQzwb17YIokN8eqsU4GVNLfXwIgHiY8F9BRKFhS52xYV8vva0yAJMDVBBqr%2BSVWTbnKmu4qqQUIFhAAGgwzMzk3MTMxNDIyOTgiDMbnfvOsb0AlGC9GIiqGBfl271MAE4q1YvlP0gVJcR0GQGmNLzYLOFZlKZuAl%2B2f10e9ff6O%2Fvq5OJvVoVFZPeFRAMFZnVpu7qmjZdTsDEkr9Kb2RUrItMI1ycrMkO%2FpdRXfLEZVCQ9l1frm93b3arhbJrA2QS0l7h7Kvqgn3vdh3sfkxP1oeOEf5H2noCepBdJdNozmQ9Mb%2FBU5BnVN02SzQ4W0HgY00XTNbIqdOcW2cQ%2B21zcFwMeoxxzDnLcNuIG6pAD2fJ7IJBmijW9aSLOhqR42e%2F0ZsJiRHIINIYC1x1z1OiPLIQM6ILV9Wxevn761h1zCONepQvxsSQ%2Byha7ztQ7%2BGL4dQskSiXA84IZa%2F0oUWSPPPJjwoIynM0dqONngLtjV3yX9uZ7o6NhesV0zEJgfgR1uuibPX3hmtd0uSTT1b%2FzqWwWqnVVpw8pXOPUaYO1uoD8kgud45U%2F2fKZYyHDkG9oL%2F3CQO7C%2B5okYLMBFDKQGJb4yb75uTCot0IYQC%2FlQbwrBkLiwCFvElX0%2FZ%2BpYOAiaeUFMiiJp6jCItrXPpvxKrHZnpOpRaXdaAkm%2F64Kwj2SW0mjok02hHW3PH39iY5dJ0DghclJBOEE1qFniEC5gFtzfEq4%2Bpm7J6gklIjIPdIbZT2vCKZBDeD1QjY9zdM8m%2B9sLAQokhqVyI4OJijDwzMoEA6vIrjjST8yy6dHq4oLrWAXBwt2dDJPRxNLOPKsbRRPfHbkwqxEu%2BPEfwkUchp5VchYrPlODlOWr6%2FdttlF%2FIwrFbMbCRJqLNQjCMpSaZJdZy1wWjMIWrsNx2KKoPIcs%2FaV26fN0lY%2BQ5DXESYLTCR1zBkCVXJirIK7o7xIEt715r0FlsAJDQqDAGVAw%2Bev30AY6mQFHzylgearF%2BJ1Qw4tnwpmoig%2FIAhz5LidTy1nyBTemeT2O0Pr8U9dU%2BkDaAGdvNL0Rkxs2SWvh0BQvQA6OKy9gILvE2ZXDqY2JnjaCyEKyrzigIL7sW2UFZUQwV86rVCEosqsY1fIvFRtKI3NRDkDhk%2Bqg7BfmA94bkXcp0PG863YrF76%2BtzXHNJa1vVmRv0CSrKWSX0bfAoY%3D&X-Amz-Signature=e478c493d9cbaa2d48de8a100b4e93182b00b064c0c07b6809d0dc79c136ed74&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject) ,
+# researchers used this approach to design binders against five therapeutically relevant targets
+# and experimentally validated their afficinity, selectivity, and acitivity in the lab.
 
-# This recipe -- running a forward folding model in service of searching the
-# sequence space for a structure we want, rather than to predict a structure
-# from a sequence -- is sometimes called "inverse folding". For it to work,
-# every step of the loop has to be _differentiable_, so that the score
-# computed from the predicted structure can be back-propagated through the
-# folding model into the candidate sequence.
-
-# This is where [ESMFold2](https://biohub.ai/esm/protein/about) comes in. It's a state-of-the-art model
-# for biomolecular complex structure prediction, developed by [Biohub](https://biohub.ai/) and released
-# under an open license. Built on ESMC representations, it produces leading accuracy
-# for protein-protein and antibody-antigen interactions at any given compute budget.
-
-# ESMFold2 is available in two configurations:
-
-# - [ESMFold2](https://huggingface.co/biohub/ESMFold2): the larger model for
-#   maximum accuracy. It can be run either from a single sequence or with MSA
-#   context, with MSAs improving performance on difficult complexes.
-# - [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast): a smaller
-#   model optimized for very fast single-sequence folding. It is well suited for
-#   high-throughput folding, designed sequences, metagenomic proteins, and
-#   targets with limited homologous sequence information.
-
-# In this example, we'll demonstrate how to run a single binder design call using
-# ESMFold2 on Modal's serverless infrastructure. Then with only
+# We'll start by building a Modal Function that designs a single binder; then with only
 # a few more lines of code, we'll write an orchestrator function
-# that executes a large-scale search powered by Modal's autoscaling and global GPU capacity.
+# that executes a large-scale search powered by Modal's autoscaling infrastructure and global GPU capacity.
 
 # ## Setup
 
