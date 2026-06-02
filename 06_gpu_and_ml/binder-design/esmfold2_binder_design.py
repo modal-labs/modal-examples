@@ -45,13 +45,13 @@ app = modal.App(
 
 # ## Defining our Modal Image
 
-# We'll use `Image.micromamba` as our base image because a few of the packages we needd
-# are only available via Conda. We'll also instaall the [`esm`](https://github.com/Biohub/esm)
+# We'll use `Image.micromamba` as our base image because a few of the packages we need
+# are only available via Conda. We'll also install the [`esm`](https://github.com/Biohub/esm)
 # library from CZ Biohub (which pulls in a custom fork of `transformers`) and a few other helpful libraries
 # for working with protein sequences.
 
 # We set `CUBLAS_WORKSPACE_CONFIG` which allows us to ensure reproducibility by calling
-# `torch.use_deterministic_algorithms(True)`.
+# `torch.use_deterministic_algorithms(True)` at the top of our remote code.
 
 ESM_REVISION = (
     "f652b471d29da828b31e9b7a9cf7d0a7803240f5"  # see https://github.com/Biohub/esm
