@@ -5,7 +5,7 @@
 # # Design protein binders at scale with ESMFold2 and ESMC
 
 # Protein folding was a landmark breakthrough in computational biology.
-# But for many applications, we do not just want to predict the structures of existing proteins —
+# But for many applications, we don't just want to predict the structures of existing proteins —
 # we want to design new proteins that can modulate biology.
 
 # One of the most important ways to do that is through binding.
