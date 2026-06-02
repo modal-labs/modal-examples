@@ -43,29 +43,30 @@ app = modal.App(
     name="example-esmfold2-binder-design",
 )
 
-# ## A bioconda-flavored Modal Image
+# ## Defining our Modal Image
 
 # We'll use `Image.micromamba` as our base image because a few of the packages we needd
 # are only available via Conda. We'll also instaall the [`esm`](https://github.com/Biohub/esm)
 # library from CZ Biohub (which pulls in a custom fork of `transformers`) and a few other helpful libraries
 # for working with protein sequences.
 
-# We also set `CUBLAS_WORKSPACE_CONFIG` which allows us to ensure reproducibility by calling
-# `torch.use_deterministic_algorithms(True)` at the top of our code.
+# We set `CUBLAS_WORKSPACE_CONFIG` which allows us to ensure reproducibility by calling
+# `torch.use_deterministic_algorithms(True)`.
 
-ESM_REVISION = "f652b471d29da828b31e9b7a9cf7d0a7803240f5"  # see https://github.com/Biohub/esm
+ESM_REVISION = (
+    "f652b471d29da828b31e9b7a9cf7d0a7803240f5"  # see https://github.com/Biohub/esm
+)
 
 image = (
     modal.Image.micromamba(python_version="3.12")
     .run_commands("apt update && apt install -y git build-essential")
     .micromamba_install(
-        "anarci=2.0.6",
+        "anarci=2024.05.21-0",
         channels=["conda-forge", "bioconda"],
     )
     .pip_install(
         f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
         "abnumber==0.4.4",
-        "hmmer=3.4.0",
         "pyarrow==18.1.0",
     )
     .env(
@@ -92,7 +93,9 @@ models_dir = Path("/models")
 
 # A second Volume will store our results.
 
-results_volume = modal.Volume.from_name("esmfold2-binder-design-results", create_if_missing=True)
+results_volume = modal.Volume.from_name(
+    "esmfold2-binder-design-results", create_if_missing=True
+)
 results_dir = Path("/results")
 
 
@@ -101,7 +104,7 @@ results_dir = Path("/results")
 # To run binder design on Modal, we define a `BinderDesignService` class and
 # wrap it with the `@app.cls` decorator. The decorator takes arguments that
 # describe the infrastructure our code needs: the Image and both Volumes we
-# defined, plus an H100 GPU sized for the 6B-parameter ESMC encoder and the
+# defined, plus an H100 GPU which has enough memory for the 6B-parameter ESMC encoder and the
 # four ESMFold2 "hero" critic models.
 
 # Inside the class, the [`@modal.enter()` lifecycle hook](https://modal.com/docs/guide/lifecycle-functions#modalenter)
@@ -221,7 +224,7 @@ def run_sweep(
 # `binder_sequence` directly.
 
 # ```shell
-# modal run -m 06_gpu_and_ml.binder-design.esmfold2_binder_design \
+# modal run -m 06_gpu_and_ml.binder-design.esmfold2_binder_design::main \
 #     --target-name pd-l1 --binder-name minibinder
 # ```
 
@@ -283,8 +286,12 @@ def sweep(
     n_seeds: int = 8,
     output_path: Optional[str] = None,
 ):
-    target_name_list = [name.strip() for name in target_names.split(",") if name.strip()]
-    binder_name_list = [name.strip() for name in binder_names.split(",") if name.strip()]
+    target_name_list = [
+        name.strip() for name in target_names.split(",") if name.strip()
+    ]
+    binder_name_list = [
+        name.strip() for name in binder_names.split(",") if name.strip()
+    ]
 
     line_sweeps = {
         "target_name": target_name_list,
@@ -299,7 +306,9 @@ def sweep(
         f"🧬 launching sweep: targets={target_name_list}, binders={binder_name_list}, "
         f"n_seeds={n_seeds}, use_scaling_critics={use_scaling_critics}"
     )
-    parquet_bytes = run_sweep.remote(line_sweeps, use_scaling_critics=use_scaling_critics)
+    parquet_bytes = run_sweep.remote(
+        line_sweeps, use_scaling_critics=use_scaling_critics
+    )
 
     if output_path is None:
         output_path = Path("/tmp") / "esmfold2_binder_design" / "selection.parquet"
