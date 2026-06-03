@@ -30,7 +30,7 @@ sglang_image = (
     ).entrypoint([])  # silence chatty logs on container start
 )
 
-sglang_image.env(
+sglang_image = sglang_image.env(
     {  # bleeding-edge SGLang perf opt settings
         "SGLANG_ENABLE_SPEC_V2": "1",
         "SGLANG_ENABLE_DFLASH_SPEC_V2": "1",
