@@ -1,0 +1,348 @@
+<html>
+  <head>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Text to World on Modal with LTX-2.3 and InSpatio</title>
+  </head>
+  {% set app_config = {
+    "default_prompt": default_prompt,
+    "default_width": default_width,
+    "default_height": default_height,
+    "default_num_frames": default_num_frames,
+    "default_fps": default_fps,
+    "default_trajectory": trajectories[0].id,
+  } %}
+  <body
+    x-data="state()"
+    class="bg-neutral-50"
+    data-config='{{ app_config | tojson }}'
+  >
+    <div class="max-w-6xl mx-auto pt-4 pb-12 px-6 sm:py-10">
+      <h2 class="text-3xl font-medium text-center mb-2">{{ model_name }}</h2>
+
+      <form
+        @submit.prevent="submitJob"
+        class="bg-white border border-neutral-200 rounded-lg p-5 mb-8 shadow-sm"
+      >
+        <textarea
+          x-model="prompt"
+          x-init="$nextTick(() => { $el.focus(); });"
+          rows="2"
+          placeholder="Describe the scene..."
+          class="w-full px-3 py-3 mb-4 text-md bg-white border rounded-md border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        ></textarea>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-sm">
+          <label class="flex flex-col gap-1">
+            <span class="text-neutral-500">Seed</span>
+            <input
+              type="number"
+              x-model.number="seed"
+              placeholder="random"
+              class="border rounded-md px-2 py-1.5 border-neutral-300"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-neutral-500">Width</span>
+            <input
+              type="number"
+              x-model.number="width"
+              class="border rounded-md px-2 py-1.5 border-neutral-300"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-neutral-500">Height</span>
+            <input
+              type="number"
+              x-model.number="height"
+              class="border rounded-md px-2 py-1.5 border-neutral-300"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-neutral-500">Frames</span>
+            <input
+              type="number"
+              x-model.number="numFrames"
+              class="border rounded-md px-2 py-1.5 border-neutral-300"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-neutral-500">FPS</span>
+            <input
+              type="number"
+              x-model.number="fps"
+              class="border rounded-md px-2 py-1.5 border-neutral-300"
+            />
+          </label>
+          <label class="flex flex-col gap-1 col-span-2">
+            <span class="text-neutral-500">Camera trajectory</span>
+            <select
+              x-model="trajectory"
+              @change="onTrajectoryChange"
+              class="border rounded-md px-2 py-1.5 border-neutral-300 bg-white"
+            >
+              {% for t in trajectories %}
+              <option value="{{ t.id }}">{{ t.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <input
+            type="file"
+            accept="image/*"
+            @change="previewImage"
+            @click="$event.target.value = null;"
+            class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neutral-950 file:text-white hover:file:bg-neutral-900"
+          />
+          <button
+            type="submit"
+            class="px-5 py-2 text-sm font-semibold text-white rounded-md bg-neutral-950 hover:bg-neutral-900 disabled:opacity-50"
+            :disabled="loading || !prompt"
+          >
+            <span x-show="!loading">Generate world</span>
+            <span x-show="loading" x-text="statusLabel"></span>
+          </button>
+        </div>
+      </form>
+
+      <div
+        x-show="error"
+        class="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm"
+        x-text="error"
+      ></div>
+
+      <div
+        x-show="loading"
+        class="mb-4 text-center text-sm text-neutral-500"
+        x-text="statusLabel"
+      ></div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-sm font-medium text-neutral-600 mb-2">LTX source video</h3>
+          <div class="relative bg-neutral-100 rounded-lg overflow-hidden aspect-video">
+            <img
+              x-show="imageURL && !sourceURL"
+              class="absolute inset-0 w-full h-full object-contain"
+              :src="imageURL"
+            />
+            <video
+              x-show="sourceURL"
+              :src="sourceURL"
+              x-effect="if (sourceURL) { $el.load() }"
+              @error="retryVideo($event.target)"
+              @loadeddata="$event.target.dataset.retries = 0"
+              controls
+              loop
+              class="w-full h-full"
+            ></video>
+            <div
+              x-show="loading && !sourceURL"
+              class="absolute inset-0 animate-pulse bg-neutral-200"
+            ></div>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-neutral-600 mb-2">InSpatio world video</h3>
+          <div class="relative bg-neutral-100 rounded-lg overflow-hidden aspect-video">
+            <video
+              x-show="worldURL"
+              :src="worldURL"
+              x-effect="if (worldURL) { $el.load() }"
+              @error="retryVideo($event.target)"
+              @loadeddata="$event.target.dataset.retries = 0"
+              controls
+              loop
+              class="w-full h-full"
+            ></video>
+            <div
+              x-show="!worldURL"
+              class="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm"
+            >
+              <span x-show="!loading">World video will appear here</span>
+              <span x-show="loading">Generating...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <details class="mt-6 bg-white border border-neutral-200 rounded-lg p-4" x-show="conditioningURL">
+        <summary class="cursor-pointer text-sm font-medium text-neutral-600">
+          Point-cloud conditioning render
+        </summary>
+        <video
+          :src="conditioningURL"
+          @error="retryVideo($event.target)"
+          @loadeddata="$event.target.dataset.retries = 0"
+          controls
+          class="w-full mt-3 rounded-md max-w-2xl"
+        ></video>
+      </details>
+    </div>
+
+    <script>
+      function state() {
+        const cfg = JSON.parse(document.body.dataset.config);
+        return {
+          prompt: cfg.default_prompt,
+          seed: "",
+          width: cfg.default_width,
+          height: cfg.default_height,
+          numFrames: cfg.default_num_frames,
+          fps: cfg.default_fps,
+          trajectory: cfg.default_trajectory,
+          loading: false,
+          jobId: null,
+          status: "",
+          error: "",
+          imageURL: "",
+          sourceURL: "",
+          worldURL: "",
+          conditioningURL: "",
+          selectedFile: null,
+          pollTimer: null,
+
+          get statusLabel() {
+            const labels = {
+              queued: "Queued…",
+              running_ltx: "Stage 1/3: LTX reference video…",
+              running_inspatio: "Stage 2/3: InSpatio world generation…",
+              packaging: "Stage 3/3: Packaging…",
+              done: "Done",
+              error: "Error",
+            };
+            return labels[this.status] || this.status || "Working…";
+          },
+
+          previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+              this.selectedFile = file;
+              this.imageURL = URL.createObjectURL(file);
+              this.sourceURL = "";
+              this.worldURL = "";
+            }
+          },
+
+          async submitJob() {
+            if (!this.prompt) return;
+            this.loading = true;
+            this.error = "";
+            this.sourceURL = "";
+            this.worldURL = "";
+            this.conditioningURL = "";
+            this.jobId = null;
+
+            try {
+              const formData = new FormData();
+              formData.append("prompt", this.prompt);
+              formData.append("trajectory", this.trajectory);
+              formData.append("width", this.width);
+              formData.append("height", this.height);
+              formData.append("num_frames", this.numFrames);
+              formData.append("fps", this.fps);
+              if (this.seed !== "" && this.seed !== null) {
+                formData.append("seed", this.seed);
+              }
+              if (this.selectedFile) {
+                formData.append("image", this.selectedFile);
+              }
+
+              const res = await fetch("/api/jobs", {
+                method: "POST",
+                body: formData,
+              });
+              if (!res.ok) throw new Error("Failed to submit job");
+              const data = await res.json();
+              this.jobId = data.job_id;
+              await this.pollJob();
+            } catch (err) {
+              console.error(err);
+              this.error = "There was an error starting the job.";
+              this.loading = false;
+            }
+          },
+
+          async pollJob() {
+            if (!this.jobId) return;
+            const res = await fetch(`/api/jobs/${this.jobId}`);
+            const manifest = await res.json();
+            this.status = manifest.status || "";
+
+            if (manifest.status === "error") {
+              this.error = manifest.error || "Job failed";
+              this.loading = false;
+              return;
+            }
+
+            if (manifest.status === "done" && manifest.assets) {
+              this.applyAssets(manifest.assets);
+              this.loading = false;
+              return;
+            }
+
+            if (manifest.assets?.source_video && !this.sourceURL) {
+              this.sourceURL = manifest.assets.source_video;
+              this.imageURL = "";
+            }
+
+            setTimeout(() => this.pollJob(), 10000);
+          },
+
+          applyAssets(assets) {
+            if (assets.source_video) this.sourceURL = assets.source_video;
+            if (assets.world_video) this.worldURL = assets.world_video;
+            if (assets.conditioning_video) {
+              this.conditioningURL = assets.conditioning_video;
+            }
+          },
+
+          retryVideo(el) {
+            const maxRetries = 10;
+            const base = (el.getAttribute("src") || "").split("?")[0];
+            if (!base) return;
+            const n = (parseInt(el.dataset.retries || "0", 10) || 0) + 1;
+            if (n > maxRetries) return;
+            el.dataset.retries = n;
+            setTimeout(() => {
+              el.src = base + "?r=" + Date.now();
+              el.load();
+            }, 1500);
+          },
+
+          async onTrajectoryChange() {
+            if (!this.jobId || this.loading) return;
+            this.loading = true;
+            this.error = "";
+            try {
+              const formData = new FormData();
+              formData.append("trajectory", this.trajectory);
+              const res = await fetch(
+                `/api/jobs/${this.jobId}/trajectory`,
+                { method: "POST", body: formData }
+              );
+              const data = await res.json();
+              if (data.status === "done" && data.assets) {
+                this.applyAssets(data.assets);
+                this.loading = false;
+                return;
+              }
+              this.status = data.status || "running_inspatio";
+              await this.pollJob();
+            } catch (err) {
+              console.error(err);
+              this.error = "Trajectory rerun failed.";
+              this.loading = false;
+            }
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
