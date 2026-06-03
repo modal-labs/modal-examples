@@ -1,5 +1,6 @@
 # ---
 # output-directory: "/tmp/world_model"
+# args: ["--prompt", "A serene mountain lake at sunrise, mist rising off the water"]
 # ---
 
 # # Image-to-world video generation with LTX-2.3 and InSpatio
@@ -52,7 +53,6 @@ import uuid
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
-import fastapi
 import modal
 
 app = modal.App("world-model")
