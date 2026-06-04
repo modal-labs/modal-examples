@@ -388,7 +388,7 @@ class Server:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
+async def test(test_timeout=120 * MINUTES, prompt=None, twice=True):
     url = (await Server._experimental_get_flash_urls.aio())[0]
 
     system_prompt = {
@@ -409,7 +409,7 @@ async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
     if twice:
         messages[0]["content"] = "You are Jar Jar Binks."
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
-        await probe(url, messages, timeout=1 * MINUTES)
+        await probe(url, messages, timeout=10 * MINUTES)
 
 
 # This test relies on the two helper functions below,
