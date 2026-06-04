@@ -43,13 +43,16 @@
 
 # ## Environment setup
 
+import io
 import json
+import os
 import random
 import shutil
 import subprocess
-import tempfile
 import time
+import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -64,31 +67,20 @@ MINUTES = 60
 # Model weights are cached to Volumes so they download only once. Generated
 # artifacts for every job are written to a separate output Volume.
 
-HF_CACHE_PATH = "/root/.cache/huggingface"
 ARTIFACTS_PATH = "/artifacts"
 INSPATIO_WEIGHTS = "/models/inspatio"
 INSPATIO_REPO = "/opt/inspatio-world"
 
-ltx_model_volume = modal.Volume.from_name("world-model-ltx-models", create_if_missing=True)
+model_volume = modal.Volume.from_name("world-model-weights", create_if_missing=True)
 output_volume = modal.Volume.from_name("world-model-outputs", create_if_missing=True)
-inspatio_model_volume = modal.Volume.from_name(
-    "world-model-inspatio-weights", create_if_missing=True
-)
 
-# We pin the LTX-2.3 model repo and an LTX-2 commit that supports its architecture.
-
-LTX23_REPO = "Lightricks/LTX-2.3"
-LTX23_CHECKPOINT = "ltx-2.3-22b-dev.safetensors"
-LTX23_UPSAMPLER = "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
-LTX23_DISTILLED_LORA = "ltx-2.3-22b-distilled-lora-384-1.1.safetensors"
-GEMMA_REPO = "google/gemma-3-12b-it-qat-q4_0-unquantized"
-LTX2_COMMIT = "d6053703e001"  # latest main as of 2026-05-28
+# We pin an LTX-2 commit that supports the LTX-2.3 model architecture.
+LTX2_COMMIT = "d6053703e001"
 
 DEFAULT_WIDTH = 832
 DEFAULT_HEIGHT = 512
 DEFAULT_NUM_FRAMES = 25
 DEFAULT_FPS = 24
-
 
 def align_num_frames(n: int) -> int:
     """LTX-2.3 requires frame count = 8n + 1."""
@@ -240,7 +232,7 @@ with ltx_image.imports():
     scaledown_window=15 * MINUTES,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
-        HF_CACHE_PATH: ltx_model_volume,
+        "/root/.cache/huggingface": model_volume,
         ARTIFACTS_PATH: output_volume,
     },
     secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -251,11 +243,16 @@ class LTXInference:
         """Download model weights to the HF cache Volume and init the pipeline."""
         torch.set_float32_matmul_precision("high")
 
-        checkpoint_path = hf_hub_download(LTX23_REPO, LTX23_CHECKPOINT)
-        upsampler_path = hf_hub_download(LTX23_REPO, LTX23_UPSAMPLER)
-        distilled_lora_path = hf_hub_download(LTX23_REPO, LTX23_DISTILLED_LORA)
-        gemma_dir = snapshot_download(GEMMA_REPO)
-        ltx_model_volume.commit()
+        ltx_repo = "Lightricks/LTX-2.3"
+        checkpoint_path = hf_hub_download(ltx_repo, "ltx-2.3-22b-dev.safetensors")
+        upsampler_path = hf_hub_download(
+            ltx_repo, "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+        )
+        distilled_lora_path = hf_hub_download(
+            ltx_repo, "ltx-2.3-22b-distilled-lora-384-1.1.safetensors"
+        )
+        gemma_dir = snapshot_download("google/gemma-3-12b-it-qat-q4_0-unquantized")
+        model_volume.commit()
 
         distilled_lora = [
             LoraPathStrengthAndSDOps(
@@ -277,7 +274,7 @@ class LTXInference:
         self,
         job_id: str,
         prompt: str,
-        image_bytes: Optional[bytes] = None,
+        image_path: Optional[str] = None,
         negative_prompt: Optional[str] = None,
         width: int = DEFAULT_WIDTH,
         height: int = DEFAULT_HEIGHT,
@@ -299,50 +296,43 @@ class LTXInference:
         )
 
         images: list[ImageConditioningInput] = []
-        tmp_image_path: Optional[str] = None
-        if image_bytes:
-            tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-            tmp.write(image_bytes)
-            tmp.close()
-            tmp_image_path = tmp.name
-            images = [ImageConditioningInput(path=tmp_image_path, frame_idx=0, strength=0.8)]
+        if image_path:
+            if not wait_for_file(Path(image_path)):
+                raise FileNotFoundError(f"conditioning image missing: {image_path}")
+            images = [ImageConditioningInput(path=image_path, frame_idx=0, strength=0.8)]
 
         out_dir = job_dir(job_id) / "ltx"
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / "source.mp4"
 
-        try:
-            with torch.no_grad():
-                video, audio = self.pipeline(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    seed=seed,
-                    height=height,
-                    width=width,
-                    num_frames=num_frames,
-                    frame_rate=float(fps),
-                    num_inference_steps=steps,
-                    video_guider_params=self.params.video_guider_params,
-                    audio_guider_params=self.params.audio_guider_params,
-                    images=images,
-                    tiling_config=self.tiling_config,
-                    enhance_prompt=True,
-                )
-                raw_path = out_path.with_suffix(".raw.mp4")
-                encode_video(
-                    video=video,
-                    fps=fps,
-                    audio=audio,
-                    output_path=str(raw_path),
-                    video_chunks_number=get_video_chunks_number(
-                        num_frames, self.tiling_config
-                    ),
-                )
-                transcode_to_web_mp4(raw_path, out_path)
-                raw_path.unlink(missing_ok=True)
-        finally:
-            if tmp_image_path:
-                Path(tmp_image_path).unlink(missing_ok=True)
+        with torch.no_grad():
+            video, audio = self.pipeline(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                seed=seed,
+                height=height,
+                width=width,
+                num_frames=num_frames,
+                frame_rate=float(fps),
+                num_inference_steps=steps,
+                video_guider_params=self.params.video_guider_params,
+                audio_guider_params=self.params.audio_guider_params,
+                images=images,
+                tiling_config=self.tiling_config,
+                enhance_prompt=True,
+            )
+            raw_path = out_path.with_suffix(".raw.mp4")
+            encode_video(
+                video=video,
+                fps=fps,
+                audio=audio,
+                output_path=str(raw_path),
+                video_chunks_number=get_video_chunks_number(
+                    num_frames, self.tiling_config
+                ),
+            )
+            transcode_to_web_mp4(raw_path, out_path)
+            raw_path.unlink(missing_ok=True)
 
         output_volume.commit()
         torch.cuda.empty_cache()
@@ -360,7 +350,6 @@ inspatio_image = (
     )
     .apt_install(
         "git",
-        "git-lfs",
         "ffmpeg",
         "libgl1",
         "libglib2.0-0",
@@ -368,12 +357,10 @@ inspatio_image = (
         "libxext6",
         "libxrender1",
     )
-    .run_commands("git lfs install")
-    .run_commands(
-        "pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 "
-        "--index-url https://download.pytorch.org/whl/cu121"
-    )
     .uv_pip_install(
+        "torch==2.5.1",
+        "torchvision==0.20.1",
+        "torchaudio==2.5.1",
         "accelerate==1.13.0",
         "av==13.1.0",
         "decord==0.6.0",
@@ -398,21 +385,23 @@ inspatio_image = (
         "transformers==4.57.6",
         "trimesh==4.11.3",
         "xformers==0.0.29.post1",
+        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl",
+        extra_index_url="https://download.pytorch.org/whl/cu121",
+        extra_options="--index-strategy unsafe-best-match",
     )
     .run_commands(
-        "pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
-    )
-    .run_commands(
-        "git clone --depth 1 https://github.com/inspatio/inspatio-world.git /opt/inspatio-world"
-        " && find /opt/inspatio-world -name '*.py'"
+        f"git clone --depth 1 https://github.com/inspatio/inspatio-world.git {INSPATIO_REPO}"
+        f" && find {INSPATIO_REPO} -name '*.py'"
         " | xargs grep -l 'torch_dtype'"
         " | xargs sed -i 's/torch_dtype=/dtype=/g'"
+        f" && rm -rf {INSPATIO_REPO}/checkpoints"
+        f" && ln -s {INSPATIO_WEIGHTS} {INSPATIO_REPO}/checkpoints"
     )
 )
 
 # The worker downloads several checkpoints (InSpatio, Wan2.1, DA3, Florence-2,
-# taehv) to a persistent Volume on first start, then symlinks them into the repo
-# layout it expects on every container start.
+# taehv) to the weights Volume on first start. We access weights on HuggingFace.
+# We git clone taehv, which lives only on GitHub.
 
 
 @app.cls(
@@ -422,7 +411,7 @@ inspatio_image = (
     scaledown_window=10 * MINUTES,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
-        INSPATIO_WEIGHTS: inspatio_model_volume,
+        INSPATIO_WEIGHTS: model_volume,
         ARTIFACTS_PATH: output_volume,
     },
     secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -431,77 +420,49 @@ class InSpatioInference:
     @modal.enter()
     def setup(self):
         """Download InSpatio checkpoints to the weights Volume on first container start."""
-        import os
-        from concurrent.futures import ThreadPoolExecutor
+        from huggingface_hub import snapshot_download
 
         sentinel = Path(INSPATIO_WEIGHTS) / ".ready"
         if sentinel.exists():
             return
 
         print("Downloading InSpatio-World checkpoints (first run only)...")
-        cwd = Path(INSPATIO_WEIGHTS)
-        cwd.mkdir(parents=True, exist_ok=True)
-        env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
+        weights = Path(INSPATIO_WEIGHTS)
+        weights.mkdir(parents=True, exist_ok=True)
 
-        def git_lfs_clone(url: str, dest: str):
-            dest_path = cwd / dest
-            if dest_path.exists():
-                shutil.rmtree(dest_path)
-            subprocess.run(["git", "clone", url, dest], cwd=cwd, env=env, check=True)
-            subprocess.run(["git", "lfs", "pull"], cwd=dest_path, check=True)
+        def download_hf(repo_id: str, dest: str):
+            snapshot_download(repo_id, local_dir=str(weights / dest))
 
-        def git_clone(url: str, dest: str):
-            dest_path = cwd / dest
-            if dest_path.exists():
-                shutil.rmtree(dest_path)
-            subprocess.run(["git", "clone", url, dest], cwd=cwd, env=env, check=True)
+        def clone_taehv():
+            dest = weights / "taehv"
+            if dest.exists():
+                shutil.rmtree(dest)
+            subprocess.run(
+                ["git", "clone", "--depth", "1",
+                 "https://github.com/madebyollin/taehv.git", str(dest)],
+                check=True,
+            )
 
-        # Download repos concurrently on first container start
-        clone_tasks = [
-            (git_lfs_clone, "https://huggingface.co/inspatio/world", "world"),
-            (git_lfs_clone, "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B"),
-            (git_lfs_clone, "https://huggingface.co/depth-anything/DA3NESTED-GIANT-LARGE", "DA3"),
-            (git_lfs_clone, "https://huggingface.co/microsoft/Florence-2-large", "Florence-2-large"),
-            (git_clone, "https://github.com/madebyollin/taehv.git", "taehv"),
+        # Fetch every checkpoint concurrently on first container start.
+        hf_repos = [
+            ("inspatio/world", "InSpatio-World-1.3B"),
+            ("Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B"),
+            ("depth-anything/DA3NESTED-GIANT-LARGE", "DA3"),
+            ("microsoft/Florence-2-large", "Florence-2-large"),
         ]
-        with ThreadPoolExecutor(max_workers=len(clone_tasks)) as pool:
-            futures = [pool.submit(fn, url, dest) for fn, url, dest in clone_tasks]
+        with ThreadPoolExecutor(max_workers=len(hf_repos) + 1) as pool:
+            futures = [pool.submit(download_hf, repo, dest) for repo, dest in hf_repos]
+            futures.append(pool.submit(clone_taehv))
             for future in futures:
                 future.result()
 
-        (cwd / "InSpatio-World-1.3B").mkdir(exist_ok=True)
-        shutil.move(
-            str(cwd / "world" / "InSpatio-World-1.3B.safetensors"),
-            str(cwd / "InSpatio-World-1.3B" / "InSpatio-World-1.3B.safetensors"),
-        )
-        shutil.rmtree(cwd / "world")
-
         sentinel.write_text("ok")
-        inspatio_model_volume.commit()
+        model_volume.commit()
         print("InSpatio checkpoints cached.")
-
-    def _link_checkpoints(self):
-        """The repo expects weights under <repo>/checkpoints/,
-        so symlink them in on every container start."""
-        ckpt_dir = Path(INSPATIO_REPO) / "checkpoints"
-        ckpt_dir.mkdir(parents=True, exist_ok=True)
-        weights = Path(INSPATIO_WEIGHTS)
-        for name in (
-            "Wan2.1-T2V-1.3B",
-            "taehv",
-            "InSpatio-World-1.3B",
-            "DA3",
-            "Florence-2-large",
-        ):
-            target = weights / name
-            link = ckpt_dir / name
-            if not target.exists() or link.is_symlink() or link.exists():
-                continue
-            link.symlink_to(target)
 
     @modal.method()
     def warmup(self) -> str:
-        self._link_checkpoints()
+        """Boot the container (and download weights on first run) ahead of time."""
         return "ok"
 
     @modal.method()
@@ -510,18 +471,16 @@ class InSpatioInference:
         job_id: str,
         trajectory: str,
         skip_preprocess: bool = False,
-        source_bytes: Optional[bytes] = None,
+        source_path: Optional[str] = None,
     ) -> str:
-        self._link_checkpoints()
-
         input_dir = job_dir(job_id) / "inspatio" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         dest = input_dir / "source.mp4"
 
-        if source_bytes is not None:
-            dest.write_bytes(source_bytes)
-        elif not skip_preprocess:
-            source = job_dir(job_id) / "packaged" / "source.mp4"
+        if not skip_preprocess:
+            if not source_path:
+                raise ValueError("source_path required when not skipping preprocess")
+            source = Path(source_path)
             if not wait_for_file(source):
                 raise FileNotFoundError(f"source video missing: {source}")
             shutil.copy2(source, dest)
@@ -707,7 +666,7 @@ def run_world_job(job_id: str, params: dict):
         ltx_call = LTXInference().run.spawn(
             job_id=job_id,
             prompt=params["prompt"],
-            image_bytes=params.get("image_bytes"),
+            image_path=params.get("image_path"),
             seed=params.get("seed"),
             width=params.get("width", DEFAULT_WIDTH),
             height=params.get("height", DEFAULT_HEIGHT),
@@ -715,16 +674,16 @@ def run_world_job(job_id: str, params: dict):
             fps=params.get("fps", DEFAULT_FPS),
         )
 
-        ltx_call.get()
+        ltx_path = ltx_call.get()
         output_volume.reload()
-        src_ltx = job_dir(job_id) / "ltx" / "source.mp4"
-        if not src_ltx.exists() and not wait_for_file(src_ltx):
-            raise FileNotFoundError(f"LTX output missing after commit: {src_ltx}")
+        src_ltx = Path(ltx_path)
+        if not wait_for_file(src_ltx):
+            raise FileNotFoundError(f"LTX output missing: {src_ltx}")
 
         packaged_dir = job_dir(job_id) / "packaged"
         packaged_dir.mkdir(parents=True, exist_ok=True)
-        source_bytes = src_ltx.read_bytes()
-        (packaged_dir / "source.mp4").write_bytes(source_bytes)
+        shutil.copy2(src_ltx, packaged_dir / "source.mp4")
+        output_volume.commit()
         write_manifest(
             job_id,
             status="running_inspatio",
@@ -733,7 +692,7 @@ def run_world_job(job_id: str, params: dict):
         )
         warm_call.get()
         inspatio.run.remote(
-            job_id=job_id, trajectory=trajectory, source_bytes=source_bytes
+            job_id=job_id, trajectory=trajectory, source_path=ltx_path
         )
 
         write_manifest(job_id, status="packaging")
@@ -805,8 +764,7 @@ def ui():
                 "request": request,
                 "model_name": "World Model (LTX-2.3 + InSpatio)",
                 "default_prompt": (
-                    "A young girl stands calmly in the foreground, looking directly "
-                    "at the camera, as a house fire rages in the background."
+                    "A serene mountain lake at sunrise, mist rising off the water"
                 ),
                 "trajectories": TRAJECTORY_PRESETS,
                 "default_width": DEFAULT_WIDTH,
@@ -828,7 +786,13 @@ def ui():
         image: Annotated[Optional[fastapi.UploadFile], fastapi.File()] = None,
     ):
         job_id = uuid.uuid4().hex[:12]
-        image_bytes = await image.read() if image and image.filename else None
+        image_path = None
+        if image and image.filename:
+            img_dest = job_dir(job_id) / "input" / "image.jpg"
+            img_dest.parent.mkdir(parents=True, exist_ok=True)
+            img_dest.write_bytes(await image.read())
+            await output_volume.commit.aio()
+            image_path = str(img_dest)
         params = {
             "prompt": prompt,
             "trajectory": trajectory,
@@ -837,7 +801,7 @@ def ui():
             "height": height,
             "num_frames": num_frames,
             "fps": fps,
-            "image_bytes": image_bytes,
+            "image_path": image_path,
         }
         await write_manifest_aio(
             job_id,
@@ -953,18 +917,18 @@ def entrypoint(
     num_frames: int = DEFAULT_NUM_FRAMES,
     fps: int = DEFAULT_FPS,
 ):
-    import os
-    import urllib.request
-
     job_id = uuid.uuid4().hex[:12]
-    image_bytes = None
+    image_path_remote = None
     if image_path:
         if image_path.startswith(("http://", "https://")):
-            image_bytes = urllib.request.urlopen(image_path).read()
+            src = io.BytesIO(urllib.request.urlopen(image_path).read())
         elif os.path.isfile(image_path):
-            image_bytes = Path(image_path).read_bytes()
+            src = image_path
         else:
             raise ValueError(f"{image_path} is not a valid file or URL.")
+        with output_volume.batch_upload() as batch:
+            batch.put_file(src, f"{job_id}/input/image.jpg")
+        image_path_remote = str(job_dir(job_id) / "input" / "image.jpg")
 
     params = {
         "prompt": prompt,
@@ -974,7 +938,7 @@ def entrypoint(
         "height": height,
         "num_frames": num_frames,
         "fps": fps,
-        "image_bytes": image_bytes,
+        "image_path": image_path_remote,
     }
 
     print(f"Starting world job {job_id}")
