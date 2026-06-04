@@ -34,61 +34,47 @@ crashable_exceptions = (
     # OOM, bad input — retrying won't help
 )
 
-# ## Use a Dict to track call count across retries
-#
-# Each retry runs in a new container invocation, so we use a
-# [`modal.Dict`](https://modal.com/docs/reference/modal.Dict) to share
-# state and make the demo deterministic.
-
-call_counter = modal.Dict.from_name(
-    "custom-retries-demo-counter", create_if_missing=True
-)
-
 # ## Demo App
 #
-# This function follows a scripted sequence to demonstrate the behavior:
-#
-# 1. **Call 1** — raises `TimeoutError` (retryable → Modal retries)
-# 2. **Call 2** — raises `ConnectionError` (retryable → Modal retries)
-# 3. **Call 3** — raises `MemoryError` (crashable → returned, no more retries)
-#
-# So you'll see two retries, then a clean stop on the third attempt.
+# Each retry runs in a fresh container, so we drive the demo with a
+# [`modal.Dict`](https://modal.com/docs/reference/modal.Dict) keyed by attempt
+# index. Each invocation pops the next scripted error and either re-raises it
+# (retryable → Modal retries) or returns it (crashable → Modal stops).
 
 
 @app.function(retries=modal.Retries(max_retries=5, initial_delay=1.0))
-def flaky_task():
-    call_count = call_counter.get("calls", 0) + 1
-    call_counter["calls"] = call_count
-    print(f"Attempt {call_count}")
-
-    # Scripted error sequence
-    errors = [
-        TimeoutError("GPU timed out"),  # attempt 1: retryable
-        ConnectionError("lost connection to data server"),  # attempt 2: retryable
-        MemoryError("CUDA out of memory"),  # attempt 3: crashable
-    ]
-    error = errors[min(call_count, len(errors)) - 1]
-
-    print(f"  Hit: {error!r}")
+def flaky_task(errors):
+    attempt = min(errors.keys())  # lowest index not yet handled
+    error = errors.pop(attempt)
+    print(f"Attempt {attempt}: hit {error!r}")
 
     if isinstance(error, retry_exceptions):
-        print("  -> retryable, re-raising so Modal retries")
-        raise error
-
-    # Return instead of raise — Modal sees success, stops retrying
-    print("  -> non-retryable, returning error to stop retries")
-    return error
+        raise error  # re-raise so Modal retries with the same Dict
+    return error  # return so Modal sees success and stops retrying
 
 
 # ## Entrypoint
 #
-# The caller checks whether the return value is an exception.
+# We stage the scripted errors in an [ephemeral `Dict`](https://modal.com/docs/reference/modal.Dict)
+# that lives only for the run, pass it in, then check whether the result is an
+# exception:
+#
+# 1. **Attempt 0** — `TimeoutError` (retryable → Modal retries)
+# 2. **Attempt 1** — `ConnectionError` (retryable → Modal retries)
+# 3. **Attempt 2** — `MemoryError` (crashable → returned, no more retries)
 
 
 @app.local_entrypoint()
 def main():
-    call_counter["calls"] = 0  # reset counter
-    result = flaky_task.remote()
+    errors = {
+        0: TimeoutError("GPU timed out"),
+        1: ConnectionError("lost connection to data server"),
+        2: MemoryError("CUDA out of memory"),
+    }
+    with modal.Dict.ephemeral() as state:
+        state.update(errors)
+        result = flaky_task.remote(state)
+
     if isinstance(result, Exception):
         print(f"Stopped with non-retryable error: {result!r}")
     else:
