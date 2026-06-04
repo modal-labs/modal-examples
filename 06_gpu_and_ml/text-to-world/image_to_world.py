@@ -238,6 +238,7 @@ with ltx_image.imports():
     gpu="H200",
     timeout=30 * MINUTES,
     scaledown_window=15 * MINUTES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         HF_CACHE_PATH: ltx_model_volume,
         ARTIFACTS_PATH: output_volume,
@@ -419,6 +420,7 @@ inspatio_image = (
     gpu="H200",
     timeout=90 * MINUTES,
     scaledown_window=10 * MINUTES,
+    retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         INSPATIO_WEIGHTS: inspatio_model_volume,
         ARTIFACTS_PATH: output_volume,
@@ -729,7 +731,6 @@ def run_world_job(job_id: str, params: dict):
             trajectory=trajectory,
             assets={"source_video": f"/api/assets/{job_id}/source.mp4"},
         )
-        
         warm_call.get()
         inspatio.run.remote(
             job_id=job_id, trajectory=trajectory, source_bytes=source_bytes
