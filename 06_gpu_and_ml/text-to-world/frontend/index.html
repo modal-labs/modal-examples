@@ -82,7 +82,6 @@
             <span class="text-neutral-500">Camera trajectory</span>
             <select
               x-model="trajectory"
-              @change="onTrajectoryChange"
               class="border rounded-md px-2 py-1.5 border-neutral-300 bg-white"
             >
               {% for t in trajectories %}
@@ -92,14 +91,7 @@
           </label>
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <input
-            type="file"
-            accept="image/*"
-            @change="previewImage"
-            @click="$event.target.value = null;"
-            class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neutral-950 file:text-white hover:file:bg-neutral-900"
-          />
+        <div class="flex flex-wrap items-center justify-end gap-3">
           <button
             type="submit"
             class="px-5 py-2 text-sm font-semibold text-white rounded-md bg-neutral-950 hover:bg-neutral-900 disabled:opacity-50"
@@ -127,11 +119,6 @@
         <div>
           <h3 class="text-sm font-medium text-neutral-600 mb-2">LTX source video</h3>
           <div class="relative bg-neutral-100 rounded-lg overflow-hidden aspect-video">
-            <img
-              x-show="imageURL && !sourceURL"
-              class="absolute inset-0 w-full h-full object-contain"
-              :src="imageURL"
-            />
             <video
               x-show="sourceURL"
               :src="sourceURL"
@@ -198,36 +185,21 @@
           fps: cfg.default_fps,
           trajectory: cfg.default_trajectory,
           loading: false,
-          jobId: null,
+          sessionId: null,
           status: "",
           error: "",
-          imageURL: "",
           sourceURL: "",
           worldURL: "",
           conditioningURL: "",
-          selectedFile: null,
-          pollTimer: null,
 
           get statusLabel() {
             const labels = {
-              queued: "Queued…",
-              running_ltx: "Stage 1/3: LTX reference video…",
-              running_inspatio: "Stage 2/3: InSpatio world generation…",
-              packaging: "Stage 3/3: Packaging…",
+              running_ltx: "Stage 1/2: LTX reference video…",
+              running_inspatio: "Stage 2/2: InSpatio world generation…",
               done: "Done",
               error: "Error",
             };
             return labels[this.status] || this.status || "Working…";
-          },
-
-          previewImage(event) {
-            const file = event.target.files[0];
-            if (file) {
-              this.selectedFile = file;
-              this.imageURL = URL.createObjectURL(file);
-              this.sourceURL = "";
-              this.worldURL = "";
-            }
           },
 
           async submitJob() {
@@ -237,7 +209,7 @@
             this.sourceURL = "";
             this.worldURL = "";
             this.conditioningURL = "";
-            this.jobId = null;
+            this.sessionId = null;
 
             try {
               const formData = new FormData();
@@ -250,49 +222,44 @@
               if (this.seed !== "" && this.seed !== null) {
                 formData.append("seed", this.seed);
               }
-              if (this.selectedFile) {
-                formData.append("image", this.selectedFile);
-              }
 
-              const res = await fetch("/api/jobs", {
+              const res = await fetch("/api/sessions", {
                 method: "POST",
                 body: formData,
               });
-              if (!res.ok) throw new Error("Failed to submit job");
+              if (!res.ok) throw new Error("Failed to start session");
               const data = await res.json();
-              this.jobId = data.job_id;
-              await this.pollJob();
+              this.sessionId = data.session_id;
+              this.status = "running_ltx";
+              await this.pollSession();
             } catch (err) {
               console.error(err);
-              this.error = "There was an error starting the job.";
+              this.error = "There was an error starting the session.";
               this.loading = false;
             }
           },
 
-          async pollJob() {
-            if (!this.jobId) return;
-            const res = await fetch(`/api/jobs/${this.jobId}`);
-            const manifest = await res.json();
-            this.status = manifest.status || "";
+          async pollSession() {
+            if (!this.sessionId) return;
+            const res = await fetch(`/api/sessions/${this.sessionId}`);
+            const state = await res.json();
+            this.status = state.status || "";
 
-            if (manifest.status === "error") {
-              this.error = manifest.error || "Job failed";
+            if (state.status === "error") {
+              this.error = state.error || "Session failed";
               this.loading = false;
               return;
             }
 
-            if (manifest.status === "done" && manifest.assets) {
-              this.applyAssets(manifest.assets);
+            // Show each asset the workers have written so far.
+            this.applyAssets(state.assets || {});
+
+            if (state.status === "done") {
               this.loading = false;
               return;
             }
 
-            if (manifest.assets?.source_video && !this.sourceURL) {
-              this.sourceURL = manifest.assets.source_video;
-              this.imageURL = "";
-            }
-
-            setTimeout(() => this.pollJob(), 10000);
+            setTimeout(() => this.pollSession(), 10000);
           },
 
           applyAssets(assets) {
@@ -314,32 +281,6 @@
               el.src = base + "?r=" + Date.now();
               el.load();
             }, 1500);
-          },
-
-          async onTrajectoryChange() {
-            if (!this.jobId || this.loading) return;
-            this.loading = true;
-            this.error = "";
-            try {
-              const formData = new FormData();
-              formData.append("trajectory", this.trajectory);
-              const res = await fetch(
-                `/api/jobs/${this.jobId}/trajectory`,
-                { method: "POST", body: formData }
-              );
-              const data = await res.json();
-              if (data.status === "done" && data.assets) {
-                this.applyAssets(data.assets);
-                this.loading = false;
-                return;
-              }
-              this.status = data.status || "running_inspatio";
-              await this.pollJob();
-            } catch (err) {
-              console.error(err);
-              this.error = "Trajectory rerun failed.";
-              this.loading = false;
-            }
           },
         };
       }

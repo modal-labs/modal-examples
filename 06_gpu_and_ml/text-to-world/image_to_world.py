@@ -3,17 +3,20 @@
 # args: ["--prompt", "A serene mountain lake at sunrise, mist rising off the water"]
 # ---
 
-# # Image-to-world video generation with LTX-2.3 and InSpatio
+# # Text-to-world video generation with LTX-2.3 and InSpatio
 
 # This example chains two diffusion models on Modal to turn a text prompt
-# (and an optional reference image) into an explorable 3D "world": a video
-# rendered along a camera trajectory, plus the point cloud it was built from.
+# into an explorable 3D "world": a video rendered along a camera trajectory,
+# plus the point cloud it was built from.
 
-# The pipeline runs in two stages:
+# The pipeline runs in two stages, with no central orchestrator:
 # 1. [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) generates a short
-#    reference video from the prompt/image.
+#    reference video from the prompt, writes it to a Volume, then spawns stage 2.
 # 2. [InSpatio-World](https://huggingface.co/inspatio/world) lifts that video
 #    into a 3D scene and re-renders it along a specified camera trajectory.
+#
+# The client (CLI or web UI) starts a session by warming the InSpatio worker and
+# spawning the LTX worker, then watches the Volume for the resulting files.
 
 # ## Setup
 
@@ -32,30 +35,25 @@
 # Or generate a single world from the CLI:
 # ```bash
 # modal run image_to_world.py --prompt "..." --trajectory x_y_circle_cycle
-# modal run image_to_world.py --prompt "..." --image-path /path/to/image.jpg
 # ```
 
 # Retrieve CLI outputs from the Modal Volume:
 # ```bash
 # modal volume ls world-model-outputs
-# modal volume get world-model-outputs <job_id>/packaged/world.mp4
+# modal volume get world-model-outputs <session_id>/world.mp4
 # ```
 
 # ## Environment setup
 
 import asyncio
-import io
-import json
-import os
 import random
 import shutil
 import subprocess
 import time
-import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Optional
 
 import modal
 
@@ -66,7 +64,7 @@ MINUTES = 60
 # ## Paths and volumes
 
 # Model weights are cached to Volumes so they download only once. Generated
-# artifacts for every job are written to a separate output Volume.
+# artifacts for every session are written to a separate output Volume.
 
 ARTIFACTS_PATH = "/artifacts"
 INSPATIO_WEIGHTS = "/models/inspatio"
@@ -100,48 +98,40 @@ TRAJECTORY_PRESETS = [
 
 frontend_path = Path(__file__).parent / "frontend"
 
+# Each session owns a directory on the output Volume.
 
-# Each job owns a directory on the output Volume, with a `manifest.json` that
-# tracks its status and asset URLs. The web UI polls this manifest, so every
-# stage updates it as it progresses.
+def session_dir(session_id: str) -> Path:
+    return Path(ARTIFACTS_PATH) / session_id
 
-
-def job_dir(job_id: str) -> Path:
-    return Path(ARTIFACTS_PATH) / job_id
-
-
-def _apply_manifest(job_id: str, **fields: Any) -> dict:
-    """Merge fields into the on-disk manifest."""
-    path = job_dir(job_id) / "manifest.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    data: dict[str, Any] = {}
-    if path.exists():
-        data = json.loads(path.read_text())
-    data.update(fields)
-    data.setdefault("job_id", job_id)
-    path.write_text(json.dumps(data, indent=2))
-    return data
+# Output filenames the workers write to the session root, mapped to the asset
+# keys the frontend consumes.
+SESSION_ASSETS = {
+    "source_video": "source.mp4",
+    "world_video": "world.mp4",
+    "conditioning_video": "conditioning.mp4",
+    "pointcloud_ply": "pointcloud.ply",
+}
 
 
-def write_manifest(job_id: str, **fields: Any) -> dict:
-    """Synchronous manifest write + commit, for use from sync (remote) functions."""
-    data = _apply_manifest(job_id, **fields)
-    output_volume.commit()
-    return data
+def session_status(session_id: str) -> dict:
+    """Infer a session's progress from which files exist on the Volume."""
+    base = session_dir(session_id)
+    assets = {
+        key: f"/api/assets/{session_id}/{name}"
+        for key, name in SESSION_ASSETS.items()
+        if (base / name).exists()
+    }
 
-
-async def write_manifest_aio(job_id: str, **fields: Any) -> dict:
-    """Async manifest write + commit, for use from async (web) endpoints."""
-    data = _apply_manifest(job_id, **fields)
-    await output_volume.commit.aio()
-    return data
-
-
-def read_manifest(job_id: str) -> dict:
-    path = job_dir(job_id) / "manifest.json"
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+    error_path = base / "error.txt"
+    if error_path.exists():
+        return {"status": "error", "error": error_path.read_text(), "assets": assets}
+    if "world_video" in assets:
+        status = "done"
+    elif "source_video" in assets:
+        status = "running_inspatio"
+    else:
+        status = "running_ltx"
+    return {"status": status, "error": None, "assets": assets}
 
 
 def wait_for_file(path: Path, timeout_s: float = 120.0) -> bool:
@@ -220,7 +210,6 @@ with ltx_image.imports():
     from ltx_core.loader import LTXV_LORA_COMFY_RENAMING_MAP, LoraPathStrengthAndSDOps
     from ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
     from ltx_pipelines.ti2vid_two_stages import TI2VidTwoStagesPipeline
-    from ltx_pipelines.utils.args import ImageConditioningInput
     from ltx_pipelines.utils.constants import DEFAULT_NEGATIVE_PROMPT, detect_params
     from ltx_pipelines.utils.media_io import encode_video
 
@@ -273,9 +262,9 @@ class LTXInference:
     @modal.method()
     def run(
         self,
-        job_id: str,
+        session_id: str,
         prompt: str,
-        image_path: Optional[str] = None,
+        trajectory: str = "x_y_circle_cycle",
         negative_prompt: Optional[str] = None,
         width: int = DEFAULT_WIDTH,
         height: int = DEFAULT_HEIGHT,
@@ -284,59 +273,62 @@ class LTXInference:
         num_inference_steps: Optional[int] = None,
         seed: Optional[int] = None,
     ) -> str:
-        width = align_dimension(width)
-        height = align_dimension(height)
-        num_frames = align_num_frames(num_frames)
-        seed = seed if seed is not None else random.randint(0, 2**32 - 1)
-        steps = num_inference_steps or self.params.num_inference_steps
-        negative_prompt = negative_prompt or DEFAULT_NEGATIVE_PROMPT
+        try:
+            width = align_dimension(width)
+            height = align_dimension(height)
+            num_frames = align_num_frames(num_frames)
+            seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+            steps = num_inference_steps or self.params.num_inference_steps
+            negative_prompt = negative_prompt or DEFAULT_NEGATIVE_PROMPT
 
-        print(
-            f"LTX-2.3 job {job_id}: seed={seed}, {width}x{height}, "
-            f"{num_frames} frames @ {fps}fps"
+            print(
+                f"LTX-2.3 session {session_id}: seed={seed}, {width}x{height}, "
+                f"{num_frames} frames @ {fps}fps"
+            )
+
+            out_dir = session_dir(session_id)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / "source.mp4"
+
+            with torch.no_grad():
+                video, audio = self.pipeline(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    seed=seed,
+                    height=height,
+                    width=width,
+                    num_frames=num_frames,
+                    frame_rate=float(fps),
+                    num_inference_steps=steps,
+                    video_guider_params=self.params.video_guider_params,
+                    audio_guider_params=self.params.audio_guider_params,
+                    images=[],
+                    tiling_config=self.tiling_config,
+                    enhance_prompt=True,
+                )
+                raw_path = out_path.with_suffix(".raw.mp4")
+                encode_video(
+                    video=video,
+                    fps=fps,
+                    audio=audio,
+                    output_path=str(raw_path),
+                    video_chunks_number=get_video_chunks_number(
+                        num_frames, self.tiling_config
+                    ),
+                )
+                transcode_to_web_mp4(raw_path, out_path)
+                raw_path.unlink(missing_ok=True)
+
+            output_volume.commit()
+            torch.cuda.empty_cache()
+        except Exception as e:
+            raise
+
+        # Hand off to InSpatio without blocking: the LTX worker (an H200) returns
+        # immediately rather than idling while InSpatio runs on its own container.
+        InSpatioInference().run.spawn(
+            session_id=session_id, trajectory=trajectory, source_path=str(out_path)
         )
-
-        images: list[ImageConditioningInput] = []
-        if image_path:
-            if not wait_for_file(Path(image_path)):
-                raise FileNotFoundError(f"conditioning image missing: {image_path}")
-            images = [ImageConditioningInput(path=image_path, frame_idx=0, strength=0.8)]
-
-        out_dir = job_dir(job_id) / "ltx"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / "source.mp4"
-
-        with torch.no_grad():
-            video, audio = self.pipeline(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                seed=seed,
-                height=height,
-                width=width,
-                num_frames=num_frames,
-                frame_rate=float(fps),
-                num_inference_steps=steps,
-                video_guider_params=self.params.video_guider_params,
-                audio_guider_params=self.params.audio_guider_params,
-                images=images,
-                tiling_config=self.tiling_config,
-                enhance_prompt=True,
-            )
-            raw_path = out_path.with_suffix(".raw.mp4")
-            encode_video(
-                video=video,
-                fps=fps,
-                audio=audio,
-                output_path=str(raw_path),
-                video_chunks_number=get_video_chunks_number(
-                    num_frames, self.tiling_config
-                ),
-            )
-            transcode_to_web_mp4(raw_path, out_path)
-            raw_path.unlink(missing_ok=True)
-
-        output_volume.commit()
-        torch.cuda.empty_cache()
         return str(out_path)
 
 
@@ -466,84 +458,80 @@ class InSpatioInference:
     @modal.method()
     def run(
         self,
-        job_id: str,
+        session_id: str,
         trajectory: str,
-        skip_preprocess: bool = False,
         source_path: Optional[str] = None,
-    ) -> str:
-        input_dir = job_dir(job_id) / "inspatio" / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        dest = input_dir / "source.mp4"
+    ) -> None:
+        try:
+            work = session_dir(session_id) / "_work"
+            input_dir = work / "input"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            dest = input_dir / "source.mp4"
 
-        if not skip_preprocess:
             if not source_path:
-                raise ValueError("source_path required when not skipping preprocess")
+                raise ValueError("source_path required")
             source = Path(source_path)
             if not wait_for_file(source):
                 raise FileNotFoundError(f"source video missing: {source}")
             shutil.copy2(source, dest)
 
-        traj_path = Path(INSPATIO_REPO) / "traj" / f"{trajectory}.txt"
-        if not traj_path.exists():
-            raise FileNotFoundError(f"Trajectory not found: {traj_path}")
+            traj_path = Path(INSPATIO_REPO) / "traj" / f"{trajectory}.txt"
+            if not traj_path.exists():
+                raise FileNotFoundError(f"Trajectory not found: {traj_path}")
 
-        output_folder = job_dir(job_id) / "inspatio" / "output" / trajectory
-        output_folder.mkdir(parents=True, exist_ok=True)
+            output_folder = work / "output" / trajectory
+            output_folder.mkdir(parents=True, exist_ok=True)
 
-        checkpoint = (
-            Path(INSPATIO_WEIGHTS)
-            / "InSpatio-World-1.3B"
-            / "InSpatio-World-1.3B.safetensors"
-        )
-        if not checkpoint.exists():
-            raise FileNotFoundError(f"InSpatio checkpoint missing at {checkpoint}")
+            checkpoint = (
+                Path(INSPATIO_WEIGHTS)
+                / "InSpatio-World-1.3B"
+                / "InSpatio-World-1.3B.safetensors"
+            )
+            if not checkpoint.exists():
+                raise FileNotFoundError(f"InSpatio checkpoint missing at {checkpoint}")
 
-        cmd = [
-            "bash",
-            f"{INSPATIO_REPO}/run_test_pipeline.sh",
-            "--input_dir",
-            str(input_dir),
-            "--traj_txt_path",
-            str(traj_path),
-            "--checkpoint_path",
-            str(checkpoint),
-            "--config_path",
-            f"{INSPATIO_REPO}/configs/inference_1.3b.yaml",
-            "--da3_model_path",
-            f"{INSPATIO_WEIGHTS}/DA3",
-            "--florence_model_path",
-            f"{INSPATIO_WEIGHTS}/Florence-2-large",
-            "--output_folder",
-            str(output_folder),
-            "--disable_adaptive_frame",
-        ]
-        if skip_preprocess:
-            cmd.extend(["--skip_step1", "--skip_step2"])
+            cmd = [
+                "bash",
+                f"{INSPATIO_REPO}/run_test_pipeline.sh",
+                "--input_dir",
+                str(input_dir),
+                "--traj_txt_path",
+                str(traj_path),
+                "--checkpoint_path",
+                str(checkpoint),
+                "--config_path",
+                f"{INSPATIO_REPO}/configs/inference_1.3b.yaml",
+                "--da3_model_path",
+                f"{INSPATIO_WEIGHTS}/DA3",
+                "--florence_model_path",
+                f"{INSPATIO_WEIGHTS}/Florence-2-large",
+                "--output_folder",
+                str(output_folder),
+                "--disable_adaptive_frame",
+            ]
 
-        print(f"InSpatio job {job_id}: trajectory={trajectory}, skip={skip_preprocess}")
-        result = subprocess.run(
-            cmd,
-            cwd=INSPATIO_REPO,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"InSpatio pipeline failed with exit code {result.returncode}")
+            print(f"InSpatio session {session_id}: trajectory={trajectory}")
+            result = subprocess.run(
+                cmd,
+                cwd=INSPATIO_REPO,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"InSpatio pipeline failed with exit code {result.returncode}"
+                )
 
-        output_volume.commit()
-        return str(output_folder)
+            # Transcode the chosen outputs to web-ready files at the session
+            # root, then drop the scratch dir.
+            package_outputs(session_id, output_folder)
+            shutil.rmtree(work, ignore_errors=True)
+            output_volume.commit()
+        except Exception as e:
+            raise
 
 
-# `package_job` picks the relevant videos and point cloud out of the InSpatio
-# output, transcodes the videos for the browser, and records their URLs in the
-# manifest. It runs inside the (CPU) orchestrator container that invokes it.
-
-# The orchestrator image needs ffmpeg for transcoding; fastapi is present
-# because importing this module pulls in the top-level `import fastapi`.
-
-orchestrator_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .apt_install("ffmpeg")
-    .uv_pip_install("fastapi[standard]==0.115.8")
-)
+# After the InSpatio pipeline runs, `package_outputs` picks the relevant videos
+# and point cloud out of its output directory and transcodes the videos for the
+# browser. It runs inside the InSpatio worker, which already has ffmpeg.
 
 
 def _pick_videos(output_dir: Path) -> tuple[Optional[Path], Optional[Path]]:
@@ -572,162 +560,29 @@ def _pick_pointcloud(output_dir: Path) -> Optional[Path]:
     return plys[0] if plys else None
 
 
-def _clear_scratch(job_id: str) -> None:
-    """Delete intermediate stage dirs once their artifacts are in ``packaged/``.
-    """
-    base = job_dir(job_id)
-    shutil.rmtree(base / "ltx", ignore_errors=True)
-    shutil.rmtree(base / "inspatio" / "output", ignore_errors=True)
-
-
-def package_job(job_id: str, trajectory: str) -> dict:
-    """Package the job's artifacts for the web UI."""
-    output_dir = job_dir(job_id) / "inspatio" / "output" / trajectory
-    wait_for_file(output_dir)
-
-    packaged = job_dir(job_id) / "packaged"
-    packaged.mkdir(parents=True, exist_ok=True)
-
-    packaged_source = packaged / "source.mp4"
-    ltx_source = job_dir(job_id) / "ltx" / "source.mp4"
-    if ltx_source.exists() and not packaged_source.exists():
-        shutil.copy2(ltx_source, packaged_source)
-
-    world_src, cond_src = _pick_videos(output_dir) if output_dir.exists() else (None, None)
-
-    assets: dict[str, Optional[str]] = {
-        "source_video": f"/api/assets/{job_id}/source.mp4" if packaged_source.exists() else None,
-        "world_video": None,
-        "conditioning_video": None,
-        "pointcloud_ply": None,
-    }
+def package_outputs(session_id: str, output_dir: Path) -> None:
+    """Transcode the InSpatio outputs into web-ready files at the session root."""
+    base = session_dir(session_id)
+    world_src, cond_src = (
+        _pick_videos(output_dir) if output_dir.exists() else (None, None)
+    )
 
     # Encode InSpatio outputs to H.264 + faststart.
     if world_src:
-        transcode_to_web_mp4(world_src, packaged / "world.mp4")
-        assets["world_video"] = f"/api/assets/{job_id}/world.mp4"
+        transcode_to_web_mp4(world_src, base / "world.mp4")
     if cond_src:
-        transcode_to_web_mp4(cond_src, packaged / "conditioning.mp4")
-        assets["conditioning_video"] = f"/api/assets/{job_id}/conditioning.mp4"
+        transcode_to_web_mp4(cond_src, base / "conditioning.mp4")
 
     ply_src = _pick_pointcloud(output_dir) if output_dir.exists() else None
     if ply_src:
-        shutil.copy2(ply_src, packaged / "pointcloud.ply")
-        assets["pointcloud_ply"] = f"/api/assets/{job_id}/pointcloud.ply"
-
-    manifest = read_manifest(job_id)
-    cached = manifest.get("cached_trajectories", {})
-    if trajectory not in cached and assets.get("world_video"):
-        cached[trajectory] = assets.copy()
-
-    updated = write_manifest(
-        job_id,
-        status="done",
-        trajectory=trajectory,
-        assets=assets,
-        cached_trajectories=cached,
-        error=None,
-    )
-
-    _clear_scratch(job_id)
-    output_volume.commit()
-    return updated
-
-
-# ## Orchestration
-
-# `run_world_job` drives a full request through all three stages; the UI spawns
-# it in the background and polls the manifest. `run_trajectory_job` re-renders
-# an existing world along a new trajectory, skipping the LTX and preprocessing
-# stages.
-
-
-@app.function(
-    image=orchestrator_image,
-    volumes={ARTIFACTS_PATH: output_volume},
-    timeout=90 * MINUTES,
-)
-def run_world_job(job_id: str, params: dict):
-    try:
-        trajectory = params.get("trajectory", "x_y_circle_cycle")
-        write_manifest(
-            job_id,
-            status="running_ltx",
-            **{k: params.get(k) for k in ("prompt", "seed", "trajectory", "width", "height", "num_frames", "fps")},
-        )
-
-        # Warm the InSpatio worker (container boot + weight verify + checkpoint
-        # linking) in parallel with LTX generation.
-        inspatio = InSpatioInference()
-        warm_call = inspatio.warmup.spawn()
-
-        ltx_call = LTXInference().run.spawn(
-            job_id=job_id,
-            prompt=params["prompt"],
-            image_path=params.get("image_path"),
-            seed=params.get("seed"),
-            width=params.get("width", DEFAULT_WIDTH),
-            height=params.get("height", DEFAULT_HEIGHT),
-            num_frames=params.get("num_frames", DEFAULT_NUM_FRAMES),
-            fps=params.get("fps", DEFAULT_FPS),
-        )
-
-        ltx_path = ltx_call.get()
-        output_volume.reload()
-        src_ltx = Path(ltx_path)
-        if not wait_for_file(src_ltx):
-            raise FileNotFoundError(f"LTX output missing: {src_ltx}")
-
-        packaged_dir = job_dir(job_id) / "packaged"
-        packaged_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_ltx, packaged_dir / "source.mp4")
-        output_volume.commit()
-        write_manifest(
-            job_id,
-            status="running_inspatio",
-            trajectory=trajectory,
-            assets={"source_video": f"/api/assets/{job_id}/source.mp4"},
-        )
-        warm_call.get()
-        inspatio.run.remote(
-            job_id=job_id, trajectory=trajectory, source_path=ltx_path
-        )
-
-        write_manifest(job_id, status="packaging")
-        return package_job(job_id, trajectory)
-    except Exception as e:
-        write_manifest(job_id, status="error", error=str(e))
-        raise
-
-
-@app.function(
-    image=orchestrator_image,
-    volumes={ARTIFACTS_PATH: output_volume},
-    timeout=45 * MINUTES,
-)
-def run_trajectory_job(job_id: str, trajectory: str):
-    try:
-        write_manifest(
-            job_id,
-            status="running_inspatio",
-            trajectory=trajectory,
-        )
-        InSpatioInference().run.remote(
-            job_id=job_id,
-            trajectory=trajectory,
-            skip_preprocess=True,
-        )
-        write_manifest(job_id, status="packaging")
-        return package_job(job_id, trajectory)
-    except Exception as e:
-        write_manifest(job_id, status="error", error=str(e))
-        raise
+        shutil.copy2(ply_src, base / "pointcloud.ply")
 
 
 # ## Web UI
 
-# A small ASGI app serves the frontend and exposes the job lifecycle: submit a
-# job, poll its status, re-render a trajectory, and serve packaged assets.
+# A small ASGI app serves the frontend and exposes the session lifecycle: start
+# a session (which spawns the LTX worker and warms InSpatio), poll its status by
+# reading the Volume, and serve the files the workers write there.
 
 web_image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -777,8 +632,8 @@ def ui():
             },
         )
 
-    @web_app.post("/api/jobs")
-    async def submit_job(
+    @web_app.post("/api/sessions")
+    async def start_session(
         prompt: str = fastapi.Form(...),
         trajectory: str = fastapi.Form("x_y_circle_cycle"),
         seed: Optional[int] = fastapi.Form(None),
@@ -786,107 +641,47 @@ def ui():
         height: int = fastapi.Form(DEFAULT_HEIGHT),
         num_frames: int = fastapi.Form(DEFAULT_NUM_FRAMES),
         fps: int = fastapi.Form(DEFAULT_FPS),
-        image: Annotated[Optional[fastapi.UploadFile], fastapi.File()] = None,
     ):
-        job_id = uuid.uuid4().hex[:12]
-        image_path = None
-        if image and image.filename:
-            img_dest = job_dir(job_id) / "input" / "image.jpg"
-            img_dest.parent.mkdir(parents=True, exist_ok=True)
-            img_dest.write_bytes(await image.read())
-            await output_volume.commit.aio()
-            image_path = str(img_dest)
-        params = {
-            "prompt": prompt,
-            "trajectory": trajectory,
-            "seed": seed,
-            "width": width,
-            "height": height,
-            "num_frames": num_frames,
-            "fps": fps,
-            "image_path": image_path,
-        }
-        await write_manifest_aio(
-            job_id,
-            status="queued",
+        session_id = uuid.uuid4().hex[:12]
+
+        # Warm the InSpatio worker (container boot + weight verify + checkpoint
+        # linking) in parallel with LTX generation. The LTX worker spawns the
+        # InSpatio run itself once its video is on the Volume.
+        await InSpatioInference().warmup.spawn.aio()
+        await LTXInference().run.spawn.aio(
+            session_id=session_id,
             prompt=prompt,
             trajectory=trajectory,
             seed=seed,
-            cached_trajectories={},
+            width=width,
+            height=height,
+            num_frames=num_frames,
+            fps=fps,
         )
-        call = await run_world_job.spawn.aio(job_id, params)
-        await write_manifest_aio(job_id, call_id=call.object_id)
-        return {"job_id": job_id, "call_id": call.object_id}
+        return {"session_id": session_id}
 
-    @web_app.get("/api/jobs/{job_id}")
-    async def job_status(job_id: str):
+    @web_app.get("/api/sessions/{session_id}")
+    async def session_state(session_id: str):
         async with volume_lock:
             await output_volume.reload.aio()
-        manifest = read_manifest(job_id)
-        if not manifest:
+        if not session_dir(session_id).exists():
             return fastapi.responses.JSONResponse(
-                {"error": "job not found"},
+                {"error": "session not found"},
                 status_code=404,
             )
+        state = session_status(session_id)
+        code = 200 if state["status"] in ("done", "error") else 202
+        return fastapi.responses.JSONResponse(state, status_code=code)
 
-        call_id = manifest.get("call_id")
-        if call_id and manifest.get("status") not in ("done", "error"):
-            try:
-                fc = modal.FunctionCall.from_id(call_id)
-                await fc.get.aio(timeout=0)
-            except TimeoutError:
-                pass
-            except modal.exception.OutputExpiredError:
-                manifest = read_manifest(job_id)
-            except Exception as e:
-                await write_manifest_aio(
-                    job_id, status="error", error=str(e)
-                )
-                manifest = read_manifest(job_id)
-
-        async with volume_lock:
-            await output_volume.reload.aio()
-        manifest = read_manifest(job_id)
-        code = 200 if manifest.get("status") in ("done", "error") else 202
-        return fastapi.responses.JSONResponse(manifest, status_code=code)
-
-    @web_app.post("/api/jobs/{job_id}/trajectory")
-    async def rerun_trajectory(job_id: str, trajectory: str = fastapi.Form(...)):
-        async with volume_lock:
-            await output_volume.reload.aio()
-        manifest = read_manifest(job_id)
-        if not manifest:
-            return fastapi.responses.JSONResponse(
-                {"error": "job not found"},
-                status_code=404,
-            )
-
-        cached = manifest.get("cached_trajectories", {})
-        if trajectory in cached:
-            assets = cached[trajectory]
-            await write_manifest_aio(
-                job_id,
-                status="done",
-                trajectory=trajectory,
-                assets=assets,
-            )
-            return read_manifest(job_id)
-
-        call = await run_trajectory_job.spawn.aio(job_id, trajectory)
-        await write_manifest_aio(
-            job_id, call_id=call.object_id, trajectory=trajectory
-        )
-        return {"job_id": job_id, "call_id": call.object_id, "status": "running_inspatio"}
-
-    @web_app.get("/api/assets/{job_id}/{filename}")
-    async def serve_asset(job_id: str, filename: str):
+    @web_app.get("/api/assets/{session_id}/{filename}")
+    async def serve_asset(session_id: str, filename: str):
         if filename not in ASSET_NAMES:
             return fastapi.responses.JSONResponse(
                 {"error": "unknown asset"},
                 status_code=404,
             )
 
-        vol_path = job_dir(job_id) / "packaged" / filename
+        vol_path = session_dir(session_id) / filename
         if not vol_path.exists():  # cold container: reload once to see the asset
             async with volume_lock:
                 if not vol_path.exists():
@@ -899,12 +694,11 @@ def ui():
 
         # Copy to local disk and stream from there, so we never hold a file open
         # on the Volume (which would break concurrent reloads). Key the cache by
-        # (mtime, size) so a trajectory rerun that overwrites the file is served
-        # fresh.
+        # (mtime, size) so an overwritten file is served fresh.
         stat = vol_path.stat()
         local_path = (
             Path("/tmp/asset_cache")
-            / job_id
+            / session_id
             / f"{stat.st_mtime_ns}_{stat.st_size}_{filename}"
         )
         if not local_path.exists():
@@ -931,14 +725,15 @@ def ui():
 
 # ## CLI
 
-# `modal run image_to_world.py --prompt "..."` runs one job end-to-end and
-# downloads the packaged artifacts to the local output directory.
+# `modal run image_to_world.py --prompt "..."` starts a session, warming the
+# InSpatio worker and spawning the LTX worker (which in turn spawns InSpatio).
+# The client then watches the output Volume by file presence until the world
+# video shows up, and downloads the results to the local output directory.
 
 
 @app.local_entrypoint()
 def entrypoint(
     prompt: str,
-    image_path: Optional[str] = None,
     trajectory: str = "x_y_circle_cycle",
     seed: Optional[int] = None,
     width: int = DEFAULT_WIDTH,
@@ -946,54 +741,47 @@ def entrypoint(
     num_frames: int = DEFAULT_NUM_FRAMES,
     fps: int = DEFAULT_FPS,
 ):
-    job_id = uuid.uuid4().hex[:12]
-    image_path_remote = None
-    if image_path:
-        if image_path.startswith(("http://", "https://")):
-            src = io.BytesIO(urllib.request.urlopen(image_path).read())
-        elif os.path.isfile(image_path):
-            src = image_path
-        else:
-            raise ValueError(f"{image_path} is not a valid file or URL.")
-        with output_volume.batch_upload() as batch:
-            batch.put_file(src, f"{job_id}/input/image.jpg")
-        image_path_remote = str(job_dir(job_id) / "input" / "image.jpg")
+    session_id = uuid.uuid4().hex[:12]
 
-    params = {
-        "prompt": prompt,
-        "trajectory": trajectory,
-        "seed": seed,
-        "width": width,
-        "height": height,
-        "num_frames": num_frames,
-        "fps": fps,
-        "image_path": image_path_remote,
-    }
-
-    print(f"Starting world job {job_id}")
+    print(f"Starting world session {session_id}")
     print(f"  prompt: {prompt}")
     print(f"  trajectory: {trajectory}")
 
+    InSpatioInference().warmup.spawn()
+    LTXInference().run.spawn(
+        session_id=session_id,
+        prompt=prompt,
+        trajectory=trajectory,
+        seed=seed,
+        width=width,
+        height=height,
+        num_frames=num_frames,
+        fps=fps,
+    )
+
     start = time.time()
-    manifest = run_world_job.remote(job_id, params)
-    duration = time.time() - start
-    print(f"Job finished in {duration:.1f}s — status={manifest.get('status')}")
+    last_status = None
+    while True:
+        output_volume.reload()
+        state = session_status(session_id)
+        status = state["status"]
+        if status != last_status:
+            print(f"  [{time.time() - start:6.1f}s] {status}")
+            last_status = status
+        if status in ("done", "error"):
+            break
+        time.sleep(10)
 
-    if manifest.get("status") == "error":
-        raise RuntimeError(manifest.get("error", "unknown error"))
+    if last_status == "error":
+        raise RuntimeError(state.get("error", "unknown error"))
 
-    out_dir = Path("/tmp/world_model") / job_id
+    out_dir = Path("/tmp/world_model") / session_id
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in ("source.mp4", "world.mp4", "conditioning.mp4", "pointcloud.ply"):
-        vol_path = f"{job_id}/packaged/{name}"
         try:
-            data = b"".join(output_volume.read_file(vol_path))
+            data = b"".join(output_volume.read_file(f"{session_id}/{name}"))
         except Exception:
             continue
         local = out_dir / name
         local.write_bytes(data)
         print(f"  saved {local}")
-
-    manifest_path = out_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"Manifest: {manifest_path}")
