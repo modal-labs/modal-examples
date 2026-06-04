@@ -9,7 +9,7 @@
 # into an explorable 3D "world": a video rendered along a camera trajectory,
 # plus the point cloud it was built from.
 
-# The pipeline runs in two stages, with no central orchestrator:
+# The pipeline runs in two stages:
 # 1. [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) generates a short
 #    reference video from the prompt, writes it to a Volume, then spawns stage 2.
 # 2. [InSpatio-World](https://huggingface.co/inspatio/world) lifts that video
@@ -59,12 +59,10 @@ import modal
 
 app = modal.App("world-model")
 
-MINUTES = 60
-
 # ## Paths and volumes
 
-# Model weights are cached to Volumes so they download only once. Generated
-# artifacts for every session are written to a separate output Volume.
+# Model weights are cached to Volumes so they download only once. 
+# Generated videos are written to a separate output Volume.
 
 ARTIFACTS_PATH = "/artifacts"
 INSPATIO_WEIGHTS = "/models/inspatio"
@@ -113,25 +111,38 @@ SESSION_ASSETS = {
 }
 
 
+def status_from_files(present: set[str]) -> str:
+    """Map the set of filenames present in a session dir to a progress label."""
+    if "error.txt" in present:
+        return "error"
+    if "world.mp4" in present:
+        return "done"
+    if "source.mp4" in present:
+        return "running_inspatio"
+    return "running_ltx"
+
+
 def session_status(session_id: str) -> dict:
-    """Infer a session's progress from which files exist on the Volume."""
+    """Infer a session's progress from which files exist on the Volume.
+
+    For use inside containers, where the output Volume is mounted at
+    ``ARTIFACTS_PATH``. The CLI runs locally and instead lists the Volume over
+    the client API (see ``entrypoint``).
+    """
     base = session_dir(session_id)
+    present = {
+        name
+        for name in (*SESSION_ASSETS.values(), "error.txt")
+        if (base / name).exists()
+    }
     assets = {
         key: f"/api/assets/{session_id}/{name}"
         for key, name in SESSION_ASSETS.items()
-        if (base / name).exists()
+        if name in present
     }
-
-    error_path = base / "error.txt"
-    if error_path.exists():
-        return {"status": "error", "error": error_path.read_text(), "assets": assets}
-    if "world_video" in assets:
-        status = "done"
-    elif "source_video" in assets:
-        status = "running_inspatio"
-    else:
-        status = "running_ltx"
-    return {"status": status, "error": None, "assets": assets}
+    status = status_from_files(present)
+    error = (base / "error.txt").read_text() if status == "error" else None
+    return {"status": status, "error": error, "assets": assets}
 
 
 def wait_for_file(path: Path, timeout_s: float = 120.0) -> bool:
@@ -218,8 +229,8 @@ with ltx_image.imports():
 @app.cls(
     image=ltx_image,
     gpu="H200",
-    timeout=30 * MINUTES,
-    scaledown_window=15 * MINUTES,
+    timeout=30 * 60,
+    scaledown_window=15 * 60,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         "/root/.cache/huggingface": model_volume,
@@ -400,8 +411,8 @@ inspatio_image = (
 @app.cls(
     image=inspatio_image,
     gpu="H200",
-    timeout=90 * MINUTES,
-    scaledown_window=10 * MINUTES,
+    timeout=90 * 60,
+    scaledown_window=10 * 60,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         INSPATIO_WEIGHTS: model_volume,
@@ -728,7 +739,8 @@ def ui():
 # `modal run image_to_world.py --prompt "..."` starts a session, warming the
 # InSpatio worker and spawning the LTX worker (which in turn spawns InSpatio).
 # The client then watches the output Volume by file presence until the world
-# video shows up, and downloads the results to the local output directory.
+# video shows up, and prints a link to the Volume dashboard where the LTX and
+# InSpatio videos can be viewed.
 
 
 @app.local_entrypoint()
@@ -759,12 +771,18 @@ def entrypoint(
         fps=fps,
     )
 
+    def list_session_files() -> set[str]:
+        # `reload()` only works inside a container, so the local CLI lists the
+        # Volume over the client API instead.
+        try:
+            return {Path(e.path).name for e in output_volume.listdir(session_id)}
+        except Exception:
+            return set()
+
     start = time.time()
     last_status = None
     while True:
-        output_volume.reload()
-        state = session_status(session_id)
-        status = state["status"]
+        status = status_from_files(list_session_files())
         if status != last_status:
             print(f"  [{time.time() - start:6.1f}s] {status}")
             last_status = status
@@ -773,15 +791,20 @@ def entrypoint(
         time.sleep(10)
 
     if last_status == "error":
-        raise RuntimeError(state.get("error", "unknown error"))
-
-    out_dir = Path("/tmp/world_model") / session_id
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("source.mp4", "world.mp4", "conditioning.mp4", "pointcloud.ply"):
         try:
-            data = b"".join(output_volume.read_file(f"{session_id}/{name}"))
+            message = b"".join(
+                output_volume.read_file(f"{session_id}/error.txt")
+            ).decode()
         except Exception:
-            continue
-        local = out_dir / name
-        local.write_bytes(data)
-        print(f"  saved {local}")
+            message = "unknown error"
+        raise RuntimeError(message)
+
+    # The videos stay on the output Volume. Print a link to its dashboard so the
+    # LTX source and InSpatio world videos can be viewed without downloading.
+    output_volume.hydrate()
+    dashboard_url = f"https://modal.com/id/{output_volume.object_id}"
+    print("\nWorld ready. View the videos on the Modal Volume dashboard:")
+    print(f"  {dashboard_url}")
+    print(f"This run's files live under {session_id}/ :")
+    print(f"  {session_id}/source.mp4   (LTX video)")
+    print(f"  {session_id}/world.mp4    (InSpatio world video)")
