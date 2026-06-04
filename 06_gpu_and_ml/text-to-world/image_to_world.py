@@ -431,9 +431,6 @@ class InSpatioInference:
         weights = Path(INSPATIO_WEIGHTS)
         weights.mkdir(parents=True, exist_ok=True)
 
-        def download_hf(repo_id: str, dest: str):
-            snapshot_download(repo_id, local_dir=str(weights / dest))
-
         def clone_taehv():
             dest = weights / "taehv"
             if dest.exists():
@@ -444,18 +441,18 @@ class InSpatioInference:
                 check=True,
             )
 
-        # Fetch every checkpoint concurrently on first container start.
         hf_repos = [
             ("inspatio/world", "InSpatio-World-1.3B"),
             ("Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B"),
             ("depth-anything/DA3NESTED-GIANT-LARGE", "DA3"),
             ("microsoft/Florence-2-large", "Florence-2-large"),
         ]
-        with ThreadPoolExecutor(max_workers=len(hf_repos) + 1) as pool:
-            futures = [pool.submit(download_hf, repo, dest) for repo, dest in hf_repos]
-            futures.append(pool.submit(clone_taehv))
-            for future in futures:
-                future.result()
+        # Clone taehv and download HF repos.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            taehv_future = pool.submit(clone_taehv)
+            for repo_id, dest in hf_repos:
+                snapshot_download(repo_id, local_dir=str(weights / dest))
+            taehv_future.result()
 
         sentinel.write_text("ok")
         model_volume.commit()
