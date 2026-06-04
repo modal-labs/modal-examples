@@ -234,6 +234,7 @@ sglang_image = sglang_image.env(
         "SAFETENSORS_FAST_GPU": "1",
         "NVIDIA_TF32_OVERRIDE": "1",
         "SGLANG_ENABLE_JIT_DEEPGEMM": "0",
+        "SGLANG_ENABLE_SPEC_V2": "1",
     }
 )
 
@@ -272,8 +273,7 @@ server_args = spec_args + [
     "flashinfer_trtllm",
     "--moe-runner-backend",
     "flashinfer_trtllm",
-    "--mamba-scheduler-strategy",
-    "no_buffer",
+    "--disable-radix-cache",
     "--disable-piecewise-cuda-graph",
     "--kv-cache-dtype",
     "fp8_e4m3",
@@ -306,30 +306,34 @@ class Server:
     def startup(self):
         """Start the SGLang server and block until it is healthy, then warm it up."""
 
-        cmd = [
-            "sglang",
-            "serve",
-            "--model-path",
-            MODEL_NAME,
-            "--served-model-name",
-            MODEL_NAME,
-            "--host",
-            "0.0.0.0",
-            "--port",
-            f"{PORT}",
-            "--tp",  # configure GPU parallelism
-            f"{N_GPUS}",
-            "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
-            f"{TARGET_INPUTS * 2}",
-            "--enable-metrics",  # expose metrics endpoints for telemetry
-            "--decode-log-interval",  # how often to log during decoding, in tokens
-            "10",
-            "--trust-remote-code",
-            "--tool-call-parser",
-            "qwen3_coder",
-            "--reasoning-parser",
-            "nemotron_3",
-        ]
+        cmd = (
+            [
+                "sglang",
+                "serve",
+                "--model-path",
+                MODEL_NAME,
+                "--served-model-name",
+                MODEL_NAME,
+                "--host",
+                "0.0.0.0",
+                "--port",
+                f"{PORT}",
+                "--tp",
+                f"{N_GPUS}",
+                "--cuda-graph-max-bs",  # only capture CUDA graphs for batch sizes we're likely to observe
+                f"{TARGET_INPUTS * 2}",
+                "--enable-metrics",  # expose metrics endpoints for telemetry
+                "--decode-log-interval",  # how often to log during decoding, in tokens
+                "10",
+                "--trust-remote-code",
+                "--tool-call-parser",
+                "qwen3_coder",
+                "--reasoning-parser",
+                "nemotron_3",
+            ]
+            + server_args
+            + ["--load-format", "dummy"]
+        )
 
         self.process = subprocess.Popen(cmd)
         wait_ready(self.process)
