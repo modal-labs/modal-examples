@@ -332,7 +332,6 @@ class Server:
                 "nemotron_3",
             ]
             + server_args
-            + ["--load-format", "dummy"]
         )
 
         self.process = subprocess.Popen(cmd)
