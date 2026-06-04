@@ -43,6 +43,7 @@
 
 # ## Environment setup
 
+import asyncio
 import io
 import json
 import os
@@ -756,6 +757,11 @@ def ui():
     web_app = fastapi.FastAPI()
     templates = fastapi.templating.Jinja2Templates(directory="/assets")
 
+    # `Volume.reload()` fails if any file on the Volume is open in this container.
+    # This lock serializes reloads (and the asset copy-out below) so a reload can
+    # never overlap an open Volume file while many requests run concurrently.
+    volume_lock = asyncio.Lock()
+
     @web_app.get("/")
     async def read_root(request: fastapi.Request):
         return templates.TemplateResponse(
@@ -817,7 +823,8 @@ def ui():
 
     @web_app.get("/api/jobs/{job_id}")
     async def job_status(job_id: str):
-        await output_volume.reload.aio()
+        async with volume_lock:
+            await output_volume.reload.aio()
         manifest = read_manifest(job_id)
         if not manifest:
             return fastapi.responses.JSONResponse(
@@ -840,14 +847,16 @@ def ui():
                 )
                 manifest = read_manifest(job_id)
 
-        await output_volume.reload.aio()
+        async with volume_lock:
+            await output_volume.reload.aio()
         manifest = read_manifest(job_id)
         code = 200 if manifest.get("status") in ("done", "error") else 202
         return fastapi.responses.JSONResponse(manifest, status_code=code)
 
     @web_app.post("/api/jobs/{job_id}/trajectory")
     async def rerun_trajectory(job_id: str, trajectory: str = fastapi.Form(...)):
-        await output_volume.reload.aio()
+        async with volume_lock:
+            await output_volume.reload.aio()
         manifest = read_manifest(job_id)
         if not manifest:
             return fastapi.responses.JSONResponse(
@@ -879,16 +888,39 @@ def ui():
                 {"error": "unknown asset"},
                 status_code=404,
             )
-        await output_volume.reload.aio()
-        path = job_dir(job_id) / "packaged" / filename
-        if not path.exists():
-            return fastapi.responses.JSONResponse(
-                {"error": "asset not ready"},
-                status_code=404,
-            )
+
+        vol_path = job_dir(job_id) / "packaged" / filename
+        if not vol_path.exists():  # cold container: reload once to see the asset
+            async with volume_lock:
+                if not vol_path.exists():
+                    await output_volume.reload.aio()
+            if not vol_path.exists():
+                return fastapi.responses.JSONResponse(
+                    {"error": "asset not ready"},
+                    status_code=404,
+                )
+
+        # Copy to local disk and stream from there, so we never hold a file open
+        # on the Volume (which would break concurrent reloads). Key the cache by
+        # (mtime, size) so a trajectory rerun that overwrites the file is served
+        # fresh.
+        stat = vol_path.stat()
+        local_path = (
+            Path("/tmp/asset_cache")
+            / job_id
+            / f"{stat.st_mtime_ns}_{stat.st_size}_{filename}"
+        )
+        if not local_path.exists():
+            async with volume_lock:
+                if not local_path.exists():
+                    local_path.parent.mkdir(parents=True, exist_ok=True)
+                    tmp = local_path.with_name(local_path.name + ".part")
+                    shutil.copy2(vol_path, tmp)
+                    tmp.rename(local_path)
+
         media = "video/mp4" if filename.endswith(".mp4") else "application/octet-stream"
         return fastapi.responses.FileResponse(
-            path, media_type=media, content_disposition_type="inline"
+            local_path, media_type=media, content_disposition_type="inline"
         )
 
     web_app.mount(
