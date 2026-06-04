@@ -202,6 +202,7 @@ ltx_image = (
         "torchaudio==2.7.0",
         "transformers>=4.52,<5",
         "huggingface-hub>=0.36",
+        "hf_transfer>=0.1.8",
         "fastapi[standard]==0.115.8",
         f"git+https://github.com/Lightricks/LTX-2.git@{LTX2_COMMIT}#subdirectory=packages/ltx-core",
         f"git+https://github.com/Lightricks/LTX-2.git@{LTX2_COMMIT}#subdirectory=packages/ltx-pipelines",
@@ -213,6 +214,7 @@ ltx_image = (
     .env(
         {
             "HF_XET_HIGH_PERFORMANCE": "1",
+            "HF_HUB_ENABLE_HF_TRANSFER": "1",
             "PYTORCH_ALLOC_CONF": "expandable_segments:True",
         }
     )
@@ -414,7 +416,7 @@ inspatio_image = (
 
 @app.cls(
     image=inspatio_image,
-    gpu="H100",
+    gpu="H200",
     timeout=90 * MINUTES,
     scaledown_window=10 * MINUTES,
     volumes={
@@ -428,6 +430,7 @@ class InSpatioInference:
     def setup(self):
         """Download InSpatio checkpoints to the weights Volume on first container start."""
         import os
+        from concurrent.futures import ThreadPoolExecutor
 
         sentinel = Path(INSPATIO_WEIGHTS) / ".ready"
         if sentinel.exists():
@@ -445,31 +448,31 @@ class InSpatioInference:
             subprocess.run(["git", "clone", url, dest], cwd=cwd, env=env, check=True)
             subprocess.run(["git", "lfs", "pull"], cwd=dest_path, check=True)
 
-        git_lfs_clone("https://huggingface.co/inspatio/world", "world")
+        def git_clone(url: str, dest: str):
+            dest_path = cwd / dest
+            if dest_path.exists():
+                shutil.rmtree(dest_path)
+            subprocess.run(["git", "clone", url, dest], cwd=cwd, env=env, check=True)
+
+        # Download repos concurrently on first container start
+        clone_tasks = [
+            (git_lfs_clone, "https://huggingface.co/inspatio/world", "world"),
+            (git_lfs_clone, "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B"),
+            (git_lfs_clone, "https://huggingface.co/depth-anything/DA3NESTED-GIANT-LARGE", "DA3"),
+            (git_lfs_clone, "https://huggingface.co/microsoft/Florence-2-large", "Florence-2-large"),
+            (git_clone, "https://github.com/madebyollin/taehv.git", "taehv"),
+        ]
+        with ThreadPoolExecutor(max_workers=len(clone_tasks)) as pool:
+            futures = [pool.submit(fn, url, dest) for fn, url, dest in clone_tasks]
+            for future in futures:
+                future.result()
+
         (cwd / "InSpatio-World-1.3B").mkdir(exist_ok=True)
         shutil.move(
             str(cwd / "world" / "InSpatio-World-1.3B.safetensors"),
             str(cwd / "InSpatio-World-1.3B" / "InSpatio-World-1.3B.safetensors"),
         )
         shutil.rmtree(cwd / "world")
-
-        git_lfs_clone(
-            "https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B",
-            "Wan2.1-T2V-1.3B",
-        )
-        git_lfs_clone(
-            "https://huggingface.co/depth-anything/DA3NESTED-GIANT-LARGE",
-            "DA3",
-        )
-        git_lfs_clone(
-            "https://huggingface.co/microsoft/Florence-2-large",
-            "Florence-2-large",
-        )
-        subprocess.run(
-            ["git", "clone", "https://github.com/madebyollin/taehv.git"],
-            cwd=cwd,
-            check=True,
-        )
 
         sentinel.write_text("ok")
         inspatio_model_volume.commit()
@@ -493,6 +496,11 @@ class InSpatioInference:
             if not target.exists() or link.is_symlink() or link.exists():
                 continue
             link.symlink_to(target)
+
+    @modal.method()
+    def warmup(self) -> str:
+        self._link_checkpoints()
+        return "ok"
 
     @modal.method()
     def run(
@@ -682,12 +690,19 @@ def package_job(job_id: str, trajectory: str) -> dict:
 )
 def run_world_job(job_id: str, params: dict):
     try:
+        trajectory = params.get("trajectory", "x_y_circle_cycle")
         write_manifest(
             job_id,
             status="running_ltx",
             **{k: params.get(k) for k in ("prompt", "seed", "trajectory", "width", "height", "num_frames", "fps")},
         )
-        LTXInference().run.remote(
+
+        # Warm the InSpatio worker (container boot + weight verify + checkpoint
+        # linking) in parallel with LTX generation.
+        inspatio = InSpatioInference()
+        warm_call = inspatio.warmup.spawn()
+
+        ltx_call = LTXInference().run.spawn(
             job_id=job_id,
             prompt=params["prompt"],
             image_bytes=params.get("image_bytes"),
@@ -698,9 +713,10 @@ def run_world_job(job_id: str, params: dict):
             fps=params.get("fps", DEFAULT_FPS),
         )
 
-        trajectory = params.get("trajectory", "x_y_circle_cycle")
+        ltx_call.get()
+        output_volume.reload()
         src_ltx = job_dir(job_id) / "ltx" / "source.mp4"
-        if not wait_for_file(src_ltx):
+        if not src_ltx.exists() and not wait_for_file(src_ltx):
             raise FileNotFoundError(f"LTX output missing after commit: {src_ltx}")
 
         packaged_dir = job_dir(job_id) / "packaged"
@@ -713,8 +729,9 @@ def run_world_job(job_id: str, params: dict):
             trajectory=trajectory,
             assets={"source_video": f"/api/assets/{job_id}/source.mp4"},
         )
-
-        InSpatioInference().run.remote(
+        
+        warm_call.get()
+        inspatio.run.remote(
             job_id=job_id, trajectory=trajectory, source_bytes=source_bytes
         )
 
