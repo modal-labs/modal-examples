@@ -10,11 +10,6 @@
   </head>
   {% set app_config = {
     "default_prompt": default_prompt,
-    "default_width": default_width,
-    "default_height": default_height,
-    "default_num_frames": default_num_frames,
-    "default_fps": default_fps,
-    "default_trajectory": trajectories[0].id,
   } %}
   <body
     x-data="state()"
@@ -36,69 +31,14 @@
           class="w-full px-3 py-3 mb-4 text-md bg-white border rounded-md border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-400"
         ></textarea>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-sm">
-          <label class="flex flex-col gap-1">
-            <span class="text-neutral-500">Seed</span>
-            <input
-              type="number"
-              x-model.number="seed"
-              placeholder="random"
-              class="border rounded-md px-2 py-1.5 border-neutral-300"
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-neutral-500">Width</span>
-            <input
-              type="number"
-              x-model.number="width"
-              class="border rounded-md px-2 py-1.5 border-neutral-300"
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-neutral-500">Height</span>
-            <input
-              type="number"
-              x-model.number="height"
-              class="border rounded-md px-2 py-1.5 border-neutral-300"
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-neutral-500">Frames</span>
-            <input
-              type="number"
-              x-model.number="numFrames"
-              class="border rounded-md px-2 py-1.5 border-neutral-300"
-            />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-neutral-500">FPS</span>
-            <input
-              type="number"
-              x-model.number="fps"
-              class="border rounded-md px-2 py-1.5 border-neutral-300"
-            />
-          </label>
-          <label class="flex flex-col gap-1 col-span-2">
-            <span class="text-neutral-500">Camera trajectory</span>
-            <select
-              x-model="trajectory"
-              class="border rounded-md px-2 py-1.5 border-neutral-300 bg-white"
-            >
-              {% for t in trajectories %}
-              <option value="{{ t.id }}">{{ t.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-        </div>
-
-        <div class="flex flex-wrap items-center justify-end gap-3">
+        <div class="flex flex-wrap items-center justify-center gap-3">
           <button
             type="submit"
             class="px-5 py-2 text-sm font-semibold text-white rounded-md bg-neutral-950 hover:bg-neutral-900 disabled:opacity-50"
             :disabled="loading || !prompt"
           >
             <span x-show="!loading">Generate world</span>
-            <span x-show="loading" x-text="statusLabel"></span>
+            <span x-show="loading">Generating...</span>
           </button>
         </div>
       </form>
@@ -158,19 +98,6 @@
           </div>
         </div>
       </div>
-
-      <details class="mt-6 bg-white border border-neutral-200 rounded-lg p-4" x-show="conditioningURL">
-        <summary class="cursor-pointer text-sm font-medium text-neutral-600">
-          Point-cloud conditioning render
-        </summary>
-        <video
-          :src="conditioningURL"
-          @error="retryVideo($event.target)"
-          @loadeddata="$event.target.dataset.retries = 0"
-          controls
-          class="w-full mt-3 rounded-md max-w-2xl"
-        ></video>
-      </details>
     </div>
 
     <script>
@@ -178,26 +105,18 @@
         const cfg = JSON.parse(document.body.dataset.config);
         return {
           prompt: cfg.default_prompt,
-          seed: "",
-          width: cfg.default_width,
-          height: cfg.default_height,
-          numFrames: cfg.default_num_frames,
-          fps: cfg.default_fps,
-          trajectory: cfg.default_trajectory,
           loading: false,
           sessionId: null,
           status: "",
           error: "",
           sourceURL: "",
           worldURL: "",
-          conditioningURL: "",
 
           get statusLabel() {
             const labels = {
               running_ltx: "Stage 1/2: LTX reference video…",
               running_inspatio: "Stage 2/2: InSpatio world generation…",
               done: "Done",
-              error: "Error",
             };
             return labels[this.status] || this.status || "Working…";
           },
@@ -208,20 +127,11 @@
             this.error = "";
             this.sourceURL = "";
             this.worldURL = "";
-            this.conditioningURL = "";
             this.sessionId = null;
 
             try {
               const formData = new FormData();
               formData.append("prompt", this.prompt);
-              formData.append("trajectory", this.trajectory);
-              formData.append("width", this.width);
-              formData.append("height", this.height);
-              formData.append("num_frames", this.numFrames);
-              formData.append("fps", this.fps);
-              if (this.seed !== "" && this.seed !== null) {
-                formData.append("seed", this.seed);
-              }
 
               const res = await fetch("/api/sessions", {
                 method: "POST",
@@ -245,13 +155,6 @@
             const state = await res.json();
             this.status = state.status || "";
 
-            if (state.status === "error") {
-              this.error = state.error || "Session failed";
-              this.loading = false;
-              return;
-            }
-
-            // Show each asset the workers have written so far.
             this.applyAssets(state.assets || {});
 
             if (state.status === "done") {
@@ -265,9 +168,6 @@
           applyAssets(assets) {
             if (assets.source_video) this.sourceURL = assets.source_video;
             if (assets.world_video) this.worldURL = assets.world_video;
-            if (assets.conditioning_video) {
-              this.conditioningURL = assets.conditioning_video;
-            }
           },
 
           retryVideo(el) {
