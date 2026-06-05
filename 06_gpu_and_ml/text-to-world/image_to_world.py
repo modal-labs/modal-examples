@@ -16,7 +16,7 @@
 
 # <center>
 # <video controls autoplay loop muted>
-# <source src="https://modal-cdn.com/example_image_to_video.mp4" type="video/mp4" />
+# <source src="https://modal-cdn.com/world.mp4" type="video/mp4" />
 # </video>
 # </center>
 
