@@ -39,7 +39,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App("world-model")
+app = modal.App("example-world-model")
 
 # ## Paths and Volumes
 
@@ -183,8 +183,8 @@ ltx_image = (
         "torch==2.7.0",
         "torchaudio==2.7.0",
         "transformers>=4.52,<5",
-        "huggingface-hub>=0.36",
-        "hf_transfer>=0.1.8",
+        "huggingface-hub==0.36.2",
+        "hf_transfer==0.1.8",
         "fastapi[standard]==0.115.8",
         f"git+https://github.com/Lightricks/LTX-2.git@{LTX2_COMMIT}#subdirectory=packages/ltx-core",
         f"git+https://github.com/Lightricks/LTX-2.git@{LTX2_COMMIT}#subdirectory=packages/ltx-pipelines",
@@ -363,6 +363,7 @@ inspatio_image = (
         f" && rm -rf {INSPATIO_REPO}/checkpoints"
         f" && ln -s {INSPATIO_WEIGHTS} {INSPATIO_REPO}/checkpoints"
     )
+    .entrypoint([])
 )
 
 
