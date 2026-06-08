@@ -590,7 +590,7 @@ def ui():
 # Run the pipeline from your terminal with
 
 # ```bash
-# modal run image_to_world.py --prompt "A serene mountain lake at sunrise, mist rising off the water"
+# modal run text_to_world.py --prompt "Cyberpunk dystopia where humans have been enslaved by sentient fungi"
 # ```
 
 # This starts a session, watches the output Volume until the world video shows
