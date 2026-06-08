@@ -151,17 +151,24 @@
 
           async pollSession() {
             if (!this.sessionId) return;
-            const res = await fetch(`/api/sessions/${this.sessionId}`);
-            const state = await res.json();
-            this.status = state.status || "";
+            try {
+              const res = await fetch(`/api/sessions/${this.sessionId}`);
+              if (!res.ok) {
+                setTimeout(() => this.pollSession(), 10000);
+                return;
+              }
+              const state = await res.json();
+              this.status = state.status || "";
 
-            this.applyAssets(state.assets || {});
+              this.applyAssets(state.assets || {});
 
-            if (state.status === "done") {
-              this.loading = false;
-              return;
+              if (state.status === "done") {
+                this.loading = false;
+                return;
+              }
+            } catch (err) {
+              console.warn("poll error", err);
             }
-
             setTimeout(() => this.pollSession(), 10000);
           },
 

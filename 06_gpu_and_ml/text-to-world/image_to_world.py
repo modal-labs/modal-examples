@@ -41,6 +41,8 @@ import modal
 
 app = modal.App("example-world-model")
 
+MINUTES = 60  # seconds
+
 # ## Paths and Volumes
 
 # Model weights and generated videos both live on Volumes, so weights download
@@ -182,7 +184,7 @@ ltx_image = (
     .uv_pip_install(
         "torch==2.7.0",
         "torchaudio==2.7.0",
-        "transformers>=4.52,<5",
+        "transformers==4.52",
         "huggingface-hub==0.36.2",
         "hf_transfer==0.1.8",
         "fastapi[standard]==0.115.8",
@@ -221,8 +223,8 @@ with ltx_image.imports():
 @app.cls(
     image=ltx_image,
     gpu="H200",
-    timeout=30 * 60,
-    scaledown_window=15 * 60,
+    timeout=30 * MINUTES,
+    scaledown_window=15 * MINUTES,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         "/root/.cache/huggingface": model_volume,
@@ -370,8 +372,8 @@ inspatio_image = (
 @app.cls(
     image=inspatio_image,
     gpu="H200",
-    timeout=90 * 60,
-    scaledown_window=10 * 60,
+    timeout=90 * MINUTES,
+    scaledown_window=10 * MINUTES,
     retries=modal.Retries(max_retries=3, initial_delay=5.0),
     volumes={
         INSPATIO_WEIGHTS: model_volume,
@@ -458,8 +460,9 @@ class InSpatioInference:
             raise RuntimeError(f"InSpatio pipeline exit code {result.returncode}")
 
         world_src = next(iter(sorted(output_folder.rglob("*pred_video*.mp4"))), None)
-        if world_src:
-            transcode_to_web_mp4(world_src, session_dir(session_id) / "world.mp4")
+        if not world_src:
+            raise RuntimeError("InSpatio produced no world video")
+        transcode_to_web_mp4(world_src, session_dir(session_id) / "world.mp4")
         shutil.rmtree(work, ignore_errors=True)
         output_volume.commit()
 
