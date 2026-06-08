@@ -193,7 +193,7 @@ ltx_image = (
     .uv_pip_install(
         "torch==2.7.0",
         "torchaudio==2.7.0",
-        "transformers==4.52",
+        "transformers==4.57.6",
         "huggingface-hub==0.36.2",
         "hf_transfer==0.1.8",
         "fastapi[standard]==0.115.8",
