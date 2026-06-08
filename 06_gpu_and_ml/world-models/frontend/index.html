@@ -1,0 +1,196 @@
+<html>
+  <head>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Text to World on Modal with LTX-2.3 and InSpatio</title>
+  </head>
+  {% set app_config = {
+    "default_prompt": default_prompt,
+  } %}
+  <body
+    x-data="state()"
+    class="bg-neutral-50"
+    data-config='{{ app_config | tojson }}'
+  >
+    <div class="max-w-6xl mx-auto pt-4 pb-12 px-6 sm:py-10">
+      <h2 class="text-3xl font-medium text-center mb-2">{{ model_name }}</h2>
+
+      <form
+        @submit.prevent="submitJob"
+        class="bg-white border border-neutral-200 rounded-lg p-5 mb-8 shadow-sm"
+      >
+        <textarea
+          x-model="prompt"
+          x-init="$nextTick(() => { $el.focus(); });"
+          rows="2"
+          placeholder="Describe the scene..."
+          class="w-full px-3 py-3 mb-4 text-md bg-white border rounded-md border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        ></textarea>
+
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="submit"
+            class="px-5 py-2 text-sm font-semibold text-white rounded-md bg-neutral-950 hover:bg-neutral-900 disabled:opacity-50"
+            :disabled="loading || !prompt"
+          >
+            <span x-show="!loading">Generate world</span>
+            <span x-show="loading">Generating...</span>
+          </button>
+        </div>
+      </form>
+
+      <div
+        x-show="error"
+        class="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm"
+        x-text="error"
+      ></div>
+
+      <div
+        x-show="loading"
+        class="mb-4 text-center text-sm text-neutral-500"
+        x-text="statusLabel"
+      ></div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-sm font-medium text-neutral-600 mb-2">LTX source video</h3>
+          <div class="relative bg-neutral-100 rounded-lg overflow-hidden aspect-video">
+            <video
+              x-show="sourceURL"
+              :src="sourceURL"
+              x-effect="if (sourceURL) { $el.load() }"
+              @error="retryVideo($event.target)"
+              @loadeddata="$event.target.dataset.retries = 0"
+              controls
+              loop
+              class="w-full h-full"
+            ></video>
+            <div
+              x-show="loading && !sourceURL"
+              class="absolute inset-0 animate-pulse bg-neutral-200"
+            ></div>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-neutral-600 mb-2">InSpatio world video</h3>
+          <div class="relative bg-neutral-100 rounded-lg overflow-hidden aspect-video">
+            <video
+              x-show="worldURL"
+              :src="worldURL"
+              x-effect="if (worldURL) { $el.load() }"
+              @error="retryVideo($event.target)"
+              @loadeddata="$event.target.dataset.retries = 0"
+              controls
+              loop
+              class="w-full h-full"
+            ></video>
+            <div
+              x-show="!worldURL"
+              class="absolute inset-0 flex items-center justify-center text-neutral-400 text-sm"
+            >
+              <span x-show="!loading">World video will appear here</span>
+              <span x-show="loading">Generating...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function state() {
+        const cfg = JSON.parse(document.body.dataset.config);
+        return {
+          prompt: cfg.default_prompt,
+          loading: false,
+          sessionId: null,
+          status: "",
+          error: "",
+          sourceURL: "",
+          worldURL: "",
+
+          get statusLabel() {
+            const labels = {
+              running_ltx: "Stage 1/2: LTX reference video…",
+              running_inspatio: "Stage 2/2: InSpatio world generation…",
+              done: "Done",
+            };
+            return labels[this.status] || this.status || "Working…";
+          },
+
+          async submitJob() {
+            if (!this.prompt) return;
+            this.loading = true;
+            this.error = "";
+            this.sourceURL = "";
+            this.worldURL = "";
+            this.sessionId = null;
+
+            try {
+              const formData = new FormData();
+              formData.append("prompt", this.prompt);
+
+              const res = await fetch("/api/sessions", {
+                method: "POST",
+                body: formData,
+              });
+              if (!res.ok) throw new Error("Failed to start session");
+              const data = await res.json();
+              this.sessionId = data.session_id;
+              this.status = "running_ltx";
+              await this.pollSession();
+            } catch (err) {
+              console.error(err);
+              this.error = "There was an error starting the session.";
+              this.loading = false;
+            }
+          },
+
+          async pollSession() {
+            if (!this.sessionId) return;
+            try {
+              const res = await fetch(`/api/sessions/${this.sessionId}`);
+              if (!res.ok) {
+                setTimeout(() => this.pollSession(), 10000);
+                return;
+              }
+              const state = await res.json();
+              this.status = state.status || "";
+
+              this.applyAssets(state.assets || {});
+
+              if (state.status === "done") {
+                this.loading = false;
+                return;
+              }
+            } catch (err) {
+              console.warn("poll error", err);
+            }
+            setTimeout(() => this.pollSession(), 10000);
+          },
+
+          applyAssets(assets) {
+            if (assets.source_video) this.sourceURL = assets.source_video;
+            if (assets.world_video) this.worldURL = assets.world_video;
+          },
+
+          retryVideo(el) {
+            const maxRetries = 10;
+            const base = (el.getAttribute("src") || "").split("?")[0];
+            if (!base) return;
+            const n = (parseInt(el.dataset.retries || "0", 10) || 0) + 1;
+            if (n > maxRetries) return;
+            el.dataset.retries = n;
+            setTimeout(() => {
+              el.src = base + "?r=" + Date.now();
+              el.load();
+            }, 1500);
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
