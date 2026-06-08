@@ -21,6 +21,10 @@
 # The pool keeps track of the time to live for each Sandbox, and will always return
 # a Sandbox with enough time left.
 #
+# Each Sandbox is configured with a
+# [readiness probe](https://modal.com/docs/guide/sandbox#readiness-probes) so we can
+# reliably wait for the server to be ready before adding it to the pool.
+#
 # It's structured into two Apps:
 # - `example-sandbox-pool` is the main App that contains all the control logic for maintaining
 #   the pool, exposing ways to claim Sandboxes, etc.
@@ -49,9 +53,9 @@ server_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
 # Here we define the image that will be used to run the server that runs in the
 # Sandbox. In this simple example, we just run the built in Python HTTP server that
 # returns a directory listing.
-sandbox_image = modal.Image.debian_slim(python_version="3.11")
+sandbox_image = modal.Image.debian_slim(python_version="3.11").apt_install("curl")
 SANDBOX_SERVER_PORT = 8080
-HEALTH_CHECK_TIMEOUT_SECONDS = 10
+READINESS_PROBE_TIMEOUT_SECONDS = 10
 
 # In this example Sandboxes live for 5 minutes, and we assume that they are used for
 # 2 minutes, meaning that if a Sandbox has less than 2 minutes left it's considered
@@ -86,30 +90,16 @@ class SandboxReference:
 #
 # If you just want to ensure the sandbox is running you could for example check
 # `sb.poll() is not None` instead.
-def is_healthy(url: str, wait_for_container_start: bool) -> bool:
-    """Check if a Sandbox is healthy.
-
-    When the Sandbox is first created, the server may not imemediately accept
-    connections, so if `wait_for_container_start` is True, we retry if we fail to
-    connect to the server URL.
-    """
+def is_healthy(url: str) -> bool:
+    """Check if a Sandbox is healthy by verifying the server responds to requests."""
     import requests
 
-    start_time = time.time()
-    while time.time() - start_time < HEALTH_CHECK_TIMEOUT_SECONDS:
-        try:
-            response = requests.get(url, timeout=HEALTH_CHECK_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            return True
-        except requests.RequestException:
-            if (
-                not wait_for_container_start
-                or time.time() - start_time >= HEALTH_CHECK_TIMEOUT_SECONDS
-            ):
-                return False
-            time.sleep(0.1)
-
-    return False
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return True
+    except requests.RequestException:
+        return False
 
 
 def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
@@ -121,7 +111,7 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
     if sr.expires_at < time.time() + SANDBOX_USE_DURATION_SECONDS:
         return False
 
-    if check_health and not is_healthy(sr.url, wait_for_container_start=False):
+    if check_health and not is_healthy(sr.url):
         return False
 
     return True
@@ -129,8 +119,9 @@ def is_still_good(sr: SandboxReference, check_health: bool) -> bool:
 
 # ### Adding a Sandbox to the pool
 #
-# This function creates and adds a new Sandbox to the pool. It runs a health check on
-# the Sandbox before adding it.
+# This function creates and adds a new Sandbox to the pool. It waits for the
+# Sandbox's readiness probe to pass before adding it, ensuring the server is
+# ready to serve requests.
 #
 # We deploy the Sandboxes in a separate Modal App called `example-sandbox-pool-sandboxes`,
 # to separate the control app (logs, etc.) from the Sandboxes.
@@ -148,12 +139,13 @@ def add_sandbox_to_queue() -> None:
         image=sandbox_image,
         encrypted_ports=[SANDBOX_SERVER_PORT],
         timeout=SANDBOX_TIMEOUT_SECONDS,
+        readiness_probe=modal.Probe.with_exec(
+            "curl", "-sf", f"http://localhost:{SANDBOX_SERVER_PORT}/"
+        ),
     )
     expires_at = int(time.time()) + SANDBOX_TIMEOUT_SECONDS
+    sb.wait_until_ready(timeout=READINESS_PROBE_TIMEOUT_SECONDS)
     url = sb.tunnels()[SANDBOX_SERVER_PORT].url
-
-    if not is_healthy(url, wait_for_container_start=True):
-        raise Exception("Health check failed")
 
     pool_queue.put(SandboxReference(id=sb.object_id, url=url, expires_at=expires_at))
     sb.detach()
