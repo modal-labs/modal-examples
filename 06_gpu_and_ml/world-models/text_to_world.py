@@ -1,6 +1,5 @@
 # ---
 # output-directory: "/tmp/world_model"
-# args: ["--prompt", "A serene mountain lake at sunrise, mist rising off the water"]
 # ---
 
 # # Generate 3D worlds from text with LTX-2.3 and InSpatio-World
@@ -39,7 +38,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App("example-world-model")
+app = modal.App("example-text-to-world")
 
 MINUTES = 60  # seconds
 
@@ -599,7 +598,10 @@ def ui():
 
 
 @app.local_entrypoint()
-def entrypoint(prompt: str):
+def entrypoint(prompt: str | None = None):
+    if prompt is None:
+        prompt = "A serene mountain lake at sunrise, mist rising off the water"
+
     session_id = uuid.uuid4().hex[:12]
     print(f"Starting world session {session_id}")
     print(f"  prompt: {prompt}")
