@@ -59,6 +59,15 @@ frontend_path = Path(__file__).parent / "frontend"
 
 # We pin the LTX-2 commit that supports the LTX-2.3 model architecture.
 LTX2_COMMIT = "d6053703e001"
+INSPATIO_COMMIT = "fef970664e33f519a31f0ee19d58689e41752c0e"
+
+# Pin model revisions to avoid surprises when upstream repos update.
+LTX_REVISION = "76730e634e70a28f4e8d51f5e29c08e40e2d8e74"
+GEMMA_REVISION = "68f7ee4fbd59087436ada77ed2d62f373fdd4482"
+INSPATIO_MODEL_REVISION = "f8d1abe227d486be8593825f0611974aa6207e4d"
+WAN_REVISION = "37ec512624d61f7aa208f7ea8140a131f93afc9a"
+DA3_REVISION = "8615eefb62f2db4f8d6ebaa59160086981672829"
+FLORENCE_REVISION = "21a599d414c4d928c9032694c424fb94458e3594"
 
 # InSpatio renders one camera pose per source frame along this trajectory. The
 # three whitespace-separated lines are keyframes for pitch (deg), yaw (deg), and
@@ -238,14 +247,22 @@ class LTXInference:
         torch.set_float32_matmul_precision("high")
 
         ltx_repo = "Lightricks/LTX-2.3"
-        checkpoint_path = hf_hub_download(ltx_repo, "ltx-2.3-22b-dev.safetensors")
+        checkpoint_path = hf_hub_download(
+            ltx_repo, "ltx-2.3-22b-dev.safetensors", revision=LTX_REVISION
+        )
         upsampler_path = hf_hub_download(
-            ltx_repo, "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+            ltx_repo,
+            "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+            revision=LTX_REVISION,
         )
         distilled_lora_path = hf_hub_download(
-            ltx_repo, "ltx-2.3-22b-distilled-lora-384-1.1.safetensors"
+            ltx_repo,
+            "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+            revision=LTX_REVISION,
         )
-        gemma_dir = snapshot_download("google/gemma-3-12b-it-qat-q4_0-unquantized")
+        gemma_dir = snapshot_download(
+            "google/gemma-3-12b-it-qat-q4_0-unquantized", revision=GEMMA_REVISION
+        )
         model_volume.commit()
 
         self.params = detect_params(checkpoint_path)
@@ -358,7 +375,8 @@ inspatio_image = (
     .run_commands(
         # Clone InSpatio, rename a deprecated `torch_dtype` kwarg for newer
         # transformers, and symlink its checkpoints dir to the weights Volume.
-        f"git clone --depth 1 https://github.com/inspatio/inspatio-world.git {INSPATIO_REPO}"
+        f"git clone https://github.com/inspatio/inspatio-world.git {INSPATIO_REPO}"
+        f" && git -C {INSPATIO_REPO} checkout {INSPATIO_COMMIT}"
         f" && find {INSPATIO_REPO} -name '*.py'"
         " | xargs grep -l 'torch_dtype'"
         " | xargs sed -i 's/torch_dtype=/dtype=/g'"
@@ -400,13 +418,13 @@ class InSpatioInference:
         shutil.rmtree(taehv, ignore_errors=True)
         repo = "https://github.com/madebyollin/taehv.git"
         subprocess.run(["git", "clone", "--depth", "1", repo, str(taehv)], check=True)
-        for repo_id, dest in [
-            ("inspatio/world", "InSpatio-World-1.3B"),
-            ("Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B"),
-            ("depth-anything/DA3NESTED-GIANT-LARGE", "DA3"),
-            ("microsoft/Florence-2-large", "Florence-2-large"),
+        for repo_id, dest, rev in [
+            ("inspatio/world", "InSpatio-World-1.3B", INSPATIO_MODEL_REVISION),
+            ("Wan-AI/Wan2.1-T2V-1.3B", "Wan2.1-T2V-1.3B", WAN_REVISION),
+            ("depth-anything/DA3NESTED-GIANT-LARGE", "DA3", DA3_REVISION),
+            ("microsoft/Florence-2-large", "Florence-2-large", FLORENCE_REVISION),
         ]:
-            snapshot_download(repo_id, local_dir=str(weights / dest))
+            snapshot_download(repo_id, local_dir=str(weights / dest), revision=rev)
 
         sentinel.write_text("ok")
         model_volume.commit()
