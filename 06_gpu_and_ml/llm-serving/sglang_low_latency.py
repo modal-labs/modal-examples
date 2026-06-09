@@ -37,14 +37,17 @@ import modal.experimental
 MINUTES = 60  # seconds
 GIT_SHA = "5244693e308eaf05da17f28cca6bcc922270fd3c"
 
-sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:v0.5.12.post1-cu130"
-).entrypoint(
-    []  # silence chatty logs on container start
-).run_commands(
-    "rm -rf /root/.cache/huggingface"  # clean up image
-).uv_pip_install(
-    f"git+https://github.com/sgl-project/sglang.git@{GIT_SHA}#subdirectory=python"
+sglang_image = (
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.12.post1-cu130")
+    .entrypoint(
+        []  # silence chatty logs on container start
+    )
+    .run_commands(
+        "rm -rf /root/.cache/huggingface"  # clean up image
+    )
+    .uv_pip_install(
+        f"git+https://github.com/sgl-project/sglang.git@{GIT_SHA}#subdirectory=python"
+    )
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
@@ -412,7 +415,7 @@ class SGLang:
             item for k, v in speculative_config.items() for item in (f"--{k}", str(v))
         ]
 
-        self.process = subprocess.Popen(cmd, env= os.environ | speculative_env)
+        self.process = subprocess.Popen(cmd, env=os.environ | speculative_env)
         wait_ready(self.process)
         warmup()
 
