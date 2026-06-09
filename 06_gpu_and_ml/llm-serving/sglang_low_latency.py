@@ -219,10 +219,8 @@ speculative_config |= {
     "speculative-num-draft-tokens": 16,
 }
 
-speculative_env = {  # enable low-overhead spec dec (contributed by @dcw02 from Modal)
-    "SGLANG_ENABLE_SPEC_V2": "1",
-    "SGLANG_ENABLE_DFLASH_SPEC_V2": "1",
-    "SGLANG_ENABLE_OVERLAP_PLAN_STREAM": "1",
+speculative_env = {
+    "SGLANG_ENABLE_OVERLAP_PLAN_STREAM": "1",  # never block the GPU!
 }
 
 # Note that unlike tensor parallelism,
