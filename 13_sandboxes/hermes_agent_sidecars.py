@@ -18,11 +18,13 @@
 # - The **main Sandbox container is the Hermes brain.** It runs `hermes`, holds the model API
 #   key, and keeps its state (sessions, memory) on a Modal [Volume](https://modal.com/docs/guide/volumes).
 # - A **Sidecar named `workspace` is the hands.** It runs `sshd`; Hermes's built-in `ssh`
-#   terminal backend connects to it over the Sidecars' internal bridge network (the Sidecar is
-#   resolvable by name), so every shell/code tool call executes there — *not* in the brain.
+#   terminal backend connects to it over the Sidecars' internal bridge network — by the Sidecar's
+#   bridge IP for now (name resolution is still rolling out in the alpha) — so every shell/code tool
+#   call executes there — *not* in the brain.
 
 import argparse
 import io
+import secrets
 import time
 
 import modal
@@ -48,19 +50,33 @@ HERMES_CONFIG = (
     "terminal:\n  backend: ssh\n  persistent_shell: true\n"
 )
 
-# Environment that selects and configures Hermes's `ssh` terminal backend. `accept-new` host-key
-# handling means no `known_hosts` pre-seeding is needed.
-HERMES_ENV = {
-    "TERMINAL_SSH_HOST": WORKSPACE_NAME,
-    "TERMINAL_SSH_USER": "root",
-    "TERMINAL_SSH_PORT": str(SSH_PORT),
-    "TERMINAL_SSH_KEY": SSH_KEY,
-    # keep known_hosts out of the Volume so a recreated workspace can't leave a stale key
-    "TERMINAL_SSH_PERSISTENT": "true",
-}
 
-# Hermes's web dashboard defaults to this port (`hermes dashboard`).
-DASHBOARD_PORT = 9119
+# Environment that selects and configures Hermes's `ssh` terminal backend, pointed at the workspace
+# Sidecar. We pass the workspace's bridge IP as the host (looked up at runtime, since Sidecar name
+# resolution is still rolling out in the alpha). `accept-new` host-key handling means no
+# `known_hosts` pre-seeding is needed — and since the brain's `~/.ssh` (keys and `known_hosts`)
+# lives on the container filesystem rather than the Volume, a recreated workspace can't collide
+# with a stale pinned host key.
+def hermes_env(workspace_host: str) -> dict[str, str]:
+    return {
+        "TERMINAL_SSH_HOST": workspace_host,
+        "TERMINAL_SSH_USER": "root",
+        "TERMINAL_SSH_PORT": str(SSH_PORT),
+        "TERMINAL_SSH_KEY": SSH_KEY,
+        # keep one SSH shell session alive across tool calls (mirrors `persistent_shell` above)
+        "TERMINAL_SSH_PERSISTENT": "true",
+    }
+
+
+# Hermes's web dashboard. Hermes only serves it without auth on loopback (anywhere else is
+# gated behind OAuth or `--insecure`) — and loopback is exactly where we want it. The Sidecar
+# network has no firewalling, so anything the brain listens on a real interface is reachable
+# from the workspace, where untrusted model-generated commands run. We keep the dashboard on
+# `127.0.0.1` (unreachable from the workspace, which has its own network namespace) and put an
+# nginx reverse proxy with HTTP basic auth in front of it for the tunnel.
+DASHBOARD_PORT = 9119  # nginx with basic auth; what the tunnel connects to
+DASHBOARD_LOCAL_PORT = 9118  # `hermes dashboard`, loopback only
+DASHBOARD_USER = "hermes"
 
 MINUTES = 60  # seconds
 
@@ -81,10 +97,21 @@ state_volume = modal.Volume.from_name(
 # ## Images
 
 
-# The **brain** image installs Hermes and the system tools it needs. We include `nodejs` because the gateway's web dashboard needs it.
+# The **brain** image installs Hermes and the system tools it needs. We include `nodejs` because
+# the gateway's web dashboard needs it, and `nginx`/`apache2-utils` to put password auth in
+# front of the dashboard (see `start_dashboard` below).
 brain_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git", "ripgrep", "ffmpeg", "openssh-client", "nodejs", "npm")
+    .apt_install(
+        "git",
+        "ripgrep",
+        "ffmpeg",
+        "openssh-client",
+        "nodejs",
+        "npm",
+        "nginx",
+        "apache2-utils",
+    )
     .uv_pip_install("hermes-agent==0.15.1")
     .build(app)
 )
@@ -155,7 +182,66 @@ def stage_hermes_config() -> None:
         batch.put_file(io.BytesIO(HERMES_CONFIG.encode()), "/config.yaml")
 
 
-def create_workspace(sb: modal.Sandbox) -> modal.SidecarContainer:
+# Look up the workspace Sidecar's IP on the Sidecars' internal bridge network. Sidecar name
+# resolution is still rolling out in the alpha, so the brain reaches the workspace by IP for now.
+# `hostname -I` prints the container's non-loopback addresses; we take the first IPv4.
+def container_ip(container) -> str:
+    proc = container.exec("hostname", "-I")
+    out, err = proc.stdout.read(), proc.stderr.read()
+    ips = [tok for tok in out.split() if ":" not in tok]
+    if proc.wait() != 0 or not ips:
+        raise RuntimeError(f"could not determine workspace IP:\n{err}")
+    return ips[0]
+
+
+# nginx fronts the loopback-only dashboard with HTTP basic auth on DASHBOARD_PORT. The proxy
+# rewrites `Host` to `127.0.0.1` (the dashboard rejects unexpected Host headers to defend
+# against DNS rebinding) and forwards WebSocket upgrades for the in-browser chat.
+NGINX_CONF = f"""
+map $http_upgrade $connection_upgrade {{
+    default upgrade;
+    '' close;
+}}
+server {{
+    listen {DASHBOARD_PORT};
+    location / {{
+        auth_basic "Hermes dashboard";
+        auth_basic_user_file /etc/nginx/htpasswd;
+        proxy_pass http://127.0.0.1:{DASHBOARD_LOCAL_PORT};
+        proxy_set_header Host 127.0.0.1;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }}
+}}
+"""
+
+
+# The Sidecar network is unfiltered in both directions (and netfilter isn't available in the
+# Sandbox runtime), so a dashboard listening on a real interface would be reachable — and, since
+# it manages config, sessions, and API keys, drivable — by model-generated code running in the
+# workspace. Keeping the dashboard on loopback puts it out of the workspace's reach entirely,
+# and the basic-auth proxy is what makes the tunnel URL alone insufficient to control the brain.
+def start_dashboard(sb: modal.Sandbox, env: dict[str, str], password: str) -> None:
+    htpasswd = sb.exec(
+        "htpasswd", "-cbB", "/etc/nginx/htpasswd", DASHBOARD_USER, password
+    )
+    if htpasswd.wait() != 0:
+        raise RuntimeError(f"htpasswd failed:\n{htpasswd.stderr.read()}")
+    sb.filesystem.write_text(NGINX_CONF, "/etc/nginx/conf.d/dashboard.conf")
+    nginx = sb.exec("nginx")
+    if nginx.wait() != 0:
+        raise RuntimeError(f"nginx failed to start:\n{nginx.stderr.read()}")
+    sb.exec(
+        "sh",
+        "-c",
+        f"nohup hermes dashboard --host 127.0.0.1 --port {DASHBOARD_LOCAL_PORT} "
+        "--no-open >/tmp/dashboard.log 2>&1 &",
+        env=env,
+    )
+
+
+def create_workspace(sb: modal.Sandbox):  # returns (workspace Sidecar, its bridge IP)
     try:
         workspace = sb._experimental_sidecars.create(
             "/usr/sbin/sshd",
@@ -171,16 +257,19 @@ def create_workspace(sb: modal.Sandbox) -> modal.SidecarContainer:
             f"Modal to enable Sidecars on your account.\n\nUnderlying error: {e}"
         )
     print(f"  workspace Sidecar: {workspace.object_id}")
+    workspace_ip = container_ip(workspace)
+    print(f"  workspace IP: {workspace_ip}")
     provision_ssh(sb, workspace)
-    wait_for_sshd(sb, WORKSPACE_NAME)
-    return workspace
+    wait_for_sshd(sb, workspace_ip)
+    return workspace, workspace_ip
 
 
 # ## `gateway` — an always-on deployment with a web dashboard
 
 
 # We boot the brain Sandbox, attach the `workspace` Sidecar, and leave Hermes running as a
-# long-lived service, exposing its web dashboard over a Modal Tunnel. Messaging platforms
+# long-lived service, exposing its web dashboard over a Modal Tunnel behind HTTP basic auth
+# (the password is generated fresh per deployment and printed below). Messaging platforms
 # (Telegram, Discord, ...) mostly poll outbound, so they need no inbound port; add their tokens
 # as Secrets and `hermes gateway run` to wire them up. We `detach()` so the Sandbox keeps running
 # after this script exits — terminate it later with the `stop` command below.
@@ -205,26 +294,22 @@ def run_gateway() -> None:
         )
     print(f"  gateway Sandbox: {sb.object_id}")
 
-    create_workspace(sb)
+    _, workspace_ip = create_workspace(sb)
+    env = hermes_env(workspace_ip)
 
     # Start the long-running gateway and the web dashboard detached, so they outlive the `exec`.
-    # NOTE: confirm the dashboard's host/port flags with `hermes dashboard --help`.
     sb.exec(
         "sh",
         "-c",
         "nohup hermes gateway run >/tmp/gateway.log 2>&1 &",
-        env=HERMES_ENV,
+        env=env,
     )
-    sb.exec(
-        "sh",
-        "-c",
-        f"nohup hermes dashboard --host 0.0.0.0 --port {DASHBOARD_PORT} "
-        ">/tmp/dashboard.log 2>&1 &",
-        env=HERMES_ENV,
-    )
+    dashboard_password = secrets.token_urlsafe(16)
+    start_dashboard(sb, env, dashboard_password)
 
     url = sb.tunnels()[DASHBOARD_PORT].url
     print(f"\nHermes dashboard: {url}")
+    print(f"  sign in with user '{DASHBOARD_USER}', password {dashboard_password}")
     print(
         f"Leaving it running. Stop it with:\n  python {__file__.split('/')[-1]} stop {sb.object_id}"
     )
