@@ -76,7 +76,7 @@ MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
     "95a723d08a9490559dae23d0cff1d9466213d989"  # latest commit as of 2026-04-23, from release
 )
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen35).
+# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen36).
 
 # But we don't want to load the model from the Hub every time we start the server.
 # We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
@@ -213,10 +213,15 @@ speculative_config = {
     "mamba-scheduler-strategy": "extra_buffer",  # required for spec dec with Qwen 3.X hybrid arch
 }
 
-# We adopt the default configuration for this speculator from [the model card](https://huggingface.co/z-lab/Qwen3.6-35B-A3B-DFlash).
+# We adapt the default configuration for this speculator from [the model card](https://huggingface.co/z-lab/Qwen3.6-35B-A3B-DFlash).
+# In particular, we use a smaller draft token count of `8`, the minimum,
+# rather than `16`, the default. We're using the FP8 quantized model here
+# and the test prompts are creative writing tasks, so accept lengths
+# are generally below `8` and additional blocks don't have enough
+# accepted tokens to be worth the extra computation.
 
 speculative_config |= {
-    "speculative-num-draft-tokens": 16,
+    "speculative-num-draft-tokens": 8,
 }
 
 speculative_env = {
