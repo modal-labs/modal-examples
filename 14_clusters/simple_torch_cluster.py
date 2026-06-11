@@ -44,7 +44,7 @@ app = modal.App("example-simple-torch-cluster", image=image)
 # First, we set the size of the cluster in containers/nodes. This can be between 1 and 8.
 # This is part of our Modal configuration, since Modal is responsible for spinning up our cluster.
 
-n_nodes = 4
+n_nodes = 2
 
 # Next, we set the number of processes we run per node.
 # The usual practice is to run one process per GPU,
@@ -52,8 +52,8 @@ n_nodes = 4
 # Note that `N_GPU` is Modal configuration ("how many GPUs should we spin up for you?")
 # while `nproc_per_node` is `torch.distributed` configuration ("how many processes should we spawn for you?").
 
-n_proc_per_node = N_GPU = 1
-GPU_CONFIG = f"A100:{N_GPU}"
+n_proc_per_node = N_GPU = 4
+GPU_CONFIG = f"A10G:{N_GPU}"
 
 # Lastly, we need to select our communications library: the software that will handle
 # sending messages between nodes in our cluster.
