@@ -2,20 +2,20 @@
 # mypy: ignore-errors
 # ---
 
-# # Sticky routing for Modal HTTP Servers
+# # Sticky routing for Modal Servers
 
 # This example demonstrates the usage and behavior of
 # the optional "sticky" routing behavior of
-# Modal HTTP Servers with a basic routing test.
+# Modal Servers with a basic routing test.
 
-# For a gentler introduction to Modal HTTP Servers,
+# For a gentler introduction to Modal Servers,
 # see [this example](https://modal.com/docs/examples/server).
 # For the use of Modal HTTP Servers for LLM inference,
 # see [this example](https://modal.com/docs/examples/sglang_low_latency).
 
 # In sticky routing, sequential requests from the same client
 # are sent to the same server replica.
-# Modal HTTP Servers offer sticky routing for fixed replica sets
+# Modal Servers offer sticky routing for fixed replica sets
 # using [rendezvous hashing](https://randorithms.com/2020/12/26/rendezvous-hashing.html),
 # ensuring that as your servers scale up and down, load stays balanced across replicas
 # and clients are typically routed to the same replica for repeated requests.
@@ -25,7 +25,7 @@
 # Instead, this sticky routing is intended to be used as a performance optimization,
 # as in KV cacheing for [Transformer LLM inference](https://modal.com/docs/examples/sglang_low_latency).
 
-# ## Define the Modal HTTP Server
+# ## Define the Modal Server
 
 # First, we import the libraries we'll use both locally, to run a routing test,
 # and remotely, to run our server.
@@ -47,20 +47,20 @@ app = modal.App("example-http-server-sticky")
 
 image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.115.4")
 
-# Now we can define our HTTP Server.
+# Now we can define our Server.
 # We set the minimum number of containers (replicas)
 # to be greater than one so that there are multiple
 # replicas available for routing during our test.
 
-# Additionally, we set the regions into which we
+# Additionally, we set the routing regions into which we
 # want to deploy the proxies that communicate between
 # our clients and the server.
 
-# We also use the [`modal.concurrent` decorator](https://modal.com/docs/guide/concurrent-inputs)
-# to allow each HTTP Server replica to handle more than one input.
+# We also use `target_concurrency` to specify how many requests our server can handle before we need to scale up.
+# Setting this value to `0` disables autoscaling
 
-# Modal HTTP Servers are structured as Modal [Clses](https://modal.com/docs/guide/lifecycle-functions)
-# that start a process or thread that listens on the provided `port` in a `modal.enter`-decorated method.
+# Modal Servers have lifecycles which are defined by the `modal.enter` and `modal.exit` decorators.
+# The `modal.enter`-decorated method method starts a process or thread that listens on the provided `port`.
 # Here, we spin up a simple FastAPI server that returns the
 # [identity of the replica within Modal](https://modal.com/docs/guide/environment_variables)
 # and run it with `uvicorn`.
@@ -101,15 +101,15 @@ class Server:
         self.thread.start()
 
 
-# ## Test the routing behavior of the Modal HTTP Server
+# ## Test the routing behavior of the Modal Server
 
 # Now we define our routing test, which will run locally
-# and interact with our Modal HTTP Server by sending requests.
+# and interact with our Modal Server by sending requests.
 
 # It spins up some `n`umber of `client` tasks and repeatedly sends requests from each for some number of `seconds`.
 # The clients can be configured to use `sticky` routing or not (`--no-sticky`).
 
-# The test uses the `CONTAINER_ID`s returned by the HTTP Server
+# The test uses the `CONTAINER_ID`s returned by the Server
 # to track whether clients' requests are serviced by the same or different replicas.
 # It fails if the clients were configured to be sticky and any client
 # observes a different `CONTAINER_ID` on different requests.
@@ -156,11 +156,11 @@ async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
 # modal run server_sticky.py
 # ```
 
-# ## Write the client for the Modal HTTP Server
+# ## Write the client for the Modal Server
 
-# The code in this section implements some Modal HTTP Server-specific client logic.
+# The code in this section implements some Modal Server-specific client logic.
 
-# First, clients of Modal HTTP Servers need to handle
+# First, clients of Modal Servers need to handle
 # [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
 # error response status codes, which are returned whenever there are no live replicas.
 
@@ -224,7 +224,7 @@ async def client(
 # ## Addenda
 
 # The remainder of this code is required for this example to run
-# but is not necessary for Modal HTTP Servers or their clients in general.
+# but is not necessary for Modal Servers or their clients in general.
 # For instance, it defines the logic for concurrency and result aggregation/display
 # for this particular routing test.
 
