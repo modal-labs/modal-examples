@@ -353,6 +353,7 @@ if __name__ == "__main__":
 
     print("calling inference server")
     try:
+
         async def main():
             url = await sglang_server.get_url()
             await probe(url)
