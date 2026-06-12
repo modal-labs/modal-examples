@@ -299,7 +299,7 @@ GPU_COUNT = 4
 # and for the load-balancing proxy.
 
 REGION = "us"
-ROUTING_REGIONS = ["us-east"]
+ROUTING_REGION = "us-east"
 
 # Lastly, we need to configure autoscaling parameters.
 # By default, Modal is fully serverless, and applications
@@ -348,7 +348,7 @@ MINUTES = 60  # seconds
     region=REGION,
     min_containers=MIN_CONTAINERS,
     port=SGLANG_PORT,
-    routing_regions=["us-east"],
+    routing_region=ROUTING_REGION,
     exit_grace_period=25,  # time to finish requests on shutdown (seconds)
     target_concurrency=TARGET_INPUTS,
 )

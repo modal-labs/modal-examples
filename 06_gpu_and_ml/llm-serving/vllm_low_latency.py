@@ -256,7 +256,7 @@ app = modal.App(name=APP_NAME)
     min_containers=MIN_CONTAINERS,
     startup_timeout=10 * MINUTES,
     port=PORT,  # wrapped code must listen on this port
-    routing_regions=[REGION],  # location of proxies, should be same as Cls region
+    routing_region=[REGION],  # location of proxies, should be same as Cls region
     exit_grace_period=5,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )

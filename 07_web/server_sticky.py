@@ -67,14 +67,14 @@ image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.115.4")
 
 PORT = 8000
 CONTAINERS = 2
-ROUTING_REGIONS = ["us-west"]
+ROUTING_REGION = "us-west"
 
 
 @app._experimental_server(
     image=image,
     min_containers=CONTAINERS,
     port=PORT,
-    routing_regions=ROUTING_REGIONS,
+    routing_region=ROUTING_REGION,
     target_concurrency=100,
 )
 class Server:
@@ -121,7 +121,7 @@ class Server:
 @app.local_entrypoint()
 async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
     # wait for at least one replica to spin up
-    url = (await Server.get_urls.aio())[ROUTING_REGIONS[0]]
+    url = Server.get_url()
     async with aiohttp.ClientSession() as sess:
         await wait_available(sess, url)
 

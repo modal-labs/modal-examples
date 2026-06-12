@@ -100,7 +100,7 @@ TARGET_INPUTS = 16
     secrets=[hf_secret],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
-    routing_regions=["us-east"],
+    routing_region=["us-east"],
     port=PORT,
     target_concurrency=TARGET_INPUTS,
 )

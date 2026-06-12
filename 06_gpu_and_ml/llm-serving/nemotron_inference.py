@@ -231,7 +231,7 @@ PORT = 8000
     secrets=[modal.Secret.from_name("huggingface-secret")],
     startup_timeout=20 * MINUTES,  # time to load weights
     port=PORT,  # wrapped code must listen on this port
-    routing_regions=[ROUTING_REGION],  # location of proxies, should overlap with Cls region
+    routing_region=[ROUTING_REGION],  # location of proxies, should overlap with Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )

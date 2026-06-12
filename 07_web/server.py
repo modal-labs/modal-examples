@@ -28,8 +28,8 @@ import modal
 
 # Then wrap that class in the `app._experimental_server` decorator,
 # passing in the `port` your server task is listening on
-# and a list of `routing_regions` where Modal should add your server to an edge proxy
-# that communicates directly with the containers running your server.
+# and a `routing_region` to specify where Modal should proxy your requests through.
+# This proxy will communicate directly with the containers running your server.
 
 # You can also pass the rest of your resource definitions,
 # like [distributed Volume storage](https://modal.com/docs/guide/volumes),
@@ -54,7 +54,7 @@ app = modal.App("example-http-server")
 @app._experimental_server(
     region=REGION,
     port=PORT,
-    routing_regions=[ROUTING_REGION],
+    routing_region=[ROUTING_REGION],
 )
 class FileServer:
     @modal.enter()

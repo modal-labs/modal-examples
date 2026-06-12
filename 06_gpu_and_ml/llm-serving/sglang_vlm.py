@@ -124,7 +124,7 @@ app = modal.App(name="example-sglang-vlm")
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     startup_timeout=15 * MINUTES,
     port=PORT,
-    routing_regions=[ROUTING_REGION],
+    routing_region=[ROUTING_REGION],
     target_concurrency=TARGET_INPUTS,
 )
 class VlmServer:

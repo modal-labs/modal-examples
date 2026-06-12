@@ -180,7 +180,7 @@ GPU_TYPE = "B200"
 GPU_COUNT = 8
 
 REGION = "us"
-ROUTING_REGIONS = ["us-east"]
+ROUTING_REGION = "us-east"
 
 MIN_CONTAINERS = 0  # Set to 1 for production to keep a warm replica
 
@@ -202,7 +202,7 @@ HOURS = 60 * MINUTES
     region=REGION,
     min_containers=MIN_CONTAINERS,
     port=SGLANG_PORT,
-    routing_regions=ROUTING_REGIONS,
+    routing_region=ROUTING_REGION,
     exit_grace_period=25,
     target_concurrency=TARGET_INPUTS,
 )
@@ -248,7 +248,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=3 * HOURS, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = (await Server.get_urls.aio())[ROUTING_REGIONS[0]]
+    url = Server.get_url()
 
     system_prompt = {"role": "system", "content": "You are a helpful AI assistant."}
 
