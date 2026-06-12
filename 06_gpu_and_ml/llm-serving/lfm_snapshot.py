@@ -387,7 +387,7 @@ class LfmVllmInference:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await LfmVllmInference.get_urls.aio())[REGION]
+    url = LfmVllmInference.get_url()
 
     if prompt is None:
         prompt = "List every country and its capital."
@@ -520,7 +520,7 @@ if __name__ == "__main__":
     LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
-        url = (await LfmVllmInference.get_urls.aio())[REGION]
+        url = LfmVllmInference.get_url()
         messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
