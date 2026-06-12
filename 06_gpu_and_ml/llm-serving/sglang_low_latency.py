@@ -350,7 +350,7 @@ PORT = 8000
     min_containers=MIN_CONTAINERS,
     startup_timeout=20 * MINUTES,
     port=PORT,  # wrapped code must listen on this port
-    routing_region=[REGION],  # location of proxies, should be same as Cls region
+    routing_region=REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )
