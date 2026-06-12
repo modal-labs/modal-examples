@@ -118,7 +118,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `@app._experimental_server`.
+# as part of defining a `app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us-east` cloud region to serve them.
