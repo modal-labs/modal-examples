@@ -144,7 +144,7 @@ MIN_CONTAINERS = 0
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
+# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
 # For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
 
 # Generally, this choice needs to be made as part of
@@ -257,14 +257,9 @@ def wake_up():
 
 # - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
-
-# - `@app._experimental_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - `target_concurrency` to specify how many
-# requests our server can handle before we need to scale up.
+# This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
+# The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
 # which methods of the class should be run when starting the server and shutting it down.
@@ -415,7 +410,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# when an `app.experimental_server` has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.

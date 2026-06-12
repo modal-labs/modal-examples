@@ -1,4 +1,4 @@
-# # Low latency Qwen 3.5 with SGLang and Modal
+# # Low latency Qwen 3.6 with SGLang and Modal
 
 # In this example, we show how to serve [SGLang](https://github.com/sgl-project/sglang) at low latency on Modal.
 
@@ -19,23 +19,35 @@
 
 # We start from a container image provided
 # [by the SGLang team via Dockerhub](https://hub.docker.com/r/lmsysorg/sglang/tags).
+# After a bit of cleanup, we install an updated version that has some low-latency tricks
+# the Modal team is contributing to SGLang (described below).
 
 # While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
 
 import asyncio
 import json
+import os
 import subprocess
 import time
 
 import aiohttp
 import modal
+import modal.experimental
 
 MINUTES = 60  # seconds
+GIT_SHA = "5244693e308eaf05da17f28cca6bcc922270fd3c"
 
-sglang_image = modal.Image.from_registry(
-    "lmsysorg/sglang:v0.5.9-cu129-amd64-runtime"
-).entrypoint(
-    []  # silence chatty logs on container start
+sglang_image = (
+    modal.Image.from_registry("lmsysorg/sglang:v0.5.12.post1-cu130")
+    .entrypoint(
+        []  # silence chatty logs on container start
+    )
+    .run_commands(
+        "rm -rf /root/.cache/huggingface"  # clean up image
+    )
+    .uv_pip_install(
+        f"git+https://github.com/sgl-project/sglang.git@{GIT_SHA}#subdirectory=python"
+    )
 )
 
 # We also choose a [GPU](https://modal.com/docs/guide/gpu) to deploy our inference server onto.
@@ -52,19 +64,19 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 
 # ### Loading and cacheing the model weights
 
-# We'll serve [Alibaba's Qwen 3.5 LLM](https://qwen.ai/blog?id=qwen3.5).
-# For lower latency, we pick the 35B mixture-of-experts model with 3 billion active parameters
+# We'll serve [Alibaba's Qwen 3.6 LLM](https://qwen.ai/blog?id=qwen3.6).
+# For lower latency, we pick the 35B mixture-of-experts model with 3B active parameters
 # in a lower precision floating point format (FP8).
 # Expert sparsity and lower precision reduce the amount of data that needs to be loaded
 # [from GPU RAM into SM SRAM](https://modal.com/gpu-glossary/perf/memory-bandwidth)
 # in each forward pass.
 
-MODEL_NAME = "Qwen/Qwen3.5-35B-A3B-FP8"
+MODEL_NAME = "Qwen/Qwen3.6-35B-A3B-FP8"
 MODEL_REVISION = (  # pin revision id to avoid nasty surprises!
-    "0b2752837483aa34b3db6e83e151b150c0e00e49"  # latest commit as of 2026-04-03, from release
+    "95a723d08a9490559dae23d0cff1d9466213d989"  # latest commit as of 2026-04-23, from release
 )
 
-# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen35).
+# We load the model [from the Hugging Face Hub](https://huggingface.co/collections/Qwen/qwen36).
 
 # But we don't want to load the model from the Hub every time we start the server.
 # We can load it much faster from a [Modal Volume](https://modal.com/docs/guide/volumes).
@@ -90,7 +102,7 @@ sglang_image = sglang_image.env(
 # As a rule, LLM inference servers like SGLang don't directly provide their own kernels.
 # They draw high-performance kernels from a variety of sources.
 
-# As of version `0.5.9`, SGLang's default kernel backend
+# As of version `0.5.12`, SGLang's default kernel backend
 # for FP8 matrix multiplications (`fp8-gemm-backend`)
 # on Hopper [SM architecture](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture)
 # GPUs like the H100 is
@@ -186,20 +198,34 @@ sglang_image = sglang_image.run_function(
 # Speculative decoding techniques themselves have a number of parameters, the most important
 # of which is the technique to use to generate draft tokens.
 # Simple techniques based on n-grams are a good place to start.
-# But many models are released with built-in speculation based on
+# Many models are released with built-in speculation based on
 # [multi-token prediction](https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/Multi_Token_Prediction.html),
 # also known in SGLang as [EAGLE](https://arxiv.org/abs/2401.15077).
 
+# But our favorite technique is [DFLASH](https://arxiv.org/abs/2602.06036)
+# which runs draft token generation in parallel, increasing the draft model's
+# arithmetic intensity.
+
 speculative_config = {
-    "speculative-algorithm": "EAGLE",
+    "speculative-algorithm": "DFLASH",
+    "speculative-draft-model-path": "z-lab/Qwen3.6-35B-A3B-DFlash",
+    "speculative-draft-model-revision": "42d3b34d588423cdae7ba8f53a8cf7789346a719",
+    "mamba-scheduler-strategy": "extra_buffer",  # required for spec dec with Qwen 3.X hybrid arch
 }
 
-# We adopt the default configuration for this speculator from [the cookbook](https://cookbook.sglang.io/autoregressive/Qwen/Qwen3.5).
+# We adapt the default configuration for this speculator from [the model card](https://huggingface.co/z-lab/Qwen3.6-35B-A3B-DFlash).
+# In particular, we use a smaller draft token count of `8`, the minimum,
+# rather than `16`, the default. We're using the FP8 quantized model here
+# and the test prompts are creative writing tasks, so accept lengths
+# are generally below `8` and additional blocks don't have enough
+# accepted tokens to be worth the extra computation.
 
 speculative_config |= {
-    "speculative-num-steps": 3,
-    "speculative-eagle-topk": 1,
-    "speculative-num-draft-tokens": 4,
+    "speculative-num-draft-tokens": 8,
+}
+
+speculative_env = {
+    "SGLANG_ENABLE_OVERLAP_PLAN_STREAM": "1",  # never block the GPU!
 }
 
 # Note that unlike tensor parallelism,
@@ -220,19 +246,19 @@ speculative_config |= {
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `app._experimental_server`.
+# as part of defining a `modal.experimental.http_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
-# and select the `us-east` cloud region serve them.
+# and select the `us` cloud region serve them.
 # This should result in at most a few dozen milliseconds of round-trip time.
 
-REGION = "us-east"
+REGION = "us"
 
 # Latencies for mutli-turn interactions with LLMs are
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `@app._experimental_server`
+# To improve cache hit rate, `modal.experimental.http_server`
 # includes sticky routing based on a client-provided header.
 # See the client code below for details.
 
@@ -258,9 +284,7 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
-# For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
-
+# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
 TARGET_INPUTS = 10
 
 # Generally, this choice needs to be made as part of
@@ -277,14 +301,9 @@ TARGET_INPUTS = 10
 
 # - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
-
-# - `@app._experimental_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - `target_concurrency` to specify how many
-# requests our server can handle before we need to scale up.
+# This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
+# The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
 # which methods of the class should be run when starting the server and shutting it down.
@@ -340,6 +359,7 @@ def warmup():
 
 app = modal.App(name="example-sglang-low-latency")
 PORT = 8000
+ROUTING_REGION = "us-west"
 
 
 @app._experimental_server(
@@ -350,7 +370,7 @@ PORT = 8000
     min_containers=MIN_CONTAINERS,
     startup_timeout=20 * MINUTES,
     port=PORT,  # wrapped code must listen on this port
-    routing_region=REGION,  # location of proxies, should be same as Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should be close to Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )
@@ -378,16 +398,17 @@ class SGLang:
             f"{TARGET_INPUTS * 2}",
             "--enable-metrics",  # expose metrics endpoints for telemetry
             "--decode-log-interval",  # how often to log during decoding, in tokens
-            "100",
+            "10",
             "--mem-fraction",  # leave space for speculative model
             "0.8",
+            "--trust-remote-code",  # for speculative model
         ]
 
         cmd += [  # add speculative config
             item for k, v in speculative_config.items() for item in (f"--{k}", str(v))
         ]
 
-        self.process = subprocess.Popen(cmd)
+        self.process = subprocess.Popen(cmd, env=os.environ | speculative_env)
         wait_ready(self.process)
         warmup()
 
@@ -409,10 +430,10 @@ class SGLang:
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-sglang-low-latency-sglang.us-east.modal.direct`.
+# something like `https://your-workspace-name--example-sglang-low-latency-sglang.us-west.modal.direct`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-sglang-low-latency-sglang.us-east.modal.direct/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-sglang-low-latency-sglang.us-west.modal.direct/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands.
 # For simple routes, you can even send a request directly from the docs page.
@@ -472,7 +493,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# when an `app.experimental_server` has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.

@@ -240,9 +240,6 @@ def wake_up():
 # which methods of the class should be run when starting the server and shutting it down. The `enter`
 # methods also define what code is run before memory snapshot creation (`snap=True`) and after memory snapshot restoration (`snap=False`).
 
-# The `modal.concurrent` decorator and the lifecycle management are particular important
-# for bursty workloads and for snapshotting, respectively, so let's discuss them in detail.
-
 # ### Determining autoscaling policy with `@modal.concurrent`
 
 # To handle bursty workloads, we need to decide how we will scale up and down replicas

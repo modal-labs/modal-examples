@@ -292,7 +292,7 @@ app = modal.App("example-serve-very-large-models", image=image)
 GPU_TYPE = "H200"
 GPU_COUNT = 4
 
-# We'll use a Modal `experimental.http_server` to serve our model.
+# We'll use a Modal `app.experimental_server` to serve our model.
 # This reduces client latencies and provides for regionalized deployment.
 # You can read more about it in [this example](https://modal.com/docs/examples/sglang_low_latency).
 # To configure it, we need to pass in region information for the GPU workers
@@ -320,16 +320,16 @@ MIN_CONTAINERS = 0  # Set to 1 for production to keep a warm replica
 
 # Deployments of large models with a single node per replica can generally handle a few tens of requests
 # without queueing. When a particular replica has more requests than it can handle, we want to scale it up.
-# This behavior is configured by passing the `target_inputs` parameter to `modal.concurrent`.
+# This behavior is configured by setting `target_concurrency` parameter to `target_inputs`.
 
 TARGET_INPUTS = 10  # Concurrent requests per replica before scaling
 
 # ### Define the server
 
 # Now we're ready to put all of our infrastructure configuration
-# together into a Modal Cls.
+# together into a Modal Server.
 
-# The Modal Cls allows us to control
+# The Modal Server allows us to control
 # [container lifecycle](https://modal.com/docs/guide/lifecycle-functions).
 # In particular, it lets us define work that a replica should do before
 # and after it handles requests in methods decorated with `modal.enter`
@@ -429,7 +429,7 @@ async def test(test_timeout=20 * MINUTES, content=None, twice=True):
 
 
 # The unique client logic for Modal deployments is in the `probe` function below.
-# Specifically, when a Modal `experimental.http_server` is spinning up,
+# Specifically, when a Modal `app.experimental_server` is spinning up,
 # i.e. before the `modal.enter` finishes for at least one replica,
 # clients will see a `503 Service Unavailable` status
 # and so should retry.
