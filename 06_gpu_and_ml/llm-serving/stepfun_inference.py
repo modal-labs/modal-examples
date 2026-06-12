@@ -12,7 +12,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
@@ -94,16 +93,17 @@ PORT = 8000
 TARGET_INPUTS = 16
 
 
-@app.cls(
+@app._experimental_server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
     secrets=[hf_secret],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
+    routing_regions=["us-east"],
+    port=PORT,
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.experimental.http_server(proxy_regions=["us-east"], port=PORT)
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
     @modal.enter()
     def startup(self):
@@ -154,7 +154,7 @@ class SGLang:
 # To deploy the server on Modal, run:
 
 # ```bash
-# modal deploy stepfun_inference.py
+# modal deploy stepfun_inference_server.py
 # ```
 
 # ## Test the server
@@ -162,13 +162,13 @@ class SGLang:
 # To test the server setup, run:
 
 # ```bash
-# modal run stepfun_inference.py
+# modal run stepfun_inference_server.py
 # ```
 
 
 @app.local_entrypoint()
 async def test(test_timeout=40 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang._experimental_get_flash_urls.aio())[0]
+    url = (await SGLang.get_urls.aio())["us-east"]
 
     system_prompt = {
         "role": "system",

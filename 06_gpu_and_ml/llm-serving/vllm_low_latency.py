@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency_server.py"]
 # ---
 
 # # Low latency Qwen 3 8B with vLLM and Modal
@@ -13,7 +13,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@modal.experimental.http_server`,
+# To minimize routing overheads, we use `app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -36,7 +36,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
@@ -100,7 +99,7 @@ vllm_image = vllm_image.env(
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# as part of defining a `app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us-east` cloud region to serve them.
@@ -112,7 +111,7 @@ REGION = "us-east"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
+# To improve cache hit rate, `app._experimental_server`
 # includes sticky routing based on a client-provided header.
 # See the client code below for details.
 
@@ -168,15 +167,15 @@ TARGET_INPUTS = 20
 
 # The key decorators are:
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
 # See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
 
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
+# - `app._experimental_server` to turn our Python code into an HTTP server
 # (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
 # needs to eventually listen for HTTP connections on the provided `port`.
 
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
+# - `target_concurrency` to specify how many
 # requests our server can handle before we need to scale up.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
@@ -247,7 +246,7 @@ APP_NAME = "example-vllm-low-latency"
 app = modal.App(name=APP_NAME)
 
 
-@app.cls(
+@app._experimental_server(
     image=vllm_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
@@ -255,14 +254,12 @@ app = modal.App(name=APP_NAME)
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-    timeout=10 * MINUTES,
-)
-@modal.experimental.http_server(
+    startup_timeout=10 * MINUTES,
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[REGION],  # location of proxies, should be same as Cls region
+    routing_regions=[REGION],  # location of proxies, should be same as Cls region
     exit_grace_period=5,  # seconds, time to finish up requests when closing down
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class VLLM:
     @modal.enter(snap=True)
     def startup(self):
@@ -306,7 +303,7 @@ class VLLM:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy vllm_low_latency.py
+# modal deploy vllm_low_latency_server.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -335,7 +332,7 @@ class VLLM:
 # If you execute the command
 
 # ```bash
-# modal run vllm_low_latency.py
+# modal run vllm_low_latency_server.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -347,7 +344,7 @@ class VLLM:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = VLLM._experimental_get_flash_urls()[0]
+    url = (await VLLM.get_urls.aio())[REGION]
 
     system_prompt = {
         "role": "system",
@@ -458,11 +455,11 @@ async def _send_request_streaming(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    vllm_server = modal.Cls.from_name(APP_NAME, "VLLM")
+    vllm_server = modal.Server.from_name(APP_NAME, "VLLM")
 
     async def main(url):
         messages = [{"role": "user", "content": "Tell me a joke."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
     print("calling inference server")
-    asyncio.run(main(vllm_server._experimental_get_flash_urls()[0]))
+    asyncio.run(main(vllm_server.get_urls()[REGION]))

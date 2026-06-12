@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot_server.py"]
 # ---
 
 # # Low Latency, Serverless LFM2 with vLLM and Modal
@@ -24,7 +24,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@modal.experimental.http_server`,
+# To minimize routing overheads, we use `app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -52,7 +52,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60
 
@@ -119,7 +118,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# as part of defining a `app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us-east` cloud region to serve them.
@@ -256,15 +255,15 @@ def wake_up():
 
 # The key decorators are:
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
 # See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
 
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
+# - `app._experimental_server` to turn our Python code into an HTTP server
 # (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
 # needs to eventually listen for HTTP connections on the provided `port`.
 
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
+# - `target_concurrency` to specify how many
 # requests our server can handle before we need to scale up.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
@@ -280,11 +279,11 @@ def wake_up():
 app = modal.App("example-lfm-snapshot")
 
 
-@app.cls(
+@app._experimental_server(
     image=vllm_image,
     gpu=GPU,
     scaledown_window=5 * MINUTES,
-    timeout=15 * MINUTES,
+    startup_timeout=15 * MINUTES,
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
@@ -294,13 +293,11 @@ app = modal.App("example-lfm-snapshot")
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-)
-@modal.experimental.http_server(
     port=VLLM_PORT,
-    proxy_regions=[REGION],
+    routing_regions=[REGION],
     exit_grace_period=5,
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class LfmVllmInference:
     @modal.enter(snap=True)
     def startup(self):
@@ -349,7 +346,7 @@ class LfmVllmInference:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy lfm_snapshot.py
+# modal deploy lfm_snapshot_server.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -378,7 +375,7 @@ class LfmVllmInference:
 # If you execute the command
 
 # ```bash
-# modal run lfm_snapshot.py
+# modal run lfm_snapshot_server.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -390,7 +387,7 @@ class LfmVllmInference:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+    url = (await LfmVllmInference.get_urls.aio())[REGION]
 
     if prompt is None:
         prompt = "List every country and its capital."
@@ -516,14 +513,14 @@ async def _send_request_streaming(
 # It can be run with the command
 
 # ```
-# python lfm_snapshot.py
+# python lfm_snapshot_server.py
 # ```
 
 if __name__ == "__main__":
     LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
-        url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+        url = (await LfmVllmInference.get_urls.aio())[REGION]
         messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 

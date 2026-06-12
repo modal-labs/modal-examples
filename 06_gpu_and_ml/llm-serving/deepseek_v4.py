@@ -17,7 +17,6 @@ from pathlib import Path
 
 import aiohttp
 import modal
-import modal.experimental
 
 here = Path(__file__).parent
 
@@ -181,7 +180,7 @@ GPU_TYPE = "B200"
 GPU_COUNT = 8
 
 REGION = "us"
-PROXY_REGIONS = ["us-east"]
+ROUTING_REGIONS = ["us-east"]
 
 MIN_CONTAINERS = 0  # Set to 1 for production to keep a warm replica
 
@@ -194,21 +193,19 @@ MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
 
 
-@app.cls(
+@app._experimental_server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     scaledown_window=20 * MINUTES,
-    timeout=3 * HOURS,
+    startup_timeout=3 * HOURS,
     volumes={"/root/.cache/huggingface": hf_cache_vol},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-)
-@modal.experimental.http_server(
     port=SGLANG_PORT,
-    proxy_regions=PROXY_REGIONS,
+    routing_regions=ROUTING_REGIONS,
     exit_grace_period=25,
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
     @modal.enter()
     def start(self):
@@ -244,14 +241,14 @@ def wait_for_server_ready():
 # ## Test the server
 
 # ```bash
-# modal run 06_gpu_and_ml/llm-serving/deepseek_v4.py
+# modal run 06_gpu_and_ml/llm-serving/deepseek_v4_server.py
 # ```
 
 
 @app.local_entrypoint()
 async def test(test_timeout=3 * HOURS, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = (await Server._experimental_get_flash_urls.aio())[0]
+    url = (await Server.get_urls.aio())[ROUTING_REGIONS[0]]
 
     system_prompt = {"role": "system", "content": "You are a helpful AI assistant."}
 
@@ -290,7 +287,7 @@ async def probe(url, messages, timeout=20 * MINUTES):
 # ## Deploy the server
 
 # ```bash
-# modal deploy 06_gpu_and_ml/llm-serving/very_large_models_deepseek_v4.py
+# modal deploy 06_gpu_and_ml/llm-serving/deepseek_v4_server.py
 # ```
 
 

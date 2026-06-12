@@ -20,7 +20,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60
 
@@ -111,7 +110,7 @@ sglang_image = sglang_image.run_function(
 # We also handle clean teardown of the server in a `modal.exit` method.
 
 
-PROXY_REGION = "us-east"
+ROUTING_REGION = "us-east"
 
 PORT = 8000
 TARGET_INPUTS = 10
@@ -119,14 +118,15 @@ TARGET_INPUTS = 10
 app = modal.App(name="example-sglang-vlm")
 
 
-@app.cls(
+@app._experimental_server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
-    timeout=15 * MINUTES,
+    startup_timeout=15 * MINUTES,
+    port=PORT,
+    routing_regions=[ROUTING_REGION],
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.experimental.http_server(port=PORT, proxy_regions=[PROXY_REGION])
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class VlmServer:
     @modal.enter()
     def startup(self):
@@ -268,7 +268,7 @@ def warmup():
 
 @app.local_entrypoint()
 async def main():
-    url = (await VlmServer._experimental_get_flash_urls.aio())[0]
+    url = (await VlmServer.get_urls.aio())[ROUTING_REGION]
 
     messages = SAMPLE_PAYLOAD["messages"]
     print(f"Sending image at {messages[0]['content'][0]['image_url']} to the server")
@@ -359,7 +359,7 @@ async def _send_request_streaming(
 # You can kick off a test run with the command
 
 # ```bash
-# modal run sglang_vlm.py
+# modal run sglang_vlm_server.py
 # ```
 
 # ## Deploy the server
@@ -368,5 +368,5 @@ async def _send_request_streaming(
 # replace `modal run` with `modal deploy`:
 
 # ```bash
-# modal deploy sglang_vlm.py
+# modal deploy sglang_vlm_server.py
 # ```

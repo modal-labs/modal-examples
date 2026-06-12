@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/very_large_models_server.py"]
 # env: {"APP_USE_DUMMY_WEIGHTS": "1"}
 # ---
 
@@ -30,7 +30,6 @@ from pathlib import Path
 
 import aiohttp
 import modal
-import modal.experimental
 
 here = Path(__file__).parent
 
@@ -300,7 +299,7 @@ GPU_COUNT = 4
 # and for the load-balancing proxy.
 
 REGION = "us"
-PROXY_REGIONS = ["us-east"]
+ROUTING_REGIONS = ["us-east"]
 
 # Lastly, we need to configure autoscaling parameters.
 # By default, Modal is fully serverless, and applications
@@ -340,21 +339,19 @@ SGLANG_PORT = 8000
 MINUTES = 60  # seconds
 
 
-@app.cls(
+@app._experimental_server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     scaledown_window=20 * MINUTES,  # how long should we stay up with no requests?
-    timeout=30 * MINUTES,  # how long should we wait for container start?
+    startup_timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={"/root/.cache/huggingface": hf_cache_vol},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-)
-@modal.experimental.http_server(
     port=SGLANG_PORT,
-    proxy_regions=["us-east"],
+    routing_regions=["us-east"],
     exit_grace_period=25,  # time to finish requests on shutdown (seconds)
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
     @modal.enter()
     def start(self):
@@ -397,7 +394,7 @@ def wait_for_server_ready():
 # using the command
 
 # ```bash
-# APP_USE_DUMMY_WEIGHTS=1 modal run very_large_models.py
+# APP_USE_DUMMY_WEIGHTS=1 modal run very_large_models_server.py
 # ```
 
 # which will create an ephemeral Modal App
@@ -410,7 +407,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = (await Server._experimental_get_flash_urls.aio())[0]
+    url = (await Server.get_urls.aio())["us-east"]
 
     if USE_DUMMY_WEIGHTS:
         system_prompt = {"role": "system", "content": "This system produces gibberish."}
@@ -461,7 +458,7 @@ async def probe(url, messages, timeout=20 * MINUTES):
 # When you're ready, you can create a persistent deployment with
 
 # ```bash
-# APP_USE_DUMMY_WEIGHTS=0 modal deploy very_large_models.py
+# APP_USE_DUMMY_WEIGHTS=0 modal deploy very_large_models_server.py
 # ```
 
 # And hit it with any OpenAI API-compatible client!
