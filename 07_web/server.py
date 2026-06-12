@@ -72,7 +72,7 @@ class FileServer:
 # We put the test in a `local_entrypoint` so that we can execute it from the command line:
 
 # ```bash
-# modal run http_server.py
+# modal run server.py
 # ```
 
 
@@ -105,4 +105,4 @@ def ping():
 # and once a container is ready, the 503s will stop and clients will receive the server's responses.
 
 # Modal HTTP Servers also support "sticky routing" for improved cache locality within client sessions.
-# For details, see [this example](https://modal.com/docs/examples/http_server_sticky).
+# For details, see [this example](https://modal.com/docs/examples/server_sticky).

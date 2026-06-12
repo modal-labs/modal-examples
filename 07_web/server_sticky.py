@@ -9,7 +9,7 @@
 # Modal HTTP Servers with a basic routing test.
 
 # For a gentler introduction to Modal HTTP Servers,
-# see [this example](https://modal.com/docs/examples/http_server).
+# see [this example](https://modal.com/docs/examples/server).
 # For the use of Modal HTTP Servers for LLM inference,
 # see [this example](https://modal.com/docs/examples/sglang_low_latency).
 
@@ -147,13 +147,13 @@ async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
 # this Python function automatically gets a CLI:
 
 # ```bash
-# modal run http_server_sticky_server.py --help
+# modal run server_sticky.py --help
 # ```
 
 # You can run the test with:
 
 # ```bash
-# modal run http_server_sticky_server.py
+# modal run server_sticky.py
 # ```
 
 # ## Write the client for the Modal HTTP Server
