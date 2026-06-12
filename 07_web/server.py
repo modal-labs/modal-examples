@@ -54,7 +54,7 @@ app = modal.App("example-http-server")
 @app._experimental_server(
     region=REGION,
     port=PORT,
-    routing_region=[ROUTING_REGION],
+    routing_region=ROUTING_REGION,
 )
 class FileServer:
     @modal.enter()

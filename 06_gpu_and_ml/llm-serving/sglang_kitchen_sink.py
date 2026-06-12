@@ -176,7 +176,7 @@ PORT = 8000
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
     port=PORT,  # wrapped code must listen on this port
-    routing_region=[ROUTING_REGION],  # location of proxies, should be same as Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )
@@ -249,7 +249,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang.get_urls.aio())[ROUTING_REGION]
+    url = SGLang.get_url()
 
     system_prompt = {
         "role": "system",

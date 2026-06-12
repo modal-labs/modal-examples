@@ -231,7 +231,7 @@ PORT = 8000
     secrets=[modal.Secret.from_name("huggingface-secret")],
     startup_timeout=20 * MINUTES,  # time to load weights
     port=PORT,  # wrapped code must listen on this port
-    routing_region=[ROUTING_REGION],  # location of proxies, should overlap with Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should overlap with Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )
@@ -320,7 +320,7 @@ class Server:
 
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, prompt=None, twice=True):
-    url = (await Server.get_urls.aio())[ROUTING_REGION]
+    url = Server.get_url()
 
     system_prompt = {
         "role": "system",

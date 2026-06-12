@@ -100,7 +100,7 @@ TARGET_INPUTS = 16
     secrets=[hf_secret],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
-    routing_region=["us-east"],
+    routing_region="us-east",
     port=PORT,
     target_concurrency=TARGET_INPUTS,
 )
@@ -168,7 +168,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=40 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang.get_urls.aio())["us-east"]
+    url = SGLang.get_url()
 
     system_prompt = {
         "role": "system",

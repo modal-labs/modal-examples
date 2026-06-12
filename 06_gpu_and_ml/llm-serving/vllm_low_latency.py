@@ -256,7 +256,7 @@ app = modal.App(name=APP_NAME)
     min_containers=MIN_CONTAINERS,
     startup_timeout=10 * MINUTES,
     port=PORT,  # wrapped code must listen on this port
-    routing_region=[REGION],  # location of proxies, should be same as Cls region
+    routing_region=REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=5,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
 )
@@ -344,7 +344,7 @@ class VLLM:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await VLLM.get_urls.aio())[REGION]
+    url = VLLM.get_url()
 
     system_prompt = {
         "role": "system",

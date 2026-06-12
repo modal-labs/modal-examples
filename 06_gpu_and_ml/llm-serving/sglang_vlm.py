@@ -124,7 +124,7 @@ app = modal.App(name="example-sglang-vlm")
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     startup_timeout=15 * MINUTES,
     port=PORT,
-    routing_region=[ROUTING_REGION],
+    routing_region=ROUTING_REGION,
     target_concurrency=TARGET_INPUTS,
 )
 class VlmServer:
@@ -268,7 +268,7 @@ def warmup():
 
 @app.local_entrypoint()
 async def main():
-    url = (await VlmServer.get_urls.aio())[ROUTING_REGION]
+    url = VlmServer.get_url()
 
     messages = SAMPLE_PAYLOAD["messages"]
     print(f"Sending image at {messages[0]['content'][0]['image_url']} to the server")

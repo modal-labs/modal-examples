@@ -294,7 +294,7 @@ app = modal.App("example-lfm-snapshot")
     region=REGION,
     min_containers=MIN_CONTAINERS,
     port=VLLM_PORT,
-    routing_region=[REGION],
+    routing_region=REGION,
     exit_grace_period=5,
     target_concurrency=TARGET_INPUTS,
 )
