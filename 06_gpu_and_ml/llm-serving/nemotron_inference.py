@@ -154,7 +154,7 @@ TARGET_INPUTS = 16
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators

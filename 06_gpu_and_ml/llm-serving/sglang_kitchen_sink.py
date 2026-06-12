@@ -139,7 +139,7 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
 TARGET_INPUTS = 10
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 
 def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):

@@ -246,7 +246,7 @@ def wake_up():
     requests.post(f"http://127.0.0.1:{VLLM_PORT}/wake_up").raise_for_status()
 
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators
