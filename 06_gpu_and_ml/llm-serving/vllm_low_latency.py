@@ -455,12 +455,10 @@ if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
     vllm_server = modal.Server.from_name(APP_NAME, "VLLM")
 
-    async def main(url):
+    async def main():
+        url = await vllm_server.get_url()
         messages = [{"role": "user", "content": "Tell me a joke."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
     print("calling inference server")
-    async def run_vllm():
-        url = await vllm_server.get_url()
-        await main(url)
-    asyncio.run(run_vllm())
+    asyncio.run(main())
