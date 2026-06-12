@@ -56,8 +56,10 @@ image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.115.4")
 # want to deploy the proxies that communicate between
 # our clients and the server.
 
-# We also use `target_concurrency` to specify how many requests our server can handle before we need to scale up.
-# Setting this value to `0` disables autoscaling
+# We also use `target_concurrency` to set the autoscaling policy:
+# it's the number of concurrent requests we want each replica to handle
+# before Modal scales the server up by adding another replica.
+# You can also set this value to `0` to disable autoscaling for fixed number of replicas.
 
 # Modal Servers have lifecycles which are defined by the `modal.enter` and `modal.exit` decorators.
 # The `modal.enter`-decorated method method starts a process or thread that listens on the provided `port`.
