@@ -21,6 +21,7 @@ import time
 
 import aiohttp
 import modal
+from modal.server import Server
 
 MINUTES = 60  # seconds
 
@@ -349,7 +350,7 @@ async def _send_request_streaming(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    sglang_server = modal.Server.from_name("example-sglang-kitchen-sink", "SGLang")
+    sglang_server = Server.from_name("example-sglang-kitchen-sink", "SGLang")
 
     print("calling inference server")
     try:

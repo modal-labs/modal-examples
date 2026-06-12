@@ -52,6 +52,7 @@ import time
 
 import aiohttp
 import modal
+from modal.server import Server
 
 MINUTES = 60
 
@@ -512,7 +513,7 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = modal.Server.from_name(
+    LfmVllmInference = Server.from_name(
         "example-lfm-snapshot", "LfmVllmInference"
     )
 

@@ -36,6 +36,7 @@ import time
 
 import aiohttp
 import modal
+from modal.server import Server
 
 MINUTES = 60  # seconds
 
@@ -453,7 +454,7 @@ async def _send_request_streaming(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    vllm_server = modal.Server.from_name(APP_NAME, "VLLM")
+    vllm_server = Server.from_name(APP_NAME, "VLLM")
 
     async def main():
         url = await vllm_server.get_url()
