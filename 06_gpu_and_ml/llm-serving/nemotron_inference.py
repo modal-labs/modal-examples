@@ -279,7 +279,7 @@ class Server:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy nemotron_inference_server.py
+# modal deploy nemotron_inference.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -308,7 +308,7 @@ class Server:
 # If you execute the command
 
 # ```bash
-# modal run nemotron_inference_server.py
+# modal run nemotron_inference.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while

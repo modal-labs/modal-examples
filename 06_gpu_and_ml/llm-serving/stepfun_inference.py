@@ -154,7 +154,7 @@ class SGLang:
 # To deploy the server on Modal, run:
 
 # ```bash
-# modal deploy stepfun_inference_server.py
+# modal deploy stepfun_inference.py
 # ```
 
 # ## Test the server
@@ -162,7 +162,7 @@ class SGLang:
 # To test the server setup, run:
 
 # ```bash
-# modal run stepfun_inference_server.py
+# modal run stepfun_inference.py
 # ```
 
 

@@ -359,7 +359,7 @@ async def _send_request_streaming(
 # You can kick off a test run with the command
 
 # ```bash
-# modal run sglang_vlm_server.py
+# modal run sglang_vlm.py
 # ```
 
 # ## Deploy the server
@@ -368,5 +368,5 @@ async def _send_request_streaming(
 # replace `modal run` with `modal deploy`:
 
 # ```bash
-# modal deploy sglang_vlm_server.py
+# modal deploy sglang_vlm.py
 # ```

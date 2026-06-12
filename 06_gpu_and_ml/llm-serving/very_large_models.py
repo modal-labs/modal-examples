@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/very_large_models_server.py"]
+# cmd: ["modal", "run", "06_gpu_and_ml/llm-serving/very_large_models.py"]
 # env: {"APP_USE_DUMMY_WEIGHTS": "1"}
 # ---
 
@@ -394,7 +394,7 @@ def wait_for_server_ready():
 # using the command
 
 # ```bash
-# APP_USE_DUMMY_WEIGHTS=1 modal run very_large_models_server.py
+# APP_USE_DUMMY_WEIGHTS=1 modal run very_large_models.py
 # ```
 
 # which will create an ephemeral Modal App
@@ -458,7 +458,7 @@ async def probe(url, messages, timeout=20 * MINUTES):
 # When you're ready, you can create a persistent deployment with
 
 # ```bash
-# APP_USE_DUMMY_WEIGHTS=0 modal deploy very_large_models_server.py
+# APP_USE_DUMMY_WEIGHTS=0 modal deploy very_large_models.py
 # ```
 
 # And hit it with any OpenAI API-compatible client!

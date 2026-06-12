@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot_server.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/lfm_snapshot.py"]
 # ---
 
 # # Low Latency, Serverless LFM2 with vLLM and Modal
@@ -346,7 +346,7 @@ class LfmVllmInference:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy lfm_snapshot_server.py
+# modal deploy lfm_snapshot.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -375,7 +375,7 @@ class LfmVllmInference:
 # If you execute the command
 
 # ```bash
-# modal run lfm_snapshot_server.py
+# modal run lfm_snapshot.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -513,7 +513,7 @@ async def _send_request_streaming(
 # It can be run with the command
 
 # ```
-# python lfm_snapshot_server.py
+# python lfm_snapshot.py
 # ```
 
 if __name__ == "__main__":

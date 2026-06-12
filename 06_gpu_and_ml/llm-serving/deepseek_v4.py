@@ -241,7 +241,7 @@ def wait_for_server_ready():
 # ## Test the server
 
 # ```bash
-# modal run 06_gpu_and_ml/llm-serving/deepseek_v4_server.py
+# modal run 06_gpu_and_ml/llm-serving/deepseek_v4.py
 # ```
 
 
@@ -287,7 +287,7 @@ async def probe(url, messages, timeout=20 * MINUTES):
 # ## Deploy the server
 
 # ```bash
-# modal deploy 06_gpu_and_ml/llm-serving/deepseek_v4_server.py
+# modal deploy 06_gpu_and_ml/llm-serving/deepseek_v4.py
 # ```
 
 

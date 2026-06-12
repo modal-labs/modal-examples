@@ -401,7 +401,7 @@ class SGLang:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy sglang_low_latency_server.py
+# modal deploy sglang_low_latency.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -430,7 +430,7 @@ class SGLang:
 # If you execute the command
 
 # ```bash
-# modal run sglang_low_latency_server.py
+# modal run sglang_low_latency.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while

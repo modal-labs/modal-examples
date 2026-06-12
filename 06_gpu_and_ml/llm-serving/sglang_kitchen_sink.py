@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/sglang_kitchen_sink_server.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/sglang_kitchen_sink.py"]
 # ---
 
 # # Fast-booting, low-latency Qwen 3 8B with SGLang, GPU snapshots, and speculative decoding
@@ -237,13 +237,13 @@ class SGLang:
 # ## Deploy the server
 
 # ```bash
-# modal deploy sglang_kitchen_sink_server.py
+# modal deploy sglang_kitchen_sink.py
 # ```
 
 # ## Test the server
 
 # ```bash
-# modal run sglang_kitchen_sink_server.py
+# modal run sglang_kitchen_sink.py
 # ```
 
 
@@ -344,7 +344,7 @@ async def _send_request_streaming(
 # ### Test memory snapshotting
 
 # ```bash
-# python sglang_kitchen_sink_server.py
+# python sglang_kitchen_sink.py
 # ```
 
 if __name__ == "__main__":

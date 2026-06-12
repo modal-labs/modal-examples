@@ -1,6 +1,6 @@
 # ---
 # deploy: true
-# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency_server.py"]
+# cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
 # ---
 
 # # Low latency Qwen 3 8B with vLLM and Modal
@@ -303,7 +303,7 @@ class VLLM:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy vllm_low_latency_server.py
+# modal deploy vllm_low_latency.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -332,7 +332,7 @@ class VLLM:
 # If you execute the command
 
 # ```bash
-# modal run vllm_low_latency_server.py
+# modal run vllm_low_latency.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
