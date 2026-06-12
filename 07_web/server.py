@@ -94,11 +94,11 @@ def ping():
         except HTTPError as e:
             if e.code == 503:
                 import time
+
                 time.sleep(1)
                 continue
             else:
                 raise e
-
 
 
 # Notice the retry loop! Modal Clses and Functions are serverless and scale to zero by default.
