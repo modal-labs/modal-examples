@@ -81,7 +81,7 @@ def ping():
     from urllib.error import HTTPError
     from urllib.request import urlopen
 
-    url = FileServer.get_url()
+    url = await FileServer.get_url()
 
     this = Path(__file__).name
 
