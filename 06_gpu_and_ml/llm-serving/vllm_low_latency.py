@@ -462,4 +462,4 @@ if __name__ == "__main__":
         await probe(url, messages, timeout=10 * MINUTES)
 
     print("calling inference server")
-    asyncio.run(main(vllm_server.get_urls()[REGION]))
+    asyncio.run(main(vllm_server.get_url()))

@@ -81,7 +81,7 @@ def ping():
     from urllib.error import HTTPError
     from urllib.request import urlopen
 
-    url = FileServer.get_urls()[ROUTING_REGION]
+    url = FileServer.get_url()
 
     this = Path(__file__).name
 
@@ -93,9 +93,12 @@ def ping():
             break
         except HTTPError as e:
             if e.code == 503:
+                import time
+                time.sleep(1)
                 continue
             else:
                 raise e
+
 
 
 # Notice the retry loop! Modal Clses and Functions are serverless and scale to zero by default.

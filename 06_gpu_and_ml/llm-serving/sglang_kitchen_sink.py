@@ -353,7 +353,7 @@ if __name__ == "__main__":
 
     print("calling inference server")
     try:
-        asyncio.run(probe(sglang_server.get_urls()[ROUTING_REGION]))
+        asyncio.run(probe(sglang_server.get_url()))
     except modal.exception.NotFoundError as e:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"
