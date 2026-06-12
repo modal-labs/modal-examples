@@ -77,7 +77,7 @@ class FileServer:
 
 
 @app.local_entrypoint()
-def ping():
+async def ping():
     from urllib.error import HTTPError
     from urllib.request import urlopen
 
