@@ -512,7 +512,9 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = modal.Server.from_name("example-lfm-snapshot", "LfmVllmInference")
+    LfmVllmInference = modal.Server.from_name(
+        "example-lfm-snapshot", "LfmVllmInference"
+    )
 
     async def main():
         url = LfmVllmInference.get_url()
