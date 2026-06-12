@@ -272,7 +272,7 @@ def wake_up():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LFM 2 inference server.
 
-app = modal.App("example-lfm-snapshot")
+app = modal.App("example-server-lfm-snapshot")
 
 
 @app._experimental_server(

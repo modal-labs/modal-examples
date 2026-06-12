@@ -356,7 +356,7 @@ def warmup():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LLM inference server.
 
-app = modal.App(name="example-sglang-low-latency")
+app = modal.App(name="example-server-sglang-low-latency")
 PORT = 8000
 ROUTING_REGION = "us-west"
 

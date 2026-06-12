@@ -164,7 +164,7 @@ def check_running(p: subprocess.Popen):
         raise subprocess.CalledProcessError(rc, cmd=p.args)
 
 
-app = modal.App(name="example-sglang-kitchen-sink")
+app = modal.App(name="example-server-sglang-kitchen-sink")
 PORT = 8000
 
 
@@ -350,7 +350,7 @@ async def _send_request_streaming(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    sglang_server = Server.from_name("example-sglang-kitchen-sink", "SGLang")
+    sglang_server = Server.from_name("example-server-sglang-kitchen-sink", "SGLang")
 
     print("calling inference server")
     try:

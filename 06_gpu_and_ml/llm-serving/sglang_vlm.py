@@ -287,7 +287,7 @@ async def main():
 # when no Modal HTTP Server replicas are available.
 
 
-async def probe(url: str, messages: list, timeout: int = 5 * MINUTES):
+async def probe(url: str, messages: list, timeout: int = 25 * MINUTES):
     headers = {"Modal-Session-Id": "test-session"}
     deadline = time.time() + timeout
 

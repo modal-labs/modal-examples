@@ -240,7 +240,7 @@ def wake_up():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LLM inference server.
 
-APP_NAME = "example-vllm-low-latency"
+APP_NAME = "example-server-vllm-low-latency"
 app = modal.App(name=APP_NAME)
 
 
