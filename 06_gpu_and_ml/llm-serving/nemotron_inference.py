@@ -17,7 +17,7 @@
 # For more on serving very large language models, see
 # [this example](https://modal.com/docs/examples/very_large_models).
 
-# To minimize routing overheads, we use `app._experimental_server`,
+# To minimize routing overheads, we use `@app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -99,7 +99,7 @@ sglang_image = sglang_image.env(
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `app._experimental_server`.
+# as part of defining a `@app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us` cloud region serve them.
@@ -112,7 +112,7 @@ ROUTING_REGION = "us-east"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `app._experimental_server`
+# To improve cache hit rate, `@app._experimental_server`
 # includes sticky routing based on a client-provided header.
 # See the client code below for details.
 
@@ -155,11 +155,11 @@ TARGET_INPUTS = 10
 
 # The key decorators are:
 
-# - [`app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
 # See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
 
-# - `app._experimental_server` to turn our Python code into an HTTP server
+# - `@app._experimental_server` to turn our Python code into an HTTP server
 # (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
 # needs to eventually listen for HTTP connections on the provided `port`.
 
