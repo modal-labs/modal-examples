@@ -457,7 +457,7 @@ if __name__ == "__main__":
     vllm_server = Server.from_name(APP_NAME, "VLLM")
 
     async def main():
-        url = await vllm_server.get_url()
+        url = vllm_server.get_url()
         messages = [{"role": "user", "content": "Tell me a joke."}]
         await probe(url, messages, timeout=10 * MINUTES)
 

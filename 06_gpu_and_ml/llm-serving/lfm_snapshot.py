@@ -516,7 +516,7 @@ if __name__ == "__main__":
     LfmVllmInference = Server.from_name("example-lfm-snapshot", "LfmVllmInference")
 
     async def main():
-        url = await LfmVllmInference.get_url()
+        url = LfmVllmInference.get_url()
         messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 

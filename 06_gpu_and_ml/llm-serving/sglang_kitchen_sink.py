@@ -356,7 +356,7 @@ if __name__ == "__main__":
     try:
 
         async def main():
-            url = await sglang_server.get_url()
+            url = sglang_server.get_url()
             await probe(url)
 
         asyncio.run(main())
