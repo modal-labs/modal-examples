@@ -248,7 +248,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=3 * HOURS, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = Server.get_url()
+    url = await Server.get_url()
 
     system_prompt = {"role": "system", "content": "You are a helpful AI assistant."}
 

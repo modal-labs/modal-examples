@@ -249,7 +249,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = SGLang.get_url()
+    url = await SGLang.get_url()
 
     system_prompt = {
         "role": "system",
@@ -353,7 +353,12 @@ if __name__ == "__main__":
 
     print("calling inference server")
     try:
-        asyncio.run(probe(sglang_server.get_url()))
+        async def main():
+            url = await sglang_server.get_url()
+            await probe(url)
+
+        asyncio.run(main())
+
     except modal.exception.NotFoundError as e:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"

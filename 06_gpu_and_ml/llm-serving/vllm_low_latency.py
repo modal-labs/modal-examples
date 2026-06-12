@@ -341,7 +341,8 @@ class VLLM:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = VLLM.get_url()
+    url = await VLLM.get_url()
+    print(url)
 
     system_prompt = {
         "role": "system",
@@ -459,4 +460,7 @@ if __name__ == "__main__":
         await probe(url, messages, timeout=10 * MINUTES)
 
     print("calling inference server")
-    asyncio.run(main(vllm_server.get_url()))
+    async def run_vllm():
+        url = await vllm_server.get_url()
+        await main(url)
+    asyncio.run(run_vllm())
