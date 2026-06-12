@@ -32,7 +32,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 GIT_SHA = "5244693e308eaf05da17f28cca6bcc922270fd3c"
