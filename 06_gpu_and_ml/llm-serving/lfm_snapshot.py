@@ -513,7 +513,9 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = Server.from_name("example-server-lfm-snapshot", "LfmVllmInference")
+    LfmVllmInference = Server.from_name(
+        "example-server-lfm-snapshot", "LfmVllmInference"
+    )
 
     async def main():
         url = LfmVllmInference.get_url()
