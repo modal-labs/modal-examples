@@ -30,7 +30,6 @@ from pathlib import Path
 
 import aiohttp
 import modal
-import modal.experimental
 
 here = Path(__file__).parent
 
@@ -293,14 +292,14 @@ app = modal.App("example-serve-very-large-models", image=image)
 GPU_TYPE = "H200"
 GPU_COUNT = 4
 
-# We'll use a Modal `experimental.http_server` to serve our model.
+# We'll use a Modal `app.experimental_server` to serve our model.
 # This reduces client latencies and provides for regionalized deployment.
 # You can read more about it in [this example](https://modal.com/docs/examples/sglang_low_latency).
 # To configure it, we need to pass in region information for the GPU workers
 # and for the load-balancing proxy.
 
 REGION = "us"
-PROXY_REGIONS = ["us-east"]
+ROUTING_REGION = "us-east"
 
 # Lastly, we need to configure autoscaling parameters.
 # By default, Modal is fully serverless, and applications
@@ -321,16 +320,16 @@ MIN_CONTAINERS = 0  # Set to 1 for production to keep a warm replica
 
 # Deployments of large models with a single node per replica can generally handle a few tens of requests
 # without queueing. When a particular replica has more requests than it can handle, we want to scale it up.
-# This behavior is configured by passing the `target_inputs` parameter to `modal.concurrent`.
+# This behavior is configured by setting `target_concurrency` parameter to `target_inputs`.
 
 TARGET_INPUTS = 10  # Concurrent requests per replica before scaling
 
 # ### Define the server
 
 # Now we're ready to put all of our infrastructure configuration
-# together into a Modal Cls.
+# together into a Modal Server.
 
-# The Modal Cls allows us to control
+# The Modal Server allows us to control
 # [container lifecycle](https://modal.com/docs/guide/lifecycle-functions).
 # In particular, it lets us define work that a replica should do before
 # and after it handles requests in methods decorated with `modal.enter`
@@ -340,21 +339,19 @@ SGLANG_PORT = 8000
 MINUTES = 60  # seconds
 
 
-@app.cls(
+@app._experimental_server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     scaledown_window=20 * MINUTES,  # how long should we stay up with no requests?
-    timeout=30 * MINUTES,  # how long should we wait for container start?
+    startup_timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={"/root/.cache/huggingface": hf_cache_vol},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-)
-@modal.experimental.http_server(
     port=SGLANG_PORT,
-    proxy_regions=["us-east"],
+    routing_region=ROUTING_REGION,
     exit_grace_period=25,  # time to finish requests on shutdown (seconds)
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
     @modal.enter()
     def start(self):
@@ -410,7 +407,7 @@ def wait_for_server_ready():
 @app.local_entrypoint()
 async def test(test_timeout=20 * MINUTES, content=None, twice=True):
     """Test the model serving endpoint"""
-    url = (await Server._experimental_get_flash_urls.aio())[0]
+    url = await Server.get_url()
 
     if USE_DUMMY_WEIGHTS:
         system_prompt = {"role": "system", "content": "This system produces gibberish."}
@@ -432,7 +429,7 @@ async def test(test_timeout=20 * MINUTES, content=None, twice=True):
 
 
 # The unique client logic for Modal deployments is in the `probe` function below.
-# Specifically, when a Modal `experimental.http_server` is spinning up,
+# Specifically, when a Modal `app.experimental_server` is spinning up,
 # i.e. before the `modal.enter` finishes for at least one replica,
 # clients will see a `503 Service Unavailable` status
 # and so should retry.

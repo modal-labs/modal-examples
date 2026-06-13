@@ -14,7 +14,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@modal.experimental.http_server`,
+# To minimize routing overheads, we use `@app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -35,7 +35,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
@@ -109,14 +108,14 @@ GPU = f"{GPU_TYPE}:{N_GPUS}"
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# as part of defining a `@app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us` cloud region serve them.
 # This should result in at most a few dozen milliseconds of round-trip time.
 
 REGION = "us"
-PROXY_REGION = "us-west"
+ROUTING_REGION = "us-west"
 
 # Latencies for multi-turn interactions with LLMs are
 # substantially cut when previous interaction turns are in the KV cache.
@@ -148,15 +147,13 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
-# For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
-
+# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
 TARGET_INPUTS = 16
 
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators
@@ -165,15 +162,13 @@ TARGET_INPUTS = 16
 
 # The key decorators are:
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
+# This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
+# The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
+# - `target_concurrency` to specify how many
 # requests our server can handle before we need to scale up.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
@@ -286,7 +281,7 @@ app = modal.App(name="example-nemotron-inference")
 PORT = 8000
 
 
-@app.cls(
+@app._experimental_server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
@@ -294,13 +289,11 @@ PORT = 8000
     min_containers=MIN_CONTAINERS,
     secrets=[hf_secret],
     startup_timeout=120 * MINUTES,  # time to load weights
-)
-@modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[PROXY_REGION],  # location of proxies, should overlap with Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should overlap with the container regions
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
     @modal.enter()
     def startup(self):
@@ -389,7 +382,7 @@ class Server:
 
 @app.local_entrypoint()
 async def test(test_timeout=120 * MINUTES, prompt=None, twice=True):
-    url = (await Server._experimental_get_flash_urls.aio())[0]
+    url = await Server.get_url()
 
     system_prompt = {
         "role": "system",
@@ -419,7 +412,7 @@ async def test(test_timeout=120 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# when an `app.experimental_server` has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.

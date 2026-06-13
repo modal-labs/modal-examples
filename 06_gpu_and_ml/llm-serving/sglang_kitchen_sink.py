@@ -21,7 +21,7 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
+from modal.server import Server
 
 MINUTES = 60  # seconds
 
@@ -31,7 +31,7 @@ sglang_image = (
     ).entrypoint([])  # silence chatty logs on container start
 )
 
-sglang_image.env(
+sglang_image = sglang_image.env(
     {  # bleeding-edge SGLang perf opt settings
         "SGLANG_ENABLE_SPEC_V2": "1",
         "SGLANG_ENABLE_DFLASH_SPEC_V2": "1",
@@ -132,15 +132,15 @@ def wake_up():
 # ### Selecting infrastructure to minimize latency
 
 REGION = "us"
-PROXY_REGION = "us-west"
+ROUTING_REGION = "us-west"
 
 MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 
-# ### Determining autoscaling policy with `@modal.concurrent`
+# ### Determining autoscaling policy with `target_concurrency`
 
 TARGET_INPUTS = 10
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 
 def wait_ready(process: subprocess.Popen, timeout: int = 5 * MINUTES):
@@ -164,11 +164,11 @@ def check_running(p: subprocess.Popen):
         raise subprocess.CalledProcessError(rc, cmd=p.args)
 
 
-app = modal.App(name="example-sglang-kitchen-sink")
+app = modal.App(name="example-server-sglang-kitchen-sink")
 PORT = 8000
 
 
-@app.cls(
+@app._experimental_server(
     image=sglang_image,
     gpu=GPU,
     volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
@@ -176,13 +176,11 @@ PORT = 8000
     min_containers=MIN_CONTAINERS,
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
-)
-@modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[PROXY_REGION],  # location of proxies, should be same as Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
     @modal.enter(snap=True)
     def startup(self):
@@ -252,7 +250,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = SGLang._experimental_get_flash_urls()[0]
+    url = await SGLang.get_url()
 
     system_prompt = {
         "role": "system",
@@ -352,11 +350,17 @@ async def _send_request_streaming(
 
 if __name__ == "__main__":
     # after deployment, we can use the class from anywhere
-    SGLang = modal.Cls.from_name("example-sglang-kitchen-sink", "SGLang")
+    sglang_server = Server.from_name("example-server-sglang-kitchen-sink", "SGLang")
 
     print("calling inference server")
     try:
-        asyncio.run(probe(SGLang._experimental_get_flash_urls()[0]))
+
+        async def main():
+            url = sglang_server.get_url()
+            await probe(url)
+
+        asyncio.run(main())
+
     except modal.exception.NotFoundError as e:
         raise Exception(
             f"To take advantage of GPU snapshots, deploy first with modal deploy {__file__}"

@@ -8,7 +8,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@modal.experimental.http_server`,
+# To minimize routing overheads, we use `@app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -32,7 +32,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 GIT_SHA = "5244693e308eaf05da17f28cca6bcc922270fd3c"
@@ -284,15 +283,13 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
-# For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
-
+# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
 TARGET_INPUTS = 10
 
 # Generally, this choice needs to be made as part of
 # [LLM inference engine benchmarking](https://modal.com/llm-almanac/how-to-benchmark).
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators
@@ -301,17 +298,11 @@ TARGET_INPUTS = 10
 
 # The key decorators are:
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
-
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-# The proxy is located in a specific region as well; we choose `us-west`.
-
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
-# requests our server can handle before we need to scale up.
+# This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
+# The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
 # which methods of the class should be run when starting the server and shutting it down.
@@ -365,25 +356,23 @@ def warmup():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LLM inference server.
 
-app = modal.App(name="example-sglang-low-latency")
+app = modal.App(name="example-server-sglang-low-latency")
 PORT = 8000
-PROXY_REGION = "us-west"
+ROUTING_REGION = "us-west"
 
 
-@app.cls(
+@app._experimental_server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
     region=REGION,
     min_containers=MIN_CONTAINERS,
     startup_timeout=20 * MINUTES,
-)
-@modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[PROXY_REGION],  # location of proxies, should be close to Cls region
+    routing_region=ROUTING_REGION,  # location of proxies, should be close to Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
     @modal.enter()
     def startup(self):
@@ -473,7 +462,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang._experimental_get_flash_urls.aio())[0]
+    url = await SGLang.get_url()
 
     system_prompt = {
         "role": "system",
@@ -503,7 +492,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# when an `app.experimental_server` has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.

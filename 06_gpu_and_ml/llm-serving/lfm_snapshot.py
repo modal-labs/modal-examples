@@ -24,7 +24,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@modal.experimental.http_server`,
+# To minimize routing overheads, we use `@app._experimental_server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -52,7 +52,7 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
+from modal.server import Server
 
 MINUTES = 60
 
@@ -119,7 +119,7 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# as part of defining a `app._experimental_server`.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us-east` cloud region to serve them.
@@ -145,7 +145,7 @@ MIN_CONTAINERS = 0
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
+# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
 # For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
 
 # Generally, this choice needs to be made as part of
@@ -247,7 +247,7 @@ def wake_up():
     requests.post(f"http://127.0.0.1:{VLLM_PORT}/wake_up").raise_for_status()
 
 
-# ### Controlling container lifecycles with `modal.Cls`
+# ### Controlling container lifecycles with `modal.Server`
 
 # We wrap up all of the choices we made about the infrastructure
 # of our inference server into a number of Python decorators
@@ -256,16 +256,11 @@ def wake_up():
 
 # The key decorators are:
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#cls) for details.
-
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
-# requests our server can handle before we need to scale up.
+# This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
+# The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
 # which methods of the class should be run when starting the server and shutting it down.
@@ -277,14 +272,14 @@ def wake_up():
 # With all this in place, we are ready to define our high-performance, low-latency
 # LFM 2 inference server.
 
-app = modal.App("example-lfm-snapshot")
+app = modal.App("example-server-lfm-snapshot")
 
 
-@app.cls(
+@app._experimental_server(
     image=vllm_image,
     gpu=GPU,
     scaledown_window=5 * MINUTES,
-    timeout=15 * MINUTES,
+    startup_timeout=15 * MINUTES,
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
@@ -294,13 +289,11 @@ app = modal.App("example-lfm-snapshot")
     experimental_options={"enable_gpu_snapshot": True},
     region=REGION,
     min_containers=MIN_CONTAINERS,
-)
-@modal.experimental.http_server(
     port=VLLM_PORT,
-    proxy_regions=[REGION],
+    routing_region=REGION,
     exit_grace_period=5,
+    target_concurrency=TARGET_INPUTS,
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class LfmVllmInference:
     @modal.enter(snap=True)
     def startup(self):
@@ -390,7 +383,7 @@ class LfmVllmInference:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+    url = await LfmVllmInference.get_url()
 
     if prompt is None:
         prompt = "List every country and its capital."
@@ -418,7 +411,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# when an `app.experimental_server` has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.
@@ -520,10 +513,12 @@ async def _send_request_streaming(
 # ```
 
 if __name__ == "__main__":
-    LfmVllmInference = modal.Cls.from_name("example-lfm-snapshot", "LfmVllmInference")
+    LfmVllmInference = Server.from_name(
+        "example-server-lfm-snapshot", "LfmVllmInference"
+    )
 
     async def main():
-        url = (await LfmVllmInference._experimental_get_flash_urls.aio())[0]
+        url = LfmVllmInference.get_url()
         messages = [{"role": "user", "content": "Tell me ten jokes."}]
         await probe(url, messages, timeout=10 * MINUTES)
 
