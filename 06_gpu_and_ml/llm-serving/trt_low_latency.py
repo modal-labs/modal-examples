@@ -79,35 +79,12 @@ tensorrt_image = tensorrt_image.uv_pip_install(
 # [CUTLASS library](https://github.com/NVIDIA/cutlass)
 # provide optimized kernels for small batch sizes.
 
+# For a full walkthrough of these engine tuning options,
+# see [the TRT-LLM latency example](https://modal.com/docs/examples/trtllm_latency).
+
 N_GPUS = 1
 GPU = f"H100:{N_GPUS}"
 MAX_BATCH_SIZE = 1  # minimize latency by processing one request at a time
-
-# We write the engine configuration as a JSON file
-# that `trtllm-serve` passes to the
-# [`LLM` constructor](https://nvidia.github.io/TensorRT-LLM/llm-api)
-# via `--extra_llm_api_options`.
-
-ENGINE_CONFIG = {
-    "quant_config": {"quant_algo": "FP8"},
-    "calib_config": {
-        "calib_batches": 512,
-        "calib_batch_size": 1,
-        "calib_max_seq_length": 2048,
-        "tokenizer_max_seq_length": 4096,
-    },
-    "build_config": {
-        "plugin_config": {
-            "multiple_profiles": True,
-            "paged_kv_cache": True,
-            "low_latency_gemm_swiglu_plugin": "fp8",
-            "low_latency_gemm_plugin": "fp8",
-        },
-        "max_input_len": 8192,
-        "max_num_tokens": 16384,
-        "max_batch_size": MAX_BATCH_SIZE,
-    },
-}
 
 # ## Define the inference server
 
@@ -168,13 +145,14 @@ def warmup():
         ).raise_for_status()
 
 
-# ### Start the TRT-LLM server with `http_server`
+# ### Build the TRT-LLM engine and start the server
 
 # We use [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to manage
-# the server lifecycle: download the model, start `trtllm-serve`, and wait for it to be ready.
-
-# On the first container start, TensorRT-LLM builds and caches the optimized engine,
-# which takes several minutes. Subsequent starts load the cached engine in seconds.
+# the server lifecycle. On the first container start, we build an optimized engine
+# using the TensorRT-LLM [Python API](https://nvidia.github.io/TensorRT-LLM/llm-api)
+# with FP8 quantization and low-latency plugins, then cache it in the Volume.
+# Subsequent starts load the cached engine in seconds and launch `trtllm-serve`
+# to expose an OpenAI-compatible HTTP API.
 
 app = modal.App("example-trt-low-latency")
 
@@ -196,10 +174,15 @@ app = modal.App("example-trt-low-latency")
 class TRT:
     @modal.enter()
     def startup(self):
-        """Download the model, write engine config, and start the TRT-LLM OpenAI-compatible server."""
+        """Download model, build/load the optimized engine, and start trtllm-serve."""
         from huggingface_hub import snapshot_download
+        from tensorrt_llm import LLM, BuildConfig
+        from tensorrt_llm.llmapi import CalibConfig, QuantConfig
+        from tensorrt_llm.plugin.plugin import PluginConfig
 
         model_path = str(MODELS_PATH / MODEL_ID)
+        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "fast")
+
         snapshot_download(
             MODEL_ID,
             local_dir=model_path,
@@ -207,21 +190,45 @@ class TRT:
             revision=MODEL_REVISION,
         )
 
-        config_path = "/tmp/trtllm_engine_config.json"
-        with open(config_path, "w") as f:
-            json.dump(ENGINE_CONFIG, f)
+        if not Path(engine_path).exists():
+            print(f"building new engine at {engine_path}")
+            llm = LLM(
+                model=model_path,
+                quant_config=QuantConfig(quant_algo="FP8"),
+                calib_config=CalibConfig(
+                    calib_batches=512,
+                    calib_batch_size=1,
+                    calib_max_seq_length=2048,
+                    tokenizer_max_seq_length=4096,
+                ),
+                build_config=BuildConfig(
+                    plugin_config=PluginConfig.from_dict(
+                        {
+                            "multiple_profiles": True,
+                            "paged_kv_cache": True,
+                            "low_latency_gemm_swiglu_plugin": "fp8",
+                            "low_latency_gemm_plugin": "fp8",
+                        }
+                    ),
+                    max_input_len=8192,
+                    max_num_tokens=16384,
+                    max_batch_size=MAX_BATCH_SIZE,
+                ),
+                tensor_parallel_size=N_GPUS,
+            )
+            llm.save(engine_path)
+            llm.shutdown()
+            del llm
+        else:
+            print(f"loading cached engine from {engine_path}")
 
         cmd = [
             "trtllm-serve",
-            model_path,
+            engine_path,
             "--host",
             "0.0.0.0",
             "--port",
             str(PORT),
-            "--tp_size",
-            str(N_GPUS),
-            "--extra_llm_api_options",
-            config_path,
         ]
 
         self.process = subprocess.Popen(cmd)
