@@ -219,6 +219,7 @@ class TRT:
             llm.save(engine_path)
             llm.shutdown()
             del llm
+            volume.commit()
         else:
             print(f"loading cached engine from {engine_path}")
 
