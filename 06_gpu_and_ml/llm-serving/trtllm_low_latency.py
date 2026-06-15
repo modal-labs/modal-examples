@@ -89,7 +89,7 @@ tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).pip_install(
     "tensorrt-llm==0.20.0",  # 0.20+ adds trtllm-serve --extra_llm_api_options
-    "pynvml>=12",  # required by tensorrt-llm 0.20
+    "pynvml==12.0",  # required by tensorrt-llm 0.20
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
     "onnx==1.19.1",
@@ -385,7 +385,7 @@ class TRT:
         from tensorrt_llm.plugin.plugin import PluginConfig
 
         model_path = str(MODELS_PATH / MODEL_ID)
-        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "serve")
+        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "serve-0.20")
 
         snapshot_download(
             MODEL_ID,
