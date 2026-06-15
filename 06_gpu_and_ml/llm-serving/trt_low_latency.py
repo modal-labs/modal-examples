@@ -181,7 +181,7 @@ class TRT:
         from tensorrt_llm.plugin.plugin import PluginConfig
 
         model_path = str(MODELS_PATH / MODEL_ID)
-        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "fast")
+        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "serve")
 
         snapshot_download(
             MODEL_ID,
