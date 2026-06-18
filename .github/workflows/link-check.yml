@@ -1,0 +1,39 @@
+name: Link check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 13 * * 1"
+
+env:
+  MODAL_ENVIRONMENT: examples
+
+jobs:
+  links:
+    name: Check links
+    runs-on: ubuntu-24.04
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_MODAL_LABS_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_MODAL_LABS_TOKEN_SECRET }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup
+
+      - name: Collect links
+        run: python3 -m internal.link_check collect --output link-check-links.json
+
+      - name: Check links with Modal
+        if: ${{ env.MODAL_TOKEN_ID != '' && env.MODAL_TOKEN_SECRET != '' }}
+        run: modal run internal/link_check.py --input link-check-links.json --output link-check-results.json --baseline internal/broken_links_baseline.json
+
+      - name: Check links locally
+        if: ${{ env.MODAL_TOKEN_ID == '' || env.MODAL_TOKEN_SECRET == '' }}
+        run: python3 -m internal.link_check check --input link-check-links.json --mode local --output link-check-results.json --baseline internal/broken_links_baseline.json
