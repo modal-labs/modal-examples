@@ -157,7 +157,7 @@ class Falcon40B_4bit:
 
 
 # ## Run the model
-# We define a [`local_entrypoint`](https:modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
+# We define a [`local_entrypoint`](https://modal.com/docs/guide/apps#entrypoints-for-ephemeral-apps) to call our remote function
 # sequentially for a list of inputs. You can run this locally with `modal run -q falcon_bitsandbytes.py`. The `-q` flag
 # enables streaming to work in the terminal output.
 prompt_template = (
