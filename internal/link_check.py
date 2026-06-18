@@ -557,10 +557,10 @@ def check_records_with_modal(
             return_exceptions=True,
         )
         return [
-            CheckResult(target, "broken", repr(remote_result))
+            CheckResult(targets[index], "broken", repr(remote_result))
             if isinstance(remote_result, Exception)
             else CheckResult(**remote_result)
-            for target, remote_result in zip(targets, remote_results)
+            for index, remote_result in enumerate(remote_results)
         ]
 
     return _check_records(records, check_targets)
