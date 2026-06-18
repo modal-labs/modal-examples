@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import internal.link_check as link_check
+import link_check
 
 
 def extract(tmp_path: Path, filename: str, text: str) -> list[link_check.LinkRecord]:
