@@ -126,6 +126,7 @@ app = modal.App(name="example-sglang-vlm")
     port=PORT,
     routing_region=ROUTING_REGION,
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class VlmServer:
     @modal.enter()

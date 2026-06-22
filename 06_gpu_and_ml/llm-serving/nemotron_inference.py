@@ -293,6 +293,7 @@ PORT = 8000
     routing_region=ROUTING_REGION,  # location of proxies, should overlap with the container regions
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class Server:
     @modal.enter()

@@ -55,6 +55,7 @@ app = modal.App("example-server")
     compute_region=REGION,
     port=PORT,
     routing_region=ROUTING_REGION,
+    unauthenticated=True,
 )
 class FileServer:
     @modal.enter()

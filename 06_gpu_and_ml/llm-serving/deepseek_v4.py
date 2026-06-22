@@ -205,6 +205,7 @@ HOURS = 60 * MINUTES
     routing_region=ROUTING_REGION,
     exit_grace_period=25,
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class Server:
     @modal.enter()

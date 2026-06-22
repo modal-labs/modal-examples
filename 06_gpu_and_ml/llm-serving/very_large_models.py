@@ -351,6 +351,7 @@ MINUTES = 60  # seconds
     routing_region=ROUTING_REGION,
     exit_grace_period=25,  # time to finish requests on shutdown (seconds)
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class Server:
     @modal.enter()

@@ -180,6 +180,7 @@ PORT = 8000
     routing_region=ROUTING_REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class SGLang:
     @modal.enter(snap=True)

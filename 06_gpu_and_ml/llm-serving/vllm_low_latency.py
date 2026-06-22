@@ -257,6 +257,7 @@ app = modal.App(name=APP_NAME)
     routing_region=REGION,  # location of proxies, should be same as Cls region
     exit_grace_period=5,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class VLLM:
     @modal.enter(snap=True)

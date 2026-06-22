@@ -79,6 +79,7 @@ ROUTING_REGION = "us-west"
     port=PORT,
     routing_region=ROUTING_REGION,
     target_concurrency=100,
+    unauthenticated=True,
 )
 class Server:
     @modal.enter()

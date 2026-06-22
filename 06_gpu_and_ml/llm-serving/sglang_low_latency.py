@@ -372,6 +372,7 @@ ROUTING_REGION = "us-west"
     routing_region=ROUTING_REGION,  # location of proxies, should be close to Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class SGLang:
     @modal.enter()

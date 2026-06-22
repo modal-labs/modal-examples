@@ -293,6 +293,7 @@ app = modal.App("example-server-lfm-snapshot")
     routing_region=REGION,
     exit_grace_period=5,
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class LfmVllmInference:
     @modal.enter(snap=True)

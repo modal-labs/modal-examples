@@ -103,6 +103,7 @@ TARGET_INPUTS = 16
     routing_region="us-east",
     port=PORT,
     target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
 class SGLang:
     @modal.enter()
