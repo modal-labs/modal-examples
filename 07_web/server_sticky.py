@@ -73,7 +73,7 @@ CONTAINERS = 2
 ROUTING_REGION = "us-west"
 
 
-@app._experimental_server(
+@app.server(
     image=image,
     min_containers=CONTAINERS,
     port=PORT,

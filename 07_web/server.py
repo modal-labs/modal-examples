@@ -26,7 +26,7 @@ import modal
 # with a [`modal.enter`-decorated](https://modal.com/docs/guide/lifecycle-functions) method
 # that creates a subtask (thread or process) that listens for HTTP requests on some port.
 
-# Then wrap that class in the `@app._experimental_server` decorator,
+# Then wrap that class in the `@app.server` decorator,
 # passing in the `port` your server task is listening on
 # and a `routing_region` to specify where Modal should proxy your requests through.
 # This proxy will communicate directly with the containers running your server.
@@ -35,7 +35,7 @@ import modal
 # like [distributed Volume storage](https://modal.com/docs/guide/volumes),
 # [CPU/memory resources](https://modal.com/docs/guide/resources),
 # and [GPU type and count](https://modal.com/docs/guide/gpu),
-# to `@app._experimental_server`.
+# to `@app.server`.
 # To reduce end-to-end latency, include a [Region](https://modal.com/docs/guide/region-selection)
 # that matches the routing region and containers will be deployed into that Region.
 # Note that region-pinning has cost and resource availability implications!
@@ -51,7 +51,7 @@ ROUTING_REGION = "us-east"
 app = modal.App("example-server")
 
 
-@app._experimental_server(
+@app.server(
     region=REGION,
     port=PORT,
     routing_region=ROUTING_REGION,

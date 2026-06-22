@@ -8,7 +8,7 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@app._experimental_server`,
+# To minimize routing overheads, we use `@app.server`,
 # which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
@@ -298,7 +298,7 @@ TARGET_INPUTS = 10
 
 # The key decorators are:
 
-# - [`@app._experimental_server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# - [`@app.server`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
 # We attach our Image, request a GPU, attach our cache Volumes, specify the region, and configure auto-scaling.
 # This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
 # The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
