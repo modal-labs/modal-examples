@@ -462,7 +462,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = await SGLang.get_url()
+    url = await SGLang.get_url.aio()
 
     system_prompt = {
         "role": "system",

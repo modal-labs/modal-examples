@@ -342,7 +342,7 @@ class VLLM:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = await VLLM.get_url()
+    url = await VLLM.get_url.aio()
     print(url)
 
     system_prompt = {
@@ -457,7 +457,7 @@ if __name__ == "__main__":
     vllm_server = Server.from_name(APP_NAME, "VLLM")
 
     async def main():
-        url = vllm_server.get_url()
+        url = await vllm_server.get_url.aio()
         messages = [{"role": "user", "content": "Tell me a joke."}]
         await probe(url, messages, timeout=10 * MINUTES)
 

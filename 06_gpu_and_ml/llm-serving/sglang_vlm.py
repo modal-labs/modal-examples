@@ -268,7 +268,7 @@ def warmup():
 
 @app.local_entrypoint()
 async def main():
-    url = await VlmServer.get_url()
+    url = await VlmServer.get_url.aio()
 
     messages = SAMPLE_PAYLOAD["messages"]
     print(f"Sending image at {messages[0]['content'][0]['image_url']} to the server")

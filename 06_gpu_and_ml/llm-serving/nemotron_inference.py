@@ -382,7 +382,7 @@ class Server:
 
 @app.local_entrypoint()
 async def test(test_timeout=120 * MINUTES, prompt=None, twice=True):
-    url = await Server.get_url()
+    url = await Server.get_url.aio()
 
     system_prompt = {
         "role": "system",
