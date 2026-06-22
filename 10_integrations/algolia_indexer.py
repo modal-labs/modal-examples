@@ -47,7 +47,6 @@ CONFIG = {
     },
     "stop_urls": [
         "https://modal.com/gpu-glossary",
-        "https://modal.com/docs/sdk/py/changelog",
     ],
     "start_urls": [
         {
