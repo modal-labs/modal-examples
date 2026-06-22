@@ -125,7 +125,7 @@ class Server:
 @app.local_entrypoint()
 async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
     # wait for at least one replica to spin up
-    url = await Server.get_url()
+    url = Server.get_url()
     async with aiohttp.ClientSession() as sess:
         await wait_available(sess, url)
 
