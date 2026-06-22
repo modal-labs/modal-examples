@@ -236,6 +236,7 @@ PORT = 8000
     port=PORT,  # wrapped code must listen on this port
     proxy_regions=[PROXY_REGION],  # location of proxies, should overlap with Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    unauthenticated=True,  # allow public access without a Modal-Authorization token
 )
 @modal.concurrent(target_inputs=TARGET_INPUTS)
 class Server:
