@@ -51,6 +51,9 @@ sglang_image = (
 # fitting on a single H100 GPU.
 
 MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
+MODEL_REVISION = (  # pin revision to avoid surprises if upstream updates
+    "cbd3fa9f933d55ef16a84236559f4ee2a0526848"  # latest commit as of 2026-06-22
+)
 
 # We load the model [from the Hugging Face Hub](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16).
 # Downloads from the Hub are much faster if you are authenticated.
@@ -218,6 +221,8 @@ class Server:
             "serve",
             "--model-path",
             MODEL_NAME,
+            "--revision",
+            MODEL_REVISION,
             "--served-model-name",
             MODEL_NAME,
             "--host",
