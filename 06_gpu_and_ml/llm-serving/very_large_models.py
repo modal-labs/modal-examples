@@ -339,13 +339,13 @@ SGLANG_PORT = 8000
 MINUTES = 60  # seconds
 
 
-@app._experimental_server(
+@app.server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     scaledown_window=20 * MINUTES,  # how long should we stay up with no requests?
     startup_timeout=30 * MINUTES,  # how long should we wait for container start?
     volumes={"/root/.cache/huggingface": hf_cache_vol},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     port=SGLANG_PORT,
     routing_region=ROUTING_REGION,

@@ -281,11 +281,11 @@ app = modal.App(name="example-nemotron-inference")
 PORT = 8000
 
 
-@app._experimental_server(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     secrets=[hf_secret],
     startup_timeout=120 * MINUTES,  # time to load weights

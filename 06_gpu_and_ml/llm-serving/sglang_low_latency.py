@@ -361,11 +361,11 @@ PORT = 8000
 ROUTING_REGION = "us-west"
 
 
-@app._experimental_server(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     startup_timeout=20 * MINUTES,
     port=PORT,  # wrapped code must listen on this port

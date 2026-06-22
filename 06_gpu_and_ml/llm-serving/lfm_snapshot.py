@@ -275,7 +275,7 @@ def wake_up():
 app = modal.App("example-server-lfm-snapshot")
 
 
-@app._experimental_server(
+@app.server(
     image=vllm_image,
     gpu=GPU,
     scaledown_window=5 * MINUTES,
@@ -287,7 +287,7 @@ app = modal.App("example-server-lfm-snapshot")
     secrets=[hf_secret],
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     port=VLLM_PORT,
     routing_region=REGION,

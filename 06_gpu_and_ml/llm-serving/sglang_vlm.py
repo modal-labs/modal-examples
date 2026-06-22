@@ -118,7 +118,7 @@ TARGET_INPUTS = 10
 app = modal.App(name="example-sglang-vlm")
 
 
-@app._experimental_server(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL, DG_CACHE_PATH: DG_CACHE_VOL},

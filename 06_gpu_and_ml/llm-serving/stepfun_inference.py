@@ -93,7 +93,7 @@ PORT = 8000
 TARGET_INPUTS = 16
 
 
-@app._experimental_server(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},

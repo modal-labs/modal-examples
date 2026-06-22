@@ -168,11 +168,11 @@ app = modal.App(name="example-server-sglang-kitchen-sink")
 PORT = 8000
 
 
-@app._experimental_server(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={DG_CACHE_PATH: DG_CACHE_VOL, HF_CACHE_PATH: HF_CACHE_VOL},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},

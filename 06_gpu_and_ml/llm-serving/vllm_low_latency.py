@@ -244,13 +244,13 @@ APP_NAME = "example-server-vllm-low-latency"
 app = modal.App(name=APP_NAME)
 
 
-@app._experimental_server(
+@app.server(
     image=vllm_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
     enable_memory_snapshot=True,
     experimental_options={"enable_gpu_snapshot": True},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     startup_timeout=10 * MINUTES,
     port=PORT,  # wrapped code must listen on this port

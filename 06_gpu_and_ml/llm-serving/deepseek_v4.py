@@ -193,13 +193,13 @@ MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
 
 
-@app._experimental_server(
+@app.server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     scaledown_window=20 * MINUTES,
     startup_timeout=3 * HOURS,
     volumes={"/root/.cache/huggingface": hf_cache_vol},
-    region=REGION,
+    compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     port=SGLANG_PORT,
     routing_region=ROUTING_REGION,
