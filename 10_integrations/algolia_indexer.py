@@ -62,7 +62,7 @@ CONFIG = {
             "page_rank": 1,
         },
         {
-            "url": "https://modal.com/docs/reference",
+            "url": "https://modal.com/docs/sdk/py/latest",
             "selectors_key": "reference",
             "page_rank": 1,
         },
