@@ -46,7 +46,9 @@ CONFIG = {
         "synonyms": [["cls", "class"]],
     },
     "stop_urls": [
+        "https://modal.com/docs/reference/modal.Stub",
         "https://modal.com/gpu-glossary",
+        "https://modal.com/docs/reference/changelog",
     ],
     "start_urls": [
         {
