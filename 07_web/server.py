@@ -36,7 +36,7 @@ import modal
 # [CPU/memory resources](https://modal.com/docs/guide/resources),
 # and [GPU type and count](https://modal.com/docs/guide/gpu),
 # to `@app.server`.
-# To reduce end-to-end latency, include a [Region](https://modal.com/docs/guide/region-selection)
+# To reduce end-to-end latency, include a [Compute Region](https://modal.com/docs/guide/region-selection)
 # that matches the routing region and containers will be deployed into that Region.
 # Note that region-pinning has cost and resource availability implications!
 # See [the guide](https://modal.com/docs/guide/region-selection)
@@ -52,7 +52,7 @@ app = modal.App("example-server")
 
 
 @app.server(
-    region=REGION,
+    compute_region=REGION,
     port=PORT,
     routing_region=ROUTING_REGION,
 )
