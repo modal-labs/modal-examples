@@ -30,8 +30,7 @@ Fields include:
 - `args`: Arguments to pass to the command. Default is `[]`.
 - `lambda-test`: If `true`, the example is tested with the cli command provided
   in `cmd`. If `false`, it is not. Default is `true`. Note that this controls
-  execution in the CI/CD of this repo _and_ in the internal AWS Lambda monitor
-  as part of `synthetic_monitoring`.
+  execution in the CI/CD of this repo _and_ in the internal Modal monitor as part of `synthetic_monitoring`.
 - `env`: A dictionary of environment variables to include when testing.
   Default is `{}`, but note that the environment can be modified in the CI/CD of
   this repo or in the monitor-based testing.
