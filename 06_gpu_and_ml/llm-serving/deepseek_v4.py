@@ -179,7 +179,7 @@ app = modal.App("example-deepseek-v4", image=image)
 GPU_TYPE = "B200"
 GPU_COUNT = 8
 
-REGION = "us"
+COMPUTE_REGION = "us"
 ROUTING_REGION = "us-east"
 
 MIN_CONTAINERS = 0  # Set to 1 for production to keep a warm replica
@@ -199,7 +199,7 @@ HOURS = 60 * MINUTES
     scaledown_window=20 * MINUTES,
     startup_timeout=3 * HOURS,
     volumes={"/root/.cache/huggingface": hf_cache_vol},
-    compute_region=REGION,
+    compute_region=COMPUTE_REGION,
     min_containers=MIN_CONTAINERS,
     port=SGLANG_PORT,
     routing_region=ROUTING_REGION,

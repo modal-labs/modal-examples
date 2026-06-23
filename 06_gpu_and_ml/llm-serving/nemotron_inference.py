@@ -121,8 +121,8 @@ ROUTING_REGION = "us-west"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
-# includes sticky routing based on a client-provided header.
+# To improve cache hit rate, Modal Servers
+# include sticky routing based on a client-provided header.
 # See the client code below for details.
 
 # For production-scale LLM inference services, there are generally
@@ -417,7 +417,7 @@ async def test(test_timeout=120 * MINUTES, prompt=None, twice=True):
 
 # We include a header with each request --
 # `Modal-Session-ID`.
-# This is header is used by clients of `http_server`s on Modal
+# This is header is used by clients Modal Servers
 # to identify which requests should be routed to the same container
 # (with caveats explained below).
 

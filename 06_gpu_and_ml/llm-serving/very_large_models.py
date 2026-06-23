@@ -292,7 +292,7 @@ app = modal.App("example-serve-very-large-models", image=image)
 GPU_TYPE = "H200"
 GPU_COUNT = 4
 
-# We'll use a Modal `app.experimental_server` to serve our model.
+# We'll use a Modal Server to serve our model.
 # This reduces client latencies and provides for regionalized deployment.
 # You can read more about it in [this example](https://modal.com/docs/examples/sglang_low_latency).
 # To configure it, we need to pass in region information for the GPU workers
@@ -430,7 +430,7 @@ async def test(test_timeout=20 * MINUTES, content=None, twice=True):
 
 
 # The unique client logic for Modal deployments is in the `probe` function below.
-# Specifically, when a Modal `app.experimental_server` is spinning up,
+# Specifically, when a Modal Server is spinning up,
 # i.e. before the `modal.enter` finishes for at least one replica,
 # clients will see a `503 Service Unavailable` status
 # and so should retry.

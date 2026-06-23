@@ -245,7 +245,7 @@ speculative_env = {
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
 # and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# as part of defining a Modal Server.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us` cloud region serve them.
@@ -257,8 +257,8 @@ REGION = "us"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
-# includes sticky routing based on a client-provided header.
+# To improve cache hit rate, Modal Servers
+# include sticky routing based on a client-provided header.
 # See the client code below for details.
 
 # For production-scale LLM inference services, there are generally
@@ -493,11 +493,11 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `app.experimental_server` has no live replicas.
+# when a Modal Server has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.
-# This is header is used by clients of `http_server`s on Modal
+# This is header is used by clients of Modal Servers
 # to identify which requests should be routed to the same container
 # (with caveats explained below).
 

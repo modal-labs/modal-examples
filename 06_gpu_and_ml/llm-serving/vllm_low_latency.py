@@ -374,7 +374,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
 # Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `app.experimental_server` has no live replicas.
+# when a Server has no live replicas.
 
 # We include a header with each request --
 # `Modal-Session-ID`.
@@ -386,7 +386,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # (prototypically, a user conversation thread with a chatbot)
 # to improve KV cache hit rates.
 # Note that this header is only compatible with
-# Modal `http_server`s.
+# Modal Servers, not [Modal Web Functions](https://modal.com/docs/guide/webhooks).
 
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
