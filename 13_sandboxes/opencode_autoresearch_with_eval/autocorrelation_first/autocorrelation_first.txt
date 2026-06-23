@@ -1,0 +1,18 @@
+Find a non-negative list of step heights whose unnormalized discrete
+autoconvolution has a small peak compared with the square of the total mass.
+
+For a list f of length n, the verifier computes:
+
+    c1 = 2 * n * max(convolve(f, f)) / (sum(f) ** 2)
+
+Lower c1 is better. Values must be finite, non-negative numbers. Keep the
+sequence reasonably small so it can be graded quickly.
+
+Improve solution.py by editing the code between:
+
+    # EVOLVE-BLOCK-START
+    # EVOLVE-BLOCK-END
+
+Submit a candidate with:
+
+    python submit.py
