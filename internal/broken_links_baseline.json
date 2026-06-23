@@ -1,0 +1,90 @@
+{
+  "description": "Known broken prose links. CI fails only for new broken targets or known broken targets appearing in new files.",
+  "links": [
+    {
+      "files": [
+        "04_secrets/db_to_sheet.py"
+      ],
+      "target": "http://openweathermap.org/"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/llm-serving/sglang_low_latency.py"
+      ],
+      "target": "https://docs.vllm.ai/projects/ascend/en/main/user_guide/feature_guide/Multi_Token_Prediction.html"
+    },
+    {
+      "files": [
+        "10_integrations/algolia_indexer.py"
+      ],
+      "target": "https://docsearch.algolia.com/docs/docsearch-v3/"
+    },
+    {
+      "files": [
+        "07_web/fastrtc_flip_webcam.py"
+      ],
+      "target": "https://fastrtc.org/"
+    },
+    {
+      "files": [
+        "07_web/fastrtc_flip_webcam.py"
+      ],
+      "target": "https://fastrtc.org/userguide/streams/"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/reinforcement-learning/learn_math.py",
+        "06_gpu_and_ml/reinforcement-learning/trainer_script_grpo.py"
+      ],
+      "target": "https://github.com/willccbb/verifiers/blob/main/verifiers/examples/math_python.py"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/llm-serving/ministral3_inference.py"
+      ],
+      "target": "https://huggingface.co/collections/mistralai/ministral-3-more"
+    },
+    {
+      "files": [
+        "misc/falcon_gptq.py"
+      ],
+      "target": "https://modal.com/docs/examples/falcon_bitsandbytes"
+    },
+    {
+      "files": [
+        "misc/falcon_bitsandbytes.py"
+      ],
+      "target": "https://modal.com/docs/examples/falcon_gptq"
+    },
+    {
+      "files": [
+        "13_sandboxes/sandbox_agent.py"
+      ],
+      "target": "https://modal.com/notebooks/modal-labs/_/nb-30WInxiigR3Wc8kQ3jU7Hr"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/llm-serving/trtllm_latency.py"
+      ],
+      "target": "https://nvidia.github.io/TensorRT-LLM/llm-api-examples"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/langchains/potus_speech_qanda.py"
+      ],
+      "target": "https://platform.openai.com/docs/guides/rate-limits/overview"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/protein-folding/chai1.py"
+      ],
+      "target": "https://www.biorxiv.org/content/10.1101/2024.10.10.615955"
+    },
+    {
+      "files": [
+        "06_gpu_and_ml/llm-serving/vllm_throughput.py"
+      ],
+      "target": "https://www.sec.gov/files/form4data.pdf"
+    }
+  ]
+}
