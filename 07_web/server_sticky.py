@@ -6,7 +6,7 @@
 
 # This example demonstrates the usage and behavior of
 # the optional "sticky" routing behavior of
-# Modal Servers with a basic routing test.
+# [Modal Servers](https://modal.com/docs/guide/servers) with a basic routing test.
 
 # For a gentler introduction to Modal Servers,
 # see [this example](https://modal.com/docs/examples/server).
@@ -52,7 +52,7 @@ image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.115.4")
 # to be greater than one so that there are multiple
 # replicas available for routing during our test.
 
-# Additionally, we set the routing regions into which we
+# Additionally, we set the routing Region into which we
 # want to deploy the proxies that communicate between
 # our clients and the server.
 
@@ -123,16 +123,16 @@ class Server:
 
 
 @app.local_entrypoint()
-async def test(n_clients: int = 10, sticky: bool = True, seconds: float = 5.0):
+async def test(n_clients: int = 4, sticky: bool = True, seconds: float = 10.0):
     # wait for at least one replica to spin up
-    url = Server.get_url()
+    url = await Server.get_url.aio()
     async with aiohttp.ClientSession() as sess:
         await wait_available(sess, url)
 
     # allow generous time for all replicas to spin up based on rough heuristic;
     # remove this sleep and increase CONTAINERS
     # to observe session routing changes during autoscaling
-    await asyncio.sleep(5 + ((CONTAINERS - 10) // 2))
+    await asyncio.sleep(5 + max((CONTAINERS - 10) // 2, 0))
 
     # run the test
     results = await run_clients(url, n_clients, seconds, sticky)
