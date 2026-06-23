@@ -31,30 +31,31 @@ import modal
 # and a `routing_region` to specify where Modal should proxy your requests through.
 # This proxy will communicate directly with the containers running your server.
 
+# To reduce end-to-end latency, include a compute Region
+# that matches the routing Region and containers will be deployed into that Region.
+# Note that region-pinning has cost and resource availability implications!
+# See [the guide](https://modal.com/docs/guide/region-selection)
+# for details.
+
 # You can also pass the rest of your resource definitions,
 # like [distributed Volume storage](https://modal.com/docs/guide/volumes),
 # [CPU/memory resources](https://modal.com/docs/guide/resources),
 # and [GPU type and count](https://modal.com/docs/guide/gpu),
 # to `@app.server`.
-# To reduce end-to-end latency, include a [Compute Region](https://modal.com/docs/guide/region-selection)
-# that matches the routing region and containers will be deployed into that Region.
-# Note that region-pinning has cost and resource availability implications!
-# See [the guide](https://modal.com/docs/guide/region-selection)
-# for details.
 
 # Altogether, the minimal version of a Modal Server looks something like:
 
 PORT = 8000
-REGION = "us"
+COMPUTE_REGION = "us"
 ROUTING_REGION = "us-east"
 
 app = modal.App("example-server")
 
 
 @app.server(
-    compute_region=REGION,
-    port=PORT,
+    compute_region=COMPUTE_REGION,
     routing_region=ROUTING_REGION,
+    port=PORT,
     unauthenticated=True,
 )
 class FileServer:
@@ -78,7 +79,7 @@ class FileServer:
 
 
 @app.local_entrypoint()
-async def ping():
+def ping():
     from urllib.error import HTTPError
     from urllib.request import urlopen
 
@@ -105,8 +106,8 @@ async def ping():
 # Notice the retry loop! Modal Clses and Functions are serverless and scale to zero by default.
 # When a Modal Server has scaled to zero, clients will get a
 # [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# error response from Modal. Those requests still trigger the underlying Modal Cls to scale up,
-# and once a container is ready, the 503s will stop and clients will receive the server's responses.
+# error response from Modal. Those requests still trigger scale up, and once a container is ready,
+# the 503s will stop and clients will receive the server's responses.
 
 # Modal Servers also support "sticky routing" for improved cache locality within client sessions.
 # For details, see [this example](https://modal.com/docs/examples/server_sticky).
