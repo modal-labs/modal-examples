@@ -85,12 +85,16 @@ state_volume = modal.Volume.from_name(f"{APP_NAME}-state", create_if_missing=Tru
 # ## Two Images, two trust levels
 
 # The main container's Image installs Hermes from PyPI, with the extras for the
-# web dashboard. Node is there for the dashboard's web UI build on first launch.
+# web dashboard. The dashboard's web UI build and the TUI chat console need
+# Node >= 20 - newer than Debian's apt repo ships - so we start from the
+# official Node 22 image and add Python on top.
 
 agent_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git", "curl", "openssh-client", "rsync", "nodejs", "npm")
-    .uv_pip_install(f"hermes-agent[web,pty]=={HERMES_VERSION}")
+    modal.Image.from_registry("node:22-bookworm-slim", add_python="3.11")
+    .apt_install("git", "curl", "openssh-client", "rsync")
+    # python-multipart: needed by the dashboard's kanban plugin API routes,
+    # which fail to load without it
+    .uv_pip_install(f"hermes-agent[web,pty]=={HERMES_VERSION}", "python-multipart")
 )
 
 # The `tools` Sidecar's Image is deliberately boring: an SSH server (keys only,
