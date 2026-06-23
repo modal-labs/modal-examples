@@ -5,7 +5,7 @@
 # # Deploy HTTP Servers with ultra low latency on Modal
 
 # Modal offers a primitive for edge-deployed, low latency web services:
-# the Modal Server.
+# the [Modal Server](https://modal.com/docs/guide/servers).
 
 # Modal Servers are designed for applications with very demanding
 # latency requirements, where a few tens of milliseconds of round-trip latency is unacceptable,
