@@ -12,7 +12,6 @@ import time
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
@@ -94,16 +93,18 @@ PORT = 8000
 TARGET_INPUTS = 16
 
 
-@app.cls(
+@app.server(
     image=sglang_image,
     gpu=GPU,
     volumes={HF_CACHE_PATH: HF_CACHE_VOL},
     secrets=[hf_secret],
     scaledown_window=15 * MINUTES,
     startup_timeout=120 * MINUTES,
+    routing_region="us-east",
+    port=PORT,
+    target_concurrency=TARGET_INPUTS,
+    unauthenticated=True,
 )
-@modal.experimental.http_server(proxy_regions=["us-east"], port=PORT)
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class SGLang:
     @modal.enter()
     def startup(self):
@@ -168,7 +169,7 @@ class SGLang:
 
 @app.local_entrypoint()
 async def test(test_timeout=40 * MINUTES, prompt=None, twice=True):
-    url = (await SGLang._experimental_get_flash_urls.aio())[0]
+    url = await SGLang.get_url.aio()
 
     system_prompt = {
         "role": "system",
