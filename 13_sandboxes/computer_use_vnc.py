@@ -55,7 +55,7 @@ image = (
 )
 
 
-def is_vnc_up(url: str) -> bool:
+def is_server_up(url: str) -> bool:
     try:
         return urllib.request.urlopen(url).getcode() == 200
     except Exception:
@@ -65,9 +65,9 @@ def is_vnc_up(url: str) -> bool:
 # ## Pinging the Endpoint
 #
 # When we create an Endpoint, it's considered "live" once it's finished provisioning.
-# However, it isn't necessarily ready to serve requests: for example,
-# the containers may have scaled down to 0 and need to be warmed.
-# We include checks for both conditions.
+# However, it isn't necessarily ready to serve requests. The containers may have
+# scaled down to zero and need to be warmed. We also poll `/health` until it returns
+# HTTP 200, the same pattern we use for noVNC above.
 
 
 def is_endpoint_live() -> bool:
@@ -81,28 +81,6 @@ def is_endpoint_live() -> bool:
         if endpoint["name"] == ENDPOINT_NAME:
             return True
     return False
-
-
-@app.function(image=image)
-async def is_endpoint_ready(base_url: str) -> bool:
-    from browser_use import ChatOpenAI
-    from browser_use.llm.messages import UserMessage
-
-    try:
-        llm = ChatOpenAI(
-            model=ENDPOINT_MODEL,
-            api_key="unused",
-            base_url=base_url,
-            reasoning_effort="none",
-            reasoning_models=[ENDPOINT_MODEL],
-            timeout=3 * MINUTES,
-        )
-        response = await llm.ainvoke(
-            [UserMessage(content="Reply with the single word: ready")]
-        )
-        return bool(response.completion.strip())
-    except Exception:
-        return False
 
 
 @app.local_entrypoint()
@@ -133,7 +111,7 @@ def main(task: str = DEFAULT_TASK):
         else f"{workspace.name}-{environment}"
     )
     base_url = (
-        f"https://{workspace_prefix}--ep-{ENDPOINT_NAME}-server.us-west.modal.direct/v1"
+        f"https://{workspace_prefix}--ep-{ENDPOINT_NAME}-server.us-west.modal.direct"
     )
     print(f"Endpoint URL: {base_url}")
 
@@ -189,7 +167,7 @@ def main(task: str = DEFAULT_TASK):
             llm = ChatOpenAI(
                 model={ENDPOINT_MODEL!r},
                 api_key="unused",
-                base_url={base_url!r},
+                base_url={f"{base_url}/v1"!r},
                 reasoning_effort="none",
                 reasoning_models=[{ENDPOINT_MODEL!r}],
                 timeout={3 * MINUTES!r},
@@ -234,7 +212,7 @@ def main(task: str = DEFAULT_TASK):
         tunnel = sandbox.tunnels()[VNC_PORT]
         deadline = time.time() + VNC_WARMUP_TIME
         while time.time() < deadline:
-            if is_vnc_up(tunnel.url):
+            if is_server_up(tunnel.url):
                 watch_url = f"{tunnel.url.rstrip('/')}/vnc.html?autoconnect=1&resize=scale&reconnect=1"
                 print(f"Watch the browser at: {watch_url}")
                 break
@@ -242,12 +220,12 @@ def main(task: str = DEFAULT_TASK):
         else:
             raise TimeoutError("Timed out waiting for noVNC.")
 
-        print("Waiting for endpoint to be ready...")
+        print("Waiting for the endpoint to be ready...")
         deadline = time.time() + ENDPOINT_WARMUP_TIME
-        while not is_endpoint_ready.remote(base_url):
+        while not is_server_up(f"{base_url}/health"):
             if time.time() >= deadline:
                 raise TimeoutError(f"Timed out waiting for {ENDPOINT_NAME!r}.")
-            time.sleep(10)
+            time.sleep(1)
 
         agent_process = sandbox.exec(
             "python",
