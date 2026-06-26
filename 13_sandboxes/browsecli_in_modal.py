@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "13_sandboxes/browsecli_in_modal.py"]
+# cmd: ["modal", "run", "browsecli_in_modal.py"]
 # ---
 
 # # Run a browser agent inside a Modal Function
@@ -25,8 +25,8 @@
 # └──────────────────────────────┘    page data       └────────────────────────┘
 # ```
 #
-# The agent's task (overridable): go to Hacker News, find the most controversial
-# post today, read the top comments, and summarize the debate.
+# The agent's task (overridable): pull each company's most recent 10-Q from SEC
+# EDGAR and return a sourced comparison of revenue, growth, RPO, and top risk.
 #
 # To run it:
 #
@@ -37,6 +37,7 @@
 # ```
 
 import os
+import shlex
 import subprocess
 
 import modal
@@ -82,41 +83,37 @@ agent_secret = modal.Secret.from_dict(
 # the same browser tab across calls. We slice the output to keep tool results
 # inside the model's context budget.
 #
-# The system prompt encodes the playbook the agent should follow — which `browse`
-# subcommands exist, when to read a page as markdown vs. plain text, and the
-# don't-retry / summarize-after-one-thread rules that keep the loop short.
+# The system prompt is deliberately generic: it describes the `browse` commands and
+# good research habits (use multiple sources, cross-check, don't retry dead pages),
+# then lets the model plan its own steps for whatever task it's given.
 
 SESSION = "agent"
 DEFAULT_TASK = (
-    "Go to Hacker News and find the most controversial post from today, "
-    "then read the top 3 comments and summarize the debate."
+    "For Snowflake, Datadog, and MongoDB, find each company's most recent 10-Q "
+    "filing on SEC EDGAR (start at "
+    "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany). Open the actual "
+    "primary filing document — not the filing index, cover page, or an exhibit — "
+    "and extract quarterly revenue, year-over-year revenue growth, remaining "
+    "performance obligations (RPO), and the single most significant risk factor. "
+    "Return a comparison table across all three companies and cite each filing's URL."
 )
 MODEL = "claude-sonnet-4-5"
-MAX_STEPS = 20
+MAX_STEPS = 40
 
-SYSTEM_PROMPT = f"""You drive a REAL web browser by running the browse CLI in a shell (the browser runs remotely on Browserbase).
-Each tool call runs: browse <your args> --session {SESSION}
-Commands:
+SYSTEM_PROMPT = f"""You are an autonomous deep-research agent. You answer questions by investigating the live web with a real browser that runs remotely on Browserbase. Each tool call runs: browse <your args> (every call is automatically scoped to one shared session "{SESSION}").
+Useful commands:
   open <url> --remote   # navigate (ALWAYS include --remote so it uses the cloud browser)
-  get markdown body     # read a page as markdown (keeps links/URLs)
-  get text body         # read a page as PLAIN TEXT (cleaner for reading comment threads)
+  get markdown body     # read the current page as markdown (keeps links/URLs)
+  get text body         # read the current page as plain text
+Use "--help" to discover more commands.
 
-Plan (be efficient, ~6 calls):
-1. open https://news.ycombinator.com --remote, then "get markdown body" ONCE — the front page lists ~30 stories, each with points and an "N comments" link to https://news.ycombinator.com/item?id=NNNN. (Use markdown here because it contains the item URLs.)
-2. Pick the most controversial = highest comment count (and/or a divisive topic). Take its exact item URL from the markdown.
-3. open that item URL --remote, then "get text body" to read the post + comments. (Use TEXT here — HN comment pages are unreadable as markdown.)
-4. Write a concise summary of the debate from the top 3 comments.
-
-Rules:
-- If a page returns ERROR or looks empty, DO NOT retry it — pick a DIFFERENT story.
-- As soon as you've read ONE comment thread successfully, STOP browsing and write the summary.
-- Use exact item URLs from the markdown; never guess ids."""
+Plan your own research: break the question into sub-questions, find and open relevant sources, follow links, and read pages to gather evidence. Use several independent sources and cross-check key facts. If a page returns ERROR or looks empty, try a different source instead of retrying it unchanged. When you can answer thoroughly, stop browsing and return a concise, well-sourced synthesis that cites the URLs you used."""
 
 BROWSE_TOOL = {
     "name": "browse",
     "description": (
         'Run a browse CLI command (omit the leading "browse"). '
-        "e.g. open https://news.ycombinator.com --remote ; "
+        "e.g. open https://example.com --remote ; "
         "get markdown body ; get text body"
     ),
     "input_schema": {
@@ -136,8 +133,12 @@ def run_browse(args: str) -> str:
     """Execute one `browse` command against the shared remote session."""
     print(f"-> browse {args}")
     try:
+        # Tokenize the model's free-form arg string and re-quote each piece, so a
+        # URL with shell metacharacters like `&` (e.g. SEC EDGAR query strings)
+        # isn't split by the shell into broken commands.
+        cmd = "browse " + " ".join(shlex.quote(a) for a in shlex.split(args))
         result = subprocess.run(
-            ["bash", "-lc", f"browse {args} --session {SESSION}"],
+            ["bash", "-lc", f"{cmd} --session {SESSION}"],
             capture_output=True,
             text=True,
             timeout=45,
@@ -149,7 +150,7 @@ def run_browse(args: str) -> str:
         out = f"ERROR: {e}"
     is_err = out.startswith("ERROR")
     print(f"   <- {len(out)} chars{' [ERR]' if is_err else ''}")
-    return out[:22000]
+    return out[:40000]
 
 
 @app.function(secrets=[agent_secret])
