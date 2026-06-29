@@ -2,7 +2,7 @@
 # lambda-test: false  # needs Kernel + Anthropic credentials and provisions a cloud browser
 # ---
 
-# # Beef up the web scraper with a Kernel headful browser
+# # Web scraping with a Kernel headful browser
 #
 # Modal's [simple web scraper](https://modal.com/docs/examples/webscraper) launches a
 # *local, headless* Chromium that it has to bake into the container image
