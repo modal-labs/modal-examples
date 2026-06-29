@@ -45,8 +45,11 @@ VIEWPORT = {
 }  # must equal the computer-use tool's display_*_px
 MODEL = "claude-sonnet-4-6"  # Sonnet is the sweet spot for computer use; swap to claude-opus-4-8 in one line for harder UIs
 MAX_ITERS = 22  # a two-field form needs only a few steps; this bounds cost and runtime
-TYPING_DELAY_MS = 12  # per-character typing delay (matches Kernel's public computer-use template)
+TYPING_DELAY_MS = (
+    12  # per-character typing delay (matches Kernel's public computer-use template)
+)
 SCREENSHOT_SETTLE_S = 2.0  # let the page react before each capture
+REPLAY_GRACE_S = 1.5  # let the final banner land in the recording before we stop it
 
 image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "kernel==0.72.0",  # <1.0: pin exact patch per modal-examples policy
@@ -290,7 +293,9 @@ def _execute(client, sid: str, inp: dict) -> None:
             cx, cy = coord[0], coord[1]
         else:
             cx, cy = VIEWPORT["width"] // 2, VIEWPORT["height"] // 2
-        notches = max(inp.get("scroll_amount") or 1, 1)  # wheel units, as the Kernel SDK expects
+        notches = max(
+            inp.get("scroll_amount") or 1, 1
+        )  # wheel units, as the Kernel SDK expects
         direction = inp.get("scroll_direction") or "down"
         dx = notches if direction == "right" else -notches if direction == "left" else 0
         dy = notches if direction == "down" else -notches if direction == "up" else 0
@@ -342,6 +347,10 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
         messages.append({"role": "assistant", "content": resp.content})
         turn_text = "".join(b.text for b in resp.content if b.type == "text")
         tool_uses = [b for b in resp.content if b.type == "tool_use"]
+        actions = (
+            ", ".join(str(tu.input.get("action")) for tu in tool_uses) or "no action"
+        )
+        print(f"  turn {i + 1}/{MAX_ITERS}: {actions}")
 
         verdict = _find_verdict(turn_text)
         if verdict:
@@ -361,7 +370,12 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
 
         tool_results = []
         for tu in tool_uses:
-            _execute(client, sid, dict(tu.input))
+            try:
+                _execute(client, sid, dict(tu.input))
+            except Exception as exc:
+                # A transient Kernel API error or a bad coordinate shouldn't kill a paid,
+                # non-idempotent run: note it and let the model re-plan from a fresh screenshot.
+                print(f"  action failed, model will re-plan: {exc}")
             tool_results.append(
                 {
                     "type": "tool_result",
@@ -394,6 +408,8 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
     secrets=[KERNEL_SECRET, ANTHROPIC_SECRET], timeout=15 * MINUTES, retries=0
 )
 def qa_agent(url: str, goal: str) -> dict:
+    import time
+
     from anthropic import Anthropic
     from kernel import Kernel
 
@@ -422,13 +438,20 @@ def qa_agent(url: str, goal: str) -> dict:
         # where logs are shared/retained, and don't post it to a public channel.
         print(f"recording: {replay_view_url}")
         verdict, reason, iterations = _run_cua_loop(client, anthropic_client, sid, goal)
+        # Let the final success/error banner land in the recording before we stop it. This runs
+        # on the success path only - if the loop raised, we skip straight to teardown.
+        time.sleep(REPLAY_GRACE_S)
     finally:
         if replay is not None:
             try:
                 client.browsers.replays.stop(replay.replay_id, id=sid)
             except Exception:
                 pass
-        client.browsers.delete_by_id(sid)
+        try:
+            client.browsers.delete_by_id(sid)
+        except Exception as exc:
+            # Don't let a teardown blip discard a verdict that already cost a paid browser.
+            print(f"  browser delete failed: {exc}")
 
     return {
         "url": url,
