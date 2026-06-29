@@ -310,6 +310,8 @@ def ensure_auth(
     deadline = time.monotonic() + 5 * MINUTES
     while time.monotonic() < deadline:
         state = client.auth.connections.retrieve(id=connection.id)
+        # The terminal flow_status values, from the public Managed Auth flow_status enum
+        # (the non-IN_PROGRESS states; see kernel.sh/docs/auth/overview).
         if state.flow_status in ("SUCCESS", "FAILED", "EXPIRED", "CANCELED"):
             break
         if (
