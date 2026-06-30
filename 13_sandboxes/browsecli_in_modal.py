@@ -98,7 +98,7 @@ DEFAULT_TASK = (
     "most recent 10-K. Return a comparison table across all three companies and cite each "
     "URL."
 )
-MODEL = "claude-opus-4-8"
+MODEL = "claude-sonnet-5"
 MAX_STEPS = 40
 MAX_OUTPUT_CHARS = 40_000  # cap each tool result so it fits the context budget
 
