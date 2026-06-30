@@ -1,5 +1,6 @@
 # ---
 # cmd: ["modal", "run", "13_sandboxes/browsecli_in_modal.py"]
+# lambda-test: false  # missing-secret
 # pytest: false
 # ---
 
@@ -39,7 +40,6 @@
 # modal run 13_sandboxes/browsecli_in_modal.py
 # ```
 
-import os
 
 import modal
 
@@ -51,25 +51,26 @@ import modal
 # over CDP at run time. The agent loop itself runs in a Modal Function and only needs
 # `anthropic`, so we add that to the Function's image separately below.
 
-sandbox_image = modal.Image.from_registry("node:20-slim", add_python="3.12").run_commands(
-    "npm install -g browse@latest", "browse --version"
-)
+sandbox_image = modal.Image.from_registry(
+    "node:20-slim", add_python="3.12"
+).run_commands("npm install -g browse@0.9.1", "browse --version")
 
 app = modal.App("example-browsecli-in-modal")
 
+MINUTES = 60  # seconds, for readable timeouts
+
 # ## Credentials
 #
-# We inject both keys with `Secret.from_dict`, reading them from the **local**
-# environment at launch — so no pre-created Modal Secret is required to try this.
-# (For production, store them once as a named Secret — `modal secret create
-# browser-agent ANTHROPIC_API_KEY=... BROWSERBASE_API_KEY=...` — and swap the
-# `Secret.from_dict(...)` below for `modal.Secret.from_name("browser-agent")`.)
+# Both the agent loop and the Sandbox need an Anthropic key and a Browserbase key.
+# We store them once as a named Modal Secret and reference it by name. Create it
+# before your first run with:
+#
+# ```bash
+# modal secret create browser-agent ANTHROPIC_API_KEY=... BROWSERBASE_API_KEY=...
+# ```
 
-agent_secret = modal.Secret.from_dict(
-    {
-        "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "BROWSERBASE_API_KEY": os.environ.get("BROWSERBASE_API_KEY", ""),
-    }
+agent_secret = modal.Secret.from_name(
+    "browser-agent", required_keys=["ANTHROPIC_API_KEY", "BROWSERBASE_API_KEY"]
 )
 
 # ## The agent
@@ -107,19 +108,13 @@ SYSTEM_PROMPT = "You are an autonomous deep-research agent. You have a `browse` 
 BASH_TOOL = {"type": "bash_20250124", "name": "bash"}
 
 
-@app.function(image=modal.Image.debian_slim().pip_install("anthropic"), secrets=[agent_secret])
+@app.function(
+    image=modal.Image.debian_slim(python_version="3.12").pip_install(
+        "anthropic==0.115.0"
+    ),
+    secrets=[agent_secret],
+)
 def run_agent(task: str = DEFAULT_TASK) -> str:
-    # CI guard. Modal runs every gallery example live on each push, where no keys
-    # exist. In that case `from_dict` injected empty strings — print a clear
-    # "skipping" message and return cleanly instead of failing CI. With keys
-    # present, the live run is cheap — one short remote session.
-    if not os.environ.get("ANTHROPIC_API_KEY") or not os.environ.get("BROWSERBASE_API_KEY"):
-        print(
-            "[browser-agent] skipping live run (missing ANTHROPIC_API_KEY or "
-            "BROWSERBASE_API_KEY). Set both in your env before `modal run`."
-        )
-        return ""
-
     import anthropic
 
     # Boot the Sandbox that holds the `browse` CLI. The environment steers every
@@ -129,7 +124,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
         image=sandbox_image,
         secrets=[agent_secret],
         env={"BROWSE_SESSION": SESSION},
-        timeout=15 * 60,
+        timeout=15 * MINUTES,
     )
     print(f"Sandbox ID: {sandbox.object_id}")
 
@@ -173,7 +168,9 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
             tool_results = []
             for block in tool_uses:
                 if block.input.get("restart"):
-                    output = "(bash session restart is a no-op; each command runs fresh)"
+                    output = (
+                        "(bash session restart is a no-op; each command runs fresh)"
+                    )
                 else:
                     output = run_bash(block.input["command"])
                 tool_results.append(
