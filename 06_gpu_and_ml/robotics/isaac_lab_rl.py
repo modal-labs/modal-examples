@@ -60,7 +60,9 @@ class Config:
     iterations: int = 150
     # the robot is trained to move with a "commanded velocity", which we'll keep
     # consistent at demo time when recording the progress videos at each checkpoint.
-    play_command_velocity: tuple[float, float, float] = (1.0, 0.0, 0.0)
+    play_command_velocity: tuple[float, float, float] = (1.0, 1.0, 0.2)
+    # keep the sampled terrain patch/challenge consistent across checkpoint demos.
+    play_seed: int = 42
 
 config = Config()
 
@@ -106,13 +108,13 @@ def train_and_render_demo():
     ], check=True, cwd="/workspace/isaaclab")
     print("Training completed")
 
-    beginning_ckpt, beginning_iter = _ckpt_at_or_before(run_name, 50)
-    middle_ckpt, middle_iter = _ckpt_at_or_before(run_name, 100)
+    beginning_ckpt, beginning_iter = _ckpt_at_or_before(run_name, 0)
+    middle_ckpt, middle_iter = _ckpt_at_or_before(run_name, 50)
     end_ckpt, end_iter = _ckpt_at_or_before(run_name, config.iterations)
 
     phases = [
-        ("beginning", f"Phase 1 - beginning ({beginning_iter} iters) - fails", "red", beginning_ckpt, False),
-        ("middle", f"Phase 2 - middle ({middle_iter} iters) - improving", "yellow", middle_ckpt, False),
+        ("beginning", f"Phase 1 - no training ({beginning_iter} iters)", "red", beginning_ckpt, False),
+        ("middle", f"Phase 2 - improving ({middle_iter} iters)", "yellow", middle_ckpt, False),
         ("end", f"Phase 3 - end ({end_iter} iters) - competent", "cyan", end_ckpt, False),
         ("expert", "Phase 4 - pretrained NVIDIA - succeeds", "lime", None, True),
     ]
@@ -147,6 +149,7 @@ def _render(clip_name, checkpoint=None, pretrained=False):
         "--video", "--video_length", str(config.video_length),
         "--video_folder", video_folder,
         "--video_name_prefix", video_prefix,
+        "--demo_seed", str(config.play_seed),
         "--command_velocity", *(str(v) for v in config.play_command_velocity),
     ]
     cmd += ["--use_pretrained_checkpoint"] if pretrained else ["--checkpoint", checkpoint]

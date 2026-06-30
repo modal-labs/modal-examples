@@ -6,9 +6,9 @@
 """Script to play a checkpoint of an RL agent from RSL-RL.
 
 This is a verbatim copy of Isaac Lab's stock
-scripts/reinforcement_learning/rsl_rl/play.py, with two additions: (1) right after
+scripts/reinforcement_learning/rsl_rl/play.py, with three additions: (1) right after
 the env cfg is parsed we point the recording camera at the robot
-(ViewerCfg.origin_type="asset_root"), and (2) a velocity command override. 
+(ViewerCfg.origin_type="asset_root"), (2) a velocity command override, and (3) consistent seeding for playback. 
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -26,6 +26,7 @@ parser.add_argument("--video", action="store_true", default=False, help="Record 
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument("--video_folder", type=str, default=None, help="Directory to write recorded videos.")
 parser.add_argument("--video_name_prefix", type=str, default="rl-video", help="Prefix for recorded video filenames.")
+parser.add_argument("--demo_seed", type=int, default=None, help="Seed used to make playback terrain and resets repeatable.")
 parser.add_argument(
     "--command_velocity",
     type=float,
@@ -86,6 +87,11 @@ def main():
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
+
+    if args_cli.demo_seed is not None:
+        _seed_playback(args_cli.demo_seed)
+        if hasattr(env_cfg, "seed"):
+            env_cfg.seed = args_cli.demo_seed
 
     # ----- DEMO CAMERA: make the headless recording camera follow the robot. --
     # With num_envs=1 on rough terrain the robot spawns at a sub-terrain offset
@@ -212,6 +218,18 @@ def _pin_base_velocity_command(env_cfg, command_velocity):
         ranges.heading = (0.0, 0.0)
     if hasattr(base_velocity, "heading_command"):
         base_velocity.heading_command = False
+
+
+def _seed_playback(seed):
+    import random
+
+    import numpy as np
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 if __name__ == "__main__":
