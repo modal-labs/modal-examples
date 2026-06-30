@@ -50,9 +50,6 @@ from typing import Optional
 import modal
 
 MINUTES = 60  # seconds, for readable timeouts
-PROFILE_SETTLE_SECONDS = (
-    20  # let the new login settle before a separate browser reuses the profile
-)
 
 # We install the Playwright *client* and the Kernel + Anthropic SDKs - but **no browser
 # binary**. That's the headline: the old example runs `playwright install chromium` into
@@ -316,8 +313,6 @@ def ensure_auth(
         # flow_status is the login flow's state: SUCCESS means it logged in; the terminal
         # failures (FAILED/EXPIRED/CANCELED) mean it did not.
         if state.flow_status == "SUCCESS":
-            # Let the new login settle before a separate browser reuses the profile.
-            time.sleep(PROFILE_SETTLE_SECONDS)
             print(f"authenticated: profile {connection.profile_name}")
             return connection.profile_name
         if state.flow_status in ("FAILED", "EXPIRED", "CANCELED"):
