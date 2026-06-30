@@ -80,12 +80,12 @@ agent_secret = modal.Secret.from_dict(
 # Instead the Sandbox's environment does the steering: `BROWSERBASE_API_KEY` makes
 # `browse` default to a **remote** Browserbase browser, and `BROWSE_SESSION=agent`
 # scopes every call to one shared session, so the agent keeps the same browser tab
-# across commands. The model just runs `browse open <url>`, `browse get markdown body`,
-# and so on.
+# across commands.
 #
-# The system prompt is deliberately generic: it describes the `browse` commands and
-# good research habits, then lets the model plan its own steps for whatever task it's
-# given.
+# The system prompt is deliberately minimal: it doesn't enumerate any `browse`
+# subcommands. It just tells the model the CLI is installed and pre-configured and
+# points it at `browse --help` to learn the interface itself, then lets it plan its
+# own steps for whatever task it's given.
 
 SESSION = "agent"
 DEFAULT_TASK = (
@@ -102,25 +102,7 @@ MODEL = "claude-sonnet-5"
 MAX_STEPS = 40
 MAX_OUTPUT_CHARS = 40_000  # cap each tool result so it fits the context budget
 
-SYSTEM_PROMPT = f"""You are an autonomous deep-research agent. You answer questions by investigating the live web with a real browser that runs remotely on Browserbase, which you drive through the `browse` CLI in a bash shell. Every browser command is automatically scoped to one shared remote session, so you keep the same browser tab across commands.
-Useful commands:
-  browse open <url>          # navigate (uses the shared remote browser)
-  browse get markdown body   # read the current page as markdown (keeps links/URLs)
-  browse get text body       # read the current page as plain text
-Run `browse --help` to discover more commands.
-
-Plan your own research: break the question into sub-questions, find and open relevant sources, follow links, and read pages to gather evidence. Use several independent sources and cross-check key facts. If a page returns an error or looks empty, try a different source instead of retrying it unchanged.
-
-To stay effective:
-- Pages are fully rendered (JavaScript runs) before you read them — the text/markdown you get back IS the real content. Read it carefully and extract what you need; don't assume a page "needs JavaScript" or abandon a source that already has the answer.
-- Read each page once. Don't fetch the same page twice or as both markdown and text (for long pages "get text body" is best), and don't chase detours when a page you already have answers the question.
-- Your steps are limited: once you have what you need for one item, move on, and leave yourself a step to write the final answer.
-
-Reporting rules that apply to every task:
-- When you report the URL of a document, give the direct link to the document itself, not a viewer, preview, or print-friendly wrapper around it.
-- When a question asks about "the most recent" item, identify the single most recent one before reporting, rather than the first plausible match you find.
-
-When you can answer thoroughly, stop browsing and return a concise, well-sourced synthesis that cites the URLs you used."""
+SYSTEM_PROMPT = "You are an autonomous deep-research agent. You have a `browse` CLI (Browserbase browser automation) in your bash tool — it is installed, and its auth and a shared browser session are already configured via environment variables. Learn how to use it by running `browse --help` (and `browse <command> --help` as needed), then complete the task. When you cite a document, link the direct document itself, not a viewer, preview, or index page that wraps it. Return a clear, well-sourced answer."
 
 # Claude's native bash tool. The schema is built into the model — we declare it by
 # type and name only, and our handler executes the `command` Claude sends.
