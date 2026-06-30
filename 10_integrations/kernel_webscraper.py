@@ -272,8 +272,8 @@ async def prove_headful_beats_detection() -> dict:
 # `ensure_auth` is idempotent: it reuses an existing connection, and if that connection is
 # already authenticated it returns immediately without logging in again. Otherwise it runs
 # the flow - start the login, submit the discovered fields from our Secret exactly once,
-# and wait for the connection to reach `AUTHENTICATED` (raising if it doesn't, so we never
-# go on to scrape with a logged-out profile).
+# and wait for the login flow to succeed (raising if it doesn't, so we never go on to
+# scrape with a logged-out profile).
 
 
 @app.function(secrets=[KERNEL_SECRET, LOGIN_SECRET], timeout=10 * MINUTES)
@@ -310,10 +310,13 @@ def ensure_auth(
     deadline = time.monotonic() + 5 * MINUTES
     while time.monotonic() < deadline:
         state = client.auth.connections.retrieve(id=connection.id)
-        # The terminal flow_status values, from the public Managed Auth flow_status enum
-        # (the non-IN_PROGRESS states; see kernel.sh/docs/auth/overview).
-        if state.flow_status in ("SUCCESS", "FAILED", "EXPIRED", "CANCELED"):
-            break
+        # flow_status is the login flow's state: SUCCESS means it logged in; the terminal
+        # failures (FAILED/EXPIRED/CANCELED) mean it did not.
+        if state.flow_status == "SUCCESS":
+            print(f"authenticated: profile {connection.profile_name}")
+            return connection.profile_name
+        if state.flow_status in ("FAILED", "EXPIRED", "CANCELED"):
+            raise RuntimeError(f"Managed Auth failed (flow_status={state.flow_status})")
         if (
             not submitted
             and state.flow_step == "AWAITING_INPUT"
@@ -333,21 +336,7 @@ def ensure_auth(
             submitted = True  # submit once; a rejected submit will spin to the deadline
         time.sleep(2)
 
-    # Managed Auth tracks two states: the login `flow_status` we polled above (the live
-    # attempt), and the connection's own `status`, which is the durable signal for whether the
-    # saved profile is usable (NEEDS_AUTH -> AUTHENTICATED). Confirm that durable status before
-    # trusting the profile: poll a few times so an in-flight transition isn't read as a failure,
-    # and give up if it never authenticates.
-    final = None
-    for _ in range(5):
-        final = client.auth.connections.retrieve(id=connection.id)
-        if final.status == "AUTHENTICATED":
-            print(f"authenticated: profile {final.profile_name}")
-            return final.profile_name
-        time.sleep(2)
-    raise RuntimeError(
-        f"Managed Auth did not authenticate (status={final.status}, flow={final.flow_status})"
-    )
+    raise RuntimeError("Managed Auth did not complete before the timeout")
 
 
 # ## Scale out and schedule
