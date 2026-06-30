@@ -13,7 +13,8 @@
 # 2. Spins up a Kernel **headful** browser and points a **Claude computer-use** agent at the
 #    page. The agent drives the browser the way a person would - from screenshots and pixel
 #    coordinates - filling the form, clicking Submit, and judging whether it worked.
-# 3. **Records the whole session** with Kernel's replay, so you get a video link to watch.
+# 3. **Records the whole session** with Kernel's replay and saves the mp4 to a **Modal Volume**,
+#    so the trace outlives the run.
 # 4. Returns a pass/fail verdict. It **passes** the working variant and **catches the
 #    regression** in the broken one.
 #
@@ -62,6 +63,9 @@ app = modal.App("example-kernel-pr-qa-agent", image=image)
 
 KERNEL_SECRET = modal.Secret.from_name("kernel")  # KERNEL_API_KEY
 ANTHROPIC_SECRET = modal.Secret.from_name("anthropic-secret")  # ANTHROPIC_API_KEY
+
+# A Modal Volume to persist each session recording (mp4) so the traces outlive the run.
+TRACES = modal.Volume.from_name("kernel-pr-qa-traces", create_if_missing=True)
 
 
 # ## The app under test
@@ -399,17 +403,57 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
     return "inconclusive", f"hit iteration cap ({MAX_ITERS}) with no verdict", MAX_ITERS
 
 
-# ## The QA agent
+def _goal(change: str) -> str:
+    """Turn a plain-English description of the change under review into the agent's task."""
+    return (
+        "You are reviewing a web app to confirm a specific change works. The change under test:\n"
+        f"{change}\n\n"
+        "Interact with the page like a user to verify it end to end. When you are done, end your "
+        "reply with exactly 'VERDICT: PASS' if the change works as described, or "
+        "'VERDICT: FAIL: <reason>' if it does not."
+    )
+
+
+def _save_trace(client, sid: str, replay_id: str, label: str):
+    """Download the finished replay (an mp4) and persist it to the Modal Volume so it outlives
+    the run. The recording can take a moment to finalize after stop(), so we retry briefly."""
+    import time
+
+    raw = b""
+    for _ in range(10):
+        try:
+            raw = client.browsers.replays.download(replay_id, id=sid).read()
+            if raw:
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    if not raw:
+        print("recording not ready to download; skipping trace save")
+        return None
+    path = f"/traces/{label}.mp4"
+    with open(path, "wb") as f:
+        f.write(raw)
+    TRACES.commit()
+    print(f"saved recording to Modal Volume: {path} ({len(raw)} bytes)")
+    return path
+
+
+# ## verify_pr: the QA function
 #
-# Create a Kernel headful browser pointed at the target URL, start recording, run the
-# computer-use loop, stop recording, and always delete the browser in a `finally` so we
-# never leak a paid session. `retries=0` because the loop is non-idempotent and paid.
+# Point a Kernel headful browser at a preview URL, run the computer-use agent to verify the
+# described `change`, record the session, save the mp4 to a Modal Volume, and always delete the
+# browser in a `finally` so we never leak a paid session. `retries=0` because the loop is
+# non-idempotent and paid.
 
 
 @app.function(
-    secrets=[KERNEL_SECRET, ANTHROPIC_SECRET], timeout=15 * MINUTES, retries=0
+    secrets=[KERNEL_SECRET, ANTHROPIC_SECRET],
+    volumes={"/traces": TRACES},
+    timeout=15 * MINUTES,
+    retries=0,
 )
-def qa_agent(url: str, goal: str) -> dict:
+def verify_pr(preview_url: str, change: str, label: str = "run") -> dict:
     import time
 
     from anthropic import Anthropic
@@ -423,30 +467,38 @@ def qa_agent(url: str, goal: str) -> dict:
     kb = client.browsers.create(
         headless=False,
         stealth=True,
-        start_url=url,
+        start_url=preview_url,
         kiosk_mode=True,
         viewport=VIEWPORT,
         timeout_seconds=10 * MINUTES,
     )
     sid = kb.session_id
     replay = None
+    replay_id = None
     replay_view_url = None
+    trace_path = None
+    verdict, reason, iterations = "inconclusive", "did not run", 0
     try:
         replay = client.browsers.replays.start(
             sid, framerate=10, max_duration_in_seconds=10 * MINUTES
         )
+        replay_id = replay.replay_id
         replay_view_url = getattr(replay, "replay_view_url", None)  # from start()
         # This URL carries a session JWT - fine to open from your own run, but don't log it
         # where logs are shared/retained, and don't post it to a public channel.
         print(f"recording: {replay_view_url}")
-        verdict, reason, iterations = _run_cua_loop(client, anthropic_client, sid, goal)
-        # Let the final success/error banner land in the recording before we stop it. This runs
-        # on the success path only - if the loop raised, we skip straight to teardown.
+        verdict, reason, iterations = _run_cua_loop(
+            client, anthropic_client, sid, _goal(change)
+        )
+        # Let the final state land in the recording, then stop it and save the mp4 to the Volume.
         time.sleep(REPLAY_GRACE_S)
+        client.browsers.replays.stop(replay_id, id=sid)
+        replay = None  # stopped; don't stop again in the finally
+        trace_path = _save_trace(client, sid, replay_id, label)
     finally:
         if replay is not None:
             try:
-                client.browsers.replays.stop(replay.replay_id, id=sid)
+                client.browsers.replays.stop(replay_id, id=sid)
             except Exception:
                 pass
         try:
@@ -456,18 +508,20 @@ def qa_agent(url: str, goal: str) -> dict:
             print(f"  browser delete failed: {exc}")
 
     return {
-        "url": url,
+        "preview_url": preview_url,
         "verdict": verdict,
         "reason": reason,
+        "trace_path": trace_path,
         "replay_view_url": replay_view_url,
         "iterations": iterations,
     }
 
 
-GOAL = (
-    "Test the feedback form on this page: type a name and a message, then click the Submit button. "
-    "Confirm a success message appears after submitting. End your reply with exactly 'VERDICT: PASS' "
-    "if the form works, or 'VERDICT: FAIL: <reason>' if it does not."
+# The change we ask the agent to verify against the demo app. The working variant satisfies it
+# (PASS); the broken variant regressed it (FAIL).
+DEMO_CHANGE = (
+    "The feedback form accepts a name and a message, and after clicking Submit it shows a "
+    "success confirmation."
 )
 
 
@@ -509,9 +563,12 @@ def main():
     for variant in ("working", "broken"):
         url = f"{base}/{variant}"
         _wait_until_up(url)  # Modal web containers boot on first request
-        print(f"\nQA-ing the {variant} variant: {url}")
-        results[variant] = qa_agent.remote(url, GOAL)
-        print(f"  -> {results[variant]['verdict']}: {results[variant]['reason']}")
+        print(f"\nVerifying the {variant} variant: {url}")
+        r = verify_pr.remote(url, DEMO_CHANGE, label=variant)
+        results[variant] = r
+        print(f"  -> {r['verdict']}: {r['reason']}")
+        if r.get("trace_path"):
+            print(f"  recording saved to Modal Volume: {r['trace_path']}")
 
     print(
         f"\nworking -> {results['working']['verdict']}   broken -> {results['broken']['verdict']}"
@@ -547,9 +604,9 @@ def main():
 #         preview_url = payload.get("deployment", {}).get("payload", {}).get("web_url") or "<your preview URL>"
 #         # Validate preview_url against your own preview domain before spawning - the HMAC proves the
 #         # request is from GitHub, not that the URL is safe to drive.
-#         qa_agent.spawn(preview_url, GOAL)
+#         verify_pr.spawn(preview_url, "<the change this PR makes>", label=f"pr-{pr_number}")
 #         # Then post the verdict back to the PR (wire up a GitHub token secret + your client):
-#         #   result = qa_agent.remote(preview_url, GOAL)
+#         #   result = verify_pr.remote(preview_url, change, label=f"pr-{pr_number}")
 #         #   github.issues.create_comment(pr, f"QA {result['verdict']}: {result['reason']}")
 #         # Note: result['replay_view_url'] carries a session JWT - share it privately, not in a public PR comment.
 #         return {"status": "queued"}
