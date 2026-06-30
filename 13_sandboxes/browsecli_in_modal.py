@@ -25,8 +25,11 @@
 # │  Claude agent loop  │  sandbox.exec  │  `browse` CLI    │ ◀───────────── │  (the real Chrome)     │
 # └─────────────────────┘ ◀───────────── └──────────────────┘   page data    └────────────────────────┘
 # ```
-# The agent's task (overridable): research each company's recent SEC EDGAR filing
-# activity and return a sourced comparison of their most recent 10-Q and 10-K.
+# The agent's task (overridable): research the current top mechanical keyboards on
+# Amazon and return a comparison of each product's title, price, star rating, and
+# number of ratings. Amazon search renders its product grid client-side and returns
+# nothing useful to a plain `curl`, so the agent has to drive a real browser — which
+# is exactly what `browse` gives it.
 
 # To run it:
 
@@ -89,14 +92,9 @@ agent_secret = modal.Secret.from_dict(
 
 SESSION = "agent"
 DEFAULT_TASK = (
-    "For Snowflake, Datadog, and MongoDB, find each company's single most recent 10-Q "
-    "filing on SEC EDGAR (start at "
-    "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany). For each company report "
-    "the filing date, the fiscal period it covers, and the direct URL of the primary "
-    "filing document (the company's own 10-Q .htm document, not the filing index, a cover "
-    "page, an exhibit, or a viewer/preview page). Also report the date of each company's "
-    "most recent 10-K. Return a comparison table across all three companies and cite each "
-    "URL."
+    "Using Amazon (https://www.amazon.com), research the current top mechanical keyboards: "
+    "search the site, then for the top 5 results compare each product's title, price, star "
+    "rating, and number of ratings. Return a comparison table including each product's URL."
 )
 MODEL = "claude-sonnet-5"
 MAX_STEPS = 40
