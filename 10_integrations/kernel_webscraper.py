@@ -333,8 +333,11 @@ def ensure_auth(
             submitted = True  # submit once; a rejected submit will spin to the deadline
         time.sleep(2)
 
-    # The connection's status (durable) can lag the flow reaching SUCCESS, so re-poll it a
-    # few times before declaring failure.
+    # Managed Auth tracks two states: the login `flow_status` we polled above (the live
+    # attempt), and the connection's own `status`, which is the durable signal for whether the
+    # saved profile is usable (NEEDS_AUTH -> AUTHENTICATED). Confirm that durable status before
+    # trusting the profile: poll a few times so an in-flight transition isn't read as a failure,
+    # and give up if it never authenticates.
     final = None
     for _ in range(5):
         final = client.auth.connections.retrieve(id=connection.id)
