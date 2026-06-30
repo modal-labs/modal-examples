@@ -20,7 +20,9 @@
 # Like the sibling [web scraper example](https://modal.com/docs/examples/webscraper), the
 # browser runs on Kernel, so **there is no browser binary in the Modal image** - Modal just
 # talks to it over the API. The scraper uses a fast model for one-shot extraction; this
-# example uses a stronger model because agentic, vision-driven navigation needs it.
+# example uses a stronger model because agentic, vision-driven navigation needs it. The
+# same Kernel `computer` API works with other computer-use models like Gemini and OpenAI;
+# see the [OpenAI guide](https://www.kernel.sh/docs/integrations/computer-use/openai).
 #
 # The GitHub-webhook trigger and the "post the verdict back to the PR" step are an optional
 # appendix at the bottom - `modal run` needs none of it.
