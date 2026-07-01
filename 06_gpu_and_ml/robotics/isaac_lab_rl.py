@@ -104,7 +104,8 @@ def train_and_render_demo():
         "--num_envs", str(config.num_envs_per_gpu),
         "--max_iterations", str(config.iterations),
         "--run_name", run_name,
-        "--distributed"
+        "--distributed",
+        "--kit_args", "--/log/level=error --/log/fileLogLevel=error --/log/outputStreamLevel=error --/omni.kit.plugin/usdMuteDiagnosticMessage=true",
     ], check=True, cwd="/workspace/isaaclab")
     print("Training completed")
 
@@ -151,6 +152,7 @@ def _render(clip_name, checkpoint=None, pretrained=False):
         "--video_name_prefix", video_prefix,
         "--demo_seed", str(config.play_seed),
         "--command_velocity", *(str(v) for v in config.play_command_velocity),
+        "--kit_args", "--/log/level=error --/log/fileLogLevel=error --/log/outputStreamLevel=error --/omni.kit.plugin/usdMuteDiagnosticMessage=true"
     ]
     cmd += ["--use_pretrained_checkpoint"] if pretrained else ["--checkpoint", checkpoint]
     subprocess.run(cmd, check=True, cwd="/workspace/isaaclab")
