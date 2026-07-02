@@ -1,17 +1,22 @@
 """
-Isaac Lab robot training example on Modal.
+---
+env: {"MODAL_FUNCTION_RUNTIME": "runc"}
+---
+
+Train a robot in a simulated environment with Isaac Lab and Modal.
 
 In this example, we'll use Modal to quickly and easily train a robot in a simluated environment using 4 L40S GPUs. 
 Specifically, we'll run a headless instance of Isaac Lab to train a policy that teaches Anymal-D,
 a quadruped robot, to obey a velocity command and walk over rough terrain.
 
 Isaac Lab is NVIDIA's open source python framework for robot learning with GPUs. It's built on top of Isaac Sim, 
-NVIDIA's open source robotics simulation framework. Isaac Sim utilizes Omniverse (rendering) 
-and PhysX (physics engine), which both take advantage of GPUs to accelerate simulation.
+NVIDIA's open source robotics simulation platform. Isaac Sim utilizes Omniverse (simulation and rendering) 
+and PhysX (physics engine), which both take advantage of GPUs for acceleration.
 
 Isaac Lab integrates with a variety of RL frameworks. Today, we'll use rsl_rl, a light open source
-reinforcement learning library, with PPO as the training algorithm. All of these details are transparent to our use, 
-as Isaac Lab ships a pre-made `task` for training a quadruped to follow a velocity command.
+reinforcement learning library for robotics training, with PPO as the training algorithm. All of 
+these details are transparent to our use, as Isaac Lab ships a pre-made `task` for training a quadruped
+to follow a velocity command.
 see: https://github.com/isaac-sim/IsaacLab/blob/main/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity
 
 NOTE: this example relies on features that are currently in alpha. Please reach out to support@modal.com to request access.
@@ -26,23 +31,14 @@ import subprocess
 
 from dataclasses import dataclass
 
-image = (
-    # NVIDIA's official container bundles Isaac Lab and all the necessary dependencies for this example.
-    modal.Image.from_registry("nvcr.io/nvidia/isaac-lab:2.1.0", add_python="3.11")
-    # IMPORTANT: the isaac-lab image's ENTRYPOINT runs `/isaac-sim/runheadless.sh`, and never
-    # execs the arguments passed to it, which is a requirement for Modal, so we must override it.
-    # see https://modal.com/docs/guide/existing-images#entrypoint 
-    .entrypoint([])
-    .apt_install("ffmpeg") 
-    .env({
-        "ACCEPT_EULA": "Y",
-    })
-    .add_local_file(
-        "play_demo.py",
-        "/workspace/isaaclab/scripts/reinforcement_learning/rsl_rl/play_demo.py",
-        copy=True,
-    )   
-)
+# NVIDIA's official container bundles Isaac Lab and all the necessary dependencies for this example.
+image = modal.Image.from_registry("nvcr.io/nvidia/isaac-lab:3.0.0-beta2-post1", add_python="3.11")
+# IMPORTANT: the isaac-lab image's ENTRYPOINT runs `/isaac-sim/runheadless.sh`, and never
+# execs the arguments passed to it, which is a requirement for Modal, so we must override it.
+# see https://modal.com/docs/guide/existing-images#entrypoint 
+image = image.entrypoint([])
+# Install ffmpeg for image stitching, and accept the EULA is a requirement.
+image = image.apt_install("ffmpeg").env({"ACCEPT_EULA": "Y",})
 
 app = modal.App("isaac-sim-headless-demo")
 
@@ -53,29 +49,31 @@ output_vol = modal.Volume.from_name("isaac-demo-output", create_if_missing=True)
 
 @dataclass
 class Config:
-    task: str = "Isaac-Velocity-Rough-Anymal-D-v0"
+    train_task: str = "Isaac-Velocity-Rough-Anymal-D-v0"
+    play_task: str = "Isaac-Velocity-Rough-Anymal-D-Play-v0"
     video_length: int = 300
     num_gpus: int = 4
     num_envs_per_gpu: int = 4096
-    iterations: int = 150
+    iterations: int = 80
     # the robot is trained to move with a "commanded velocity", which we'll keep
     # consistent at demo time when recording the progress videos at each checkpoint.
-    play_command_velocity: tuple[float, float, float] = (1.0, 1.0, 0.2)
+    play_command_velocity: tuple[float, float, float] = (-1.0, 0.0, 0.0)
     # keep the sampled terrain patch/challenge consistent across checkpoint demos.
     play_seed: int = 42
+    pretrained_checkpoint_path: str = "/workspace/isaaclab/.pretrained_checkpoints/rsl_rl/Isaac-Velocity-Rough-Anymal-D-v0/Assets/Isaac/6.0/Isaac/IsaacLab/PretrainedCheckpoints/rsl_rl/Isaac-Velocity-Rough-Anymal-D-v0/checkpoint.pt"
 
 config = Config()
 
 # Training here is PPO via rsl_rl: thousands (`NUM_ENVS_PER_GPU` * `NUM_GPUS`) of
 # robots run in parallel at each iteration, each gets a random commanded velocity, 
-# and a reward (track velocity, stay upright, don't waste energy, etc) shapes the
+# and a reward (track velocity, keep back horizontal, etc) shapes the
 # policy. Rough terrain adds a curriculum that ramps up difficulty. 
 # We train once, then render multiple checkpoints from that same run 
 # so the video shows one policy improving over time:
-#   Phase 1 (beginning): early checkpoint from the run -> stumbles / falls
-#   Phase 2 (middle):    midpoint checkpoint from the run -> improving
-#   Phase 3 (end):       final checkpoint from the run -> competent
-#   Phase 4 (expert):    NVIDIA's pretrained checkpoint -> robust
+#   Phase 1 (0 iterations): no training at all -> robot does nothing
+#   Phase 2 (50 iterations):    midpoint checkpoint from the run -> improving but stumbling
+#   Phase 3 (80 iterations):       final checkpoint from the run -> competent
+#   Phase 4 (pretrained checkpoint):    NVIDIA's pretrained checkpoint -> robust
 @app.function(
     image=image,
     gpu=f"L40S:{config.num_gpus}",
@@ -98,9 +96,9 @@ def train_and_render_demo():
         "/workspace/isaaclab/isaaclab.sh", "-p", "-m",
         "torch.distributed.run",
         "--standalone", 
-        "--nproc_per_node=4",
+        "--nproc_per_node", str(config.num_gpus),
         "scripts/reinforcement_learning/rsl_rl/train.py",
-        "--task", config.task, "--headless",
+        "--task", config.train_task, "--headless",
         "--num_envs", str(config.num_envs_per_gpu),
         "--max_iterations", str(config.iterations),
         "--run_name", run_name,
@@ -120,55 +118,89 @@ def train_and_render_demo():
         ("expert", "Phase 4 - pretrained NVIDIA - succeeds", "lime", None, True),
     ]
 
+    # Play-back each checkpoint and record the video.
     clips = []
     for clip_name, label, color, checkpoint, pretrained in phases:
         clip = _render(clip_name, checkpoint=checkpoint, pretrained=pretrained)
         print(f"{label} -> {clip}")
         clips.append((clip, label, color))
 
-    out = "/output/anymal_d_rough_progress_grid.mp4"
-    _tile_with_labels(clips, out)
+    # Consolidate each video into a single grid video.
+    _tile_with_labels(clips, "/output/anymal_d_rough_progress_grid.mp4")
 
-    return out
+@app.local_entrypoint()
+def main():
+    train_and_render_demo.remote()
+    print("Done. Video at /output/anymal_d_rough_progress_grid.mp4 in the 'isaac-demo-output' volume.")
+    print("Download with:  modal volume get isaac-demo-output/anymal_d_rough_progress_grid.mp4")
 
+# Demo rendering and video stitching utilities
 def _render(clip_name, checkpoint=None, pretrained=False):
     video_folder = "/output/rendered_clips"
-    video_prefix = clip_name
-    video_path = os.path.join(video_folder, f"{video_prefix}-step-0.mp4")
+    video_path = os.path.join(video_folder, f"{clip_name}-step-0.mp4")
     os.makedirs(video_folder, exist_ok=True)
-    if os.path.exists(video_path):
-        os.remove(video_path)
+    if checkpoint:
+        stock_video_path = _play_video_path_for_checkpoint(checkpoint)
+        if os.path.exists(stock_video_path):
+            os.remove(stock_video_path)
 
-    # similar to the train script there is a play script included in the image that can 
-    # be used to render a checkpoint of the policy. We have copied and slightly modified
-    # it to better suite this headless example.
+    # Similar to train.py, Isaac Lab ships a play.py script for rendering a policy.
+    x_vel, y_vel, yaw_vel = config.play_command_velocity
     cmd = [
         "/workspace/isaaclab/isaaclab.sh", "-p",
-        "scripts/reinforcement_learning/rsl_rl/play_demo.py",
-        "--task", config.task, "--headless", "--enable_cameras",
+        "scripts/reinforcement_learning/rsl_rl/play.py",
+        "--task", config.play_task, "--headless", "--enable_cameras",
+        "--device", "cuda:0",
         "--num_envs", "1",
         "--video", "--video_length", str(config.video_length),
-        "--video_folder", video_folder,
-        "--video_name_prefix", video_prefix,
-        "--demo_seed", str(config.play_seed),
-        "--command_velocity", *(str(v) for v in config.play_command_velocity),
-        "--kit_args", "--/log/level=error --/log/fileLogLevel=error --/log/outputStreamLevel=error --/omni.kit.plugin/usdMuteDiagnosticMessage=true"
+        "--seed", str(config.play_seed),
+        "--kit_args", "--/log/level=error --/log/fileLogLevel=error --/log/outputStreamLevel=error --/omni.kit.plugin/usdMuteDiagnosticMessage=true",
+        *(["--use_pretrained_checkpoint"] if pretrained else ["--checkpoint", checkpoint]),
+        "env.viewer.origin_type=world",
+        "env.viewer.eye=[5.2,5.2,2.7]",
+        "env.viewer.lookat=[0.0,0.0,0.55]",
+        "env.scene.terrain.terrain_generator.num_rows=1",
+        "env.scene.terrain.terrain_generator.num_cols=1",
+        "env.scene.terrain.max_init_terrain_level=0",
+        "env.scene.terrain.terrain_generator.sub_terrains.pyramid_stairs.proportion=1.0",
+        "env.scene.terrain.terrain_generator.sub_terrains.pyramid_stairs_inv.proportion=0.0",
+        "env.scene.terrain.terrain_generator.sub_terrains.boxes.proportion=0.0",
+        "env.scene.terrain.terrain_generator.sub_terrains.random_rough.proportion=0.0",
+        "env.scene.terrain.terrain_generator.sub_terrains.hf_pyramid_slope.proportion=0.0",
+        "env.scene.terrain.terrain_generator.sub_terrains.hf_pyramid_slope_inv.proportion=0.0",
+        "env.commands.base_velocity.debug_vis=false",
+        f"env.commands.base_velocity.ranges.lin_vel_x=[{x_vel},{x_vel}]",
+        f"env.commands.base_velocity.ranges.lin_vel_y=[{y_vel},{y_vel}]",
+        f"env.commands.base_velocity.ranges.ang_vel_z=[{yaw_vel},{yaw_vel}]",
+        "env.commands.base_velocity.heading_command=false",
+        "env.commands.base_velocity.ranges.heading=[0.0,0.0]",
     ]
-    cmd += ["--use_pretrained_checkpoint"] if pretrained else ["--checkpoint", checkpoint]
-    subprocess.run(cmd, check=True, cwd="/workspace/isaaclab")
-    if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
-        raise FileNotFoundError(f"Expected rendered video at {video_path}, but it was not produced.")
+    result = subprocess.run(
+        cmd,
+        check=False,
+        cwd="/workspace/isaaclab",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    result.check_returncode()
+
+    stock_video_path = _play_video_path_for_checkpoint(checkpoint or config.pretrained_checkpoint_path)
+    with open(stock_video_path, "rb") as src, open(video_path, "wb") as dst:
+        dst.write(src.read())
+    os.remove(stock_video_path)
     return video_path
+
+def _play_video_path_for_checkpoint(checkpoint_path: str) -> str:
+    return os.path.join(os.path.dirname(checkpoint_path), "videos", "play", "rl-video-step-0.mp4")
 
 def _ckpt_at_or_before(run_substr: str, iteration: int):
     ckpts = _ckpts_for_run(run_substr)
     candidates = [item for item in ckpts if item[1] <= iteration]
     return max(candidates or ckpts, key=lambda item: item[1] if item[1] <= iteration else -item[1])
 
-
 def _ckpts_for_run(run_substr: str):
     import glob
-    import re
 
     ckpts = glob.glob(f"/workspace/isaaclab/logs/rsl_rl/*/*{run_substr}/model_*.pt")
     if not ckpts:
@@ -176,13 +208,12 @@ def _ckpts_for_run(run_substr: str):
 
     parsed = []
     for path in ckpts:
-        match = re.search(r"model_(\d+)\.pt$", path)
-        if match:
-            parsed.append((path, int(match.group(1))))
+        filename = os.path.basename(path)
+        if filename.startswith("model_") and filename.endswith(".pt"):
+            parsed.append((path, int(filename.removeprefix("model_").removesuffix(".pt"))))
     if not parsed:
         raise FileNotFoundError(f"No numbered model_<n>.pt for run matching '{run_substr}'.")
     return parsed
-
 
 def _tile_with_labels(clips, out: str):
     import subprocess
@@ -205,11 +236,3 @@ def _tile_with_labels(clips, out: str):
         ["ffmpeg", "-y", *inputs, "-filter_complex", filtergraph, "-map", "[outv]", out],
         check=True,
     )
-
-
-@app.local_entrypoint()
-def main():
-    out_path = train_and_render_demo.remote()
-    print(f"Done. Video at {out_path} in the 'isaac-demo-output' volume.")
-    print("Download with:  modal volume get isaac-demo-output "
-          f"{out_path.split('/output/')[-1]} ./")
