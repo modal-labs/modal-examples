@@ -33,7 +33,9 @@ app = modal.App("loadtest-vllm-oai", image=image, volumes={remote_path: volume})
 workers = 8
 
 prefix = workspace + (f"-{environment}" if environment else "")
-host = f"https://{prefix}--example-vllm-inference-serve.modal.run"
+ROUTING_REGION = "us-east"
+SERVER_NAME = "server"
+host = f"https://{prefix}--example-vllm-inference-{SERVER_NAME}.{ROUTING_REGION}.modal.direct"
 
 csv_file = OUT_DIRECTORY / "stats.csv"
 default_args = [
@@ -70,8 +72,15 @@ def main(
     r: float = 1.0,
     u: int = 36,
     t: str = "1m",  # no more than the timeout of run_locust, one hour
+    server_name: str = "server",
 ):
-    args = default_args + [
+    args = list(default_args)
+    if server_name != SERVER_NAME:
+        args[1] = (
+            f"https://{prefix}--example-vllm-inference-{server_name}.{ROUTING_REGION}.modal.direct"
+        )
+
+    args += [
         "--spawn-rate",
         str(r),
         "--users",
