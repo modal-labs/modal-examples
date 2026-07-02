@@ -18,7 +18,7 @@
 # 4. Returns a pass/fail verdict. It **passes** the working variant and **catches the
 #    regression** in the broken one.
 #
-# Like the sibling [web scraper example](https://modal.com/docs/examples/webscraper), the
+# Like the sibling [web scraper example](https://modal.com/docs/examples/kernel_webscraper), the
 # browser runs on Kernel, so **there is no browser binary in the Modal image** - Modal just
 # talks to it over the API. The scraper uses a fast model for one-shot extraction; this
 # example uses a stronger model because agentic, vision-driven navigation needs it. The
@@ -603,7 +603,7 @@ def main():
 # the app starts, so a live webhook that needs a GitHub token would force even a plain
 # `modal run` to have those secrets. To turn the bot on:
 #
-#   modal secret create github-webhook GITHUB_WEBHOOK_SECRET=...   # shared secret you set on the webhook
+#   modal secret create github-webhook GITHUB_WEBHOOK_SECRET=... ALLOWED_PREVIEW_HOST=preview.example.com  # webhook secret + the only host the bot will drive
 #   modal secret create github-token GITHUB_TOKEN=...              # a token allowed to comment on the repo
 #   # uncomment the block below, then:
 #   modal deploy 10_integrations/kernel_pr_qa_agent.py
@@ -623,12 +623,13 @@ def main():
 #
 #     result = verify_pr.remote(preview_url, change, label=f"pr-{pr_number}")
 #     mark = "✅" if result["verdict"] == "pass" else "❌"
-#     # `reason` is written by the agent from the (untrusted) preview page, so fence it as a code
-#     # block, not raw markdown, and treat the verdict as a QA signal, not an authoritative approval.
+#     # `reason` is written by the agent from the (untrusted) preview page. Strip backticks so it
+#     # can't break out of the code fence, and treat the verdict as a QA signal, not an approval.
 #     # Don't include result['replay_view_url'] here - it carries a session JWT.
 #     comment = f"{mark} **Kernel PR-QA: {result['verdict'].upper()}**"
 #     if result["reason"]:
-#         comment += f"\n\n```\n{result['reason']}\n```"
+#         safe_reason = result["reason"].replace("`", "'")
+#         comment += f"\n\n```\n{safe_reason}\n```"
 #     req = urllib.request.Request(
 #         f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments",
 #         data=json.dumps({"body": comment}).encode(),
