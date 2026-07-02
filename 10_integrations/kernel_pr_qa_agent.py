@@ -25,8 +25,8 @@
 # same Kernel `computer` API works with other computer-use models like Gemini and OpenAI;
 # see Kernel's [Computer-Use Overview](https://www.kernel.sh/docs/integrations/computer-use/overview).
 #
-# The GitHub-webhook trigger and the "post the verdict back to the PR" step are an optional
-# appendix at the bottom - `modal run` needs none of it.
+# A `modal deploy` path at the bottom turns this into a bot that QAs every PR against its
+# preview and comments the verdict back; `modal run` needs none of it.
 #
 # ## What you'll need
 #
@@ -319,7 +319,9 @@ def _find_verdict(text: str):
     import re
 
     matches = list(
-        re.finditer(r"VERDICT:\s*(PASS|FAIL)\b\s*:?\s*(.*)", text or "", re.IGNORECASE)
+        re.finditer(
+            r"VERDICT:\s*(PASS|FAIL)(?:ED)?\b\s*:?\s*(.*)", text or "", re.IGNORECASE
+        )
     )
     if not matches:
         return None
@@ -358,17 +360,19 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
         )
         print(f"  turn {i + 1}/{MAX_ITERS}: {actions}")
 
-        verdict = _find_verdict(turn_text)
-        if verdict:
-            return verdict[0], verdict[1], i + 1
-
-        if not tool_uses:  # the model produced no action this turn
+        # Only read a verdict on a turn where the model took no action - it's concluding then.
+        # Checking mid-turn would let a turn that merely narrates the rubric ("...say VERDICT:
+        # PASS if the banner is green") end the loop with a bogus verdict before its actions run.
+        if not tool_uses:
+            verdict = _find_verdict(turn_text)
+            if verdict:
+                return verdict[0], verdict[1], i + 1
             if not reprompted:  # finished without a verdict - ask once, explicitly
                 reprompted = True
                 messages.append(
                     {
                         "role": "user",
-                        "content": "Reply with exactly 'VERDICT: PASS' or 'VERDICT: FAIL: <reason>'.",
+                        "content": "Reply with exactly 'VERDICT: PASS: <one-line reason>' or 'VERDICT: FAIL: <one-line reason>'.",
                     }
                 )
                 continue
@@ -382,22 +386,35 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
                 # A transient Kernel API error or a bad coordinate shouldn't kill a paid,
                 # non-idempotent run: note it and let the model re-plan from a fresh screenshot.
                 print(f"  action failed, model will re-plan: {exc}")
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tu.id,
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": _screenshot(client, sid),
-                            },
-                        }
-                    ],
-                }
-            )
+            try:
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu.id,
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": _screenshot(client, sid),
+                                },
+                            }
+                        ],
+                    }
+                )
+            except Exception as exc:
+                # A failed capture shouldn't abort the run either; tell the model to retry so the
+                # loop still reaches a verdict and saves the recording.
+                print(f"  screenshot failed, model will retry: {exc}")
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu.id,
+                        "content": "screenshot failed; take another screenshot and continue",
+                        "is_error": True,
+                    }
+                )
         messages.append({"role": "user", "content": tool_results})
 
     return "inconclusive", f"hit iteration cap ({MAX_ITERS}) with no verdict", MAX_ITERS
@@ -409,8 +426,8 @@ def _goal(change: str) -> str:
         "You are reviewing a web app to confirm a specific change works. The change under test:\n"
         f"{change}\n\n"
         "Interact with the page like a user to verify it end to end. When you are done, end your "
-        "reply with exactly 'VERDICT: PASS' if the change works as described, or "
-        "'VERDICT: FAIL: <reason>' if it does not."
+        "reply with exactly 'VERDICT: PASS: <one-line reason>' if the change works as described, or "
+        "'VERDICT: FAIL: <one-line reason>' if it does not."
     )
 
 
@@ -576,19 +593,65 @@ def main():
     print("(expected: working -> pass, broken -> fail)")
 
 
-# ## Optional: run it on every PR commit
+# ## Deploy: QA every pull request automatically
 #
-# In production you'd trigger the agent automatically: point a GitHub webhook at the endpoint
-# sketched below, which verifies the signature and kicks off the QA agent against the PR's
-# preview URL, then posts the verdict back as a PR comment. It's left commented so `modal run`
-# needs only the `kernel` + `anthropic-secret` secrets. To use it, uncomment it, run
-# `modal secret create github-webhook GITHUB_WEBHOOK_SECRET=...`, `modal deploy`, and register
-# the printed URL under your repo's Settings -> Webhooks.
+# `modal run` above is the demo. In production you'd trigger this on every PR: a GitHub webhook
+# hits a deployed endpoint that checks the payload signature, kicks off `verify_pr` against the
+# PR's preview URL, and posts the verdict back as a PR comment.
 #
-# @app.function(secrets=[modal.Secret.from_name("github-webhook")])
+# It ships commented so the demo stays zero-setup. Modal resolves every function's secrets when
+# the app starts, so a live webhook that needs a GitHub token would force even a plain
+# `modal run` to have those secrets. To turn the bot on:
+#
+#   modal secret create github-webhook GITHUB_WEBHOOK_SECRET=...   # shared secret you set on the webhook
+#   modal secret create github-token GITHUB_TOKEN=...              # a token allowed to comment on the repo
+#   # uncomment the block below, then:
+#   modal deploy 10_integrations/kernel_pr_qa_agent.py
+#   # register the printed github_webhook URL under the repo's Settings -> Webhooks
+#   # (content type application/json, the same secret, sending the deployment_status event).
+#
+#
+# @app.function(
+#     secrets=[modal.Secret.from_name("github-token")],  # GITHUB_TOKEN
+#     timeout=20 * MINUTES,
+# )
+# def qa_and_comment(repo: str, pr_number: int, preview_url: str, change: str):
+#     """QA the PR's preview with verify_pr, then post the verdict back as a PR comment."""
+#     import json
+#     import os
+#     import urllib.request
+#
+#     result = verify_pr.remote(preview_url, change, label=f"pr-{pr_number}")
+#     mark = "✅" if result["verdict"] == "pass" else "❌"
+#     # `reason` is written by the agent from the (untrusted) preview page, so fence it as a code
+#     # block, not raw markdown, and treat the verdict as a QA signal, not an authoritative approval.
+#     # Don't include result['replay_view_url'] here - it carries a session JWT.
+#     comment = f"{mark} **Kernel PR-QA: {result['verdict'].upper()}**"
+#     if result["reason"]:
+#         comment += f"\n\n```\n{result['reason']}\n```"
+#     req = urllib.request.Request(
+#         f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments",
+#         data=json.dumps({"body": comment}).encode(),
+#         headers={
+#             "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+#             "Accept": "application/vnd.github+json",
+#             "Content-Type": "application/json",
+#         },
+#         method="POST",
+#     )
+#     with urllib.request.urlopen(req, timeout=30) as resp:
+#         print(f"commented on {repo}#{pr_number}: HTTP {resp.status}")
+#
+#
+# @app.function(secrets=[modal.Secret.from_name("github-webhook")])  # GITHUB_WEBHOOK_SECRET
 # @modal.asgi_app()
 # def github_webhook():
-#     import hashlib, hmac, os
+#     import hashlib
+#     import hmac
+#     import json
+#     import os
+#     import urllib.parse
+#
 #     from fastapi import FastAPI, HTTPException, Request
 #
 #     web = FastAPI()
@@ -596,19 +659,41 @@ def main():
 #     @web.post("/")
 #     async def handle(request: Request):
 #         body = await request.body()
-#         expected = "sha256=" + hmac.new(os.environ["GITHUB_WEBHOOK_SECRET"].encode(), body, hashlib.sha256).hexdigest()
-#         if not hmac.compare_digest(expected, request.headers.get("x-hub-signature-256", "")):
+#         digest = hmac.new(
+#             os.environ["GITHUB_WEBHOOK_SECRET"].encode(), body, hashlib.sha256
+#         ).hexdigest()
+#         if not hmac.compare_digest(
+#             "sha256=" + digest, request.headers.get("x-hub-signature-256", "")
+#         ):
 #             raise HTTPException(status_code=401, detail="bad signature")
-#         payload = await request.json()
-#         # Resolve the PR's preview URL however your CI exposes it (a deployment status, a label, ...):
-#         preview_url = payload.get("deployment", {}).get("payload", {}).get("web_url") or "<your preview URL>"
-#         # Validate preview_url against your own preview domain before spawning - the HMAC proves the
-#         # request is from GitHub, not that the URL is safe to drive.
-#         verify_pr.spawn(preview_url, "<the change this PR makes>", label=f"pr-{pr_number}")
-#         # Then post the verdict back to the PR (wire up a GitHub token secret + your client):
-#         #   result = verify_pr.remote(preview_url, change, label=f"pr-{pr_number}")
-#         #   github.issues.create_comment(pr, f"QA {result['verdict']}: {result['reason']}")
-#         # Note: result['replay_view_url'] carries a session JWT - share it privately, not in a public PR comment.
+#
+#         event = await request.json()
+#         # Where the PR number, preview URL, and change come from depends on your CI. This reads a
+#         # deployment_status event whose target_url is the preview and whose deployment payload
+#         # carries the PR number and change; adapt it to however your pipeline exposes them.
+#         repo = event.get("repository", {}).get("full_name", "")
+#         preview_url = event.get("deployment_status", {}).get("target_url", "")
+#         payload = event.get("deployment", {}).get("payload") or {}
+#         if isinstance(payload, str):  # GitHub's deployment payload can be an object or a string
+#             try:
+#                 payload = json.loads(payload)
+#             except ValueError:
+#                 payload = {}
+#         pr_number = payload.get("pr_number")
+#         change = payload.get("change", "the change in this PR")
+#         if not (repo and preview_url and pr_number):
+#             raise HTTPException(status_code=400, detail="missing repo/preview_url/pr_number")
+#
+#         # The signature proves the request came from GitHub, not that preview_url is safe to
+#         # drive. Only drive URLs on your own preview host - set ALLOWED_PREVIEW_HOST to yours.
+#         parsed = urllib.parse.urlparse(preview_url)
+#         allowed = os.environ.get("ALLOWED_PREVIEW_HOST", "")  # e.g. "preview.example.com"
+#         host = (parsed.hostname or "").lower()
+#         if parsed.scheme != "https" or not allowed or not (
+#             host == allowed or host.endswith("." + allowed)
+#         ):
+#             raise HTTPException(status_code=400, detail="preview_url is not on the allowed host")
+#         qa_and_comment.spawn(repo, int(pr_number), preview_url, change)
 #         return {"status": "queued"}
 #
 #     return web
