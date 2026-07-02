@@ -70,10 +70,16 @@ def main():
         help="A Modal App serving an OpenAI-compatible API",
     )
     parser.add_argument(
-        "--function-name",
+        "--server-name",
         type=str,
-        default="serve",
-        help="A Modal Function serving an OpenAI-compatible API. Append `-dev` to use a `modal serve`d Function.",
+        default="server",
+        help="A Modal Server serving an OpenAI-compatible API. Append `-dev` to use a `modal serve`d Server.",
+    )
+    parser.add_argument(
+        "--region",
+        type=str,
+        default="us-east",
+        help="The routing region of the Modal Server",
     )
     parser.add_argument(
         "--api-key",
@@ -134,7 +140,8 @@ def main():
     prefix = workspace + (f"-{environment}" if environment else "")
 
     client.base_url = (
-        f"https://{prefix}--{args.app_name}-{args.function_name}.modal.run/v1"
+        f"https://{prefix}--{args.app_name}-{args.server_name}."
+        f"{args.region}.modal.direct/v1"
     )
 
     if args.model:

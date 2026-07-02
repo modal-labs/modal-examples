@@ -120,12 +120,12 @@ SPECULATIVE_MODEL_REVISION = "f188f476dc11dd5bb3014dc861529d316bce49d3"
 
 # ## Build a vLLM engine and serve it
 
-# The function below spawns a vLLM instance listening at port 8000, serving requests to our model.
-# We wrap it in the [`@modal.web_server` decorator](https://modal.com/docs/guide/webhooks#non-asgi-web-servers)
+# The class below spawns a vLLM instance listening at port 8000, serving requests to our model.
+# We wrap it in the [`@app.server`](https://modal.com/docs/guide/servers) decorator
 # to connect it to the Internet.
 
 # The server runs in an independent process, via `subprocess.Popen`, and only starts accepting requests
-# once the model is spun up and the `serve` function returns.
+# once the model is spun up and the process is ready to listen on the configured port.
 
 
 app = modal.App("example-vllm-inference")
@@ -133,70 +133,84 @@ app = modal.App("example-vllm-inference")
 N_GPU = 1
 MINUTES = 60  # seconds
 VLLM_PORT = 8000
+ROUTING_REGION = "us-east"
 
 
-@app.function(
+@app.server(
     image=vllm_image,
     gpu=f"H200:{N_GPU}",
     scaledown_window=15 * MINUTES,  # how long should we stay up with no requests?
-    timeout=10 * MINUTES,  # how long should we wait for container start?
+    startup_timeout=10 * MINUTES,  # how long should we wait for container start?
     volumes={
         "/root/.cache/huggingface": hf_cache_vol,
         "/root/.cache/vllm": vllm_cache_vol,
     },
+    port=VLLM_PORT,
+    routing_region=ROUTING_REGION,
+    target_concurrency=100,  # how many requests can one replica handle? tune carefully!
+    unauthenticated=True,  # to make the endpoint publicly accessible
 )
-@modal.concurrent(  # how many requests can one replica handle? tune carefully!
-    max_inputs=100,
-)
-@modal.web_server(port=VLLM_PORT, startup_timeout=10 * MINUTES)
-def serve():
-    import json
-    import subprocess
+class Server:
+    @modal.enter()
+    def start(self):
+        import subprocess
 
-    cmd = [
-        "vllm",
-        "serve",
-        MODEL_NAME,
-        "--revision",
-        MODEL_REVISION,
-        "--served-model-name",
-        MODEL_NAME,
-        "llm",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        str(VLLM_PORT),
-        "--uvicorn-log-level=info",
-        "--async-scheduling",
-    ]
+        cmd = [
+            "vllm",
+            "serve",
+            MODEL_NAME,
+            "--revision",
+            MODEL_REVISION,
+            "--served-model-name",
+            MODEL_NAME,
+            "llm",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(VLLM_PORT),
+            "--uvicorn-log-level=info",
+            "--async-scheduling",
+        ]
 
-    # enforce-eager disables both Torch compilation and CUDA graph capture
-    # default is no-enforce-eager. see the --compilation-config flag for tighter control
-    cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
+        # enforce-eager disables both Torch compilation and CUDA graph capture
+        # default is no-enforce-eager. see the --compilation-config flag for tighter control
+        cmd += ["--enforce-eager" if FAST_BOOT else "--no-enforce-eager"]
 
-    # assume multiple GPUs are for splitting up large matrix multiplications
-    cmd += ["--tensor-parallel-size", str(N_GPU)]
+        # assume multiple GPUs are for splitting up large matrix multiplications
+        cmd += ["--tensor-parallel-size", str(N_GPU)]
 
-    # add model-specific configuration
-    cmd += [
-        # skip multimedia support, just language
-        "--limit-mm-per-prompt",
-        f"'{json.dumps({'image': 0, 'video': 0, 'audio': 0})}'",
-        # enable reasoning and tool use
-        "--enable-auto-tool-choice",
-        "--reasoning-parser gemma4",
-        "--tool-call-parser gemma4",
-    ]
+        # add model-specific configuration
+        cmd += [
+            # skip multimedia support, just language
+            "--limit-mm-per-prompt",
+            json.dumps({"image": 0, "video": 0, "audio": 0}),
+            # enable reasoning and tool use
+            "--enable-auto-tool-choice",
+            "--reasoning-parser",
+            "gemma4",
+            "--tool-call-parser",
+            "gemma4",
+        ]
 
-    # add speculative decoding
-    cmd += [
-        "--speculative-config",
-        f"'{json.dumps({'model': SPECULATIVE_MODEL_NAME, 'revision': SPECULATIVE_MODEL_REVISION, 'num_speculative_tokens': 4})}'",
-    ]
+        # add speculative decoding
+        cmd += [
+            "--speculative-config",
+            json.dumps(
+                {
+                    "model": SPECULATIVE_MODEL_NAME,
+                    "revision": SPECULATIVE_MODEL_REVISION,
+                    "num_speculative_tokens": 4,
+                }
+            ),
+        ]
 
-    print(*cmd)
+        print(*cmd)
 
-    subprocess.Popen(" ".join(cmd), shell=True)
+        self.process = subprocess.Popen(cmd)
+
+    @modal.exit()
+    def stop(self):
+        self.process.terminate()
 
 
 # ## Deploy the server
@@ -212,15 +226,7 @@ def serve():
 # ## Interact with the server
 
 # Once it is deployed, you'll see a URL appear in the command line,
-# something like `https://your-workspace-name--example-vllm-inference-serve.modal.run`.
-
-# You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-inference-serve.modal.run/docs`.
-# These docs describe each route and indicate the expected input and output
-# and translate requests into `curl` commands.
-
-# For simple routes like `/health`, which checks whether the server is responding,
-# you can even send a request directly from the docs.
+# something like `https://your-workspace-name--example-vllm-inference-server.us-east.modal.direct`.
 
 # To interact with the API programmatically in Python, we recommend the `openai` library.
 
@@ -237,7 +243,9 @@ def serve():
 # ## Testing the server
 
 # To make it easier to test the server setup, we also include a `local_entrypoint`
-# that does a healthcheck and then hits the server.
+# that does a healthcheck and then hits the server. As opposed to Modal Functions, however
+# when a Server has no active containers, requests will be rejected with a 503 Service Unavailable status.
+# Therefore, we have to handle this manually in the client code.
 
 # If you execute the command
 
@@ -254,7 +262,10 @@ def serve():
 
 @app.local_entrypoint()
 async def test(test_timeout=15 * MINUTES, content=None, twice=True):
-    url = await serve.get_web_url.aio()
+    import asyncio
+    import time
+
+    url = await Server.get_url.aio()
 
     system_prompt = {
         "role": "system",
@@ -270,9 +281,21 @@ async def test(test_timeout=15 * MINUTES, content=None, twice=True):
 
     async with aiohttp.ClientSession(base_url=url) as session:
         print(f"Running health check for server at {url}")
-        async with session.get("/health", timeout=test_timeout - 1 * MINUTES) as resp:
-            up = resp.status == 200
-        assert up, f"Failed health check for server at {url}"
+        deadline = time.time() + test_timeout - 1 * MINUTES
+        while time.time() < deadline:
+            async with session.get(
+                "/health", timeout=aiohttp.ClientTimeout(total=60)
+            ) as resp:
+                if resp.status == 200:
+                    break
+                if resp.status == 503:
+                    await asyncio.sleep(1)
+                    continue
+                assert False, (
+                    f"Failed health check for server at {url}: HTTP {resp.status}"
+                )
+        else:
+            assert False, f"Failed health check for server at {url}"
         print(f"Successful health check for server at {url}")
 
         print(f"Sending messages to {url}:", *messages, sep="\n\t")
