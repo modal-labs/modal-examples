@@ -100,6 +100,6 @@ def main(
     ]
 
     if exit_code := run_locust.remote(args, wait=True):
-        SystemExit(exit_code)
+        raise SystemExit(exit_code)
     else:
         print("finished successfully")
