@@ -58,7 +58,7 @@ image = (
 
 def is_server_up(url: str) -> bool:
     try:
-        return urllib.request.urlopen(url).getcode() == 200
+        return urllib.request.urlopen(url, timeout=5).getcode() == 200
     except Exception:
         return False
 
