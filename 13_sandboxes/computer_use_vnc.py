@@ -38,6 +38,7 @@ MINUTES = 60
 
 ENDPOINT_MODEL = "Qwen/Qwen3.6-27B-FP8"
 ENDPOINT_NAME = "example-computer-use-vnc"
+ENDPOINT_ROUTING_REGION = "us-west"
 ENDPOINT_WARMUP_TIME = 5 * MINUTES
 
 DEFAULT_TASK = "Read through a few subpages of the Modal docs: https://modal.com/docs. Then, tell me what Modal does."
@@ -97,6 +98,8 @@ def main(task: str = DEFAULT_TASK):
                 ENDPOINT_NAME,
                 "--model",
                 ENDPOINT_MODEL,
+                "--routing-region",
+                ENDPOINT_ROUTING_REGION,
                 "--unauthenticated",
             ],
             check=False,
@@ -110,9 +113,7 @@ def main(task: str = DEFAULT_TASK):
         if environment in ("", "main")
         else f"{workspace.name}-{environment}"
     )
-    base_url = (
-        f"https://{workspace_prefix}--ep-{ENDPOINT_NAME}-server.us-west.modal.direct"
-    )
+    base_url = f"https://{workspace_prefix}--ep-{ENDPOINT_NAME}-server.{ENDPOINT_ROUTING_REGION}.modal.direct"
     print(f"Endpoint URL: {base_url}")
 
     vnc_boot_command = textwrap.dedent(
