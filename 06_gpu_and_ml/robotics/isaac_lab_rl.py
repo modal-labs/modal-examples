@@ -6,15 +6,15 @@ env: {"MODAL_FUNCTION_RUNTIME": "runc"}
 Train a robot in a simulated environment with Isaac Lab and Modal.
 
 In this example, we'll use Modal to quickly and easily train a robot in a simluated environment using 4 L40S GPUs. 
-Specifically, we'll run a headless instance of Isaac Lab to train a policy that teaches Anymal-D,
+Specifically, we'll run a headless instance of Isaac Lab to train a policy that teaches Anymal-C,
 a quadruped robot, to obey a velocity command and walk over rough terrain.
 
 Isaac Lab is NVIDIA's open source python framework for robot learning with GPUs. It's built on top of Isaac Sim, 
 NVIDIA's open source robotics simulation platform. Isaac Sim utilizes Omniverse (simulation and rendering) 
 and PhysX (physics engine), which both take advantage of GPUs for acceleration.
 
-Isaac Lab integrates with a variety of RL frameworks. Today, we'll use rsl_rl, a light open source
-reinforcement learning library for robotics training, with PPO as the training algorithm. All of 
+Isaac Lab integrates with a variety of RL frameworks. Today, we'll use rl-games, an open source
+reinforcement learning library for robotics training, with PPO as the training algorithm. All of
 these details are transparent to our use, as Isaac Lab ships a pre-made `task` for training a quadruped
 to follow a velocity command.
 see: https://github.com/isaac-sim/IsaacLab/blob/main/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity
@@ -38,7 +38,9 @@ image = modal.Image.from_registry("nvcr.io/nvidia/isaac-lab:3.0.0-beta2-post1", 
 # see https://modal.com/docs/guide/existing-images#entrypoint 
 image = image.entrypoint([])
 # Install ffmpeg for image stitching, and accept the EULA is a requirement.
-image = image.apt_install("ffmpeg").env({"ACCEPT_EULA": "Y",})
+image = image.apt_install("ffmpeg").env({"ACCEPT_EULA": "Y", "HYDRA_FULL_ERROR": "1"})
+# Install Isaac Lab's optional rl-games workflow dependencies.
+image = image.run_commands("/workspace/isaaclab/isaaclab.sh -i rl_games")
 
 app = modal.App("isaac-sim-headless-demo")
 
@@ -49,31 +51,29 @@ output_vol = modal.Volume.from_name("isaac-demo-output", create_if_missing=True)
 
 @dataclass
 class Config:
-    train_task: str = "Isaac-Velocity-Rough-Anymal-D-v0"
-    play_task: str = "Isaac-Velocity-Rough-Anymal-D-Play-v0"
-    video_length: int = 300
+    train_task: str = "Isaac-Velocity-Rough-Anymal-C-v0"
+    play_task: str = "Isaac-Velocity-Rough-Anymal-C-Play-v0"
+    video_length: int = 200
     num_gpus: int = 4
     num_envs_per_gpu: int = 4096
-    iterations: int = 80
+    iterations: int = 100
     # the robot is trained to move with a "commanded velocity", which we'll keep
     # consistent at demo time when recording the progress videos at each checkpoint.
-    play_command_velocity: tuple[float, float, float] = (-1.0, 0.0, 0.0)
+    play_command_velocity: tuple[float, float, float] = (1.0, 0.0, 0.0)
     # keep the sampled terrain patch/challenge consistent across checkpoint demos.
-    play_seed: int = 42
-    pretrained_checkpoint_path: str = "/workspace/isaaclab/.pretrained_checkpoints/rsl_rl/Isaac-Velocity-Rough-Anymal-D-v0/Assets/Isaac/6.0/Isaac/IsaacLab/PretrainedCheckpoints/rsl_rl/Isaac-Velocity-Rough-Anymal-D-v0/checkpoint.pt"
+    play_seed: int = 3
 
 config = Config()
 
-# Training here is PPO via rsl_rl: thousands (`NUM_ENVS_PER_GPU` * `NUM_GPUS`) of
+# Training here is PPO via rl-games: thousands (`NUM_ENVS_PER_GPU` * `NUM_GPUS`) of
 # robots run in parallel at each iteration, each gets a random commanded velocity, 
 # and a reward (track velocity, keep back horizontal, etc) shapes the
 # policy. Rough terrain adds a curriculum that ramps up difficulty. 
 # We train once, then render multiple checkpoints from that same run 
 # so the video shows one policy improving over time:
-#   Phase 1 (0 iterations): no training at all -> robot does nothing
-#   Phase 2 (50 iterations):    midpoint checkpoint from the run -> improving but stumbling
-#   Phase 3 (80 iterations):       final checkpoint from the run -> competent
-#   Phase 4 (pretrained checkpoint):    NVIDIA's pretrained checkpoint -> robust
+#   Phase 1 (50 iterations):    midpoint checkpoint from the run -> stumbling
+#   Phase 2 (100 iterations):       final checkpoint from the run -> competent
+#   Phase 3 (pretrained checkpoint):    NVIDIA's pretrained checkpoint -> robust
 @app.function(
     image=image,
     gpu=f"L40S:{config.num_gpus}",
@@ -87,38 +87,37 @@ def train_and_render_demo():
 
     os.makedirs("/output", exist_ok=True)
 
-    # first we train the policy using the rsl_rl training script baked into the image, implemented here:
-    # https://github.com/isaac-sim/IsaacLab/blob/main/scripts/reinforcement_learning/rsl_rl/train.py
-    # this is a thin script that is mainly respoinsible for instantiating a gymnasium environment based
-    # on the provided `task` and mediating the data exchange between rsl_rl's training runner and the environment.
+    # first we train the policy using the rl-games training script baked into the image, implemented here:
+    # https://github.com/isaac-sim/IsaacLab/blob/main/scripts/reinforcement_learning/rl_games/train.py
+    # this is a thin script that is mainly responsible for instantiating a gymnasium environment based
+    # on the provided `task` and mediating the data exchange between rl-games' training runner and the environment.
     run_name = "progress_run"
     subprocess.run([
         "/workspace/isaaclab/isaaclab.sh", "-p", "-m",
         "torch.distributed.run",
         "--standalone", 
         "--nproc_per_node", str(config.num_gpus),
-        "scripts/reinforcement_learning/rsl_rl/train.py",
+        "scripts/reinforcement_learning/rl_games/train.py",
         "--task", config.train_task, "--headless",
         "--num_envs", str(config.num_envs_per_gpu),
         "--max_iterations", str(config.iterations),
-        "--run_name", run_name,
         "--distributed",
         "--kit_args", "--/log/level=error --/log/fileLogLevel=error --/log/outputStreamLevel=error --/omni.kit.plugin/usdMuteDiagnosticMessage=true",
+        f"agent.params.config.full_experiment_name={run_name}",
+        "agent.params.config.save_frequency=25",
     ], check=True, cwd="/workspace/isaaclab")
     print("Training completed")
 
-    beginning_ckpt, beginning_iter = _ckpt_at_or_before(run_name, 0)
     middle_ckpt, middle_iter = _ckpt_at_or_before(run_name, 50)
     end_ckpt, end_iter = _ckpt_at_or_before(run_name, config.iterations)
 
     phases = [
-        ("beginning", f"Phase 1 - no training ({beginning_iter} iters)", "red", beginning_ckpt, False),
-        ("middle", f"Phase 2 - improving ({middle_iter} iters)", "yellow", middle_ckpt, False),
-        ("end", f"Phase 3 - end ({end_iter} iters) - competent", "cyan", end_ckpt, False),
-        ("expert", "Phase 4 - pretrained NVIDIA - succeeds", "lime", None, True),
+        ("middle", f"Phase 1 - learning ({middle_iter} iters)", "yellow", middle_ckpt, False),
+        ("end", f"Phase 2 - trained ({end_iter} iters)", "cyan", end_ckpt, False),
+        ("expert", "Phase 3 - pretrained NVIDIA", "lime", None, True),
     ]
 
-    # Play-back each checkpoint and record the video.
+    # Play back each checkpoint and record the video.
     clips = []
     for clip_name, label, color, checkpoint, pretrained in phases:
         clip = _render(clip_name, checkpoint=checkpoint, pretrained=pretrained)
@@ -126,29 +125,25 @@ def train_and_render_demo():
         clips.append((clip, label, color))
 
     # Consolidate each video into a single grid video.
-    _tile_with_labels(clips, "/output/anymal_d_rough_progress_grid.mp4")
+    _tile_with_labels(clips, "/output/anymal_c_rough_progress_grid.mp4")
 
 @app.local_entrypoint()
 def main():
     train_and_render_demo.remote()
-    print("Done. Video at /output/anymal_d_rough_progress_grid.mp4 in the 'isaac-demo-output' volume.")
-    print("Download with:  modal volume get isaac-demo-output/anymal_d_rough_progress_grid.mp4")
+    print("Done. Video at /output/anymal_c_rough_progress_grid.mp4 in the 'isaac-demo-output' volume.")
+    print("Download with:  modal volume get isaac-demo-output/anymal_c_rough_progress_grid.mp4")
 
 # Demo rendering and video stitching utilities
 def _render(clip_name, checkpoint=None, pretrained=False):
     video_folder = "/output/rendered_clips"
     video_path = os.path.join(video_folder, f"{clip_name}-step-0.mp4")
     os.makedirs(video_folder, exist_ok=True)
-    if checkpoint:
-        stock_video_path = _play_video_path_for_checkpoint(checkpoint)
-        if os.path.exists(stock_video_path):
-            os.remove(stock_video_path)
 
     # Similar to train.py, Isaac Lab ships a play.py script for rendering a policy.
     x_vel, y_vel, yaw_vel = config.play_command_velocity
     cmd = [
         "/workspace/isaaclab/isaaclab.sh", "-p",
-        "scripts/reinforcement_learning/rsl_rl/play.py",
+        "scripts/reinforcement_learning/rl_games/play.py",
         "--task", config.play_task, "--headless", "--enable_cameras",
         "--device", "cuda:0",
         "--num_envs", "1",
@@ -175,24 +170,22 @@ def _render(clip_name, checkpoint=None, pretrained=False):
         "env.commands.base_velocity.heading_command=false",
         "env.commands.base_velocity.ranges.heading=[0.0,0.0]",
     ]
-    result = subprocess.run(
-        cmd,
-        check=False,
-        cwd="/workspace/isaaclab",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    result.check_returncode()
+    subprocess.run(cmd, check=True, cwd="/workspace/isaaclab")
 
-    stock_video_path = _play_video_path_for_checkpoint(checkpoint or config.pretrained_checkpoint_path)
+    stock_video_path = _latest_pretrained_play_video() if pretrained else os.path.join(os.path.dirname(os.path.dirname(checkpoint)), "videos", "play", "rl-video-step-0.mp4")
+
     with open(stock_video_path, "rb") as src, open(video_path, "wb") as dst:
         dst.write(src.read())
-    os.remove(stock_video_path)
     return video_path
 
-def _play_video_path_for_checkpoint(checkpoint_path: str) -> str:
-    return os.path.join(os.path.dirname(checkpoint_path), "videos", "play", "rl-video-step-0.mp4")
+
+def _latest_pretrained_play_video() -> str:
+    import glob
+
+    videos = glob.glob("/workspace/isaaclab/.pretrained_checkpoints/rl_games/**/videos/play/rl-video-step-0.mp4", recursive=True)
+    if not videos:
+        raise FileNotFoundError("No pretrained rl-games play video was generated.")
+    return max(videos, key=os.path.getmtime)
 
 def _ckpt_at_or_before(run_substr: str, iteration: int):
     ckpts = _ckpts_for_run(run_substr)
@@ -201,18 +194,24 @@ def _ckpt_at_or_before(run_substr: str, iteration: int):
 
 def _ckpts_for_run(run_substr: str):
     import glob
+    import re
 
-    ckpts = glob.glob(f"/workspace/isaaclab/logs/rsl_rl/*/*{run_substr}/model_*.pt")
+    ckpts = glob.glob(f"/workspace/isaaclab/logs/rl_games/*/*{run_substr}/nn/*.pth")
+    print("TEST ckpts: ", ckpts)
     if not ckpts:
-        raise FileNotFoundError(f"No model_*.pt for run matching '{run_substr}'.")
+        raise FileNotFoundError(f"No .pth checkpoints for run matching '{run_substr}'.")
 
     parsed = []
     for path in ckpts:
         filename = os.path.basename(path)
-        if filename.startswith("model_") and filename.endswith(".pt"):
-            parsed.append((path, int(filename.removeprefix("model_").removesuffix(".pt"))))
+        if filename.endswith(".pth"):
+            match = re.search(r"_ep_(\d+)", filename)
+            itr = 0
+            if match:
+                itr = int(match.group(1))
+            parsed.append((path, itr))
     if not parsed:
-        raise FileNotFoundError(f"No numbered model_<n>.pt for run matching '{run_substr}'.")
+        raise FileNotFoundError(f"No .pth checkpoints for run matching '{run_substr}'.")
     return parsed
 
 def _tile_with_labels(clips, out: str):
@@ -229,8 +228,7 @@ def _tile_with_labels(clips, out: str):
             f":box=1:boxcolor=black@0.5:boxborderw=10[v{i}]"
         )
     streams = "".join(f"[v{i}]" for i in range(len(clips)))
-    layout = "0_0|w0_0|0_h0|w0_h0"
-    filtergraph = ";".join(parts) + f";{streams}xstack=inputs=4:layout={layout}:shortest=1,format=yuv420p[outv]"
+    filtergraph = ";".join(parts) + f";{streams}hstack=inputs={len(clips)}:shortest=1,format=yuv420p[outv]"
 
     subprocess.run(
         ["ffmpeg", "-y", *inputs, "-filter_complex", filtergraph, "-map", "[outv]", out],
