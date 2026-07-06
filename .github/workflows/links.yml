@@ -1,0 +1,106 @@
+name: Links
+
+on:
+  pull_request:
+    paths:
+      - "**.py"
+      - "**.md"
+      - "**.ipynb"
+      - "lychee.toml"
+      - ".github/workflows/links.yml"
+  schedule:
+    - cron: "0 4 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changed-files:
+    name: Check links in changed files
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Find changed files
+        id: changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          changed=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate \
+            --jq '.[] | select(.status != "removed") | .filename')
+          if echo "$changed" | grep -qxE 'lychee\.toml|\.github/workflows/links\.yml'; then
+            files="./**/*.py ./**/*.md ./**/*.ipynb"
+          else
+            files=$(echo "$changed" \
+              | grep -E '\.(py|md|ipynb)$' \
+              | grep -E '^[A-Za-z0-9._/-]+$' \
+              | tr '\n' ' ' || true)
+          fi
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
+      - name: Restore lychee cache
+        if: steps.changed.outputs.files != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lycheecache
+          key: lychee-cache
+          restore-keys: lychee-cache-
+
+      - name: Check links
+        if: steps.changed.outputs.files != ''
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+        with:
+          args: --config lychee.toml --root-dir ${{ github.workspace }} --no-progress ${{ steps.changed.outputs.files }}
+          token: ${{ github.token }}
+
+  all-files:
+    name: Check all links
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Check links
+        id: lychee
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+        with:
+          args: --config lychee.toml --root-dir ${{ github.workspace }} --no-progress --format markdown './**/*.py' './**/*.md' './**/*.ipynb'
+          output: lychee-report.md
+          fail: false
+          token: ${{ github.token }}
+
+      - name: Save lychee cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lycheecache
+          key: lychee-cache-${{ github.run_id }}
+
+      - name: Update tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --label broken-links --state open --json number --jq '.[0].number')
+          if [ "${{ steps.lychee.outputs.exit_code }}" != "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue edit "$existing" --body-file lychee-report.md
+              gh issue comment "$existing" --body "Updated with the latest scheduled run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            else
+              gh label create broken-links --description "Broken links found by the scheduled lychee run" --color D93F0B --force
+              gh issue create --title "Broken links in examples" --body-file lychee-report.md --label broken-links
+            fi
+            exit 1
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "All links are passing again as of ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}."
+          fi
