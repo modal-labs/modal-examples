@@ -45,15 +45,17 @@ import modal
 
 # ## Build the Sandbox image
 #
-# Modal's `debian_slim` has no Node, so we start from the official `node:20-slim`
-# image (Node is what runs `browse`) and install the `browse` CLI globally. **No
-# Chrome/Chromium is installed** — the browser lives on Browserbase and is reached
-# over CDP at run time. The agent loop itself runs in a Modal Function and only needs
-# `anthropic`, so we add that to the Function's image separately below.
+# We pull the official prebuilt `ghcr.io/browserbase/browse` image, which is
+# `node:20-slim` with the `browse` CLI already installed — so there's no inline
+# `npm install` step. You can pin a version with a tag (e.g.
+# `ghcr.io/browserbase/browse:0.9.4`). **No Chrome/Chromium is bundled** — the browser
+# lives on Browserbase and is reached over CDP at run time. The agent loop itself runs
+# in a Modal Function and only needs `anthropic`, so we add that to the Function's image
+# separately below.
 
 sandbox_image = modal.Image.from_registry(
-    "node:20-slim", add_python="3.12"
-).run_commands("npm install -g browse@0.9.1", "browse --version")
+    "ghcr.io/browserbase/browse", add_python="3.12"
+)
 
 app = modal.App("example-browsecli-in-modal")
 
