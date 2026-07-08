@@ -172,6 +172,25 @@ TOOL = {
     "display_height_px": VIEWPORT["height"],
     "display_number": 1,
 }
+# A strict tool for the final result, so the verdict is structured data (an enum + a reason)
+# instead of a sentinel string we parse out of the model's prose.
+SUBMIT_VERDICT_TOOL = {
+    "name": "submit_verdict",
+    "description": "Report the final QA result once you have verified the change end to end. "
+    "Call this exactly once, when you are done.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "verdict": {
+                "type": "string",
+                "enum": ["pass", "fail"],
+                "description": "pass if the change works as described, fail otherwise",
+            },
+            "reason": {"type": "string", "description": "one-line justification"},
+        },
+        "required": ["verdict", "reason"],
+    },
+}
 BETAS = ["computer-use-2025-11-24", "prompt-caching-2024-07-31"]
 
 # Map common key names to the xdotool keysyms Kernel's `computer` API expects. Adapted from
@@ -315,23 +334,6 @@ def _execute(client, sid: str, inp: dict) -> None:
     # "screenshot" and anything unrecognized: fall through; a fresh screenshot is taken below.
 
 
-def _find_verdict(text: str):
-    """Find the last 'VERDICT: PASS' / 'VERDICT: FAIL: <reason>' in the model's text,
-    tolerant of case and markdown. Returns (verdict, reason) or None."""
-    import re
-
-    matches = list(
-        re.finditer(
-            r"VERDICT:\s*(PASS|FAIL)(?:ED)?\b\s*:?\s*(.*)", text or "", re.IGNORECASE
-        )
-    )
-    if not matches:
-        return None
-    m = matches[-1]
-    verdict = "pass" if m.group(1).lower() == "pass" else "fail"
-    return verdict, (m.group(2) or "").strip().strip("*").strip()
-
-
 def _inject_prompt_caching(messages: list, breakpoints: int = 3) -> None:
     """Mark the newest user turns as prompt-cache breakpoints so each request re-reads the
     prior conversation (mostly screenshots) from cache instead of resending it. The breakpoints
@@ -366,37 +368,43 @@ def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
                 }
             ],
             messages=messages,
-            tools=[TOOL],
+            tools=[TOOL, SUBMIT_VERDICT_TOOL],
             betas=BETAS,
             thinking={"type": "adaptive"},
             output_config={"effort": "medium"},
         )
         # Append the whole response (text + thinking + tool_use) so thinking signatures survive.
         messages.append({"role": "assistant", "content": resp.content})
-        turn_text = "".join(b.text for b in resp.content if b.type == "text")
         tool_uses = [b for b in resp.content if b.type == "tool_use"]
+
+        # The agent ends by calling submit_verdict; read the structured result straight from the
+        # tool input, no prose to parse. That's unambiguous, so we act on it immediately.
+        verdict_call = next(
+            (tu for tu in tool_uses if tu.name == "submit_verdict"), None
+        )
+        if verdict_call:
+            inp = dict(verdict_call.input)
+            verdict = "pass" if inp.get("verdict") == "pass" else "fail"
+            print(f"  turn {i + 1}/{MAX_ITERS}: submit_verdict({verdict})")
+            return verdict, str(inp.get("reason") or "").strip(), i + 1
+
         actions = (
             ", ".join(str(tu.input.get("action")) for tu in tool_uses) or "no action"
         )
         print(f"  turn {i + 1}/{MAX_ITERS}: {actions}")
 
-        # Only read a verdict on a turn where the model took no action - it's concluding then.
-        # Checking mid-turn would let a turn that merely narrates the rubric ("...say VERDICT:
-        # PASS if the banner is green") end the loop with a bogus verdict before its actions run.
         if not tool_uses:
-            verdict = _find_verdict(turn_text)
-            if verdict:
-                return verdict[0], verdict[1], i + 1
-            if not reprompted:  # finished without a verdict - ask once, explicitly
+            # No action and no verdict - nudge once to submit, then give up.
+            if not reprompted:
                 reprompted = True
                 messages.append(
                     {
                         "role": "user",
-                        "content": "Reply with exactly 'VERDICT: PASS: <one-line reason>' or 'VERDICT: FAIL: <one-line reason>'.",
+                        "content": "Call the submit_verdict tool with your pass/fail result and a one-line reason.",
                     }
                 )
                 continue
-            return "inconclusive", "model ended without a verdict", i + 1
+            return "inconclusive", "model ended without submitting a verdict", i + 1
 
         tool_results = []
         for tu in tool_uses:
@@ -445,9 +453,9 @@ def _goal(change: str) -> str:
     return (
         "You are reviewing a web app to confirm a specific change works. The change under test:\n"
         f"{change}\n\n"
-        "Interact with the page like a user to verify it end to end. When you are done, end your "
-        "reply with exactly 'VERDICT: PASS: <one-line reason>' if the change works as described, or "
-        "'VERDICT: FAIL: <one-line reason>' if it does not."
+        "Interact with the page like a user to verify it end to end. When you are done, call the "
+        "submit_verdict tool with 'pass' if the change works as described or 'fail' if it does "
+        "not, plus a one-line reason."
     )
 
 
