@@ -26,8 +26,6 @@ import modal
 APP_NAME = "example-liquidai-embeddings"
 SERVER_NAME = "LlamaCppEmbeddingServer"
 
-MODEL = "LiquidAI/LFM2.5-Embedding-350M"
-
 # ## Handle cold starts
 
 # `wait_until_ready` retries through the 503s and connection errors
@@ -111,6 +109,6 @@ if __name__ == "__main__":
     print(f"llama.cpp server: {url}")
     wait_until_ready(url)
 
-    result = post_embeddings(url, {"model": MODEL, "input": [f"document: {text}"]})
+    result = post_embeddings(url, {"input": [f"document: {text}"]})
     vector = embed(result)[0]
     print(f"  dim: {len(vector)}, first 4: {[round(v, 4) for v in vector[:4]]}")
