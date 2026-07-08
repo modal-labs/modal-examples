@@ -605,16 +605,21 @@ def main():
 # the app starts, so a live webhook that needs a GitHub token would force even a plain
 # `modal run` to have those secrets. To turn the bot on:
 #
-#   modal secret create github-webhook GITHUB_WEBHOOK_SECRET=... ALLOWED_PREVIEW_HOST=preview.example.com  # webhook secret + the only host the bot will drive
-#   modal secret create github-token GITHUB_TOKEN=...              # a token allowed to comment on the repo
-#   # uncomment the block below, then:
-#   modal deploy 10_integrations/kernel_pr_qa_agent.py
-#   # register the printed github_webhook URL under the repo's Settings -> Webhooks
-#   # (content type application/json, the same secret, sending the deployment_status event).
+# ```
+# modal secret create github-webhook GITHUB_WEBHOOK_SECRET=... ALLOWED_PREVIEW_HOST=preview.example.com  # webhook secret + the only host the bot will drive
+# modal secret create github-token GITHUB_TOKEN=...  # a token allowed to comment on the repo
+# # uncomment the block below, then:
+# modal deploy 10_integrations/kernel_pr_qa_agent.py
+# # register the printed github_webhook URL under the repo's Settings -> Webhooks
+# # (content type application/json, the same secret, sending the deployment_status event).
+# ```
 #
+# The webhook takes a raw `Request`, so add `from fastapi import Request` to the module-level
+# imports when you enable this block.
 #
+# ````python
 # @app.function(
-#     secrets=[modal.Secret.from_name("github-token")],  # GITHUB_TOKEN
+#     secrets=[modal.Secret.from_name("github-token", required_keys=["GITHUB_TOKEN"])],
 #     timeout=20 * MINUTES,
 # )
 # def qa_and_comment(repo: str, pr_number: int, preview_url: str, change: str):
@@ -646,57 +651,59 @@ def main():
 #         print(f"commented on {repo}#{pr_number}: HTTP {resp.status}")
 #
 #
-# @app.function(secrets=[modal.Secret.from_name("github-webhook")])  # GITHUB_WEBHOOK_SECRET
-# @modal.asgi_app()
-# def github_webhook():
+# @app.function(
+#     secrets=[
+#         modal.Secret.from_name(
+#             "github-webhook",
+#             required_keys=["GITHUB_WEBHOOK_SECRET", "ALLOWED_PREVIEW_HOST"],
+#         )
+#     ]
+# )
+# @modal.fastapi_endpoint(method="POST")
+# async def github_webhook(request: Request):
 #     import hashlib
 #     import hmac
 #     import json
 #     import os
 #     import urllib.parse
 #
-#     from fastapi import FastAPI, HTTPException, Request
+#     from fastapi import HTTPException
 #
-#     web = FastAPI()
+#     body = await request.body()
+#     digest = hmac.new(
+#         os.environ["GITHUB_WEBHOOK_SECRET"].encode(), body, hashlib.sha256
+#     ).hexdigest()
+#     if not hmac.compare_digest(
+#         "sha256=" + digest, request.headers.get("x-hub-signature-256", "")
+#     ):
+#         raise HTTPException(status_code=401, detail="bad signature")
 #
-#     @web.post("/")
-#     async def handle(request: Request):
-#         body = await request.body()
-#         digest = hmac.new(
-#             os.environ["GITHUB_WEBHOOK_SECRET"].encode(), body, hashlib.sha256
-#         ).hexdigest()
-#         if not hmac.compare_digest(
-#             "sha256=" + digest, request.headers.get("x-hub-signature-256", "")
-#         ):
-#             raise HTTPException(status_code=401, detail="bad signature")
+#     event = await request.json()
+#     # Where the PR number, preview URL, and change come from depends on your CI. This reads a
+#     # deployment_status event whose target_url is the preview and whose deployment payload
+#     # carries the PR number and change; adapt it to however your pipeline exposes them.
+#     repo = event.get("repository", {}).get("full_name", "")
+#     preview_url = event.get("deployment_status", {}).get("target_url", "")
+#     payload = event.get("deployment", {}).get("payload") or {}
+#     if isinstance(payload, str):  # GitHub's deployment payload can be an object or a string
+#         try:
+#             payload = json.loads(payload)
+#         except ValueError:
+#             payload = {}
+#     pr_number = payload.get("pr_number")
+#     change = payload.get("change", "the change in this PR")
+#     if not (repo and preview_url and pr_number):
+#         raise HTTPException(status_code=400, detail="missing repo/preview_url/pr_number")
 #
-#         event = await request.json()
-#         # Where the PR number, preview URL, and change come from depends on your CI. This reads a
-#         # deployment_status event whose target_url is the preview and whose deployment payload
-#         # carries the PR number and change; adapt it to however your pipeline exposes them.
-#         repo = event.get("repository", {}).get("full_name", "")
-#         preview_url = event.get("deployment_status", {}).get("target_url", "")
-#         payload = event.get("deployment", {}).get("payload") or {}
-#         if isinstance(payload, str):  # GitHub's deployment payload can be an object or a string
-#             try:
-#                 payload = json.loads(payload)
-#             except ValueError:
-#                 payload = {}
-#         pr_number = payload.get("pr_number")
-#         change = payload.get("change", "the change in this PR")
-#         if not (repo and preview_url and pr_number):
-#             raise HTTPException(status_code=400, detail="missing repo/preview_url/pr_number")
-#
-#         # The signature proves the request came from GitHub, not that preview_url is safe to
-#         # drive. Only drive URLs on your own preview host - set ALLOWED_PREVIEW_HOST to yours.
-#         parsed = urllib.parse.urlparse(preview_url)
-#         allowed = os.environ.get("ALLOWED_PREVIEW_HOST", "")  # e.g. "preview.example.com"
-#         host = (parsed.hostname or "").lower()
-#         if parsed.scheme != "https" or not allowed or not (
-#             host == allowed or host.endswith("." + allowed)
-#         ):
-#             raise HTTPException(status_code=400, detail="preview_url is not on the allowed host")
-#         qa_and_comment.spawn(repo, int(pr_number), preview_url, change)
-#         return {"status": "queued"}
-#
-#     return web
+#     # The signature proves the request came from GitHub, not that preview_url is safe to
+#     # drive. Only drive URLs on your own preview host - set ALLOWED_PREVIEW_HOST to yours.
+#     parsed = urllib.parse.urlparse(preview_url)
+#     allowed = os.environ.get("ALLOWED_PREVIEW_HOST", "")  # e.g. "preview.example.com"
+#     host = (parsed.hostname or "").lower()
+#     if parsed.scheme != "https" or not allowed or not (
+#         host == allowed or host.endswith("." + allowed)
+#     ):
+#         raise HTTPException(status_code=400, detail="preview_url is not on the allowed host")
+#     qa_and_comment.spawn(repo, int(pr_number), preview_url, change)
+#     return {"status": "queued"}
+# ````
