@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false  # requires the Server from liquidai_embeddings_server.py to be running 
+# lambda-test: false  # requires the Server from liquidai_embeddings_server.py to be running
 # ---
 
 # # Call the Liquid AI embeddings Server
@@ -16,9 +16,12 @@
 # `503 Service Unavailable` status while no container is ready,
 # so the client polls `/health` until a container answers before sending requests.
 
+import json
 import time
+import urllib.error
+import urllib.request
+
 import modal
-import requests
 
 APP_NAME = "example-liquidai-embeddings"
 SERVER_NAME = "LlamaCppEmbeddingServer"
@@ -41,10 +44,11 @@ def wait_until_ready(base_url: str, timeout_s: float = 600) -> None:
     delay = 1.0
     while True:
         try:
-            if requests.get(f"{base_url}/health", timeout=10).status_code == 200:
+            with urllib.request.urlopen(f"{base_url}/health", timeout=10):
                 return
-            reason = "503 (container cold-starting)"
-        except requests.RequestException as exc:
+        except urllib.error.HTTPError as exc:
+            reason = f"{exc.code} (container cold-starting)"
+        except OSError as exc:
             reason = f"connection error ({exc.__class__.__name__})"
 
         remaining = stop_at - time.monotonic()
@@ -68,16 +72,18 @@ def wait_until_ready(base_url: str, timeout_s: float = 600) -> None:
 
 def post_embeddings(base_url: str, payload: dict) -> dict:
     """POST /v1/embeddings. Call wait_until_ready(base_url) first."""
-    response = requests.post(f"{base_url}/v1/embeddings", json=payload, timeout=30)
+    request = urllib.request.Request(
+        f"{base_url}/v1/embeddings",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
     try:
-        response.raise_for_status()
-    except requests.HTTPError:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
         # Surface the server's explanation (e.g. input too long) with the error.
-        raise requests.HTTPError(
-            f"{response.status_code} from {base_url}: {response.text}",
-            response=response,
-        ) from None
-    return response.json()
+        detail = exc.read().decode(errors="replace")
+        raise RuntimeError(f"{exc.code} from {base_url}: {detail}") from None
 
 
 def embed(vectors_json: dict) -> list[list[float]]:
