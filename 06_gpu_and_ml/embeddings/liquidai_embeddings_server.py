@@ -18,7 +18,7 @@
 
 # For client code, use the appropriate prompt prefixes for inputs.
 # Prepend `"query: "` when embedding search queries and `"document: "` when embedding passages.
-# Omitting the prefixes silently degrades retrieval quality, since the model was trained as 
+# Omitting the prefixes silently degrades retrieval quality, since the model was trained as
 # an asymmetric retriever.
 
 # ## Why use a Modal Server?
@@ -45,8 +45,8 @@
 # Clients should poll or retry on 503 status codes.
 # The test client at the bottom of this page utilizes this pattern.
 
-import subprocess
 import modal
+import subprocess
 
 MINUTES = 60  # seconds
 
@@ -64,7 +64,7 @@ EMBEDDING_DIM = 1024
 # `llama-server` processes requests in `N_SLOTS` parallel slots
 # and splits the total token context evenly across them.
 # We give each slot exactly the model's trained sequence length of 512 tokens.
-# In embedding mode, llama.cpp requires each input to fit in a single physical batch, 
+# In embedding mode, llama.cpp requires each input to fit in a single physical batch,
 # and caps the logical batch size at the physical batch size.
 # Sizing both batches to the full context lets all `N_SLOTS` slots
 # process maximal inputs in one forward pass.
@@ -106,7 +106,7 @@ TARGET_CONCURRENCY = N_SLOTS
 # surprise bills during casual use.
 # Set this to 1 or more for production deployments.
 
-MIN_CONTAINERS = 0 # Change to 1 or more for production
+MIN_CONTAINERS = 0  # Change to 1 or more for production
 
 # ## Cache the model weights
 
@@ -178,13 +178,19 @@ class LlamaCppEmbeddingServer:
         self.proc = subprocess.Popen(
             [
                 "/app/llama-server",
-                "-hf", MODEL_GGUF,
+                "-hf",
+                MODEL_GGUF,
                 "--embeddings",
-                "--port", str(PORT),
-                "--parallel", str(N_SLOTS),
-                "--ctx-size", str(N_CTX),
-                "--batch-size", str(N_CTX),
-                "--ubatch-size", str(N_CTX),
+                "--port",
+                str(PORT),
+                "--parallel",
+                str(N_SLOTS),
+                "--ctx-size",
+                str(N_CTX),
+                "--batch-size",
+                str(N_CTX),
+                "--ubatch-size",
+                str(N_CTX),
             ],
             start_new_session=True,
         )
@@ -197,6 +203,7 @@ class LlamaCppEmbeddingServer:
         except subprocess.TimeoutExpired:
             self.proc.kill()
             self.proc.wait()
+
 
 # ## Deploy the server
 
@@ -221,9 +228,10 @@ class LlamaCppEmbeddingServer:
 
 @app.local_entrypoint()
 def main(timeout_s: float = 600):
+    import json
     import time
-
-    import requests
+    import urllib.error
+    import urllib.request
 
     url = LlamaCppEmbeddingServer.get_url()
     print(f"Server URL: {url}")
@@ -233,10 +241,11 @@ def main(timeout_s: float = 600):
     delay = 1.0
     while True:
         try:
-            if requests.get(f"{url}/health", timeout=10).status_code == 200:
+            with urllib.request.urlopen(f"{url}/health", timeout=10):
                 break
-            reason = "503 (container cold-starting)"
-        except requests.RequestException as exc:
+        except urllib.error.HTTPError as exc:
+            reason = f"{exc.code} (container cold-starting)"
+        except OSError as exc:
             reason = f"connection error ({exc.__class__.__name__})"
         remaining = stop_at - time.monotonic()
         if remaining <= 0:
@@ -246,14 +255,18 @@ def main(timeout_s: float = 600):
         delay = min(delay * 2, 10.0)
 
     # Note the "document: " prompt prefix. See the intro for why it matters.
-    response = requests.post(
+    request = urllib.request.Request(
         f"{url}/v1/embeddings",
-        json={"input": ["document: The quick brown fox jumps over the lazy dog."]},
-        timeout=30,
+        data=json.dumps(
+            {"input": ["document: The quick brown fox jumps over the lazy dog."]}
+        ).encode(),
+        headers={"Content-Type": "application/json"},
     )
-    response.raise_for_status()
+    with urllib.request.urlopen(request, timeout=30) as response:
+        result = json.load(response)
 
-    vector = response.json()["data"][0]["embedding"]
+    vector = result["data"][0]["embedding"]
     assert len(vector) == EMBEDDING_DIM, f"expected {EMBEDDING_DIM}, got {len(vector)}"
-    print(f"embedding dim: {len(vector)}, first 4 values: {[round(v, 4) for v in vector[:4]]}")
-
+    print(
+        f"embedding dim: {len(vector)}, first 4 values: {[round(v, 4) for v in vector[:4]]}"
+    )
