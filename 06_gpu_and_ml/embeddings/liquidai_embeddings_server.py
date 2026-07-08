@@ -279,3 +279,6 @@ def main(timeout_s: float = 600):
     print(
         f"embedding dim: {len(vector)}, first 4 values: {[round(v, 4) for v in vector[:4]]}"
     )
+
+
+# You can also find the example client code [here](https://modal.com/docs/examples/liquidai_embeddings_client).
