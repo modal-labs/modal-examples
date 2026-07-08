@@ -22,6 +22,7 @@ import urllib.error
 import urllib.request
 
 import modal
+from modal.server import Server
 
 APP_NAME = "example-liquidai-embeddings"
 SERVER_NAME = "LlamaCppEmbeddingServer"
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     text = "The quick brown fox jumps over the lazy dog."
 
     try:
-        server = modal.Server.from_name(APP_NAME, SERVER_NAME)
+        server = Server.from_name(APP_NAME, SERVER_NAME)
         url = server.get_url()
     except modal.exception.NotFoundError:
         raise SystemExit(
