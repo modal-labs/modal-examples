@@ -346,11 +346,11 @@ async def demonstrate_headful_detection() -> dict:
 # docs](https://www.kernel.sh/docs/auth/overview)); we use saucedemo here because its
 # credentials are public and it has no MFA, so the flow completes unattended.
 #
-# `ensure_auth` logs in fresh on each run: it deletes any existing connection, starts the
-# login, submits the discovered fields from our Secret once, and waits for the flow to
-# succeed (raising if it doesn't, so we never scrape with a logged-out profile). Logging in
-# fresh keeps the saved profile's session current - reusing an already-authenticated
-# connection would hand back a profile whose session may have since expired.
+# `ensure_auth` logs in **once** and reuses the connection. With `save_credentials=True`,
+# Managed Auth remembers the login, so the first run submits the discovered fields from our
+# Secret and later runs re-authenticate automatically from the stored credentials - no
+# re-entry. Each run refreshes the profile's session before we scrape, and we wait for *this*
+# run's login to succeed (raising if it doesn't) so we never scrape with a logged-out profile.
 
 
 @app.function(secrets=[KERNEL_SECRET, LOGIN_SECRET], timeout=10 * MINUTES)
@@ -366,31 +366,52 @@ def ensure_auth(
 
     client = Kernel()
 
-    # Log in fresh each run. Reusing an already-authenticated connection returns SUCCESS but
-    # a stale profile - some sites (saucedemo included) expire the session quickly - so we
-    # delete any existing connection and re-run the login, which refreshes the saved profile.
-    for existing in client.auth.connections.list(
-        profile_name=profile_name, domain=domain
-    ):
-        client.auth.connections.delete(id=existing.id)
-    connection = client.auth.connections.create(
-        domain=domain,
-        profile_name=profile_name,
-        login_url=login_url,
-        save_credentials=True,
+    # Log in once, reuse the connection. `save_credentials=True` tells Managed Auth to
+    # remember this login, so on later runs it re-authenticates automatically from the stored
+    # credentials - you never re-enter them. We reuse the existing connection rather than
+    # recreating it (create() returns 409 for a duplicate profile+domain, and recreating would
+    # throw away the stored credentials).
+    existing = list(
+        client.auth.connections.list(profile_name=profile_name, domain=domain)
     )
+    if existing:
+        connection = existing[0]
+    else:
+        connection = client.auth.connections.create(
+            domain=domain,
+            profile_name=profile_name,
+            login_url=login_url,
+            save_credentials=True,
+        )
 
+    # Start a login flow to refresh the profile for this run. The first time, Managed Auth
+    # discovers the form and asks for the fields (we fill them from the Secret); on later runs
+    # it replays the stored credentials with no input needed. A reused connection still carries
+    # the result of its previous login flow, so we note flow_expires_at before starting ours and
+    # then poll for the flow we just started (its expiry differs, or we submitted its fields).
+    # That way we act on this run's outcome instead of a leftover one.
+    #
+    # Sites with long-lived sessions can skip the refresh when `connection.status` is already
+    # AUTHENTICATED; we always refresh because saucedemo's session is short-lived.
+    prior_flow_expires_at = client.auth.connections.retrieve(
+        id=connection.id
+    ).flow_expires_at
     client.auth.connections.login(id=connection.id)
     submitted = False
     deadline = time.monotonic() + 5 * MINUTES
     while time.monotonic() < deadline:
         state = client.auth.connections.retrieve(id=connection.id)
         # flow_status is the login flow's state: SUCCESS means it logged in; the terminal
-        # failures (FAILED/EXPIRED/CANCELED) mean it did not.
-        if state.flow_status == "SUCCESS":
+        # failures (FAILED/EXPIRED/CANCELED) mean it did not. Only act on a status once it
+        # belongs to this run's flow (new flow_expires_at, or we submitted fields this run), so
+        # a leftover status from a previous flow can't end the loop early either way.
+        is_new_flow = state.flow_expires_at != prior_flow_expires_at
+        if state.flow_status == "SUCCESS" and (is_new_flow or submitted):
             print(f"authenticated: profile {connection.profile_name}")
             return connection.profile_name
-        if state.flow_status in ("FAILED", "EXPIRED", "CANCELED"):
+        if state.flow_status in ("FAILED", "EXPIRED", "CANCELED") and (
+            is_new_flow or submitted
+        ):
             raise RuntimeError(f"Managed Auth failed (flow_status={state.flow_status})")
         if (
             not submitted
@@ -442,8 +463,8 @@ def daily():
     import datetime
     import json
 
-    # Make sure we're logged in (cheap if the profile is already authenticated), then scrape
-    # the page behind the login. In production you'd pull the URL list from a DB or queue.
+    # Refresh the login and get the profile name, then scrape the page behind the login. In
+    # production you'd pull the URL list from a DB or queue.
     profile = ensure_auth.remote()
     urls = ["https://www.saucedemo.com/inventory.html"]
 
