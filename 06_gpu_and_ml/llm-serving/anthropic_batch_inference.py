@@ -64,10 +64,10 @@ from pydantic import BaseModel, Field
 app = modal.App("example-anthropic-batch-inference")
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "anthropic>=0.50.0",
-    "instructor>=1.7.0",
-    "fastapi[standard]",
-    "pydantic>=2.0",
+    "anthropic==0.116.0",
+    "instructor~=1.15.0",
+    "fastapi[standard]==0.139.0",
+    "pydantic~=2.13.0",
 )
 
 # ## Pydantic models for structured output
@@ -113,7 +113,7 @@ API_KEY_SECRET = modal.Secret.from_name(
 def extract_entities(text: str) -> dict:
     client = instructor.from_anthropic(anthropic.Anthropic())
     result: EntityExtractionResult = client.messages.create(
-        model="claude-haiku-4-5",
+        model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[
             {
