@@ -58,8 +58,15 @@ MINUTES = 60  # seconds
 # We serve the F16 file, a near-lossless conversion of the BF16 training precision.
 # At roughly 700 MB, the file is already small enough to not require quantization.
 # `llama-server` downloads the file from the Hugging Face Hub on first start.
+# Its `-hf` flag always fetches the repository's latest revision,
+# so we pin a specific commit by passing a fully resolved download URL instead,
+# along with an explicit local path for the downloaded file.
 
-MODEL_GGUF = "LiquidAI/LFM2.5-Embedding-350M-GGUF:F16"
+MODEL_REPO = "LiquidAI/LFM2.5-Embedding-350M-GGUF"
+MODEL_REVISION = "a80de9c5b941d429104f0038292a0ef5a860e486"  # version-pinning
+MODEL_FILE = "LFM2.5-Embedding-350M-F16.gguf"
+MODEL_URL = f"https://huggingface.co/{MODEL_REPO}/resolve/{MODEL_REVISION}/{MODEL_FILE}"
+
 EMBEDDING_DIM = 1024
 
 # `llama-server` processes requests in `N_SLOTS` parallel slots
@@ -107,7 +114,7 @@ TARGET_CONCURRENCY = N_SLOTS
 # surprise bills during casual use.
 # Set this to 1 or more for production deployments.
 
-MIN_CONTAINERS = 0  # Change to 1 or more for production
+MIN_CONTAINERS = 0  # change to 1 or more for production
 
 # ## Cache the model weights
 
@@ -117,10 +124,9 @@ MIN_CONTAINERS = 0  # Change to 1 or more for production
 # and loaded from the Volume on later cold starts.
 
 CACHE_PATH = "/cache"
+MODEL_PATH = f"{CACHE_PATH}/llama.cpp/{MODEL_FILE}"  # where the download lands
 
-volume = modal.Volume.from_name(
-    "liquidai-embeddings-cache", create_if_missing=True, version=2
-)
+volume = modal.Volume.from_name("liquidai-embeddings-cache", create_if_missing=True)
 
 # ## Define the container image
 
@@ -179,8 +185,10 @@ class LlamaCppEmbeddingServer:
         self.proc = subprocess.Popen(
             [
                 "/app/llama-server",
-                "-hf",
-                MODEL_GGUF,
+                "--model-url",
+                MODEL_URL,
+                "--model",
+                MODEL_PATH,
                 "--embeddings",
                 "--port",
                 str(PORT),
