@@ -78,7 +78,7 @@ ENDPOINT_WARMUP_TIME = (
 image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "kernel==0.74.0",
     "playwright~=1.61.0",
-    "openai==2.44.0",
+    "openai~=2.44.0",
 )
 
 app = modal.App("example-kernel-webscraper", image=image)
@@ -245,7 +245,9 @@ async def extract_products(page_text: str, base_url: str) -> Optional[list[dict]
 @app.function(
     secrets=[KERNEL_SECRET, PROXY_TOKEN_SECRET], timeout=10 * MINUTES, retries=2
 )
-async def scrape(url: str, profile_name: Optional[str] = None) -> dict:
+async def scrape(
+    url: str, profile_name: Optional[str] = None, watch: bool = False
+) -> dict:
     from kernel import AsyncKernel
     from playwright.async_api import (
         TimeoutError as PlaywrightTimeoutError,
@@ -259,9 +261,11 @@ async def scrape(url: str, profile_name: Optional[str] = None) -> dict:
         timeout_seconds=5 * MINUTES,
         profile={"name": profile_name} if profile_name else None,
     )
-    # Watch the session live. This URL embeds a short-lived JWT - treat it like a secret
-    # (don't log it where logs are retained or shared in production).
-    print(f"watch live: {kernel_browser.browser_live_view_url}")
+    # The live-view URL embeds a short-lived JWT, so treat it like a secret: we only print it
+    # for an interactive run (watch=True). The scheduled cron leaves it off - nobody is
+    # watching, and its logs are retained.
+    if watch:
+        print(f"watch live: {kernel_browser.browser_live_view_url}")
     try:
         async with async_playwright() as p:
             # connect_over_cdp dials Kernel's CDP websocket (the JWT rides in the URL).
@@ -474,15 +478,18 @@ def daily():
     for result in results:
         print(result)
 
-    # Persist the day's results to the Volume, one file per date. `.commit()` flushes the
-    # writes so a later run (or `modal volume get`) sees them. You could just as easily push
-    # to Slack, a database, or object storage instead.
+    # Persist the day's successful results to the Volume, one file per date. `.commit()`
+    # flushes the writes so a later run (or `modal volume get`) sees them. You could just as
+    # easily push to Slack, a database, or object storage instead.
     stamp = datetime.date.today().isoformat()
-    ok = [r for r in results if not isinstance(r, Exception)]
+    # scrape() returns an {"error": ...} dict for handled failures (and return_exceptions=True
+    # turns any unhandled raise into an exception in the list), so keep only the pages that
+    # actually produced products - the errors already printed above.
+    ok = [r for r in results if not isinstance(r, Exception) and "error" not in r]
     with open(f"/results/{stamp}.json", "w") as f:
         json.dump(ok, f, indent=2)
     RESULTS.commit()
-    print(f"wrote {len(ok)} results to /results/{stamp}.json")
+    print(f"wrote {len(ok)}/{len(results)} results to /results/{stamp}.json")
 
 
 # ## Try it
@@ -522,4 +529,4 @@ def main(
         print(demonstrate_headful_detection.remote())
         return
     profile = ensure_auth.remote() if with_auth else None
-    print(scrape.remote(url, profile_name=profile))
+    print(scrape.remote(url, profile_name=profile, watch=True))
