@@ -163,7 +163,7 @@ app = modal.App("example-liquidai-embeddings")
     min_containers=MIN_CONTAINERS,
     startup_timeout=10 * MINUTES,  # first-ever start downloads the GGUF
     scaledown_window=5 * MINUTES,  # idle containers shut down after 5 minutes
-    exit_grace_period=10,  # let in-flight requests complete on scale-down
+    exit_grace_period=20,  # let in-flight requests complete on scale-down
     unauthenticated=True,  # public URL; remove to require Modal authentication
 )
 class LlamaCppEmbeddingServer:
@@ -199,7 +199,7 @@ class LlamaCppEmbeddingServer:
     def stop(self):
         self.proc.terminate()
         try:
-            self.proc.wait(timeout=30)
+            self.proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             self.proc.kill()
             self.proc.wait()
