@@ -139,8 +139,9 @@ EXTRACTION_SCHEMA = {
 
 async def endpoint_base_url() -> str:
     """The OpenAI-compatible URL of our Modal Endpoint. Modal builds it from the workspace
-    name, the endpoint name, and the routing region; there's no CLI field for it, so we
-    construct it. Called inside a Modal container, where the workspace is in context."""
+    name, the endpoint name, and the routing region; there's no SDK/CLI accessor for it today,
+    so we reconstruct that pattern (verified against a live endpoint; re-derive it if Modal ever
+    changes the scheme). Called inside a Modal container, where the workspace is in context."""
     workspace = modal.Workspace.from_context()
     await workspace.hydrate.aio()
     return (
@@ -314,8 +315,6 @@ async def demonstrate_headful_detection() -> dict:
     kernel_browser = await client.browsers.create(
         headless=False, stealth=True, timeout_seconds=5 * MINUTES
     )
-    # Live-view URL embeds a short-lived JWT - treat it like a secret.
-    print(f"watch live: {kernel_browser.browser_live_view_url}")
     try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
