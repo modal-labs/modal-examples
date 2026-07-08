@@ -332,14 +332,32 @@ def _find_verdict(text: str):
     return verdict, (m.group(2) or "").strip().strip("*").strip()
 
 
+def _inject_prompt_caching(messages: list, breakpoints: int = 3) -> None:
+    """Mark the newest user turns as prompt-cache breakpoints so each request re-reads the
+    prior conversation (mostly screenshots) from cache instead of resending it. The breakpoints
+    slide forward as the conversation grows; 3 here plus the system prompt is Anthropic's max
+    of 4."""
+    remaining = breakpoints
+    for message in reversed(messages):
+        if message["role"] == "user" and isinstance(message["content"], list):
+            if remaining:
+                remaining -= 1
+                message["content"][-1]["cache_control"] = {"type": "ephemeral"}
+            else:
+                message["content"][-1].pop("cache_control", None)
+                break
+
+
 def _run_cua_loop(client, anthropic_client, sid: str, goal: str):
     messages: list = [{"role": "user", "content": goal}]
     reprompted = False
 
     for i in range(MAX_ITERS):
+        # Cache the conversation prefix so each turn re-reads the screenshots cheaply.
+        _inject_prompt_caching(messages)
         resp = anthropic_client.beta.messages.create(
             model=MODEL,
-            max_tokens=4096,
+            max_tokens=8192,  # headroom for thinking on more complex UIs
             system=[
                 {
                     "type": "text",
