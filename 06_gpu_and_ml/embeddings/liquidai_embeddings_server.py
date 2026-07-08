@@ -45,8 +45,9 @@
 # Clients should poll or retry on 503 status codes.
 # The test client at the bottom of this page utilizes this pattern.
 
-import modal
 import subprocess
+
+import modal
 
 MINUTES = 60  # seconds
 
