@@ -55,14 +55,16 @@ SCREENSHOT_SETTLE_S = 2.0  # let the page react before each capture
 REPLAY_GRACE_S = 1.5  # let the final banner land in the recording before we stop it
 
 image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
-    "kernel==0.72.0",  # <1.0: pin exact patch per modal-examples policy
-    "anthropic==0.113.0",  # <1.0: pin exact patch
-    "fastapi==0.138.2",  # <1.0: pin exact patch
+    "kernel==0.74.0",  # <1.0: pin exact patch per modal-examples policy
+    "anthropic==0.116.0",  # <1.0: pin exact patch
+    "fastapi==0.139.0",  # <1.0: pin exact patch
 )
 app = modal.App("example-kernel-pr-qa-agent", image=image)
 
-KERNEL_SECRET = modal.Secret.from_name("kernel")  # KERNEL_API_KEY
-ANTHROPIC_SECRET = modal.Secret.from_name("anthropic-secret")  # ANTHROPIC_API_KEY
+KERNEL_SECRET = modal.Secret.from_name("kernel", required_keys=["KERNEL_API_KEY"])
+ANTHROPIC_SECRET = modal.Secret.from_name(
+    "anthropic-secret", required_keys=["ANTHROPIC_API_KEY"]
+)
 
 # A Modal Volume to persist each session recording (mp4) so the traces outlive the run.
 TRACES = modal.Volume.from_name("kernel-pr-qa-traces", create_if_missing=True)
@@ -89,7 +91,7 @@ def _feedback_html(broken: bool) -> str:
             "r.className = 'result success'; r.style.display = 'block';"
         )
     return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>Send us feedback</title><style>
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Send us feedback</title><style>
   body {{ font-family: system-ui, sans-serif; background: #f4f4f5; display: flex;
           justify-content: center; padding: 60px; }}
   .card {{ background: #fff; padding: 40px; border-radius: 12px; width: 440px;
