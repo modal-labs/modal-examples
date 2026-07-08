@@ -126,10 +126,15 @@ EXTRACTION_SCHEMA = {
                     "description": {"type": "string"},
                     "price": {"type": "string"},
                 },
+                # List every property. Our vLLM endpoint accepts optional fields under
+                # strict mode, but hosted providers (e.g. OpenAI structured outputs) reject
+                # them, so requiring all three keeps the schema portable if you swap the model.
+                # The model returns "" for a page with no description.
                 "required": [
                     "name",
+                    "description",
                     "price",
-                ],  # description is optional (some pages have none)
+                ],
             },
         }
     },
