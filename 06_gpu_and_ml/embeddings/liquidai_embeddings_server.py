@@ -65,27 +65,6 @@ MAX_INPUT_TOKENS = 512  # the model's trained sequence length
 N_SLOTS = 4  # concurrent requests per container
 N_CTX = N_SLOTS * MAX_INPUT_TOKENS  # total tokens, also the batch/ubatch size
 
-# ## Match compute to the engine configuration
-
-# The Modal resource requests below follow from the engine parameters above.
-
-# We provision one CPU core per slot.
-# llama.cpp spreads each forward pass across all of the container's cores,
-# and up to `N_SLOTS` requests compute at once, sharing those cores.
-# Fewer cores would still work,
-# but per-request latency would grow when every slot is busy.
-
-# We request 2 GB of memory.
-# The F16 weights take up the most memory at roughly 700 MB,
-# along with KV cache, compute buffers, and other overhead.
-
-# We set `target_concurrency` to the slot count,
-# so each container receives no more concurrent requests than it has slots,
-# and load beyond that scales up new containers instead.
-# For details, see the [autoscaling guide](https://modal.com/docs/guide/scale).
-
-MEMORY_MB = 2048
-
 # ## Cache the model weights
 
 # We persist the llama.cpp download cache in a Modal
@@ -153,16 +132,24 @@ def wait_ready(proc: subprocess.Popen, timeout: int = 10 * MINUTES):
 
 app = modal.App("example-liquidai-embeddings")
 
+# The resource reservations follow from the engine parameters:
+# 1 CPU core per slot, and 2 GB of memory to hold
+# the roughly 700 MB of F16 weights plus KV cache and other overhead.
+# Setting `target_concurrency` to the slot count sends each container
+# only as many concurrent requests as it has slots,
+# and load beyond that scales up new containers instead
+# (see the [autoscaling guide](https://modal.com/docs/guide/scale)).
+
 
 @app.server(
     image=image,
     volumes={CACHE_PATH: volume},
     port=PORT,
     cpu=N_SLOTS,
-    memory=MEMORY_MB,
+    memory=2048,  # MBs
     target_concurrency=N_SLOTS,
     min_containers=0,  # change to 1 or more for production
-    startup_timeout=10 * MINUTES,  # first-ever start downloads the GGUF
+    startup_timeout=10 * MINUTES,  # allows time to download the GGUF on startup
     scaledown_window=5 * MINUTES,
     exit_grace_period=20,
     unauthenticated=True,
@@ -224,9 +211,7 @@ class LlamaCppEmbeddingServer:
 
 # Running `modal run liquidai_embeddings_server.py` executes the `local_entrypoint` below
 # against a temporary instance of the Server.
-# When a Server has no live replicas, such as during a cold start,
-# Modal responds with a `503 Service Unavailable` status.
-# The client polls `/health` until a replica is ready,
+# The client polls `/health` until a container is ready,
 # then requests one document embedding and verifies its shape.
 
 
