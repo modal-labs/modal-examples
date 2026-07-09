@@ -23,27 +23,15 @@
 
 # ## Why use a Modal Server?
 
-# [Modal Servers](https://modal.com/docs/guide/servers) are a compute primitive
-# for low-latency HTTP workloads.
-# Instead of Modal invoking a Python function per request,
-# a long-lived server process listens on a port inside the container,
-# and Modal's routing layer proxies requests to it directly.
-
-# That makes Servers a natural fit for llama.cpp.
-# The `llama-server` binary uses HTTP natively and implements the
+# [Modal Servers](https://modal.com/docs/guide/servers) route requests directly
+# to a long-lived process listening on a port inside the container,
+# which is well-suited for llama.cpp.
+# The `llama-server` binary speaks HTTP natively and implements the
 # [OpenAI embeddings API](https://platform.openai.com/docs/api-reference/embeddings)
-# out of the box.
+# out of the box, so the Python code in this example only starts and stops
+# that process, with no web framework needed.
 # Support for the LFM2.5 embedding model landed in
 # [ggml-org/llama.cpp#24913](https://github.com/ggml-org/llama.cpp/pull/24913).
-# Since `llama-server` handles the requests itself, the Python code in this
-# example only starts and stops that process, and no web framework is needed.
-
-# Note that Modal Server does not queue requests.
-# When no container is ready, for instance, during a cold start,
-# requests are rejected with a `503 Service Unavailable` status,
-# and the first such request is what triggers zero-to-one scaling.
-# Clients should poll or retry on 503 status codes.
-# The test client at the bottom of this page utilizes this pattern.
 
 import subprocess
 import time
@@ -59,9 +47,6 @@ import modal
 # We serve the F16 file, a near-lossless conversion of the BF16 training precision.
 # At roughly 700 MB, the file is already small enough to not require quantization.
 # `llama-server` downloads the file from the Hugging Face Hub on first start.
-# Its `-hf` flag always fetches the repository's latest revision,
-# so we pin a specific commit by passing a fully resolved download URL instead,
-# along with an explicit local path for the downloaded file.
 
 MODEL_REPO = "LiquidAI/LFM2.5-Embedding-350M-GGUF"
 MODEL_REVISION = "a80de9c5b941d429104f0038292a0ef5a860e486"  # version-pinning
@@ -94,13 +79,10 @@ N_CTX = N_SLOTS * MAX_INPUT_TOKENS  # total tokens, also the batch/ubatch size
 # The F16 weights take up the most memory at roughly 700 MB,
 # along with KV cache, compute buffers, and other overhead.
 
-# We set `target_concurrency` to the slot count.
-# Modal Servers scale beyond one container only when this value is set.
-# The autoscaler then sizes the container pool
-# so that each container handles about `target_concurrency` requests at a time.
-# Matching it to `N_SLOTS` sends each container no more concurrent work
-# than its slots can actually run in parallel,
-# and load beyond that brings up new containers instead.
+# We set `target_concurrency` to the slot count,
+# so each container receives no more concurrent requests than it has slots,
+# and load beyond that scales up new containers instead.
+# For details, see the [autoscaling guide](https://modal.com/docs/guide/scale).
 
 MEMORY_MB = 2048
 
@@ -134,16 +116,17 @@ image = (
 
 # ## Define the Server
 
-# A Modal Server is a class registered with `@app.server()`.
-# There are no request-handling methods.
-# The process we start in the `@modal.enter()` lifecycle hook handles serving,
-# and Modal routes traffic to the port the process listens on.
-# The `@modal.exit()` hook shuts the process down gracefully on scale-down
-# and escalates to SIGKILL only if the engine does not exit in time.
+# We wrap the engine in a class registered with `@app.server()`,
+# which attaches the image, Volume, and resources
+# and fronts the containers with a proxy.
+# The `@modal.enter` and `@modal.exit` lifecycle hooks below
+# start and stop the `llama-server` process.
+# See the [reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
 
-
-# Modal considers a Server container ready as soon as `llama-server` binds the port,
-# so clients should poll `/health` for a 200 before sending traffic.
+# Modal considers a new replica ready once the `@modal.enter` methods have exited
+# and the container accepts connections.
+# `llama-server` answers `/health` with a 503 status while the model loads,
+# so the startup hook blocks in `wait_ready` until it answers with a 200.
 
 MINUTES = 60  # seconds
 PORT = 8000
@@ -241,8 +224,9 @@ class LlamaCppEmbeddingServer:
 
 # Running `modal run liquidai_embeddings_server.py` executes the `local_entrypoint` below
 # against a temporary instance of the Server.
-# It polls `/health` until a container is ready,
-# retrying the 503s that cold starts produce,
+# When a Server has no live replicas, such as during a cold start,
+# Modal responds with a `503 Service Unavailable` status.
+# The client polls `/health` until a replica is ready,
 # then requests one document embedding and verifies its shape.
 
 
@@ -270,7 +254,6 @@ def main(timeout_s: float = 600):
 
     if remaining <= 0:
         raise TimeoutError(f"server not ready within {timeout_s}s")
-
 
     # Note the "document: " prompt prefix. See the intro for why it matters.
     request = urllib.request.Request(
