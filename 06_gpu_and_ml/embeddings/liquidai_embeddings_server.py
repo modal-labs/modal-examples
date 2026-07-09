@@ -49,8 +49,6 @@ import subprocess
 
 import modal
 
-MINUTES = 60  # seconds
-
 # ## Choose the model file and engine parameters
 
 # Liquid AI publishes official GGUF conversions of the model in
@@ -67,8 +65,6 @@ MODEL_REVISION = "a80de9c5b941d429104f0038292a0ef5a860e486"  # version-pinning
 MODEL_FILE = "LFM2.5-Embedding-350M-F16.gguf"
 MODEL_URL = f"https://huggingface.co/{MODEL_REPO}/resolve/{MODEL_REVISION}/{MODEL_FILE}"
 
-EMBEDDING_DIM = 1024
-
 # `llama-server` processes requests in `N_SLOTS` parallel slots
 # and splits the total token context evenly across them.
 # We give each slot exactly the model's trained sequence length of 512 tokens.
@@ -80,8 +76,6 @@ EMBEDDING_DIM = 1024
 MAX_INPUT_TOKENS = 512  # the model's trained sequence length
 N_SLOTS = 4  # concurrent requests per container
 N_CTX = N_SLOTS * MAX_INPUT_TOKENS  # total tokens, also the batch/ubatch size
-
-PORT = 8000
 
 # ## Match compute to the engine configuration
 
@@ -105,16 +99,7 @@ PORT = 8000
 # than its slots can actually run in parallel,
 # and load beyond that brings up new containers instead.
 
-CPU_COUNT = N_SLOTS
 MEMORY_MB = 2048
-TARGET_CONCURRENCY = N_SLOTS
-
-# Keeping a container warm avoids cold starts entirely.
-# But since this is documentation code, we scale to zero to avoid
-# surprise bills during casual use.
-# Set this to 1 or more for production deployments.
-
-MIN_CONTAINERS = 0  # change to 1 or more for production
 
 # ## Cache the model weights
 
@@ -157,6 +142,9 @@ image = (
 # so clients should poll `/health` for a 200 before sending traffic
 # (see the test client below).
 
+MINUTES = 60  # seconds
+PORT = 8000
+
 app = modal.App("example-liquidai-embeddings")
 
 
@@ -164,14 +152,14 @@ app = modal.App("example-liquidai-embeddings")
     image=image,
     volumes={CACHE_PATH: volume},
     port=PORT,
-    cpu=CPU_COUNT,
+    cpu=N_SLOTS,
     memory=MEMORY_MB,
-    target_concurrency=TARGET_CONCURRENCY,
-    min_containers=MIN_CONTAINERS,
+    target_concurrency=N_SLOTS,
+    min_containers=0,  # change to 1 or more for production
     startup_timeout=10 * MINUTES,  # first-ever start downloads the GGUF
-    scaledown_window=5 * MINUTES,  # idle containers shut down after 5 minutes
-    exit_grace_period=20,  # let in-flight requests complete on scale-down
-    unauthenticated=True,  # public URL; remove to require Modal authentication
+    scaledown_window=5 * MINUTES,
+    exit_grace_period=20,
+    unauthenticated=True,
 )
 class LlamaCppEmbeddingServer:
     @modal.enter()
@@ -275,7 +263,8 @@ def main(timeout_s: float = 600):
         result = json.load(response)
 
     vector = result["data"][0]["embedding"]
-    assert len(vector) == EMBEDDING_DIM, f"expected {EMBEDDING_DIM}, got {len(vector)}"
+
+    assert len(vector) == 1024, f"expected 1024, got {len(vector)}"
     print(
         f"embedding dim: {len(vector)}, first 4 values: {[round(v, 4) for v in vector[:4]]}"
     )
