@@ -46,6 +46,9 @@
 # The test client at the bottom of this page utilizes this pattern.
 
 import subprocess
+import time
+import urllib.error
+import urllib.request
 
 import modal
 
@@ -122,7 +125,9 @@ volume = modal.Volume.from_name("liquidai-embeddings-cache", create_if_missing=T
 # because we launch that binary ourselves in the server's startup hook.
 
 image = (
-    modal.Image.from_registry("ghcr.io/ggml-org/llama.cpp:server-b9917", add_python="3.12")
+    modal.Image.from_registry(
+        "ghcr.io/ggml-org/llama.cpp:server-b9917", add_python="3.12"
+    )
     .entrypoint([])
     .env({"LLAMA_CACHE": f"{CACHE_PATH}/llama.cpp"})
 )
@@ -136,14 +141,32 @@ image = (
 # The `@modal.exit()` hook shuts the process down gracefully on scale-down
 # and escalates to SIGKILL only if the engine does not exit in time.
 
-# Note that `llama-server` starts its HTTP server before the model finishes loading
-# and answers `/health` with a 503 status until it is ready.
-# Modal considers a container ready as soon as the process binds the port,
-# so clients should poll `/health` for a 200 before sending traffic
-# (see the test client below).
+
+# Modal considers a Server container ready as soon as `llama-server` binds the port,
+# so clients should poll `/health` for a 200 before sending traffic.
 
 MINUTES = 60  # seconds
 PORT = 8000
+
+
+def wait_ready(proc: subprocess.Popen, timeout: int = 10 * MINUTES):
+    """Block until llama-server answers /health with a 200 status."""
+    deadline = time.monotonic() + timeout
+    delay = 1.0
+    while (remaining := deadline - time.monotonic()) > 0:
+        if (returncode := proc.poll()) is not None:  # fail fast if the engine died
+            raise RuntimeError(f"llama-server exited with code {returncode}")
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/health", timeout=5):
+                return
+        except (urllib.error.HTTPError, OSError):
+            # 503 while the model loads, or connection refused before the port binds.
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, 10.0)
+    raise TimeoutError(
+        f"Liquid AI embeddings server not ready within {timeout} seconds"
+    )
+
 
 app = modal.App("example-liquidai-embeddings")
 
@@ -170,27 +193,27 @@ class LlamaCppEmbeddingServer:
         # shutdown signal. Otherwise, it would receive that signal in addition
         # to our terminate() below, and llama.cpp would treat a second signal
         # as "abort immediately", which would skip graceful cleanup.
-        self.proc = subprocess.Popen(
-            [
-                "/app/llama-server",
-                "--model-url",
-                MODEL_URL,
-                "--model",
-                MODEL_PATH,
-                "--embeddings",
-                "--port",
-                str(PORT),
-                "--parallel",
-                str(N_SLOTS),
-                "--ctx-size",
-                str(N_CTX),
-                "--batch-size",
-                str(N_CTX),
-                "--ubatch-size",
-                str(N_CTX),
-            ],
-            start_new_session=True,
-        )
+        cmd = [
+            "/app/llama-server",
+            "--model-url",
+            MODEL_URL,
+            "--model",
+            MODEL_PATH,
+            "--embeddings",
+            "--port",
+            str(PORT),
+            "--parallel",
+            str(N_SLOTS),
+            "--ctx-size",
+            str(N_CTX),
+            "--batch-size",
+            str(N_CTX),
+            "--ubatch-size",
+            str(N_CTX),
+        ]
+
+        self.proc = subprocess.Popen(cmd, start_new_session=True)
+        wait_ready(self.proc)
 
     @modal.exit()
     def stop(self):
@@ -226,17 +249,14 @@ class LlamaCppEmbeddingServer:
 @app.local_entrypoint()
 def main(timeout_s: float = 600):
     import json
-    import time
-    import urllib.error
-    import urllib.request
 
     url = LlamaCppEmbeddingServer.get_url()
     print(f"Server URL: {url}")
 
     # Poll /health, retrying on 503 (cold start) and connection errors.
-    stop_at = time.monotonic() + timeout_s
+    deadline = time.monotonic() + timeout_s
     delay = 1.0
-    while True:
+    while (remaining := deadline - time.monotonic()) > 0:
         try:
             with urllib.request.urlopen(f"{url}/health", timeout=10):
                 break
@@ -244,7 +264,7 @@ def main(timeout_s: float = 600):
             reason = f"{exc.code} (container cold-starting)"
         except OSError as exc:
             reason = f"connection error ({exc.__class__.__name__})"
-        remaining = stop_at - time.monotonic()
+        remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError(f"server not ready within {timeout_s}s; last: {reason}")
         print(f"  {reason}, retrying... ({remaining:.0f}s left)")
