@@ -41,6 +41,8 @@
 # ```
 
 
+from datetime import datetime, timezone
+
 import modal
 
 # ## Build the Sandbox image
@@ -48,7 +50,7 @@ import modal
 # We pull the official prebuilt `ghcr.io/browserbase/browse` image, which is
 # `node:20-slim` with the `browse` CLI already installed — so there's no inline
 # `npm install` step. You can pin a version with a tag (e.g.
-# `ghcr.io/browserbase/browse:0.9.4`). **No Chrome/Chromium is bundled** — the browser
+# `ghcr.io/browserbase/browse:0.9.5`). **No Chrome/Chromium is bundled** — the browser
 # lives on Browserbase and is reached over CDP at run time. The agent loop itself runs
 # in a Modal Function and only needs `anthropic`, so we add that to the Function's image
 # separately below.
@@ -92,7 +94,11 @@ agent_secret = modal.Secret.from_name(
 # subcommands. It just tells the model the CLI is installed and pre-configured and
 # points it at `browse skills show` (the CLI's bundled usage guide), with
 # `browse --help` as a supplementary reference, to learn the interface itself, then
-# lets it plan its own steps for whatever task it's given.
+# lets it plan its own steps for whatever task it's given. It also reminds the model
+# it's running in a Sandbox with no local browser (so it never passes `--local`),
+# injects today's date at call time so it never guesses or hardcodes one, and tells
+# it to give its best final answer from whatever it's gathered if it's nearing the
+# step limit.
 
 SESSION = "agent"
 DEFAULT_TASK = (
@@ -104,7 +110,25 @@ MODEL = "claude-sonnet-5"
 MAX_STEPS = 40
 MAX_OUTPUT_CHARS = 40_000  # cap each tool result so it fits the context budget
 
-SYSTEM_PROMPT = "You are an autonomous deep-research agent. You have a `browse` CLI (Browserbase browser automation) in your bash tool — it is installed, and its auth and a shared browser session are already configured via environment variables. Learn how to use it by running `browse skills show` (it prints the CLI's bundled usage guide); use `browse --help` (and `browse <command> --help`) for extra detail on any command. Then complete the task. When you cite a document, link the direct document itself, not a viewer, preview, or index page that wraps it. Return a clear, well-sourced answer."
+
+# Built fresh on every invocation (not a module-level constant) so the injected
+# date is always today, even if Modal reuses a warm container across runs.
+def build_system_prompt() -> str:
+    today = datetime.now(timezone.utc).date()
+    return (
+        "You are an autonomous deep-research agent. You have a `browse` CLI (Browserbase browser automation) "
+        "in your bash tool — it is installed, and its auth and a shared browser session are already configured "
+        "via environment variables. Learn how to use it by running `browse skills show` (it prints the CLI's "
+        "bundled usage guide); use `browse --help` (and `browse <command> --help`) for extra detail on any "
+        "command. Then complete the task.\n\n"
+        "You are running inside a Modal Sandbox with no local browser — every `browse` session is remote and "
+        f"already configured via environment variables, so never pass `--local`. Today's date is {today}; use "
+        "it for anything time-sensitive and never hardcode or guess a date. If you're nearing the step limit, "
+        "stop navigating and give the best final answer you can from what you've already gathered.\n\n"
+        "When you cite a document, link the direct document itself, not a viewer, preview, or index page that "
+        "wraps it. Return a clear, well-sourced answer."
+    )
+
 
 # Claude's native bash tool. The schema is built into the model — we declare it by
 # type and name only, and our handler executes the `command` Claude sends.
@@ -122,7 +146,12 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
 
     # Boot the Sandbox that holds the `browse` CLI. The environment steers every
     # command to a shared *remote* browser, so the model never has to pass flags.
+    # The image's default CMD (`browse --help`) would exit immediately — and a
+    # Sandbox lives only as long as its entrypoint — so we pass a long-lived
+    # no-op entrypoint and drive the Sandbox with `sandbox.exec` instead.
     sandbox = modal.Sandbox.create(
+        "sleep",
+        "infinity",
         app=app,
         image=sandbox_image,
         secrets=[agent_secret],
@@ -153,7 +182,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=4096,
-                system=SYSTEM_PROMPT,
+                system=build_system_prompt(),
                 tools=[BASH_TOOL],
                 messages=messages,
             )
