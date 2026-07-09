@@ -122,7 +122,7 @@ volume = modal.Volume.from_name("liquidai-embeddings-cache", create_if_missing=T
 # because we launch that binary ourselves in the server's startup hook.
 
 image = (
-    modal.Image.from_registry("ghcr.io/ggml-org/llama.cpp:server", add_python="3.12")
+    modal.Image.from_registry("ghcr.io/ggml-org/llama.cpp:server-b9917", add_python="3.12")
     .entrypoint([])
     .env({"LLAMA_CACHE": f"{CACHE_PATH}/llama.cpp"})
 )
