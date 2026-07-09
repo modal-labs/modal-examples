@@ -23,9 +23,10 @@
 
 # ## Why use a Modal Server?
 
-# [Modal Servers](https://modal.com/docs/guide/servers) route requests directly
-# to a long-lived process listening on a port inside the container,
-# which is well-suited for llama.cpp.
+# To minimize routing overheads, we use `@app.server`,
+# which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
+# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
+
 # The `llama-server` binary speaks HTTP natively and implements the
 # [OpenAI embeddings API](https://platform.openai.com/docs/api-reference/embeddings)
 # out of the box, so the Python code in this example only starts and stops
