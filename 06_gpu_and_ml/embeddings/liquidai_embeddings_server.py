@@ -264,12 +264,12 @@ def main(timeout_s: float = 600):
             reason = f"{exc.code} (container cold-starting)"
         except OSError as exc:
             reason = f"connection error ({exc.__class__.__name__})"
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise TimeoutError(f"server not ready within {timeout_s}s; last: {reason}")
         print(f"  {reason}, retrying... ({remaining:.0f}s left)")
         time.sleep(min(delay, remaining))
         delay = min(delay * 2, 10.0)
+
+    if remaining <= 0:
+        raise TimeoutError(f"server not ready within {timeout_s}s; last: {reason}")
 
     # Note the "document: " prompt prefix. See the intro for why it matters.
     request = urllib.request.Request(
