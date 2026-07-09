@@ -498,7 +498,9 @@ def _save_trace(client, sid: str, replay_id: str, label: str):
     timeout=15 * MINUTES,
     retries=0,
 )
-def verify_pr(preview_url: str, change: str, label: str = "run") -> dict:
+def verify_pr(
+    preview_url: str, change: str, label: str = "run", watch: bool = False
+) -> dict:
     import time
 
     from anthropic import Anthropic
@@ -529,9 +531,10 @@ def verify_pr(preview_url: str, change: str, label: str = "run") -> dict:
         )
         replay_id = replay.replay_id
         replay_view_url = getattr(replay, "replay_view_url", None)  # from start()
-        # This URL carries a session JWT - fine to open from your own run, but don't log it
-        # where logs are shared/retained, and don't post it to a public channel.
-        print(f"recording: {replay_view_url}")
+        # This URL carries a session JWT, so we only print it for an interactive run (watch=True).
+        # verify_pr also runs as the deploy webhook, whose logs are retained - never log it there.
+        if watch:
+            print(f"recording: {replay_view_url}")
         verdict, reason, iterations = _run_cua_loop(
             client, anthropic_client, sid, _goal(change)
         )
@@ -609,7 +612,7 @@ def main():
         url = f"{base}/{variant}"
         _wait_until_up(url)  # Modal web containers boot on first request
         print(f"\nVerifying the {variant} variant: {url}")
-        r = verify_pr.remote(url, DEMO_CHANGE, label=variant)
+        r = verify_pr.remote(url, DEMO_CHANGE, label=variant, watch=True)
         results[variant] = r
         print(f"  -> {r['verdict']}: {r['reason']}")
         if r.get("trace_path"):
