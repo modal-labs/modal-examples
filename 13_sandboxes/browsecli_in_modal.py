@@ -90,8 +90,9 @@ agent_secret = modal.Secret.from_name(
 #
 # The system prompt is deliberately minimal: it doesn't enumerate any `browse`
 # subcommands. It just tells the model the CLI is installed and pre-configured and
-# points it at `browse --help` to learn the interface itself, then lets it plan its
-# own steps for whatever task it's given.
+# points it at `browse skills show` (the CLI's bundled usage guide), with
+# `browse --help` as a supplementary reference, to learn the interface itself, then
+# lets it plan its own steps for whatever task it's given.
 
 SESSION = "agent"
 DEFAULT_TASK = (
@@ -103,7 +104,7 @@ MODEL = "claude-sonnet-5"
 MAX_STEPS = 40
 MAX_OUTPUT_CHARS = 40_000  # cap each tool result so it fits the context budget
 
-SYSTEM_PROMPT = "You are an autonomous deep-research agent. You have a `browse` CLI (Browserbase browser automation) in your bash tool — it is installed, and its auth and a shared browser session are already configured via environment variables. Learn how to use it by running `browse --help` (and `browse <command> --help` as needed), then complete the task. When you cite a document, link the direct document itself, not a viewer, preview, or index page that wraps it. Return a clear, well-sourced answer."
+SYSTEM_PROMPT = "You are an autonomous deep-research agent. You have a `browse` CLI (Browserbase browser automation) in your bash tool — it is installed, and its auth and a shared browser session are already configured via environment variables. Learn how to use it by running `browse skills show` (it prints the CLI's bundled usage guide); use `browse --help` (and `browse <command> --help`) for extra detail on any command. Then complete the task. When you cite a document, link the direct document itself, not a viewer, preview, or index page that wraps it. Return a clear, well-sourced answer."
 
 # Claude's native bash tool. The schema is built into the model — we declare it by
 # type and name only, and our handler executes the `command` Claude sends.
