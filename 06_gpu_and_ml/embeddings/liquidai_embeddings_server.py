@@ -269,7 +269,8 @@ def main(timeout_s: float = 600):
         delay = min(delay * 2, 10.0)
 
     if remaining <= 0:
-        raise TimeoutError(f"server not ready within {timeout_s}s; last: {reason}")
+        raise TimeoutError(f"server not ready within {timeout_s}s")
+
 
     # Note the "document: " prompt prefix. See the intro for why it matters.
     request = urllib.request.Request(
