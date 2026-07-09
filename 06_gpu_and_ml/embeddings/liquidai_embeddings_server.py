@@ -3,7 +3,7 @@
 # cmd: ["modal", "run", "06_gpu_and_ml/embeddings/liquidai_embeddings_server.py"]
 # ---
 
-# # Serve Liquid AI embeddings with Modal Servers
+# # Serve Liquid AI embeddings with llama.cpp and Modal Servers
 
 # In this example, we serve
 # [LiquidAI/LFM2.5-Embedding-350M](https://huggingface.co/LiquidAI/LFM2.5-Embedding-350M)
@@ -148,7 +148,7 @@ app = modal.App("example-liquidai-embeddings")
     cpu=N_SLOTS,
     memory=2048,  # MBs
     target_concurrency=N_SLOTS,
-    min_containers=0,  # change to 1 or more for production
+    min_containers=0,  # set to 1 or more to ensure a replica is always ready
     startup_timeout=10 * MINUTES,  # allows time to download the GGUF on startup
     scaledown_window=5 * MINUTES,
     exit_grace_period=20,
