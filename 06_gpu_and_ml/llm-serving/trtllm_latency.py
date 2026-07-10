@@ -1,7 +1,4 @@
-# ---
-# deploy: true
-# ---
-# # Serve an interactive language model app with latency-optimized TensorRT-LLM (LLaMA 3 8B)
+# # Serve an interactive language model app with low-latency TensorRT-LLM (LLaMA 3 8B)
 
 # In this example, we demonstrate how to configure the TensorRT-LLM framework to serve
 # Meta's LLaMA 3 8B model at interactive latencies on Modal.
@@ -16,9 +13,10 @@
 # To hit this target, we use the [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 # inference framework from NVIDIA. TensorRT-LLM is the Lamborghini of inference engines:
 # it achieves seriously impressive latency, but only if you tune it carefully.
-# With the out-of-the-box defaults we observe an unacceptable median time
-# to last token of over a second, but with careful configuration,
-# we'll bring that down to under 250ms  -- over a 4x speed up!
+# We pair it with [Modal Servers](https://modal.com/docs/guide/servers) which routes requests
+# through a [new, low-latency proxy service](https://modal.com/blog/serverless-servers)
+# designed for latency-sensitive inference workloads,
+# minimizing the overhead between client and GPU.
 # These latencies were measured on a single NVIDIA H100 GPU
 # running LLaMA 3 8B on prompts and generations of a few dozen to a few hundred tokens.
 
@@ -30,14 +28,10 @@
 
 # ## Overview
 
-# This guide is intended to document two things:
-
-# 1. the [Python API](https://nvidia.github.io/TensorRT-LLM/llm-api)
-# for building and running TensorRT-LLM engines, and
-
-# 2. how to use recommendations from the
+# This guide documents how to use recommendations from the
 # [TensorRT-LLM performance guide](https://github.com/NVIDIA/TensorRT-LLM/blob/b763051ba429d60263949da95c701efe8acf7b9c/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md)
-# to optimize the engine for low latency.
+# to optimize a [TensorRT-LLM engine](https://nvidia.github.io/TensorRT-LLM/llm-api) for low latency,
+# then serve it behind an OpenAI-compatible HTTP API with `trtllm-serve`.
 
 # Be sure to check out TensorRT-LLM's
 # [examples](https://nvidia.github.io/TensorRT-LLM/llm-api-examples)
@@ -52,14 +46,11 @@
 
 # Historically, this process was done with a clunky command-line-interface (CLI),
 # but things have changed for the better!
-# 2025 is [the year of CUDA Python](https://twitter.com/blelbach/status/1902842146232865280),
-# including a new-and-improved Python SDK for TensorRT-LLM, supporting
+# There is now a new-and-improved Python SDK for TensorRT-LLM, supporting
 # all the same features as the CLI -- quantization, speculative decoding, in-flight batching,
 # and much more.
 
-# ## Installing TensorRT-LLM
-
-# To run TensorRT-LLM, we must first install it. Easier said than done!
+# ## Set up the container image
 
 # To run code on Modal, we define [container images](https://modal.com/docs/guide/images).
 # All Modal containers have access to GPU drivers via the underlying host environment,
@@ -68,29 +59,39 @@
 # We start from an official `nvidia/cuda` container image,
 # which includes the CUDA runtime & development libraries
 # and the environment configuration necessary to run them.
-
-import time
-from pathlib import Path
-
-import modal
-
-tensorrt_image = modal.Image.from_registry(
-    "nvidia/cuda:12.8.1-devel-ubuntu22.04",
-    add_python="3.12",  # TRT-LLM requires Python 3.12
-).entrypoint([])  # remove verbose logging by base image on entry
-
 # On top of that, we add some system dependencies of TensorRT-LLM,
 # including OpenMPI for distributed communication, some core software like `git`,
 # and the `tensorrt_llm` package itself.
 
+# While we're at it, we import the dependencies we'll need both remotely and locally (for deployment).
+
+import asyncio
+import json
+import subprocess
+import time
+from pathlib import Path
+
+import aiohttp
+import modal
+import modal.experimental
+
+MINUTES = 60  # seconds
+
+tensorrt_image = modal.Image.from_registry(
+    "nvidia/cuda:12.8.1-devel-ubuntu22.04",
+    add_python="3.12",  # TRT-LLM requires Python 3.12
+).entrypoint([])  # silence noisy NVIDIA license logging
+
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
-    "tensorrt-llm==0.18.0",
-    "pynvml<12",  # avoid breaking change to pynvml version API
+).uv_pip_install(
+    "tensorrt-llm==0.20.0",  # 0.20+ adds trtllm-serve --extra_llm_api_options
+    "pynvml>=12",  # required by tensorrt-llm 0.20
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
     "onnx==1.19.1",
+    "mpmath==1.3.0",
+    "torch==2.7.0",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -100,29 +101,28 @@ tensorrt_image = tensorrt_image.apt_install(
 # Dockerfiles, you can think of this as a Pythonic interface to instructions like `RUN` and `CMD`.
 
 # End-to-end, this step takes about five minutes on first run.
-# If you're reading this from top to bottom,
-# you might want to stop here and execute the example
-# with `modal run` so that it runs in the background while you read the rest.
 
-# ## Downloading the model
+# ## Cache model weights in a Modal Volume
 
-# Next, we'll set up a few things to download the model to persistent storage and do it quickly --
+# We serve [Meta's LLaMA 3 8B](https://huggingface.co/NousResearch/Meta-Llama-3-8B-Instruct),
+# downloading it to persistent storage and loading it quickly --
 # this is a latency-optimized example after all! For persistent, distributed storage, we use
 # [Modal Volumes](https://modal.com/docs/guide/volumes), which can be accessed from any container
 # with read speeds in excess of a gigabyte per second.
 
 # We also set the `HF_HOME` environment variable to point to the Volume so that the model
-# is cached there. And we install `hf-transfer` to get maximum download throughput from
-# the Hugging Face Hub, in the hundreds of megabytes per second.
+# is cached there, and turn on
+# [high-performance downloads](https://huggingface.co/docs/hub/en/models-downloading#faster-downloads)
+# to get maximum throughput from the Hugging Face Hub.
+
+MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
+MODEL_REVISION = "53346005fb0ef11d3b6a83b12c895cca40156b6c"  # pin to avoid surprises!
 
 volume = modal.Volume.from_name(
     "example-trtllm-inference-volume", create_if_missing=True
 )
 VOLUME_PATH = Path("/vol")
 MODELS_PATH = VOLUME_PATH / "models"
-
-MODEL_ID = "NousResearch/Meta-Llama-3-8B-Instruct"  # fork without repo gating
-MODEL_REVISION = "53346005fb0ef11d3b6a83b12c895cca40156b6c"
 
 tensorrt_image = tensorrt_image.uv_pip_install(
     "huggingface_hub==0.36.0",
@@ -134,13 +134,7 @@ tensorrt_image = tensorrt_image.uv_pip_install(
     }
 )
 
-with tensorrt_image.imports():
-    import os
-
-    import torch
-    from tensorrt_llm import LLM, SamplingParams
-
-# ## Setting up the engine
+# ## Configure for low latency
 
 # ### Quantization
 
@@ -153,7 +147,8 @@ with tensorrt_image.imports():
 # along with other things like the KV cache built up while processing prompts.
 
 # The simplest way to reduce LLM inference's RAM requirements is to make the model's parameters smaller,
-# fitting their values in a smaller number of bits, like four or eight. This is known as _quantization_.
+# fitting their values in a smaller number of bits, like four or eight. This is known as
+# [_quantization_](https://modal.com/llm-almanac/quant-formats).
 
 # NVIDIA's [Ada Lovelace/Hopper chips](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like the L40S and H100, are capable of native 8bit floating point calculations
@@ -175,32 +170,10 @@ with tensorrt_image.imports():
 # [See their code](https://github.com/NVIDIA/TensorRT-LLM/blob/88e1c90fd0484de061ecfbacfc78a4a8900a4ace/tensorrt_llm/models/modeling_utils.py#L184)
 # for more options.
 
-N_GPUS = 1  # Bumping this to 2 will improve latencies further but not 2x
-GPU_CONFIG = f"H100:{N_GPUS}"
-
-
-def get_quant_config():
-    from tensorrt_llm.llmapi import QuantConfig
-
-    return QuantConfig(quant_algo="FP8")
-
-
 # Quantization is a lossy compression technique. The impact on model quality can be
 # minimized by tuning the quantization parameters on even a small dataset. Typically, we
-# see less than 2% degradation in evaluation metrics when using `fp8`. We'll use the
-# `CalibrationConfig` class to specify the calibration dataset.
-
-
-def get_calib_config():
-    from tensorrt_llm.llmapi import CalibConfig
-
-    return CalibConfig(
-        calib_batches=512,
-        calib_batch_size=1,
-        calib_max_seq_length=2048,
-        tokenizer_max_seq_length=4096,
-    )
-
+# see less than 2% degradation in evaluation metrics when using `fp8`. We use the
+# `CalibConfig` class to specify the calibration dataset.
 
 # ### Configure plugins
 
@@ -214,7 +187,7 @@ def get_calib_config():
 # plugin, for instance, adds heavily-optimized matrix multiplication kernels
 # from NVIDIA's [cuBLAS library of linear algebra routines](https://docs.nvidia.com/cuda/cublas/).
 
-# We'll specify a number of plugins for our engine implementation.
+# We specify a number of plugins for our engine implementation.
 # The first is
 # [multiple profiles](https://github.com/NVIDIA/TensorRT-LLM/blob/b763051ba429d60263949da95c701efe8acf7b9c/docs/source/performance/performance-tuning-guide/useful-build-time-flags.md#multiple-profiles),
 # which configures TensorRT to prepare multiple kernels for each high-level operation,
@@ -238,323 +211,391 @@ def get_calib_config():
 # The `low_latency_gemm_plugin` is a variant of the GEMM plugin that brings in latency-optimized
 # kernels from NVIDIA's [CUTLASS library](https://github.com/NVIDIA/cutlass).
 
-
-def get_plugin_config():
-    from tensorrt_llm.plugin.plugin import PluginConfig
-
-    return PluginConfig.from_dict(
-        {
-            "multiple_profiles": True,
-            "paged_kv_cache": True,
-            "low_latency_gemm_swiglu_plugin": "fp8",
-            "low_latency_gemm_plugin": "fp8",
-        }
-    )
-
-
-# ### Configure speculative decoding
+# ### A note on speculative decoding
 
 # Speculative decoding is a technique for generating multiple tokens per step,
-# avoiding the auto-regressive bottleneck in the Transformer architecture.
-# Generating multiple tokens in parallel exposes more parallelism to the GPU.
-# It works best for text that has predicable patterns, like code,
-# but it's worth testing for any workload where latency is critical.
-
-# Speculative decoding can use any technique to guess tokens, including running another,
-# smaller language model. Here, we'll use a simple, but popular and effective
-# speculative decoding strategy called "lookahead decoding",
-# which essentially guesses that token sequences from the past will occur again.
-
-
-def get_speculative_config():
-    from tensorrt_llm.llmapi import LookaheadDecodingConfig
-
-    return LookaheadDecodingConfig(
-        max_window_size=8,
-        max_ngram_size=6,
-        max_verification_set_size=8,
-    )
-
+# avoiding the auto-regressive bottleneck in the Transformer architecture and
+# exposing more parallelism to the GPU. It works best for text with predictable
+# patterns, like code, but it's worth testing for any latency-critical workload.
+# We no longer configure it by hand here -- it's handled within the serving stack --
+# but it remains one of the most effective levers for cutting per-token latency.
 
 # ### Set the build config
 
-# Finally, we'll specify the overall build configuration for the engine. This includes
-# more obvious parameters such as the maximum input length, the maximum number of tokens
+# Finally, we specify the overall build configuration for the engine. This includes
+# the maximum input length, the maximum number of tokens
 # to process at once before queueing occurs, and the maximum number of sequences
 # to process at once before queueing occurs.
 
 # To minimize latency, we set the maximum number of sequences (the "batch size")
-# to just one. We enforce this maximum by setting the number of inputs that the
-# Modal Function is allowed to process at once -- `max_concurrent_inputs`.
-# The default is `1`, so we don't need to set it, but we are setting it explicitly
-# here in case you want to run this code with a different balance of latency and throughput.
+# to just one and pair that with low per-container concurrency below,
+# trading throughput for the lowest possible per-request latency.
 
-MAX_BATCH_SIZE = MAX_CONCURRENT_INPUTS = 1
+N_GPUS = 1  # bumping this to 2 will improve latencies further but not 2x
+GPU = f"H100:{N_GPUS}"
+MAX_BATCH_SIZE = 1  # minimize latency by processing one request at a time
+
+# ## Define the inference server and infrastructure
+
+# ### Selecting infrastructure to minimize latency
+
+# Minimizing latency requires geographic co-location of clients and servers.
+
+# So for low latency LLM inference services on Modal, you must select a
+# [cloud region](https://modal.com/docs/guide/region-selection)
+# for both the GPU-accelerated containers running inference
+# and for the internal Modal proxies that forward requests to them
+# as part of defining a `modal.experimental.http_server`.
+
+# Here, we assume users are mostly in the northern half of the Americas
+# and select the `us` cloud region with a nearby `us-west` proxy to serve them.
+# This should result in at most a few dozen milliseconds of round-trip time.
+
+REGION = "us"
+PORT = 8000
+PROXY_REGION = "us-west"
+
+# Latencies for multi-turn interactions with LLMs are
+# substantially cut when previous interaction turns are in the KV cache.
+# KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
+# so they aren't shared across replicas.
+# To improve cache hit rate, `modal.experimental.http_server`
+# includes sticky routing based on a client-provided header.
+# See the client code below for details.
+
+# For production-scale LLM inference services, there are generally
+# enough requests to justify keeping at least one replica running at all times.
+# Having a "warm" or "live" replica reduces latency by skipping slow initialization work
+# that occurs when a new replica boots up (a ["cold start"](https://modal.com/docs/guide/cold-start)).
+# For LLM inference servers, that latency runs from seconds to minutes.
+
+# To ensure at least one container is always available,
+# we can set the `min_containers` of our Modal Function to `1` or more.
+# However, since this is documentation code, we'll set it to `0`
+# to avoid surprise bills during casual use.
+
+MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
+
+# Finally, we set a target for the number of inputs to run on a single container
+# with [`modal.concurrent`](https://modal.com/docs/reference/modal.concurrent).
+# For details, see [the guide](https://modal.com/docs/guide/concurrent-inputs).
+# We keep concurrency low for minimum per-request latency.
+
+TARGET_INPUTS = 1  # low concurrency for minimum per-request latency
+
+# ### Health check and warmup helpers
+
+# Modal considers a new replica ready to receive inputs once the `modal.enter` methods have exited
+# and the container accepts connections.
+# To ensure that we actually finish setting up our server before we are marked ready for inputs,
+# we poll the server's `/health` endpoint until it's ready,
+# then send a few warm-up requests so the first real request isn't slow.
+
+# We use the [`requests` library](https://requests.readthedocs.io/en/latest/)
+# to send ourselves these HTTP requests on
+# [`localhost`/`127.0.0.1`](https://superuser.com/questions/31824/why-is-localhost-ip-127-0-0-1).
+
+with tensorrt_image.imports():
+    import requests
 
 
-def get_build_config():
-    from tensorrt_llm import BuildConfig
-
-    return BuildConfig(
-        plugin_config=get_plugin_config(),
-        speculative_decoding_mode="LOOKAHEAD_DECODING",
-        max_input_len=8192,
-        max_num_tokens=16384,
-        max_batch_size=MAX_BATCH_SIZE,
-    )
-
-
-# ## Serving inference under the Doherty Threshold
-
-# Now that we have written the code to compile the engine, we can
-# serve it with Modal!
-
-# We start by creating an `App`.
-
-app = modal.App("example-trtllm-latency")
-
-# Thanks to our [custom container runtime system](https://modal.com/blog/jono-containers-talk),
-# even this large container boots in seconds.
-
-# On the first container start, we mount the Volume, download the model, and build the engine,
-# which takes a few minutes. Subsequent starts will be much faster,
-# as the engine is cached in the Volume and loaded in seconds.
-
-# Container starts are triggered when Modal scales up your Function,
-# like the first time you run this code or the first time a request comes in after a period of inactivity.
-# For details on optimizing container start latency, see
-# [this guide](https://modal.com/docs/guide/cold-start).
-
-# Container lifecycles in Modal are managed via our `Cls` interface, so we define one below
-# to separate out the engine startup (`enter`) and engine execution (`generate`).
-# For details, see [this guide](https://modal.com/docs/guide/lifecycle-functions).
-
-MINUTES = 60  # seconds
+def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            check_running(process)
+            requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
+            return
+        except (
+            subprocess.CalledProcessError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError,
+        ):
+            time.sleep(5)
+    raise TimeoutError(f"TensorRT-LLM server not ready within {timeout} seconds")
 
 
-@app.cls(
+def check_running(p: subprocess.Popen):
+    if (rc := p.poll()) is not None:
+        raise subprocess.CalledProcessError(rc, cmd=p.args)
+
+
+def warmup():
+    payload = {
+        "model": MODEL_ID,
+        "messages": [{"role": "user", "content": "Hello, how are you?"}],
+        "max_tokens": 16,
+    }
+    for _ in range(3):
+        requests.post(
+            f"http://127.0.0.1:{PORT}/v1/chat/completions",
+            json=payload,
+            timeout=60,
+        ).raise_for_status()
+
+
+# ### Build the TRT-LLM engine and start the server
+
+# We use [`modal.enter/exit`](https://modal.com/docs/guide/lifecycle-functions) to manage
+# the server lifecycle. On the first container start, we build an optimized engine
+# using the TensorRT-LLM [Python API](https://nvidia.github.io/TensorRT-LLM/llm-api)
+# with FP8 quantization and low-latency plugins, then cache it in the Volume.
+# Subsequent starts load the cached engine in seconds and launch `trtllm-serve`
+# to expose an OpenAI-compatible HTTP API.
+
+# The key decorators are:
+
+# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
+# We attach our Image, request a GPU, attach our cache Volume, specify the region, and configure auto-scaling.
+
+# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
+# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
+# needs to eventually listen for HTTP connections on the provided `port`.
+
+# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
+# requests our server can handle before we need to scale up.
+
+# - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
+# which methods of the class should be run when starting the server and shutting it down.
+
+app = modal.App("example-trtllm-low-latency")
+
+
+@app.server(
     image=tensorrt_image,
-    gpu=GPU_CONFIG,
-    scaledown_window=10 * MINUTES,
-    timeout=10 * MINUTES,
+    gpu=GPU,
     volumes={VOLUME_PATH: volume},
+    compute_region=REGION,
+    routing_region=PROXY_REGION,  # location of proxies, should be close to Cls region
+    min_containers=MIN_CONTAINERS,
+    target_concurrency=TARGET_INPUTS,
+    startup_timeout=20 * MINUTES,
+    port=PORT,  # wrapped code must listen on this port
+    exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    unauthenticated=True,  # no auth for this demo, see Servers guide/docs for auth details
 )
-@modal.concurrent(max_inputs=MAX_CONCURRENT_INPUTS)
-class Model:
-    mode: str = modal.parameter(default="fast")
-
-    def build_engine(self, engine_path, engine_kwargs) -> None:
-        llm = LLM(model=self.model_path, **engine_kwargs)
-        llm.save(engine_path)
-        return llm
-
+class TRT:
     @modal.enter()
-    def enter(self):
+    def startup(self):
+        """Download model, build/load the optimized engine, and start trtllm-serve."""
         from huggingface_hub import snapshot_download
-        from transformers import AutoTokenizer
+        from tensorrt_llm import LLM, BuildConfig
+        from tensorrt_llm.llmapi import CalibConfig, QuantConfig
+        from tensorrt_llm.plugin.plugin import PluginConfig
 
-        self.model_path = MODELS_PATH / MODEL_ID
+        model_path = str(MODELS_PATH / MODEL_ID)
+        engine_path = str(MODELS_PATH / MODEL_ID / "trtllm_engine" / "serve-0.20")
 
-        print("downloading base model if necessary")
         snapshot_download(
             MODEL_ID,
-            local_dir=self.model_path,
+            local_dir=model_path,
             ignore_patterns=["*.pt", "*.bin"],  # using safetensors
             revision=MODEL_REVISION,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
-        if self.mode == "fast":
-            engine_kwargs = {
-                "quant_config": get_quant_config(),
-                "calib_config": get_calib_config(),
-                "build_config": get_build_config(),
-                "speculative_config": get_speculative_config(),
-                "tensor_parallel_size": torch.cuda.device_count(),
-            }
-        else:
-            engine_kwargs = {
-                "tensor_parallel_size": torch.cuda.device_count(),
-            }
-
-        self.sampling_params = SamplingParams(
-            temperature=0.8,
-            top_p=0.95,
-            max_tokens=1024,  # max generated tokens
-            lookahead_config=engine_kwargs.get("speculative_config"),
-        )
-
-        engine_path = self.model_path / "trtllm_engine" / self.mode
-        if not os.path.exists(engine_path):
+        if not Path(engine_path).exists():
             print(f"building new engine at {engine_path}")
-            self.llm = self.build_engine(engine_path, engine_kwargs)
+            llm = LLM(
+                model=model_path,
+                quant_config=QuantConfig(quant_algo="FP8"),
+                calib_config=CalibConfig(
+                    calib_batches=512,
+                    calib_batch_size=1,
+                    calib_max_seq_length=2048,
+                    tokenizer_max_seq_length=4096,
+                ),
+                build_config=BuildConfig(
+                    plugin_config=PluginConfig.from_dict(
+                        {
+                            "multiple_profiles": True,
+                            "paged_kv_cache": True,
+                            "low_latency_gemm_swiglu_plugin": "fp8",
+                            "low_latency_gemm_plugin": "fp8",
+                        }
+                    ),
+                    max_input_len=8192,
+                    max_num_tokens=16384,
+                    max_batch_size=MAX_BATCH_SIZE,
+                ),
+                tensor_parallel_size=N_GPUS,
+            )
+            llm.save(engine_path)
+            llm.shutdown()
+            del llm
+            volume.commit()
         else:
-            print(f"loading engine from {engine_path}")
-            self.llm = LLM(model=engine_path, **engine_kwargs)
+            print(f"loading cached engine from {engine_path}")
 
-    @modal.method()
-    def generate(self, prompt) -> dict:
-        start_time = time.perf_counter()
-        text = self.text_from_prompt(prompt)
-        output = self.llm.generate(text, self.sampling_params)
-        latency_ms = (time.perf_counter() - start_time) * 1000
+        # When serving a prebuilt TensorRT engine, `trtllm-serve` needs to be
+        # pointed at the original Hugging Face checkpoint for the tokenizer and
+        # its chat template, otherwise `/v1/chat/completions` returns a 400.
 
-        return output.outputs[0].text, latency_ms
+        cmd = [
+            "trtllm-serve",
+            engine_path,
+            "--tokenizer",
+            model_path,
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(PORT),
+        ]
 
-    @modal.method()
-    async def generate_async(self, prompt):
-        text = self.text_from_prompt(prompt)
-        async for output in self.llm.generate_async(
-            text, self.sampling_params, streaming=True
-        ):
-            yield output.outputs[0].text_diff
-
-    def text_from_prompt(self, prompt):
-        SYSTEM_PROMPT = (
-            "You are a helpful, harmless, and honest AI assistant created by Meta."
-        )
-
-        if isinstance(prompt, str):
-            prompt = [{"role": "user", "content": prompt}]
-
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + prompt
-
-        return self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-
-    @modal.method()
-    def boot(self):
-        pass  # no-op to start up containers
+        self.process = subprocess.Popen(cmd)
+        wait_ready(self.process)
+        warmup()
 
     @modal.exit()
-    def shutdown(self):
-        self.llm.shutdown()
-        del self.llm
+    def stop(self):
+        self.process.terminate()
 
 
-# ## Calling our inference function
+# ## Deploy the server
 
-# To run our `Model`'s `.generate` method from Python, we just need to call it --
-# with `.remote` appended to run it on Modal.
-
-# We wrap that logic in a `local_entrypoint` so you can run it from the command line with
+# To deploy the server on Modal, just run
 
 # ```bash
-# modal run trtllm_latency.py
+# modal deploy trtllm_low_latency.py
 # ```
 
-# which will output something like:
+# This will create a new App on Modal and build the container image for it if it hasn't been built yet.
 
-# ```
-# mode=fast inference latency (p50, p90): (211.17ms, 883.27ms)
-# ```
+# ## Interact with the server
 
-# Use `--mode=slow` to see model latency without optimizations.
+# Once it is deployed, you'll see a URL appear in the command line,
+# something like `https://your-workspace-name--example-trtllm-low-latency-trt.us-west.modal.direct`.
+
+# You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
+# at the `/docs` route of that URL.
+# These docs describe each route and indicate the expected input and output
+# and translate requests into `curl` commands.
+# For simple routes, you can even send a request directly from the docs page.
+
+# Note: when no replicas are available, Modal will respond with
+# the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503).
+# In your browser, you can just hit refresh until the docs page appears.
+# You can see the status of the application and its containers on your [Modal dashboard](https://modal.com/apps).
+
+# ## Test the server
+
+# To make it easier to test the server setup, we also include a `local_entrypoint`
+# that hits the server with a simple client.
+
+# If you execute the command
 
 # ```bash
-# modal run trtllm_latency.py --mode=slow
+# modal run trtllm_low_latency.py
 # ```
 
-# which will output something like
+# a fresh replica of the server will be spun up on Modal while
+# the code below executes on your local machine.
 
-# ```
-# mode=slow inference latency (p50, p90): (1140.88ms, 2274.24ms)
-# ```
-
-# For simplicity, we hard-code 10 questions to ask the model,
-# then run them one by one while recording the latency of each call.
-# But the code in the `local_entrypoint` is just regular Python code
-# that runs on your machine -- we wrap it in a CLI automatically --
-# so feel free to customize it to your liking.
+# Think of this like writing simple tests inside of the `if __name__ == "__main__"`
+# block of a Python script, but for cloud deployments!
 
 
 @app.local_entrypoint()
-def main(mode: str = "fast"):
-    prompts = [
-        "What atoms are in water?",
-        "Which F1 team won in 2011?",
-        "What is 12 * 9?",
-        "Python function to print odd numbers between 1 and 10. Answer with code only.",
-        "What is the capital of California?",
-        "What's the tallest building in new york city?",
-        "What year did the European Union form?",
-        "How old was Geoff Hinton in 2022?",
-        "Where is Berkeley?",
-        "Are greyhounds or poodles faster?",
+async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
+    url = await TRT.get_url.aio()
+
+    system_prompt = {
+        "role": "system",
+        "content": "You are a helpful, harmless, and honest AI assistant.",
+    }
+    if prompt is None:
+        prompt = "What is the capital of France?"
+
+    content = [{"type": "text", "text": prompt}]
+
+    messages = [
+        system_prompt,
+        {"role": "user", "content": content},
     ]
 
-    print(f"🏎️  creating container with mode={mode}")
-    model = Model(mode=mode)
-
-    print("🏎️  cold booting container")
-    model.boot.remote()
-
-    print_queue = []
-    latencies_ms = []
-    for prompt in prompts:
-        generated_text, latency_ms = model.generate.remote(prompt)
-
-        print_queue.append((prompt, generated_text, latency_ms))
-        latencies_ms.append(latency_ms)
-
-    time.sleep(3)  # allow remote prints to clear
-    for prompt, generated_text, latency_ms in print_queue:
-        print(f"Processed prompt in {latency_ms:.2f}ms")
-        print(f"Prompt: {prompt}")
-        print(f"Generated Text: {generated_text}")
-        print("🏎️ " * 20)
-
-    p50 = sorted(latencies_ms)[int(len(latencies_ms) * 0.5) - 1]
-    p90 = sorted(latencies_ms)[int(len(latencies_ms) * 0.9) - 1]
-    print(f"🏎️  mode={mode} inference latency (p50, p90): ({p50:.2f}ms, {p90:.2f}ms)")
+    await probe(url, messages, timeout=test_timeout)
+    if twice:
+        messages[0]["content"] = "You are a pirate."
+        print(f"Sending messages to {url}:", *messages, sep="\n\t")
+        await probe(url, messages, timeout=test_timeout)
 
 
-# Once deployed with `modal deploy`, this `Model.generate` function
-# can be called from other Python code. It can also be converted to an HTTP endpoint
-# for invocation over the Internet by any client.
-# For details, see [this guide](https://modal.com/docs/guide/trigger-deployed-functions).
+# This test relies on the two helper functions below,
+# which ping the server and wait for a valid response to stream.
 
-# As a quick demo, we've included some sample chat client code in the
-# Python main entrypoint below. To use it, first deploy with
+# The `probe` helper function specifically ignores
+# two types of errors that can occur while a replica
+# is starting up -- timeouts on the client and 5XX responses from the server.
+# Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# when an `experimental.http_server` has no live replicas.
 
-# ```bash
-# modal deploy trtllm_latency.py
-# ```
+# We include a header with each request -- `Modal-Session-ID`.
+# The value associated with this key
+# is used to map requests onto containers such that
+# while the set of containers is fixed, requests with the same value
+# are sent to the same container.
+# Set this to a different value per multi-turn interaction
+# (prototypically, a user conversation thread with a chatbot)
+# to improve KV cache hit rates.
+# Note that this header is only compatible with Modal `http_server`s.
 
-# and then run the client with
 
-# ```python notest
-# python trtllm_latency.py
-# ```
+async def probe(url, messages=None, timeout=5 * MINUTES):
+    if messages is None:
+        messages = [{"role": "user", "content": "Tell me a joke."}]
+
+    client_id = str(0)  # set per multi-turn interaction for sticky routing
+    headers = {"Modal-Session-ID": client_id}
+    deadline = time.time() + timeout
+    async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
+        while time.time() < deadline:
+            try:
+                await _send_request_streaming(session, messages)
+                return
+            except asyncio.TimeoutError:
+                await asyncio.sleep(1)
+            except aiohttp.client_exceptions.ClientResponseError as e:
+                if e.status == 503:
+                    await asyncio.sleep(1)
+                    continue
+                raise e
+    raise TimeoutError(f"No response from server within {timeout} seconds")
 
 
-if __name__ == "__main__":
-    import sys
+async def _send_request_streaming(
+    session: aiohttp.ClientSession, messages: list, timeout: int | None = None
+) -> None:
+    payload = {"model": MODEL_ID, "messages": messages, "stream": True}
+    headers = {"Accept": "text/event-stream"}
 
-    try:
-        Model = modal.Cls.from_name("example-trtllm-latency", "Model")
-        print("🏎️  connecting to model")
-        model = Model(mode=sys.argv[1] if len(sys.argv) > 1 else "fast")
-        model.boot.remote()
-    except modal.exception.NotFoundError as e:
-        raise SystemError("Deploy this app first with modal deploy") from e
+    async with session.post(
+        "/v1/chat/completions", json=payload, headers=headers, timeout=timeout
+    ) as resp:
+        resp.raise_for_status()
+        full_text = ""
 
-    print("🏎️  starting chat. exit with :q, ctrl+C, or ctrl+D")
-    try:
-        prompt = []
-        while (nxt := input("🏎️  > ")) != ":q":
-            prompt.append({"role": "user", "content": nxt})
-            resp = ""
-            for out in model.generate_async.remote_gen(prompt):
-                print(out, end="", flush=True)
-                resp += out
-            print("\n")
-            prompt.append({"role": "assistant", "content": resp})
-    except KeyboardInterrupt:
-        pass
-    except SystemExit:
-        pass
-    finally:
-        print("\n")
-        sys.exit(0)
+        async for raw in resp.content:
+            line = raw.decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
+
+            # Server-Sent Events format: "data: ...."
+            if not line.startswith("data:"):
+                continue
+
+            data = line[len("data:") :].strip()
+            if data == "[DONE]":
+                break
+
+            try:
+                evt = json.loads(data)
+            except json.JSONDecodeError:
+                # ignore any non-JSON keepalive
+                continue
+
+            delta = (evt.get("choices") or [{}])[0].get("delta") or {}
+            chunk = delta.get("content")
+
+            if chunk:
+                print(chunk, end="", flush="\n" in chunk or "." in chunk)
+                full_text += chunk
+        print()  # newline after stream completes
