@@ -73,7 +73,6 @@ from pathlib import Path
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
@@ -244,8 +243,8 @@ MAX_BATCH_SIZE = 1  # minimize latency by processing one request at a time
 # So for low latency LLM inference services on Modal, you must select a
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
-# and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# and for the [internal Modal proxy system](https://modal.com/blog/serverless-servers)
+# that forwards requests to them as part of defining a Server.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us` cloud region with a nearby `us-west` proxy to serve them.
@@ -259,9 +258,10 @@ PROXY_REGION = "us-west"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
+# To improve cache hit rate, Modal Servers
 # includes sticky routing based on a client-provided header.
-# See the client code below for details.
+# See [this code sample](https://modal.com/docs/examples/server_sticky)
+# for details.
 
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
@@ -307,7 +307,6 @@ def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
             requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
             return
         except (
-            subprocess.CalledProcessError,
             requests.exceptions.ConnectionError,
             requests.exceptions.HTTPError,
         ):
@@ -343,20 +342,18 @@ def warmup():
 # Subsequent starts load the cached engine in seconds and launch `trtllm-serve`
 # to expose an OpenAI-compatible HTTP API.
 
-# The key decorators are:
+# The key decorators are [`@app.server`](https://modal.com/docs/guide/servers),
+# [`@modal.enter`, and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions)
+# The code in the `enter` decorator needs to start a server process that listens on a port.
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
-# We attach our Image, request a GPU, attach our cache Volume, specify the region, and configure auto-scaling.
+# The `@app.server` decorator does a lot! We:
 
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
-# requests our server can handle before we need to scale up.
-
-# - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
-# which methods of the class should be run when starting the server and shutting it down.
+# 1. Attach our Image
+# 2. Request a GPU
+# 3. Attach our cache Volume
+# 4. Specify the regions for the routing proxy and compute
+# 5. Configure auto-scaling, concurrency, and timeouts
+# 6. Configure authentication via [Proxy Tokens](https://modal.com/docs/guide/webhook-proxy-auth) (disabled here for demo purposes)
 
 app = modal.App("example-trtllm-low-latency")
 
@@ -455,7 +452,7 @@ class TRT:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy trtllm_low_latency.py
+# modal deploy trtllm_latency.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -484,7 +481,7 @@ class TRT:
 # If you execute the command
 
 # ```bash
-# modal run trtllm_low_latency.py
+# modal run trtllm_latency.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
@@ -525,8 +522,8 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # The `probe` helper function specifically ignores
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
-# Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# Modal Servers returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# when there are no live replicas.
 
 # We include a header with each request -- `Modal-Session-ID`.
 # The value associated with this key
@@ -536,7 +533,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # Set this to a different value per multi-turn interaction
 # (prototypically, a user conversation thread with a chatbot)
 # to improve KV cache hit rates.
-# Note that this header is only compatible with Modal `http_server`s.
+# Note that this header is only compatible with Modal Servers.
 
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
