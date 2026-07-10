@@ -353,7 +353,7 @@ def warmup():
 # 3. Attach our cache Volume
 # 4. Specify the regions for the routing proxy and compute
 # 5. Configure auto-scaling, concurrency, and timeouts
-# 6. Add authentication via [Proxy Tokens](https://modal.com/docs/guide/webhook-proxy-auth)
+# 6. Configure authentication via [Proxy Tokens](https://modal.com/docs/guide/webhook-proxy-auth) (disabled here for demo purposes)
 
 app = modal.App("example-trtllm-low-latency")
 
