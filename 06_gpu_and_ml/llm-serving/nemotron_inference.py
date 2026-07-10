@@ -249,7 +249,7 @@ PORT = 8000
     compute_region=REGION,
     min_containers=MIN_CONTAINERS,
     secrets=[hf_secret],
-    startup_timeout=5 * MINUTES,  # time to load weights
+    startup_timeout=20 * MINUTES,  # time to load weights
     port=PORT,  # wrapped code must listen on this port
     routing_region=ROUTING_REGION,  # location of proxies, should overlap with the container regions
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
@@ -343,7 +343,7 @@ class Server:
 
 
 @app.local_entrypoint()
-async def test(test_timeout=5 * MINUTES, prompt=None, twice=True):
+async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
     url = await Server.get_url.aio()
 
     system_prompt = {
