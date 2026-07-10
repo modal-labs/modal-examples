@@ -227,33 +227,10 @@ sglang_image = sglang_image.env(
     {
         "SAFETENSORS_FAST_GPU": "1",
         "NVIDIA_TF32_OVERRIDE": "1",
-        "SGLANG_ENABLE_SPEC_V2": "1",
     }
 )
 
-# The most important optimization for lower latency
-# is speculative decoding, which allows the
-# model to process multiple output tokens in parallel.
-# Here, we use the model's built-in multi-token prediction.
-
-spec_args = [
-    "--speculative-algorithm",
-    "EAGLE",
-    "--speculative-num-steps",
-    "5",
-    "--speculative-eagle-topk",
-    "1",
-    "--speculative-num-draft-tokens",
-    "5",
-]
-
-# More configuration for the server appears below.
-# These values were based on the official recipe
-# and some light agent-driven benchmarking.
-
-server_args = spec_args + [
-    "--disable-radix-cache",
-    "--disable-flashinfer-autotune",
+server_args = [
     "--kv-cache-dtype",
     "fp8_e4m3",
 ]
