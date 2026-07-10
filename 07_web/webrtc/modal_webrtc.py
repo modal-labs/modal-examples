@@ -104,7 +104,7 @@ class ModalWebRtcPeer(ABC):
                     in ["connected", "closed", "failed"]
                 ):
                     print(f"{self.id}: Closing connection to {peer_id} over queue...")
-                    q.put("close", partition="server")
+                    await q.put.aio("close", partition="server")
                     break
 
                 # read and parse websocket message passed over queue
@@ -284,10 +284,10 @@ class ModalWebRtcSignalingServer:
                 "Modal peer class must be an implementation of `ModalWebRtcPeer`"
             )
 
-        with modal.Queue.ephemeral() as q:
+        async with modal.Queue.ephemeral() as q:
             print(f"Server: Spawning modal peer instance for client peer {peer_id}...")
             modal_peer = modal_peer_class()
-            modal_peer.run.spawn(q, peer_id)
+            await modal_peer.run.spawn.aio(q, peer_id)
 
             await asyncio.gather(
                 relay_websocket_to_queue(websocket, q, peer_id),

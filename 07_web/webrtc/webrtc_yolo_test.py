@@ -155,7 +155,7 @@ class TestPeer(ModalWebRtcPeer):
         peer_id = None
         # connect to server via websocket
         ws_uri = (
-            WebcamObjDet().web.get_web_url().replace("http", "ws") + f"/ws/{self.id}"
+            (await WebcamObjDet().web.get_web_url.aio()).replace("http", "ws") + f"/ws/{self.id}"
         )
         async with websockets.connect(
             ws_uri, open_timeout=self.WS_OPEN_TIMEOUT
