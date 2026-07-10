@@ -307,7 +307,6 @@ def wait_ready(process: subprocess.Popen, timeout: int = 20 * MINUTES):
             requests.get(f"http://127.0.0.1:{PORT}/health").raise_for_status()
             return
         except (
-            subprocess.CalledProcessError,
             requests.exceptions.ConnectionError,
             requests.exceptions.HTTPError,
         ):
