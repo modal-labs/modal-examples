@@ -343,20 +343,18 @@ def warmup():
 # Subsequent starts load the cached engine in seconds and launch `trtllm-serve`
 # to expose an OpenAI-compatible HTTP API.
 
-# The key decorators are:
+# The key decorators are [`@app.server`](https://modal.com/docs/guide/servers),
+# [`@modal.enter`, and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions)
+# The code in the `enter` decorator needs to start a server process that listens on a port.
 
-# - [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to define the core of our service.
-# We attach our Image, request a GPU, attach our cache Volume, specify the region, and configure auto-scaling.
+# The `@app.server` decorator does a lot! We:
 
-# - `@modal.experimental.http_server` to turn our Python code into an HTTP server
-# (i.e. fronting all of our containers with a proxy with a URL). The wrapped code
-# needs to eventually listen for HTTP connections on the provided `port`.
-
-# - [`@modal.concurrent`](https://modal.com/docs/guide/concurrent-inputs) to specify how many
-# requests our server can handle before we need to scale up.
-
-# - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
-# which methods of the class should be run when starting the server and shutting it down.
+# 1. Attach our Image
+# 2. Request a GPU
+# 3. Attach our cache Volume
+# 4. Specify the regions for the routing proxy and compute
+# 5. Configure auto-scaling, concurrency, and timeouts
+# 6. Add authentication via [Proxy Tokens](https://modal.com/docs/guide/webhook-proxy-auth)
 
 app = modal.App("example-trtllm-low-latency")
 
@@ -455,7 +453,7 @@ class TRT:
 # To deploy the server on Modal, just run
 
 # ```bash
-# modal deploy trtllm_low_latency.py
+# modal deploy trtllm_latency.py
 # ```
 
 # This will create a new App on Modal and build the container image for it if it hasn't been built yet.
@@ -484,7 +482,7 @@ class TRT:
 # If you execute the command
 
 # ```bash
-# modal run trtllm_low_latency.py
+# modal run trtllm_latency.py
 # ```
 
 # a fresh replica of the server will be spun up on Modal while
