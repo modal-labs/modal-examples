@@ -15,7 +15,7 @@ from pathlib import Path
 
 import modal
 
-app = modal.App("example-sandboxes")
+app = modal.App("example-harbor")
 image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "harbor[modal]==0.15.0"
 )
@@ -31,7 +31,7 @@ if os.environ.get("MODAL_TOKEN_ID") and os.environ.get("MODAL_TOKEN_SECRET"):
 # to store generated artifacts
 
 
-volume = modal.Volume.from_name("example-sandboxes", create_if_missing=True)
+volume = modal.Volume.from_name("example-harbor", create_if_missing=True)
 RUNS_PATH = Path("/runs")
 
 # harbor setup
@@ -111,7 +111,7 @@ def run_evals(trials: int, concurrency: int) -> tuple[int, int]:
 # value, up to your plan's concurrent container limit (100 on Starter, 1,000 on Team):
 #
 # ```shell
-# modal run sandboxes.py --n-parallel 100
+# modal run 13_sandboxes/harbor_evals.py --n-parallel 100
 # ```
 
 
