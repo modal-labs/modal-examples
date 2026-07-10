@@ -1,7 +1,3 @@
-# ---
-# deploy: true
-# ---
-
 # # Serve an interactive language model app with low-latency TensorRT-LLM (LLaMA 3 8B)
 
 # In this example, we demonstrate how to configure the TensorRT-LLM framework to serve
@@ -17,8 +13,9 @@
 # To hit this target, we use the [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 # inference framework from NVIDIA. TensorRT-LLM is the Lamborghini of inference engines:
 # it achieves seriously impressive latency, but only if you tune it carefully.
-# We pair it with Modal's `@modal.experimental.http_server`, which routes requests
-# through a new, low-latency proxy service designed for latency-sensitive inference workloads,
+# We pair it with [Modal Servers](https://modal.com/docs/guide/servers) which routes requests
+# through a [new, low-latency proxy service](https://modal.com/blog/serverless-servers)
+# designed for latency-sensitive inference workloads,
 # minimizing the overhead between client and GPU.
 # These latencies were measured on a single NVIDIA H100 GPU
 # running LLaMA 3 8B on prompts and generations of a few dozen to a few hundred tokens.
@@ -87,12 +84,14 @@ tensorrt_image = modal.Image.from_registry(
 
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
-).pip_install(
+).uv_pip_install(
     "tensorrt-llm==0.20.0",  # 0.20+ adds trtllm-serve --extra_llm_api_options
     "pynvml>=12",  # required by tensorrt-llm 0.20
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
     "onnx==1.19.1",
+    "mpmath==1.3.0",
+    "torch==2.7.0",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
 )
@@ -148,7 +147,8 @@ tensorrt_image = tensorrt_image.uv_pip_install(
 # along with other things like the KV cache built up while processing prompts.
 
 # The simplest way to reduce LLM inference's RAM requirements is to make the model's parameters smaller,
-# fitting their values in a smaller number of bits, like four or eight. This is known as _quantization_.
+# fitting their values in a smaller number of bits, like four or eight. This is known as
+# [_quantization_](https://modal.com/llm-almanac/quant-formats).
 
 # NVIDIA's [Ada Lovelace/Hopper chips](https://modal.com/gpu-glossary/device-hardware/streaming-multiprocessor-architecture),
 # like the L40S and H100, are capable of native 8bit floating point calculations
@@ -336,7 +336,7 @@ def warmup():
 
 # ### Build the TRT-LLM engine and start the server
 
-# We use [`@app.cls`](https://modal.com/docs/guide/lifecycle-functions) to manage
+# We use [`modal.enter/exit`](https://modal.com/docs/guide/lifecycle-functions) to manage
 # the server lifecycle. On the first container start, we build an optimized engine
 # using the TensorRT-LLM [Python API](https://nvidia.github.io/TensorRT-LLM/llm-api)
 # with FP8 quantization and low-latency plugins, then cache it in the Volume.
@@ -361,20 +361,19 @@ def warmup():
 app = modal.App("example-trtllm-low-latency")
 
 
-@app.cls(
+@app.server(
     image=tensorrt_image,
     gpu=GPU,
     volumes={VOLUME_PATH: volume},
-    region=REGION,
+    compute_region=REGION,
+    routing_region=PROXY_REGION,  # location of proxies, should be close to Cls region
     min_containers=MIN_CONTAINERS,
+    target_concurrency=TARGET_INPUTS,
     startup_timeout=20 * MINUTES,
-)
-@modal.experimental.http_server(
     port=PORT,  # wrapped code must listen on this port
-    proxy_regions=[PROXY_REGION],  # location of proxies, should be close to Cls region
     exit_grace_period=15,  # seconds, time to finish up requests when closing down
+    unauthenticated=True,  # no auth for this demo, see Servers guide/docs for auth details
 )
-@modal.concurrent(target_inputs=TARGET_INPUTS)
 class TRT:
     @modal.enter()
     def startup(self):
@@ -497,7 +496,7 @@ class TRT:
 
 @app.local_entrypoint()
 async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
-    url = (await TRT._experimental_get_flash_urls.aio())[0]
+    url = await TRT.get_url.aio()
 
     system_prompt = {
         "role": "system",
