@@ -1,4 +1,5 @@
 # ---
+# lambda-test: false  # deprecated
 # args: ["--limit", "2"]
 # ---
 
