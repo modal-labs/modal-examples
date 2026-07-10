@@ -244,8 +244,8 @@ MAX_BATCH_SIZE = 1  # minimize latency by processing one request at a time
 # So for low latency LLM inference services on Modal, you must select a
 # [cloud region](https://modal.com/docs/guide/region-selection)
 # for both the GPU-accelerated containers running inference
-# and for the internal Modal proxies that forward requests to them
-# as part of defining a `modal.experimental.http_server`.
+# and for the [internal Modal proxy system](https://modal.com/blog/serverless-servers)
+# that forwards requests to them as part of defining a Server.
 
 # Here, we assume users are mostly in the northern half of the Americas
 # and select the `us` cloud region with a nearby `us-west` proxy to serve them.
@@ -259,9 +259,10 @@ PROXY_REGION = "us-west"
 # substantially cut when previous interaction turns are in the KV cache.
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
-# To improve cache hit rate, `modal.experimental.http_server`
+# To improve cache hit rate, Modal Servers
 # includes sticky routing based on a client-provided header.
-# See the client code below for details.
+# See [this code sample](https://modal.com/docs/examples/server_sticky)
+# for details.
 
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
@@ -522,8 +523,8 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # The `probe` helper function specifically ignores
 # two types of errors that can occur while a replica
 # is starting up -- timeouts on the client and 5XX responses from the server.
-# Modal returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
-# when an `experimental.http_server` has no live replicas.
+# Modal Servers returns the [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# when there are no live replicas.
 
 # We include a header with each request -- `Modal-Session-ID`.
 # The value associated with this key
@@ -533,7 +534,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # Set this to a different value per multi-turn interaction
 # (prototypically, a user conversation thread with a chatbot)
 # to improve KV cache hit rates.
-# Note that this header is only compatible with Modal `http_server`s.
+# Note that this header is only compatible with Modal Servers.
 
 
 async def probe(url, messages=None, timeout=5 * MINUTES):
