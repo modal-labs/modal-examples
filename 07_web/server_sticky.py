@@ -132,7 +132,7 @@ async def test(n_clients: int = 4, sticky: bool = True, seconds: float = 10.0):
     # allow generous time for all replicas to spin up based on rough heuristic;
     # remove this sleep and increase CONTAINERS
     # to observe session routing changes during autoscaling
-    await asyncio.sleep(5 + max((CONTAINERS - 10) // 2, 0))
+    await asyncio.sleep(10 + max((CONTAINERS - 10) // 2, 0))
 
     # run the test
     results = await run_clients(url, n_clients, seconds, sticky)
