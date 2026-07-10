@@ -14,8 +14,9 @@
 # For a simpler introduction to LLM serving, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
-# To minimize routing overheads, we use `@app.server`,
-# which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
+# To minimize routing overheads, we use a [Modal Server](https://modal.com/docs/guide/servers),
+# which uses a [low-latency routing service on Modal](https://modal.com/blog/serverless-servers)
+# designed for latency-sensitive inference workloads.
 # This gives us more control over routing, but with increased power comes increased responsibility.
 
 # ## Set up the container image
@@ -147,7 +148,8 @@ MIN_CONTAINERS = 0  # set to 1 to ensure one replica is always ready
 # concurrent requests.
 
 # So we set a target for the number of inputs to run on a single container
-# with [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
+# with the [`target_concurrency`](https://modal.com/docs/reference/modal.concurrent) parameter.
+
 TARGET_INPUTS = 32
 
 # Generally, this choice needs to be made as part of
@@ -167,9 +169,6 @@ TARGET_INPUTS = 32
 # This decorator also turns our python code into an HTTP server (i.e. fronting all of our containers with a proxy with a URL).
 # The wrapped code needs to eventually listen for HTTP connections on the provided `port`.
 # See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
-
-# - `target_concurrency` to specify how many
-# requests our server can handle before we need to scale up.
 
 # - [`@modal.enter` and `@modal.exit`](https://modal.com/docs/guide/lifecycle-functions) to indicate
 # which methods of the class should be run when starting the server and shutting it down.
@@ -231,8 +230,8 @@ sglang_image = sglang_image.env(
 )
 
 server_args = [
-    "--kv-cache-dtype",
-    "fp8_e4m3",
+    "--kv-cache-dtype",  # quantize the model's KV cache for a
+    "fp8_e4m3",  # slight reduction in accuracy, major reduction in memory
 ]
 
 # With all this in place, we are ready to define our high-performance, low-latency
