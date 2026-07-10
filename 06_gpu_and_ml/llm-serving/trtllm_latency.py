@@ -73,7 +73,6 @@ from pathlib import Path
 
 import aiohttp
 import modal
-import modal.experimental
 
 MINUTES = 60  # seconds
 
