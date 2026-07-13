@@ -334,6 +334,7 @@ class LfmVllmInference:
         # Persist cached weights and vLLM compilation artifacts before GPU snapshot.
         hf_cache_vol.commit()
         vllm_cache_vol.commit()
+        hf_cache_vol.commit()
 
     @modal.enter(snap=False)
     def restore(self):
