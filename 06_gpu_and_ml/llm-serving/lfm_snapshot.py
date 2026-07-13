@@ -331,7 +331,8 @@ class LfmVllmInference:
         warmup()
         sleep(level=1)
 
-        # Persist vLLM compilation artifacts before GPU snapshot (modal-examples#1558).
+        # Persist cached weights and vLLM compilation artifacts before GPU snapshot.
+        hf_cache_vol.commit()
         vllm_cache_vol.commit()
 
     @modal.enter(snap=False)
