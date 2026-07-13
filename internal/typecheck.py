@@ -6,19 +6,17 @@ Unvalidated, incorrect type-hints are worse than no type-hints!
 import concurrent
 import os
 import pathlib
-import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor
 
 import mypy.api
 
 
-def fetch_git_repo_root() -> pathlib.Path:
-    return pathlib.Path(
-        subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
-        .decode("ascii")
-        .strip()
-    )
+def fetch_examples_root() -> pathlib.Path:
+    # Anchor on this file rather than the git repository root, so the script
+    # also works when the examples live in a subdirectory of a larger
+    # repository.
+    return pathlib.Path(__file__).resolve().parent.parent
 
 
 def run_mypy(pkg: str, config_file: pathlib.Path) -> list[str]:
@@ -41,12 +39,12 @@ def extract_errors(output: list[str]) -> list[str]:
 
 
 def main() -> int:
-    repo_root = fetch_git_repo_root()
-    config_file = repo_root / "pyproject.toml"
+    examples_root = fetch_examples_root()
+    config_file = examples_root / "pyproject.toml"
     errors = []
 
     # Type-check scripts
-    topic_dirs = sorted([d for d in repo_root.iterdir() if d.name[:2].isdigit()])
+    topic_dirs = sorted([d for d in examples_root.iterdir() if d.name[:2].isdigit()])
 
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         future_to_path = {}
@@ -63,7 +61,9 @@ def main() -> int:
                     )
                     future_to_path[future] = pth
 
-        for future in concurrent.futures.as_completed(future_to_path, timeout=90):
+        # The timeout is a total budget for all files; it needs headroom for
+        # low-core-count CI runners, where few mypy processes run in parallel.
+        for future in concurrent.futures.as_completed(future_to_path, timeout=600):
             pth = future_to_path[future]
             try:
                 output = future.result()
@@ -80,7 +80,7 @@ def main() -> int:
     # Getting mypy running successfully with a monorepo of heterogenous packaging structures
     # is a bit fiddly, so we expect top-level packages to opt-in to type-checking by placing a
     # `py.typed` file inside themselves. https://peps.python.org/pep-0561/
-    for py_typed in repo_root.glob("**/py.typed"):
+    for py_typed in examples_root.glob("**/py.typed"):
         if "site-packages" in py_typed.parts:
             continue
         toplevel_pkg = py_typed.parent

@@ -58,8 +58,11 @@ def determine_diff_range(event, event_name):
 
 def get_changed_files(base, head):
     try:
+        # --relative scopes the diff to the current directory and reports paths
+        # relative to it, so this works both when the examples are a repository
+        # root and when they live in a subdirectory of a larger repository.
         result = subprocess.run(
-            ["git", "diff", "--name-only", base, head],
+            ["git", "diff", "--name-only", "--relative", base, head],
             capture_output=True,
             text=True,
             check=True,
@@ -97,6 +100,10 @@ def main():
     filtered_files = filter_files(changed_files)
     json_output = json.dumps(filtered_files)
     write_output("all_changed_files", json_output)
+    # Separate boolean output so workflows can gate follow-up jobs with a
+    # short single-line `if:` expression (long ones get line-wrapped by
+    # formatters, which breaks GitHub's workflow parser).
+    write_output("has_changes", "true" if filtered_files else "false")
     print(json_output)
 
 
