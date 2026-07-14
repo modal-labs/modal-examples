@@ -193,7 +193,7 @@ class StableDiffusionLoRA:
         self, lora_id: str, prompt: str, seed: int = 8888
     ) -> bytes:
         for file in (LORAS_PATH / lora_id).rglob("*.safetensors"):
-            self.pipe.load_lora_weights(lora_id, weight_name=file.name)
+            self.pipe.load_lora_weights(file, weight_name=file.name)
             break
 
         lora_scale = 0.9
