@@ -46,50 +46,51 @@ from datetime import datetime, timezone
 import modal
 
 # ## Build the Sandbox image
-#
+
 # We pull the official prebuilt `ghcr.io/browserbase/browse` image, which is
 # `node:20-slim` with the `browse` CLI already installed — so there's no inline
 # `npm install` step. You can pin a version with a tag (e.g.
-# `ghcr.io/browserbase/browse:0.9.5`). **No Chrome/Chromium is bundled** — the browser
-# lives on Browserbase and is reached over CDP at run time. The agent loop itself runs
-# in a Modal Function and only needs `anthropic`, so we add that to the Function's image
+# `ghcr.io/browserbase/browse:0.9.5`). The agent loop itself runs in a Modal
+# Function and only needs `anthropic`, so we add that to the Function's image
 # separately below.
 
 sandbox_image = modal.Image.from_registry(
     "ghcr.io/browserbase/browse", add_python="3.12"
 )
 
-app = modal.App("example-browsecli-in-modal")
+app = modal.App("example-browsecli")
 
 MINUTES = 60  # seconds, for readable timeouts
 
-# ## Credentials
-#
+# ## Manage credentials
+
 # Both the agent loop and the Sandbox need an Anthropic key and a Browserbase key.
 # We store them once as a named Modal Secret and reference it by name. Create it
 # before your first run with:
-#
+
 # ```bash
 # modal secret create browser-agent ANTHROPIC_API_KEY=... BROWSERBASE_API_KEY=...
 # ```
+
+# Or add it via the dashboard: https://modal.com/secrets.
 
 agent_secret = modal.Secret.from_name(
     "browser-agent", required_keys=["ANTHROPIC_API_KEY", "BROWSERBASE_API_KEY"]
 )
 
 # ## The agent
-#
+
 # The model's only tool is Claude's built-in **bash tool**
 # (`{"type": "bash_20250124", "name": "bash"}`) — a schema-less tool whose commands we
 # execute ourselves. We run each command inside the Sandbox with `sandbox.exec`, so the
 # model gets a real shell whose one useful program is `browse`.
-#
+
 # We don't hand-roll a custom `browse` tool or inject flags into the model's commands.
 # Instead the Sandbox's environment does the steering: `BROWSERBASE_API_KEY` makes
 # `browse` default to a **remote** Browserbase browser, and `BROWSE_SESSION=agent`
 # scopes every call to one shared session, so the agent keeps the same browser tab
 # across commands.
-#
+
 # The system prompt is deliberately minimal: it doesn't enumerate any `browse`
 # subcommands. It just tells the model the CLI is installed and pre-configured and
 # points it at `browse skills show` (the CLI's bundled usage guide), with
@@ -132,23 +133,23 @@ def build_system_prompt() -> str:
 
 # Claude's native bash tool. The schema is built into the model — we declare it by
 # type and name only, and our handler executes the `command` Claude sends.
+
 BASH_TOOL = {"type": "bash_20250124", "name": "bash"}
+
+agent_image = modal.Image.debian_slim(python_version="3.12").pip_install(
+    "anthropic==0.115.0"
+)
 
 
 @app.function(
-    image=modal.Image.debian_slim(python_version="3.12").pip_install(
-        "anthropic==0.115.0"
-    ),
+    image=agent_image,
     secrets=[agent_secret],
 )
 def run_agent(task: str = DEFAULT_TASK) -> str:
     import anthropic
 
-    # Boot the Sandbox that holds the `browse` CLI. The environment steers every
-    # command to a shared *remote* browser, so the model never has to pass flags.
-    # The image's default CMD (`browse --help`) would exit immediately — and a
-    # Sandbox lives only as long as its entrypoint — so we pass a long-lived
-    # no-op entrypoint and drive the Sandbox with `sandbox.exec` instead.
+    # Boot the Sandbox. Its image's default CMD exits immediately, so we pass a
+    # long-lived no-op entrypoint and drive it entirely with `sandbox.exec`.
     sandbox = modal.Sandbox.create(
         "sleep",
         "infinity",
@@ -223,18 +224,13 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
     return answer
 
 
-# ## Local entrypoint
-#
-# `modal run 13_sandboxes/browsecli_in_modal.py` triggers this, which runs the agent
-# Function in the cloud. Pass a different goal with `--task "..."`.
+# ## Run it
 
-
-@app.local_entrypoint()
-def main(task: str = DEFAULT_TASK):
-    run_agent.remote(task)
-
+# `run_agent` is the only Function in this file, so `modal run
+# 13_sandboxes/browsecli_in_modal.py` invokes it directly — no separate
+# `local_entrypoint` needed. Pass a different goal with `--task "..."`.
 
 # > **Note on protected sites.** This example uses a plain remote browser, which works
-# > on **any** Browserbase plan. To reach sites behind aggressive bot-detection,
+# > on any Browserbase plan. To reach sites behind aggressive bot-detection,
 # > Browserbase also offers Verified browsers (residential IP + automatic CAPTCHA
-# > solving), which require a Scale plan — see https://www.browserbase.com/pricing.
+# > solving), which require [a Scale plan](https://www.browserbase.com/pricing).
