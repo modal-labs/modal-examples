@@ -32,11 +32,9 @@
 # nothing useful to a plain `curl`, so the agent has to drive a real browser — which
 # is exactly what `browse` gives it.
 
-# To run it:
+# To run it, first create the `browser-agent` Secret described below, then:
 
 # ```bash
-# export ANTHROPIC_API_KEY=sk-ant-...
-# export BROWSERBASE_API_KEY=bb_live_...
 # modal run 13_sandboxes/browserbase_cli.py
 # ```
 
@@ -47,16 +45,18 @@ import modal
 
 # ## Build the Sandbox image
 
-# We pull the official prebuilt `ghcr.io/browserbase/browse` image, which is
-# `node:20-slim` with the `browse` CLI already installed — so there's no inline
-# `npm install` step. You can pin a version with a tag (e.g.
-# `ghcr.io/browserbase/browse:0.9.5`). The agent loop itself runs in a Modal
-# Function and only needs `anthropic`, so we add that to the Function's image
-# separately below.
+# We build the Sandbox image ourselves from the official
+# [`node:20-slim`](https://hub.docker.com/_/node) base and install the
+# [`browse`](https://github.com/browserbase/stagehand/tree/main/packages/cli)
+# CLI with `npm`, pinned to an explicit version. The agent loop itself runs in
+# a Modal Function and only needs `anthropic`, so we add that to the
+# Function's image separately below.
+
+BROWSE_VERSION = "0.9.5"  # pin to avoid surprises!
 
 sandbox_image = modal.Image.from_registry(
-    "ghcr.io/browserbase/browse", add_python="3.12"
-)
+    "node:20-slim", add_python="3.12"
+).run_commands(f"npm install -g browse@{BROWSE_VERSION} && npm cache clean --force")
 
 app = modal.App("example-browserbase-cli")
 
@@ -101,7 +101,7 @@ agent_secret = modal.Secret.from_name(
 # it to give its best final answer from whatever it's gathered if it's nearing the
 # step limit.
 
-SESSION = "agent"
+BROWSE_SESSION = "agent"
 DEFAULT_TASK = (
     "Using Amazon (https://www.amazon.com), research the current top mechanical keyboards: "
     "search the site, then for the top 5 results compare each product's title, price, star "
@@ -156,7 +156,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
         app=app,
         image=sandbox_image,
         secrets=[agent_secret],
-        env={"BROWSE_SESSION": SESSION},
+        env={"BROWSE_SESSION": BROWSE_SESSION},
         timeout=15 * MINUTES,
     )
     print(f"Sandbox ID: {sandbox.object_id}")
