@@ -221,8 +221,13 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
                 )
             messages.append({"role": "user", "content": tool_results})
     finally:
-        # Close the remote browser session, then terminate the Sandbox.
-        run_bash("browse stop")
+        # Close the remote browser session, then terminate the Sandbox -- even
+        # if `browse stop` itself fails (e.g. the Sandbox already timed out),
+        # so we don't leak a running Sandbox until its timeout.
+        try:
+            run_bash("browse stop")
+        except Exception:
+            pass
         sandbox.terminate()
 
     answer = final_text or "(no answer)"
