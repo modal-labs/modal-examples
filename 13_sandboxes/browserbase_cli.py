@@ -40,6 +40,7 @@
 # ```
 
 
+import uuid
 from datetime import datetime, timezone
 
 import modal
@@ -88,9 +89,9 @@ agent_secret = modal.Secret.from_name(
 
 # We don't hand-roll a custom `browse` tool or inject flags into the model's commands.
 # Instead the Sandbox's environment does the steering: `BROWSERBASE_API_KEY` makes
-# `browse` default to a **remote** Browserbase browser, and `BROWSE_SESSION=agent`
-# scopes every call to one shared session, so the agent keeps the same browser tab
-# across commands.
+# `browse` default to a **remote** Browserbase browser, and a `BROWSE_SESSION` unique
+# to this Sandbox scopes every call to one shared session, so the agent keeps the same
+# browser tab across commands without colliding with any other Sandbox.
 
 # The system prompt is deliberately minimal: it doesn't enumerate any `browse`
 # subcommands. It just tells the model the CLI is installed and pre-configured and
@@ -102,7 +103,7 @@ agent_secret = modal.Secret.from_name(
 # it to give its best final answer from whatever it's gathered if it's nearing the
 # step limit.
 
-BROWSE_SESSION = "agent"
+BROWSE_SESSION_PREFIX = "agent"
 DEFAULT_TASK = (
     "Using Amazon (https://www.amazon.com), research the current top mechanical keyboards: "
     "search the site, then for the top 5 results compare each product's title, price, star "
@@ -149,6 +150,10 @@ agent_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 def run_agent(task: str = DEFAULT_TASK) -> str:
     import anthropic
 
+    # Generated fresh per call (not a module-level constant) so warm-container
+    # reuse can never hand two overlapping runs the same session name.
+    browse_session = f"{BROWSE_SESSION_PREFIX}-{uuid.uuid4().hex[:8]}"
+
     # Boot the Sandbox. Its image's default CMD exits immediately, so we pass a
     # long-lived no-op entrypoint and drive it entirely with `sandbox.exec`.
     sandbox = modal.Sandbox.create(
@@ -157,7 +162,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
         app=app,
         image=sandbox_image,
         secrets=[agent_secret],
-        env={"BROWSE_SESSION": BROWSE_SESSION},
+        env={"BROWSE_SESSION": browse_session},
         timeout=15 * MINUTES,
     )
     print(f"Sandbox ID: {sandbox.object_id}")
