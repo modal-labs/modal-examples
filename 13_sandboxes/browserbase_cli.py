@@ -1,5 +1,5 @@
 # ---
-# cmd: ["modal", "run", "13_sandboxes/browsecli_in_modal.py"]
+# cmd: ["modal", "run", "13_sandboxes/browserbase_cli.py"]
 # lambda-test: false  # missing-secret
 # pytest: false
 # ---
@@ -37,7 +37,7 @@
 # ```bash
 # export ANTHROPIC_API_KEY=sk-ant-...
 # export BROWSERBASE_API_KEY=bb_live_...
-# modal run 13_sandboxes/browsecli_in_modal.py
+# modal run 13_sandboxes/browserbase_cli.py
 # ```
 
 
@@ -58,7 +58,7 @@ sandbox_image = modal.Image.from_registry(
     "ghcr.io/browserbase/browse", add_python="3.12"
 )
 
-app = modal.App("example-browsecli")
+app = modal.App("example-browserbase-cli")
 
 MINUTES = 60  # seconds, for readable timeouts
 
@@ -227,7 +227,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
 # ## Run it
 
 # `run_agent` is the only Function in this file, so `modal run
-# 13_sandboxes/browsecli_in_modal.py` invokes it directly — no separate
+# 13_sandboxes/browserbase_cli.py` invokes it directly — no separate
 # `local_entrypoint` needed. Pass a different goal with `--task "..."`.
 
 # > **Note on protected sites.** This example uses a plain remote browser, which works
