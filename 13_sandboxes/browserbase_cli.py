@@ -7,18 +7,19 @@
 # # Run a browser agent in a Modal Sandbox
 
 # A Modal [Sandbox](https://modal.com/docs/guide/sandbox) is a great place to run an
-# **agent's tools** — but a Firecracker microVM is a poor place to run a *browser*.
-# It has a datacenter IP (often blocked by bot-detection), no fingerprint hardening,
-# and no way to solve a CAPTCHA. Bundling Playwright + Chromium into the image doesn't
-# help: it still browses *from the datacenter IP*, and it bloats the image and slows
-# cold starts.
+# **agent's tools**. This example keeps the browser itself somewhere else, on
+# [Browserbase](https://www.browserbase.com) — a browser Browserbase runs and
+# maintains, with a real fingerprint recognized as legitimate by bot protection
+# partners and, on [Verified](https://www.browserbase.com/verified) sessions,
+# automatic CAPTCHA solving. Browserbase handles all of that, so wiring a browser into
+# your existing agent harness as a tool is a CLI call away instead of a separate piece
+# of infrastructure to build and operate.
 
-# This example keeps the browser **out** of the Sandbox. The Sandbox holds a single
-# tool — the [`browse`](https://github.com/browserbase/stagehand/tree/main/packages/cli)
-# CLI — and an Anthropic agent loop drives it via Claude's native **bash tool**. Each
-# bash command runs inside the Sandbox with `sandbox.exec`, and `browse` connects out
-# over CDP to a **remote** browser on [Browserbase](https://www.browserbase.com). The
-# heavy browser lives on Browserbase; the Sandbox just runs the CLI.
+# The Sandbox holds a single tool, the
+# [`browse`](https://github.com/browserbase/stagehand/tree/main/packages/cli) CLI, and
+# an Anthropic agent loop drives it via Claude's native **bash tool**. Each bash command
+# runs inside the Sandbox with `sandbox.exec`, and `browse` connects out over CDP to the
+# remote browser running on Browserbase.
 
 # ```
 # ┌─────────────────────┐   bash tool    ┌──────────────────┐  CDP over wss  ┌────────────────────────┐
