@@ -43,8 +43,10 @@ class BackendService:
 # which return a [`FunctionCall`](https://modal.com/docs/reference/modal.FunctionCall) object that represents
 # the submitted job.
 #
-# Then we can poll results by checking the ['call graph'](https://modal.com/docs/reference/modal.call_graph)
-# of the `FunctionCall` object.
+# Then we can poll for the job's status by calling
+# [`.get(timeout=0)`](https://modal.com/docs/reference/modal.FunctionCall#get) on the
+# `FunctionCall`, which returns immediately with the result if it's ready and otherwise
+# raises a `TimeoutError` while the job is still running.
 
 
 @app.function(
@@ -54,6 +56,7 @@ class BackendService:
 @modal.concurrent(max_inputs=100)
 def gateway():
     from fastapi import FastAPI, Request
+    from modal.exception import OutputExpiredError
 
     web_app = FastAPI()
 
@@ -64,22 +67,26 @@ def gateway():
         """Asynchronously submit a request to the backend service."""
         input_val = (await request.json())["input_val"]
         fc = service.run.spawn(input_val)
-        while len(fc.get_call_graph()) == 0:
-            time.sleep(0.1)
         return {"request_id": fc.object_id}
 
     @web_app.get("/requests/{request_id}/status")
     async def status(request_id: str):
-        """Get the status of the request from the call graph."""
+        """Get the status of the request by polling for a result without blocking."""
         fc = modal.FunctionCall.from_id(request_id)
-        fc_input_info = fc.get_call_graph()[0].children[0]
-        assert fc_input_info.function_call_id == fc.object_id, "unexpected graph"
-        return {"status": fc_input_info.status.name}
+        try:
+            await fc.get.aio(timeout=0)
+            return {"status": "SUCCESS"}
+        except OutputExpiredError:
+            return {"status": "EXPIRED"}
+        except TimeoutError:
+            return {"status": "PENDING"}
+        except Exception:
+            return {"status": "FAILURE"}
 
     @web_app.get("/requests/{request_id}")
     async def result(request_id: str):
         fc = modal.FunctionCall.from_id(request_id)
-        return {"response": fc.get()}
+        return {"response": await fc.get.aio()}
 
     return web_app
 
