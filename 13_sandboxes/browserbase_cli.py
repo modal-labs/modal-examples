@@ -146,6 +146,7 @@ agent_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 @app.function(
     image=agent_image,
     secrets=[agent_secret],
+    timeout=20 * MINUTES,
 )
 def run_agent(task: str = DEFAULT_TASK) -> str:
     import anthropic
@@ -170,7 +171,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
     def run_bash(command: str) -> str:
         """Execute one bash command inside the Sandbox and return its output."""
         print(f"-> {command}")
-        proc = sandbox.exec("bash", "-c", command, timeout=60)
+        proc = sandbox.exec("bash", "-c", command, timeout=3 * MINUTES)
         proc.wait()
         out = (proc.stdout.read() or "") + (proc.stderr.read() or "")
         print(f"   <- {len(out)} chars")
