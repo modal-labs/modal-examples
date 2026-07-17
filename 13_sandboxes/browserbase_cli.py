@@ -171,7 +171,7 @@ def run_agent(task: str = DEFAULT_TASK) -> str:
     def run_bash(command: str) -> str:
         """Execute one bash command inside the Sandbox and return its output."""
         print(f"-> {command}")
-        proc = sandbox.exec("bash", "-c", command, timeout=3 * MINUTES)
+        proc = sandbox.exec("bash", "-c", command, timeout=int(1.5 * MINUTES))
         proc.wait()
         out = (proc.stdout.read() or "") + (proc.stderr.read() or "")
         print(f"   <- {len(out)} chars")
