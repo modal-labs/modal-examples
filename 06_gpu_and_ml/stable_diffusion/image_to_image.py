@@ -73,7 +73,7 @@ MODEL_REVISION = "f9fdd1a95e0dfd7653cb0966cda2486745122695"
 # Modal Volumes act like a shared disk that all Modal Functions can access.
 # For more on storing model weights on Modal, see [this guide](https://modal.com/docs/guide/model-weights).
 
-CACHE_DIR = Path("/cache")
+CACHE_DIR = "/cache"
 cache_volume = modal.Volume.from_name("hf-hub-cache", create_if_missing=True)
 volumes = {CACHE_DIR: cache_volume}
 
@@ -84,7 +84,7 @@ secrets = [modal.Secret.from_name("huggingface-secret")]
 # We configure environment variables to enable faster downloads from Hugging Face
 # and point the Hugging Face cache to our Modal Volume.
 
-image = image.env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HOME": str(CACHE_DIR)})
+image = image.env({"HF_XET_HIGH_PERFORMANCE": "1", "HF_HOME": CACHE_DIR})
 
 # Finally, we import packages we'll be using in our inference function,
 # but not locally.
