@@ -1,0 +1,32 @@
+cache = true
+max_cache_age = "10d"
+cache_exclude_status = ["429", "500..=599"]
+
+max_retries = 3
+timeout = 30
+max_concurrency = 32
+
+scheme = ["http", "https"]
+exclude_all_private = true
+accept = ["200..=299", "401", "405", "429"]
+
+user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+exclude = [
+    # placeholders and templated URLs
+    "%7B",
+    "\\{",
+    "\\.\\.\\.",
+    "example\\.com",
+    "https?://your-",
+    "https?://my-",
+    "APP_ID",
+    "\\.modal\\.host",
+    # lychee mis-parses `https://oauth2:{token}@github.com/...` into a check of the literal host `oauth2`
+    "^https?://oauth2",
+    # login-redirect walls that fail with redirect loops, not status codes
+    "www\\.tensorflow\\.org",
+    # base URLs that code appends a file path to
+    "chaiassets\\.com",
+    "github\\.com/.+/releases/download/.+/$",
+]

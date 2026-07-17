@@ -8,5 +8,8 @@ venv
 # secrets file for act, tool for local GitHub Actions testing
 .secrets
 
+# lychee link-checker result cache
+.lycheecache
+
 # agent configuration
 **/opencode.json
