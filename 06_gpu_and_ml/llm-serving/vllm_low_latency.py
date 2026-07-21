@@ -87,7 +87,13 @@ MODEL_PATH = f"{HF_CACHE_PATH}/{MODEL_NAME}"
 # which can fully saturate our network bandwidth.
 
 vllm_image = vllm_image.env(
-    {"HF_HUB_CACHE": HF_CACHE_PATH, "HF_XET_HIGH_PERFORMANCE": "1"}
+    {
+        "HF_HUB_CACHE": HF_CACHE_PATH,
+        "HF_XET_HIGH_PERFORMANCE": "1",
+        # Stabilize NCCL after GPU snapshot restore (modal-examples#1558).
+        "NCCL_ASYNC_ERROR_HANDLING": "1",
+        "TORCH_NCCL_BLOCKING_WAIT": "1",
+    }
 )
 
 # ## Define the inference server and infrastructure
@@ -287,10 +293,15 @@ class VLLM:
         warmup()
         sleep(1)
 
+        # Persist cached model weights before GPU snapshot (modal-examples#1558).
+        HF_CACHE_VOL.commit()
+
     @modal.enter(snap=False)
     def restore(self):
         """Wake vLLM from sleep mode after restoring from a memory snapshot."""
+        HF_CACHE_VOL.reload()
         wake_up()
+        wait_ready(self.process)
 
     @modal.exit()
     def stop(self):

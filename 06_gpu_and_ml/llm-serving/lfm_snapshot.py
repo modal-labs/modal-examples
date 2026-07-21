@@ -71,6 +71,9 @@ vllm_image = (
             "VLLM_SERVER_DEV_MODE": "1",
             "TORCH_CPP_LOG_LEVEL": "FATAL",
             "MODEL_NAME": MODEL_NAME,
+            # Stabilize NCCL after GPU snapshot restore (modal-examples#1558).
+            "NCCL_ASYNC_ERROR_HANDLING": "1",
+            "TORCH_NCCL_BLOCKING_WAIT": "1",
         }
     )
 )
@@ -328,10 +331,18 @@ class LfmVllmInference:
         warmup()
         sleep(level=1)
 
+        # Persist cached weights and vLLM compilation artifacts before GPU snapshot.
+        hf_cache_vol.commit()
+        vllm_cache_vol.commit()
+
     @modal.enter(snap=False)
     def restore(self):
         """Wake vLLM from sleep mode after restoring from a memory snapshot."""
+        # Refresh 9p Volume metadata after GPU memory snapshot restore.
+        hf_cache_vol.reload()
+        vllm_cache_vol.reload()
         wake_up()
+        wait_ready(self.process)
 
     @modal.exit()
     def stop(self):
