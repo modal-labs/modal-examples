@@ -137,7 +137,7 @@ AGENT_SCRIPT = textwrap.dedent(
         await browser.start()
         await browser.navigate_to(start_page)
         Path(os.environ["DESKTOP_READY_PATH"]).write_text("1", encoding="utf-8")
-        wait_for_endpoint()
+        await asyncio.to_thread(wait_for_endpoint)
         llm = ChatOpenAI(
             model=model,
             api_key="unused",
