@@ -5,20 +5,13 @@
 # # Export Modal telemetry to Parseable with OpenTelemetry
 #
 # This example sends application logs, traces, and metrics from a Modal Function
-# to [Parseable](https://www.parseable.com/) through an OpenTelemetry Collector.
-# The three signals share one resource and trace context, making it possible to
-# move from a log record to the span that produced it.
-#
-# The Collector runs outside Modal:
+# to [Parseable](https://www.parseable.com/) with the OpenTelemetry Python SDK.
+# Logs contain their current trace and span IDs, so you can jump from a log record
+# to the span that produced it.
 #
 # ```text
-# Modal Function -- OTLP/HTTP --> OpenTelemetry Collector --> Parseable
+# Modal Function -- OTLP/HTTP --> Parseable
 # ```
-#
-# A separately hosted Collector gives every Modal container one durable gateway
-# and avoids producing telemetry about the telemetry gateway itself. For a local
-# demonstration, the files next to this example run the Collector with Docker
-# Compose. A temporary HTTPS tunnel makes it reachable from Modal.
 
 import logging
 import os
@@ -26,91 +19,80 @@ import time
 
 import modal
 
-# ## Build an Image with OpenTelemetry
-#
-# Only `modal` is needed locally. OpenTelemetry packages are installed in the
-# remote [Image](https://modal.com/docs/guide/images).
-
 otel_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
-    "opentelemetry-api==1.36.0",
-    "opentelemetry-sdk==1.36.0",
-    "opentelemetry-exporter-otlp-proto-http==1.36.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-http==1.44.0",
+    "opentelemetry-instrumentation-logging==0.65b0",
 )
 
 app = modal.App("example-parseable-otel")
 
-# ## Configure the OTLP destination
+with otel_image.imports():
+    from opentelemetry import metrics, trace
+    from opentelemetry._logs import set_logger_provider
+    from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+        OTLPMetricExporter,
+    )
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.logging.handler import LoggingHandler
+    from opentelemetry.sdk._logs import LoggerProvider
+    from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+# ## Configure the Parseable destination
 #
-# Create a Modal Secret named `parseable-otel` containing the Collector endpoint
-# and its bearer token:
+# Create a Modal Secret named `parseable-otel` with your Parseable base endpoint,
+# an API key with the `ingestor` role, and tenant ID. See the
+# [OpenTelemetry](https://www.parseable.com/docs/ingest-data/otel) and
+# [API Keys](https://www.parseable.com/docs/user-guide/api-keys) docs. In the
+# Parseable UI, generate the endpoint via Getting Started -> Ingest
+# telemetry data -> OTel -> Set up -> Generate.
+#
+# Do not include `v1/logs`, `v1/traces`, or `v1/metrics` as each exporter appends
+# its signal path. The tenant ID is the `workspaceId` in the Parseable app URL.
 #
 # ```shell
 # modal secret create parseable-otel \
-#   PARSEABLE_OTLP_ENDPOINT="https://collector.example.com" \
-#   OTEL_HEADER_Authorization="Bearer replace-me"
+#   PARSEABLE_ENDPOINT="https://parseable.example.com" \
+#   PARSEABLE_API_KEY="replace-me" \
+#   PARSEABLE_TENANT_ID="replace-me"
 # ```
-#
-# The endpoint is the Collector, not Parseable. A Parseable API key with the
-# `ingestor` role and its tenant ID remain in the Collector environment and are
-# never copied into Modal.
-#
-# Set `PARSEABLE_ENDPOINT` in `.env` to the Parseable base URL and
-# `PARSEABLE_TENANT_ID` to the workspace ID. The Collector's OTLP/HTTP exporters
-# append `/v1/logs`, `/v1/traces`, and `/v1/metrics`; do not include one of those
-# signal paths in the configured endpoint.
-# The tenant ID is `workspaceId` in the Parseable app URL. The Collector sends it
-# as `X-P-Tenant`.
-#
-# For the local Collector included with this example, copy `.env.example` to
-# `.env`, replace its placeholders, and start it:
-#
-# ```shell
-# cd 10_integrations/parseable
-# docker compose up -d
-# cloudflared tunnel --url http://localhost:4318
-# ```
-#
-# A quick tunnel is useful for testing, but its URL changes when restarted. Use
-# a stable, authenticated HTTPS endpoint for production.
 
 otel_secret = modal.Secret.from_name(
     "parseable-otel",
     required_keys=[
-        "PARSEABLE_OTLP_ENDPOINT",
-        "OTEL_HEADER_Authorization",
+        "PARSEABLE_ENDPOINT",
+        "PARSEABLE_API_KEY",
+        "PARSEABLE_TENANT_ID",
     ],
 )
 
 
-# ## Instrument a Modal Cls
+# ## Create the exporter worker
 #
-# A [Cls](https://modal.com/docs/guide/lifecycle-functions) lets us initialize
-# providers once per container, then flush them when that container exits.
+# A [modal.Cls](https://modal.com/docs/sdk/py/latest/Cls) initializes the
+# exporters once per container and shuts them down when the container exits.
+
+
+def _parseable_headers(stream: str, log_source: str) -> dict[str, str]:
+    return {
+        "X-API-Key": os.environ["PARSEABLE_API_KEY"],
+        "X-P-Tenant": os.environ["PARSEABLE_TENANT_ID"],
+        "X-P-Stream": stream,
+        "X-P-Log-Source": log_source,
+    }
 
 
 @app.cls(image=otel_image, secrets=[otel_secret])
 class InstrumentedWorker:
     @modal.enter()
     def setup_telemetry(self):
-        from opentelemetry import metrics, trace
-        from opentelemetry._logs import set_logger_provider
-        from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-            OTLPLogExporter,
-        )
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-            OTLPMetricExporter,
-        )
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-            OTLPSpanExporter,
-        )
-        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-        from opentelemetry.sdk.metrics import MeterProvider
-        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
         resource = Resource.create(
             {
                 "service.name": "modal-parseable-example",
@@ -119,19 +101,18 @@ class InstrumentedWorker:
             }
         )
 
-        collector_endpoint = os.environ["PARSEABLE_OTLP_ENDPOINT"].rstrip("/")
-        collector_headers = {"Authorization": os.environ["OTEL_HEADER_Authorization"]}
+        endpoint = os.environ["PARSEABLE_ENDPOINT"].rstrip("/")
         span_exporter = OTLPSpanExporter(
-            endpoint=f"{collector_endpoint}/v1/traces",
-            headers=collector_headers,
+            endpoint=f"{endpoint}/v1/traces",
+            headers=_parseable_headers("modal-traces", "otel-traces"),
         )
         log_exporter = OTLPLogExporter(
-            endpoint=f"{collector_endpoint}/v1/logs",
-            headers=collector_headers,
+            endpoint=f"{endpoint}/v1/logs",
+            headers=_parseable_headers("modal-logs", "otel-logs"),
         )
         metric_exporter = OTLPMetricExporter(
-            endpoint=f"{collector_endpoint}/v1/metrics",
-            headers=collector_headers,
+            endpoint=f"{endpoint}/v1/metrics",
+            headers=_parseable_headers("modal-metrics", "otel-metrics"),
         )
 
         self.tracer_provider = TracerProvider(resource=resource)
@@ -169,7 +150,7 @@ class InstrumentedWorker:
         self.logger.propagate = False
 
     @modal.method()
-    def run(self, name: str = "Modal") -> dict[str, str]:
+    def run(self, name: str = "Modal") -> str:
         started_at = time.perf_counter()
 
         with self.tracer.start_as_current_span("demo.run") as span:
@@ -185,12 +166,25 @@ class InstrumentedWorker:
             self.duration.record(elapsed_ms, {"operation": "demo.run"})
             self.logger.info("Finished example work in %.2f ms", elapsed_ms)
 
-        return {"message": f"Hello, {name}!", "telemetry": "emitted"}
+        # Batch processors export asynchronously; flush so a short run still
+        # exercises the full OTLP path before the method returns.
+        self.tracer_provider.force_flush(timeout_millis=5_000)
+        self.logger_provider.force_flush(timeout_millis=5_000)
+        self.meter_provider.force_flush(timeout_millis=5_000)
+
+        return (
+            "Telemetry exported. Confirm the demo signals in Parseable:\n"
+            "1. Open https://app.parseable.com/\n"
+            "2. Select your workspace\n"
+            "3. In modal-logs: look for 'Starting example work' and "
+            "'Finished example work'\n"
+            "4. In modal-traces: look for demo.run and demo.simulated_work\n"
+            "5. In modal-metrics: look for demo.invocations and "
+            "demo.work.duration"
+        )
 
     @modal.exit()
     def shutdown_telemetry(self):
-        # Batch processors export asynchronously. Flush them so short-lived
-        # containers do not lose their final records during a normal shutdown.
         self.tracer_provider.force_flush(timeout_millis=5_000)
         self.logger_provider.force_flush(timeout_millis=5_000)
         self.meter_provider.force_flush(timeout_millis=5_000)
@@ -201,8 +195,7 @@ class InstrumentedWorker:
 
 # ## Run and inspect the signals
 #
-# Start the Collector using the adjacent `compose.yaml`, expose port 4318 through
-# a stable HTTPS endpoint or temporary tunnel, create the Secret above, then run:
+# Create the Secret above, then run:
 #
 # ```shell
 # modal run 10_integrations/parseable/parseable_otel.py
@@ -212,11 +205,6 @@ class InstrumentedWorker:
 # beginning `Starting example work` and `Finished example work`, and metrics named
 # `demo.invocations` and `demo.work.duration`. Application log records emitted
 # inside `demo.run` also carry its trace and span IDs.
-#
-# Modal can send platform logs and container metrics through the same Collector.
-# In **Workspace Settings -> OpenTelemetry**, enter the Collector base URL, select
-# the `parseable-otel` Secret, then test and save the configuration. The
-# `OTEL_HEADER_Authorization` key above authenticates this managed export.
 
 
 @app.local_entrypoint()
