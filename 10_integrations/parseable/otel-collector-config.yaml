@@ -1,0 +1,63 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  bearertokenauth/ingress:
+    token: ${env:OTLP_INGEST_TOKEN}
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: bearertokenauth/ingress
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+# Each otlphttp exporter appends its signal path (/v1/logs, /v1/traces, or
+# /v1/metrics), so PARSEABLE_ENDPOINT must be the Parseable base URL.
+exporters:
+  otlphttp/parseable_logs:
+    endpoint: ${env:PARSEABLE_ENDPOINT}
+    encoding: json
+    headers:
+      X-API-Key: ${env:PARSEABLE_API_KEY}
+      X-P-Stream: ${env:PARSEABLE_LOGS_STREAM}
+      X-P-Log-Source: otel-logs
+  otlphttp/parseable_traces:
+    endpoint: ${env:PARSEABLE_ENDPOINT}
+    encoding: json
+    headers:
+      X-API-Key: ${env:PARSEABLE_API_KEY}
+      X-P-Stream: ${env:PARSEABLE_TRACES_STREAM}
+      X-P-Log-Source: otel-traces
+  otlphttp/parseable_metrics:
+    endpoint: ${env:PARSEABLE_ENDPOINT}
+    encoding: json
+    headers:
+      X-API-Key: ${env:PARSEABLE_API_KEY}
+      X-P-Stream: ${env:PARSEABLE_METRICS_STREAM}
+      X-P-Log-Source: otel-metrics
+
+service:
+  extensions: [health_check, bearertokenauth/ingress]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/parseable_logs]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/parseable_traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/parseable_metrics]
