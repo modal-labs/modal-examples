@@ -21,6 +21,7 @@
 # Compose. A temporary HTTPS tunnel makes it reachable from Modal.
 
 import logging
+import os
 import time
 
 import modal
@@ -40,24 +41,25 @@ app = modal.App("example-parseable-otel")
 
 # ## Configure the OTLP destination
 #
-# Create a Modal Secret named `parseable-otel` containing these standard
-# OpenTelemetry environment variables:
+# Create a Modal Secret named `parseable-otel` containing the Collector endpoint
+# and its bearer token:
 #
 # ```shell
 # modal secret create parseable-otel \
-#   OTEL_EXPORTER_OTLP_ENDPOINT="https://collector.example.com" \
-#   OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf" \
-#   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer replace-me" \
+#   PARSEABLE_OTLP_ENDPOINT="https://collector.example.com" \
 #   OTEL_HEADER_Authorization="Bearer replace-me"
 # ```
 #
 # The endpoint is the Collector, not Parseable. A Parseable API key with the
-# `ingestor` role remains in the Collector environment and is never copied into
-# Modal.
+# `ingestor` role and its tenant ID remain in the Collector environment and are
+# never copied into Modal.
 #
-# Set `PARSEABLE_ENDPOINT` in `.env` to the Parseable base URL. The Collector's
-# OTLP/HTTP exporters append `/v1/logs`, `/v1/traces`, and `/v1/metrics`; do not
-# include one of those signal paths in the configured endpoint.
+# Set `PARSEABLE_ENDPOINT` in `.env` to the Parseable base URL and
+# `PARSEABLE_TENANT_ID` to the workspace ID. The Collector's OTLP/HTTP exporters
+# append `/v1/logs`, `/v1/traces`, and `/v1/metrics`; do not include one of those
+# signal paths in the configured endpoint.
+# The tenant ID is `workspaceId` in the Parseable app URL. The Collector sends it
+# as `X-P-Tenant`.
 #
 # For the local Collector included with this example, copy `.env.example` to
 # `.env`, replace its placeholders, and start it:
@@ -74,9 +76,7 @@ app = modal.App("example-parseable-otel")
 otel_secret = modal.Secret.from_name(
     "parseable-otel",
     required_keys=[
-        "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_PROTOCOL",
-        "OTEL_EXPORTER_OTLP_HEADERS",
+        "PARSEABLE_OTLP_ENDPOINT",
         "OTEL_HEADER_Authorization",
     ],
 )
@@ -119,18 +119,33 @@ class InstrumentedWorker:
             }
         )
 
+        collector_endpoint = os.environ["PARSEABLE_OTLP_ENDPOINT"].rstrip("/")
+        collector_headers = {"Authorization": os.environ["OTEL_HEADER_Authorization"]}
+        span_exporter = OTLPSpanExporter(
+            endpoint=f"{collector_endpoint}/v1/traces",
+            headers=collector_headers,
+        )
+        log_exporter = OTLPLogExporter(
+            endpoint=f"{collector_endpoint}/v1/logs",
+            headers=collector_headers,
+        )
+        metric_exporter = OTLPMetricExporter(
+            endpoint=f"{collector_endpoint}/v1/metrics",
+            headers=collector_headers,
+        )
+
         self.tracer_provider = TracerProvider(resource=resource)
-        self.tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+        self.tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
         trace.set_tracer_provider(self.tracer_provider)
 
         self.logger_provider = LoggerProvider(resource=resource)
         self.logger_provider.add_log_record_processor(
-            BatchLogRecordProcessor(OTLPLogExporter())
+            BatchLogRecordProcessor(log_exporter)
         )
         set_logger_provider(self.logger_provider)
 
         metric_reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter(), export_interval_millis=5_000
+            metric_exporter, export_interval_millis=5_000
         )
         self.meter_provider = MeterProvider(
             resource=resource, metric_readers=[metric_reader]
@@ -170,7 +185,7 @@ class InstrumentedWorker:
             self.duration.record(elapsed_ms, {"operation": "demo.run"})
             self.logger.info("Finished example work in %.2f ms", elapsed_ms)
 
-        return {"message": f"Hello, {name}!", "telemetry": "exported"}
+        return {"message": f"Hello, {name}!", "telemetry": "emitted"}
 
     @modal.exit()
     def shutdown_telemetry(self):
