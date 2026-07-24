@@ -21,6 +21,8 @@ processors:
     timeout: 5s
     send_batch_size: 512
 
+# Each otlphttp exporter appends its signal path (/v1/logs, /v1/traces, or
+# /v1/metrics), so PARSEABLE_ENDPOINT must be the Parseable base URL.
 exporters:
   otlphttp/parseable_logs:
     endpoint: ${env:PARSEABLE_ENDPOINT}

@@ -55,6 +55,10 @@ app = modal.App("example-parseable-otel")
 # `ingestor` role remains in the Collector environment and is never copied into
 # Modal.
 #
+# Set `PARSEABLE_ENDPOINT` in `.env` to the Parseable base URL. The Collector's
+# OTLP/HTTP exporters append `/v1/logs`, `/v1/traces`, and `/v1/metrics`; do not
+# include one of those signal paths in the configured endpoint.
+#
 # For the local Collector included with this example, copy `.env.example` to
 # `.env`, replace its placeholders, and start it:
 #
