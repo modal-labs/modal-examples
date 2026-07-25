@@ -2,17 +2,14 @@
 # lambda-test: false  # missing-secret
 # ---
 
-# # Export Modal telemetry directly to Parseable Cloud or Enterprise
+# # Export Modal telemetry to Parseable OSS
 #
-# This example sends application logs, traces, and metrics from a Modal Function
-# to [Parseable](https://www.parseable.com/) Cloud or Enterprise with the
-# OpenTelemetry Python SDK. These editions accept the SDK's OTLP/HTTP protobuf
-# payloads directly. For Parseable OSS, use `parseable_otel_oss.py` instead.
-# Logs contain their current trace and span IDs, so you can jump from a log record
-# to the span that produced it.
+# The official OpenTelemetry Python SDK exports OTLP/HTTP as protobuf, while
+# Parseable OSS ingests OTLP/JSON. This example places an OpenTelemetry Collector
+# between Modal and Parseable to convert all three signals from protobuf to JSON.
 #
 # ```text
-# Modal Function -- OTLP/HTTP --> Parseable
+# Modal Function -- OTLP/protobuf --> Collector -- OTLP/JSON --> Parseable OSS
 # ```
 
 import logging
@@ -28,7 +25,7 @@ otel_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "opentelemetry-instrumentation-logging==0.65b0",
 )
 
-app = modal.App("example-parseable-otel")
+app = modal.App("example-parseable-otel-oss")
 
 with otel_image.imports():
     from opentelemetry import metrics, trace
@@ -47,65 +44,32 @@ with otel_image.imports():
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-# ## Configure the Parseable destination
+# ## Configure the Collector
 #
-# Create a Modal Secret named `parseable-otel` with your Parseable base endpoint
-# and an API key with the `ingestor` role. See the
-# [OpenTelemetry](https://www.parseable.com/docs/ingest-data/otel) and
-# [API Keys](https://www.parseable.com/docs/user-guide/api-keys) docs. In the
-# Parseable UI, generate the endpoint via Getting Started -> Ingest
-# telemetry data -> OTel -> Set up -> Generate.
-#
-# Do not include `v1/logs`, `v1/traces`, or `v1/metrics` as each exporter appends
-# its signal path.
-#
-# ### Parseable Cloud
-#
-# Cloud is multi-tenant, so include `PARSEABLE_TENANT_ID`. Its value is the
-# `workspaceId` in the Parseable app URL.
+# Copy `.env.oss.example` to `.env.oss`, replace its placeholders, and start the
+# adjacent Collector. `PARSEABLE_ENDPOINT` is the Parseable OSS base URL without
+# a signal path. OSS is single-tenant, so this path does not send `X-P-Tenant`.
 #
 # ```shell
-# modal secret create parseable-otel \
-#   PARSEABLE_ENDPOINT="https://parseable.example.com" \
-#   PARSEABLE_API_KEY="replace-me" \
-#   PARSEABLE_TENANT_ID="replace-me"
+# cd 10_integrations/parseable
+# cp .env.oss.example .env.oss
+# docker compose -f compose.oss.yaml up -d
+# cloudflared tunnel --url http://localhost:4318
 # ```
 #
-# ### Parseable Enterprise
-#
-# Include `PARSEABLE_TENANT_ID` when `P_MULTI_TENANCY=true`. Omit it for a
-# single-tenant deployment; single-tenant Parseable rejects tenant headers.
+# Create a Modal Secret using the public HTTPS URL for that Collector and the
+# same ingress token configured in `.env.oss`:
 #
 # ```shell
-# modal secret create parseable-otel \
-#   PARSEABLE_ENDPOINT="https://parseable.example.com" \
-#   PARSEABLE_API_KEY="replace-me"
+# modal secret create parseable-otel-oss \
+#   OTEL_COLLECTOR_ENDPOINT="https://collector.example.com" \
+#   OTEL_COLLECTOR_TOKEN="replace-me"
 # ```
 
 otel_secret = modal.Secret.from_name(
-    "parseable-otel",
-    required_keys=[
-        "PARSEABLE_ENDPOINT",
-        "PARSEABLE_API_KEY",
-    ],
+    "parseable-otel-oss",
+    required_keys=["OTEL_COLLECTOR_ENDPOINT", "OTEL_COLLECTOR_TOKEN"],
 )
-
-
-# ## Create the exporter worker
-#
-# A [modal.Cls](https://modal.com/docs/sdk/py/latest/Cls) initializes the
-# exporters once per container and shuts them down when the container exits.
-
-
-def _parseable_headers(stream: str, log_source: str) -> dict[str, str]:
-    headers = {
-        "X-API-Key": os.environ["PARSEABLE_API_KEY"],
-        "X-P-Stream": stream,
-        "X-P-Log-Source": log_source,
-    }
-    if tenant_id := os.environ.get("PARSEABLE_TENANT_ID"):
-        headers["X-P-Tenant"] = tenant_id
-    return headers
 
 
 @app.cls(image=otel_image, secrets=[otel_secret])
@@ -114,24 +78,20 @@ class InstrumentedWorker:
     def setup_telemetry(self):
         resource = Resource.create(
             {
-                "service.name": "modal-parseable-example",
+                "service.name": "modal-parseable-oss-example",
                 "service.namespace": "modal-examples",
                 "deployment.environment.name": "demo",
             }
         )
 
-        endpoint = os.environ["PARSEABLE_ENDPOINT"].rstrip("/")
+        endpoint = os.environ["OTEL_COLLECTOR_ENDPOINT"].rstrip("/")
+        headers = {"Authorization": f"Bearer {os.environ['OTEL_COLLECTOR_TOKEN']}"}
         span_exporter = OTLPSpanExporter(
-            endpoint=f"{endpoint}/v1/traces",
-            headers=_parseable_headers("modal-traces", "otel-traces"),
+            endpoint=f"{endpoint}/v1/traces", headers=headers
         )
-        log_exporter = OTLPLogExporter(
-            endpoint=f"{endpoint}/v1/logs",
-            headers=_parseable_headers("modal-logs", "otel-logs"),
-        )
+        log_exporter = OTLPLogExporter(endpoint=f"{endpoint}/v1/logs", headers=headers)
         metric_exporter = OTLPMetricExporter(
-            endpoint=f"{endpoint}/v1/metrics",
-            headers=_parseable_headers("modal-metrics", "otel-metrics"),
+            endpoint=f"{endpoint}/v1/metrics", headers=headers
         )
 
         self.tracer_provider = TracerProvider(resource=resource)
@@ -152,8 +112,8 @@ class InstrumentedWorker:
         )
         metrics.set_meter_provider(self.meter_provider)
 
-        self.tracer = trace.get_tracer("modal.parseable.example")
-        meter = metrics.get_meter("modal.parseable.example")
+        self.tracer = trace.get_tracer("modal.parseable.oss.example")
+        meter = metrics.get_meter("modal.parseable.oss.example")
         self.invocations = meter.create_counter(
             "demo.invocations", description="Number of example calls"
         )
@@ -161,7 +121,7 @@ class InstrumentedWorker:
             "demo.work.duration", unit="ms", description="Example work duration"
         )
 
-        self.logger = logging.getLogger("modal.parseable.example")
+        self.logger = logging.getLogger("modal.parseable.oss.example")
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(
             LoggingHandler(level=logging.INFO, logger_provider=self.logger_provider)
@@ -185,21 +145,13 @@ class InstrumentedWorker:
             self.duration.record(elapsed_ms, {"operation": "demo.run"})
             self.logger.info("Finished example work in %.2f ms", elapsed_ms)
 
-        # Batch processors export asynchronously; flush so a short run still
-        # exercises the full OTLP path before the method returns.
         self.tracer_provider.force_flush(timeout_millis=5_000)
         self.logger_provider.force_flush(timeout_millis=5_000)
         self.meter_provider.force_flush(timeout_millis=5_000)
 
         return (
-            "Telemetry exported. Confirm the demo signals in Parseable:\n"
-            "1. Open your Parseable UI (Cloud: https://app.parseable.com/)\n"
-            "2. Select your workspace when using a multi-tenant deployment\n"
-            "3. In modal-logs: look for 'Starting example work' and "
-            "'Finished example work'\n"
-            "4. In modal-traces: look for demo.run and demo.simulated_work\n"
-            "5. In modal-metrics: look for demo.invocations and "
-            "demo.work.duration"
+            "Telemetry exported through the Collector. In Parseable, inspect "
+            "modal-logs, modal-traces, and modal-metrics."
         )
 
     @modal.exit()
@@ -212,18 +164,11 @@ class InstrumentedWorker:
         self.tracer_provider.shutdown()
 
 
-# ## Run and inspect the signals
-#
-# Create the Secret above, then run:
+# ## Run the example
 #
 # ```shell
-# modal run 10_integrations/parseable/parseable_otel.py
+# modal run 10_integrations/parseable/parseable_otel_oss.py
 # ```
-#
-# Parseable will contain spans named `demo.run` and `demo.simulated_work`, logs
-# beginning `Starting example work` and `Finished example work`, and metrics named
-# `demo.invocations` and `demo.work.duration`. Application log records emitted
-# inside `demo.run` also carry its trace and span IDs.
 
 
 @app.local_entrypoint()
