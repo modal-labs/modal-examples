@@ -2,12 +2,10 @@
 # lambda-test: false  # missing-secret
 # ---
 
-# # Export Modal telemetry directly to Parseable Cloud or Enterprise
+# # Export Modal telemetry to Parseable with OpenTelemetry
 #
 # This example sends application logs, traces, and metrics from a Modal Function
-# to [Parseable](https://www.parseable.com/) Cloud or Enterprise with the
-# OpenTelemetry Python SDK. These editions accept the SDK's OTLP/HTTP protobuf
-# payloads directly. For Parseable OSS, use `parseable_otel_oss.py` instead.
+# to [Parseable](https://www.parseable.com/) with the OpenTelemetry Python SDK.
 # Logs contain their current trace and span IDs, so you can jump from a log record
 # to the span that produced it.
 #
@@ -49,20 +47,15 @@ with otel_image.imports():
 
 # ## Configure the Parseable destination
 #
-# Create a Modal Secret named `parseable-otel` with your Parseable base endpoint
-# and an API key with the `ingestor` role. See the
+# Create a Modal Secret named `parseable-otel` with your Parseable base endpoint,
+# an API key with the `ingestor` role, and tenant ID. See the
 # [OpenTelemetry](https://www.parseable.com/docs/ingest-data/otel) and
 # [API Keys](https://www.parseable.com/docs/user-guide/api-keys) docs. In the
 # Parseable UI, generate the endpoint via Getting Started -> Ingest
 # telemetry data -> OTel -> Set up -> Generate.
 #
 # Do not include `v1/logs`, `v1/traces`, or `v1/metrics` as each exporter appends
-# its signal path.
-#
-# ### Parseable Cloud
-#
-# Cloud is multi-tenant, so include `PARSEABLE_TENANT_ID`. Its value is the
-# `workspaceId` in the Parseable app URL.
+# its signal path. The tenant ID is the `workspaceId` in the Parseable app URL.
 #
 # ```shell
 # modal secret create parseable-otel \
@@ -70,23 +63,13 @@ with otel_image.imports():
 #   PARSEABLE_API_KEY="replace-me" \
 #   PARSEABLE_TENANT_ID="replace-me"
 # ```
-#
-# ### Parseable Enterprise
-#
-# Include `PARSEABLE_TENANT_ID` when `P_MULTI_TENANCY=true`. Omit it for a
-# single-tenant deployment; single-tenant Parseable rejects tenant headers.
-#
-# ```shell
-# modal secret create parseable-otel \
-#   PARSEABLE_ENDPOINT="https://parseable.example.com" \
-#   PARSEABLE_API_KEY="replace-me"
-# ```
 
 otel_secret = modal.Secret.from_name(
     "parseable-otel",
     required_keys=[
         "PARSEABLE_ENDPOINT",
         "PARSEABLE_API_KEY",
+        "PARSEABLE_TENANT_ID",
     ],
 )
 
@@ -98,14 +81,12 @@ otel_secret = modal.Secret.from_name(
 
 
 def _parseable_headers(stream: str, log_source: str) -> dict[str, str]:
-    headers = {
+    return {
         "X-API-Key": os.environ["PARSEABLE_API_KEY"],
+        "X-P-Tenant": os.environ["PARSEABLE_TENANT_ID"],
         "X-P-Stream": stream,
         "X-P-Log-Source": log_source,
     }
-    if tenant_id := os.environ.get("PARSEABLE_TENANT_ID"):
-        headers["X-P-Tenant"] = tenant_id
-    return headers
 
 
 @app.cls(image=otel_image, secrets=[otel_secret])
@@ -193,8 +174,8 @@ class InstrumentedWorker:
 
         return (
             "Telemetry exported. Confirm the demo signals in Parseable:\n"
-            "1. Open your Parseable UI (Cloud: https://app.parseable.com/)\n"
-            "2. Select your workspace when using a multi-tenant deployment\n"
+            "1. Open https://app.parseable.com/\n"
+            "2. Select your workspace\n"
             "3. In modal-logs: look for 'Starting example work' and "
             "'Finished example work'\n"
             "4. In modal-traces: look for demo.run and demo.simulated_work\n"
