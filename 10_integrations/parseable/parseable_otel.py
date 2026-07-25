@@ -23,7 +23,6 @@ otel_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "opentelemetry-api==1.44.0",
     "opentelemetry-sdk==1.44.0",
     "opentelemetry-exporter-otlp-proto-http==1.44.0",
-    "opentelemetry-instrumentation-logging==0.65b0",
 )
 
 app = modal.App("example-parseable-otel")
@@ -36,8 +35,7 @@ with otel_image.imports():
         OTLPMetricExporter,
     )
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-    from opentelemetry.instrumentation.logging.handler import LoggingHandler
-    from opentelemetry.sdk._logs import LoggerProvider
+    from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
     from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
