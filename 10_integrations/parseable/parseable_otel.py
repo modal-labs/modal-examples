@@ -4,8 +4,9 @@
 
 # # Export Modal telemetry to Parseable with OpenTelemetry
 #
-# This example sends application logs, traces, and metrics from a Modal Function
-# to [Parseable](https://www.parseable.com/) with the OpenTelemetry Python SDK.
+# This example sends application logs, traces, and metrics from a
+# [Modal Function](https://modal.com/docs/sdk/py/latest/Function) to
+# [Parseable](https://www.parseable.com/) with the OpenTelemetry Python SDK.
 # Logs contain their current trace and span IDs, so you can jump from a log record
 # to the span that produced it.
 #
