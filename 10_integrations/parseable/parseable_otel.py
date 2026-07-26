@@ -1,5 +1,5 @@
 # ---
-# lambda-test: false  # missing-secret
+# lambda-test: false
 # ---
 
 # # Export Modal telemetry to Parseable with OpenTelemetry
