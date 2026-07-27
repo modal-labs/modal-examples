@@ -1,39 +1,37 @@
-# ---
-# deploy: true
-# cmd: ["modal", "run", "06_gpu_and_ml/embeddings/liquidai_embeddings_server.py"]
-# ---
-
-# # Serve Liquid AI embeddings with llama.cpp and Modal Servers
+# # Serve Liquid AI ColBERT embeddings with llama.cpp and Modal Servers
 
 # In this example, we serve
-# [LiquidAI/LFM2.5-Embedding-350M](https://huggingface.co/LiquidAI/LFM2.5-Embedding-350M)
-# behind an OpenAI-compatible `POST /v1/embeddings` API
+# [LiquidAI/LFM2.5-ColBERT-350M](https://huggingface.co/LiquidAI/LFM2.5-ColBERT-350M)
 # using [llama.cpp](https://github.com/ggml-org/llama.cpp)
-# and [Modal Servers](https://modal.com/docs/guide/servers).
+# in a [Modal Server](https://modal.com/docs/guide/servers).
 
-# LFM2.5-Embedding-350M is a 350M-parameter multilingual embedding model.
-# It is a dense bidirectional encoder that produces one 1024-dimensional vector per input
-# and supports retrieval across eleven languages.
-# It is also small enough to serve economically on CPU, so this example doesn't require a GPU.
+# LFM2.5-ColBERT-350M is a 353M-parameter [late interaction embedding model](https://arxiv.org/abs/2004.12832).
+# That means it produces one embedding vector per query token.
+# Similarity is computed by comparing each of those vectors with each of the document's token embeddings to produce a final score,
+# rather than just comparing a single vector per query per document.
 
-# For client code, use the appropriate prompt prefixes for inputs.
-# Prepend `"query: "` when embedding search queries and `"document: "` when embedding passages.
-# Omitting the prefixes silently degrades retrieval quality, since the model was trained as
-# an asymmetric retriever.
+# This is not supported by the OpenAI-compatible `/v1/embeddings` API,
+# so we instead use the `/embeddings` API in `llama.cpp`.
+
+# The model is intended for short queries against small documents,
+# like comparing user search queries with product descriptions in e-commerce.
+
+# The model is available under the [LFM Open License v1.0](https://huggingface.co/LiquidAI/LFM2.5-ColBERT-350M/blob/ac509ef9346912166a5f2f63d5ee41d9c472c330/LICENSE),
+# which includes restrictions on commercial use.
 
 # ## Why use a Modal Server?
 
 # To minimize routing overheads, we use `@app.server`,
-# which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads.
-# See [the reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
+# which uses a new, low-latency routing service on Modal designed for latency-sensitive inference workloads,
+# like interactive search via embeddings.
+# See the [Modal Servers guide](https://modal.com/docs/guide/servers) for details.
 
-# The `llama-server` binary speaks HTTP natively and implements the
-# [OpenAI embeddings API](https://platform.openai.com/docs/api-reference/embeddings)
-# out of the box, so the Python code in this example only starts and stops
-# that process, with no web framework needed.
-# Support for the LFM2.5 embedding model landed in
-# [ggml-org/llama.cpp#24913](https://github.com/ggml-org/llama.cpp/pull/24913).
+# ## Choose the model file and engine parameters
 
+# Liquid AI publishes official GGUF conversions of the model in
+# [LiquidAI/LFM2.5-ColBERT-350M-GGUF](https://huggingface.co/LiquidAI/LFM2.5-ColBERT-350M-GGUF).
+
+import json
 import subprocess
 import time
 import urllib.error
@@ -41,30 +39,23 @@ import urllib.request
 
 import modal
 
-# ## Choose the model file and engine parameters
-
-# Liquid AI publishes official GGUF conversions of the model in
-# [LiquidAI/LFM2.5-Embedding-350M-GGUF](https://huggingface.co/LiquidAI/LFM2.5-Embedding-350M-GGUF).
-# We serve the F16 file, a near-lossless conversion of the BF16 training precision.
-# At roughly 700 MB, the file is already small enough to not require quantization.
-# `llama-server` downloads the file from the Hugging Face Hub on first start.
-
-MODEL_REPO = "LiquidAI/LFM2.5-Embedding-350M-GGUF"
-MODEL_REVISION = "a80de9c5b941d429104f0038292a0ef5a860e486"  # version-pinning
-MODEL_FILE = "LFM2.5-Embedding-350M-F16.gguf"
+MODEL_REPO = "LiquidAI/LFM2.5-ColBERT-350M-GGUF"
+MODEL_REVISION = "bc240003aba07253e261a8aaf0d2c9683318a967"  # version-pinning
+MODEL_FILE = "LFM2.5-ColBERT-350M-BF16.gguf"
 MODEL_URL = f"https://huggingface.co/{MODEL_REPO}/resolve/{MODEL_REVISION}/{MODEL_FILE}"
 
 # `llama-server` processes requests in `N_SLOTS` parallel slots
 # and splits the total token context evenly across them.
-# We give each slot exactly the model's trained sequence length of 512 tokens.
-# In embedding mode, llama.cpp requires each input to fit in a single physical batch,
-# and caps the logical batch size at the physical batch size.
-# Sizing both batches to the full context lets all `N_SLOTS` slots
-# process maximal inputs in one forward pass.
+# We give each slot the model's trained sequence length of 512 tokens.
 
 MAX_INPUT_TOKENS = 512  # the model's trained sequence length
-N_SLOTS = 4  # concurrent requests per container
-N_CTX = N_SLOTS * MAX_INPUT_TOKENS  # total tokens, also the batch/ubatch size
+N_SLOTS = 4  # target concurrent requests per container; adjust as needed
+TOKEN_EMBEDDING_DIM = 128  # the model's output embedding dimension
+
+# Queries and documents are prefixed with special tokens before encoding.
+
+DOCUMENT_PREFIX = "[D] "
+QUERY_PREFIX = "[Q] "
 
 # ## Cache the model weights
 
@@ -74,17 +65,17 @@ N_CTX = N_SLOTS * MAX_INPUT_TOKENS  # total tokens, also the batch/ubatch size
 # and loaded from the Volume on later cold starts.
 
 CACHE_PATH = "/cache"
-MODEL_PATH = f"{CACHE_PATH}/llama.cpp/{MODEL_FILE}"  # where the download lands
+MODEL_PATH = f"{CACHE_PATH}/llama.cpp/{MODEL_FILE}"
 
 volume = modal.Volume.from_name("liquidai-embeddings-cache", create_if_missing=True)
 
 # ## Define the container image
 
 # We build on the official llama.cpp server image.
-# It contains the compiled binary and doesn't include Python,
+# It contains the compiled binary but doesn't include Python,
 # so `add_python` bundles an interpreter for Modal's own runtime.
 # We also clear the image's entrypoint, which is the server binary itself,
-# because we launch that binary ourselves in the server's startup hook.
+# so that we can control the startup.
 
 image = (
     modal.Image.from_registry(
@@ -96,74 +87,33 @@ image = (
 
 # ## Define the Server
 
-# We wrap the engine in a class registered with `@app.server()`,
-# which attaches the image, Volume, and resources
-# and fronts the containers with a proxy.
-# The `@modal.enter` and `@modal.exit` lifecycle hooks below
-# start and stop the `llama-server` process.
-# See the [reference documentation](https://modal.com/docs/reference/modal.App#server) for details.
-
-# Modal considers a new replica ready once the `@modal.enter` methods have exited
-# and the container accepts connections.
-# `llama-server` answers `/health` with a 503 status while the model loads,
-# so the startup hook blocks in `wait_ready` until it answers with a 200.
+# We wrap the engine in a class decorated with `@app.server()`,
+# which attaches the Image and Volume,
+# defines autoscaling rules,
+# fronts the containers with a proxy, and more.
+# See details in the [Modal Servers guide](https://modal.com/docs/guide/servers).
 
 MINUTES = 60  # seconds
 PORT = 8000
 
 
-def wait_ready(proc: subprocess.Popen, timeout: int = 10 * MINUTES):
-    """Block until llama-server answers /health with a 200 status."""
-    deadline = time.monotonic() + timeout
-    delay = 1.0
-    while (remaining := deadline - time.monotonic()) > 0:
-        if (returncode := proc.poll()) is not None:  # fail fast if the engine died
-            raise RuntimeError(f"llama-server exited with code {returncode}")
-        try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/health", timeout=5):
-                return
-        except (urllib.error.HTTPError, OSError):
-            # 503 while the model loads, or connection refused before the port binds.
-            time.sleep(min(delay, remaining))
-            delay = min(delay * 2, 10.0)
-    raise TimeoutError(
-        f"Liquid AI embeddings server not ready within {timeout} seconds"
-    )
-
-
-app = modal.App("example-liquidai-embeddings")
-
-# The resource reservations follow from the engine parameters:
-# 1 CPU core per slot, and 2 GB of memory to hold
-# the roughly 700 MB of F16 weights plus KV cache and other overhead.
-# Setting `target_concurrency` to the slot count sends each container
-# only as many concurrent requests as it has slots,
-# and load beyond that scales up new containers instead
-# (see the [autoscaling guide](https://modal.com/docs/guide/scale)).
+app = modal.App("example-liquidai-embeddings-server")
 
 
 @app.server(
     image=image,
     volumes={CACHE_PATH: volume},
     port=PORT,
-    cpu=N_SLOTS,
-    memory=2048,  # MBs
     target_concurrency=N_SLOTS,
-    min_containers=0,  # set to 1 or more to ensure a replica is always ready
-    startup_timeout=10 * MINUTES,  # allows time to download the GGUF on startup
-    scaledown_window=5 * MINUTES,
-    exit_grace_period=20,
+    min_containers=0,  # set to 1 or more to keep a warm replica for latency-sensitive use cases
+    startup_timeout=10 * MINUTES,  # allow time to download and load the model
+    scaledown_window=5 * MINUTES,  # retain loaded replicas across short traffic gaps
+    exit_grace_period=20,  # allow in-flight embedding requests to finish before shutdown
     unauthenticated=True,
 )
-class LlamaCppEmbeddingServer:
+class LlamaServer:
     @modal.enter()
     def start(self):
-        # The image sets LLAMA_ARG_HOST=0.0.0.0, which binds all interfaces,
-        # so we do not pass --host.
-        # start_new_session blocks llama-server from receiving the container-wide
-        # shutdown signal. Otherwise, it would receive that signal in addition
-        # to our terminate() below, and llama.cpp would treat a second signal
-        # as "abort immediately", which would skip graceful cleanup.
         cmd = [
             "/app/llama-server",
             "--model-url",
@@ -171,16 +121,25 @@ class LlamaCppEmbeddingServer:
             "--model",
             MODEL_PATH,
             "--embeddings",
+            "--pooling",
+            "none",  # return one vector per input token
+            "--host",
+            "0.0.0.0",
             "--port",
             str(PORT),
+            "--no-ui",  # no chat interface, we're serving embeddings
+            "--metrics",  # enable metrics logging
             "--parallel",
             str(N_SLOTS),
             "--ctx-size",
-            str(N_CTX),
-            "--batch-size",
-            str(N_CTX),
-            "--ubatch-size",
-            str(N_CTX),
+            str(N_SLOTS * MAX_INPUT_TOKENS),  # total context shared across slots
+            # Bidirectional embedding models require all tokens in an iteration to fit
+            # in one physical batch. Using the full context for batch sizes allows all
+            # slots to process maximum-length inputs together.
+            "--batch-size",  # max tokens per iteration during continuous batching
+            str(N_SLOTS * MAX_INPUT_TOKENS),
+            "--ubatch-size",  # max tokens in a physical computation batch
+            str(N_SLOTS * MAX_INPUT_TOKENS),
         ]
 
         self.proc = subprocess.Popen(cmd, start_new_session=True)
@@ -196,7 +155,90 @@ class LlamaCppEmbeddingServer:
             self.proc.wait()
 
 
-# ## Deploy the server
+# Modal considers a new replica ready once the `@modal.enter` methods have exited
+# and the serving process inside starts accepting connections.
+# `llama-server` answers `/health` with a [503 Service Unavailable status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/503)
+# while the model loads, so we block the startup hook from completing with this `wait_ready` function.
+
+
+def wait_ready(proc: subprocess.Popen, port=PORT):
+    import socket
+
+    while True:
+        try:
+            if (
+                returncode := proc.poll()
+            ) is not None:  # fail fast if the server process died
+                raise RuntimeError(f"Server process exited with code {returncode}")
+            socket.create_connection(("127.0.0.1", port), timeout=5).close()
+            request = urllib.request.Request(f"http://127.0.0.1:{port}/health")
+            request_with_retry(request, timeout=30).close()
+            return
+        except (ConnectionRefusedError, TimeoutError):
+            continue
+
+
+# Modal Servers also respond with a 503 when no replicas are available to handle requests, so we pull out
+# a helper function that retries on 503 for use with server clients.
+
+
+def request_with_retry(request: urllib.request.Request, timeout=10 * MINUTES):
+    deadline = time.monotonic() + timeout
+    delay = 1.0
+
+    while (remaining := deadline - time.monotonic()) > 0:
+        try:
+            return urllib.request.urlopen(request, timeout=remaining)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 503:  # 503 Service Unavailable, no containers ready
+                raise exc
+        time.sleep(min(delay, remaining))
+        delay = min(delay * 2, 10.0)
+    raise TimeoutError(f"Server not ready within {timeout} seconds")
+
+
+# ## Test the server
+
+# Running `modal run liquidai_embeddings_server.py` executes the `local_entrypoint` below
+# against a temporary instance of the Server, which is useful for testing and development.
+# The client requests one embedding after waiting for a live replica.
+
+
+@app.local_entrypoint()
+def main(input: str | None = None, test_timeout: int = 5 * MINUTES):
+    url = LlamaServer.get_url()
+    print(f"Server URL: {url}")
+
+    request = urllib.request.Request(f"{url}/health")
+    request_with_retry(request=request, timeout=test_timeout).close()
+
+    if input is None:
+        input = "ColBERT introduces a late interaction architecture that independently encodes the query and the document using BERT"
+
+    request_data = {"input": [DOCUMENT_PREFIX + input]}
+    request = urllib.request.Request(
+        f"{url}/embeddings",
+        data=json.dumps(request_data).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+
+    started_at = time.perf_counter()
+    with request_with_retry(request, timeout=test_timeout) as response:
+        elapsed = time.perf_counter() - started_at
+        data = json.load(response)
+
+    assert len(data), "empty response from server"
+    embedding = data[0].get("embedding")
+    assert embedding, f"server failed to respond with embedding, got {data}"
+
+    print(
+        f"client-side inference latency: {elapsed:.3f}s",
+        f"embedding shape: ({len(embedding)}, {len(embedding[0])})",
+        sep="\n",
+    )
+
+
+# ## Deploy the Server
 
 # Deploy the Server with
 
@@ -204,57 +246,4 @@ class LlamaCppEmbeddingServer:
 # modal deploy liquidai_embeddings_server.py
 # ```
 
-# The deploy command prints the server's public URL.
-# You can also retrieve the URL programmatically with
-# [`modal.Server.get_url`](https://modal.com/docs/reference/modal.Server).
-
-# ## Test the server
-
-# Running `modal run liquidai_embeddings_server.py` executes the `local_entrypoint` below
-# against a temporary instance of the Server.
-# The client polls `/health` until a container is ready,
-# then requests one document embedding and verifies its shape.
-
-
-@app.local_entrypoint()
-def main(timeout_s: float = 600):
-    import json
-
-    url = LlamaCppEmbeddingServer.get_url()
-    print(f"Server URL: {url}")
-
-    # Poll /health, retrying on 503 (cold start) and connection errors.
-    deadline = time.monotonic() + timeout_s
-    delay = 1.0
-    while (remaining := deadline - time.monotonic()) > 0:
-        try:
-            with urllib.request.urlopen(f"{url}/health", timeout=10):
-                break
-        except urllib.error.HTTPError as exc:
-            reason = f"{exc.code} (container cold-starting)"
-        except OSError as exc:
-            reason = f"connection error ({exc.__class__.__name__})"
-        print(f"  {reason}, retrying... ({remaining:.0f}s left)")
-        time.sleep(min(delay, remaining))
-        delay = min(delay * 2, 10.0)
-
-    if remaining <= 0:
-        raise TimeoutError(f"server not ready within {timeout_s}s")
-
-    # Note the "document: " prompt prefix. See the intro for why it matters.
-    request = urllib.request.Request(
-        f"{url}/v1/embeddings",
-        data=json.dumps(
-            {"input": ["document: The quick brown fox jumps over the lazy dog."]}
-        ).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        result = json.load(response)
-
-    vector = result["data"][0]["embedding"]
-
-    assert len(vector) == 1024, f"expected 1024, got {len(vector)}"
-    print(
-        f"embedding dim: {len(vector)}, first 4 values: {[round(v, 4) for v in vector[:4]]}"
-    )
+# The deploy command prints the Server's public URL.
