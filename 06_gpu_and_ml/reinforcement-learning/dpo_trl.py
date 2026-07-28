@@ -37,7 +37,7 @@ app = modal.App("example-dpo-trl")
 
 image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "torch==2.7.0",
-    "transformers==4.57",
+    "transformers==4.57.1",  # 4.57.0 is yanked from PyPI
     "trl==0.28.0",
     "peft==0.15.2",
     "datasets==3.5.1",
