@@ -35,15 +35,19 @@ app = modal.App("example-dpo-trl")
 # Following the [pinning conventions](https://modal.com/docs/guide/images) for this
 # repo, every container dependency is pinned to at least a SemVer minor version.
 
-image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
-    "torch==2.7.0",
-    "transformers==4.57.1",  # 4.57.0 is yanked from PyPI
-    "trl==0.28.0",
-    "peft==0.15.2",
-    "datasets==3.5.1",
-    "accelerate==1.6.0",
-    "huggingface-hub==0.36.0",
-).env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster downloads
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .uv_pip_install(
+        "torch==2.7.0",
+        "transformers==4.57.1",  # 4.57.0 is yanked from PyPI
+        "trl==0.28.0",
+        "peft==0.15.2",
+        "datasets==3.5.1",
+        "accelerate==1.6.0",
+        "huggingface-hub==0.36.0",
+    )
+    .env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster downloads
+)
 
 with image.imports():
     from datasets import load_dataset
