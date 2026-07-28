@@ -43,7 +43,7 @@ image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     "datasets==3.5.1",
     "accelerate==1.6.0",
     "huggingface-hub==0.36.0",
-)
+).env({"HF_XET_HIGH_PERFORMANCE": "1"})  # faster downloads
 
 with image.imports():
     from datasets import load_dataset
