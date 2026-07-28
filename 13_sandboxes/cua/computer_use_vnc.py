@@ -13,16 +13,16 @@
 
 # ## Run the example
 #
-# For the interactive UI, run the app with:
-#
-# ```bash
-# modal serve 13_sandboxes/cua/computer_use_vnc.py
-# ```
-#
-# To test the example programmatically, run:
+# To programmatically test the example:
 #
 # ```bash
 # modal run 13_sandboxes/cua/computer_use_vnc.py
+# ```
+#
+# You can also start the interactive UI:
+#
+# ```bash
+# modal serve 13_sandboxes/cua/computer_use_vnc.py
 # ```
 #
 
@@ -168,35 +168,48 @@ AGENT_SCRIPT = textwrap.dedent(
 
 # ## Creating the shared Endpoint
 
-# When you serve the web UI, we create a shared Endpoint that will be used across requests.
 # The Endpoint can take time to become ready because its containers scale to zero.
 # Startup waits in two places:
-# 1. The Sandbox waits until the endpoint is ready before starting the agent.
-# 2. `start_session` waits for the endpoint and the noVNC HTTP server to be ready before returning `watch_url`.
+# 1. `start_session` waits for a new Endpoint to register its Server and expose a URL.
+# 2. The Sandbox waits until the endpoint is ready before starting the agent.
 
-if modal.is_local():
+
+def create_endpoint_if_missing() -> None:
     command = [sys.executable, "-m", "modal", "endpoint"]
     endpoints = json.loads(
         subprocess.check_output([*command, "list", "--json"], text=True)
     )
-    if not any(endpoint["name"] == ENDPOINT_NAME for endpoint in endpoints):
-        subprocess.run(
-            [
-                *command,
-                "create",
-                "--name",
-                ENDPOINT_NAME,
-                "--model",
-                ENDPOINT_MODEL,
-                "--routing-region",
-                ENDPOINT_ROUTING_REGION,
-                "--unauthenticated",
-            ],
-            check=True,
-        )
-        print(f"Created Endpoint {ENDPOINT_NAME!r}.")
-    else:
+    if any(endpoint["name"] == ENDPOINT_NAME for endpoint in endpoints):
         print(f"Using existing Endpoint {ENDPOINT_NAME!r}.")
+        return
+    subprocess.run(
+        [
+            *command,
+            "create",
+            "--name",
+            ENDPOINT_NAME,
+            "--model",
+            ENDPOINT_MODEL,
+            "--routing-region",
+            ENDPOINT_ROUTING_REGION,
+            "--unauthenticated",
+        ],
+        check=True,
+    )
+    print(f"Created Endpoint {ENDPOINT_NAME!r}.")
+
+
+async def wait_for_endpoint_url(deadline: float) -> str:
+    while True:
+        try:
+            url = await endpoint_server.get_url.aio()
+        except modal.exception.NotFoundError:
+            url = None
+        if url:
+            return url
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"Timed out waiting for Endpoint {ENDPOINT_NAME!r}.")
+        await asyncio.sleep(1)
 
 
 def is_server_up(url: str) -> bool:
@@ -223,10 +236,9 @@ def is_server_up(url: str) -> bool:
 async def start_session(task: str):
     sandbox = None
     try:
-        endpoint_url = await endpoint_server.get_url.aio()
-        if endpoint_url is None:
-            raise RuntimeError(f"Endpoint {ENDPOINT_NAME!r} has no URL.")
         deadline = time.monotonic() + SESSION_START_TIMEOUT
+        await asyncio.to_thread(create_endpoint_if_missing)
+        endpoint_url = await wait_for_endpoint_url(deadline)
         sandbox = await modal.Sandbox.create.aio(
             "bash",
             "-lc",
