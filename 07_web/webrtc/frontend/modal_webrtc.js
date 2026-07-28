@@ -1,12 +1,11 @@
 export class ModalWebRtcClient extends EventTarget {
     constructor() {
         super();
-        this.ws = null;
         this.localStream = null;
         this.peerConnection = null;
-        this.iceServers = null;
-        this.peerID = null;
         this.iceServerType = 'stun';
+        this.iceGatheringTimeoutMs = 10000;
+        this._offerAbort = null;
     }
 
     updateStatus(message) {
@@ -21,6 +20,8 @@ export class ModalWebRtcClient extends EventTarget {
         try {
             this.localStream = await navigator.mediaDevices.getUserMedia({ 
                 video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
                     facingMode: { ideal: "environment" }
                 }, 
                 audio: false
@@ -40,142 +41,155 @@ export class ModalWebRtcClient extends EventTarget {
 
     // Create and set up peer connection
     async startStreaming() {
-        this.peerID = this.generateShortUUID();
         this.updateStatus('Loading YOLO GPU inference in the cloud (this can take up to 20 seconds)...');
         await this.negotiate();
     }
 
+    async fetchIceServers(iceServerType, signal) {
+        const response = await fetch(`/ice-servers?mode=${iceServerType}`, { signal });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ICE servers: ${response.status}`);
+        }
+        const payload = await response.json();
+        return payload.ice_servers;
+    }
+
+    // Resolve when ICE gathering completes, abort fires, or proceed with partial SDP after timeout.
+    waitForIceGathering(pc, signal) {
+        if (signal?.aborted || pc.iceGatheringState === 'complete') {
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+            const done = () => {
+                clearTimeout(timeoutId);
+                pc.removeEventListener('icegatheringstatechange', check);
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+            };
+            const timeoutId = setTimeout(() => {
+                console.warn(
+                    `ICE gathering timed out after ${this.iceGatheringTimeoutMs}ms; continuing with available candidates`
+                );
+                done();
+            }, this.iceGatheringTimeoutMs);
+
+            const check = () => {
+                if (pc.iceGatheringState === 'complete') {
+                    done();
+                }
+            };
+            const onAbort = () => done();
+            pc.addEventListener('icegatheringstatechange', check);
+            signal?.addEventListener('abort', onAbort, { once: true });
+        });
+    }
+
     async negotiate() {
+        // Snapshot ICE mode for this negotiation so a mid-flight radio change
+        // cannot desync browser RTCPeerConnection config from the GPU peer.
+        const iceServerType = this.iceServerType;
+        // Per-negotiation abort/PC so overlapping Stop/Start cannot clear a newer run.
+        if (this._offerAbort) {
+            this._offerAbort.abort();
+        }
+        const abort = new AbortController();
+        this._offerAbort = abort;
+        let pc = null;
+
+        const dropPc = () => {
+            if (!pc) return;
+            pc.close();
+            if (this.peerConnection === pc) {
+                this.peerConnection = null;
+            }
+            pc = null;
+        };
+
         try {
-            // setup websocket connection
-            this.ws = new WebSocket(`/ws/${this.peerID}`);
-
-            this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                this.dispatchEvent(new CustomEvent('error', { 
-                    detail: { error }
-                }));
-            };
-        
-            this.ws.onclose = () => {
-                console.log('WebSocket connection closed');
-                this.dispatchEvent(new CustomEvent('websocketClosed'));
-            };
-
-            this.ws.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                
-                if (msg.type === 'answer') {
-                    this.updateStatus('Establishing WebRTC connection...');
-                    this.peerConnection.setRemoteDescription(msg);
-                } else if (msg.type === 'turn_servers') {
-                    this.iceServers = msg.ice_servers;
-                } else {
-                    console.error('Unexpected response from server:', msg);
-                }
-            };
-
-            console.log('Waiting for websocket to open...');
-            await new Promise((resolve) => {
-                if (this.ws.readyState === WebSocket.OPEN) {
-                    resolve();
-                } else {
-                    this.ws.addEventListener('open', () => resolve(), { once: true });
-                }
-            });
-
-            if (this.iceServerType === 'turn') {
-                this.ws.send(JSON.stringify({type: 'get_turn_servers', peer_id: this.peerID}));
-            } else {
-                this.iceServers = [
-                    {
-                        urls: ["stun:stun.l.google.com:19302"],
-                    },
-                ];
+            const iceServers = await this.fetchIceServers(iceServerType, abort.signal);
+            if (abort.signal.aborted) {
+                return;
             }
+            pc = new RTCPeerConnection({ iceServers });
+            this.peerConnection = pc;
 
-            // Wait until we have ICE servers
-            if (this.iceServerType === 'turn') {
-                await new Promise((resolve) => {
-                    const checkIceServers = () => {
-                        if (this.iceServers) {
-                            resolve();
-                        } else {
-                            setTimeout(checkIceServers, 100);
-                        }
-                    };
-                    checkIceServers();
-                });
-            }
-
-            const rtcConfiguration = {
-                iceServers: this.iceServers,
-            }
-            this.peerConnection = new RTCPeerConnection(rtcConfiguration);
+            // Pipecat peers expect a client datachannel and audio-then-video transceiver order.
+            pc.createDataChannel('modal-webrtc');
+            pc.addTransceiver('audio');
 
             // Add local stream to peer connection
             this.localStream.getTracks().forEach(track => {
                 console.log('Adding track:', track);
-                this.peerConnection.addTrack(track, this.localStream);
+                pc.addTrack(track, this.localStream);
             });
 
             // Handle remote stream when triggered
-            this.peerConnection.ontrack = event => {
+            pc.ontrack = event => {
+                if (this.peerConnection !== pc) return;
                 console.log('Received remote stream:', event.streams[0]);
                 this.dispatchEvent(new CustomEvent('remoteStream', { 
                     detail: { stream: event.streams[0] }
                 }));
             };
 
-            // Handle ICE candidates using Trickle ICE pattern
-            this.peerConnection.onicecandidate = async (event) => {
-                if (!event.candidate || !event.candidate.candidate) {
-                    return;
-                }
-                
-                const iceCandidate = {
-                    peer_id: this.peerID,
-                    candidate_sdp: event.candidate.candidate,
-                    sdpMid: event.candidate.sdpMid,
-                    sdpMLineIndex: event.candidate.sdpMLineIndex,
-                    usernameFragment: event.candidate.usernameFragment
-                };
-
-                console.log('Sending ICE candidate: ', iceCandidate.candidate_sdp);
-                
-                // send ice candidate over ws
-                this.ws.send(JSON.stringify({type: 'ice_candidate', candidate: iceCandidate}));
-            };
-
-            this.peerConnection.onconnectionstatechange = async () => {
-                const state = this.peerConnection.connectionState;
+            pc.onconnectionstatechange = () => {
+                if (this.peerConnection !== pc) return;
+                const state = pc.connectionState;
                 this.updateStatus(`WebRTCConnection state: ${state}`);
                 this.dispatchEvent(new CustomEvent('connectionStateChange', { 
                     detail: { state }
                 }));
-                
-                if (state === 'connected') {
-                    if (this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.close();
-                    }
-                }
             };
 
-            // set local description and send as offer to peer
+            // set local description, gather ICE, then POST offer for an SDP answer
             console.log('Setting local description...');
-            await this.peerConnection.setLocalDescription();
-            var offer = this.peerConnection.localDescription;
-            
-            console.log('Sending offer...');
-            // send offer over ws
-            this.ws.send(JSON.stringify({peer_id: this.peerID, type: 'offer', sdp: offer.sdp}));
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await this.waitForIceGathering(pc, abort.signal);
 
+            if (abort.signal.aborted) {
+                dropPc();
+                return;
+            }
+
+            console.log('Sending offer...');
+            const response = await fetch('/offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: abort.signal,
+                body: JSON.stringify({
+                    sdp: pc.localDescription.sdp,
+                    type: pc.localDescription.type,
+                    ice_server_type: iceServerType,
+                }),
+            });
+            if (!response.ok) {
+                throw new Error(`Offer failed: ${response.status}`);
+            }
+
+            const answer = await response.json();
+            if (abort.signal.aborted) {
+                dropPc();
+                return;
+            }
+            this.updateStatus('Establishing WebRTC connection...');
+            await pc.setRemoteDescription(answer);
         } catch (e) {
+            if (e && e.name === 'AbortError') {
+                console.log('Offer aborted');
+                dropPc();
+                return;
+            }
             console.error('Error negotiating:', e);
             this.dispatchEvent(new CustomEvent('error', { 
                 detail: { error: e }
             }));
+            dropPc();
             throw e;
+        } finally {
+            if (this._offerAbort === abort) {
+                this._offerAbort = null;
+            }
         }
     }
 
@@ -189,15 +203,14 @@ export class ModalWebRtcClient extends EventTarget {
     // cleanup
     async cleanup() {
         console.log('Cleaning up...');
-        this.iceServers = null;
+        if (this._offerAbort) {
+            this._offerAbort.abort();
+            this._offerAbort = null;
+        }
         if (this.peerConnection) {
             console.log('Peer Connection state:', this.peerConnection.connectionState);
-            await this.peerConnection.close();
+            this.peerConnection.close();
             this.peerConnection = null;
-        }
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            await this.ws.close();
-            this.ws = null;
         }
         this.dispatchEvent(new CustomEvent('cleanup'));
     }
@@ -209,15 +222,4 @@ export class ModalWebRtcClient extends EventTarget {
             detail: { type }
         }));
     }
-
-    // Generate a short, URL-safe UUID
-    generateShortUUID() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-        let result = '';
-        // Generate 22 characters (similar to short-uuid's default length)
-        for (let i = 0; i < 22; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-} 
+}
