@@ -1,8 +1,3 @@
-# ---
-# cmd: ["modal", "serve", "13_sandboxes/computer_use_vnc.py"]
-# pytest: false
-# ---
-
 # # Watch Browser Use drive Chromium over VNC
 
 # Computer-use agents are LLMs that can interact with a web browser in a loop.
@@ -18,8 +13,16 @@
 
 # ## Run the example
 #
+# For the interactive UI, run the app with:
+#
 # ```bash
-# modal serve 13_sandboxes/computer_use_vnc.py
+# modal serve 13_sandboxes/cua/computer_use_vnc.py
+# ```
+#
+# To test the example programmatically, run:
+#
+# ```bash
+# modal run 13_sandboxes/cua/computer_use_vnc.py
 # ```
 #
 
@@ -267,6 +270,8 @@ async def start_session(task: str):
 
 # ## Serve the web UI
 
+# The code below is a simple FastAPI app that serves the web UI and the API.
+
 web_app = fastapi.FastAPI()
 
 
@@ -325,11 +330,67 @@ def web():
     return web_app
 
 
+# ## Test the session API with `modal run`
+
+# We can test this programmatically without the web UI.
+# The entrypoint below hits `POST /api/session` on the ephemeral web App,
+# asserts the Sandbox and noVNC URL came back,
+# checks that `GET /api/session/{id}` reports a live session, and
+# terminates the Sandbox.
+
+
+@app.local_entrypoint()
+def test_session(
+    task: str = "Open https://example.com and report the page title in one line.",
+):
+    url: str | None = web.get_web_url()
+    if not url:
+        raise RuntimeError("web App has no URL.")
+    print(f"web url: {url}")
+
+    payload = json.dumps({"task": task}).encode()
+    request = urllib.request.Request(
+        f"{url.rstrip('/')}/api/session",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(
+        request, timeout=SESSION_START_TIMEOUT + 60
+    ) as response:
+        session = json.loads(response.read().decode())
+
+    sandbox_id = session.get("sandbox_id")
+    watch_url = session.get("watch_url")
+    if not sandbox_id or not watch_url:
+        raise RuntimeError(f"Session response missing fields: {session}")
+    print(f"sandbox_id={sandbox_id}")
+    print(f"watch_url={watch_url}")
+
+    if not is_server_up(watch_url):
+        raise RuntimeError(f"noVNC not reachable at {watch_url}")
+
+    status_url = f"{url.rstrip('/')}/api/session/{sandbox_id}"
+    with urllib.request.urlopen(status_url, timeout=30) as response:
+        status = json.loads(response.read().decode())
+    print(f"status={status}")
+    if status.get("state") not in ("running", "succeeded"):
+        raise RuntimeError(f"Unexpected session state: {status}")
+
+    sandbox = modal.Sandbox.from_id(sandbox_id)
+    try:
+        sandbox.terminate()
+    finally:
+        sandbox.detach()
+    print("session start ok")
+
+
 # ## Cleaning up
 
 # Each Sandbox uses the agent process as its entrypoint, so it stops when the
 # task finishes or its timeout expires. Startup failures terminate it
 # immediately, and every code path detaches its local Sandbox handle.
+# `test_session` also terminates the Sandbox after the API check.
 #
 # Stop `modal serve` with Ctrl-C. The shared Endpoint scales to zero when idle,
 # but remains available for later prompts. Shut it down when you are done:
