@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Computer use over VNC</title>
+  <style>
+    :root {
+      color-scheme: dark; --bg: #181818; --panel: #222; --border: #464646;
+      --text: #d1d1d1; --muted: #a3a3a3; --accent: #6ac345;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+    main { width: min(calc(100% - 32px), 960px); margin: auto; padding: 48px 0; }
+    h1 { margin: 0 0 24px; color: #fff; font-size: 2rem; }
+    label { display: block; margin-bottom: 8px; color: var(--muted); font-size: .875rem; font-weight: 600; }
+    label[for="result"] { margin-top: 16px; }
+    textarea, .desktop, pre { width: 100%; border: 1px solid var(--border); border-radius: 8px; }
+    textarea {
+      min-height: 120px; padding: 14px; resize: vertical;
+      background: var(--panel); color: var(--text); font: inherit;
+    }
+    .controls { display: flex; align-items: center; gap: 12px; margin: 12px 0 24px; }
+    button {
+      padding: 9px 16px; border: 1px solid var(--accent); border-radius: 6px; background: #1d231c;
+      color: var(--accent); cursor: pointer; font: inherit; font-weight: 600;
+    }
+    button:disabled { color: #747474; cursor: not-allowed; }
+    #status {
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px;
+      color: var(--muted); font-size: .875rem;
+    }
+    .desktop { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--panel); }
+    .desktop iframe {
+      display: block; width: 100%; height: 100%; border: 0; background: var(--panel);
+    }
+    #desktop-status {
+      position: absolute; inset: 0; display: grid; place-items: center; margin: 0;
+      background: #181818ee; color: var(--muted); pointer-events: none;
+    }
+    #desktop-status[hidden] { display: none; }
+    #result {
+      height: 200px; margin: 0; padding: 16px; overflow: auto; overflow-wrap: anywhere;
+      background: var(--panel); font: .875rem/1.5 ui-monospace, monospace; white-space: pre-wrap;
+    }
+    #result:empty::before { content: "Agent output will appear here"; color: #747474; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Computer use over VNC</h1>
+    <label for="task">Task</label>
+    <textarea id="task">Read through a few subpages of the Modal docs: https://modal.com/docs. Then, tell me what Modal does in bullet point form without any Markdown.</textarea>
+    <div class="controls">
+      <button id="run">Run</button>
+      <span id="status" role="status">Ready.</span>
+    </div>
+    <label for="desktop">Desktop</label>
+    <div class="desktop">
+      <iframe id="desktop" title="noVNC desktop"></iframe>
+      <p id="desktop-status" hidden>Starting desktop…</p>
+    </div>
+    <label for="result">Output</label>
+    <pre id="result"></pre>
+  </main>
+  <script>
+    const get = (id) => document.getElementById(id);
+    const task = get("task"), run = get("run"), status = get("status");
+    const desktop = get("desktop"), desktopStatus = get("desktop-status"), result = get("result");
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    function setDesktopOverlay(message) { desktopStatus.hidden = !message; desktopStatus.textContent = message; }
+    async function read(response) {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+      return data;
+    }
+    run.onclick = async () => {
+      run.disabled = true;
+      desktop.src = "about:blank";
+      result.textContent = "";
+      status.textContent = "Starting Sandbox…";
+      setDesktopOverlay("Starting desktop…");
+      try {
+        const response = await fetch("/api/session", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({task: task.value.trim()}),
+        });
+        const session = await read(response);
+        desktop.src = session.watch_url;
+        setDesktopOverlay("");
+        status.textContent = "Desktop ready. Waiting for the model Endpoint if needed…";
+        for (;;) {
+          await sleep(2000);
+          const url = `/api/session/${encodeURIComponent(session.sandbox_id)}`;
+          const update = await read(await fetch(url));
+          if (update.state === "running") {
+            status.textContent = "Agent is running…";
+            continue;
+          }
+          result.textContent = update.result;
+          status.textContent = update.state === "succeeded" ? "Agent finished." : "Agent failed.";
+          break;
+        }
+      } catch (error) {
+        setDesktopOverlay("");
+        status.textContent = error.message;
+      } finally {
+        run.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
