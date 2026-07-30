@@ -26,7 +26,7 @@ app: modal.App = modal.App("example-grpo-trl")
 image: modal.Image = modal.Image.debian_slim().uv_pip_install(
     "trl[vllm]==0.28.0",
     "vllm==0.12.0",
-    "transformers==4.57",
+    "transformers==4.57.1",
     "datasets==3.5.1",
     "wandb==0.17.6",
 )
