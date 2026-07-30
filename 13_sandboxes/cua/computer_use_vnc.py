@@ -1,4 +1,4 @@
-# # Watch Browser Use drive Chromium over VNC
+# # Watch a Browser Use agent drive Chromium over VNC
 
 # Computer-use agents are LLMs that can interact with a web browser in a loop.
 # Rather than calling a fixed set of APIs, they look at a rendered page or screen,
@@ -9,7 +9,7 @@
 # [Endpoint](https://modal.com/docs/guide/endpoints) powers the agent. The agent
 # drives Chromium inside a Modal
 # [VM Sandbox](https://modal.com/docs/guide/vm-sandboxes),
-# while a small web UI embeds a noVNC desktop so you can watch it work.
+# while a small web UI embeds a noVNC desktop so you can watch it work in real-time.
 
 # ## Run the example
 #
@@ -25,6 +25,7 @@
 # modal serve 13_sandboxes/cua/computer_use_vnc.py
 # ```
 #
+# ## Set up
 
 import asyncio
 import json
@@ -41,6 +42,7 @@ from fastapi.responses import HTMLResponse
 
 app = modal.App("example-computer-use-vnc")
 MINUTES = 60
+
 # We could point Browser Use at a hosted provider like OpenAI or Anthropic using
 # your API key. For our purposes, however, we serve an open-weights model
 # ourselves via a Modal [Endpoint](https://modal.com/docs/guide/endpoints).
@@ -342,9 +344,9 @@ def web():
     return web_app
 
 
-# ## Test the session API with `modal run`
+# ## Test the session API
 
-# We can test this programmatically without the web UI.
+# We can test this example programmatically without the web UI.
 # The entrypoint below hits `POST /api/session` on the ephemeral web App,
 # asserts the Sandbox and noVNC URL came back,
 # checks that `GET /api/session/{id}` reports a live session, and
@@ -404,7 +406,7 @@ def test_session(
 # immediately, and every code path detaches its local Sandbox handle.
 # `test_session` also terminates the Sandbox after the API check.
 #
-# Stop `modal serve` with Ctrl-C. The shared Endpoint scales to zero when idle,
+# Stop `modal serve` with `Ctrl-C`. The shared Endpoint scales to zero when idle,
 # but remains available for later prompts. Shut it down when you are done:
 #
 # ```bash

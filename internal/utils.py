@@ -41,13 +41,27 @@ class Example(BaseModel):
 _RE_NEWLINE = re.compile(r"\r?\n")
 _RE_FRONTMATTER = re.compile(r"^---$", re.MULTILINE)
 _RE_CODEBLOCK = re.compile(r"\s*```[^`]+```\s*", re.MULTILINE)
+# Canonical regex from the PEP 723 inline script metadata spec:
+# https://packaging.python.org/en/latest/specifications/inline-script-metadata/
+_RE_PEP723 = re.compile(
+    r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$"
+)
 
 
 def render_example_md(example: Example) -> str:
     """Render a Python code example to Markdown documentation format."""
 
     with open(example.filename) as f:
-        content = f.read()
+        # A [PEP 723](https://peps.python.org/pep-0723/) metadata block is written as
+        # `#` comments, which would otherwise be rendered as body text.
+        # Instead, we fence it as code, so a reader about to run the
+        # example locally can see which dependencies it will install.
+        content = _RE_PEP723.sub(
+            lambda m: "# ```python\n"
+            + "\n".join(f"# {line}" for line in m[0].split("\n"))
+            + "\n# ```",
+            f.read(),
+        )
 
     lines = _RE_NEWLINE.split(content)
     markdown: list[str] = []
