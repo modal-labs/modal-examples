@@ -1,3 +1,7 @@
+# ---
+# deploy: true
+# ---
+
 # # Orchestrate a multi-step pipeline with Modal Functions
 
 # Every step of this pipeline is a Modal Function that hands off to the next one,
@@ -8,16 +12,18 @@
 # The toy computation is: build a range of numbers, square them, sum them. Each
 # step caches its output on a Volume, so a rerun skips work already done.
 
-# First, deploy the App:
-
-# ```bash
-# modal deploy pipeline_orchestration.py
-# ```
-
-# Then trigger a run and see its trace:
+# Run it and see its trace:
 
 # ```bash
 # modal run pipeline_orchestration.py --n 10
+# ```
+
+# Because the steps hand off by name against a pinned version, the App has to be
+# deployed before it runs. The entrypoint deploys it for you if it isn't already,
+# but you can also deploy explicitly:
+
+# ```bash
+# modal deploy pipeline_orchestration.py
 # ```
 
 # Run that again with the same `n` and every step hits the cache. Edit a step and
@@ -39,7 +45,7 @@ APP_NAME = "example-pipeline-orchestration"
 DATA_DIR = Path("/data")
 
 app = modal.App(APP_NAME)
-image = modal.Image.debian_slim().pip_install("numpy")
+image = modal.Image.debian_slim(python_version="3.12").pip_install("numpy==2.2.6")
 
 with image.imports():
     import numpy as np
@@ -194,8 +200,8 @@ def total(pipeline: Pipeline, step_num: int) -> None:
 
 # ## Trigger a run from a local driver
 
-# The driver reads the app version off the CLI and hands it to the run.
-# Pinning lookups to a version is a [Team and Enterprise feature](https://modal.com/docs/guide/trigger-deployed-functions#version-pinned-lookups).
+# The driver deploys the App if needed, reads its live version, and pins the run
+# to it. Pinning lookups to a version is a [Team and Enterprise feature](https://modal.com/docs/guide/trigger-deployed-functions#version-pinned-lookups).
 
 
 def deployed_version() -> int:
@@ -203,18 +209,28 @@ def deployed_version() -> int:
     history = subprocess.run(
         ["modal", "app", "history", APP_NAME, "--json"], capture_output=True, text=True
     )
-    if history.returncode != 0:
+    versions = json.loads(history.stdout) if history.returncode == 0 else []
+    if not versions:
         raise RuntimeError(f"deploy the app first: modal deploy {Path(__file__).name}")
-    versions = json.loads(history.stdout)
     return max(int(v["version"].removeprefix("v")) for v in versions)
+
+
+def ensure_deployed() -> None:
+    """Deploy the App if it isn't already, so a bare `modal run` works."""
+    try:
+        deployed_version()
+    except RuntimeError:
+        subprocess.run(["modal", "deploy", __file__], check=True)
 
 
 def stage_input(n: int) -> str:
     """Put the input on the Volume under an id, unless it's already staged."""
     input_id = f"n-{n}"
     try:
-        data.listdir(f"{input_id}/input.json")
-    except modal.exception.NotFoundError:
+        staged = bool(data.listdir(f"{input_id}/input.json"))
+    except (FileNotFoundError, modal.exception.NotFoundError):
+        staged = False
+    if not staged:
         with data.batch_upload() as batch:
             blob = io.BytesIO(json.dumps({"n": n}).encode())
             batch.put_file(blob, f"{input_id}/input.json")
@@ -263,4 +279,5 @@ def report(pipeline: Pipeline) -> None:
 @app.local_entrypoint()
 def run(n: int = 10) -> None:
     """Run the pipeline end to end against the deployed App."""
+    ensure_deployed()
     report(wait(trigger(n)))
