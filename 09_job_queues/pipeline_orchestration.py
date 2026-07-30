@@ -43,6 +43,7 @@ import modal
 
 APP_NAME = "example-pipeline-orchestration"
 DATA_DIR = Path("/data")
+MINUTES = 60  # seconds
 
 app = modal.App(APP_NAME)
 image = modal.Image.debian_slim(python_version="3.12").pip_install("numpy==2.2.6")
@@ -251,7 +252,7 @@ def trigger(n: int) -> str:
     return pipeline.run_id
 
 
-def wait(run_id: str, timeout: int = 60) -> Pipeline:
+def wait(run_id: str, timeout: int = 5 * MINUTES) -> Pipeline:
     """Poll `state` until the last step marks the run done."""
     deadline = time.time() + timeout
     while time.time() < deadline:
