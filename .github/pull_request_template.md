@@ -41,10 +41,6 @@
 ### Build Stability
   - [ ] Example pins all dependencies in container images
     - [ ] Example pins container images to a stable tag like `v1`, not a dynamic tag like `latest`
-    - [ ] Example specifies a `python_version` for the base image, if it is used 
+    - [ ] Example specifies a `python_version` for the base image, if it is used
     - [ ] Example pins all dependencies to at least [SemVer](https://semver.org/) minor version, `~=x.y.z` or `==x.y`, or we expect this example to work across major versions of the dependency and are committed to maintenance across those versions
       - [ ] Example dependencies with `version < 1` are pinned to patch version, `==0.y.z`
-
-## Outside Contributors
-
-You're great! Thanks for your contribution.

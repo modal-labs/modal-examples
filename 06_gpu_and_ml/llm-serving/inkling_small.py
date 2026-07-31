@@ -4,20 +4,20 @@
 
 # # Serve Inkling-Small on Modal with SGLang
 
-# [Inkling-Small](https://huggingface.co/thinkingmachines/Inkling-Small) is a natively
-# multimodal Mixture-of-Experts model from Thinking Machines Lab. It accepts text, images
-# and audio. Its decoder mixes sliding-window and full-attention layers, which keeps
-# long-context inference affordable.
+# [Inkling-Small](https://huggingface.co/thinkingmachines/Inkling-Small) is a multimodal
+# mixture-of-experts model from Thinking Machines Lab that accepts text, images, and audio.
+# Its decoder combines sliding-window and full-attention layers to lower the cost of long
+# context inference.
 
-# We serve the NVFP4 checkpoint, quantized to four-bit floating point, so it needs a
-# Blackwell GPU (B200 or newer) for the native FP4 tensor-core path.
+# This example serves the NVFP4 checkpoint which requires Blackwell GPUs (B200/B300s)
+# to support its native four-bit tensor-core path.
 
-# The engine flags below mirror the [recipe](https://docs.sglang.io/cookbook/autoregressive/ThinkingMachines/Inkling)
-# SGLang publishes. Several of them are required rather than tuning knobs; comments mark which.
+# The engine flags follow SGLang's
+# [recipe](https://docs.sglang.io/cookbook/autoregressive/ThinkingMachines/Inkling-Small#hw=b300&variant=default&quant=nvfp4&strategy=mtp&nodes=single).
 
 # For more on serving large models efficiently, see the
 # [high-performance LLM inference guide](https://modal.com/docs/guide/high-performance-llm-inference).
-# For a gentler introduction to LLM serving on Modal, see
+# For a simpler introduction to LLM serving on Modal, see
 # [this example](https://modal.com/docs/examples/llm_inference).
 
 import json
@@ -30,50 +30,21 @@ import modal
 
 # ## Set up the container image
 
-# SGLang publishes model-launch image tags alongside its numbered releases, and Inkling
-# has one: `inkling-cu13`. The generic `v0.5.x` tags do not work. They fail during
-# warmup, because the FlashAttention-4 CuTe kernel this model requires is built against
-# a different `nvidia-cutlass-dsl` than those images ship.
-
-# `inkling-cu13` is a moving tag, so we pin the digest for reproducible builds. To use a
-# newer build, look up the current digest with
-# `curl -s https://hub.docker.com/v2/repositories/lmsysorg/sglang/tags/inkling-cu13`.
-
 SGLANG_IMAGE = (
-    "lmsysorg/sglang:inkling-cu13"
-    "@sha256:5099f18aec336b30eb733524d2a277d1b348e4bf77a1c8950f90c96e6741f22e"
+    "lmsysorg/sglang:dev-inkling-dspark"
+    "@sha256:fbea1a4e25b26660dbc2384a27ead8817e9b7670f257b5c3143e0450d14524d7"
 )
 
 image = modal.Image.from_registry(SGLANG_IMAGE).entrypoint(
     []  # silence chatty logs on entry
 )
 
-# Draft-extend CUDA graph row width must include `draft_extend_num_front_tokens`,
-# which this pinned image lacks, so we patch at image build.
-
-image = image.run_commands(
-    """python3 - <<'PY'
-from pathlib import Path
-
-path = Path("/sgl-workspace/sglang/python/sglang/srt/speculative/multi_layer_eagle_worker_v2.py")
-source = path.read_text()
-old = "num_tokens_per_req=self.speculative_num_steps + 1,"
-new = "num_tokens_per_req=self.speculative_num_steps + 1 + self.draft_extend_num_front_tokens,"
-if source.count(old) != 1:
-    raise RuntimeError("Unexpected SGLang source while backporting sglang#32254")
-path.write_text(source.replace(old, new))
-PY"""
-)
-
 # ### Load model weights
 
-# We cache the weights in a Modal [Volume](https://modal.com/docs/guide/volumes) so that
-# containers read them from Modal's filesystem instead of re-downloading on every cold
-# start.
-
-# Note the mount point. The SGLang image already ships files under
-# `/root/.cache/huggingface`, and Modal will not mount a Volume over a non-empty path, so
-# we put the cache at `/cache` and point `HF_HOME` there.
+# Cache the weights in a Modal [Volume](https://modal.com/docs/guide/volumes)
+# to avoid downloading them on every cold start.
+# Note that the SGLang image already has files under `/root/.cache/huggingface`,
+# so we mount the Volume at `/cache` and point `HF_HOME` there.
 
 HF_CACHE_DIR = "/cache"
 hf_cache_vol = modal.Volume.from_name("inkling-hf-cache", create_if_missing=True)
@@ -86,8 +57,7 @@ image = image.env(
 )
 
 # Inkling's repositories require accepting the license, so downloading needs a Hugging
-# Face token. Create the [Secret](https://modal.com/docs/guide/secrets) once with your own
-# read token:
+# Face token. Create the [Secret](https://modal.com/docs/guide/secrets) with:
 
 # ```
 # modal secret create huggingface-secret HF_TOKEN=hf_...
@@ -104,10 +74,6 @@ def download_model(repo_id, revision=None):
     snapshot_download(repo_id=repo_id, revision=revision, max_workers=16)
 
 
-# We download as part of the image build, so `modal deploy` is the only command you need.
-# It is roughly 171 GB, so the first build takes a while -- about ten minutes at Hugging
-# Face's typical throughput. Later builds reuse the Volume and skip the download.
-
 image = image.run_function(
     download_model,
     volumes={HF_CACHE_DIR: hf_cache_vol},
@@ -119,13 +85,6 @@ image = image.run_function(
 
 # ### Cache compiled kernels
 
-# This model runs through `torch.compile` piecewise CUDA graphs, so a cold container
-# spends most of its startup in TorchInductor codegen. Inductor writes to `/tmp` by
-# default, which is ephemeral, so that cost is otherwise re-paid on every cold start.
-# We point both caches at a second Volume, so only the first boot pays it.
-
-# The cache is keyed to the shapes it compiled, so changing the GPU count or the
-# speculation settings means compiling again.
 
 COMPILE_CACHE_DIR = "/compile-cache"
 compile_cache_vol = modal.Volume.from_name(
@@ -137,22 +96,11 @@ image = image.env(
         "TORCHINDUCTOR_CACHE_DIR": f"{COMPILE_CACHE_DIR}/inductor",
         "TRITON_CACHE_DIR": f"{COMPILE_CACHE_DIR}/triton",
         "SGLANG_CACHE_DIR": f"{COMPILE_CACHE_DIR}/sglang",
-        # From the recipe's env block for this model.
         "SGLANG_ENABLE_UNIFIED_RADIX_TREE": "1",
-        # Disable Inkling multi-stream overlap for stable CUDA-graph capture on
-        # the MTP path at TP=1.
-        "SGLANG_OPT_USE_INKLING_MULTI_STREAM_OVERLAP": "0",
     }
 )
 
 # ### Configure the inference engine
-
-# The checkpoint contains `mtp.safetensors` -- a multi-token-prediction head trained
-# alongside the model. SGLang drives it through its EAGLE code path, so speculative
-# decoding needs no additional model. The head has eight layers, which is where
-# `--speculative-num-steps 8` comes from; the ninth draft token is the target model's own.
-
-# It does cost memory, so the recipe lowers `--mem-fraction-static` when it is on.
 
 ENABLE_MTP = True
 MEM_FRACTION_STATIC = "0.70" if ENABLE_MTP else "0.85"
@@ -181,40 +129,30 @@ def _server_command() -> list[str]:
         str(GPU_COUNT),
         "--quantization",
         "modelopt_fp4",
-        # Inkling asserts the attention backend is `fa4` or `triton`. SGLang's generic
-        # default on Blackwell is `trtllm_mha`, which trips that assertion during
-        # startup, so this must be set explicitly.
         "--attention-backend",
         "fa4",
         "--page-size",
         "128",
         "--fp4-gemm-backend",
         "flashinfer_trtllm",
-        # Inkling's fused gate emits a packed top-k format, and `flashinfer_trtllm_routed`
-        # is the runner that consumes it. The other NVFP4 MoE runners fail at warmup.
         "--moe-runner-backend",
         "flashinfer_trtllm_routed",
         "--mamba-radix-cache-strategy",
         "extra_buffer",
         "--mem-fraction-static",
         MEM_FRACTION_STATIC,
-        # The sliding-window and short-convolution pools would otherwise size themselves
-        # for the model's full context and crowd out everything else.
         "--swa-full-tokens-ratio",
         "0.1",
         "--mamba-full-memory-ratio",
         "0.1",
         "--enable-multimodal",
-        # Inkling speaks in typed content blocks (`<|content_thinking|>`,
-        # `<|content_invoke_tool_json|>`). Without these parsers, reasoning traces and
-        # tool calls arrive as raw control tokens inside the message content.
         "--reasoning-parser",
         "inkling",
         "--tool-call-parser",
         "inkling",
         "--enable-metrics",
-        # Skip SGLang's dummy warmup request so a failed first generate can't
-        # kill the process before ready.
+        # Skip SGLang's startup request. If that first generation fails, SGLang exits
+        # before the server reports ready.
         "--skip-server-warmup",
     ]
 
@@ -232,10 +170,10 @@ def _server_command() -> list[str]:
             "--speculative-use-rejection-sampling",
             "--max-total-tokens",
             str(MAX_TOTAL_TOKENS),
+            "--max-running-requests",
+            str(TARGET_INPUTS),
         ]
 
-    # `--enable-torch-symm-mem` appears in the published recipe, which runs at TP=8. It
-    # supports only world size 6 or 8 on this architecture.
     if GPU_COUNT in (6, 8):
         cmd.append("--enable-torch-symm-mem")
 
@@ -258,18 +196,13 @@ app = modal.App("example-inkling-small", image=image)
 
 # ### Define the server
 
-# Cold starts are long: the weights are large, and a fresh container compiles kernels and
-# captures CUDA graphs before it can serve a request. Budget an hour for the first boot
-# and set `startup_timeout` accordingly. Boots of the *same* configuration are much
-# quicker once the compile cache is warm.
-
 
 @app.server(
     image=image,
     gpu=f"{GPU_TYPE}:{GPU_COUNT}",
     volumes={HF_CACHE_DIR: hf_cache_vol, COMPILE_CACHE_DIR: compile_cache_vol},
     secrets=[hf_secret],
-    cpu=32,  # TorchInductor codegen at startup is CPU-bound and parallel
+    cpu=32,
     port=SGLANG_PORT,
     startup_timeout=1 * HOURS,
     scaledown_window=20 * MINUTES,
@@ -330,18 +263,15 @@ def wait_for_endpoint(url: str, timeout=1 * HOURS) -> None:
 
 # ## Test the server
 
-# The server speaks the OpenAI chat completions API, so any OpenAI-compatible client
-# works. To spin up an ephemeral server and send it one request:
+# The server supports the OpenAI chat completions API.
+# To spin up an ephemeral server and send it a request:
 
 # ```
 # modal run 06_gpu_and_ml/llm-serving/inkling_small.py
 # ```
 
-# One Inkling-specific detail: rather than a thinking on/off switch, its chat template
-# takes a *reasoning effort* -- a name (`none`, `minimal`, `low`, `medium`, `high`,
-# `max`) or a number from 0.0 to 0.99 -- passed through `chat_template_kwargs`. Because
-# we enabled the `inkling` reasoning parser, the thinking trace arrives in
-# `reasoning_content`, separate from the answer.
+# Notably, Inkling's chat template takes a *reasoning effort* which can be set via a
+# string (`none`, `minimal`, `low`, `medium`, `high`, `max`) or a number from 0.0 to 0.99.
 
 
 @app.local_entrypoint()
@@ -382,27 +312,15 @@ def main(
 
 # ## Deploy the server
 
-# Once you are happy with the configuration, deploy it so the endpoint stays up
-# independently of your terminal:
-
 # ```
 # modal deploy 06_gpu_and_ml/llm-serving/inkling_small.py
 # ```
 
 # ## Addenda
 
-# A few things worth knowing before you point real traffic at this.
+# For demonstration purposes, the endpoint is publicly accessible with `unauthenticated=True`. Add
+# [proxy auth](https://modal.com/docs/guide/webhook-urls#authentication) before sending
+# private data.
 
-# The endpoint above is `unauthenticated=True`, which is convenient for a demo and wrong
-# for anything else. Add [proxy auth](https://modal.com/docs/guide/webhook-urls#authentication)
-# before exposing it.
-
-# `/health` returning 200 does not mean the server is fully warm. CUDA-graph capture
-# covers the shapes it enumerated at startup, but a request whose shape was not captured
-# still triggers kernel compilation on first touch. If you benchmark this, send a warmup
-# pass before you start measuring, or the compile time lands inside your numbers.
-
-# Turning MTP off is a one-line change (`ENABLE_MTP = False`), which also restores
-# `--mem-fraction-static` to 0.85 since there is no draft model to make room for.
-# Speculation pays most when you have latency headroom to spend; when the GPUs are
-# already saturated by large batches, it buys much less.
+# Set `ENABLE_MTP = False` to disable speculation, which
+# we recommend once large batches saturate the GPU.
