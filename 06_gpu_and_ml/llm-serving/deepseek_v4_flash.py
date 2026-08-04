@@ -43,6 +43,7 @@ sglang_image = (
         "cd /sgl-workspace/sglang"
         " && git apply --stat --exclude=test/* /tmp/pr32183.diff"
         " && git apply --exclude=test/* /tmp/pr32183.diff",
+        "rm -rf /root/.cache/huggingface",
     )
 )
 
@@ -62,10 +63,8 @@ hf_secret = modal.Secret.from_name("huggingface-secret")
 
 # We don't want to load the model from the Hub every time we start the server.
 # So instead, we load the cached weights from a [Modal Volume](https://modal.com/docs/guide/volumes).
-# Note that the container image already contains files at the default location
-# `/root/.cache/huggingface`, so we specify a different path.
 
-HF_CACHE_DIR = "/cache/huggingface"
+HF_CACHE_DIR = "/root/.cache/huggingface"
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 
 # We also want to turn on
@@ -73,7 +72,7 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # to fully saturate our network bandwidth.
 
 sglang_image = sglang_image.env(
-    {"HF_HUB_CACHE": f"{HF_CACHE_DIR}/hub", "HF_XET_HIGH_PERFORMANCE": "1"}
+    {"HF_HUB_CACHE": HF_CACHE_DIR, "HF_XET_HIGH_PERFORMANCE": "1"}
 )
 
 
@@ -125,8 +124,9 @@ MEMORY = 96 * GB
 
 # For production-scale LLM inference services, there are generally
 # enough requests to justify keeping at least one replica running at all times.
-# However, to ensure at least one container is always available,
-# we can set `min_containers` to `1` or more for our inference server.
+# This can be especially important to hit latency targets.
+# Here we set `min_containers` to `0` so you don't accidentally incur costs
+# when you're done running this example.
 
 MIN_CONTAINERS = 0  # set to 1 in production to keep a warm replica
 
@@ -203,8 +203,7 @@ def wait_for_endpoint(url: str, timeout: int = STARTUP_TIMEOUT) -> None:
 
 # ## Define the inference server
 
-# For maximum performance, we set a few bespoke enviroment variables
-# and engine flags.
+# For maximum performance, we set a few bespoke enviroment variables.
 
 sglang_image = sglang_image.env(
     {
@@ -215,6 +214,9 @@ sglang_image = sglang_image.env(
         "TORCHINDUCTOR_COMPILE_THREADS": "1",
     }
 )
+
+# The engine flags below come from the
+# [SGLang DeepSeek-V4 cookbook](https://docs.sglang.io/cookbook/autoregressive/DeepSeek/DeepSeek-V4#hw=b300&variant=flash-official&quant=fp4&strategy=low-latency&nodes=single).
 
 DEFAULT_PORT = 8000
 
