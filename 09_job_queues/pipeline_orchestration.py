@@ -1,7 +1,3 @@
-# ---
-# deploy: true
-# ---
-
 # # Orchestrate a multi-step pipeline with Modal Functions
 
 # Every step of this pipeline is a Modal Function that hands off to the next one,
