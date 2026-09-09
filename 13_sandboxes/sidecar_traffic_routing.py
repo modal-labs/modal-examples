@@ -203,7 +203,8 @@ if write_ca.wait() != 0:
 
 # These requests use ordinary URLs with no explicit HTTP proxy settings. The first
 # reaches the approved endpoint through the Sidecar; the second is answered by the
-# addon with a `403` and never leaves the Sidecar.
+# addon with a `403` and never leaves the Sidecar. We check each status so the
+# script fails loudly if the policy ever stops holding.
 
 
 def request_status(url: str, extra_args: list[str] | None = None) -> str:
@@ -226,8 +227,15 @@ def request_status(url: str, extra_args: list[str] | None = None) -> str:
     return status
 
 
-print(f"GET allowed endpoint -> {request_status(allowed_url)}")
-print(f"GET blocked endpoint -> {request_status(blocked_url)}")
+def check(label: str, expected: str, url: str, extra_args: list[str] | None = None):
+    status = request_status(url, extra_args)
+    print(f"{label} -> {status}")
+    if status != expected:
+        raise RuntimeError(f"{label}: expected {expected}, got {status}")
+
+
+check("GET allowed endpoint", "200", allowed_url)
+check("GET blocked endpoint", "403", blocked_url)
 
 # ## Block domain fronting
 
@@ -241,10 +249,12 @@ print(f"GET blocked endpoint -> {request_status(blocked_url)}")
 # Our `request` hook stops this by rejecting any request whose `Host` header does not
 # match the SNI. Here the Sandbox tries exactly that fronting request and is blocked:
 
-fronting_status = request_status(
-    allowed_url, extra_args=["-H", f"Host: {blocked_host}"]
+check(
+    "GET allowed SNI + blocked Host",
+    "403",
+    allowed_url,
+    extra_args=["-H", f"Host: {blocked_host}"],
 )
-print(f"GET allowed SNI + blocked Host -> {fronting_status}")
 
 # The output should look like:
 
