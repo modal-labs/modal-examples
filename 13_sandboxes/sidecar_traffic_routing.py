@@ -6,17 +6,19 @@
 # # Filter Sandbox HTTPS traffic with a proxy Sidecar
 
 # A proxy Sidecar can inspect and restrict HTTPS requests made by otherwise
-# proxy-unaware programs in a Sandbox. This example permits only `GET` requests
-# to the `modal-labs/modal-client` repository on `github.com`, while forwarding
-# requests to all other domains without applying the filter.
+# proxy-unaware programs in a Sandbox. This example allows requests to one
+# approved Web endpoint while blocking every other destination and shows how
+# the policy prevents [domain fronting](https://en.wikipedia.org/wiki/Domain_fronting)
+# from inside the Sandbox.
 
 # We use [mitmproxy](https://mitmproxy.org/) to terminate TLS, parse HTTP, connect to
-# GitHub, and generate certificates. HTTPS traffic is encrypted, so to determine the
-# request path the sidecar must be in the middle of the connection, and perform the
+# the upstream, and generate certificates. HTTPS traffic is encrypted, so to determine the
+# request's destination the Sidecar must be in the middle of the connection, and perform the
 # encryption/decryption against both the original client and server instead.
 
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import modal
 
@@ -27,67 +29,94 @@ MITMPROXY_CONFIG_DIR = "/tmp/mitmproxy"
 MITMPROXY_CA_CERT = f"{MITMPROXY_CONFIG_DIR}/mitmproxy-ca-cert.pem"
 SANDBOX_CA_CERT = "/tmp/mitmproxy-ca-cert.pem"
 
+# ## Deploy two Web endpoints to route between
+
+# To keep the example self-contained we stand up the services the Sandbox will
+# try to reach: an `allowed` endpoint the policy will permit, and a `blocked`
+# endpoint standing in for a destination we do not trust. They are ordinary Modal
+# [Web endpoints](https://modal.com/docs/guide/webhooks) and differ only by their
+# hostname.
+
+web_app = modal.App("example-sidecar-traffic-routing-web")
+web_image = modal.Image.debian_slim().uv_pip_install("fastapi[standard]==0.139.2")
+
+
+@web_app.function(image=web_image, serialized=True)
+@modal.fastapi_endpoint(label="sidecar-traffic-routing-allowed")
+def allowed():
+    return {"endpoint": "allowed", "message": "This endpoint is on the allowlist."}
+
+
+@web_app.function(image=web_image, serialized=True)
+@modal.fastapi_endpoint(label="sidecar-traffic-routing-blocked")
+def blocked():
+    return {"endpoint": "blocked", "message": "The Sandbox should never reach this."}
+
+
+with modal.enable_output():
+    web_app.deploy()
+
+allowed_url = allowed.get_web_url()
+blocked_url = blocked.get_web_url()
+allowed_host = urlparse(allowed_url).hostname
+blocked_host = urlparse(blocked_url).hostname
+print(f"Allowed endpoint: {allowed_url}")
+print(f"Blocked endpoint: {blocked_url}")
+
 # ## Define the request policy
 
 # To configure mitmproxy dynamically we use an addon script. The `tls_clienthello`
-# hook is used to parse the hostname and port from the `ClientHello` [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication).
-# After decrypting and parsing a request, the `request` hook applies the GitHub-specific
-# request path policy.
+# hook parses the hostname from the `ClientHello` [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication)
+# and points the upstream connection at it. After decrypting a request, the `request`
+# hook applies the allowlist.
 
 MITMPROXY_ADDON = """\
 from mitmproxy import http, tls
 
-FILTERED_HOST = "github.com"
-ALLOWED_REPOSITORY = "/modal-labs/modal-client"
+ALLOWED_HOST = "__ALLOWED_HOST__"
+
+
+def _canonical_host(name):
+    return (name or "").strip().lower().rstrip(".")
 
 
 def tls_clienthello(data: tls.ClientHelloData) -> None:
-    hostname = data.client_hello.sni
+    hostname = _canonical_host(data.client_hello.sni)
     if hostname:
         data.context.server.address = (hostname, 443)
         data.context.server.sni = hostname
 
 
-def request(flow: http.HTTPFlow) -> None:
-    request = flow.request
-    hostname = (flow.client_conn.sni or "").lower()
-    if hostname != FILTERED_HOST:
-        return
-
-    raw_path = request.path.split("?", 1)[0]
-    segments = raw_path.split("/")
-    repository_segments = ["", *ALLOWED_REPOSITORY.strip("/").split("/")]
-    # Reject alternate path spellings that GitHub could normalize after this check.
-    allowed_path = (
-        segments[: len(repository_segments)] == repository_segments
-        and all(segment not in {".", ".."} for segment in segments)
-        and "%" not in raw_path
-        and "\\\\" not in raw_path
-    )
-    if (
-        request.method == "GET"
-        and request.pretty_host == FILTERED_HOST
-        and allowed_path
-    ):
-        return
-
+def _deny(flow: http.HTTPFlow, reason: str) -> None:
     flow.response = http.Response.make(
-        403,
-        b"This Sandbox may only GET github.com/modal-labs/modal-client.\\n",
-        {"Content-Type": "text/plain"},
+        403, (reason + "\\n").encode(), {"Content-Type": "text/plain"}
     )
-"""
 
-# We install mitmproxy and copy the policy addon into its Image.
+
+def request(flow: http.HTTPFlow) -> None:
+    sni = _canonical_host(flow.client_conn.sni)
+    host = _canonical_host(flow.request.pretty_host)
+
+    # The SNI selected the upstream, so a Host header that differs from it is a
+    # domain-fronting attempt.
+    if not sni or host != sni:
+        _deny(flow, "Blocked: the SNI and Host header must match.")
+        return
+
+    # Default-deny allowlist: only the approved endpoint may be reached.
+    if host != ALLOWED_HOST:
+        _deny(flow, "Blocked: this host is not on the allowlist.")
+        return
+""".replace("__ALLOWED_HOST__", allowed_host)
 
 with tempfile.TemporaryDirectory() as tmp_dir:
-    addon_path = Path(tmp_dir) / "github_filter.py"
+    addon_path = Path(tmp_dir) / "allowlist_filter.py"
     addon_path.write_text(MITMPROXY_ADDON)
     with modal.enable_output():
         sidecar_image = (
             modal.Image.debian_slim(python_version="3.12")
             .pip_install("mitmproxy==12.2.3")
-            .add_local_file(addon_path, "/github_filter.py", copy=True)
+            .add_local_file(addon_path, "/allowlist_filter.py", copy=True)
             .build(app)
         )
 
@@ -120,7 +149,7 @@ sidecar = sandbox._experimental_sidecars.create(
     "--set",
     "keep_host_header=true",
     "--scripts",
-    "/github_filter.py",
+    "/allowlist_filter.py",
     name=SIDECAR_NAME,
     image=sidecar_image,
 )
@@ -153,26 +182,23 @@ if write_ca.wait() != 0:
 
 # ## Exercise the policy
 
-# These requests use an ordinary GitHub URL with no explicit HTTP proxy settings. The
-# first request reaches GitHub through the Sidecar. The next three are answered by the
-# addon and never reach GitHub. The final request demonstrates that another domain is
-# forwarded normally.
+# These requests use ordinary URLs with no explicit HTTP proxy settings. The first
+# reaches the approved endpoint through the Sidecar; the second is answered by the
+# addon with a `403` and never leaves the Sidecar.
 
 
-def request_status(method: str, url: str) -> str:
+def curl(url: str, extra_args: list[str] | None = None) -> str:
     process = sandbox.exec(
         "curl",
         "--cacert",
         SANDBOX_CA_CERT,
-        "--request",
-        method,
-        "--path-as-is",
         "--silent",
         "--show-error",
         "--output",
         "/dev/null",
         "--write-out",
         "%{http_code}",
+        *(extra_args or []),
         url,
     )
     status = process.stdout.read()
@@ -181,24 +207,30 @@ def request_status(method: str, url: str) -> str:
     return status
 
 
-requests = [
-    ("GET", "https://github.com/modal-labs/modal-client"),
-    ("POST", "https://github.com/modal-labs/modal-client"),
-    ("GET", "https://github.com/modal-labs/modal-examples"),
-    ("GET", "https://github.com/modal-labs/modal-client/../modal-examples"),
-    ("GET", "https://example.com/"),
-]
-for method, url in requests:
-    print(f"{method} {url} -> {request_status(method, url)}")
+print(f"GET allowed endpoint -> {curl(allowed_url)}")
+print(f"GET blocked endpoint -> {curl(blocked_url)}")
+
+# ## Block domain fronting
+
+# [Domain fronting](https://en.wikipedia.org/wiki/Domain_fronting) hides a
+# request's real destination behind an approved one. Because Modal's ingress
+# routes on the HTTP `Host` header, a Sandbox can open a TLS connection with
+# the *approved* endpoint's SNI while smuggling `Host: <blocked endpoint>` in
+# the encrypted request. The edge would then serve the blocked endpoint.
+
+# Our `request` hook stops this by rejecting any request whose `Host` header
+# does not match the SNI. Here the Sandbox tries exactly that fronting request
+# and is blocked:
+
+fronting_status = curl(allowed_url, ["-H", f"Host: {blocked_host}"])
+print(f"GET allowed SNI + blocked Host -> {fronting_status}")
 
 # The output should look like:
 
 # ```
-# GET https://github.com/modal-labs/modal-client -> 200
-# POST https://github.com/modal-labs/modal-client -> 403
-# GET https://github.com/modal-labs/modal-examples -> 403
-# GET https://github.com/modal-labs/modal-client/../modal-examples -> 403
-# GET https://example.com/ -> 200
+# GET allowed endpoint -> 200
+# GET blocked endpoint -> 403
+# GET allowed SNI + blocked Host -> 403
 # ```
 
 # Terminating the Sandbox also terminates its Sidecars.
