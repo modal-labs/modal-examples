@@ -26,6 +26,7 @@ from esm.models.esmfold2 import (
 from esm.models.esmfold2.constants import MOL_TYPE_NONPOLYMER, PROTEIN_3TO1
 from esm.utils.structure.protein_chain import ProteinChain
 from esm.utils.structure.protein_complex import ProteinComplex
+from huggingface_hub import snapshot_download
 from transformers.models.esmfold2.modeling_esmfold2_common import (
     _seed_context as seed_context,
 )
@@ -34,6 +35,9 @@ from transformers.models.esmfold2.modeling_esmfold2_experimental import (
 )
 
 from .constants import ELEMENTS, TOKENS
+
+ESMFOLD2_REPO = "biohub/ESMFold2"
+ESMFOLD2_REVISION = "6234905"
 
 # ---- Feature preparation ----
 
@@ -64,7 +68,7 @@ _ATOM_FEATURE_DIMS = {
 
 @cache
 def _ensure_ccd_loaded() -> None:
-    load_ccd()
+    load_ccd(snapshot_download(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION))
 
 
 def prepare_esmfold2_tensors(

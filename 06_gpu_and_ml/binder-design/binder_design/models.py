@@ -12,6 +12,7 @@ from functools import partial
 from typing import Any
 
 import torch
+from huggingface_hub import snapshot_download
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
@@ -35,23 +36,29 @@ from .design import design_binder
 
 _ESMC = None
 
+ESMC_REPO = "biohub/ESMC-6B"
+ESMC_REVISION = "45b0fa5"
+
 
 def _load_hf_model(
-    critic_name: str, lm_dropout: float, cache_esmc: bool, device: str
+    critic_name: str, lm_dropout: float, cache_esmc: bool, device: str, esmc_dir: str
 ) -> Any:
     """Load an ESMFold2 critic from Hugging Face.
 
     Caches the ESMC-6B encoder across non-scaling checkpoints to save VRAM
     and load time."""
     global _ESMC
-    repo_id = f"biohub/{critic_name}"
-    model = ESMFold2ExperimentalModel.from_pretrained(repo_id, load_esmc=not cache_esmc)
+    model = ESMFold2ExperimentalModel.from_pretrained(
+        f"biohub/{critic_name}", load_esmc=False
+    )
     if cache_esmc:
         if _ESMC is None:
-            model.load_esmc(model.config.esmc_id)
+            model.load_esmc(esmc_dir)
             _ESMC = model._esmc
         else:
             model._esmc = _ESMC
+    else:
+        model.load_esmc(model.config.esmc_id)
     model.configure_lm_dropout(lm_dropout, force_lm_dropout_during_inference=True)
     model.set_kernel_backend("cuequivariance" if CUE_AVAILABLE else None)
     return model.to(device=device).eval().requires_grad_(False)
@@ -73,7 +80,6 @@ def _apply_torch_compile(model: torch.nn.Module) -> None:
 
 
 class ESMFold2Designer:
-    lm_name = "biohub/ESMC-6B"
     inversion_model_names: list[str] = [
         "ESMFold2-Experimental-Fast",
         "ESMFold2-Experimental-Fast-Cutoff2025",
@@ -94,9 +100,14 @@ class ESMFold2Designer:
                 for step in ("250", "500", "750", "1000", "1500")
             ]
 
+        esmc_dir = snapshot_download(ESMC_REPO, revision=ESMC_REVISION)
         self.inversion_models = {
             model_name: _load_hf_model(
-                model_name, lm_dropout=0.5, cache_esmc=True, device="cuda"
+                model_name,
+                lm_dropout=0.5,
+                cache_esmc=True,
+                device="cuda",
+                esmc_dir=esmc_dir,
             )
             for model_name in self.inversion_model_names
         }
@@ -107,15 +118,23 @@ class ESMFold2Designer:
         self.hf_critic_models: dict[str, Any] = {}
         for name in self.hero_critic_hf_paths:
             self.hf_critic_models[name] = _load_hf_model(
-                name, lm_dropout=0.25, cache_esmc=True, device="cuda"
+                name,
+                lm_dropout=0.25,
+                cache_esmc=True,
+                device="cuda",
+                esmc_dir=esmc_dir,
             )
         for name in self.scaling_critic_hf_paths:
             self.hf_critic_models[name] = _load_hf_model(
-                name, lm_dropout=0.25, cache_esmc=False, device="cpu"
+                name,
+                lm_dropout=0.25,
+                cache_esmc=False,
+                device="cpu",
+                esmc_dir=esmc_dir,
             )
 
         self.esmc_model = ESMCForMaskedLM.from_pretrained(
-            self.lm_name, torch_dtype=torch.float32
+            esmc_dir, torch_dtype=torch.float32
         )
         if REUSE_ESMC:
             del self.esmc_model.esmc

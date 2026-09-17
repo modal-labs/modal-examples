@@ -71,6 +71,7 @@ with esmfold2_image.imports():
         ProteinInput,
         StructurePredictionInput,
     )
+    from huggingface_hub import snapshot_download
     from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
 
 # ## Caching ESMFold2 model weights on Modal Volumes
@@ -108,6 +109,8 @@ esmfold2_image = esmfold2_image.env(
 
 ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_REVISION = "6234905"  # pin for reproducibility
+ESMC_REPO = "biohub/ESMC-6B"
+ESMC_REVISION = "45b0fa5"
 
 
 @app.cls(
@@ -120,11 +123,13 @@ class ESMFold2Inference:
     @modal.enter()
     def load_model(self):
         print("🧬 loading ESMFold2 onto the GPU")
+        fold_dir = snapshot_download(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION)
+        esmc_dir = snapshot_download(ESMC_REPO, revision=ESMC_REVISION)
+        self._ccd_cache = Path(fold_dir)
         self.model = (
-            ESMFold2Model.from_pretrained(ESMFOLD2_REPO, revision=ESMFOLD2_REVISION)
-            .cuda()
-            .eval()
+            ESMFold2Model.from_pretrained(fold_dir, load_esmc=False).cuda().eval()
         )
+        self.model.load_esmc(esmc_dir)
 
     @modal.method()
     def fold(
@@ -164,7 +169,7 @@ class ESMFold2Inference:
             f"num_sampling_steps={num_sampling_steps}, "
             f"num_diffusion_samples={num_diffusion_samples}"
         )
-        result = ESMFold2InputBuilder().fold(
+        result = ESMFold2InputBuilder(ccd_cache=self._ccd_cache).fold(
             self.model,
             spi,
             num_loops=num_loops,
