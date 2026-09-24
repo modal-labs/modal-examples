@@ -108,14 +108,15 @@ def underutilize(scale=1):
 # This Function has the same environment `config` as `underutilize`,
 # but it also attaches a remote Modal Volume to save profiler outputs.
 
-# To increase the flexibility of this approach, we allow it to take the target Function's name
-# as an argument. That's not much use here where there's only one Function,
-# but it makes it easier to copy-paste this code into your projects to add profiling.
+# To increase the flexibility of this approach, we design the profiler to take a
+# target Function's name as an argument. That's not much use here where there's only
+# one Function, but it makes it easier to copy-paste this code into your projects to
+# add profiling.
 
 
 @app.function(volumes={TRACE_DIR: traces}, **config)
 def profile(
-    function,
+    function_name: str,
     label: Optional[str] = None,
     steps: int = 3,
     schedule=None,
@@ -127,12 +128,10 @@ def profile(
 ):
     from uuid import uuid4
 
-    if isinstance(function, str):
-        try:
-            function = app.registered_functions[function]
-        except KeyError:
-            raise ValueError(f"Function {function} not found")
-    function_name = function.tag
+    try:
+        function = app.registered_functions[function_name]
+    except KeyError:
+        raise ValueError(f"Function {function_name} not found")
 
     output_dir = (
         TRACE_DIR / (function_name + (f"_{label}" if label else "")) / str(uuid4())
