@@ -31,6 +31,7 @@ from urllib.parse import urlparse
 
 import fastapi
 import modal
+import modal.experimental
 
 app = modal.App.lookup("example-sandbox-outbound-policy", create_if_missing=True)
 
@@ -87,7 +88,7 @@ api_host = urlparse(api_url).hostname
 # Sandbox. We scope the replacement to a single domain so we don't leak the
 # secret to other services that might be called from within the Sandbox.
 
-outbound_policy = modal.OutboundPolicy().with_header_replacement(
+outbound_policy = modal.experimental.OutboundPolicy().with_header_replacement(
     domain=api_host,
     secret=api_secret,
     headers={"Authorization": "Bearer $API_KEY"},
@@ -104,7 +105,7 @@ sb = modal.Sandbox.create(
     str(5 * MINUTES),
     app=app,
     image=image,
-    outbound_policy=outbound_policy,
+    _experimental_outbound_policy=outbound_policy,
 )
 
 
