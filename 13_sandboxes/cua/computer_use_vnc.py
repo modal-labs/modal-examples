@@ -7,8 +7,8 @@
 # This example builds one with [Browser Use](https://docs.browser-use.com/).
 # An open-weights model served from a Modal
 # [Endpoint](https://modal.com/docs/guide/endpoints) powers the agent. The agent
-# drives Chromium inside a Modal
-# [VM Sandbox](https://modal.com/docs/guide/vm-sandboxes),
+# drives Chromium inside a Modal Sandbox running in a
+# [VM](https://modal.com/docs/guide/sandboxes#runtimes),
 # while a small web UI embeds a noVNC desktop so you can watch it work in real-time.
 
 # ## Run the example
