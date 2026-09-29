@@ -7,14 +7,11 @@
 # ## Basic setup: Imports, dependencies, and a script
 
 # Let's get the imports out of the way first.
-# We need to import `modal.experimental` to use this feature, since it's still under development.
-# Let us know if you run into any issues!
 
 import os
 from pathlib import Path
 
 import modal
-import modal.experimental
 
 # Communicating between nodes in a cluster requires communication libraries.
 # We'll use `torch`, so we add it to our container's [Image](https://modal.com/docs/guide/images) here.
@@ -94,19 +91,19 @@ backend = "nccl"  # or "gloo" on CPU, see https://pytorch.org/docs/stable/distri
 
 
 @app.function(gpu=GPU_CONFIG)
-@modal.experimental.clustered(size=n_nodes)
+@modal.clustered(size=n_nodes)
 def dist_run_script(*args):
     from torch.distributed.run import parse_args, run
 
-    cluster_info = (  # we populate this data for you
-        modal.experimental.get_cluster_info()
-    )
+    cluster = modal.Cluster.from_context()  # we populate this data for you
     # which container am I?
-    container_rank = cluster_info.rank
+    container_rank = cluster.container_rank()
+    # what are the IP addresses of the containers in this cluster?
+    container_ips = cluster.container_ips()
     # how many containers are in this cluster?
-    world_size = len(cluster_info.container_ips)
+    world_size = len(container_ips)
     # what's the leader/master/main container's address?
-    main_addr = cluster_info.container_ips[0]
+    main_addr = container_ips[0]
     # what's the identifier of this cluster task in Modal?
     task_id = os.environ["MODAL_TASK_ID"]
     print(f"hello from {container_rank=}")
@@ -119,7 +116,7 @@ def dist_run_script(*args):
         parse_args(
             [
                 f"--nnodes={n_nodes}",
-                f"--node_rank={cluster_info.rank}",
+                f"--node_rank={container_rank}",
                 f"--master_addr={main_addr}",
                 f"--nproc-per-node={n_proc_per_node}",
                 "--master_port=1234",
