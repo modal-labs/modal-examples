@@ -9,8 +9,8 @@
 # with [Miles](https://github.com/radixark/miles) and Group Relative Policy
 # Optimization (GRPO).
 #
-# We use [Clustered Functions](https://modal.com/docs/guide/multi-node-training)
-# to run distributed training on two nodes, each with eight H100 GPUs.
+# We use [Clustered Functions for distributed training](https://modal.com/docs/guide/multi-node-training)
+# on two nodes, each with eight H100 GPUs.
 #
 # ![Training reward, AIME correctness, step timing, and response truncation across 100 updates](https://modal-cdn.com/cdnbot/qwen3-4b-fsdp-8k-100-updates-labeled_4c365b52.png)
 #
