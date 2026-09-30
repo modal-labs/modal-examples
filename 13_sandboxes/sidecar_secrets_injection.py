@@ -26,8 +26,6 @@
 # service we are trying to access. Any proxy that can set request headers (nginx, Envoy, or something you
 # write yourself) and any authenticated API will do.
 
-# Sandbox Sidecars are in alpha and access is restricted to allowlisted workspaces.
-
 
 import argparse
 import hmac
