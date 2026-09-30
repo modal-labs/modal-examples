@@ -1,7 +1,6 @@
 # ---
 # cmd: ["python", "13_sandboxes/sandbox_secret_injection.py"]
 # pytest: false
-# lambda-test: false
 # ---
 
 # # Inject secrets into Sandbox HTTPS requests with an Outbound Policy
