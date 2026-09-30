@@ -277,9 +277,6 @@ async def start_session(task: str):
         if sandbox is not None:
             await sandbox.terminate.aio()
         raise
-    finally:
-        if sandbox is not None:
-            await sandbox.detach.aio()
 
 
 # ## Serve the web UI
@@ -312,14 +309,11 @@ async def session_status(sandbox_id: str):
     except modal.exception.NotFoundError as exc:
         raise fastapi.HTTPException(404, "Session not found.") from exc
 
-    try:
-        returncode = await sandbox.poll.aio()
-        if returncode is None:
-            return {"state": "running"}
-        stdout = await sandbox.stdout.read.aio()
-        stderr = await sandbox.stderr.read.aio()
-    finally:
-        await sandbox.detach.aio()
+    returncode = await sandbox.poll.aio()
+    if returncode is None:
+        return {"state": "running"}
+    stdout = await sandbox.stdout.read.aio()
+    stderr = await sandbox.stderr.read.aio()
 
     if returncode == 0:
         result = None
@@ -392,10 +386,7 @@ def test_session(
         raise RuntimeError(f"Unexpected session state: {status}")
 
     sandbox = modal.Sandbox.from_id(sandbox_id)
-    try:
-        sandbox.terminate()
-    finally:
-        sandbox.detach()
+    sandbox.terminate()
     print("session start ok")
 
 
@@ -403,8 +394,7 @@ def test_session(
 
 # Each Sandbox uses the agent process as its entrypoint, so it stops when the
 # task finishes or its timeout expires. Startup failures terminate it
-# immediately, and every code path detaches its local Sandbox handle.
-# `test_session` also terminates the Sandbox after the API check.
+# immediately, and `test_session` terminates the Sandbox after the API check.
 #
 # Stop `modal serve` with `Ctrl-C`. The shared Endpoint scales to zero when idle,
 # but remains available for later prompts. Shut it down when you are done:
