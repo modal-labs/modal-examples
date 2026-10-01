@@ -7,10 +7,8 @@ let pendingSentence = '';
 
 const getBaseURL = () => {
     const currentURL = new URL(window.location.href);
-    let hostname = currentURL.hostname;
-    hostname = hostname.replace('-ui', '-stt-api');
     const wsProtocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${hostname}/ws`;
+    return `${wsProtocol}//${currentURL.host}/ws`;
 }
 
 const updateTextOutput = () => {
