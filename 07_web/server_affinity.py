@@ -2,10 +2,10 @@
 # mypy: ignore-errors
 # ---
 
-# # Sticky routing for Modal Servers
+# # Affinity routing for Modal Servers
 
 # This example demonstrates the usage and behavior of
-# the optional "sticky" routing behavior of
+# the optional affinity routing behavior of
 # [Modal Servers](https://modal.com/docs/guide/servers) with a basic routing test.
 
 # For a gentler introduction to Modal Servers,
@@ -13,16 +13,16 @@
 # For the use of Modal HTTP Servers for LLM inference,
 # see [this example](https://modal.com/docs/examples/sglang_low_latency).
 
-# In sticky routing, sequential requests from the same client
+# In affinity routing, sequential requests from the same client
 # are sent to the same server replica.
-# Modal Servers offer sticky routing for fixed replica sets
+# Modal Servers offer affinity routing for fixed replica sets
 # using [rendezvous hashing](https://randorithms.com/2020/12/26/rendezvous-hashing.html),
 # ensuring that as your servers scale up and down, load stays balanced across replicas
 # and clients are typically routed to the same replica for repeated requests.
 
 # Note that requests are not _guaranteed_ to be routed to the same replica,
-# and so this form of sticky routing should not be relied on for logical correctness.
-# Instead, this sticky routing is intended to be used as a performance optimization,
+# and so this form of affinity routing should not be relied on for logical correctness.
+# Instead, this affinity routing is intended to be used as a performance optimization,
 # as in KV cacheing for [Transformer LLM inference](https://modal.com/docs/examples/sglang_low_latency).
 
 # ## Define the Modal Server
@@ -111,11 +111,11 @@ class Server:
 # and interact with our Modal Server by sending requests.
 
 # It spins up some `n`umber of `client` tasks and repeatedly sends requests from each for some number of `seconds`.
-# The clients can be configured to use `sticky` routing or not (`--no-sticky`).
+# The clients can be configured to use affinity routing or not (`--no-sticky`).
 
 # The test uses the `CONTAINER_ID`s returned by the Server
 # to track whether clients' requests are serviced by the same or different replicas.
-# It fails if the clients were configured to be sticky and any client
+# It fails if the clients were configured for affinity routing and any client
 # observes a different `CONTAINER_ID` on different requests.
 # So long as the set of containers does not change,
 # due to, for instance, replica failure or pre-emption,
@@ -144,20 +144,20 @@ async def test(n_clients: int = 4, sticky: bool = True, seconds: float = 10.0):
     print_summary(url, sticky, n_clients, seconds, stats)
 
     if sticky and stats["multi"]:
-        raise AssertionError("Sticky routing violated for some clients")
+        raise AssertionError("Affinity routing violated for some clients")
 
 
 # Because it is a Modal `local_entrypoint`,
 # this Python function automatically gets a CLI:
 
 # ```bash
-# modal run server_sticky.py --help
+# modal run server_affinity.py --help
 # ```
 
 # You can run the test with:
 
 # ```bash
-# modal run server_sticky.py
+# modal run server_affinity.py
 # ```
 
 # ## Write the client for the Modal Server
@@ -181,7 +181,7 @@ async def wait_available(sess: aiohttp.ClientSession, url: str) -> None:
 
 # The full client logic appears in the function below.
 # Notably, it includes the header `Modal-Session-Id`
-# if clients are configured for sticky routing.
+# if clients are configured for affinity routing.
 # Here, we choose a simple small integer `client_id`.
 
 # The client collects information about which `CONTAINER_ID`s

@@ -259,8 +259,8 @@ PROXY_REGION = "us-west"
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
 # To improve cache hit rate, Modal Servers
-# includes sticky routing based on a client-provided header.
-# See [this code sample](https://modal.com/docs/examples/server_sticky)
+# includes affinity routing based on a client-provided header.
+# See [this code sample](https://modal.com/docs/examples/server_affinity)
 # for details.
 
 # For production-scale LLM inference services, there are generally
@@ -540,7 +540,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
     if messages is None:
         messages = [{"role": "user", "content": "Tell me a joke."}]
 
-    client_id = str(0)  # set per multi-turn interaction for sticky routing
+    client_id = str(0)  # set per multi-turn interaction for affinity routing
     headers = {"Modal-Session-ID": client_id}
     deadline = time.time() + timeout
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:

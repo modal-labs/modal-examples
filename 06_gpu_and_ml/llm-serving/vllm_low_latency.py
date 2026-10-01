@@ -113,7 +113,7 @@ REGION = "us-east"
 # KV caches are stored in [GPU RAM](https://modal.com/gpu-glossary/device-hardware/gpu-ram),
 # so they aren't shared across replicas.
 # To improve cache hit rate, `@app.server`
-# includes sticky routing based on a client-provided header.
+# includes affinity routing based on a client-provided header.
 # See the client code below for details.
 
 # For production-scale LLM inference services, there are generally

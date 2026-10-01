@@ -109,5 +109,5 @@ def ping():
 # error response from Modal. Those requests still trigger scale up, and once a container is ready,
 # the 503s will stop and clients will receive the server's responses.
 
-# Modal Servers also support "sticky routing" for improved cache locality within client sessions.
-# For details, see [this example](https://modal.com/docs/examples/server_sticky).
+# Modal Servers also support "affinity routing" for improved cache locality within client sessions.
+# For details, see [this example](https://modal.com/docs/examples/server_affinity).

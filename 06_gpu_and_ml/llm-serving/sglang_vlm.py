@@ -283,7 +283,7 @@ async def main():
 # so most of these clients should work out of the box.
 # We replicate the minimum amount of its functionality we need for a test below.
 
-# Note that in the `probe` we include a `Modal-Session-Id` header for sticky routing
+# Note that in the `probe` we include a `Modal-Session-Id` header for affinity routing
 # between Modal HTTP Server replicas and ignore 503s that occur
 # when no Modal HTTP Server replicas are available.
 
