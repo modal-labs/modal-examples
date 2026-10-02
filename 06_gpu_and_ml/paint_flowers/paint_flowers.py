@@ -13,7 +13,7 @@
 # and use a judge to do pairwise comparisons against a reference pool of images
 # for the reward function.
 #
-# In this tutorial, we'll use [Modal Dojo](https://modal.com/docs/guide/dojo) to train
+# In this tutorial, we'll use [Modal Dojo](https://modal.com/docs/guide/training-quickstart) to train
 # [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) and use
 # [HuggingEnvs/watercolour-reference-pool](https://huggingface.co/datasets/HuggingEnvs/watercolour-reference-pool)
 # as the reference pool. During each rollout, sketches are rendered to PNGs in a
