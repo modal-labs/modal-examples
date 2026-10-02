@@ -377,7 +377,7 @@ async def test(test_timeout=10 * MINUTES, prompt=None, twice=True):
 # when a Server has no live replicas.
 
 # We include a header with each request --
-# `Modal-Session-ID`.
+# `Modal-Routing-Affinity-Key`.
 # The value associated with this key
 # is used to map requests onto containers such that
 # while the set of containers is fixed, requests with the same value
@@ -395,7 +395,7 @@ async def probe(url, messages=None, timeout=5 * MINUTES):
 
     client_id = str(0)  # set this to some string per multi-turn interaction
     # often a UUID per "conversation"
-    headers = {"Modal-Session-ID": client_id}
+    headers = {"Modal-Routing-Affinity-Key": client_id}
     deadline = time.time() + timeout
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:
         while time.time() < deadline:

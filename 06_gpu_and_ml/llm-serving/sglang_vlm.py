@@ -283,13 +283,13 @@ async def main():
 # so most of these clients should work out of the box.
 # We replicate the minimum amount of its functionality we need for a test below.
 
-# Note that in the `probe` we include a `Modal-Session-Id` header for affinity routing
+# Note that in the `probe` we include a `Modal-Routing-Affinity-Key` header for affinity routing
 # between Modal HTTP Server replicas and ignore 503s that occur
 # when no Modal HTTP Server replicas are available.
 
 
 async def probe(url: str, messages: list, timeout: int = 25 * MINUTES):
-    headers = {"Modal-Session-Id": "test-session"}
+    headers = {"Modal-Routing-Affinity-Key": "test-session"}
     deadline = time.time() + timeout
 
     async with aiohttp.ClientSession(base_url=url, headers=headers) as session:

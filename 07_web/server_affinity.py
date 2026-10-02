@@ -180,7 +180,7 @@ async def wait_available(sess: aiohttp.ClientSession, url: str) -> None:
 
 
 # The full client logic appears in the function below.
-# Notably, it includes the header `Modal-Session-Id`
+# Notably, it includes the header `Modal-Routing-Affinity-Key`
 # if clients are configured for affinity routing.
 # Here, we choose a simple small integer `client_id`.
 
@@ -200,7 +200,7 @@ class ClientResult:
 async def client(
     url: str, client_id: int, seconds: float, sticky: bool
 ) -> ClientResult:
-    headers = {"Modal-Session-Id": str(client_id)} if sticky else {}
+    headers = {"Modal-Routing-Affinity-Key": str(client_id)} if sticky else {}
     end = time.monotonic() + seconds
 
     seen: set[str] = set()
