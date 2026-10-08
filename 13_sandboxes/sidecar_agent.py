@@ -71,23 +71,24 @@ def create_endpoint_if_missing() -> None:
     )
 
 
-def endpoint_is_ready(url: str) -> bool:
+def get_endpoint_model_name(url: str) -> str | None:
     try:
-        with urllib.request.urlopen(f"{url}/health", timeout=5):
-            return True
+        with urllib.request.urlopen(f"{url}/v1/models", timeout=5) as response:
+            model_name = json.load(response)["data"][0]["id"]
+        return model_name if isinstance(model_name, str) and model_name else None
     except Exception:
-        return False
+        return None
 
 
-def wait_for_endpoint() -> str:
+def wait_for_endpoint() -> tuple[str, str]:
     deadline = time.monotonic() + 10 * MINUTES
     while True:
         try:
             url = endpoint_server.get_url()
         except modal.exception.NotFoundError:
             url = None
-        if url and endpoint_is_ready(url):
-            return url
+        if url and (model_name := get_endpoint_model_name(url)):
+            return url, model_name
         if time.monotonic() >= deadline:
             raise TimeoutError(f"Timed out waiting for Endpoint {ENDPOINT_NAME!r}.")
         time.sleep(1)
@@ -265,7 +266,7 @@ run_agent()
 
 def main():
     create_endpoint_if_missing()
-    endpoint_url = wait_for_endpoint()
+    endpoint_url, endpoint_model_name = wait_for_endpoint()
 
     worker_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
         "fastapi[standard]==0.139.2"
@@ -303,7 +304,7 @@ def main():
             image=agent_image,
             env={
                 "ENDPOINT_BASE_URL": endpoint_url,
-                "ENDPOINT_MODEL": ENDPOINT_MODEL,
+                "ENDPOINT_MODEL": endpoint_model_name,
             },
             outbound_domain_allowlist=[urlparse(endpoint_url).hostname],
         )

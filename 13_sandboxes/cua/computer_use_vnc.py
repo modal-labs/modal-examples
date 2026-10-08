@@ -111,7 +111,6 @@ AGENT_SCRIPT = textwrap.dedent(
 
     from browser_use import Agent, Browser, ChatOpenAI, Tools
 
-    model = os.environ["ENDPOINT_MODEL"]
     base_url = os.environ["ENDPOINT_BASE_URL"]
     start_page = "data:text/html," + urllib.parse.quote(
         "<body style='margin:0;background:#222;color:#ddd;font:28px system-ui;"
@@ -119,12 +118,14 @@ AGENT_SCRIPT = textwrap.dedent(
     )
 
 
-    def wait_for_endpoint() -> None:
+    def wait_for_endpoint() -> str:
         deadline = time.monotonic() + int(os.environ["ENDPOINT_WARMUP_TIME"])
         while True:
             try:
-                urllib.request.urlopen(f"{base_url}/health", timeout=5).close()
-                return
+                with urllib.request.urlopen(f"{base_url}/v1/models", timeout=5) as response:
+                    model_name = json.load(response)["data"][0]["id"]
+                if isinstance(model_name, str) and model_name:
+                    return model_name
             except Exception:
                 pass
             if time.monotonic() >= deadline:
@@ -142,7 +143,7 @@ AGENT_SCRIPT = textwrap.dedent(
         await browser.start()
         await browser.navigate_to(start_page)
         Path(os.environ["DESKTOP_READY_PATH"]).write_text("1", encoding="utf-8")
-        await asyncio.to_thread(wait_for_endpoint)
+        model = await asyncio.to_thread(wait_for_endpoint)
         llm = ChatOpenAI(
             model=model,
             api_key="unused",
@@ -253,7 +254,6 @@ async def start_session(task: str):
                 "AGENT_TASK": task,
                 "DESKTOP_READY_PATH": DESKTOP_READY_PATH,
                 "ENDPOINT_BASE_URL": endpoint_url,
-                "ENDPOINT_MODEL": ENDPOINT_MODEL,
                 "ENDPOINT_WARMUP_TIME": str(ENDPOINT_WARMUP_TIME),
                 "RESULT_PREFIX": RESULT_PREFIX,
             },
