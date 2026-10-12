@@ -62,7 +62,7 @@ def get_changed_files(base, head):
         # relative to it, so this works both when the examples are a repository
         # root and when they live in a subdirectory of a larger repository.
         result = subprocess.run(
-            ["git", "diff", "--name-only", "--relative", base, head],
+            ["git", "diff", "--name-only", "--relative", f"{base}...{head}"],
             capture_output=True,
             text=True,
             check=True,
