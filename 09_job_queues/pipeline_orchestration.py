@@ -52,7 +52,7 @@ with image.imports():
 # steps pass along.
 
 state = modal.Dict.from_name(f"{APP_NAME}-state", create_if_missing=True)
-data = modal.Volume.from_name(f"{APP_NAME}-data", create_if_missing=True)
+data = modal.Volume.from_name(f"{APP_NAME}-data-v2", create_if_missing=True, version=2)
 
 
 class Step(NamedTuple):
