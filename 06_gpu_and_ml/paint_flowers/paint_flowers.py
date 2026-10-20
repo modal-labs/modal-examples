@@ -43,7 +43,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "modal-dojo @ git+https://github.com/modal-projects/modal-dojo@main",
+#   "modal-dojo",
 #   "pillow",
 # ]
 # ///
