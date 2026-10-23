@@ -1,4 +1,5 @@
 # ---
+# lambda-test: false
 # cmd: ["python", "13_sandboxes/opencode_server.py"]
 # pytest: false
 # ---
