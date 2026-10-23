@@ -77,7 +77,7 @@ def spawn_server() -> subprocess.Popen:
 tei_image = (
     modal.Image.from_registry(
         "ghcr.io/huggingface/text-embeddings-inference:86-0.4.0",
-        add_python="3.10",
+        add_python="3.12",
     )
     .dockerfile_commands("ENTRYPOINT []")
     .uv_pip_install("httpx", "numpy")
@@ -299,7 +299,6 @@ def embed_dataset(down_scale: float = 1, batch_size: int = 512 * 50):
         batches,
         order_outputs=False,
         return_exceptions=True,
-        wrap_return_exceptions=False,
     ):
         if isinstance(resp, Exception):
             print(f"Exception: {resp}")

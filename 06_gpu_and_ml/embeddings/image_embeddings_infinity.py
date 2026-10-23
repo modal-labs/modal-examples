@@ -96,7 +96,7 @@ data_volume = modal.Volume.from_name(vol_name, create_if_missing=True)
 
 # ## Define the image
 infinity_image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install(
         [
             "pillow==11.3.0",  # for Infinity input typehint
@@ -107,6 +107,7 @@ infinity_image = (
             "torchvision==0.22.1",  # for fast image loading
             "infinity_emb[all]==0.0.76",  # for Infinity inference lib
             "optimum==1.26.1",  # need to pin this because newer version requires
+            "pyarrow==20.0.0",
         ]
     )
     .env(

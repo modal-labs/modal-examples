@@ -90,6 +90,7 @@ image = (
         "cuda-python==12.8.0",
         "fastapi==0.115.12",
         "numpy<2",
+        "pyarrow==20.0.0",
         "pydub==0.25.1",
     )
     .entrypoint([])  # silence chatty logs by container on start

@@ -329,7 +329,7 @@ class LTXInference:
 # at the weights Volume.
 
 inspatio_image = (
-    modal.Image.from_registry("nvidia/cuda:12.1.0-devel-ubuntu22.04", add_python="3.10")
+    modal.Image.from_registry("nvidia/cuda:12.1.0-devel-ubuntu22.04", add_python="3.12")
     .apt_install(
         "git",
         "ffmpeg",
@@ -367,7 +367,7 @@ inspatio_image = (
         "transformers==4.57.6",
         "trimesh==4.11.3",
         "xformers==0.0.29.post1",
-        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl",
+        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp312-cp312-linux_x86_64.whl",
         extra_index_url="https://download.pytorch.org/whl/cu121",
         extra_options="--index-strategy unsafe-best-match",
     )

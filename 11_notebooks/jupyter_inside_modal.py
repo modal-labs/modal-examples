@@ -1,5 +1,5 @@
 # ---
-# args: ["--timeout", 10]
+# args: ["--timeout", "10"]
 # ---
 
 # ## Overview

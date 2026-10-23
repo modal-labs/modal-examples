@@ -51,8 +51,8 @@ import modal
 import pydantic  # for typing, used later
 
 tensorrt_image = modal.Image.from_registry(
-    "nvidia/cuda:12.4.1-devel-ubuntu22.04",
-    add_python="3.10",  # TRT-LLM requires Python 3.10
+    "nvidia/cuda:12.6.3-devel-ubuntu22.04",
+    add_python="3.12",
 ).entrypoint([])  # remove verbose logging by base image on entry
 
 # On top of that, we add some system dependencies of TensorRT-LLM,
@@ -62,9 +62,13 @@ tensorrt_image = modal.Image.from_registry(
 tensorrt_image = tensorrt_image.apt_install(
     "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
 ).uv_pip_install(
-    "tensorrt_llm==0.14.0",
+    "tensorrt_llm==0.16.0",
     "pynvml<12",  # avoid breaking change to pynvml version API
-    "cuda-python==12.9.1",
+    "cuda-python==12.6.0",
+    "mpmath==1.3.0",
+    "pyarrow==20.0.0",
+    "datasets==2.21.0",
+    "fsspec==2024.6.1",
     pre=True,
     extra_index_url="https://pypi.nvidia.com",
     extra_options="--index-strategy unsafe-best-match",
@@ -140,7 +144,7 @@ tensorrt_image = (  # update the image by downloading the model we're using
 # We use a quantization script provided by the TensorRT-LLM team.
 # This script takes a few minutes to run.
 
-GIT_HASH = "b0880169d0fb8cd0363049d91aa548e58a41be07"
+GIT_HASH = "42a7b0922fc9e095f173eab9a7efa0bcdceadd0d"
 CONVERSION_SCRIPT_URL = f"https://raw.githubusercontent.com/NVIDIA/TensorRT-LLM/{GIT_HASH}/examples/quantization/quantize.py"
 
 # NVIDIA's Ada Lovelace/Hopper chips, like the 4090, L40S, and H100,
@@ -209,7 +213,7 @@ SIZE_ARGS = f"--max_input_len={MAX_INPUT_LEN} --max_num_tokens={MAX_NUM_TOKENS} 
 
 # There are many additional options you can pass to `trtllm-build` to tune the engine for your specific workload.
 # You can find the document we used for LLaMA
-# [here](https://github.com/NVIDIA/TensorRT-LLM/tree/b0880169d0fb8cd0363049d91aa548e58a41be07/examples/llama),
+# [here](https://github.com/NVIDIA/TensorRT-LLM/tree/42a7b0922fc9e095f173eab9a7efa0bcdceadd0d/examples/llama),
 # which you can use to adjust the arguments to fit your workloads,
 # e.g. adjusting rotary embeddings and block sizes for longer contexts.
 # For more performance tuning tips, check out [NVIDIA's official TensorRT-LLM performance guide](https://nvidia.github.io/TensorRT-LLM/0.21.0rc1/performance/performance-tuning-guide/index.html).
@@ -573,7 +577,7 @@ def main():
 # This API wrapper doesn't need all the dependencies of the core inference service,
 # so we switch images here to a basic Linux image, `debian_slim`, and add the FastAPI stack.
 
-web_image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
+web_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "fastapi[standard]==0.115.4",
     "pydantic==2.9.2",
     "starlette==0.41.2",

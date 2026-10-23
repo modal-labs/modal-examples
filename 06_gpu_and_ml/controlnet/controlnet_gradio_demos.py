@@ -196,7 +196,7 @@ def download_demo_files() -> None:
 
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install(
         "fastapi[standard]==0.115.4",
         "pydantic==2.9.1",
@@ -204,14 +204,15 @@ image = (
         "gradio==3.16.2",
         "albumentations==1.3.0",
         "opencv-contrib-python",
-        "imageio==2.9.0",
+        "imageio==2.34.2",
+        "scikit-image==0.24.0",
         "imageio-ffmpeg==0.4.2",
         "pytorch-lightning==1.5.0",
         "omegaconf==2.1.1",
         "test-tube>=0.7.5",
         "streamlit==1.12.1",
         "einops==0.3.0",
-        "transformers==4.19.2",
+        "transformers==4.38.2",
         "webdataset==0.2.5",
         "kornia==0.6",
         "open_clip_torch==2.0.2",
@@ -222,7 +223,7 @@ image = (
         "addict==2.4.0",
         "yapf==0.32.0",
         "prettytable==3.6.0",
-        "safetensors==0.2.7",
+        "safetensors==0.4.3",
         "basicsr==1.4.2",
         "tqdm~=4.64.1",
     )

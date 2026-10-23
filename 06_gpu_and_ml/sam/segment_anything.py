@@ -34,7 +34,7 @@ SAM2_GIT_SHA = (
 )
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.12")
     .apt_install("git", "wget", "python3-opencv", "ffmpeg")
     .uv_pip_install(
         "torch~=2.4.1",

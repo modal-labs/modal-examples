@@ -46,16 +46,13 @@ app = modal.App(name="example-esmfold2")
 # Code executing on Modal runs inside containers built from
 # [`modal.Image`s](https://modal.com/docs/guide/images) that include that
 # code's dependencies.
-# For ESMFold2, we only need the `esm` library from Biohub which will install the necessary dependencies
-# including a custom fork of the `transformers` library.
-
-ESM_REVISION = "81b3646c9429ea8458918415ad6a46178cb59833"  # pin upstream commit so builds are reproducible
+# The `esm` library from Biohub includes the ESMFold2 model and its dependencies.
 
 esmfold2_image = (
     modal.Image.debian_slim(python_version="3.13")
     .apt_install("git")
     .uv_pip_install(
-        f"esm @ git+https://github.com/Biohub/esm.git@{ESM_REVISION}",
+        "esm==3.4.1.post1",
     )
 )
 
@@ -66,13 +63,13 @@ with esmfold2_image.imports():
     from esm.models.esmfold2 import (
         DNAInput,
         ESMFold2InputBuilder,
+        EsmFold2Model,
         LigandInput,
         Modification,
         ProteinInput,
         StructurePredictionInput,
     )
     from huggingface_hub import snapshot_download
-    from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
 
 # ## Caching ESMFold2 model weights on Modal Volumes
 
@@ -127,7 +124,7 @@ class ESMFold2Inference:
         esmc_dir = snapshot_download(ESMC_REPO, revision=ESMC_REVISION)
         self._ccd_cache = Path(fold_dir)
         self.model = (
-            ESMFold2Model.from_pretrained(fold_dir, load_esmc=False).cuda().eval()
+            EsmFold2Model.from_pretrained(fold_dir, load_esmc=False).cuda().eval()
         )
         self.model.load_esmc(esmc_dir)
 

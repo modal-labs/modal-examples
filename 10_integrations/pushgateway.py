@@ -27,7 +27,7 @@ import modal
 PUSHGATEWAY_VERSION = "1.9.0"
 
 gw_image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.debian_slim(python_version="3.12")
     .apt_install("wget", "tar")
     .run_commands(
         f"wget https://github.com/prometheus/pushgateway/releases/download/v{PUSHGATEWAY_VERSION}/pushgateway-{PUSHGATEWAY_VERSION}.linux-amd64.tar.gz",

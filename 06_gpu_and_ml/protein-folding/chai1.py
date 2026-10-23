@@ -109,6 +109,7 @@ image = (
     .uv_pip_install(
         "chai_lab==0.5.0",
         "huggingface-hub==0.36.0",
+        "pyarrow==20.0.0",
     )
     .uv_pip_install(
         "torch==2.7.1",

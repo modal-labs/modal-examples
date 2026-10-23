@@ -35,14 +35,16 @@ PR32183_DIFF_URL = (
 PR32183_DIFF_SHA256 = "ddd65902ba570c158f9d6783604cf7d9f2f13bf41994fcbf330a68ea1909923c"
 
 sglang_image = (
-    modal.Image.from_registry("lmsysorg/sglang:nightly-dev-cu13-20260729-16a52bff")
+    modal.Image.from_registry(
+        "lmsysorg/sglang@sha256:763c33a6372fc89f6e616ed3a1189d76ed193d7b7f205f7cd367e06f25e4944c"
+    )
     .entrypoint([])  # silence chatty logs on container start
     .run_commands(
         f"curl -fsSL {PR32183_DIFF_URL} -o /tmp/pr32183.diff",
         f"echo '{PR32183_DIFF_SHA256}  /tmp/pr32183.diff' | sha256sum -c -",
         "cd /sgl-workspace/sglang"
         " && git apply --stat --exclude=test/* /tmp/pr32183.diff"
-        " && git apply --exclude=test/* /tmp/pr32183.diff",
+        " && git apply -C1 --exclude=test/* /tmp/pr32183.diff",
         "rm -rf /root/.cache/huggingface",
     )
 )

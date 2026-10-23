@@ -9,9 +9,7 @@ import modal
 app = modal.App("example-webscraper")
 
 
-playwright_image = modal.Image.debian_slim(
-    python_version="3.10"
-).run_commands(  # Doesn't work with 3.11 yet
+playwright_image = modal.Image.debian_slim(python_version="3.12").run_commands(
     "apt-get update",
     "apt-get install -y software-properties-common",
     "apt-add-repository non-free",
@@ -38,7 +36,7 @@ async def get_links(url: str) -> set[str]:
     return set(links)
 
 
-slack_sdk_image = modal.Image.debian_slim(python_version="3.10").uv_pip_install(
+slack_sdk_image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "slack-sdk==3.27.1"
 )
 
