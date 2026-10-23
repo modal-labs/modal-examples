@@ -84,6 +84,17 @@ TRAINING = {
     "grading_workers": 64,
     "grading_queue_size": 64,
     "completed_group_buffer": 8,
+    "filter_mixed_rewards": True,
+    "prefetch": True,
+}
+
+SMOKE_TRAINING = {
+    "context_tokens": 4096,
+    "turn_tokens": 512,
+    "max_turns": 2,
+    "group_size": 2,
+    "filter_mixed_rewards": False,
+    "prefetch": False,
 }
 
 # ## Define a reward function
@@ -99,9 +110,9 @@ TRAINING = {
 # Each job gets its own rank-32 adapter and optimizer state but share the same multi-LoRA trainer node.
 
 
-def create_training_client(service, checkpoint=None):
+def create_training_client(service, base_model, checkpoint=None):
     trainer = service.create_lora_training_client(
-        base_model="qwen35-9b-lora-128k", rank=32, train_unembed=False
+        base_model=base_model, rank=32, train_unembed=False
     )
     if checkpoint:
         trainer.load_state_with_optimizer(checkpoint["checkpoint"]).result(timeout=3600)
@@ -241,6 +252,8 @@ def main(argv=None):
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args(argv)
+    if args.smoke_test:
+        args.clients, args.steps, args.groups_per_batch = 1, 2, 1
     if min(args.clients, args.steps, args.groups_per_batch, args.hours) <= 0:
         parser.error("clients, steps, groups-per-batch, and hours must be positive")
     if args.output.exists() and any(args.output.iterdir()) and not args.resume:
@@ -256,6 +269,9 @@ def main(argv=None):
             TRAINING["completed_group_buffer"], args.groups_per_batch
         ),
     }
+    if args.smoke_test:
+        cfg.update(SMOKE_TRAINING)
+    base_model = "swe-gym-smoke" if args.smoke_test else "qwen35-9b-lora-128k"
     log = Log(args.output)
     atomic_json(
         args.output / "config.json",
@@ -263,32 +279,20 @@ def main(argv=None):
             **cfg,
             "model": MODEL,
             "revision": MODEL_REVISION,
-            "preset": "qwen35-9b-lora-128k",
+            "preset": base_model,
             "clients": args.clients,
         },
     )
     tasks = load_tasks()
+    if args.smoke_test:
+        tasks = [t for t in tasks if t["instance_id"] == "facebookresearch__hydra-1560"]
     environments = Environments()
 
     service = tinker.ServiceClient(
         base_url=os.environ["TINKER_BASE_URL"], api_key=os.environ["TINKER_API_KEY"]
     )
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=MODEL_REVISION)
-    if args.smoke_test:
-        trainer = create_training_client(service)
-        sampler = publish_policy(trainer, service, f"smoke-{time.time_ns()}")
-        sample = (
-            sampler.sample(
-                types.ModelInput.from_ints(tokenizer.encode("Hello")),
-                1,
-                types.SamplingParams(max_tokens=4, temperature=0.0, top_p=1.0),
-            )
-            .result(timeout=300)
-            .sequences[0]
-        )
-        print(f"smoke ok: generated {len(list(sample.tokens))} tokens")
-        return
-    reference = service.create_sampling_client(base_model="qwen35-9b-lora-128k")
+    reference = service.create_sampling_client(base_model=base_model)
     jobs = []
     for client in range(args.clients):
         checkpoint_file = args.output / f"train-job{client}-checkpoint.json"
@@ -300,7 +304,7 @@ def main(argv=None):
         start_step = checkpoint["step"] + 1 if checkpoint else 0
         if start_step >= args.steps:
             continue
-        trainer = create_training_client(service, checkpoint)
+        trainer = create_training_client(service, base_model, checkpoint)
         job = TrainingJob(
             client,
             trainer,
@@ -349,9 +353,8 @@ with image.imports():
     import tinker
     from helpers.dataset import load_tasks
     from helpers.environments import Environments
-    from helpers.job import TrainingJob, publish_policy
+    from helpers.job import TrainingJob
     from helpers.training import Log, atomic_json
-    from tinker import types
     from transformers import AutoTokenizer
 
 
@@ -360,7 +363,6 @@ app = modal.App("example-swe-gym-training")
 
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("spindle-synmon")],
     cpu=4,
     memory=8192,
     timeout=25 * 60,
@@ -388,7 +390,10 @@ def test(
     groups_per_batch: int = 1,
     smoke_test: bool = False,
 ):
-    run_training.remote(clients, steps, groups_per_batch, smoke_test)
+    secret = "spindle-synmon-smoke" if smoke_test else "spindle-synmon"
+    run_training.with_options(secrets=[modal.Secret.from_name(secret)]).remote(
+        clients, steps, groups_per_batch, smoke_test
+    )
 
 
 if __name__ == "__main__":

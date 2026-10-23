@@ -37,6 +37,7 @@ class TrainingJob:
             return
         self.version = start_step
         self.start_group = start_group
+        self.start_step = start_step
         if self.sampler is None:
             self.sampler = publish_policy(
                 self.trainer, self.service, f"{phase}-job{self.job}-initial"
@@ -64,11 +65,13 @@ class TrainingJob:
                     except Exception as exc:
                         self.log.event("group_failed", job=self.job, error=str(exc))
                         errors += 1
-                        if errors >= 5:
+                        if not self.cfg["prefetch"] or errors >= 5:
                             raise
                         continue
                     incoming.extend(episode["reward"] for episode in group["episodes"])
-                    if group["mixed"] and self.version - group["policy_version"] <= 1:
+                    if (
+                        group["mixed"] or not self.cfg["filter_mixed_rewards"]
+                    ) and self.version - group["policy_version"] <= 1:
                         chosen.append(group)
                 for minibatch in batched(chosen, self.cfg["minibatch_groups"]):
                     data = prepare_minibatch(
@@ -128,6 +131,11 @@ class TrainingJob:
                 while not stop.is_set() and len(pending) < limit and not output.full():
                     with self.lock:
                         sampler, version = self.sampler, self.version
+                    if not self.cfg["prefetch"] and (
+                        version >= self.cfg["steps"]
+                        or group - self.start_group != version - self.start_step
+                    ):
+                        break
                     inst = order[group % len(order)]
                     pending.add(
                         groups.submit(
