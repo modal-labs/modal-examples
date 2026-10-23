@@ -1,5 +1,5 @@
 # ---
-# deploy: true
+# lambda-test: false
 # mypy: ignore-errors
 # ---
 

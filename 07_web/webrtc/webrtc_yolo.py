@@ -1,6 +1,5 @@
 # ---
 # cmd: ["modal", "serve", "-m", "07_web.webrtc.webrtc_yolo"]
-# deploy: true
 # ---
 
 # # Real-time object detection with WebRTC and YOLO

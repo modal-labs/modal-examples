@@ -1,5 +1,5 @@
 # ---
-# deploy: true
+# lambda-test: false
 # cmd: ["python", "06_gpu_and_ml/llm-serving/vllm_low_latency.py"]
 # ---
 

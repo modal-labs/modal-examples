@@ -1,5 +1,5 @@
 # ---
-# deploy: true
+# lambda-test: false
 # cmd: ["modal", "serve", "09_job_queues/doc_ocr_webapp.py"]
 # ---
 
