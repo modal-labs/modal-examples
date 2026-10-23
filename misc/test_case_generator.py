@@ -290,12 +290,15 @@ async def run_sandbox(image: modal.Image, file_name: str):
         + "allure serve allure-results --host 0.0.0.0 --port 8000"
     )
 
+    sb_app = modal.App.lookup("sandbox-test-case-generator", create_if_missing=True)
+    await image.build.aio(sb_app)
     sb = await modal.Sandbox.create.aio(
         "sh",
         "-c",
         cmd,
         app=app,
-        image=image,
+        # prefer Images by id in Sandboxes to ensure they are never built during Sandbox launch
+        image=modal.Image.from_id(image.object_id),
         volumes={
             "/data": files_volume,
         },
