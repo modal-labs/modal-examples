@@ -278,7 +278,7 @@ async def main():
 
 
 # The client logic is normally handled by your preferred interface --
-# a coding agent harness like [OpenCode](https://modal.com/docs/examples/opencode_server),
+# a coding agent harness like OpenCode,
 # a chat UI in the browser. Our server uses the standard OpenAI-compatible API format,
 # so most of these clients should work out of the box.
 # We replicate the minimum amount of its functionality we need for a test below.
