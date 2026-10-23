@@ -17,6 +17,15 @@
 
 # ## Run the example
 #
+# The model Endpoint requires a [Proxy Token](https://modal.com/docs/guide/webhook-proxy-auth).
+# Create one and store it in a Modal [Secret](https://modal.com/docs/guide/secrets):
+#
+# ```bash
+# modal workspace proxy-tokens create
+# modal secret create example-proxy-token \
+#   MODAL_PROXY_TOKEN_ID=wk-... MODAL_PROXY_TOKEN_SECRET=ws-...
+# ```
+#
 # To programmatically test the example:
 #
 # ```bash
@@ -51,13 +60,18 @@ MINUTES = 60
 # your API key. For our purposes, however, we serve an open-weights model
 # ourselves via a Modal [Endpoint](https://modal.com/docs/guide/endpoints).
 # It takes one command to create an OpenAI-compatible server for the agent to
-# call. No external API key is needed, and the whole demo runs on Modal.
+# call. The agent authenticates with your Proxy Token instead of an external API
+# key, and the whole demo runs on Modal.
 
 ENDPOINT_MODEL = "Qwen/Qwen3.6-27B-FP8"
 ENDPOINT_NAME = "example-computer-use-vnc"
 ENDPOINT_ROUTING_REGION = "us-west"
 ENDPOINT_WARMUP_TIME = 5 * MINUTES
 endpoint_server = modal.Server.from_name(f"ep-{ENDPOINT_NAME}", "Server")
+proxy_token_secret = modal.Secret.from_name(
+    "example-proxy-token",
+    required_keys=["MODAL_PROXY_TOKEN_ID", "MODAL_PROXY_TOKEN_SECRET"],
+)
 
 VNC_PORT = 6080
 SESSION_START_TIMEOUT = 2 * MINUTES
@@ -116,6 +130,9 @@ AGENT_SCRIPT = textwrap.dedent(
     from browser_use import Agent, Browser, ChatOpenAI, Tools
 
     base_url = os.environ["ENDPOINT_BASE_URL"]
+    proxy_token = (
+        f"{os.environ['MODAL_PROXY_TOKEN_ID']}.{os.environ['MODAL_PROXY_TOKEN_SECRET']}"
+    )
     start_page = "data:text/html," + urllib.parse.quote(
         "<body style='margin:0;background:#222;color:#ddd;font:28px system-ui;"
         "display:grid;place-items:center;height:100vh'>Starting desktop...</body>"
@@ -124,9 +141,12 @@ AGENT_SCRIPT = textwrap.dedent(
 
     def wait_for_endpoint() -> str:
         deadline = time.monotonic() + int(os.environ["ENDPOINT_WARMUP_TIME"])
+        request = urllib.request.Request(
+            f"{base_url}/v1/models", headers={"Authorization": f"Bearer {proxy_token}"}
+        )
         while True:
             try:
-                with urllib.request.urlopen(f"{base_url}/v1/models", timeout=5) as response:
+                with urllib.request.urlopen(request, timeout=5) as response:
                     model_name = json.load(response)["data"][0]["id"]
                 if isinstance(model_name, str) and model_name:
                     return model_name
@@ -150,7 +170,7 @@ AGENT_SCRIPT = textwrap.dedent(
         model = await asyncio.to_thread(wait_for_endpoint)
         llm = ChatOpenAI(
             model=model,
-            api_key="unused",
+            api_key=proxy_token,
             base_url=f"{base_url}/v1",
             reasoning_effort="none",
             reasoning_models=[model],
@@ -199,7 +219,6 @@ def create_endpoint_if_missing() -> None:
             ENDPOINT_MODEL,
             "--routing-region",
             ENDPOINT_ROUTING_REGION,
-            "--unauthenticated",
         ],
         check=True,
     )
@@ -252,7 +271,7 @@ async def start_session(task: str):
             SANDBOX_COMMAND,
             app=app,
             image=sandbox_image,
-            experimental_options={"vm_runtime": True},
+            runtime="vm",
             env={
                 "AGENT_SCRIPT": AGENT_SCRIPT,
                 "AGENT_TASK": task,
@@ -261,6 +280,7 @@ async def start_session(task: str):
                 "ENDPOINT_WARMUP_TIME": str(ENDPOINT_WARMUP_TIME),
                 "RESULT_PREFIX": RESULT_PREFIX,
             },
+            secrets=[proxy_token_secret],
             encrypted_ports=[VNC_PORT],
             timeout=SANDBOX_TIMEOUT,
             readiness_probe=modal.Probe.with_exec("test", "-f", DESKTOP_READY_PATH),
