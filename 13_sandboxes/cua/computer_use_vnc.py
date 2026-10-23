@@ -1,3 +1,7 @@
+# ---
+# lambda-test: false
+# ---
+
 # # Watch a Browser Use agent drive Chromium over VNC
 
 # Computer-use agents are LLMs that can interact with a web browser in a loop.
