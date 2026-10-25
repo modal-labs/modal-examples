@@ -375,17 +375,13 @@ data_proc_image = modal.Image.debian_slim(python_version="3.13").uv_pip_install(
 
 # Instead of hitting the SEC's EDGAR Feed API every time we want to run a job,
 # we'll cache the results for each day in a Modal Volume.
-# We use Modal's [v2 Volumes](https://modal.com/docs/guide/volumes#volumes-v2-overview),
+# We use Modal's [v2 Volumes](https://modal.com/docs/guide/volumes#volumes-v2),
 # which have no limit on the number of total stored files.
 
 sec_edgar_feed = modal.Volume.from_name(
     "example-sec-edgar-daily", create_if_missing=True, version=2
 )
 data_root = Path("/data")
-
-# Note that v2 Volumes are still in beta, so data loss may be possible.
-# This is acceptable for most batch jobs, which extract data from an external
-# source of truth.
 
 # The `transform` function below operates on a folder containing data
 # with one filing per file
