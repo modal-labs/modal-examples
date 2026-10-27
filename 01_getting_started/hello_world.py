@@ -115,9 +115,9 @@ def main():
 # imagine something that matters to you, like:
 
 # * Running [language model inference](https://modal.com/docs/examples/vllm_inference)
-# or [fine-tuning](https://modal.com/docs/examples/slack-finetune)
+# or [fine-tuning](https://modal.com/docs/guide/training-quickstart)
 # * Manipulating [audio](https://modal.com/docs/examples/musicgen)
-# or [images](https://modal.com/docs/examples/diffusers_lora_finetune)
+# or [images](https://modal.com/docs/examples/text_to_image)
 # * [Embedding huge text datasets](https://modal.com/docs/examples/amazon_embeddings) at lightning fast speeds
 
 # Modal lets you parallelize that operation effortlessly by running hundreds or

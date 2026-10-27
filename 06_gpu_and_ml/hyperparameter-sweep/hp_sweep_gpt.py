@@ -13,7 +13,7 @@
 # large and capable language models understand tasks in natural language, so you can
 # carefully design a natural language "prompt" to elicit the desired behavior.
 
-# - [**Fine-Tuning**](https://modal.com/docs/examples/llm-finetuning):
+# - [**Fine-Tuning**](https://modal.com/docs/guide/training-quickstart):
 # those same language models were trained by gradient descent on data sets representing tasks,
 # and they can be further trained by gradient descent on data sets representative of your task.
 

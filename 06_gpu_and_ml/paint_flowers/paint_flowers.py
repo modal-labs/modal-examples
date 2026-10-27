@@ -8,7 +8,8 @@
 # # Painting flowers with code
 #
 # As this [blog post](https://surya.website/rling-qwen-to-paint-with-code) shows,
-# you can train a model to create watercolour sketches of flowers using
+# you can fine-tune a model to create watercolour
+# sketches of flowers using
 # [p5.brush](https://p5brush.org),
 # and use a judge to do pairwise comparisons against a reference pool of images
 # for the reward function.
