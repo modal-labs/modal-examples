@@ -286,7 +286,7 @@ See the repository root `CLAUDE.md` for full Python development rules.
 
 ## Pull Request Guidelines
 
-See `.github/pull_request_template.md` for the full checklist. Key points:
+Key points:
 
 - Example must be testable with `modal run` or have a custom `cmd` in
   frontmatter
