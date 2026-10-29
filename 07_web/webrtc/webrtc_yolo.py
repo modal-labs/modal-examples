@@ -15,7 +15,7 @@
 # </video>
 # </center>
 
-# You can also try our deployment [here](https://modal-labs-examples--example-webrtc-yolo-webcamobjdet-web.modal.run).
+# You can also try our deployment [here](https://modal-examples--example-webrtc-yolo-webcamobjdet-web.modal.run).
 
 # ## What is WebRTC?
 

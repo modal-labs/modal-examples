@@ -179,7 +179,7 @@ def api():
 
         ```sh
         curl --no-buffer \
-            https://modal-labs-examples--example-streaming-whisper-api.modal.run/transcribe?url=https://modal-cdn.com/history-of-rome-podcast-duncan-001-in-the-beginning.mp3
+            https://modal-examples--example-streaming-whisper-api.modal.run/transcribe?url=https://modal-cdn.com/history-of-rome-podcast-duncan-001-in-the-beginning.mp3
         ```
 
         This endpoint will stream back the audio transcription as it makes progress.

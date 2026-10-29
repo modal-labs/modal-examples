@@ -12,11 +12,11 @@
 # tasks to a separate Modal app defined in [another example](https://modal.com/docs/examples/doc_ocr_jobs),
 # polls until the task is completed, and displays
 # the results. Try it out for yourself
-# [here](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/).
+# [here](https://modal-examples--example-doc-ocr-webapp-wrapper.modal.run/).
 
 # It should look something like this:
 
-# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
+# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-examples--example-doc-ocr-webapp-wrapper.modal.run/)
 
 # ## Basic setup
 
@@ -129,7 +129,7 @@ def wrapper():
 
 # The result should look something like this:
 
-# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-labs-examples--example-doc-ocr-webapp-wrapper.modal.run/)
+# [![Webapp frontend](https://modal-cdn.com/doc_ocr_frontend.jpg)](https://modal-examples--example-doc-ocr-webapp-wrapper.modal.run/)
 
 # Modal watches all the mounted files and updates the app if anything changes.
 # See [these docs](https://modal.com/docs/guide/webhooks#developing-with-modal-serve)

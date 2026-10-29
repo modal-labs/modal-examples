@@ -139,13 +139,13 @@ app.include(gw_app)
 # ✓ Created objects.
 # ├── 🔨 Created mount /home/ec2-user/modal/examples/10_integrations/pushgateway.py
 # ├── 🔨 Created function ExampleClientApplication.*.
-# ├── 🔨 Created web function serve => https://modal-labs-examples--example-pushgateway-serve.modal.run
-# └── 🔨 Created web function for ExampleClientApplication.hello => https://modal-labs-examples--hello-pushgateway.modal.run
+# ├── 🔨 Created web function serve => https://modal-examples--example-pushgateway-serve.modal.run
+# └── 🔨 Created web function for ExampleClientApplication.hello => https://modal-examples--hello-pushgateway.modal.run
 # ✓ App deployed! 🎉
 # ```
 
-# You can now go to both the [client application](https://modal-labs-examples--hello-pushgateway.modal.run)
-# and [Pushgateway](https://modal-labs-examples--example-pushgateway-serve.modal.run) URLs to see the metrics being pushed.
+# You can now go to both the [client application](https://modal-examples--hello-pushgateway.modal.run)
+# and [Pushgateway](https://modal-examples--example-pushgateway-serve.modal.run) URLs to see the metrics being pushed.
 
 # ## Hooking up Prometheus
 
@@ -158,7 +158,7 @@ app.include(gw_app)
 # - job_name: 'pushgateway'
 #   honor_labels: true # required so that the instance label is preserved
 #   static_configs:
-#   - targets: ['modal-labs-examples--example-pushgateway-serve.modal.run']
+#   - targets: ['modal-examples--example-pushgateway-serve.modal.run']
 # ```
 
 # Note that the target will be different if you have a custom domain set up for the Pushgateway,

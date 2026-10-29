@@ -107,7 +107,7 @@ def web():
 
 # Enter the URL of the MCP server that was printed by the `modal serve` command above,
 # suffixed with `/mcp/` (so for example
-# `https://modal-labs-examples--datetime-mcp-server-web-dev.modal.run/mcp/`). Also
+# `https://modal-examples--datetime-mcp-server-web-dev.modal.run/mcp/`). Also
 # make sure to select "Streamable HTTP" as the "Transport Type".
 
 # After connecting and clicking "List Tools" in the "Tools" tab you should see your
