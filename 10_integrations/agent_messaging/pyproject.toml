@@ -1,0 +1,11 @@
+[project]
+name = "modal-agent-messaging"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["modal==1.6.3", "mcp==1.26.0"]
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "ruff==0.9.6", "mypy>=1.15,<2"]
+
+[tool.pytest.ini_options]
+testpaths = ["test_board.py"]
