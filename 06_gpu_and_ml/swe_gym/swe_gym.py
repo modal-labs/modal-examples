@@ -106,7 +106,7 @@ SMOKE_TRAINING = {
 #
 # ## Create a LoRA training client
 #
-# Pass `"qwen35-9b-lora-128k"` as `base_model` to select the server's 128K-context preset.
+# Pass the Hugging Face model name as `base_model` to let the server select its recipe.
 # Each job gets its own rank-32 adapter and optimizer state but share the same multi-LoRA trainer node.
 
 
@@ -271,7 +271,7 @@ def main(argv=None):
     }
     if args.smoke_test:
         cfg.update(SMOKE_TRAINING)
-    base_model = "swe-gym-smoke" if args.smoke_test else "qwen35-9b-lora-128k"
+    base_model = "swe-gym-smoke" if args.smoke_test else MODEL
     log = Log(args.output)
     atomic_json(
         args.output / "config.json",
@@ -288,8 +288,18 @@ def main(argv=None):
         tasks = [t for t in tasks if t["instance_id"] == "facebookresearch__hydra-1560"]
     environments = Environments()
 
+    headers = {}
+    if os.environ.get("MODAL_PROXY_TOKEN_ID") and os.environ.get(
+        "MODAL_PROXY_TOKEN_SECRET"
+    ):
+        headers = {
+            "Modal-Key": os.environ["MODAL_PROXY_TOKEN_ID"],
+            "Modal-Secret": os.environ["MODAL_PROXY_TOKEN_SECRET"],
+        }
     service = tinker.ServiceClient(
-        base_url=os.environ["TINKER_BASE_URL"], api_key=os.environ["TINKER_API_KEY"]
+        base_url=os.environ["TINKER_BASE_URL"],
+        api_key=os.environ["TINKER_API_KEY"],
+        default_headers=headers,
     )
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=MODEL_REVISION)
     reference = service.create_sampling_client(base_model=base_model)

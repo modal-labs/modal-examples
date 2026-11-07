@@ -14,6 +14,9 @@ class Config(Parent):
     inference_target_concurrency = 2
     overrides = {
         "platform.frontend": "swe-gym-smoke",
+        "platform.requires_proxy_auth": True,
+        "platform.secrets.api": "spindle-synmon-smoke",
+        "platform.secrets.sampler_proxy": "spindle-synmon-smoke",
         "miles_cfg.tensor_model_parallel_size": 1,
         "miles_cfg.max_tokens_per_gpu": 4096,
         "miles_cfg.max_lora_slots": 1,
