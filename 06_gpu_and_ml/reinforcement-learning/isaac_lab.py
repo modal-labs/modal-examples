@@ -14,17 +14,17 @@
 # the policy progression accross three checkpoints.
 #
 # <video controls autoplay loop muted playsinline>
-# <source src="https://modal-cdn.com/cdnbot/anymal_d_final_vs_pretrainedhr0phbwj_01e82ae5.mp4" type="video/mp4">
+# <source src="https://modal-cdn.com/cdnbot/anymal_d_final_vs_pretrainedkzl0jszc_b3c20fef.mp4" type="video/mp4">
 # </video>
 #
 # <video controls autoplay loop muted playsinline>
-# <source src="https://modal-cdn.com/cdnbot/anymal_d_training_progressk9ghp9og_d677ca5a.mp4" type="video/mp4">
+# <source src="https://modal-cdn.com/cdnbot/anymal_d_training_progressh7dezhci_0eef7808.mp4" type="video/mp4">
 # </video>
 #
 # [Isaac Lab](https://isaac-sim.github.io/IsaacLab/) is NVIDIA's open source Python framework for robot learning with GPUs.
 # It's built on top of [Isaac Sim](https://developer.nvidia.com/isaac/sim), NVIDIA's open source robotics simulation platform.
 # Isaac Sim utilizes [Omniverse](https://developer.nvidia.com/omniverse) (simulation and rendering) and
-# [PhysX](https://developer.nvidia.com/physx-sdk) (physics engine), which both take advantage of GPUs for acceleration.
+# [Newton](https://developer.nvidia.com/newton-physics) (physics engine), which both take advantage of GPUs for acceleration.
 #
 # Isaac Lab integrates with a variety of RL frameworks. Here, we'll use [rsl-rl](https://github.com/leggedrobotics/rsl_rl),
 # an open source reinforcement learning library for robotics training, with PPO as the training algorithm. All of
@@ -54,7 +54,7 @@ NUM_GPUS = 4
 MINUTES = 60
 TASK = "Isaac-Velocity-Rough-AnymalD"
 TRAINING_ITERATIONS = 121
-RENDER_ITERATIONS = (60, 70, 91)
+RENDER_ITERATIONS = (60, 70, 121)
 
 # Isaac Lab and its Python environment live at these paths in NVIDIA's image.
 
@@ -86,7 +86,6 @@ output_vol = modal.Volume.from_name("isaac-demo-output", create_if_missing=True)
 image = (
     modal.Image.from_registry("nvcr.io/nvidia/isaac-lab:3.0.0-rc1", add_python="3.11")
     .entrypoint([])
-    .apt_install("ffmpeg")
     .env({"ACCEPT_EULA": "Y"})
     .run_commands(f"{ISAAC_PYTHON} -m pip install moviepy==1.0.3")
 )
@@ -146,37 +145,35 @@ def train(iterations: int = TRAINING_ITERATIONS) -> dict[int, tuple[int, bytes]]
 # ## Render each checkpoint
 #
 # Each checkpoint is replayed in one container. The first launch compiles RTX shaders into a cache on
-# that container's disk, and later renders copy the cache instead of compiling again. Up to two renders run
+# that container's disk, and later renders copy the cache instead of compiling again. Up to three renders run
 # at once. Each of those copies the cache into its own directory first, because the NVIDIA driver gives
 # every process its own cache file, and a second process sharing the directory would recompile.
 
 
-@app.cls(
+@app.function(
     image=image,
     gpu="L40S",
     timeout=60 * MINUTES,
     max_containers=1,
     scaledown_window=10 * MINUTES,
 )
-@modal.concurrent(max_inputs=2)
-class Renderer:
-    @modal.method()
-    def render(self, clip_name: str, checkpoint: bytes | None = None) -> bytes:
-        checkpoint_path = None
-        if checkpoint is None:
-            DRIVER_SHADER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            cache_path = DRIVER_SHADER_CACHE_DIR
-        else:
-            cache_path = Path(f"/tmp/nv_shadercache_{clip_name}")
-            if DRIVER_SHADER_CACHE_DIR.is_dir():
-                shutil.copytree(DRIVER_SHADER_CACHE_DIR, cache_path, dirs_exist_ok=True)
-            run_dir = Path("/tmp/play_runs") / clip_name
-            run_dir.mkdir(parents=True, exist_ok=True)
-            checkpoint_path = run_dir / f"{clip_name}.pt"
-            checkpoint_path.write_bytes(checkpoint)
+@modal.concurrent(max_inputs=3)
+def render(clip_name: str, checkpoint: bytes | None = None) -> bytes:
+    checkpoint_path = None
+    if checkpoint is None:
+        DRIVER_SHADER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_path = DRIVER_SHADER_CACHE_DIR
+    else:
+        cache_path = Path(f"/tmp/nv_shadercache_{clip_name}")
+        if DRIVER_SHADER_CACHE_DIR.is_dir():
+            shutil.copytree(DRIVER_SHADER_CACHE_DIR, cache_path, dirs_exist_ok=True)
+        run_dir = Path("/tmp/play_runs") / clip_name
+        run_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_path = run_dir / f"{clip_name}.pt"
+        checkpoint_path.write_bytes(checkpoint)
 
-        kit_args = KIT_ARGS + f" --/rtx/shaderDb/driverShaderCachePath={cache_path}"
-        return _render(checkpoint_path, kit_args)
+    kit_args = KIT_ARGS + f" --/rtx/shaderDb/driverShaderCachePath={cache_path}"
+    return _render(checkpoint_path, kit_args)
 
 
 # ## Tile the clips
@@ -231,14 +228,13 @@ def _write_video(clips: list[tuple[bytes, str, str]], video_name: str):
 
 @app.local_entrypoint()
 def main(iterations: int = TRAINING_ITERATIONS):
-    renderer = Renderer()
-    expert_call = renderer.render.spawn("expert")
+    expert_call = render.spawn("expert")
 
     checkpoints = train.remote(iterations)
     expert_video = expert_call.get()
 
     rendered = list(
-        renderer.render.starmap(
+        render.starmap(
             [
                 (str(iteration), checkpoints[iteration][1])
                 for iteration in RENDER_ITERATIONS
@@ -259,9 +255,16 @@ def main(iterations: int = TRAINING_ITERATIONS):
             (videos[final], f"{checkpoints[final][0]} iters", "cyan"),
         ],
     )
-    print("Done. Download the videos with:")
-    print(f"  modal volume get isaac-demo-output {COMPARISON_VIDEO_NAME}")
-    print(f"  modal volume get isaac-demo-output {PROGRESS_VIDEO_NAME}")
+    bold_green, reset = "\033[1;32m", "\033[0m"
+    banner = "=" * 72
+    print(
+        f"\n{bold_green}{banner}\n"
+        "Download the videos with:\n\n"
+        f"  modal volume get isaac-demo-output {COMPARISON_VIDEO_NAME}\n"
+        f"  modal volume get isaac-demo-output {PROGRESS_VIDEO_NAME}\n"
+        f"{banner}{reset}\n",
+        flush=True,
+    )
 
 
 # ## Demo rendering and video stitching utilities
