@@ -35,7 +35,7 @@ import modal
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])
-    .uv_pip_install("vllm==0.21.0")
+    .uv_pip_install("vllm==0.21.0", "transformers==5.8.1")
     .env(
         {
             "HF_XET_HIGH_PERFORMANCE": "1",  # faster model transfers
