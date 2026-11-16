@@ -30,19 +30,40 @@ image = modal.Image.debian_slim(python_version="3.12").uv_pip_install(
     "chatterbox-tts==0.1.7",
     "fastapi[standard]==0.124.4",
     "peft==0.18.0",
-    "setuptools<82",
+    "setuptools==81.0.0",
 )
 
-# We'll also use Chatterbox's provided set of voice prompts which you can download [here](https://modal-cdn.com/blog/audio/chatterbox-tts-voices.zip).
-# Unzip the file and upload it to a `modal.Volume` called `chatterbox-tts-voices` with the following CLI commands:
-# ```shell
-# modal volume create chatterbox-tts-voices
-# modal volume put chatterbox-tts-voices <PATH-TO-UNZIPPED-VOICE-PROMPTS-DIRECTORY>
-# ```
-# Now we can instantiate the volume and use it with our app.
+# We'll download Chatterbox's public [voice prompts](https://modal-cdn.com/blog/audio/chatterbox-tts-voices.zip)
+# to the container image during its construction.
 
-chatterbox_tts_voices_vol = modal.Volume.from_name("chatterbox-tts-voices")
-VOICE_PROMPTS_DIR = "/chatterbox-tts/prompts"
+VOICE_PROMPT_PATH = "/chatterbox-tts/prompts/Lucy.wav"
+
+
+def download_voice_prompt():
+    import io
+    import pathlib
+    import urllib.request
+    import zipfile
+
+    with urllib.request.urlopen(
+        "https://modal-cdn.com/blog/audio/chatterbox-tts-voices.zip", timeout=60
+    ) as response:
+        with zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+            prompts = [
+                name
+                for name in archive.namelist()
+                if pathlib.PurePosixPath(name).name == "Lucy.wav"
+            ]
+            if len(prompts) != 1:
+                raise ValueError(
+                    f"Expected one Lucy.wav voice prompt, found {len(prompts)}"
+                )
+            path = pathlib.Path(VOICE_PROMPT_PATH)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(archive.read(prompts[0]))
+
+
+image = image.run_function(download_voice_prompt)
 
 app = modal.App("example-chatterbox-tts", image=image)
 
@@ -64,15 +85,10 @@ with image.imports():
 # - `scaledown_window=60 * 5`: Keep containers alive for 5 minutes after last request
 # - `@modal.concurrent(max_inputs=10)`: Allow up to 10 concurrent requests per container
 
-# We'll also need to provide a Hugging Face token using a `modal.Secret` to access the model weights,
-# and attach the `chatterbox-tts-voices` volume to the container.
-
 
 @app.cls(
     gpu="a10g",
     scaledown_window=60 * 5,
-    secrets=[modal.Secret.from_name("hf-token")],
-    volumes={VOICE_PROMPTS_DIR: chatterbox_tts_voices_vol},
 )
 @modal.concurrent(max_inputs=10)
 class Chatterbox:
@@ -97,10 +113,7 @@ class Chatterbox:
         # Generate audio waveform from the input text
         wav = self.model.generate(
             prompt,
-            audio_prompt_path=VOICE_PROMPTS_DIR
-            + "/chatterbox-tts-voices"
-            + "/prompts"
-            + "/Lucy.wav",
+            audio_prompt_path=VOICE_PROMPT_PATH,
         )
 
         # Convert the waveform to bytes

@@ -82,10 +82,11 @@ tensorrt_image = modal.Image.from_registry(
 ).entrypoint([])  # silence noisy NVIDIA license logging
 
 tensorrt_image = tensorrt_image.apt_install(
-    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget"
+    "openmpi-bin", "libopenmpi-dev", "git", "git-lfs", "wget", "clang"
 ).uv_pip_install(
     "tensorrt-llm==0.20.0",  # 0.20+ adds trtllm-serve --extra_llm_api_options
-    "pynvml>=12",  # required by tensorrt-llm 0.20
+    "xgrammar @ git+https://github.com/mlc-ai/xgrammar.git@989222175c2a30fb7987d8bcce35bec1bf6817f2",
+    "pynvml==13.0.1",  # required by tensorrt-llm 0.20
     "flashinfer-python==0.2.5",
     "cuda-python==12.9.1",
     "onnx==1.19.1",
@@ -125,6 +126,7 @@ MODELS_PATH = VOLUME_PATH / "models"
 
 tensorrt_image = tensorrt_image.uv_pip_install(
     "huggingface_hub==0.36.0",
+    "pyarrow==18.1.0",
 ).env(
     {
         "HF_XET_HIGH_PERFORMANCE": "1",
