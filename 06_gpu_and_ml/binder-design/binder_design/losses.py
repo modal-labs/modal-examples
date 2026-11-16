@@ -18,9 +18,8 @@ from functools import cache
 
 import torch
 import torch.nn.functional as F
+from esm.models.esmc import EsmcForMaskedLM, EsmcTokenizer
 from esm.models.esmfold2.constants import PROTEIN_1TO3
-from transformers.models.esmc.modeling_esmc import ESMCForMaskedLM
-from transformers.models.esmc.tokenization_esmc import ESMCTokenizer
 
 from .constants import ESMC_MASK_FRACTION, LOSS_WEIGHTS, TOKENS
 
@@ -269,7 +268,7 @@ def _folding_trunk_to_lm_aa_vocab_matrix(device: torch.device) -> torch.Tensor:
     three_to_one_map = {v: k for k, v in PROTEIN_1TO3.items()}
     ft_aas = [three_to_one_map[tok_3letter] for tok_3letter in TOKENS[2:22]]
 
-    lm_vocab = sorted(ESMCTokenizer().vocab.items(), key=lambda x: x[1])
+    lm_vocab = sorted(EsmcTokenizer().get_vocab().items(), key=lambda x: x[1])
     lm_aas = [lm_vocab[i][0] for i in range(4, 24)]
 
     ft_to_lm_aa_matrix = torch.zeros(20, 20)
@@ -291,7 +290,7 @@ def _straight_through(discrete: torch.Tensor, continuous: torch.Tensor) -> torch
 
 
 def compute_esmc_pseudoperplexity_nll(
-    esmc_model: ESMCForMaskedLM,
+    esmc_model: EsmcForMaskedLM,
     binder_design: torch.Tensor,
     score_mask: torch.Tensor,
     batch_size: int = 4,
@@ -311,7 +310,7 @@ def compute_esmc_pseudoperplexity_nll(
         dtype=model_dtype,
         device=device,
     )
-    tokenizer = ESMCTokenizer()
+    tokenizer = EsmcTokenizer()
     input_ids[:, 0, tokenizer.cls_token_id] = 1
     input_ids[:, -1, tokenizer.eos_token_id] = 1
     input_ids[:, 1:-1, 4:24] = input_esm.to(model_dtype)

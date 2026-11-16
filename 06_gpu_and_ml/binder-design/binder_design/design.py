@@ -17,14 +17,10 @@ import random
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from esm.models.esmc import EsmcForMaskedLM
+from esm.models.esmfold2 import EsmFold2ExperimentalModel
 from esm.models.esmfold2.constants import PROTEIN_1TO3
-from transformers.models.esmc.modeling_esmc import ESMCForMaskedLM
-from transformers.models.esmfold2.modeling_esmfold2_common import (
-    _seed_context as seed_context,
-)
-from transformers.models.esmfold2.modeling_esmfold2_experimental import (
-    ESMFold2ExperimentalModel,
-)
+from esm.models.esmfold2.layers import _seed_context as seed_context
 
 from .constants import (
     AA_DIMS,
@@ -102,9 +98,9 @@ def normalized_gradient_tensor(
 
 
 def design_binder(
-    inversion_models: dict[str, ESMFold2ExperimentalModel],
-    hf_critic_models: dict[str, ESMFold2ExperimentalModel],
-    esmc_model: ESMCForMaskedLM,
+    inversion_models: dict[str, EsmFold2ExperimentalModel],
+    hf_critic_models: dict[str, EsmFold2ExperimentalModel],
+    esmc_model: EsmcForMaskedLM,
     target_name: str | None,
     target_sequence: str | None,
     binder_name: str | None,

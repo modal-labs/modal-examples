@@ -12,23 +12,24 @@ from functools import partial
 from typing import Any
 
 import torch
+from esm.models.esmc import EsmcForMaskedLM
+from esm.models.esmc.layers import (
+    EsmcUnifiedTransformerBlock as TransformerBlock,
+)
+from esm.models.esmfold2.experimental import (
+    EsmFold2ExperimentalModel,
+    MSAEncoder as ESMFold2MSAEncoder,
+)
+from esm.models.esmfold2.layers import (
+    BACKEND_FUSED,
+    TRITON_KERNELS_AVAILABLE,
+    PairUpdateBlock,
+)
 from huggingface_hub import snapshot_download
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
-)
-from transformers.models.esmc.modeling_esmc import (
-    ESMCForMaskedLM,
-    UnifiedTransformerBlock as TransformerBlock,
-)
-from transformers.models.esmfold2.modeling_esmfold2_common import (
-    CUE_AVAILABLE,
-    PairUpdateBlock,
-)
-from transformers.models.esmfold2.modeling_esmfold2_experimental import (
-    ESMFold2ExperimentalModel,
-    MSAEncoder as ESMFold2MSAEncoder,
 )
 
 from .constants import CHECKPOINT_LM, COMPILE, REUSE_ESMC
@@ -48,19 +49,19 @@ def _load_hf_model(
     Caches the ESMC-6B encoder across non-scaling checkpoints to save VRAM
     and load time."""
     global _ESMC
-    model = ESMFold2ExperimentalModel.from_pretrained(
+    model = EsmFold2ExperimentalModel.from_pretrained(
         f"biohub/{critic_name}", load_esmc=False
     )
     if cache_esmc:
         if _ESMC is None:
             model.load_esmc(esmc_dir)
-            _ESMC = model._esmc
+            _ESMC = model.esmc
         else:
-            model._esmc = _ESMC
+            model.esmc = _ESMC
     else:
         model.load_esmc(model.config.esmc_id)
     model.configure_lm_dropout(lm_dropout, force_lm_dropout_during_inference=True)
-    model.set_kernel_backend("cuequivariance" if CUE_AVAILABLE else None)
+    model.set_kernel_backend(BACKEND_FUSED if TRITON_KERNELS_AVAILABLE else None)
     return model.to(device=device).eval().requires_grad_(False)
 
 
@@ -133,15 +134,13 @@ class ESMFold2Designer:
                 esmc_dir=esmc_dir,
             )
 
-        self.esmc_model = ESMCForMaskedLM.from_pretrained(
-            esmc_dir, torch_dtype=torch.float32
-        )
+        self.esmc_model = EsmcForMaskedLM.from_pretrained(esmc_dir, dtype=torch.float32)
         if REUSE_ESMC:
             del self.esmc_model.esmc
             torch.cuda.empty_cache()
             self.esmc_model.esmc = self.inversion_models[
                 "ESMFold2-Experimental-Fast"
-            ]._esmc
+            ].esmc
         self.esmc_model = self.esmc_model.cuda().eval().requires_grad_(False)
 
         if CHECKPOINT_LM:

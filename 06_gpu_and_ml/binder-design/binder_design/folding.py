@@ -18,21 +18,17 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from esm.models.esmfold2 import (
+    EsmFold2ExperimentalModel,
     ProteinInput,
     StructurePredictionInput,
     load_ccd,
     prepare_esmfold2_input,
 )
 from esm.models.esmfold2.constants import MOL_TYPE_NONPOLYMER, PROTEIN_3TO1
+from esm.models.esmfold2.layers import _seed_context as seed_context
 from esm.utils.structure.protein_chain import ProteinChain
 from esm.utils.structure.protein_complex import ProteinComplex
 from huggingface_hub import snapshot_download
-from transformers.models.esmfold2.modeling_esmfold2_common import (
-    _seed_context as seed_context,
-)
-from transformers.models.esmfold2.modeling_esmfold2_experimental import (
-    ESMFold2ExperimentalModel,
-)
 
 from .constants import ELEMENTS, TOKENS
 
@@ -94,7 +90,7 @@ def prepare_esmfold2_tensors(
 
 
 def fold_and_get_distogram(
-    model: ESMFold2ExperimentalModel,
+    model: EsmFold2ExperimentalModel,
     target_seq: str,
     target_one_hot: torch.Tensor,
     design: torch.Tensor,
@@ -143,7 +139,6 @@ def fold_and_get_distogram(
             num_diffusion_samples=1,
             num_sampling_steps=num_sampling_steps,
             num_loops=num_loops,
-            calculate_confidence=calculate_confidence,
             seed=seed,
         )
 
