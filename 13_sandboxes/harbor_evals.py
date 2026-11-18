@@ -175,3 +175,8 @@ if __name__ == "__main__":
 # ```shell
 # uv run --python 3.12 --script 13_sandboxes/harbor_evals.py --task ./my-task
 # ```
+#
+# When running `harbor run --env modal` directly, add `--cpus limit --memory limit`
+# for tasks that specify `cpus` and `memory_mb`. With Harbor's
+# [`limit` enforcement policy](https://docs.harborframework.com/tasks/resources#enforcement-policies),
+# Sandboxes can burst up to those values without reserving the full amounts.
