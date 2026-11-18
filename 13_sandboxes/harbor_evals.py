@@ -23,8 +23,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "harbor[modal]==0.15.0",
-#   "modal~=1.5.3",
+#   "harbor[modal]==0.25.0",
+#   "modal~=1.6.3",
 # ]
 # ///
 #
@@ -74,6 +74,13 @@ fi
 #
 # We simply write the task files to a temporary directory,
 # then let Harbor take care of the rest.
+#
+# By default, Harbor reserves each task's full declared CPU and memory for every
+# Sandbox, even though most tasks use far less. We pass `--cpus limit` and
+# `--memory limit` so that Harbor instead requests a small baseline and uses the
+# task's declared values as [limits](https://modal.com/docs/guide/resources).
+# Sandboxes can then burst up to those limits, and you're billed for what each
+# one actually uses rather than what the task declares.
 
 
 def main() -> None:
@@ -136,6 +143,10 @@ def main() -> None:
                 "oracle",
                 "--env",
                 "modal",
+                "--cpus",
+                "limit",
+                "--memory",
+                "limit",
                 "--n-attempts",
                 str(args.n_parallel),
                 "--n-concurrent",
