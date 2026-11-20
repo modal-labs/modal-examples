@@ -18,7 +18,7 @@ app = modal.App("example-gpu-fallbacks")
 
 
 @app.function(
-    gpu=["h100", "a100", "any"],  # "any" means any of L4, A10, or T4
+    gpu=["h100", "a100"],
     single_use_containers=True,  # new container each input, so we re-roll the GPU dice every time
 )
 async def remote(_idx):
