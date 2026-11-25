@@ -18,12 +18,12 @@ logger = get_logger(__name__)
 
 
 # Test model serialization and persistence by starting a new remote
-# function that reads back the model files from the temporary network file system disk
+# function that reads back the model files from the Volume
 # and does a single sentence of translation.
 #
-# When doing full training runs, the saved model will be loaded in the same way
-# but from a *persisted* network file system, which keeps data around even after the Modal
-# ephemeral app that ran the training has stopped.
+# When doing full training runs, the saved model will be loaded in the same way.
+# The Volume keeps the data even after the Modal ephemeral app that ran the
+# training has stopped.
 
 
 @app.function(volumes={app_config.model_dir: persistent_volume})
@@ -80,7 +80,7 @@ def test_download_and_tryout_model(run_id: str):
 def run_test():
     # Test the `main.train` function by passing in test-specific configuration
     # that does only a minimal amount of training steps and saves the model
-    # to the temporary (ie. ephemeral) network file system disk.
+    # to the Volume.
     #
     # This should take only ~1 min to run.
     train.remote(num_train_epochs=1.0, warmup_steps=0, max_steps=1)
