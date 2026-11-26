@@ -328,12 +328,12 @@ async def create_session(body: dict):
 
 @web_app.get("/api/session/{sandbox_id}")
 async def session_status(sandbox_id: str):
+    sandbox = modal.Sandbox.from_id(sandbox_id)
     try:
-        sandbox = await modal.Sandbox.from_id.aio(sandbox_id)
+        returncode = await sandbox.poll.aio()
     except modal.exception.NotFoundError as exc:
         raise fastapi.HTTPException(404, "Session not found.") from exc
 
-    returncode = await sandbox.poll.aio()
     if returncode is None:
         return {"state": "running"}
     stdout = await sandbox.stdout.read.aio()
